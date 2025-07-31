@@ -198,19 +198,23 @@ export function ERPQuickStart({
             key={type.id}
             style={[
               styles.typeCard,
-              { borderColor: type.color },
-              selectedType === type.id && { backgroundColor: `${type.color}10` }
+              selectedType === type.id && { backgroundColor: `${type.color}08`, borderColor: type.color }
             ]}
             onPress={() => handleTypeSelect(type.id)}
           >
-            <View style={[styles.typeIconContainer, { backgroundColor: type.color }]}>
-              <MaterialCommunityIcons name={type.icon as any} size={24} color="#FFFFFF" />
+            <View style={[styles.typeIconContainer, { backgroundColor: `${type.color}15` }]}>
+              <MaterialCommunityIcons name={type.icon as any} size={28} color={type.color} />
             </View>
             <Text style={styles.typeTitle}>{type.title}</Text>
             <Text style={styles.typeSubtitle}>{type.subtitle}</Text>
-            <Text style={styles.typeDescription}>{type.description}</Text>
           </Pressable>
         ))}
+      </View>
+      
+      <View style={styles.helpSection}>
+        <Text style={styles.helpText}>
+          💫 Hangi yolu seçersen seç, istediğin zaman değiştirebilirsin
+        </Text>
       </View>
     </ScrollView>
   );
@@ -380,14 +384,14 @@ export function ERPQuickStart({
         ) : null}
       </View>
 
-      {/* Safety Checklist */}
-      <View style={styles.safetySection}>
-        <Text style={styles.safetyTitle}>🛡️ Güvenlik Hatırlatması</Text>
-        <Text style={styles.safetyText}>
-          • Kendinizi güvende hissettiğiniz bir yerde olun{'\n'}
-          • İstediğiniz zaman duraklatabilirsiniz{'\n'}
-          • Bu sadece bir egzersiz, gerçek tehlike yok{'\n'}
-          • Anksiyetenin yükselmesi normaldir
+      {/* Gentle Comfort Reminder */}
+      <View style={styles.comfortSection}>
+        <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
+        <Text style={styles.comfortText}>
+          • Sen her zaman kontroldesin{'\n'}
+          • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
+          • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
+          • Hissettiğin her şey doğal ve geçici
         </Text>
       </View>
 
@@ -520,41 +524,43 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   typeGrid: {
-    gap: 16,
+    gap: 24,  // Increased spacing for calmness
   },
   typeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    padding: 20,
+    borderRadius: 16,  // More rounded for softness
+    borderWidth: 1,    // Thinner border for gentleness
+    borderColor: '#F3F4F6',  // Very light border
+    padding: 24,       // More padding for breathing room
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowColor: '#10B981',  // Gentle green shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,     // Very subtle shadow
+    shadowRadius: 8,
+    elevation: 2,
   },
   typeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,         // Larger for better visual impact
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,  // More space below icon
   },
   typeTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: 6,   // Slightly more space
     fontFamily: 'Inter-Medium',
+    textAlign: 'center',
   },
   typeSubtitle: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 8,
     fontFamily: 'Inter',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   typeDescription: {
     fontSize: 13,
@@ -709,24 +715,24 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontFamily: 'Inter-Medium',
   },
-  safetySection: {
-    backgroundColor: '#FEF3C7',
+  comfortSection: {
+    backgroundColor: '#F0FDF4',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#D1FAE5',
   },
-  safetyTitle: {
+  comfortTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#92400E',
+    color: '#166534',
     marginBottom: 8,
     fontFamily: 'Inter-Medium',
   },
-  safetyText: {
+  comfortText: {
     fontSize: 13,
-    color: '#92400E',
+    color: '#166534',
     lineHeight: 18,
     fontFamily: 'Inter',
   },
@@ -788,6 +794,21 @@ const styles = StyleSheet.create({
   changeExerciseText: {
     fontSize: 14,
     color: '#10B981',
+    fontFamily: 'Inter',
+  },
+  helpSection: {
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  helpText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
     fontFamily: 'Inter',
   },
 }); 
