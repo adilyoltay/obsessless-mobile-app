@@ -441,224 +441,215 @@ interface CompulsionStats {
 
 ---
 
-## 🛡️ PİLLAR 3: Kontrollü & Güvenli Yüzleşme (Complete ERP Capabilities)
+## 🛡️ PİLLAR 3: ERP MODÜLÜ - "AKILLI VE EMPATİK YÜZLEŞME KOÇU" (Enhanced)
 
-### 📊 Güncel ERP Modülü Yetenekleri
+### 🎯 **Gelişmiş ERP Akış Sistemi**
 
-#### **✅ Mevcut Özellikler:**
+#### **✨ Yeni Özellik: Akıllı Hazırlık Sihirbazı**
 
-**🏋️ ERP Egzersiz Kütüphanesi (27 Egzersiz, 6 Kategori):**
+**Amaç:** Web'deki detaylı egzersiz oluşturma sürecini, mobil için daha **zahmetsiz ve rehberli** bir hale getirmek.
 
-**1. 🧼 Bulaşma/Temizlik (6 egzersiz):**
-- Kapı kollarına dokunma (5dk, Zorluk: 3/5)
-- El Yıkama Direnci (10dk, Zorluk: 3/5)
-- Ortak kullanım alanları (7dk, Zorluk: 4/5)
-- Para ve metal eşyalar (6dk, Zorluk: 5/5)
-- Toplu taşıma kullanımı (15dk, Zorluk: 4/5)
-- Yemek hazırlama hijyeni (20dk, Zorluk: 5/5)
+**Master Prompt Uyumu:** 
+- ✅ **Sakinlik:** Progressive disclosure ile bilişsel yük azaltıldı
+- ✅ **Güç:** Kullanıcı her adımda kontrol sahibi
+- ✅ **Zahmetsizlik:** 4 adımda tamamlanabilen akış
 
-**2. 🔍 Kontrol Etme (5 egzersiz):**
-- Kapı kilidi kontrolü yapmama (10dk, Zorluk: 4/5)
-- Elektrik/gaz kontrolü yapmama (8dk, Zorluk: 5/5)
-- Mesajları tekrar okumama (5dk, Zorluk: 3/5)
-- Alarm kurduğunu kontrol etmeme (3dk, Zorluk: 2/5)
-- İş teslimi kontrol etmeme (30dk, Zorluk: 5/5)
+#### **🧙‍♂️ Smart Wizard Flow Diyagramı**
 
-**3. 📐 Düzenleme/Simetri (5 egzersiz):**
-- Eşyaları düzensiz bırakma (5dk, Zorluk: 2/5)
-- Asimetrik düzenleme (10dk, Zorluk: 4/5)
-- Mükemmeliyetçilikten kaçınma (15dk, Zorluk: 5/5)
-- Sayıları tamamlamama (8dk, Zorluk: 3/5)
-- Çift/tek sayı kurallarını bozma (12dk, Zorluk: 4/5)
+```mermaid
+flowchart TD
+    subgraph "Yeni ERP Sihirbaz Akışı"
+        A[FAB Butonuna Dokun] --> B[1️⃣ Egzersiz Tipi Seçimi<br/>(4 Büyük Kart)]
+        B --> C[2️⃣ Korku/Tema Seçimi<br/>(Kategorize Liste)]
+        C --> D[3️⃣ Süre ve Hedef Belirleme<br/>(Tek Ekran)]
+        D --> E[4️⃣ Hazırlık Kontrol Listesi<br/>(Güvenlik)]
+        E --> F[🚀 Oturumu Başlat]
+    end
+    
+    style A fill:#10B981,color:#fff
+    style B fill:#3B82F6,color:#fff
+    style C fill:#8B5CF6,color:#fff
+    style D fill:#F59E0B,color:#fff
+    style E fill:#EF4444,color:#fff
+    style F fill:#059669,color:#fff
+```
 
-**4. 🧠 Zihinsel Ritüeller (5 egzersiz):**
-- Düşünce durdurma (10dk, Zorluk: 4/5)
-- Zihinsel tekrarları engelleme (8dk, Zorluk: 5/5)
-- Belirsizliğe dayanma (12dk, Zorluk: 5/5)
-- Kötü düşünceleri kabul etme (15dk, Zorluk: 5/5)
-- Zihinsel kontrol bırakma (20dk, Zorluk: 5/5)
+#### **📱 1️⃣ Egzersiz Tipi Seçimi Ekranı**
 
-**5. ⚠️ Zarar Verme Korkuları (4 egzersiz):**
-- Keskin eşya yakınında durma (5dk, Zorluk: 4/5)
-- Araba kullanırken düşüncelere izin verme (30dk, Zorluk: 5/5)
-- Yüksek yerlerden bakma (8dk, Zorluk: 3/5)
-- Bebek/çocuk yakınında olma (15dk, Zorluk: 5/5)
+**4 Ana Egzersiz Tipi:**
 
-**6. ❤️ Dini/Ahlaki Kaygılar (3 egzersiz):**
-- Kutsal kitap yanında olumsuz düşünce (10dk, Zorluk: 4/5)
-- İbadet sırasında dikkati dağıtma (15dk, Zorluk: 5/5)
-- Ahlaki şüpheleri kabul etme (12dk, Zorluk: 4/5)
-
-#### **🎯 ERP Session Screen Özellikleri:**
-
-**🕐 Dairesel Timer:**
-- Ekran genişliğinin %70'i
-- Stroke: 12px
-- Smooth linear progress animation
-- Real-time countdown
-
-**📊 Anksiyete Tracking:**
-- 1-10 arası slider
-- Real-time güncelleme
-- 2 dakikada bir pulse animasyon
-- Anxiety data points storage
-
-**💬 Sakinleştirici Mesajlar (8 adet):**
 ```typescript
-const CALMING_MESSAGES = [
-  "Bu his geçici. Sadece bir duygu, sen o duygu değilsin.",
-  "Nefesine odaklan. İçeri... Dışarı...",
-  "Güvendesin. Bu sadece bir egzersiz.",
-  "Her saniye seni güçlendiriyor.",
-  "Korkuyla yüzleşmek cesaret ister. Sen cesursun.",
-  "Bedenindeki gerginliği fark et ve bırak.",
-  "Bu anı kabul et. Direnmeden, yargılamadan.",
-  "Anksiyete sadece bir yanlış alarm. Tehlike yok.",
+const EXERCISE_TYPES = [
+  {
+    id: 'real_life',
+    title: '🏞️ Gerçek Hayat',
+    subtitle: 'Fiziksel olarak yüzleş',
+    description: 'Korku verici duruma gerçekten maruz kal',
+    icon: 'earth',
+    color: '#10B981',
+  },
+  {
+    id: 'imagination',
+    title: '🧠 Hayal Kurma',
+    subtitle: 'Zihninde canlandır',
+    description: 'Korkunç senaryoları detaylı olarak hayal et',
+    icon: 'brain',
+    color: '#8B5CF6',
+  },
+  {
+    id: 'interoceptive',
+    title: '❤️ İç Duyu',
+    subtitle: 'Bedenindeki hislere odaklan',
+    description: 'Anksiyete belirtilerini kasıtlı olarak yaşa',
+    icon: 'heart-pulse',
+    color: '#F59E0B',
+  },
+  {
+    id: 'response_prevention',
+    title: '🚫 Yanıt Engelleme',
+    subtitle: 'Bir kompulsiyona diren',
+    description: 'Yapmak istediğin ritüeli engelle',
+    icon: 'hand-back-left',
+    color: '#EF4444',
+  },
 ];
 ```
 
-**⚡ Hatırlatıcı Sistemi:**
-- 2 dakikada bir haptic feedback
-- Pulse animation ile anxiety update reminder
-- Non-intrusive, dismissible popup
-
-#### **🎉 Completion Screen Özellikleri:**
-
-**🎊 Confetti Animation:**
-- Lottie animation integration
-- Full-screen celebration effect
-- Auto-play, non-looping
-
-**📈 İstatistik Gösterimi:**
-```
-┌─────────────────────────────────┐
-│        🎉 Başardın!            │
-│     [Confetti Animation]        │ 
-│                                 │
-│  ✅ Tamamlanan Egzersiz         │
-│  "El Yıkama Direnci"            │
-│                                 │
-│  📊 Oturum İstatistikleri       │
-│  Süre: 10 dakika               │
-│  Anksiyete Azalması: %42       │
-│  Başlangıç → Bitiş: 8→5        │
-│                                 │
-│  🎮 Kazanılan Ödüller           │
-│  ✨ +20 Temel ERP Puanı         │
-│  ✨ +25 Anksiyete Azaltma       │
-│  🏆 İlk Adım Rozeti (İlk ERP)   │
-│                                 │
-│  💚 Motivasyon Mesajı           │
-│  "Her egzersiz seni güçlendiriyor!"|
-└─────────────────────────────────┘
-```
-
-#### **🎮 Gamification Integration:**
-
-**Ödül Sistemi:**
-```typescript
-const ERP_REWARDS = {
-  erp_completed: 20,           // Temel tamamlama
-  anxiety_reduced: 25,         // ≥30% azalma
-  first_erp: 50,              // İlk ERP oturumu
-  high_duration: 30,          // ≥15 dakika
-  perfect_session: 40,        // Hiç pause etmeden
-};
-```
-
-**Achievement Unlock:**
-- "İlk Adım" (İlk ERP)
-- "Habitüasyon Gözlemcisi" (%50+ anxiety reduction)
-- "Maraton Koşucusu" (30+ dakika)
-- "Cesur Kalp" (Zorluk 5/5 egzersiz)
-
-#### **🗄️ Session Data Storage:**
-
-**AsyncStorage + Supabase Dual Write:**
-```typescript
-interface ERPSession {
-  id: string;
-  exerciseId: string;
-  exerciseName: string;
-  category: string;
-  durationSeconds: number;
-  anxietyInitial: number;
-  anxietyPeak: number;
-  anxietyFinal: number;
-  completedAt: Date;
-  anxietyDataPoints: Array<{
-    timestamp: number;
-    level: number;
-  }>;
-}
-```
-
-**Database Schema:**
-```sql
-CREATE TABLE erp_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  exercise_id VARCHAR(50),
-  category VARCHAR(50),
-  duration_seconds INTEGER,
-  anxiety_readings JSONB,
-  completed BOOLEAN DEFAULT FALSE,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### **📊 ERP Tracking Dashboard:**
-
-**Zaman Aralığı Filtreleme:**
-- ✅ **Bugün**: Günlük oturumlar
-- ✅ **Bu Hafta**: Son 7 gün
-- ✅ **Bu Ay**: Son 30 gün
-
-**İstatistik Kartları:**
-```typescript
-interface ERPStats {
-  todayCompleted: number;
-  weekCompleted: number;
-  monthCompleted: number;
-  todayTime: number;        // minutes
-  weekTime: number;
-  monthTime: number;
-  avgAnxietyReduction: number;  // percentage
-  streak: number;           // consecutive days
-}
-```
-
-**🔄 Session List View:**
+**UI Mockup:**
 ```
 ┌─────────────────────────────────────┐
-│ 11:20  El Yıkama Direnci        🗑  │
-│        8 dk • Anksiyete: 8→3        │
-│        ✅ Tamamlandı               │
-└─────────────────────────────────────┘
-│ 16:45  Kapı Kolları Dokunma     🗑  │
-│        5 dk • Anksiyete: 6→4        │
-│        ✅ Tamamlandı               │
+│  ←         Yeni Egzersiz           │
+│     Nasıl bir yüzleşme yapmak      │
+│            istersin?                │
+├─────────────────────────────────────┤
+│ ┌─────────────────────────────────┐ │
+│ │ 🏞️ Gerçek Hayat                 │ │ 
+│ │ Fiziksel olarak yüzleş...     > │ │
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │
+│ │ 🧠 Hayal Kurma                  │ │ 
+│ │ Zihninde canlandır...         > │ │
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │
+│ │ ❤️ İç Duyu                      │ │ 
+│ │ Bedenindeki hislere odaklan... > │ │
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │
+│ │ 🚫 Yanıt Engelleme              │ │ 
+│ │ Bir kompulsiyona diren...     > │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ●○○○ 1/4 Adım                      │ Progress
 └─────────────────────────────────────┘
 ```
 
-#### **🚀 ERP Quick Start Workflow:**
+#### **📱 2️⃣ Korku/Tema Seçimi Ekranı**
 
-**Two-Stage Selection:**
-1. **Category Grid**: 6 ana kategori
-2. **Exercise List**: Filtered by category
-3. **Instant Start**: Direct session başlatma
+**Kategorize Egzersiz Listesi:**
+- 🧼 **Bulaşma/Temizlik** (6 egzersiz)
+- 🔍 **Kontrol Etme** (5 egzersiz)  
+- 📐 **Düzenleme/Simetri** (5 egzersiz)
+- 🧠 **Zihinsel Ritüeller** (5 egzersiz)
+- ⚠️ **Zarar Verme Korkuları** (4 egzersiz)
+- ❤️ **Dini/Ahlaki Kaygılar** (3 egzersiz)
 
-**Smart Suggestions:**
-- Son kullanılan egzersiz
-- Difficulty-based recommendations
-- User pattern analysis
+**Her egzersizde:**
+- ⭐ Zorluk derecesi (1-5 yıldız)
+- ⏱️ Önerilen süre
+- 📋 Kısa açıklama
 
-#### **⚡ Performance Optimizations:**
+#### **📱 3️⃣ Süre ve Hedef Belirleme Ekranı**
 
-- **AsyncStorage Cache**: Last exercise storage
-- **Pre-render**: Category icons
-- **Lazy Load**: Exercise details
-- **Debounce**: Category switching
+```
+┌─────────────────────────────────────┐
+│  ←         Yeni Egzersiz           │
+│     Süreyi ve hedefini belirle     │
+├─────────────────────────────────────┤
+│ Süre:        15 dakika            │
+│ ○━━━━●━━━━━━━━━━━━━━━━○           │ Slider (3-60dk)
+│                                     │
+│ Başlangıç Anksiyeten:    7/10       │
+│ ○━━━━━━━━━━●━━━━━○                │ Slider (1-10)
+│                                     │
+│ Bu egzersiz için hedefin ne?       │
+│ ┌─────────────────────────────────┐ │
+│ │ Anksiyetemin %50 azalmasını    │ │ 
+│ │         gözlemlemek...          │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ●●●○ 3/4 Adım                      │ Progress
+│      [Oturumu Başlatmaya Hazır]     │
+└─────────────────────────────────────┘
+```
+
+**Dinamik Özellikler:**
+- **Akıllı Süre Önerisi:** Egzersiz zorluğuna göre
+- **Hedef Şablonları:** Önceki oturumlara dayalı
+- **Anksiyete Tahmini:** Geçmiş verilerden AI önerisi
+
+#### **📱 4️⃣ Hazırlık Kontrol Listesi**
+
+```
+┌─────────────────────────────────────┐
+│  ←         Yeni Egzersiz           │
+│     Her şey hazır, başlamaya       │
+│           hazır mısın?              │
+├─────────────────────────────────────┤
+│ 📋 Egzersiz Özeti:                  │
+│ • Tip: 🏞️ Gerçek Hayat              │
+│ • Egzersiz: El Yıkama Direnci      │
+│ • Süre: 15 dakika                  │
+│ • Başlangıç Anksiyete: 7/10        │
+│ • Hedef: %50 azalma gözlemlemek    │
+│                                     │
+│ 🛡️ Güvenlik Hatırlatması:           │
+│ ✓ Güvenli bir yerde olun            │
+│ ✓ İstediğiniz zaman duraklatın      │
+│ ✓ Bu sadece egzersiz, tehlike yok   │
+│ ✓ Anksiyete yükselmesi normal       │
+│                                     │
+│ ●●●● 4/4 Adım                      │ Progress
+│      [🚀 Egzersizi Başlat]          │
+└─────────────────────────────────────┘
+```
+
+#### **💾 Wizard Configuration Storage**
+
+**Seansın başında kaydedilen yapı:**
+```typescript
+interface ERPExerciseConfig {
+  exerciseId: string;
+  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  duration: number; // minutes
+  targetAnxiety: number; // 1-10
+  personalGoal: string;
+  selectedExercise: ERPExercise;
+}
+```
+
+**AsyncStorage Keys:**
+- `lastERPType_${userId}`: Son seçilen egzersiz tipi
+- `lastERPDuration_${userId}`: Son kullanılan süre
+- `erpWizardPreferences_${userId}`: Kullanıcı tercihleri
+
+#### **🎯 Wizard Flow Avantajları**
+
+**Master Prompt İlkeleri:**
+1. **Sakinlik:** Her adım tek bir hedefe odaklanır
+2. **Güç:** Kullanıcı her seçimde tam kontrol sahibi
+3. **Zahmetsizlik:** 4 basit adımda tamamlanır
+
+**Kullanıcı Deneyimi:**
+- **Progressive Disclosure:** Bilgi kademeli olarak sunulur
+- **Smart Defaults:** AI destekli öneriler
+- **Context Awareness:** Geçmiş tercihleri hatırlar
+- **Safety First:** Güvenlik kontrolü zorunlu adım
+
+**Geliştirici Faydaları:**
+- **Modüler Yapı:** Her adım bağımsız component
+- **Type Safety:** Güçlü TypeScript tipleme
+- **Reusable:** Farklı egzersiz tipleri için genişletilebilir
+- **Analytics:** Her adımda kullanıcı davranışı izlenebilir
 
 ---
 
@@ -794,3 +785,181 @@ ObsessLess artık **production-ready** bir dijital sığınak olarak, OKB ile ya
 ---
 
 *Son güncelleme: Ocak 2025*
+
+---
+
+#### **🎮 Sprint 2 Tamamlandı: Gelişmiş Oturum Yönetimi**
+
+### **✅ Yeni Özellik: Kompulsiyon Dürtüsü Tracking Sistemi**
+
+**Implementasyon Tarihi:** Aşama 2 Tamamlandı ✅  
+**Master Prompt Uyumu:** %100 - Empatik, Yargısız, Güçlendirici
+
+#### **🆕 Aktif Oturum Geliştirmeleri**
+
+**Yeni UI Element: "Kompulsiyon Dürtüsü Hissettim" Butonu**
+
+```
+┌─────────────────────────────────┐
+│         [Dairesel Timer]         │
+│                                 │
+│      [Anksiyete Slider: 7/10]    │
+│                                 │
+│ ┌─────────────────────────────┐ │ ⚠️ YENİ
+│ │ ❗ Kompulsiyon Dürtüsü      │ │
+│ │    Hissettim                │ │
+│ └─────────────────────────────┘ │
+│                                 │
+│  "Bu his geçici. Sadece..."     │
+└─────────────────────────────────┘
+```
+
+**Dürtü Kaydetme BottomSheet:**
+```
+┌─────────────────────────────────┐
+│     Bu dürtü ne kadar güçlü?    │
+├─────────────────────────────────┤
+│                                 │
+│            7/10                 │ Amber slider
+│     ○━━━━━━━●━━━━○             │
+│                                 │
+│ ┌─────────────┐ ┌─────────────┐ │
+│ │💪 Direndim  │ │😔 Direnemedim││ Response buttons
+│ └─────────────┘ └─────────────┘ │
+└─────────────────────────────────┘
+```
+
+#### **🔄 Kompulsiyon Dürtüsü Tracking Akışı**
+
+```mermaid
+sequenceDiagram
+    participant U as Kullanıcı
+    participant S as Session Screen
+    participant BS as BottomSheet
+    participant H as Haptic System
+    participant G as Gamification
+    
+    Note over U,G: ERP oturumu devam ederken...
+    
+    U->>S: "Kompulsiyon dürtüsü" butonuna bas
+    S->>H: Warning haptic (titreşim)
+    S->>S: Button pulse animation
+    S->>BS: BottomSheet açılır
+    
+    BS->>U: "Bu dürtü ne kadar güçlü?"
+    U->>BS: Güç seviyesi seç (1-10 slider)
+    U->>BS: Direnç response seç
+    
+    alt Direndim 💪
+        BS->>H: Success haptic
+        BS->>G: +15 puan micro-reward
+        BS->>U: "Harika! Dürtüye direnmen büyük başarı!"
+    else Direnemedim 😔
+        BS->>H: Gentle haptic (punishment yok)
+        BS->>U: "Sorun değil. Fark etmen bile büyük adım."
+    end
+    
+    BS->>S: Data kaydedilir, BottomSheet kapanır
+    S->>S: Oturum devam eder
+    
+    Note over S: Oturum sonunda dürtü istatistikleri gösterilir
+```
+
+#### **📊 Enhanced Session Completion Screen**
+
+**Yeni İstatistik: Dürtü Direnci**
+```
+┌─────────────────────────────────┐
+│        🎉 Başardın!            │
+│                                 │
+│  📊 Oturum İstatistikleri       │
+│  • Süre: 15 dakika             │
+│  • Anksiyete Azalması: %42     │
+│  • Başlangıç → Bitiş: 8→3      │
+│  • Dürtü Direnci: 3/4         │ ⚠️ YENİ
+│                                 │
+│  🎮 Kazanılan Ödüller           │
+│  ✨ +20 ERP Tamamlama           │
+│  ✨ +25 Anksiyete Azaltma       │
+│  ✨ +15 Dürtü Direnci (x3)     │ ⚠️ YENİ
+│                                 │
+│  💚 "Her egzersiz seni         │
+│      güçlendiriyor!"            │
+└─────────────────────────────────┘
+```
+
+#### **💾 Enhanced Data Structure**
+
+**Compulsion Urge Interface:**
+```typescript
+interface CompulsionUrge {
+  timestamp: number;    // Session içindeki saniye
+  strength: number;     // 1-10 dürtü gücü
+  resisted: boolean;    // Direnip direnmeği
+}
+```
+
+**Enhanced Session Log:**
+```typescript
+interface EnhancedERPSessionLog {
+  // Mevcut veriler...
+  exerciseId: string;
+  anxietyDataPoints: Array<{timestamp: number, level: number}>;
+  
+  // Yeni veriler ⚠️
+  compulsionUrges: CompulsionUrge[];
+  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  personalGoal: string;
+  urgeResistanceRate: number; // Hesaplanan direnç yüzdesi
+}
+```
+
+#### **🎯 Gamification Integration**
+
+**Yeni Micro-Reward Trigger:**
+```typescript
+type MicroRewardTrigger = 
+  | 'urge_resistance'  // ⚠️ YENİ: +15 puan
+  | 'erp_completed'    // Mevcut triggers...
+  | 'anxiety_reduced'
+  // ... diğer triggers
+```
+
+**Achievement Unlock Criteria:**
+- **"Dürtü Savaşçısı"**: Bir oturumda 5+ dürtüye direnmek
+- **"Farkındalık Ustası"**: 10+ dürtü kaydetmek (direnç durumu fark etmeksizin)
+- **"Değişim Gözlemcisi"**: Dürtü gücünün oturum boyunca azaldığını gözlemlemek
+
+#### **🔧 Technical Implementation**
+
+**State Management:**
+```typescript
+// ERPSessionScreen.tsx içinde yeni state'ler
+const [showUrgeBottomSheet, setShowUrgeBottomSheet] = useState(false);
+const [urgeStrength, setUrgeStrength] = useState(5);
+const [compulsionUrges, setCompulsionUrges] = useState<CompulsionUrge[]>([]);
+```
+
+**Haptic Feedback Mapping:**
+```typescript
+const HapticResponses = {
+  urgeButtonPress: 'NotificationFeedbackType.Warning',    // Dikkat çeker
+  urgeResisted: 'NotificationFeedbackType.Success',       // Kutlama
+  urgeNotResisted: 'ImpactFeedbackStyle.Light',          // Yargılayıcı değil
+  buttonPulse: 'Animation with withSequence',             // Görsel feedback
+};
+```
+
+**Master Prompt Principles Applied:**
+
+1. **Sakinlik**: Dürtü kaydetme anında panic yaratmıyor, sakin bir arayüz
+2. **Güç**: Kullanıcı dürtüleri isimlendiriyor ve kontrol ediyor
+3. **Zahmetsizlik**: 2 dokunuşta (buton + response) kayıt tamamlanıyor
+
+**User Experience Benefits:**
+- **Real-time ERP Enhancement**: Dürtüler anında kaydediliyor
+- **Pattern Recognition**: Kullanıcı dürtü-anksiyete ilişkisini gözlemliyor
+- **Motivational**: Direnç başarıları anında ödüllendiriliyor
+- **Non-punitive**: Başarısızlık anında empati gösteriliyor
+
+---

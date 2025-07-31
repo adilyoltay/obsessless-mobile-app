@@ -147,6 +147,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+22 ✨ Direnç gelişimi!',
     trigger: 'resistance_improvement'
   },
+  urge_resistance: {
+    points: 15,
+    message: '+15 ✨ Dürtüye direndi!',
+    trigger: 'urge_resistance'
+  },
 };
 
 interface GamificationState {

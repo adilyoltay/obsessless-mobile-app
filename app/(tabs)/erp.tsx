@@ -146,15 +146,24 @@ export default function ERPScreen() {
     }
   };
 
-  const handleExerciseSelect = async (exerciseId: string) => {
+  const handleExerciseSelect = async (exerciseConfig: any) => {
     if (!user?.id) return;
     
     setIsQuickStartVisible(false);
-    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseId);
+    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
+    
+    // Store wizard configuration for session
+    const sessionConfig = {
+      exerciseId: exerciseConfig.exerciseId,
+      exerciseType: exerciseConfig.exerciseType,
+      duration: exerciseConfig.duration * 60, // Convert minutes to seconds
+      targetAnxiety: exerciseConfig.targetAnxiety,
+      personalGoal: exerciseConfig.personalGoal,
+    };
     
     router.push({
       pathname: '/erp-session',
-      params: { exerciseId }
+      params: sessionConfig
     });
   };
 

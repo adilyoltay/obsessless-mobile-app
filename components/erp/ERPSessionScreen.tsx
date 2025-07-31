@@ -25,6 +25,7 @@ import LottieView from 'lottie-react-native';
 
 // UI Components
 import { Slider } from '@/components/ui/Slider';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import Button from '@/components/ui/Button';
 
 // Stores
@@ -50,10 +51,19 @@ const CALMING_MESSAGES = [
   "Anksiyete sadece bir yanlış alarm. Tehlike yok.",
 ];
 
+interface CompulsionUrge {
+  timestamp: number;
+  strength: number; // 1-10
+  resisted: boolean;
+}
+
 interface ERPSessionScreenProps {
   exerciseId: string;
   exerciseName: string;
   targetDuration: number; // seconds
+  exerciseType?: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  initialAnxiety?: number;
+  personalGoal?: string;
   onComplete?: (sessionLog: any) => void;
   onAbandon?: () => void;
 }
@@ -62,6 +72,9 @@ export default function ERPSessionScreen({
   exerciseId,
   exerciseName,
   targetDuration,
+  exerciseType,
+  initialAnxiety = 5,
+  personalGoal,
   onComplete,
   onAbandon,
 }: ERPSessionScreenProps) {
@@ -82,14 +95,21 @@ export default function ERPSessionScreen({
   const [isPaused, setIsPaused] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(0);
+  
+  // Compulsion Urge Tracking State
+  const [showUrgeBottomSheet, setShowUrgeBottomSheet] = useState(false);
+  const [urgeStrength, setUrgeStrength] = useState(5);
+  const [compulsionUrges, setCompulsionUrges] = useState<CompulsionUrge[]>([]);
 
   // Animation values
   const pulseScale = useSharedValue(1);
   const messageOpacity = useSharedValue(1);
+  const urgeButtonPulse = useSharedValue(1);
 
   useEffect(() => {
-    // Start session on mount
+    // Start session on mount with initial anxiety
     startSession(exerciseId, exerciseName, targetDuration);
+    updateAnxiety(initialAnxiety);
 
     // Cleanup on unmount
     return () => {
@@ -139,6 +159,15 @@ export default function ERPSessionScreen({
 
   const handleComplete = async () => {
     const sessionLog = await completeSession(user?.id);
+    
+    // Add compulsion urges to session log
+    const enhancedSessionLog = {
+      ...sessionLog,
+      compulsionUrges: compulsionUrges,
+      exerciseType: exerciseType,
+      personalGoal: personalGoal,
+    };
+    
     setShowCompletion(true);
     
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -150,24 +179,31 @@ export default function ERPSessionScreen({
     await awardMicroReward('erp_completed');
     
     // Calculate anxiety reduction percentage
-    const anxietyReduction = ((anxietyDataPoints[0]?.level || 5) - currentAnxiety) / (anxietyDataPoints[0]?.level || 5) * 100;
+    const anxietyReduction = ((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety) / (anxietyDataPoints[0]?.level || initialAnxiety) * 100;
     
     // Extra reward for significant anxiety reduction
     if (anxietyReduction >= 30) {
       await awardMicroReward('anxiety_reduced');
     }
     
+    // Bonus for successful urge resistance
+    const resistedUrges = compulsionUrges.filter(urge => urge.resisted).length;
+    if (resistedUrges > 0) {
+      await awardMicroReward('erp_completed');
+    }
+    
     // Check for achievements
     await checkAchievements('erp', {
       anxietyReduction,
       duration: elapsedTime,
+      urgesResisted: resistedUrges,
     });
     
     // Update streak
     await updateStreak();
     
     if (onComplete) {
-      setTimeout(() => onComplete(sessionLog), 3000);
+      setTimeout(() => onComplete(enhancedSessionLog), 3000);
     }
   };
 
@@ -175,6 +211,56 @@ export default function ERPSessionScreen({
     abandonSession();
     if (onAbandon) {
       onAbandon();
+    }
+  };
+
+  // 🆕 Compulsion Urge Tracking Functions
+  const handleUrgeButtonPress = () => {
+    setShowUrgeBottomSheet(true);
+    setUrgeStrength(5); // Reset to default
+    
+    // Warning haptic to indicate importance
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    
+    // Pulse animation for urge button
+    urgeButtonPulse.value = withSequence(
+      withTiming(1.2, { duration: 200 }),
+      withTiming(1, { duration: 200 })
+    );
+  };
+
+  const handleUrgeResponse = async (resisted: boolean) => {
+    const urge: CompulsionUrge = {
+      timestamp: elapsedTime,
+      strength: urgeStrength,
+      resisted: resisted,
+    };
+    
+    setCompulsionUrges(prev => [...prev, urge]);
+    setShowUrgeBottomSheet(false);
+
+    if (resisted) {
+      // Success haptic and micro-reward
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const { awardMicroReward } = useGamificationStore.getState();
+      await awardMicroReward('erp_completed');
+      
+      // Show encouraging message temporarily
+      Alert.alert(
+        "💪 Harika!",
+        "Dürtüye direnmen büyük bir başarı! Kendini kutla.",
+        [{ text: "Devam Et", style: "default" }]
+      );
+    } else {
+      // Gentle haptic, no punishment
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // Show understanding message
+      Alert.alert(
+        "💚 Sorun Değil",
+        "Bunu fark etmiş olman bile büyük bir adım. Şimdi tekrar egzersize odaklanalım.",
+        [{ text: "Devam Et", style: "default" }]
+      );
     }
   };
 
@@ -196,9 +282,13 @@ export default function ERPSessionScreen({
     opacity: messageOpacity.value,
   }));
 
+  const urgeButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: urgeButtonPulse.value }],
+  }));
+
   // Calculate anxiety reduction
-  const initialAnxiety = anxietyDataPoints[0]?.level || 5;
-  const anxietyReduction = ((initialAnxiety - currentAnxiety) / initialAnxiety) * 100;
+  const initialAnxietyLevel = anxietyDataPoints[0]?.level || initialAnxiety;
+  const anxietyReduction = ((initialAnxietyLevel - currentAnxiety) / initialAnxietyLevel) * 100;
 
   if (showCompletion) {
     return (
@@ -239,9 +329,17 @@ export default function ERPSessionScreen({
             <View style={styles.statRow}>
               <Text style={styles.statLabel}>Başlangıç → Bitiş:</Text>
               <Text style={styles.statValue}>
-                {anxietyDataPoints[0]?.level || 5} → {currentAnxiety}
+                {initialAnxietyLevel} → {currentAnxiety}
               </Text>
             </View>
+            {compulsionUrges.length > 0 && (
+              <View style={styles.statRow}>
+                <Text style={styles.statLabel}>Dürtü Direnci:</Text>
+                <Text style={styles.statValue}>
+                  {compulsionUrges.filter(u => u.resisted).length}/{compulsionUrges.length}
+                </Text>
+              </View>
+            )}
           </Card.Content>
         </Card>
         
@@ -329,6 +427,17 @@ export default function ERPSessionScreen({
         </View>
       </Animated.View>
 
+      {/* 🆕 Compulsion Urge Tracking Button */}
+      <Animated.View style={[styles.urgeSection, urgeButtonAnimatedStyle]}>
+        <Pressable
+          style={styles.urgeButton}
+          onPress={handleUrgeButtonPress}
+        >
+          <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
+          <Text style={styles.urgeButtonText}>Kompulsiyon Dürtüsü Hissettim</Text>
+        </Pressable>
+      </Animated.View>
+
       {/* Calming Message */}
       <Animated.View style={[styles.messageContainer, messageAnimatedStyle]}>
         <Text style={styles.calmingMessage}>
@@ -350,6 +459,53 @@ export default function ERPSessionScreen({
           </Button>
         </Animated.View>
       )}
+
+      {/* 🆕 Urge Tracking BottomSheet */}
+      <BottomSheet
+        isVisible={showUrgeBottomSheet}
+        onClose={() => setShowUrgeBottomSheet(false)}
+      >
+        <View style={styles.urgeBottomSheetContainer}>
+          <Text style={styles.urgeBottomSheetTitle}>Bu dürtü ne kadar güçlü?</Text>
+          
+          <View style={styles.urgeStrengthContainer}>
+            <Text style={styles.urgeStrengthValue}>{urgeStrength}/10</Text>
+            <Slider
+              value={urgeStrength}
+              onValueChange={setUrgeStrength}
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              style={styles.urgeStrengthSlider}
+              minimumTrackTintColor="#F59E0B"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#F59E0B"
+            />
+            <View style={styles.urgeStrengthLabels}>
+              <Text style={styles.urgeStrengthLabel}>Zayıf</Text>
+              <Text style={styles.urgeStrengthLabel}>Çok Güçlü</Text>
+            </View>
+          </View>
+
+          <View style={styles.urgeResponseButtons}>
+            <Pressable
+              style={[styles.urgeResponseButton, styles.resistedButton]}
+              onPress={() => handleUrgeResponse(true)}
+            >
+              <MaterialCommunityIcons name="shield-check" size={20} color="#FFFFFF" />
+              <Text style={styles.urgeResponseButtonText}>💪 Direndim</Text>
+            </Pressable>
+            
+            <Pressable
+              style={[styles.urgeResponseButton, styles.notResistedButton]}
+              onPress={() => handleUrgeResponse(false)}
+            >
+              <MaterialCommunityIcons name="heart" size={20} color="#FFFFFF" />
+              <Text style={styles.urgeResponseButtonText}>😔 Direnemedim</Text>
+            </Pressable>
+          </View>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -368,60 +524,67 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   exerciseTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
     fontFamily: 'Inter-Medium',
+    textAlign: 'center',
+    flex: 1,
   },
   timerContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
+    marginVertical: 40,
   },
   timerContent: {
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   timeRemaining: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: '700',
     color: '#111827',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-Bold',
   },
   timeLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
     fontFamily: 'Inter',
-    marginTop: 4,
+    marginBottom: 20,
   },
   pauseButton: {
-    marginTop: 20,
-    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 30,
+    padding: 15,
   },
   anxietySection: {
-    marginTop: 40,
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
+    marginBottom: 24,
   },
   anxietyTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#111827',
-    fontFamily: 'Inter-Medium',
     textAlign: 'center',
     marginBottom: 16,
+    fontFamily: 'Inter-Medium',
   },
   anxietySliderContainer: {
     alignItems: 'center',
   },
   anxietyValue: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '600',
     color: '#10B981',
+    marginBottom: 8,
     fontFamily: 'Inter-Medium',
-    marginBottom: 16,
   },
   anxietySlider: {
     width: '100%',
@@ -434,25 +597,109 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   anxietyLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    color: '#9CA3AF',
     fontFamily: 'Inter',
   },
+  // 🆕 Urge Tracking Styles
+  urgeSection: {
+    paddingHorizontal: 32,
+    marginBottom: 24,
+  },
+  urgeButton: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  urgeButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#92400E',
+    fontFamily: 'Inter-Medium',
+  },
+  urgeBottomSheetContainer: {
+    padding: 24,
+  },
+  urgeBottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 24,
+    fontFamily: 'Inter-Medium',
+  },
+  urgeStrengthContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  urgeStrengthValue: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginBottom: 12,
+    fontFamily: 'Inter-Medium',
+  },
+  urgeStrengthSlider: {
+    width: '100%',
+    height: 40,
+  },
+  urgeStrengthLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 8,
+  },
+  urgeStrengthLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontFamily: 'Inter',
+  },
+  urgeResponseButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  urgeResponseButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  resistedButton: {
+    backgroundColor: '#10B981',
+  },
+  notResistedButton: {
+    backgroundColor: '#6B7280',
+  },
+  urgeResponseButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Medium',
+  },
   messageContainer: {
-    marginTop: 32,
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
+    marginBottom: 32,
   },
   calmingMessage: {
     fontSize: 16,
     color: '#6B7280',
-    fontFamily: 'Inter',
-    fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: 24,
+    fontFamily: 'Inter',
+    fontStyle: 'italic',
   },
   completeButtonContainer: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 34,
     left: 20,
     right: 20,
   },

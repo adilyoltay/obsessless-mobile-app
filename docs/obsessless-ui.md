@@ -858,3 +858,638 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 ---
 
 *Son güncelleme: Ocak 2025 - Supabase Integration Complete*
+
+---
+
+## 🛡️ **ERP MODÜLÜ - AMİRAL GEMİSİ ÖZELLİKLERİ**
+
+### 🧙‍♂️ **Smart Wizard Flow UI Specifications**
+
+#### **🎨 Master Prompt Design Principles Applied:**
+
+**Sakinlik (Calmness):**
+- Yumuşak gölgeler ve rounded corners
+- Sakinleştirici renk paletiyle progresif ifşa
+- Hiç acele ettirmeyen, rahatlatıcı spacing
+
+**Güç (Empowerment):**
+- Her adımda geri dönebilme imkanı
+- Şeffaf progress indicators
+- Kullanıcı kontrollü forward navigation
+
+**Zahmetsizlik (Effortlessness):**
+- Single-tap selections
+- Smart defaults ve suggestions
+- Haptic feedback ile confirmation
+
+---
+
+### 📱 **1️⃣ Exercise Type Selection Screen**
+
+#### **Layout Specifications:**
+
+```
+┌─────────────────────────────────────┐ 100% Width
+│ Header (64px)                       │
+├─────────────────────────────────────┤
+│ Progress Dots (40px)                │ 4 dots, active state
+├─────────────────────────────────────┤
+│                                     │
+│ Instruction Text (80px)             │ 24px line height
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │                                 │ │ 120px height cards
+│ │        Exercise Type 1          │ │ 16px padding
+│ │                                 │ │
+│ └─────────────────────────────────┘ │ 16px gap
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │        Exercise Type 2          │ │ Same specs
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │        Exercise Type 3          │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │        Exercise Type 4          │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ Bottom Safe Area (34px)             │
+└─────────────────────────────────────┘
+```
+
+#### **Typography & Color Specs:**
+
+```typescript
+const ExerciseTypeStyles = {
+  header: {
+    fontSize: 18,
+    fontWeight: '600', // Inter-Medium
+    color: '#111827',
+    textAlign: 'center',
+  },
+  instruction: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontFamily: 'Inter',
+    marginHorizontal: 24,
+  },
+  typeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB', // Default state
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  typeCardSelected: {
+    borderColor: '#10B981', // Active state
+    backgroundColor: '#F0FDF4', // Light green tint
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  typeTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+    fontFamily: 'Inter-Medium',
+  },
+  typeSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  typeDescription: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
+    fontFamily: 'Inter',
+  },
+};
+```
+
+#### **Icon & Color Mapping:**
+
+```typescript
+const EXERCISE_TYPE_COLORS = {
+  real_life: '#10B981',      // Emerald green
+  imagination: '#8B5CF6',    // Purple
+  interoceptive: '#F59E0B',  // Amber
+  response_prevention: '#EF4444', // Red
+};
+```
+
+#### **Interaction States:**
+
+**Default State:**
+- Border: `#E5E7EB` (2px)
+- Background: `#FFFFFF`
+- Shadow: Subtle elevation
+
+**Hover/Press State:**
+- Scale: `0.98` (subtle press animation)
+- Haptic: `ImpactFeedbackStyle.Light`
+
+**Selected State:**
+- Border: Color-coded (e.g., `#10B981`)
+- Background: Tinted (`#F0FDF4`)
+- Icon: Brighter contrast
+
+---
+
+### 📱 **2️⃣ Theme/Category Selection Screen**
+
+#### **Layout Specifications:**
+
+```
+┌─────────────────────────────────────┐
+│ Header (64px) + Progress (40px)     │
+├─────────────────────────────────────┤
+│ Instruction Text (60px)             │
+├─────────────────────────────────────┤ 
+│                                     │
+│ 🧼 Bulaşma/Temizlik Category        │ Section header
+│ ┌─────────────────────────────────┐ │
+│ │ Exercise 1    ⭐⭐⭐  5dk    > │ │ 64px height
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │ 8px gap
+│ │ Exercise 2    ⭐⭐⭐⭐  10dk  > │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ 🔍 Kontrol Etme Category            │ Next section
+│ ┌─────────────────────────────────┐ │
+│ │ Exercise 3    ⭐⭐     3dk    > │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ [... More categories ...]           │ Scrollable
+└─────────────────────────────────────┘
+```
+
+#### **Exercise Item Component:**
+
+```typescript
+const ExerciseItemStyles = {
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  selected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#10B981',
+  },
+  exerciseInfo: {
+    flex: 1,
+  },
+  exerciseName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 4,
+    fontFamily: 'Inter-Medium',
+  },
+  exerciseMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  duration: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  stars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  chevron: {
+    color: '#9CA3AF',
+    size: 20,
+  },
+};
+```
+
+---
+
+### 📱 **3️⃣ Duration & Target Setting Screen**
+
+#### **Layout Specifications:**
+
+```
+┌─────────────────────────────────────┐
+│ Header (64px) + Progress (40px)     │
+├─────────────────────────────────────┤
+│ Instruction Text (60px)             │
+├─────────────────────────────────────┤
+│                                     │
+│ Süre Setting Section (120px)        │
+│   Label + Value + Slider            │
+│                                     │
+├─────────────────────────────────────┤
+│                                     │
+│ Anksiyete Setting Section (120px)   │
+│   Label + Value + Slider            │
+│                                     │
+├─────────────────────────────────────┤
+│                                     │
+│ Goal Text Input Section (140px)     │
+│   Label + Multiline Input           │
+│                                     │
+├─────────────────────────────────────┤
+│                                     │
+│ Ready Button (80px)                 │ Fixed at bottom
+│                                     │
+└─────────────────────────────────────┘
+```
+
+#### **Slider Component Specifications:**
+
+```typescript
+const SliderStyles = {
+  container: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  valueText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#10B981',
+    marginBottom: 8,
+    fontFamily: 'Inter-Medium',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  labels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 4,
+  },
+  labelText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontFamily: 'Inter',
+  },
+  // Slider colors
+  minimumTrackTintColor: '#10B981',
+  maximumTrackTintColor: '#E5E7EB',
+  thumbTintColor: '#10B981',
+};
+```
+
+#### **Goal Input Component:**
+
+```typescript
+const GoalInputStyles = {
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 12,
+    fontFamily: 'Inter-Medium',
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    fontSize: 15,
+    color: '#111827',
+    fontFamily: 'Inter',
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  inputFocused: {
+    borderColor: '#10B981',
+    backgroundColor: '#FFFFFF',
+  },
+  placeholder: {
+    color: '#9CA3AF',
+  },
+};
+```
+
+---
+
+### 📱 **4️⃣ Confirmation & Safety Check Screen**
+
+#### **Layout Specifications:**
+
+```
+┌─────────────────────────────────────┐
+│ Header (64px) + Progress (40px)     │
+├─────────────────────────────────────┤
+│ Instruction Text (60px)             │
+├─────────────────────────────────────┤
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │        Summary Card             │ │ 180px height
+│ │   (Configuration Overview)      │ │
+│ └─────────────────────────────────┘ │
+│                                     │ 24px gap
+│ ┌─────────────────────────────────┐ │
+│ │        Safety Section           │ │ 140px height
+│ │     (Warning & Checklist)       │ │
+│ └─────────────────────────────────┘ │
+│                                     │ 32px gap
+│ ┌─────────────────────────────────┐ │
+│ │      Start Exercise Button      │ │ 56px height
+│ └─────────────────────────────────┘ │
+│                                     │
+│ Bottom Safe Area (34px)             │
+└─────────────────────────────────────┘
+```
+
+#### **Summary Card Component:**
+
+```typescript
+const SummaryCardStyles = {
+  container: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 14,
+    color: '#6B7280',
+    flex: 1,
+    fontFamily: 'Inter',
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    flex: 2,
+    textAlign: 'right',
+    fontFamily: 'Inter-Medium',
+  },
+};
+```
+
+#### **Safety Section Component:**
+
+```typescript
+const SafetySectionStyles = {
+  container: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 8,
+    fontFamily: 'Inter-Medium',
+  },
+  text: {
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+    fontFamily: 'Inter',
+  },
+  checklistItem: {
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+};
+```
+
+#### **Start Button Component:**
+
+```typescript
+const StartButtonStyles = {
+  container: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  text: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Medium',
+  },
+  icon: {
+    color: '#FFFFFF',
+    size: 20,
+  },
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+};
+```
+
+---
+
+### 🎯 **Common UI Components**
+
+#### **Progress Indicator Component:**
+
+```typescript
+const ProgressIndicatorStyles = {
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E5E7EB',
+  },
+  dotActive: {
+    backgroundColor: '#10B981',
+    width: 24, // Elongated active state
+  },
+  dotCompleted: {
+    backgroundColor: '#D1FAE5',
+  },
+};
+```
+
+#### **Header Component:**
+
+```typescript
+const HeaderStyles = {
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backButton: {
+    width: 40,
+    padding: 4,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: 'Inter-Medium',
+  },
+  closeButton: {
+    width: 40,
+    alignItems: 'flex-end',
+    padding: 4,
+  },
+  buttonIcon: {
+    color: '#6B7280',
+    size: 24,
+  },
+};
+```
+
+---
+
+### 🎨 **Master Prompt Color Palette**
+
+```typescript
+const WizardColorPalette = {
+  // Primary Colors
+  primary: '#10B981',        // Main green (trust, growth)
+  primaryLight: '#F0FDF4',   // Light green (calm background)
+  
+  // Secondary Colors
+  secondary: '#6B7280',      // Medium gray (supportive text)
+  accent: '#F59E0B',         // Warm amber (attention, not alarming)
+  
+  // State Colors
+  success: '#10B981',        // Completion, positive feedback
+  warning: '#F59E0B',        // Caution, not fear
+  info: '#3B82F6',          // Informational, trustworthy
+  
+  // Neutral Colors
+  textPrimary: '#111827',    // High contrast, readable
+  textSecondary: '#6B7280',  // Lower contrast, supportive
+  textTertiary: '#9CA3AF',   // Placeholder, labels
+  
+  // Background Colors
+  background: '#FFFFFF',     // Pure white, clean
+  backgroundSecondary: '#F9FAFB', // Subtle off-white
+  border: '#E5E7EB',        // Soft borders, non-intrusive
+  
+  // Exercise Type Colors
+  realLife: '#10B981',       // Emerald - grounding, realistic
+  imagination: '#8B5CF6',    // Purple - creativity, mind
+  interoceptive: '#F59E0B',  // Amber - warmth, body awareness
+  responsePrevention: '#EF4444', // Red - stopping, boundaries
+};
+```
+
+---
+
+### 🎭 **Animation & Transition Specs**
+
+#### **Screen Transitions:**
+
+```typescript
+const TransitionSpecs = {
+  wizardStep: {
+    type: 'spring',
+    damping: 20,
+    stiffness: 300,
+    duration: 250,
+  },
+  cardSelection: {
+    type: 'timing',
+    duration: 150,
+    useNativeDriver: true,
+  },
+  buttonPress: {
+    type: 'spring',
+    damping: 15,
+    stiffness: 400,
+    duration: 100,
+  },
+};
+```
+
+#### **Haptic Feedback Mapping:**
+
+```typescript
+const HapticFeedback = {
+  cardSelect: 'ImpactFeedbackStyle.Light',
+  stepComplete: 'ImpactFeedbackStyle.Medium',
+  wizardComplete: 'NotificationFeedbackType.Success',
+  backButton: 'ImpactFeedbackStyle.Light',
+  error: 'NotificationFeedbackType.Error',
+};
+```
+
+---
+
+### 📏 **Responsive Design Guidelines**
+
+#### **Screen Size Adaptations:**
+
+**Small Screens (< 667px height):**
+- Reduce card padding to 16px
+- Compress vertical spacing by 20%
+- Stack content more densely
+
+**Large Screens (> 812px height):**
+- Increase maximum content width to 400px
+- Center content horizontally
+- Add more generous spacing
+
+**Safe Area Handling:**
+- Always respect device safe areas
+- Minimum 20px horizontal padding
+- Bottom button always above safe area
+
+---

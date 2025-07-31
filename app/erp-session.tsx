@@ -8,7 +8,15 @@ import ERPSessionScreen from '@/components/erp/ERPSessionScreen';
 import { getExerciseById } from '@/constants/erpCategories';
 
 export default function ERPSessionPage() {
-  const { exerciseId } = useLocalSearchParams<{ exerciseId: string }>();
+  const params = useLocalSearchParams<{ 
+    exerciseId: string;
+    exerciseType?: string;
+    duration?: string;
+    targetAnxiety?: string;
+    personalGoal?: string;
+  }>();
+
+  const { exerciseId, exerciseType, duration, targetAnxiety, personalGoal } = params;
 
   useEffect(() => {
     if (!exerciseId) {
@@ -38,11 +46,18 @@ export default function ERPSessionPage() {
     );
   }
 
+  // Use wizard config if available, otherwise fall back to exercise defaults
+  const sessionDuration = duration ? parseInt(duration) : exercise.duration * 60;
+  const initialAnxiety = targetAnxiety ? parseInt(targetAnxiety) : 5;
+
   return (
     <ERPSessionScreen
       exerciseId={exercise.id}
       exerciseName={exercise.name}
-      targetDuration={exercise.duration * 60}
+      targetDuration={sessionDuration}
+      exerciseType={exerciseType as any}
+      initialAnxiety={initialAnxiety}
+      personalGoal={personalGoal}
       onComplete={() => {
         router.replace('/(tabs)/erp');
       }}

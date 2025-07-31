@@ -56,7 +56,8 @@ export type MicroRewardTrigger =
   | 'compulsion_quick_entry'
   | 'pattern_recognition'
   | 'consistent_tracking'
-  | 'resistance_improvement';
+  | 'resistance_improvement'
+  | 'urge_resistance';
 
 export interface MicroReward {
   points: number;
