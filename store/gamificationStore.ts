@@ -147,6 +147,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+22 ✨ Direnç gelişimi!',
     trigger: 'resistance_improvement'
   },
+  erp_wizard_start: {
+    points: 5,
+    message: '+5 ✨ Sihirbaz başlatıldı!',
+    trigger: 'erp_wizard_start'
+  },
   urge_resistance: {
     points: 15,
     message: '+15 ✨ Dürtüye direndi!',
@@ -331,6 +336,12 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
   awardMicroReward: async (trigger: MicroRewardTrigger) => {
     const { profile } = get();
     const reward = MICRO_REWARDS[trigger];
+    
+    // Safety check for undefined reward
+    if (!reward) {
+      console.warn(`⚠️ Micro reward not found for trigger: ${trigger}`);
+      return;
+    }
     
     // Weekend 2x bonus
     const isWeekend = [0, 6].includes(new Date().getDay());

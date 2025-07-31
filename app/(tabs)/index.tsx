@@ -190,8 +190,8 @@ export default function TodayScreen() {
   const renderDailyMissions = () => (
     <View style={styles.missionsSection}>
       <View style={styles.sectionHeader}>
-        <MaterialCommunityIcons name="target" size={24} color="#10B981" />
-        <Text style={styles.sectionTitle}>Günlük Görevler</Text>
+        <MaterialCommunityIcons name="heart-outline" size={24} color="#10B981" />
+        <Text style={styles.sectionTitle}>Bugün için öneriler</Text>
       </View>
 
       <View style={styles.missionsList}>
@@ -202,24 +202,24 @@ export default function TodayScreen() {
         >
           <View style={styles.missionIcon}>
             <MaterialCommunityIcons 
-              name={todayStats.compulsions >= 3 ? "check-circle" : "circle-outline"} 
+              name={todayStats.compulsions >= 3 ? "check-circle" : "heart-outline"} 
               size={32} 
               color={todayStats.compulsions >= 3 ? "#10B981" : "#9CA3AF"} 
             />
           </View>
           <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>Kompulsiyon Takibi</Text>
-            <Text style={styles.missionDescription}>3 kompulsiyon kaydet</Text>
+            <Text style={styles.missionTitle}>Bugünkü Yolculuğun</Text>
+            <Text style={styles.missionDescription}>Duygularını kaydetmeye ne dersin?</Text>
             <View style={styles.missionProgress}>
               <ProgressBar 
                 progress={Math.min(todayStats.compulsions / 3, 1)} 
                 style={styles.missionProgressBar}
               />
-              <Text style={styles.missionProgressText}>{todayStats.compulsions}/3</Text>
+              <Text style={styles.missionProgressText}>{todayStats.compulsions}/3 kayıt</Text>
             </View>
           </View>
           <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={20} color="#F59E0B" />
+            <MaterialCommunityIcons name="star-outline" size={20} color="#F59E0B" />
             <Text style={styles.missionRewardText}>+50</Text>
           </View>
         </Pressable>
@@ -231,25 +231,25 @@ export default function TodayScreen() {
         >
           <View style={styles.missionIcon}>
             <MaterialCommunityIcons 
-              name={todayStats.erpSessions >= 1 ? "check-circle" : "circle-outline"} 
+              name={todayStats.erpSessions >= 1 ? "check-circle" : "heart-outline"} 
               size={32} 
               color={todayStats.erpSessions >= 1 ? "#10B981" : "#9CA3AF"} 
             />
           </View>
           <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>ERP Egzersizi</Text>
-            <Text style={styles.missionDescription}>1 egzersiz tamamla</Text>
+            <Text style={styles.missionTitle}>İyileşme Adımın</Text>
+            <Text style={styles.missionDescription}>Kendine biraz zaman ayırmaya ne dersin?</Text>
             <View style={styles.missionProgress}>
               <ProgressBar 
-                progress={Math.min(todayStats.erpSessions, 1)} 
+                progress={Math.min(todayStats.erpSessions / 1, 1)} 
                 style={styles.missionProgressBar}
               />
-              <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1</Text>
+              <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
             </View>
           </View>
           <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={20} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+100</Text>
+            <MaterialCommunityIcons name="star-outline" size={20} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+75</Text>
           </View>
         </Pressable>
 

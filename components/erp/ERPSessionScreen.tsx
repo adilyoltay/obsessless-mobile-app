@@ -247,9 +247,9 @@ export default function ERPSessionScreen({
       
       // Show encouraging message temporarily
       Alert.alert(
-        "💪 Harika!",
-        "Dürtüye direnmen büyük bir başarı! Kendini kutla.",
-        [{ text: "Devam Et", style: "default" }]
+        "🌱 Ne güzel!",
+        "Bu hissi fark etmek ve onunla nazikçe olmak harika bir adım. Sen güçlüsün.",
+        [{ text: "Devam Ediyorum", style: "default" }]
       );
     } else {
       // Gentle haptic, no punishment
@@ -257,9 +257,9 @@ export default function ERPSessionScreen({
       
       // Show understanding message
       Alert.alert(
-        "💚 Sorun Değil",
-        "Bunu fark etmiş olman bile büyük bir adım. Şimdi tekrar egzersize odaklanalım.",
-        [{ text: "Devam Et", style: "default" }]
+        "🤗 Seni anlıyorum",
+        "Bu tamamen normal. Kendine karşı sabırlı ol. Her deneyim bir öğrenme fırsatı.",
+        [{ text: "Devam Ediyorum", style: "default" }]
       );
     }
   };
@@ -433,8 +433,8 @@ export default function ERPSessionScreen({
           style={styles.urgeButton}
           onPress={handleUrgeButtonPress}
         >
-          <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
-          <Text style={styles.urgeButtonText}>Kompulsiyon Dürtüsü Hissettim</Text>
+          <MaterialCommunityIcons name="heart-pulse" size={20} color="#6366F1" />
+          <Text style={styles.urgeButtonText}>Bir şey hissediyorum</Text>
         </Pressable>
       </Animated.View>
 
@@ -466,7 +466,7 @@ export default function ERPSessionScreen({
         onClose={() => setShowUrgeBottomSheet(false)}
       >
         <View style={styles.urgeBottomSheetContainer}>
-          <Text style={styles.urgeBottomSheetTitle}>Bu dürtü ne kadar güçlü?</Text>
+          <Text style={styles.urgeBottomSheetTitle}>Bu hissin şiddetini nasıl tarif edersin?</Text>
           
           <View style={styles.urgeStrengthContainer}>
             <Text style={styles.urgeStrengthValue}>{urgeStrength}/10</Text>
@@ -477,13 +477,13 @@ export default function ERPSessionScreen({
               maximumValue={10}
               step={1}
               style={styles.urgeStrengthSlider}
-              minimumTrackTintColor="#F59E0B"
+              minimumTrackTintColor="#6366F1"
               maximumTrackTintColor="#E5E7EB"
-              thumbTintColor="#F59E0B"
+              thumbTintColor="#6366F1"
             />
             <View style={styles.urgeStrengthLabels}>
-              <Text style={styles.urgeStrengthLabel}>Zayıf</Text>
-              <Text style={styles.urgeStrengthLabel}>Çok Güçlü</Text>
+              <Text style={styles.urgeStrengthLabel}>Hafif</Text>
+              <Text style={styles.urgeStrengthLabel}>Yoğun</Text>
             </View>
           </View>
 
@@ -492,16 +492,16 @@ export default function ERPSessionScreen({
               style={[styles.urgeResponseButton, styles.resistedButton]}
               onPress={() => handleUrgeResponse(true)}
             >
-              <MaterialCommunityIcons name="shield-check" size={20} color="#FFFFFF" />
-              <Text style={styles.urgeResponseButtonText}>💪 Direndim</Text>
+              <MaterialCommunityIcons name="heart" size={20} color="#FFFFFF" />
+              <Text style={styles.urgeResponseButtonText}>💚 Fark ettim ve geçtim</Text>
             </Pressable>
             
             <Pressable
               style={[styles.urgeResponseButton, styles.notResistedButton]}
               onPress={() => handleUrgeResponse(false)}
             >
-              <MaterialCommunityIcons name="heart" size={20} color="#FFFFFF" />
-              <Text style={styles.urgeResponseButtonText}>😔 Direnemedim</Text>
+              <MaterialCommunityIcons name="hand-heart" size={20} color="#FFFFFF" />
+              <Text style={styles.urgeResponseButtonText}>🤲 Kendime şefkat gösteriyorum</Text>
             </Pressable>
           </View>
         </View>
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   urgeButton: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EEF2FF',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -615,12 +615,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#C7D2FE',
   },
   urgeButtonText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#92400E',
+    color: '#4338CA',
     fontFamily: 'Inter-Medium',
   },
   urgeBottomSheetContainer: {

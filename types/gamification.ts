@@ -57,6 +57,7 @@ export type MicroRewardTrigger =
   | 'pattern_recognition'
   | 'consistent_tracking'
   | 'resistance_improvement'
+  | 'erp_wizard_start'
   | 'urge_resistance';
 
 export interface MicroReward {

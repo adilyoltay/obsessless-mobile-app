@@ -390,7 +390,7 @@ export function ERPQuickStart({
   };
 
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} height="90%">
+    <BottomSheet isVisible={visible} onClose={onDismiss}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
