@@ -33,13 +33,14 @@ interface ERPExerciseConfig {
   selectedExercise: ERPExercise;
 }
 
-// Exercise Type Definitions
+// Exercise Type Definitions with category previews
 const EXERCISE_TYPES = [
   {
     id: 'real_life',
     title: '🌱 Nazik Adımlar',
     subtitle: 'Kendi hızında ilerle',
     description: 'Günlük yaşamda küçük cesaret adımları at',
+    preview: 'Temizlik, Kontrol, Düzenleme kategorileri',
     icon: 'sprout',
     color: '#10B981',
   },
@@ -48,6 +49,7 @@ const EXERCISE_TYPES = [
     title: '🦋 İç Yolculuk',
     subtitle: 'Güvenli bir alanda keşfet',
     description: 'Hayal gücünle nazikçe duygularını tanı',
+    preview: 'Zihinsel senaryolar ve düşünce egzersizleri',
     icon: 'meditation',
     color: '#8B5CF6',
   },
@@ -56,6 +58,7 @@ const EXERCISE_TYPES = [
     title: '💙 Beden Farkındalığı',
     subtitle: 'Nefesine odaklan',
     description: 'Bedenindeki hisleri gözlemle ve kabul et',
+    preview: 'Nefes, kalp atışı ve bedensel his egzersizleri',
     icon: 'heart-outline',
     color: '#3B82F6',
   },
@@ -64,6 +67,7 @@ const EXERCISE_TYPES = [
     title: '🌟 Seçim Özgürlüğü',
     subtitle: 'Yeni tepkiler dene',
     description: 'Alışkanlıklarından farklı seçimler yapma fırsatı',
+    preview: 'Kompulsiyonlara alternatif davranış geliştirme',
     icon: 'star-outline',
     color: '#F59E0B',
   },
