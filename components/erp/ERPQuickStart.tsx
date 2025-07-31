@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Slider } from '@/components/ui/Slider';
 import { useGamificationStore } from '@/store/gamificationStore';
-import { ERPExercise, ERP_CATEGORIES } from '@/constants/erpCategories';
+import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
 
 interface ERPQuickStartProps {
   visible: boolean;
@@ -104,7 +104,8 @@ export function ERPQuickStart({
 
   const handleTypeSelect = (typeId: string) => {
     setSelectedType(typeId);
-    setWizardStep('theme');
+    // Auto-advance to settings after type selection
+    setWizardStep('settings');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -112,14 +113,12 @@ export function ERPQuickStart({
     setSelectedCategory(category);
     setSelectedExercise(exercise);
     setDuration(exercise.duration);
-    setWizardStep('duration');
+    // Stay in settings step to configure duration and goal
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleNext = () => {
-    if (wizardStep === 'duration') {
-      setWizardStep('confirmation');
-    }
+    // Not needed in 2-step flow, but keeping for compatibility
   };
 
   const handleStartExercise = () => {
@@ -145,14 +144,9 @@ export function ERPQuickStart({
   };
 
   const handleBack = () => {
-    if (wizardStep === 'theme') {
-      setWizardStep('type');
-    } else if (wizardStep === 'duration') {
-      setWizardStep('theme');
-    } else if (wizardStep === 'confirmation') {
-      setWizardStep('duration');
+    if (wizardStep === 'settings') {
+      setWizardStep('selection');
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const getStepTitle = () => {
@@ -172,7 +166,7 @@ export function ERPQuickStart({
   };
 
   // Filter exercises by selected type logic
-  const getFilteredCategories = () => {
+  const getFilteredCategories = (): ERPCategory[] => {
     // For now, return all categories - can be enhanced based on exercise type
     return ERP_CATEGORIES;
   };
@@ -221,117 +215,131 @@ export function ERPQuickStart({
     </ScrollView>
   );
 
-  const renderThemeSelection = () => (
-    <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.instructionText}>
-        {getStepSubtitle()}
-      </Text>
-      
-      {getFilteredCategories().map((category) => (
-        <View key={category.id} style={styles.categorySection}>
-          <View style={styles.categoryHeader}>
-            <MaterialCommunityIcons 
-              name={category.icon as any} 
-              size={20} 
-              color={category.color} 
-            />
-            <Text style={styles.categoryTitle}>{category.title}</Text>
-          </View>
-          
-          {category.exercises.map((exercise) => (
-            <Pressable
-              key={exercise.id}
-              style={[
-                styles.exerciseItem,
-                selectedExercise?.id === exercise.id && styles.exerciseItemSelected
-              ]}
-              onPress={() => handleThemeSelect(category.id, exercise)}
-            >
-              <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
-                <View style={styles.exerciseMeta}>
-                  <Text style={styles.exerciseDuration}>{exercise.duration} dk</Text>
-                  <View style={styles.difficultyContainer}>
-                    {Array.from({ length: exercise.difficulty }).map((_, i) => (
-                      <MaterialCommunityIcons key={i} name="star" size={12} color="#F59E0B" />
-                    ))}
-                  </View>
-                </View>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-            </Pressable>
-          ))}
-        </View>
-      ))}
-    </ScrollView>
-  );
-
   const renderDurationSettings = () => (
     <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
       <Text style={styles.instructionText}>
         {getStepSubtitle()}
       </Text>
       
-      <View style={styles.settingSection}>
-        <Text style={styles.settingLabel}>Süre</Text>
-        <View style={styles.sliderContainer}>
-          <Text style={styles.sliderValue}>{duration} dakika</Text>
-          <Slider
-            value={duration}
-            onValueChange={setDuration}
-            minimumValue={3}
-            maximumValue={60}
-            step={1}
-            style={styles.slider}
-            minimumTrackTintColor="#10B981"
-            maximumTrackTintColor="#E5E7EB"
-            thumbTintColor="#10B981"
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>3 dk</Text>
-            <Text style={styles.sliderLabel}>60 dk</Text>
-          </View>
+      {/* Exercise Selection - Only show exercises for selected type */}
+      {!selectedExercise && (
+        <View style={styles.exerciseSelectionSection}>
+          <Text style={styles.sectionTitle}>Egzersizini Seç</Text>
+          {getFilteredCategories().map((category) => (
+            <View key={category.id} style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <MaterialCommunityIcons 
+                  name={category.icon as any} 
+                  size={20} 
+                  color={category.color} 
+                />
+                <Text style={styles.categoryTitle}>{category.title}</Text>
+              </View>
+              
+              {category.exercises.map((exercise: ERPExercise) => (
+                <Pressable
+                  key={exercise.id}
+                  style={[
+                    styles.exerciseItem,
+                    selectedExercise?.id === exercise.id && styles.exerciseItemSelected
+                  ]}
+                  onPress={() => handleThemeSelect(category.id, exercise)}
+                >
+                  <View style={styles.exerciseInfo}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    <View style={styles.exerciseMeta}>
+                      <Text style={styles.exerciseDuration}>{exercise.duration} dk</Text>
+                      <View style={styles.difficultyContainer}>
+                        {Array.from({ length: exercise.difficulty }).map((_, i) => (
+                          <MaterialCommunityIcons key={i} name="star" size={12} color="#F59E0B" />
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                </Pressable>
+              ))}
+            </View>
+          ))}
         </View>
-      </View>
+      )}
 
-      <View style={styles.settingSection}>
-        <Text style={styles.settingLabel}>Başlangıç Anksiyeten</Text>
-        <View style={styles.sliderContainer}>
-          <Text style={styles.sliderValue}>{targetAnxiety}/10</Text>
-          <Slider
-            value={targetAnxiety}
-            onValueChange={setTargetAnxiety}
-            minimumValue={1}
-            maximumValue={10}
-            step={1}
-            style={styles.slider}
-            minimumTrackTintColor="#F59E0B"
-            maximumTrackTintColor="#E5E7EB"
-            thumbTintColor="#F59E0B"
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>Düşük</Text>
-            <Text style={styles.sliderLabel}>Yüksek</Text>
+      {/* Settings - Only show when exercise is selected */}
+      {selectedExercise && (
+        <>
+          <View style={styles.selectedExerciseCard}>
+            <Text style={styles.selectedExerciseTitle}>Seçilen Egzersiz</Text>
+            <Text style={styles.selectedExerciseName}>{selectedExercise.name}</Text>
+            <Pressable 
+              style={styles.changeExerciseButton}
+              onPress={() => setSelectedExercise(null)}
+            >
+              <Text style={styles.changeExerciseText}>Değiştir</Text>
+            </Pressable>
           </View>
-        </View>
-      </View>
 
-      <View style={styles.settingSection}>
-        <Text style={styles.settingLabel}>Bu egzersiz için hedefin ne?</Text>
-        <TextInput
-          style={styles.goalInput}
-          value={personalGoal}
-          onChangeText={setPersonalGoal}
-          placeholder="Anksiyetemin %50 azalmasını gözlemlemek..."
-          placeholderTextColor="#9CA3AF"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
+          <View style={styles.settingSection}>
+            <Text style={styles.settingLabel}>Süre</Text>
+            <View style={styles.sliderContainer}>
+              <Text style={styles.sliderValue}>{duration} dakika</Text>
+              <Slider
+                value={duration}
+                onValueChange={setDuration}
+                minimumValue={3}
+                maximumValue={60}
+                step={1}
+                style={styles.slider}
+                minimumTrackTintColor="#10B981"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#10B981"
+              />
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>3 dk</Text>
+                <Text style={styles.sliderLabel}>60 dk</Text>
+              </View>
+            </View>
+          </View>
 
-      <Pressable style={styles.nextButton} onPress={handleNext}>
-        <Text style={styles.nextButtonText}>Oturumu Başlatmaya Hazır</Text>
-      </Pressable>
+          <View style={styles.settingSection}>
+            <Text style={styles.settingLabel}>Başlangıç Anksiyeten</Text>
+            <View style={styles.sliderContainer}>
+              <Text style={styles.sliderValue}>{targetAnxiety}/10</Text>
+              <Slider
+                value={targetAnxiety}
+                onValueChange={setTargetAnxiety}
+                minimumValue={1}
+                maximumValue={10}
+                step={1}
+                style={styles.slider}
+                minimumTrackTintColor="#F59E0B"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#F59E0B"
+              />
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>Düşük</Text>
+                <Text style={styles.sliderLabel}>Yoğun</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.settingSection}>
+            <Text style={styles.settingLabel}>Bu egzersiz için hedefin ne?</Text>
+            <TextInput
+              style={styles.goalInput}
+              value={personalGoal}
+              onChangeText={setPersonalGoal}
+              placeholder={getSmartDefaults(selectedType).goal}
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <Pressable style={styles.nextButton} onPress={handleStartExercise}>
+            <Text style={styles.nextButtonText}>🌟 Yolculuğumu Başlat</Text>
+          </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 
@@ -393,9 +401,7 @@ export function ERPQuickStart({
   const renderContent = () => {
     switch (wizardStep) {
       case 'selection': return renderTypeSelection();
-      case 'settings': return renderThemeSelection();
-      case 'duration': return renderDurationSettings();
-      case 'confirmation': return renderConfirmation();
+      case 'settings': return renderDurationSettings();
       default: return null;
     }
   };
@@ -426,13 +432,13 @@ export function ERPQuickStart({
 
         {/* Progress Indicators */}
         <View style={styles.progressContainer}>
-          {['selection', 'settings', 'duration', 'confirmation'].map((step, index) => (
+          {['selection', 'settings'].map((step, index) => (
             <View
               key={step}
               style={[
                 styles.progressDot,
                 step === wizardStep && styles.progressDotActive,
-                ['selection', 'settings', 'duration', 'confirmation'].indexOf(wizardStep) > index && styles.progressDotCompleted,
+                ['selection', 'settings'].indexOf(wizardStep) > index && styles.progressDotCompleted,
               ]}
             />
           ))}
@@ -743,5 +749,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
+  },
+  exerciseSelectionSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+    fontFamily: 'Inter-Medium',
+  },
+  selectedExerciseCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  selectedExerciseTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+    fontFamily: 'Inter-Medium',
+  },
+  selectedExerciseName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 12,
+    fontFamily: 'Inter-Medium',
+  },
+  changeExerciseButton: {
+    alignSelf: 'flex-end',
+  },
+  changeExerciseText: {
+    fontSize: 14,
+    color: '#10B981',
+    fontFamily: 'Inter',
   },
 }); 
