@@ -353,10 +353,10 @@ export default function ERPScreen() {
 
           {filteredSessions.length === 0 ? (
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="meditation" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>Henüz oturum yok</Text>
+              <MaterialCommunityIcons name="heart-outline" size={48} color="#E5E7EB" />
+              <Text style={styles.emptyText}>Yolculuğun burada başlıyor</Text>
               <Text style={styles.emptySubtext}>
-                Aşağıdaki + butonunu kullanarak ilk egzersizini başlat
+                Hazır olduğunda + butonuna dokunarak nazik adımlarını atmaya başla
               </Text>
             </View>
           ) : (

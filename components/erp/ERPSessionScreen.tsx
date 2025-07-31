@@ -39,16 +39,18 @@ const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
 const STROKE_WIDTH = 12;
 
-// Sakinleştirici mikro-kopyalar
+// Sakinleştirici ve şefkatli mikro-kopyalar
 const CALMING_MESSAGES = [
-  "Bu his geçici. Sadece bir duygu, sen o duygu değilsin.",
-  "Nefesine odaklan. İçeri... Dışarı...",
-  "Güvendesin. Bu sadece bir egzersiz.",
-  "Her saniye seni güçlendiriyor.",
-  "Korkuyla yüzleşmek cesaret ister. Sen cesursun.",
-  "Bedenindeki gerginliği fark et ve bırak.",
-  "Bu anı kabul et. Direnmeden, yargılamadan.",
-  "Anksiyete sadece bir yanlış alarm. Tehlike yok.",
+  "Şu anda güvendesin. Her nefes alışın seni daha güçlü kılıyor.",
+  "Bu hisler geçici. Sen onlardan çok daha büyüksün.",
+  "Nefesine odaklan. İçeri... nazikçe. Dışarı... rahatla.",
+  "Kendine şefkat göster. Bu yolculuk cesaret ister ve sen cesursun.",
+  "Bedenindeki gerginliği fark et. Şimdi nazikçe bırak.",
+  "Bu anı kabul etmek güç gerektirir. Sen güçlüsün.",
+  "Endişeler sadece düşünceler. Gerçek değiller, sen gerçeksin.",
+  "Her saniye seni iyileşme yolunda daha da ileriye taşıyor.",
+  "Bugün kendin için burada olmaya karar verdin. Bu harika.",
+  "Kalbindeki cesaretin sesini dinle. O senin rehberin.",
 ];
 
 interface CompulsionUrge {
@@ -394,12 +396,18 @@ export default function ERPSessionScreen({
           </Text>
           <Text style={styles.timeLabel}>kalan</Text>
           
-          <Pressable onPress={handlePauseResume} style={styles.pauseButton}>
+          <Pressable
+            style={styles.pauseButton}
+            onPress={handlePauseResume}
+          >
             <MaterialCommunityIcons 
               name={isPaused ? "play" : "pause"} 
-              size={40} 
+              size={20} 
               color="#6B7280" 
             />
+            <Text style={styles.pauseButtonText}>
+              {isPaused ? "Devam Et" : "Dur"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -455,7 +463,7 @@ export default function ERPSessionScreen({
             onPress={handleComplete}
             style={styles.completeButton}
           >
-            Tamamla
+            🌟 Yolculuğumu Tamamla
           </Button>
         </Animated.View>
       )}
@@ -563,6 +571,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderRadius: 30,
     padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pauseButtonText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
   },
   anxietySection: {
     paddingHorizontal: 32,

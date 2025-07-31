@@ -37,35 +37,35 @@ interface ERPExerciseConfig {
 const EXERCISE_TYPES = [
   {
     id: 'real_life',
-    title: '🏞️ Gerçek Hayat',
-    subtitle: 'Fiziksel olarak yüzleş',
-    description: 'Korku verici duruma gerçekten maruz kal',
-    icon: 'earth',
+    title: '🌱 Nazik Adımlar',
+    subtitle: 'Kendi hızında ilerle',
+    description: 'Günlük yaşamda küçük cesaret adımları at',
+    icon: 'sprout',
     color: '#10B981',
   },
   {
     id: 'imagination',
-    title: '🧠 Hayal Kurma',
-    subtitle: 'Zihninde canlandır',
-    description: 'Korkunç senaryoları detaylı olarak hayal et',
-    icon: 'brain',
+    title: '🦋 İç Yolculuk',
+    subtitle: 'Güvenli bir alanda keşfet',
+    description: 'Hayal gücünle nazikçe duygularını tanı',
+    icon: 'meditation',
     color: '#8B5CF6',
   },
   {
     id: 'interoceptive',
-    title: '❤️ İç Duyu',
-    subtitle: 'Bedenindeki hislere odaklan',
-    description: 'Anksiyete belirtilerini kasıtlı olarak yaşa',
-    icon: 'heart-pulse',
-    color: '#F59E0B',
+    title: '💙 Beden Farkındalığı',
+    subtitle: 'Nefesine odaklan',
+    description: 'Bedenindeki hisleri gözlemle ve kabul et',
+    icon: 'heart-outline',
+    color: '#3B82F6',
   },
   {
     id: 'response_prevention',
-    title: '🚫 Yanıt Engelleme',
-    subtitle: 'Bir kompulsiyona diren',
-    description: 'Yapmak istediğin ritüeli engelle',
-    icon: 'hand-back-left',
-    color: '#EF4444',
+    title: '🌟 Seçim Özgürlüğü',
+    subtitle: 'Yeni tepkiler dene',
+    description: 'Alışkanlıklarından farklı seçimler yapma fırsatı',
+    icon: 'star-outline',
+    color: '#F59E0B',
   },
 ];
 
@@ -75,12 +75,12 @@ export function ERPQuickStart({
   onExerciseSelect,
   exercises,
 }: ERPQuickStartProps) {
-  const [wizardStep, setWizardStep] = useState<'type' | 'theme' | 'duration' | 'confirmation'>('type');
+  const [wizardStep, setWizardStep] = useState<'selection' | 'settings'>('selection');
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedExercise, setSelectedExercise] = useState<ERPExercise | null>(null);
   const [duration, setDuration] = useState<number>(10); // minutes
-  const [targetAnxiety, setTargetAnxiety] = useState<number>(7);
+  const [targetAnxiety, setTargetAnxiety] = useState<number>(5); // Default to middle
   const [personalGoal, setPersonalGoal] = useState<string>('');
   
   const { awardMicroReward } = useGamificationStore();
@@ -93,12 +93,12 @@ export function ERPQuickStart({
   }, [visible]);
 
   const resetWizard = () => {
-    setWizardStep('type');
+    setWizardStep('selection');
     setSelectedType('');
     setSelectedCategory('');
     setSelectedExercise(null);
     setDuration(10);
-    setTargetAnxiety(7);
+    setTargetAnxiety(5); // Default to middle
     setPersonalGoal('');
   };
 
@@ -157,20 +157,16 @@ export function ERPQuickStart({
 
   const getStepTitle = () => {
     switch (wizardStep) {
-      case 'type': return 'Yeni Egzersiz';
-      case 'theme': return 'Korku/Tema Seç';
-      case 'duration': return 'Süre ve Hedef';
-      case 'confirmation': return 'Hazırlık Kontrolü';
-      default: return 'ERP Egzersizi';
+      case 'selection': return 'Hangi yolculuğu seçmek istiyorsun?';
+      case 'settings': return 'Bugün için nasıl hissediyorsun?';
+      default: return 'İyileşme Yolculuğun';
     }
   };
 
   const getStepSubtitle = () => {
     switch (wizardStep) {
-      case 'type': return 'Nasıl bir yüzleşme yapmak istersin?';
-      case 'theme': return 'Hangi konuda çalışmak istiyorsun?';
-      case 'duration': return 'Süreyi ve hedefini belirle';
-      case 'confirmation': return 'Her şey hazır, başlamaya hazır mısın?';
+      case 'selection': return 'Kendine en uygun olan yaklaşımı seç. Her seçim doğru seçimdir.';
+      case 'settings': return 'Bu değerleri istediğin zaman değiştirebilirsin. Kendini zorlamana gerek yok.';
       default: return '';
     }
   };
@@ -179,6 +175,21 @@ export function ERPQuickStart({
   const getFilteredCategories = () => {
     // For now, return all categories - can be enhanced based on exercise type
     return ERP_CATEGORIES;
+  };
+
+  const getSmartDefaults = (exerciseType: string) => {
+    const goalTemplates = {
+      'real_life': 'Bugün kendime nazik davranarak küçük bir adım atmak istiyorum',
+      'imagination': 'Duygularımı güvenli bir şekilde keşfetmek ve anlamak istiyorum', 
+      'interoceptive': 'Bedenimle bağlantı kurarak huzur bulmak istiyorum',
+      'response_prevention': 'Farklı seçimler yaparak kendimi güçlü hissetmek istiyorum'
+    };
+    
+    return {
+      goal: goalTemplates[exerciseType as keyof typeof goalTemplates] || goalTemplates['real_life'],
+      anxiety: 5, // Ortadan başla
+      duration: 8  // Daha kısa varsayılan
+    };
   };
 
   const renderTypeSelection = () => (
@@ -381,8 +392,8 @@ export function ERPQuickStart({
 
   const renderContent = () => {
     switch (wizardStep) {
-      case 'type': return renderTypeSelection();
-      case 'theme': return renderThemeSelection();
+      case 'selection': return renderTypeSelection();
+      case 'settings': return renderThemeSelection();
       case 'duration': return renderDurationSettings();
       case 'confirmation': return renderConfirmation();
       default: return null;
@@ -395,7 +406,7 @@ export function ERPQuickStart({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {wizardStep !== 'type' && (
+            {wizardStep !== 'selection' && (
               <Pressable style={styles.backButton} onPress={handleBack}>
                 <MaterialCommunityIcons name="chevron-left" size={24} color="#6B7280" />
               </Pressable>
@@ -415,13 +426,13 @@ export function ERPQuickStart({
 
         {/* Progress Indicators */}
         <View style={styles.progressContainer}>
-          {['type', 'theme', 'duration', 'confirmation'].map((step, index) => (
+          {['selection', 'settings', 'duration', 'confirmation'].map((step, index) => (
             <View
               key={step}
               style={[
                 styles.progressDot,
                 step === wizardStep && styles.progressDotActive,
-                ['type', 'theme', 'duration', 'confirmation'].indexOf(wizardStep) > index && styles.progressDotCompleted,
+                ['selection', 'settings', 'duration', 'confirmation'].indexOf(wizardStep) > index && styles.progressDotCompleted,
               ]}
             />
           ))}
