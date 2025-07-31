@@ -297,74 +297,98 @@ const completeOnboarding = async () => {
 
 ---
 
-## ⚡ PİLLAR 2: Yargısız & Anlık Kompulsiyon Kaydı (Updated)
+## ⚡ PİLLAR 2: Yargısız & Anlık Kompulsiyon Kaydı (Complete Capabilities)
 
-### 📊 Akış Diyagramı
+### 📊 Güncel OKB Modülü Yetenekleri
 
-```mermaid
-sequenceDiagram
-    participant U as Kullanıcı
-    participant FAB as FAB Butonu
-    participant BS as BottomSheet  
-    participant Form as Quick Entry
-    participant AS as AsyncStorage
-    participant DB as Supabase
-    participant Toast as Toast
-    participant Gamification as Points System
-    
-    U->>FAB: Dokunma (fixed position)
-    FAB->>FAB: Haptic Light
-    FAB->>BS: BottomSheet açılır
-    
-    BS->>Form: Grid layout kategoriler
-    Form->>U: 6 ana kategori göster
-    U->>Form: Kategori seç
-    
-    Form->>U: Direnç slider (1-10)
-    U->>Form: Direnç seviyesi
-    Form->>U: Notlar (opsiyonel)
-    
-    U->>Form: Kaydet
-    Form->>Form: Haptic Success
-    
-    par AsyncStorage
-        Form->>AS: Local kayıt
-    and Supabase
-        Form->>DB: Database sync
-    end
-    
-    Form->>Gamification: +10 base points
-    
-    alt Yüksek Direnç (≥8)
-        Form->>Gamification: +15 bonus points
-    end
-    
-    Form->>BS: Kapat
-    BS->>Toast: "Kayıt eklendi! 🌱"
-    Toast->>U: 2 saniye gösterim
-```
+#### **✅ Mevcut Özellikler:**
 
-### ⏱️ Zaman Hedefi: ≤ 10 saniye
+**🔘 FAB Buton Sistemi:**
+- Sabit konumlandırma (bottom: 90px, zIndex: 999)
+- Tab bar üzerinde kalıcı görünüm
+- Haptic feedback (Light Impact)
+- +12 mikro-ödül tetikleyici
 
-### 📱 Updated UI Implementation
-
-#### **FAB Button (Fixed Position)**
+**📋 Kompulsiyon Kategorileri (6 Ana Kategori):**
 ```typescript
-// app/(tabs)/tracking.tsx
-const fabStyle = {
-  position: 'absolute' as const,
-  bottom: 90, // Tab bar üzerinde
-  right: 24,
-  zIndex: 999,
-  elevation: 8,
-  backgroundColor: '#10B981',
-  borderRadius: 28,
-  width: 56,
-  height: 56,
-};
+const COMPULSION_CATEGORIES = [
+  {
+    id: 'washing',
+    name: 'Yıkama/Temizlik',
+    icon: 'hand-wash',
+    color: '#3B82F6',
+    commonSubtypes: ['El yıkama', 'Duş alma', 'Diş fırçalama', 'Ev temizliği', 'Dezenfektan', 'Çamaşır']
+  },
+  {
+    id: 'checking', 
+    name: 'Kontrol Etme',
+    icon: 'magnify',
+    color: '#EF4444',
+    commonSubtypes: ['Kapı kontrolü', 'Elektrik kontrolü', 'Gaz kontrolü', 'Alarm kontrolü', 'Araç kontrolü', 'Çanta kontrolü']
+  },
+  {
+    id: 'counting',
+    name: 'Sayma/Tekrarlama', 
+    icon: 'numeric',
+    color: '#8B5CF6',
+    commonSubtypes: ['Sayma ritüelleri', 'Çift/tek sayılar', 'Kelime tekrarı', 'Hareket tekrarı']
+  },
+  {
+    id: 'ordering',
+    name: 'Düzenleme/Simetri',
+    icon: 'format-align-center',
+    color: '#10B981',
+    commonSubtypes: ['Eşya düzenleme', 'Simetrik yerleştirme', 'Mükemmel hizalama', 'Renk düzeni']
+  },
+  {
+    id: 'hoarding',
+    name: 'Biriktirme',
+    icon: 'package-variant',
+    color: '#F59E0B',
+    commonSubtypes: ['Kağıt biriktirme', 'Eşya saklama', 'Atık biriktirme', 'Değerli eşya']
+  },
+  {
+    id: 'other',
+    name: 'Diğer',
+    icon: 'help-circle',
+    color: '#6B7280',
+    commonSubtypes: ['Özel ritüeller', 'Karma kompulsiyonlar']
+  }
+];
 ```
 
-#### **Master Prompt Aligned BottomSheet**
+**📊 Zaman Aralığı Filtreleme:**
+- ✅ **Bugün**: Günlük kayıtlar
+- ✅ **Bu Hafta**: Son 7 gün
+- ✅ **Bu Ay**: Son 30 gün
+- Gerçek zamanlı istatistik güncelleme
+- Sayfalama sistemi (5 kayıt + "Daha Fazla Göster")
+
+**📈 İstatistik Sistemi:**
+```typescript
+interface CompulsionStats {
+  totalCompulsions: number;
+  avgResistance: number;
+  todayCount: number;
+  weekCount: number;
+  monthCount: number;
+  typeDistribution: Record<string, number>;
+}
+```
+
+**🎮 Gamification Entegrasyonu:**
+- Base points: +10 (compulsion_recorded)
+- Bonus points: +15 (high_resistance ≥8)
+- Daily goal bonus: +25 (3+ kayıt)
+- Streak sistemi entegrasyonu
+
+**🗄️ Çifte Veri Saklama:**
+- AsyncStorage: Offline-first
+- Supabase: Cloud sync
+- User-specific storage keys
+- Category mapping (app → database)
+
+#### **📱 Grid Layout Quick Entry:**
 ```
 ┌─────────────────────────────────────┐
 │         ━━━━━━━━                    │
@@ -392,455 +416,184 @@ const fabStyle = {
 └─────────────────────────────────────┘
 ```
 
-### 🗄️ Database Integration
+#### **🔄 Akıllı Özellikler:**
+- **Son kullanılan tip**: Otomatik pre-select
+- **Sık kullanılan tipler**: Frekans analizi
+- **Akıllı varsayılanlar**: User pattern learning
+- **Toast bildirimleri**: "Kayıt eklendi! 🌱"
 
-#### **Compulsion Data Storage**
-```typescript
-// services/supabase.ts
-async saveCompulsion(compulsionData: CompulsionRecord): Promise<void> {
-  const { data, error } = await this.client
-    .from('compulsions')
-    .insert({
-      user_id: compulsionData.user_id,
-      category: mapCategoryToDatabase(compulsionData.category),
-      subcategory: compulsionData.category, // Original app category
-      resistance_level: compulsionData.resistance_level,
-      intensity: compulsionData.intensity,
-      trigger: compulsionData.trigger,
-      notes: compulsionData.notes,
-      timestamp: compulsionData.timestamp
-    });
-    
-  if (error) throw error;
-}
+#### **📊 Liste Görünümü:**
+```
+┌─────────────────────────────────────┐
+│ 09:45  🧼 El yıkama  Direnç:7  🗑  │
+│        "Kapı kolu"                  │
+└─────────────────────────────────────┘
+│ 14:30  🔍 Kontrol    Direnç:5  🗑  │
+│        "Kapı kilidi"                │
+└─────────────────────────────────────┘
 ```
 
-#### **Category Mapping**
-```typescript
-const mapCategoryToDatabase = (appCategory: string): string => {
-  const categoryMap = {
-    'washing': 'contamination',
-    'checking': 'checking', 
-    'ordering': 'symmetry',
-    'mental': 'mental',
-    'hoarding': 'hoarding',
-    'other': 'other'
-  };
-  return categoryMap[appCategory] || 'other';
-};
-```
+**🗑️ Silme İşlevi:**
+- Swipe-to-delete alternatifi
+- Trash icon ile instant delete
+- Haptic feedback
+- Database + AsyncStorage sync
 
 ---
 
-## 🛡️ PİLLAR 3: Kontrollü & Güvenli Yüzleşme (ERP Updated)
+## 🛡️ PİLLAR 3: Kontrollü & Güvenli Yüzleşme (Complete ERP Capabilities)
 
-### 📊 ERP System Architecture
+### 📊 Güncel ERP Modülü Yetenekleri
 
-```mermaid
-flowchart TD
-    A[ERP Sayfası] --> B[FAB Butonu<br/>Fixed Position]
-    B --> C[ERPQuickStart<br/>BottomSheet]
-    
-    C --> D[Grid Layout<br/>Kategoriler]
-    D --> E[Kategori Seçimi]
-    E --> F[Egzersiz Listesi<br/>Filtered]
-    F --> G[Egzersiz Seç]
-    
-    G --> H[ERPSessionScreen]
-    H --> I[Dairesel Timer]
-    H --> J[Anksiyete Slider]
-    H --> K[2dk Hatırlatıcılar]
-    
-    I --> L{Tamamlandı?}
-    L -->|Evet| M[Confetti Animation]
-    L -->|İptal| N[Ana Sayfa]
-    
-    M --> O[Anksiyete Grafiği]
-    O --> P[Healing Points +75]
-    P --> Q[Database Sync]
-    Q --> N
-    
-    style B fill:#10B981,color:#fff
-    style H fill:#10B981,color:#fff
-    style M fill:#F59E0B,color:#fff
-    style P fill:#F59E0B,color:#fff
-```
+#### **✅ Mevcut Özellikler:**
 
-### 🎯 Current ERP Exercises (Database)
+**🏋️ ERP Egzersiz Kütüphanesi (27 Egzersiz, 6 Kategori):**
 
-**📊 Working Exercises (27 total in 6 categories):**
+**1. 🧼 Bulaşma/Temizlik (6 egzersiz):**
+- Kapı kollarına dokunma (5dk, Zorluk: 3/5)
+- El Yıkama Direnci (10dk, Zorluk: 3/5)
+- Ortak kullanım alanları (7dk, Zorluk: 4/5)
+- Para ve metal eşyalar (6dk, Zorluk: 5/5)
+- Toplu taşıma kullanımı (15dk, Zorluk: 4/5)
+- Yemek hazırlama hijyeni (20dk, Zorluk: 5/5)
+
+**2. 🔍 Kontrol Etme (5 egzersiz):**
+- Kapı kilidi kontrolü yapmama (10dk, Zorluk: 4/5)
+- Elektrik/gaz kontrolü yapmama (8dk, Zorluk: 5/5)
+- Mesajları tekrar okumama (5dk, Zorluk: 3/5)
+- Alarm kurduğunu kontrol etmeme (3dk, Zorluk: 2/5)
+- İş teslimi kontrol etmeme (30dk, Zorluk: 5/5)
+
+**3. 📐 Düzenleme/Simetri (5 egzersiz):**
+- Eşyaları düzensiz bırakma (5dk, Zorluk: 2/5)
+- Asimetrik düzenleme (10dk, Zorluk: 4/5)
+- Mükemmeliyetçilikten kaçınma (15dk, Zorluk: 5/5)
+- Sayıları tamamlamama (8dk, Zorluk: 3/5)
+- Çift/tek sayı kurallarını bozma (12dk, Zorluk: 4/5)
+
+**4. 🧠 Zihinsel Ritüeller (5 egzersiz):**
+- Düşünce durdurma (10dk, Zorluk: 4/5)
+- Zihinsel tekrarları engelleme (8dk, Zorluk: 5/5)
+- Belirsizliğe dayanma (12dk, Zorluk: 5/5)
+- Kötü düşünceleri kabul etme (15dk, Zorluk: 5/5)
+- Zihinsel kontrol bırakma (20dk, Zorluk: 5/5)
+
+**5. ⚠️ Zarar Verme Korkuları (4 egzersiz):**
+- Keskin eşya yakınında durma (5dk, Zorluk: 4/5)
+- Araba kullanırken düşüncelere izin verme (30dk, Zorluk: 5/5)
+- Yüksek yerlerden bakma (8dk, Zorluk: 3/5)
+- Bebek/çocuk yakınında olma (15dk, Zorluk: 5/5)
+
+**6. ❤️ Dini/Ahlaki Kaygılar (3 egzersiz):**
+- Kutsal kitap yanında olumsuz düşünce (10dk, Zorluk: 4/5)
+- İbadet sırasında dikkati dağıtma (15dk, Zorluk: 5/5)
+- Ahlaki şüpheleri kabul etme (12dk, Zorluk: 4/5)
+
+#### **🎯 ERP Session Screen Özellikleri:**
+
+**🕐 Dairesel Timer:**
+- Ekran genişliğinin %70'i
+- Stroke: 12px
+- Smooth linear progress animation
+- Real-time countdown
+
+**📊 Anksiyete Tracking:**
+- 1-10 arası slider
+- Real-time güncelleme
+- 2 dakikada bir pulse animasyon
+- Anxiety data points storage
+
+**💬 Sakinleştirici Mesajlar (8 adet):**
 ```typescript
-const erpExercises = {
-  contamination: [
-    { id: 'cont-1', name: 'Kapı kollarına dokunma', duration: 5, difficulty: 3 },
-    { id: 'cont-2', name: 'El Yıkama Direnci', duration: 10, difficulty: 3 },
-    { id: 'cont-3', name: 'Ortak kullanım alanları', duration: 7, difficulty: 4 },
-    // ... 4 more exercises
-  ],
-  checking: [
-    // 5 exercises
-  ],
-  ordering: [
-    // 4 exercises  
-  ],
-  mental: [
-    // 4 exercises
-  ],
-  hoarding: [
-    // 4 exercises
-  ],
-  other: [
-    // 3 exercises
-  ]
-};
+const CALMING_MESSAGES = [
+  "Bu his geçici. Sadece bir duygu, sen o duygu değilsin.",
+  "Nefesine odaklan. İçeri... Dışarı...",
+  "Güvendesin. Bu sadece bir egzersiz.",
+  "Her saniye seni güçlendiriyor.",
+  "Korkuyla yüzleşmek cesaret ister. Sen cesursun.",
+  "Bedenindeki gerginliği fark et ve bırak.",
+  "Bu anı kabul et. Direnmeden, yargılamadan.",
+  "Anksiyete sadece bir yanlış alarm. Tehlike yok.",
+];
 ```
 
-### 📱 Updated ERP Session Screen
+**⚡ Hatırlatıcı Sistemi:**
+- 2 dakikada bir haptic feedback
+- Pulse animation ile anxiety update reminder
+- Non-intrusive, dismissible popup
 
-#### **Master Prompt Compliant Design**
+#### **🎉 Completion Screen Özellikleri:**
+
+**🎊 Confetti Animation:**
+- Lottie animation integration
+- Full-screen celebration effect
+- Auto-play, non-looping
+
+**📈 İstatistik Gösterimi:**
 ```
 ┌─────────────────────────────────┐
-│  ← El Yıkama Direnci            │
-├─────────────────────────────────┤
-│                                 │
-│          ╭─────────╮            │
-│         ╱  05:00   ╲            │
-│        │     ⏱️     │            │
-│        │            │            │
-│         ╲_________╱             │
-│                                 │
-│  Anksiyete Seviyesi             │
-│  ●───────●─────── 7/10          │
-│                                 │
-│  "Anksiyetenin azalması         │
-│   doğal bir süreç. Sen         │
-│   güçlüsün." 💚                │
-│                                 │
-│       [⏸️ Duraklat]             │
-│                                 │
-└─────────────────────────────────┘
-```
-
-#### **2-Minute Reminder Implementation**
-```typescript
-// components/erp/ERPSessionScreen.tsx
-useEffect(() => {
-  const interval = setInterval(() => {
-    if (sessionState.elapsedTime % 120 === 0) { // Her 2 dakika
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setShowAnxietyReminder(true);
-    }
-  }, 1000);
-  
-  return () => clearInterval(interval);
-}, [sessionState.elapsedTime]);
-```
-
-#### **Completion Screen with Confetti**
-```
-┌─────────────────────────────────┐
-│        🎉 Tebrikler!            │
+│        🎉 Başardın!            │
 │     [Confetti Animation]        │ 
 │                                 │
-│  Anksiyete Değişimi             │
-│  10 ┤╲                          │
-│   8 ┤ ╲___                      │
-│   6 ┤     ╲                     │
-│   4 ┤      ╲___                 │
-│   2 ┤          ───              │
-│   0 └─────────────              │
-│     0   2   4   6 dk            │
+│  ✅ Tamamlanan Egzersiz         │
+│  "El Yıkama Direnci"            │
 │                                 │
-│  ✨ +75 Healing Points          │
-│  🏆 Anksiyete Azaltma Rozeti    │
+│  📊 Oturum İstatistikleri       │
+│  Süre: 10 dakika               │
+│  Anksiyete Azalması: %42       │
+│  Başlangıç → Bitiş: 8→5        │
 │                                 │
-│  Başlangıç: 8/10 → Bitiş: 3/10 │
-│  Süre: 6 dakika                 │
+│  🎮 Kazanılan Ödüller           │
+│  ✨ +20 Temel ERP Puanı         │
+│  ✨ +25 Anksiyete Azaltma       │
+│  🏆 İlk Adım Rozeti (İlk ERP)   │
 │                                 │
-│     [Ana Sayfaya Dön]           │
+│  💚 Motivasyon Mesajı           │
+│  "Her egzersiz seni güçlendiriyor!"|
 └─────────────────────────────────┘
 ```
 
-### 🗄️ ERP Database Integration
+#### **🎮 Gamification Integration:**
 
-#### **Session Data Storage**
+**Ödül Sistemi:**
 ```typescript
-// store/erpSessionStore.ts
-const completeSession = async () => {
-  const sessionData = {
-    user_id: userId,
-    exercise_id: sessionState.exerciseId,
-    category: sessionState.category,
-    duration_seconds: sessionState.elapsedTime,
-    anxiety_readings: sessionState.anxietyDataPoints,
-    completed: true,
-    timestamp: new Date().toISOString()
-  };
-  
-  // Dual write: AsyncStorage + Supabase
-  await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
-  await supabaseService.saveERPSession(sessionData);
+const ERP_REWARDS = {
+  erp_completed: 20,           // Temel tamamlama
+  anxiety_reduced: 25,         // ≥30% azalma
+  first_erp: 50,              // İlk ERP oturumu
+  high_duration: 30,          // ≥15 dakika
+  perfect_session: 40,        // Hiç pause etmeden
 };
 ```
 
-#### **Anxiety Data Points Schema**
-```sql
--- database/schema.sql  
-CREATE TABLE erp_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  exercise_id VARCHAR(50),
-  category VARCHAR(50),
-  duration_seconds INTEGER,
-  anxiety_readings JSONB, -- [{"timestamp": 0, "level": 8}, ...]
-  completed BOOLEAN DEFAULT FALSE,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
+**Achievement Unlock:**
+- "İlk Adım" (İlk ERP)
+- "Habitüasyon Gözlemcisi" (%50+ anxiety reduction)
+- "Maraton Koşucusu" (30+ dakika)
+- "Cesur Kalp" (Zorluk 5/5 egzersiz)
 
----
+#### **🗄️ Session Data Storage:**
 
-## 🏆 PİLLAR 4: Anlamlı Oyunlaştırma (Current Status)
-
-### ✅ **Çalışan Gamification Features**
-
-#### **🔥 Streak System**
+**AsyncStorage + Supabase Dual Write:**
 ```typescript
-// store/gamificationStore.ts
-const updateStreak = (lastUpdate: string, today: string) => {
-  const lastDate = new Date(lastUpdate);
-  const todayDate = new Date(today);
-  const diffDays = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 1) {
-    // Consecutive day
-    set({ streakCurrent: profile.streakCurrent + 1 });
-  } else if (diffDays > 1) {
-    // Streak broken
-    set({ streakCurrent: 1 });
-  }
-  // Same day: no change
-};
-```
-
-#### **✨ Healing Points System**
-```typescript
-const POINT_VALUES = {
-  compulsion_recorded: 10,
-  high_resistance: 15,     // resistance ≥ 8
-  daily_goal_met: 25,      // 3+ records per day
-  erp_completed: 20,
-  anxiety_reduction: 25,   // ≥30% anxiety decrease
-  first_erp: 50,          // First ERP session
-};
-```
-
-#### **🎯 Today Screen (Gamification-Focused)**
-```
-┌─────────────────────────────────┐
-│          Bugün                  │
-├─────────────────────────────────┤
-│                                 │
-│  🔥 4 Günlük Seri               │
-│  ●●●●○○○ Öğrenci Seviyesi      │
-│                                 │
-│  ✨ 1,247 İyileşme Puanı        │
-│  ●●●●●●●●○○ %85 Seviye 2       │
-│                                 │
-│  🎯 Bugünkü Hedef               │
-│  ●●○ 2/3 Kayıt Tamamlandı      │
-│                                 │
-│  📊 Bu Hafta                    │
-│  ┌─────────────────────────┐   │
-│  │ Kompulsiyonlar      │ 12│   │
-│  │ ERP Oturumları      │  3│   │
-│  │ İyileşme Puanları   │180│   │
-│  └─────────────────────────┘   │
-│                                 │
-│  💪 Son Aktivite                │
-│  "El yıkama direnci - 7/10"     │
-│  2 saat önce                    │
-└─────────────────────────────────┘
-```
-
-### 🎮 **UPSERT Integration (Fixed)**
-
-#### **Gamification Profile Creation**
-```typescript
-// services/supabase.ts
-async createGamificationProfile(userId: string): Promise<GamificationProfile> {
-  const { data, error } = await this.client
-    .from('gamification_profiles')
-    .upsert({
-      user_id: userId,
-      streak_count: 0,
-      healing_points_total: 0,
-      healing_points_today: 0,
-      level: 1,
-      achievements: [],
-      micro_rewards: []
-    }, {
-      onConflict: 'user_id' // Prevent duplicate key violations
-    })
-    .select()
-    .single();
-    
-  if (error) throw error;
-  return data;
+interface ERPSession {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  category: string;
+  durationSeconds: number;
+  anxietyInitial: number;
+  anxietyPeak: number;
+  anxietyFinal: number;
+  completedAt: Date;
+  anxietyDataPoints: Array<{
+    timestamp: number;
+    level: number;
+  }>;
 }
 ```
 
----
-
-## 🛠️ Teknik Implementasyon (Updated)
-
-### 🔧 **Current Tech Stack**
-
-```typescript
-{
-  "dependencies": {
-    "react-native": "0.74.5",
-    "expo": "~51.0.0", 
-    "@supabase/supabase-js": "^2.39.3",
-    "expo-web-browser": "~13.0.3",
-    "expo-linking": "~6.3.1",
-    "@react-native-async-storage/async-storage": "1.23.1",
-    "zustand": "^4.4.1",
-    "react-native-reanimated": "~3.10.1",
-    "expo-haptics": "~13.0.1"
-  },
-  "removed": [
-    "firebase",
-    "react-native-webview", 
-    "react-native-paper"
-  ]
-}
-```
-
-### 🗂️ **Updated File Structure**
-
-```
-obslessless-clean/
-├── app/
-│   ├── index.tsx (simplified routing)
-│   ├── (auth)/
-│   │   ├── login.tsx (Master Prompt aligned)
-│   │   ├── signup.tsx (Google removed)
-│   │   └── onboarding.tsx
-│   └── (tabs)/
-│       ├── index.tsx (gamification focused)
-│       ├── tracking.tsx (FAB fixed)
-│       ├── erp.tsx (FAB fixed)
-│       └── settings.tsx (minimalist)
-├── components/
-│   ├── forms/
-│   │   └── CompulsionQuickEntry.tsx (grid layout)
-│   ├── erp/
-│   │   ├── ERPQuickStart.tsx (category grid)
-│   │   └── ERPSessionScreen.tsx (circular timer)
-│   └── gamification/
-│       ├── StreakCounter.tsx
-│       └── MicroRewardAnimation.tsx
-├── contexts/
-│   └── SupabaseAuthContext.tsx (native auth)
-├── services/
-│   └── supabase.ts (full CRUD operations)
-├── store/
-│   ├── onboardingStore.ts (DB integration)
-│   ├── erpSessionStore.ts (dual write)
-│   └── gamificationStore.ts (UPSERT)
-├── database/
-│   ├── schema.sql (triggers & RLS)
-│   └── README.md (setup guide)
-└── docs/
-    ├── obsessless-flow.md (this file)
-    └── obsessless-ui.md (visual specs)
-```
-
-### 📏 **FAB Positioning (Fixed)**
-
-```typescript
-// FAB positioning solution for all tabs
-const fabStyle = {
-  position: 'absolute' as const,
-  bottom: 90,    // Tab bar height + margin
-  right: 24,     // Right margin
-  zIndex: 999,   // Above all content
-  elevation: 8,  // Android shadow
-  backgroundColor: '#10B981',
-  borderRadius: 28,
-  width: 56,
-  height: 56,
-  // Shadow for iOS
-  shadowColor: '#10B981',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.2,
-  shadowRadius: 8,
-};
-```
-
-### 🎨 **Color Palette (Finalized)**
-
-```typescript
-const COLORS = {
-  primary: '#10B981',      // Main green
-  primaryLight: '#F0FDF4', // Background green
-  secondary: '#6B7280',    // Text gray
-  accent: '#F59E0B',       // Warning/accent orange
-  error: '#EF4444',        // Error red
-  text: '#1F2937',         // Dark text
-  border: '#E5E7EB',       // Light borders
-  background: '#F9FAFB',   // App background
-};
-```
-
----
-
-## 📊 Veri Yapısı (Database Schema)
-
-### 🗄️ **Supabase Tables**
-
-#### **Users Table**
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  name VARCHAR(255),
-  provider VARCHAR(50) DEFAULT 'email',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### **User Profiles Table** 
-```sql
-CREATE TABLE user_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  symptoms TEXT[],
-  ybocs_score INTEGER,
-  daily_goal INTEGER DEFAULT 3,
-  onboarding_completed BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### **Compulsions Table**
-```sql
-CREATE TABLE compulsions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  category VARCHAR(50) CHECK (category IN ('contamination', 'checking', 'symmetry', 'mental', 'hoarding', 'other')),
-  subcategory VARCHAR(50),
-  resistance_level INTEGER CHECK (resistance_level BETWEEN 1 AND 10),
-  intensity INTEGER CHECK (intensity BETWEEN 1 AND 10),
-  trigger VARCHAR(255),
-  notes TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-#### **ERP Sessions Table**
+**Database Schema:**
 ```sql
 CREATE TABLE erp_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -854,42 +607,144 @@ CREATE TABLE erp_sessions (
 );
 ```
 
-#### **Gamification Profiles Table**
+#### **📊 ERP Tracking Dashboard:**
+
+**Zaman Aralığı Filtreleme:**
+- ✅ **Bugün**: Günlük oturumlar
+- ✅ **Bu Hafta**: Son 7 gün
+- ✅ **Bu Ay**: Son 30 gün
+
+**İstatistik Kartları:**
+```typescript
+interface ERPStats {
+  todayCompleted: number;
+  weekCompleted: number;
+  monthCompleted: number;
+  todayTime: number;        // minutes
+  weekTime: number;
+  monthTime: number;
+  avgAnxietyReduction: number;  // percentage
+  streak: number;           // consecutive days
+}
+```
+
+**🔄 Session List View:**
+```
+┌─────────────────────────────────────┐
+│ 11:20  El Yıkama Direnci        🗑  │
+│        8 dk • Anksiyete: 8→3        │
+│        ✅ Tamamlandı               │
+└─────────────────────────────────────┘
+│ 16:45  Kapı Kolları Dokunma     🗑  │
+│        5 dk • Anksiyete: 6→4        │
+│        ✅ Tamamlandı               │
+└─────────────────────────────────────┘
+```
+
+#### **🚀 ERP Quick Start Workflow:**
+
+**Two-Stage Selection:**
+1. **Category Grid**: 6 ana kategori
+2. **Exercise List**: Filtered by category
+3. **Instant Start**: Direct session başlatma
+
+**Smart Suggestions:**
+- Son kullanılan egzersiz
+- Difficulty-based recommendations
+- User pattern analysis
+
+#### **⚡ Performance Optimizations:**
+
+- **AsyncStorage Cache**: Last exercise storage
+- **Pre-render**: Category icons
+- **Lazy Load**: Exercise details
+- **Debounce**: Category switching
+
+---
+
+## 📊 Kapsamlı Veri Modelleri
+
+### 🔄 **User-Specific Storage Architecture:**
+
+```typescript
+const StorageKeys = {
+  // OCD Tracking
+  COMPULSIONS: (userId: string) => `compulsions_${userId}`,
+  DAILY_COMPULSIONS: (userId: string, date: string) => `dailyCompulsions_${userId}_${date}`,
+  COMPULSION_STATS: (userId: string) => `compulsionStats_${userId}`,
+  
+  // ERP Sessions  
+  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  LAST_ERP_EXERCISE: (userId: string) => `lastERPExercise_${userId}`,
+  ERP_STATS: (userId: string) => `erpStats_${userId}`,
+  
+  // Smart Data
+  FREQUENT_TYPES: (userId: string) => `frequentTypes_${userId}`,
+  LAST_COMPULSION: (userId: string) => `lastCompulsion_${userId}`,
+  USER_PATTERNS: (userId: string) => `userPatterns_${userId}`,
+};
+```
+
+### 🎯 **Database Schema (Supabase):**
+
+**Compulsions Table:**
 ```sql
-CREATE TABLE gamification_profiles (
+CREATE TABLE compulsions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID UNIQUE REFERENCES users(id),
-  streak_count INTEGER DEFAULT 0,
-  healing_points_total INTEGER DEFAULT 0,
-  healing_points_today INTEGER DEFAULT 0,
-  streak_last_update DATE DEFAULT CURRENT_DATE,
-  level INTEGER DEFAULT 1,
-  achievements JSONB DEFAULT '[]',
-  micro_rewards JSONB DEFAULT '[]',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  user_id UUID REFERENCES users(id),
+  category VARCHAR(50) CHECK (category IN ('contamination', 'checking', 'symmetry', 'mental', 'hoarding', 'other')),
+  subcategory VARCHAR(50),  -- Original app category
+  resistance_level INTEGER CHECK (resistance_level BETWEEN 1 AND 10),
+  intensity INTEGER CHECK (intensity BETWEEN 1 AND 10),
+  trigger VARCHAR(255),
+  notes TEXT,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-### 🔐 **Row Level Security (RLS)**
-
+**ERP Sessions Table:**
 ```sql
--- Enable RLS on all tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE compulsions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE erp_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gamification_profiles ENABLE ROW LEVEL SECURITY;
+CREATE TABLE erp_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  exercise_id VARCHAR(50),
+  category VARCHAR(50),
+  duration_seconds INTEGER,
+  anxiety_readings JSONB,  -- [{"timestamp": 0, "level": 8}, ...]
+  completed BOOLEAN DEFAULT FALSE,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
--- Users can only access their own data
-CREATE POLICY "Users can view own data" ON compulsions
-  FOR ALL USING (auth.uid() = user_id);
+### 🎮 **Enhanced Gamification:**
 
-CREATE POLICY "Users can view own ERP sessions" ON erp_sessions
-  FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own gamification" ON gamification_profiles
-  FOR ALL USING (auth.uid() = user_id);
+```typescript
+interface DetailedGamificationProfile {
+  // Streaks
+  streakCurrent: number;
+  streakBest: number;
+  streakLastUpdate: string;
+  
+  // Points
+  healingPointsTotal: number;
+  healingPointsToday: number;
+  healingPointsWeek: number;
+  
+  // Achievements
+  achievements: string[];
+  microRewards: MicroReward[];
+  
+  // Statistics
+  totalCompulsions: number;
+  totalERPSessions: number;
+  avgResistance: number;
+  avgAnxietyReduction: number;
+  
+  // Levels
+  currentLevel: number;
+  levelProgress: number;
+  nextLevelThreshold: number;
+}
 ```
 
 ---
