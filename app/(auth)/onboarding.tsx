@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/Slider';
 
 // Store
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -469,7 +469,7 @@ export default function OnboardingScreen() {
         <Pressable
           onPress={async () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            await completeOnboarding(user?.uid);
+            await completeOnboarding(user?.id);
             router.replace('/(tabs)');
           }}
           style={styles.continueButton}

@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Text, Card, Chip, Divider, SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CompulsionEntry, CompulsionStats, DailyCompulsionSummary } from '@/types/compulsion';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { COMPULSION_CATEGORIES, getCompulsionCategory } from '@/constants/compulsions';
 
@@ -21,11 +21,11 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
 
   // Load entries from AsyncStorage
   const loadEntries = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
 
     try {
       setLoading(true);
-      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.uid}`);
+      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.id}`);
       if (!compulsionListStr) {
         setEntries([]);
         return;
@@ -59,7 +59,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
 
   useEffect(() => {
     loadEntries();
-  }, [user?.uid]);
+  }, [user?.id]);
 
   // Filter entries by period
   const filteredEntries = useMemo(() => {

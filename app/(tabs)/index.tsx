@@ -25,7 +25,7 @@ import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnima
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
 import ScreenLayout from '@/components/layout/ScreenLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -64,7 +64,7 @@ export default function TodayScreen() {
 
   // Load data on mount
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       onRefresh();
     }
     
@@ -82,19 +82,19 @@ export default function TodayScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [user?.uid]);
+  }, [user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     
     try {
-      if (!user?.uid) {
+      if (!user?.id) {
         setRefreshing(false);
         return;
       }
 
       // Load today's compulsions
-      const compulsionsKey = StorageKeys.COMPULSIONS(user.uid);
+      const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
       const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
       const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
       const today = new Date().toDateString();
@@ -106,7 +106,7 @@ export default function TodayScreen() {
       const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
       
       // Load today's ERP sessions
-      const erpKey = StorageKeys.ERP_SESSIONS(user.uid, today);
+      const erpKey = StorageKeys.ERP_SESSIONS(user.id, today);
       const erpData = await AsyncStorage.getItem(erpKey);
       const todayErpSessions = erpData ? JSON.parse(erpData) : [];
       

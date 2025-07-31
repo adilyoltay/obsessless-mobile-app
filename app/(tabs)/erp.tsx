@@ -6,7 +6,8 @@ import {
   StyleSheet, 
   ScrollView, 
   Pressable,
-  RefreshControl
+  RefreshControl,
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +23,8 @@ import { getAllExercises, getExerciseById } from '@/constants/erpCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { StorageKeys } from '@/utils/storage';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import supabaseService from '@/services/supabase';
 
 interface ERPSession {
   id: string;
@@ -58,24 +60,24 @@ export default function ERPScreen() {
   });
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       loadAllStats();
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   useEffect(() => {
     setDisplayLimit(5);
   }, [selectedTimeRange]);
 
   const loadAllStats = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
       const today = new Date();
       const todayKey = today.toDateString();
       
       // Load today's sessions with user ID
-      const todayStorageKey = StorageKeys.ERP_SESSIONS(user.uid, todayKey);
+      const todayStorageKey = StorageKeys.ERP_SESSIONS(user.id, todayKey);
       const todayData = await AsyncStorage.getItem(todayStorageKey);
       const todaySessionsData = todayData ? JSON.parse(todayData) : [];
       setTodaySessions(todaySessionsData);
@@ -96,7 +98,7 @@ export default function ERPScreen() {
         date.setDate(date.getDate() - i);
         const dateKey = date.toDateString();
         
-        const dayStorageKey = StorageKeys.ERP_SESSIONS(user.uid, dateKey);
+        const dayStorageKey = StorageKeys.ERP_SESSIONS(user.id, dateKey);
         const dayData = await AsyncStorage.getItem(dayStorageKey);
         if (dayData) {
           const sessions = JSON.parse(dayData);
@@ -145,10 +147,10 @@ export default function ERPScreen() {
   };
 
   const handleExerciseSelect = async (exerciseId: string) => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     setIsQuickStartVisible(false);
-    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.uid), exerciseId);
+    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseId);
     
     router.push({
       pathname: '/erp-session',
@@ -214,6 +216,49 @@ export default function ERPScreen() {
   };
 
   const filteredSessions = getFilteredSessions();
+
+  const deleteSession = async (sessionId: string) => {
+    Alert.alert(
+      'Oturumu Sil',
+      'Bu oturumu silmek istediğinize emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Sil', 
+          style: 'destructive',
+          onPress: async () => {
+            if (!user?.id) return;
+
+            try {
+              // Delete from AsyncStorage (offline first)
+              const today = new Date();
+              const todayKey = today.toDateString();
+              const todayStorageKey = StorageKeys.ERP_SESSIONS(user.id, todayKey);
+              
+              const todayData = await AsyncStorage.getItem(todayStorageKey);
+              const sessions: ERPSession[] = todayData ? JSON.parse(todayData) : [];
+              const updatedSessions = sessions.filter(session => session.id !== sessionId);
+              await AsyncStorage.setItem(todayStorageKey, JSON.stringify(updatedSessions));
+
+              // Delete from Supabase database
+              try {
+                await supabaseService.deleteERPSession(sessionId);
+                console.log('✅ ERP session deleted from database');
+              } catch (dbError) {
+                console.error('❌ Database delete failed (offline mode):', dbError);
+                // Continue with offline mode - data is already removed from AsyncStorage
+              }
+
+              await loadAllStats();
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (error) {
+              console.error('Error deleting session:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <ScreenLayout>
@@ -338,6 +383,12 @@ export default function ERPScreen() {
                           </Text>
                         </View>
                         <Text style={styles.durationText}>{formatDuration(session.durationSeconds)}</Text>
+                        <Pressable
+                          onPress={() => deleteSession(session.id)}
+                          style={styles.deleteButton}
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                        </Pressable>
                       </View>
                     </View>
                   </View>
@@ -566,6 +617,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter',
+  },
+  deleteButton: {
+    marginTop: 8,
   },
   showMoreButton: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import {
   MicroReward
 } from '@/types/gamification';
 import { StorageKeys } from '@/utils/storage';
+import supabaseService from '@/services/supabase';
 
 // Achievement definitions based on documentation
 const ACHIEVEMENTS: AchievementDefinition[] = [
@@ -395,8 +396,26 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       return;
     }
     try {
+      // Save to AsyncStorage (offline first)
       const storageKey = StorageKeys.GAMIFICATION(currentUserId);
       await AsyncStorage.setItem(storageKey, JSON.stringify(profile));
+
+      // Save to Supabase database
+      try {
+        await supabaseService.updateGamificationProfile(currentUserId, {
+          healing_points_total: profile.healingPointsTotal || 0,
+          healing_points_today: profile.healingPointsToday || 0,
+          streak_count: profile.streakCurrent || 0,
+          streak_last_update: new Date(profile.lastActivityDate || new Date()).toISOString().split('T')[0],
+          level: profile.streakLevel === 'seedling' ? 1 : profile.streakLevel === 'warrior' ? 2 : 3,
+          achievements: profile.unlockedAchievements || [],
+          micro_rewards: [],
+        });
+        console.log('✅ Gamification profile saved to database');
+      } catch (dbError) {
+        console.error('❌ Database save failed (offline mode):', dbError);
+        // Continue with offline mode - data is already in AsyncStorage
+      }
     } catch (error) {
       console.error('Failed to save gamification profile:', error);
     }

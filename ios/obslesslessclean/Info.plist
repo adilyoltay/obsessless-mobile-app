@@ -27,6 +27,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
+          <string>obslesstest</string>
           <string>com.adilyoltay.obslesstest</string>
         </array>
       </dict>

@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Button from '@/components/ui/Button';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
@@ -55,12 +55,12 @@ export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
     setLoading(true);
     try {
       const profileData = {
-        userId: user?.uid,
+        userId: user?.id,
         selectedSymptoms,
         createdAt: new Date().toISOString(),
       };
 
-      await AsyncStorage.setItem(`ocd_profile_${user?.uid}`, JSON.stringify(profileData));
+      await AsyncStorage.setItem(`ocd_profile_${user?.id}`, JSON.stringify(profileData));
       await AsyncStorage.setItem('profileCompleted', 'true');
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

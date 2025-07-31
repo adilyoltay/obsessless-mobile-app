@@ -21,7 +21,7 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { router } from 'expo-router';
 
 // Stores
@@ -46,7 +46,7 @@ const LANGUAGE_OPTIONS = [
 export default function SettingsScreen() {
   const { t, language } = useTranslation();
   const { setLanguage } = useLanguage();
-  const { logout, user } = useAuth();
+  const { signOut, user } = useAuth();
   const { profile } = useGamificationStore();
   
   const [settings, setSettings] = useState<SettingsData>({
@@ -57,16 +57,16 @@ export default function SettingsScreen() {
   });
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       loadSettings();
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   const loadSettings = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
-      const settingsKey = StorageKeys.USER_SETTINGS(user.uid);
+      const settingsKey = StorageKeys.USER_SETTINGS(user.id);
       const savedSettings = await AsyncStorage.getItem(settingsKey);
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
@@ -77,13 +77,13 @@ export default function SettingsScreen() {
   };
 
   const updateSetting = async (key: keyof SettingsData, value: boolean) => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     
     try {
-      const settingsKey = StorageKeys.USER_SETTINGS(user.uid);
+      const settingsKey = StorageKeys.USER_SETTINGS(user.id);
       await AsyncStorage.setItem(settingsKey, JSON.stringify(newSettings));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await logout();
+              await signOut();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               router.replace('/(auth)/login');
             } catch (error) {

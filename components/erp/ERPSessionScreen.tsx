@@ -32,7 +32,7 @@ import { useERPSessionStore } from '@/store/erpSessionStore';
 import { useGamificationStore } from '@/store/gamificationStore';
 
 // Auth
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
@@ -138,7 +138,7 @@ export default function ERPSessionScreen({
   };
 
   const handleComplete = async () => {
-    const sessionLog = await completeSession(user?.uid);
+    const sessionLog = await completeSession(user?.id);
     setShowCompletion(true);
     
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

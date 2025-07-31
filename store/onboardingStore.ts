@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
 
 interface UserOCDProfile {
   primarySymptoms: string[]; // e.g., ['contamination', 'checking']
@@ -90,10 +91,10 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     
     try {
       if (userId) {
-        // Save profile completion status
+        // Save profile completion status to AsyncStorage
         await AsyncStorage.setItem('profileCompleted', 'true');
         
-        // Save user profile
+        // Save user profile to AsyncStorage
         const completeProfile = {
           ...profile,
           onboardingCompleted: true,
@@ -106,6 +107,22 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
         );
         
         console.log('✅ Profile saved to AsyncStorage');
+
+        // Save to Supabase database
+        try {
+          await supabaseService.saveUserProfile({
+            user_id: userId,
+            ocd_symptoms: profile.primarySymptoms || [],
+            daily_goal: profile.dailyGoal || 3,
+            ybocs_score: profile.ybocsLiteScore || 0,
+            ybocs_severity: profile.ybocsSeverity || 'Subclinical',
+            onboarding_completed: true,
+          });
+          console.log('✅ User profile saved to database');
+        } catch (dbError) {
+          console.error('❌ Database save failed (offline mode):', dbError);
+          // Continue with offline mode - data is already in AsyncStorage
+        }
       }
     } catch (error) {
       console.error('❌ Failed to save profile:', error);

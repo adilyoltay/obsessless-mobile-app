@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '@/utils/storage';
+import supabaseService from '@/services/supabase';
 
 interface AnxietyDataPoint {
   timestamp: number;
@@ -158,6 +159,25 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
         
         await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
         console.log('✅ Session saved to storage');
+
+        // Save to Supabase database
+        try {
+          await supabaseService.saveERPSession({
+            user_id: userId,
+            exercise_id: exerciseId || 'unknown',
+            exercise_name: exerciseName || 'Unknown Exercise',
+            category: 'general', // Add category mapping if needed
+            duration_seconds: elapsedTime,
+            anxiety_initial: initialAnxiety,
+            anxiety_final: finalAnxiety,
+            anxiety_readings: anxietyDataPoints,
+            completed: true,
+          });
+          console.log('✅ ERP session saved to database');
+        } catch (dbError) {
+          console.error('❌ Database save failed (offline mode):', dbError);
+          // Continue with offline mode - data is already in AsyncStorage
+        }
       } catch (error) {
         console.error('❌ Error saving session:', error);
       }

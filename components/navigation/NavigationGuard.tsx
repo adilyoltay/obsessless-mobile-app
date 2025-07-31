@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import supabaseService from '@/services/supabase';
 
 interface NavigationGuardProps {
   children: React.ReactNode;
@@ -18,11 +19,12 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
   useEffect(() => {
     // Reset navigation flag when auth state changes
-    if (lastUserIdRef.current !== (user?.uid || null)) {
+    const currentUserId = user?.id || null;
+    if (lastUserIdRef.current !== currentUserId) {
+      lastUserIdRef.current = currentUserId;
       hasNavigatedRef.current = false;
-      lastUserIdRef.current = user?.uid || null;
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -54,30 +56,62 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
           if (!inAuthGroup && currentPath !== '(auth)/login') {
             console.log('🔐 Redirecting to login - not authenticated');
             hasNavigatedRef.current = true;
-            setTimeout(() => router.replace('/(auth)/login'), 100);
+            setTimeout(() => {
+              try {
+                router.push('/(auth)/login');
+              } catch (error) {
+                console.error('Login navigation error:', error);
+                router.push('/login');
+              }
+            }, 100);
             return;
           }
         } else {
           // User is authenticated, check profile completion
-          const profileCompleted = await AsyncStorage.getItem('profileCompleted');
-          const userProfile = await AsyncStorage.getItem(`ocd_profile_${user.uid}`);
+          try {
+            // Check database for onboarding completion
+            const userProfile = await supabaseService.getUserProfile(user.id);
+            const isProfileComplete = userProfile && userProfile.onboarding_completed;
 
-          const isProfileComplete = profileCompleted === 'true' && userProfile;
-
-          if (!isProfileComplete) {
-            // Profile not completed
-            if (currentPath !== '(auth)/onboarding') {
-              console.log('👤 Redirecting to onboarding - profile incomplete');
+            if (!isProfileComplete) {
+              // Profile not completed - redirect to onboarding
+              if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
+                console.log('👤 Redirecting to onboarding - profile incomplete');
+                hasNavigatedRef.current = true;
+                setTimeout(() => {
+                  try {
+                    router.push('/(auth)/onboarding');
+                  } catch (error) {
+                    console.error('Onboarding navigation error:', error);
+                    router.push('/onboarding');
+                  }
+                }, 100);
+                return;
+              }
+            } else {
+              // Profile completed - redirect to main app
+              if (inAuthGroup || currentPath === '+not-found' || currentPath === '' || currentPath === 'index') {
+                console.log('✅ Redirecting to main app - profile complete');
+                hasNavigatedRef.current = true;
+                // Use push instead of replace for better navigation
+                setTimeout(() => {
+                  try {
+                    router.push('/(tabs)/index');
+                  } catch (error) {
+                    console.error('Navigation error, trying fallback:', error);
+                    router.push('/');
+                  }
+                }, 100);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('❌ Profile check error:', error);
+            // Fallback to onboarding on error
+            if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
+              console.log('👤 Redirecting to onboarding - profile check failed');
               hasNavigatedRef.current = true;
               setTimeout(() => router.replace('/(auth)/onboarding'), 100);
-              return;
-            }
-          } else {
-            // Profile completed
-            if (inAuthGroup) {
-              console.log('✅ Redirecting to main app - profile complete');
-              hasNavigatedRef.current = true;
-              setTimeout(() => router.replace('/(tabs)'), 100);
               return;
             }
           }

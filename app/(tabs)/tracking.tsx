@@ -28,7 +28,24 @@ import { COMPULSION_CATEGORIES } from '@/constants/compulsions';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import supabaseService from '@/services/supabase';
+
+// Map app categories to database categories
+const mapCategoryToDatabase = (appCategory: string): string => {
+  const categoryMap: { [key: string]: string } = {
+    'washing': 'contamination',
+    'checking': 'harm',
+    'counting': 'symmetry',
+    'ordering': 'symmetry',
+    'hoarding': 'hoarding',
+    'religious': 'religious',
+    'sexual': 'sexual',
+    'other': 'contamination', // Default fallback
+  };
+  
+  return categoryMap[appCategory] || 'contamination';
+};
 
 interface CompulsionEntry {
   id: string;
@@ -62,23 +79,23 @@ export default function TrackingScreen() {
   });
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       loadAllData();
     }
-  }, [user?.uid]);
+  }, [user?.id]);
 
   useEffect(() => {
     setDisplayLimit(5);
   }, [selectedTimeRange]);
 
   const loadAllData = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
       const today = new Date();
       
       // Load all entries from user-specific storage key
-      const storageKey = StorageKeys.COMPULSIONS(user.uid);
+      const storageKey = StorageKeys.COMPULSIONS(user.id);
       const allEntriesData = await AsyncStorage.getItem(storageKey);
       const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
       
@@ -141,7 +158,7 @@ export default function TrackingScreen() {
   };
 
   const handleCompulsionSubmit = async (compulsionData: Omit<CompulsionEntry, 'id' | 'timestamp'>) => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
 
     try {
       const newEntry: CompulsionEntry = {
@@ -150,12 +167,28 @@ export default function TrackingScreen() {
         timestamp: new Date(),
       };
 
-      // Save to AsyncStorage
-      const storageKey = StorageKeys.COMPULSIONS(user.uid);
+      // Save to AsyncStorage (offline first)
+      const storageKey = StorageKeys.COMPULSIONS(user.id);
       const existingEntries = await AsyncStorage.getItem(storageKey);
       const entries = existingEntries ? JSON.parse(existingEntries) : [];
       entries.push(newEntry);
       await AsyncStorage.setItem(storageKey, JSON.stringify(entries));
+
+      // Save to Supabase database
+      try {
+        await supabaseService.saveCompulsion({
+          user_id: user.id,
+          category: mapCategoryToDatabase(compulsionData.type), // Use mapping function
+          subcategory: compulsionData.type, // Store original type as subcategory
+          resistance_level: compulsionData.resistanceLevel,
+          trigger: compulsionData.trigger || '',
+          notes: compulsionData.notes || '',
+        });
+        console.log('✅ Compulsion saved to database');
+      } catch (dbError) {
+        console.error('❌ Database save failed (offline mode):', dbError);
+        // Continue with offline mode - data is already in AsyncStorage
+      }
 
       // Award gamification rewards
       awardMicroReward('compulsion_recorded');
@@ -201,14 +234,25 @@ export default function TrackingScreen() {
           text: 'Sil', 
           style: 'destructive',
           onPress: async () => {
-            if (!user?.uid) return;
+            if (!user?.id) return;
 
             try {
-              const storageKey = StorageKeys.COMPULSIONS(user.uid);
+              // Delete from AsyncStorage (offline first)
+              const storageKey = StorageKeys.COMPULSIONS(user.id);
               const allEntriesData = await AsyncStorage.getItem(storageKey);
               const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
               const updatedEntries = allEntries.filter(entry => entry.id !== entryId);
               await AsyncStorage.setItem(storageKey, JSON.stringify(updatedEntries));
+
+              // Delete from Supabase database
+              try {
+                await supabaseService.deleteCompulsion(entryId);
+                console.log('✅ Compulsion deleted from database');
+              } catch (dbError) {
+                console.error('❌ Database delete failed (offline mode):', dbError);
+                // Continue with offline mode - data is already removed from AsyncStorage
+              }
+
               await loadAllData();
               
               setToastMessage('Kayıt silindi');

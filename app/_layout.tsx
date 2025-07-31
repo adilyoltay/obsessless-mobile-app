@@ -8,7 +8,7 @@ import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { LoadingProvider } from '@/contexts/LoadingContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -49,12 +49,17 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <LanguageProvider>
-          <AuthProvider>
-            <NavigationGuard>
-              <Slot />
-              <StatusBar style="auto" />
-            </NavigationGuard>
-          </AuthProvider>
+          <LoadingProvider>
+            <NotificationProvider>
+              <AuthProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <Slot />
+                  <GlobalLoading />
+                  <Toast />
+                </GestureHandlerRootView>
+              </AuthProvider>
+            </NotificationProvider>
+          </LoadingProvider>
         </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>

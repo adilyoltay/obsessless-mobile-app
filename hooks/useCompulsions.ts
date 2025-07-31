@@ -1,6 +1,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Compulsion {
