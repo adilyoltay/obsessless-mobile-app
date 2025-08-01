@@ -175,6 +175,25 @@ export function ERPQuickStart({
     return ERP_CATEGORIES;
   };
 
+  // Get categories sorted by popularity (most used first)
+  const getCategoriesByPopularity = (): ERPCategory[] => {
+    // Define popularity order (can be enhanced with real usage data later)
+    const popularityOrder = [
+      'contamination',   // En sık kullanılan
+      'checking',        // 2. sık kullanılan
+      'ordering',        // 3. sık kullanılan
+      'harm',           // 4. sık kullanılan  
+      'morality',       // 5. sık kullanılan
+      'sexual',         // 6. sık kullanılan
+    ];
+    
+    return ERP_CATEGORIES.sort((a, b) => {
+      const aIndex = popularityOrder.indexOf(a.id);
+      const bIndex = popularityOrder.indexOf(b.id);
+      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+    });
+  };
+
   const getSmartDefaults = (exerciseType: string) => {
     const goalTemplates = {
       'real_life': 'Bugün kendime nazik davranarak küçük bir adım atmak istiyorum',
@@ -229,125 +248,125 @@ export function ERPQuickStart({
         {getStepSubtitle()}
       </Text>
       
-      {/* Exercise Selection - Only show exercises for selected type */}
-      {!selectedExercise && (
-        <View style={styles.exerciseSelectionSection}>
-          <Text style={styles.sectionTitle}>Egzersizini Seç</Text>
-          {getFilteredCategories().map((category) => (
-            <View key={category.id} style={styles.categorySection}>
-              <View style={styles.categoryHeader}>
+      {/* Compact Category Grid - Always visible */}
+      <View style={styles.categoryGridSection}>
+        <Text style={styles.sectionTitle}>Kategorini Seç</Text>
+        <View style={styles.categoryGrid}>
+          {getCategoriesByPopularity().map((category) => (
+            <Pressable
+              key={category.id}
+              style={[
+                styles.categoryGridCard,
+                selectedCategory === category.id && { borderColor: category.color, backgroundColor: `${category.color}08` }
+              ]}
+              onPress={() => {
+                setSelectedCategory(category.id);
+                // Auto-select first exercise in category
+                const firstExercise = category.exercises[0];
+                if (firstExercise) {
+                  setSelectedExercise(firstExercise);
+                  setDuration(firstExercise.duration);
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <View style={[styles.categoryIconContainer, { backgroundColor: `${category.color}15` }]}>
                 <MaterialCommunityIcons 
                   name={category.icon as any} 
-                  size={20} 
+                  size={24} 
                   color={category.color} 
                 />
-                <Text style={styles.categoryTitle}>{category.title}</Text>
               </View>
-              
-              {category.exercises.map((exercise: ERPExercise) => (
-                <Pressable
-                  key={exercise.id}
-                  style={[
-                    styles.exerciseItem,
-                    selectedExercise?.id === exercise.id && styles.exerciseItemSelected
-                  ]}
-                  onPress={() => handleThemeSelect(category.id, exercise)}
-                >
-                  <View style={styles.exerciseInfo}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <View style={styles.exerciseMeta}>
-                      <Text style={styles.exerciseDuration}>{exercise.duration} dk</Text>
-                      <View style={styles.difficultyContainer}>
-                        {Array.from({ length: exercise.difficulty }).map((_, i) => (
-                          <MaterialCommunityIcons key={i} name="star" size={12} color="#F59E0B" />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-                </Pressable>
-              ))}
-            </View>
+              <Text style={styles.categoryGridTitle}>{category.title}</Text>
+              <Text style={styles.categoryExerciseCount}>
+                {category.exercises.length} egzersiz
+              </Text>
+            </Pressable>
           ))}
+        </View>
+      </View>
+
+      {/* Exercise Selection - Only show when category is selected */}
+      {selectedCategory && selectedExercise && (
+        <View style={styles.exerciseQuickSection}>
+          <Text style={styles.sectionTitle}>Seçili Egzersiz</Text>
+          <View style={styles.selectedExerciseCard}>
+            <View style={styles.exerciseHeader}>
+              <View>
+                <Text style={styles.selectedExerciseName}>{selectedExercise.name}</Text>
+                <Text style={styles.selectedExerciseCategory}>
+                  {getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title}
+                </Text>
+              </View>
+              <Pressable 
+                style={styles.changeExerciseButton}
+                onPress={() => {
+                  setSelectedCategory('');
+                  setSelectedExercise(null);
+                }}
+              >
+                <MaterialCommunityIcons name="refresh" size={20} color="#10B981" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Compact Settings Row */}
+          <View style={styles.settingsRow}>
+            <View style={styles.compactSetting}>
+              <Text style={styles.compactSettingLabel}>Süre</Text>
+              <View style={styles.compactSliderContainer}>
+                <Slider
+                  value={duration}
+                  onValueChange={setDuration}
+                  minimumValue={3}
+                  maximumValue={30}
+                  step={1}
+                  style={styles.compactSlider}
+                  minimumTrackTintColor="#10B981"
+                  maximumTrackTintColor="#E5E7EB"
+                  thumbTintColor="#10B981"
+                />
+                <Text style={styles.compactSliderValue}>{duration}dk</Text>
+              </View>
+            </View>
+
+            <View style={styles.compactSetting}>
+              <Text style={styles.compactSettingLabel}>Anksiyete</Text>
+              <View style={styles.compactSliderContainer}>
+                <Slider
+                  value={targetAnxiety}
+                  onValueChange={setTargetAnxiety}
+                  minimumValue={1}
+                  maximumValue={10}
+                  step={1}
+                  style={styles.compactSlider}
+                  minimumTrackTintColor="#F59E0B"
+                  maximumTrackTintColor="#E5E7EB"
+                  thumbTintColor="#F59E0B"
+                />
+                <Text style={styles.compactSliderValue}>{targetAnxiety}/10</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Start Button */}
+          <Pressable style={styles.startButton} onPress={handleStartExercise}>
+            <MaterialCommunityIcons name="play" size={20} color="#FFFFFF" />
+            <Text style={styles.startButtonText}>🌟 Yolculuğumu Başlat</Text>
+          </Pressable>
         </View>
       )}
 
-      {/* Settings - Only show when exercise is selected */}
-      {selectedExercise && (
-        <>
-          <View style={styles.selectedExerciseCard}>
-            <Text style={styles.selectedExerciseTitle}>Seçilen Egzersiz</Text>
-            <Text style={styles.selectedExerciseName}>{selectedExercise.name}</Text>
-            <Pressable 
-              style={styles.changeExerciseButton}
-              onPress={() => setSelectedExercise(null)}
-            >
-              <Text style={styles.changeExerciseText}>Değiştir</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.settingSection}>
-            <Text style={styles.settingLabel}>Süre</Text>
-            <View style={styles.sliderContainer}>
-              <Text style={styles.sliderValue}>{duration} dakika</Text>
-              <Slider
-                value={duration}
-                onValueChange={setDuration}
-                minimumValue={3}
-                maximumValue={60}
-                step={1}
-                style={styles.slider}
-                minimumTrackTintColor="#10B981"
-                maximumTrackTintColor="#E5E7EB"
-                thumbTintColor="#10B981"
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>3 dk</Text>
-                <Text style={styles.sliderLabel}>60 dk</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.settingSection}>
-            <Text style={styles.settingLabel}>Başlangıç Anksiyeten</Text>
-            <View style={styles.sliderContainer}>
-              <Text style={styles.sliderValue}>{targetAnxiety}/10</Text>
-              <Slider
-                value={targetAnxiety}
-                onValueChange={setTargetAnxiety}
-                minimumValue={1}
-                maximumValue={10}
-                step={1}
-                style={styles.slider}
-                minimumTrackTintColor="#F59E0B"
-                maximumTrackTintColor="#E5E7EB"
-                thumbTintColor="#F59E0B"
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>Düşük</Text>
-                <Text style={styles.sliderLabel}>Yoğun</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.settingSection}>
-            <Text style={styles.settingLabel}>Bu egzersiz için hedefin ne?</Text>
-            <TextInput
-              style={styles.goalInput}
-              value={personalGoal}
-              onChangeText={setPersonalGoal}
-              placeholder={getSmartDefaults(selectedType).goal}
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <Pressable style={styles.nextButton} onPress={handleStartExercise}>
-            <Text style={styles.nextButtonText}>🌟 Yolculuğumu Başlat</Text>
-          </Pressable>
-        </>
-      )}
+      {/* Gentle Comfort Reminder - Always at bottom */}
+      <View style={styles.comfortSection}>
+        <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
+        <Text style={styles.comfortText}>
+          • Sen her zaman kontroldesin{'\n'}
+          • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
+          • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
+          • Hissettiğin her şey doğal ve geçici
+        </Text>
+      </View>
     </ScrollView>
   );
 
@@ -814,5 +833,92 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     fontFamily: 'Inter',
+  },
+  categoryGridSection: {
+    marginBottom: 24,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  categoryGridCard: {
+    width: '48%', // Two columns
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#E5E7EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  categoryIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  categoryGridTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+    fontFamily: 'Inter-Medium',
+    textAlign: 'center',
+  },
+  categoryExerciseCount: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  exerciseQuickSection: {
+    marginBottom: 24,
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectedExerciseCategory: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  compactSetting: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  compactSettingLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  compactSliderContainer: {
+    alignItems: 'center',
+  },
+  compactSlider: {
+    width: '100%',
+    height: 40,
+  },
+  compactSliderValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#10B981',
+    marginTop: 8,
+    fontFamily: 'Inter-Medium',
   },
 }); 
