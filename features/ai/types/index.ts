@@ -7,25 +7,34 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
-// Temel AI mesaj yapısı
+// features/ai/types/index.ts
+// Comprehensive TypeScript interfaces for ObsessLess AI system
+
 export interface AIMessage {
   id: string;
   content: string;
   role: 'user' | 'assistant' | 'system';
   timestamp: Date;
-  metadata?: AIMessageMetadata;
+  metadata?: {
+    sessionId?: string;
+    contextType?: 'onboarding' | 'chat' | 'erp' | 'crisis';
+    sentiment?: 'positive' | 'neutral' | 'negative';
+    confidence?: number;
+    therapeutic_intent?: string[];
+    safety_score?: number;
+    // Add more metadata as needed
+  };
 }
 
 export interface AIMessageMetadata {
-  sessionId: string;
-  contextType: 'onboarding' | 'chat' | 'erp' | 'crisis';
+  sessionId?: string;
+  contextType?: 'onboarding' | 'chat' | 'erp' | 'crisis';
   sentiment?: 'positive' | 'neutral' | 'negative';
   confidence?: number;
   therapeutic_intent?: string[];
   safety_score?: number;
 }
 
-// AI konfigürasyon
 export interface AIConfig {
   provider: 'openai' | 'anthropic' | 'local';
   model: string;
@@ -33,47 +42,49 @@ export interface AIConfig {
   maxTokens: number;
   systemPrompt: string;
   fallbackBehavior: 'generic' | 'silence' | 'redirect';
-  featureFlag: keyof typeof FEATURE_FLAGS; // Zorunlu feature flag
-  safetyThreshold: number;
-  privacyMode: 'strict' | 'balanced' | 'minimal';
+  featureFlag: string; // The feature flag associated with this config
+  safetyThreshold: number; // Threshold for safety violations
+  privacyMode: 'strict' | 'balanced' | 'permissive'; // Data handling mode
 }
 
-// Konuşma bağlamı
 export interface ConversationContext {
   userId: string;
   sessionId: string;
   conversationHistory: AIMessage[];
   userProfile: UserAIProfile;
   currentState: 'stable' | 'elevated' | 'crisis';
-  lastInteraction?: Date;
-  sessionDuration?: number;
+  // Add more context data
 }
 
 export interface UserAIProfile {
   symptomSeverity: number;
-  preferredLanguage: 'tr' | 'en';
+  preferredLanguage: string;
   triggerWords: string[];
   therapeuticGoals: string[];
-  communicationStyle: 'formal' | 'casual' | 'supportive';
-  privacyPreferences: PrivacyPreferences;
+  communicationStyle?: 'supportive' | 'direct' | 'empathetic';
+  privacyPreferences?: {
+    dataRetention: 'minimal' | 'standard' | 'extended';
+    analyticsConsent: boolean;
+    therapistSharing: boolean;
+    anonymizedDataUsage: boolean;
+  };
 }
 
-export interface PrivacyPreferences {
-  dataRetention: 'minimal' | 'standard' | 'extended';
-  analyticsConsent: boolean;
-  therapistSharing: boolean;
-  anonymizedDataUsage: boolean;
+export interface TherapeuticInsight {
+  type: 'pattern' | 'progress' | 'suggestion' | 'warning';
+  content: string;
+  confidence: number;
+  clinicalRelevance: number;
+  timestamp?: Date;
 }
 
-// Hata yönetimi
-export interface AIError extends Error {
-  code: AIErrorCode;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  userMessage: string;
-  technicalDetails?: any;
-  fallbackAction?: AIFallbackAction;
+export interface AIResponse extends AIMessage {
+  processingTime?: number;
+  modelUsed?: string;
+  fallbackUsed?: boolean;
 }
 
+// Error handling types
 export enum AIErrorCode {
   FEATURE_DISABLED = 'FEATURE_DISABLED',
   NETWORK_ERROR = 'NETWORK_ERROR',
@@ -82,71 +93,46 @@ export enum AIErrorCode {
   SAFETY_VIOLATION = 'SAFETY_VIOLATION',
   PRIVACY_VIOLATION = 'PRIVACY_VIOLATION',
   MODEL_ERROR = 'MODEL_ERROR',
-  UNKNOWN = 'UNKNOWN'
+  UNKNOWN = 'UNKNOWN_ERROR',
 }
 
-export interface AIFallbackAction {
-  type: 'retry' | 'fallback_response' | 'disable_feature' | 'alert_user';
-  data?: any;
+export interface AIError extends Error {
+  code: AIErrorCode;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  userMessage: string; // User-friendly message
+  details?: string;
 }
 
-// Güvenlik ve validasyon
-export interface AISafetyCheck {
-  passed: boolean;
-  score: number;
-  violations: SafetyViolation[];
-  recommendations: string[];
+// Telemetry event types
+export enum AIEventType {
+  CHAT_START = 'chat_start',
+  CHAT_MESSAGE_SENT = 'chat_message_sent',
+  CHAT_MESSAGE_RECEIVED = 'chat_message_received',
+  INSIGHT_GENERATED = 'insight_generated',
+  CRISIS_DETECTED = 'crisis_detected',
+  FEATURE_ENABLED = 'feature_enabled',
+  FEATURE_DISABLED = 'feature_disabled',
+  ERROR_OCCURRED = 'error',
+  PERFORMANCE = 'performance',
+  MESSAGE_SENT = 'message_sent', // Generic for any AI interaction
+  CONVERSATION_START = 'conversation_start',
+  CONVERSATION_END = 'conversation_end',
+  SAFETY_TRIGGERED = 'safety_triggered',
 }
 
+// Safety check types
 export interface SafetyViolation {
-  type: 'crisis_language' | 'harmful_content' | 'privacy_leak' | 'therapeutic_boundary';
+  type: 'privacy_leak' | 'therapeutic_boundary' | 'bias' | 'misinformation' | 'crisis_language';
   severity: 'low' | 'medium' | 'high';
   description: string;
   suggestedAction: string;
 }
 
-// Telemetri
-export interface AITelemetryEvent {
-  eventType: AIEventType;
-  timestamp: Date;
-  sessionId: string;
-  userId?: string; // Anonim olabilir
-  metadata: Record<string, any>;
-  privacy_compliant: boolean;
-}
-
-export enum AIEventType {
-  FEATURE_ENABLED = 'FEATURE_ENABLED',
-  FEATURE_DISABLED = 'FEATURE_DISABLED',
-  CONVERSATION_START = 'CONVERSATION_START',
-  CONVERSATION_END = 'CONVERSATION_END',
-  MESSAGE_SENT = 'MESSAGE_SENT',
-  MESSAGE_RECEIVED = 'MESSAGE_RECEIVED',
-  ERROR_OCCURRED = 'ERROR_OCCURRED',
-  SAFETY_TRIGGERED = 'SAFETY_TRIGGERED',
-  FALLBACK_USED = 'FALLBACK_USED'
-}
-
-// Response tipler
-export interface AIResponse {
-  success: boolean;
-  data?: AIResponseData;
-  error?: AIError;
-  telemetry?: AITelemetryEvent;
-}
-
-export interface AIResponseData {
-  message: AIMessage;
-  suggestions?: string[];
-  therapeuticInsights?: TherapeuticInsight[];
-  nextSteps?: string[];
-}
-
-export interface TherapeuticInsight {
-  type: 'progress' | 'pattern' | 'suggestion' | 'warning';
-  content: string;
-  confidence: number;
-  clinicalRelevance: number;
+export interface AISafetyCheck {
+  passed: boolean;
+  score: number; // 0-1, 1 being perfectly safe
+  violations: SafetyViolation[];
+  recommendations: string[];
 }
 
 // Validasyon şemaları

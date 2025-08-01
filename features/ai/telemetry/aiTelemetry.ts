@@ -13,6 +13,7 @@ import {
   AIError,
   AIErrorCode 
 } from '@/features/ai/types';
+import { logger } from '@/utils/logger'; // Use the new logger utility
 
 // Telemetri konfigürasyonu
 const TELEMETRY_CONFIG = {
@@ -20,13 +21,14 @@ const TELEMETRY_CONFIG = {
   FLUSH_INTERVAL: 30000, // 30 saniye
   MAX_QUEUE_SIZE: 100,
   STORAGE_KEY: '@ai_telemetry_queue',
-  PRIVACY_MODE: 'strict' as const
+  PRIVACY_MODE: 'strict' as const,
+  ENABLE_CONSOLE_LOG: __DEV__
 };
 
 class AITelemetryService {
   private static instance: AITelemetryService;
   private eventQueue: AITelemetryEvent[] = [];
-  private flushTimer: NodeJS.Timeout | null = null;
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
   private isEnabled: boolean = false;
 
   private constructor() {
@@ -208,7 +210,7 @@ class AITelemetryService {
     try {
       // Burada normalde backend'e gönderim yapılır
       // Şimdilik sadece logluyoruz
-      if (__DEV__) {
+      if (TELEMETRY_CONFIG.ENABLE_CONSOLE_LOG) {
         console.log('[AITelemetry] Flushing events:', eventsToSend.length);
       }
 
