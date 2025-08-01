@@ -237,39 +237,95 @@ export function ERPQuickStart({
       </View>
 
       {/* Exercise Selection - Show when category is selected */}
-      {selectedCategory && !selectedExercise && (
+      {selectedCategory && (
         <View style={styles.exerciseSelectionSection}>
           <Text style={styles.sectionTitle}>
             {getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title} Egzersizleri
           </Text>
+          
+          {/* Exercise Grid */}
           <View style={styles.exerciseGrid}>
             {getCategoriesByPopularity()
               .find(c => c.id === selectedCategory)
               ?.exercises.map((exercise: ERPExercise) => (
                 <Pressable
                   key={exercise.id}
-                  style={styles.exerciseGridCard}
+                  style={[
+                    styles.exerciseGridCard,
+                    selectedExercise?.id === exercise.id && styles.exerciseGridCardSelected
+                  ]}
                   onPress={() => {
                     setSelectedExercise(exercise);
                     setDuration(exercise.duration);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <View style={styles.exerciseCardHeader}>
-                    <Text style={styles.exerciseCardTitle}>{exercise.name}</Text>
-                    <View style={styles.exerciseCardMeta}>
+                  <View style={styles.exerciseCardContent}>
+                    <Text style={styles.exerciseCardTitle} numberOfLines={2}>
+                      {exercise.name}
+                    </Text>
+                    <View style={styles.exerciseCardFooter}>
                       <Text style={styles.exerciseCardDuration}>{exercise.duration}dk</Text>
                       <View style={styles.exerciseCardDifficulty}>
                         {Array.from({ length: exercise.difficulty }).map((_, i) => (
-                          <MaterialCommunityIcons key={i} name="star" size={12} color="#F59E0B" />
+                          <MaterialCommunityIcons key={i} name="star" size={10} color="#F59E0B" />
                         ))}
                       </View>
                     </View>
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                  {selectedExercise?.id === exercise.id && (
+                    <View style={styles.selectedIndicator}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color="#10B981" />
+                    </View>
+                  )}
                 </Pressable>
               ))}
           </View>
+
+          {/* Settings Section - Show when exercise is selected */}
+          {selectedExercise && (
+            <View style={styles.inlineSettingsSection}>
+              <Text style={styles.settingsTitle}>Egzersiz Ayarları</Text>
+              
+              {/* Duration Setting */}
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Süre: {duration} dakika</Text>
+                <Slider
+                  value={duration}
+                  onValueChange={setDuration}
+                  minimumValue={3}
+                  maximumValue={30}
+                  step={1}
+                  style={styles.settingSlider}
+                  minimumTrackTintColor="#10B981"
+                  maximumTrackTintColor="#E5E7EB"
+                  thumbTintColor="#10B981"
+                />
+              </View>
+
+              {/* Anxiety Setting */}
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Hedef Anksiyete: {targetAnxiety}/10</Text>
+                <Slider
+                  value={targetAnxiety}
+                  onValueChange={setTargetAnxiety}
+                  minimumValue={1}
+                  maximumValue={10}
+                  step={1}
+                  style={styles.settingSlider}
+                  minimumTrackTintColor="#F59E0B"
+                  maximumTrackTintColor="#E5E7EB"
+                  thumbTintColor="#F59E0B"
+                />
+              </View>
+
+              {/* Start Button */}
+              <Pressable style={styles.inlineStartButton} onPress={handleStartExercise}>
+                <MaterialCommunityIcons name="play" size={20} color="#FFFFFF" />
+                <Text style={styles.inlineStartButtonText}>🌟 Yolculuğumu Başlat</Text>
+              </Pressable>
+            </View>
+          )}
           
           <Pressable 
             style={styles.backToCategoriesButton}
@@ -284,76 +340,7 @@ export function ERPQuickStart({
         </View>
       )}
 
-      {/* Selected Exercise + Settings - Show when exercise is selected */}
-      {selectedCategory && selectedExercise && (
-        <View style={styles.exerciseQuickSection}>
-          <Text style={styles.sectionTitle}>Seçili Egzersiz</Text>
-          <View style={styles.selectedExerciseCard}>
-            <View style={styles.exerciseHeader}>
-              <View>
-                <Text style={styles.selectedExerciseName}>{selectedExercise.name}</Text>
-                <Text style={styles.selectedExerciseCategory}>
-                  {getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title}
-                </Text>
-              </View>
-              <Pressable 
-                style={styles.changeExerciseButton}
-                onPress={() => {
-                  setSelectedCategory('');
-                  setSelectedExercise(null);
-                }}
-              >
-                <MaterialCommunityIcons name="refresh" size={20} color="#10B981" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Compact Settings Row */}
-          <View style={styles.settingsRow}>
-            <View style={styles.compactSetting}>
-              <Text style={styles.compactSettingLabel}>Süre</Text>
-              <View style={styles.compactSliderContainer}>
-                <Slider
-                  value={duration}
-                  onValueChange={setDuration}
-                  minimumValue={3}
-                  maximumValue={30}
-                  step={1}
-                  style={styles.compactSlider}
-                  minimumTrackTintColor="#10B981"
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#10B981"
-                />
-                <Text style={styles.compactSliderValue}>{duration}dk</Text>
-              </View>
-            </View>
-
-            <View style={styles.compactSetting}>
-              <Text style={styles.compactSettingLabel}>Anksiyete</Text>
-              <View style={styles.compactSliderContainer}>
-                <Slider
-                  value={targetAnxiety}
-                  onValueChange={setTargetAnxiety}
-                  minimumValue={1}
-                  maximumValue={10}
-                  step={1}
-                  style={styles.compactSlider}
-                  minimumTrackTintColor="#F59E0B"
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#F59E0B"
-                />
-                <Text style={styles.compactSliderValue}>{targetAnxiety}/10</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Start Button */}
-          <Pressable style={styles.startButton} onPress={handleStartExercise}>
-            <MaterialCommunityIcons name="play" size={20} color="#FFFFFF" />
-            <Text style={styles.startButtonText}>🌟 Yolculuğumu Başlat</Text>
-          </Pressable>
-        </View>
-      )}
+      {/* Remove the old separate settings section since it's now inline */}
 
       {/* Gentle Comfort Reminder - Always at bottom */}
       <View style={styles.comfortSection}>
@@ -567,13 +554,6 @@ const styles = StyleSheet.create({
   },
   settingSection: {
     marginBottom: 24,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 12,
-    fontFamily: 'Inter-Medium',
   },
   sliderContainer: {
     alignItems: 'center',
@@ -860,24 +840,26 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  exerciseCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 12,
+  exerciseGridCardSelected: {
+    borderColor: '#10B981',
+    borderWidth: 2,
+    backgroundColor: '#F0FDF4',
+  },
+  exerciseCardContent: {
+    flex: 1,
   },
   exerciseCardTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#111827',
-    flex: 1,
+    marginBottom: 4,
     fontFamily: 'Inter-Medium',
   },
-  exerciseCardMeta: {
+  exerciseCardFooter: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    marginTop: 8,
   },
   exerciseCardDuration: {
     fontSize: 13,
@@ -887,6 +869,62 @@ const styles = StyleSheet.create({
   exerciseCardDifficulty: {
     flexDirection: 'row',
     gap: 2,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    padding: 4,
+  },
+  inlineSettingsSection: {
+    marginTop: 24,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  settingsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+    fontFamily: 'Inter-Medium',
+  },
+  settingItem: {
+    marginBottom: 20,
+  },
+  settingLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  settingSlider: {
+    width: '100%',
+    height: 40,
+  },
+  inlineStartButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  inlineStartButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Medium',
   },
   backToCategoriesButton: {
     flexDirection: 'row',
