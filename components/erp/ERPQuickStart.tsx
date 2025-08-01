@@ -158,39 +158,41 @@ export function ERPQuickStart({
         {getStepSubtitle()}
       </Text>
       
-      {/* Compact Category Grid - Always visible */}
-      <View style={styles.categoryGridSection}>
-        <Text style={styles.sectionTitle}>Kategorini Seç</Text>
-        <View style={styles.categoryGrid}>
-          {getCategoriesByPopularity().map((category) => (
-            <Pressable
-              key={category.id}
-              style={[
-                styles.categoryGridCard,
-                selectedCategory === category.id && { borderColor: category.color, backgroundColor: `${category.color}08` }
-              ]}
-              onPress={() => {
-                setSelectedCategory(category.id);
-                // Don't auto-select exercise, let user choose from grid
-                setSelectedExercise(null);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-            >
-              <View style={[styles.categoryIconContainer, { backgroundColor: `${category.color}15` }]}>
-                <MaterialCommunityIcons 
-                  name={category.icon as any} 
-                  size={24} 
-                  color={category.color} 
-                />
-              </View>
-              <Text style={styles.categoryGridTitle}>{category.title}</Text>
-              <Text style={styles.categoryExerciseCount}>
-                {category.exercises.length} egzersiz
-              </Text>
-            </Pressable>
-          ))}
+      {/* Category Grid - Only show when no category is selected */}
+      {!selectedCategory && (
+        <View style={styles.categoryGridSection}>
+          <Text style={styles.sectionTitle}>Kategorini Seç</Text>
+          <View style={styles.categoryGrid}>
+            {getCategoriesByPopularity().map((category) => (
+              <Pressable
+                key={category.id}
+                style={[
+                  styles.categoryGridCard,
+                  selectedCategory === category.id && { borderColor: category.color, backgroundColor: `${category.color}08` }
+                ]}
+                onPress={() => {
+                  setSelectedCategory(category.id);
+                  // Don't auto-select exercise, let user choose from grid
+                  setSelectedExercise(null);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <View style={[styles.categoryIconContainer, { backgroundColor: `${category.color}15` }]}>
+                  <MaterialCommunityIcons 
+                    name={category.icon as any} 
+                    size={24} 
+                    color={category.color} 
+                  />
+                </View>
+                <Text style={styles.categoryGridTitle}>{category.title}</Text>
+                <Text style={styles.categoryExerciseCount}>
+                  {category.exercises.length} egzersiz
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Exercise Selection - Show when category is selected */}
       {selectedCategory && (
@@ -296,18 +298,18 @@ export function ERPQuickStart({
         </View>
       )}
 
-      {/* Remove the old separate settings section since it's now inline */}
-
       {/* Gentle Comfort Reminder - Always at bottom */}
-      <View style={styles.comfortSection}>
-        <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
-        <Text style={styles.comfortText}>
-          • Sen her zaman kontroldesin{'\n'}
-          • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
-          • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
-          • Hissettiğin her şey doğal ve geçici
-        </Text>
-      </View>
+      {!selectedCategory && (
+        <View style={styles.comfortSection}>
+          <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
+          <Text style={styles.comfortText}>
+            • Sen her zaman kontroldesin{'\n'}
+            • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
+            • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
+            • Hissettiğin her şey doğal ve geçici
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 
