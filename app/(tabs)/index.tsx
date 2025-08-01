@@ -32,7 +32,6 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
