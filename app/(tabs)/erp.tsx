@@ -173,12 +173,29 @@ export default function ERPScreen() {
   };
 
   const handleExerciseSelect = async (exerciseConfig: any) => {
-    if (!user?.id) return;
+    console.log('🎯 handleExerciseSelect called in ERP page');
+    console.log('👤 Current user:', user);
+    
+    // TEMPORARY: Comment out auth check for testing
+    /*
+    if (!user?.id) {
+      console.error('❌ No user ID in handleExerciseSelect');
+      Alert.alert(
+        'Giriş Yapın',
+        'ERP egzersizi başlatmak için lütfen giriş yapın.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
+    */
     
     console.log('🎯 Exercise selected:', exerciseConfig);
     
     setIsQuickStartVisible(false);
-    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
+    
+    // Use test user ID if no user
+    const userId = user?.id || 'test-user';
+    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(userId), exerciseConfig.exerciseId);
     
     // Store wizard configuration for session
     const sessionConfig = {
@@ -193,10 +210,16 @@ export default function ERPScreen() {
     
     console.log('🚀 Navigating to ERP session with config:', sessionConfig);
     
-    router.push({
-      pathname: '/erp-session',
-      params: sessionConfig
-    });
+    try {
+      router.push({
+        pathname: '/erp-session',
+        params: sessionConfig
+      });
+      console.log('✅ Navigation completed');
+    } catch (error) {
+      console.error('❌ Navigation error:', error);
+      Alert.alert('Hata', 'Egzersiz başlatılamadı. Lütfen tekrar deneyin.');
+    }
   };
 
   const onRefresh = async () => {

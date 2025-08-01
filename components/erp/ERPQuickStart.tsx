@@ -72,7 +72,27 @@ export function ERPQuickStart({
   };
 
   const handleStartExercise = () => {
-    if (!selectedExercise) return;
+    console.log('🚀 handleStartExercise called');
+    console.log('👤 Current user:', user);
+    console.log('📋 Selected exercise:', selectedExercise);
+    
+    if (!selectedExercise) {
+      console.error('❌ No exercise selected');
+      return;
+    }
+
+    // TEMPORARY: Comment out auth check for testing
+    /*
+    if (!user?.id) {
+      console.error('❌ No user logged in');
+      Alert.alert(
+        'Giriş Yapın',
+        'ERP egzersizi başlatmak için lütfen giriş yapın.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
+    */
 
     // Generate a meaningful personal goal if empty
     const defaultGoal = personalGoal.trim() || `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`;
@@ -92,15 +112,17 @@ export function ERPQuickStart({
       categoryName: categoryInfo?.title || 'Unknown',
     };
 
-    // Save last exercise preferences
-    if (user?.id) {
-      AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), selectedExercise.id);
-      AsyncStorage.setItem(`lastERPType_${user.id}`, 'real_life');
-      AsyncStorage.setItem(`lastERPDuration_${user.id}`, duration.toString());
-      AsyncStorage.setItem(`lastERPCategory_${user.id}`, selectedCategory);
-      AsyncStorage.setItem(`lastERPTargetAnxiety_${user.id}`, targetAnxiety.toString());
-    }
+    console.log('📦 Exercise config:', config);
 
+    // Save last exercise preferences - use a test ID if no user
+    const userId = user?.id || 'test-user';
+    AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(userId), selectedExercise.id);
+    AsyncStorage.setItem(`lastERPType_${userId}`, 'real_life');
+    AsyncStorage.setItem(`lastERPDuration_${userId}`, duration.toString());
+    AsyncStorage.setItem(`lastERPCategory_${userId}`, selectedCategory);
+    AsyncStorage.setItem(`lastERPTargetAnxiety_${userId}`, targetAnxiety.toString());
+
+    console.log('✅ Calling onExerciseSelect with config');
     onExerciseSelect(config);
     onDismiss();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

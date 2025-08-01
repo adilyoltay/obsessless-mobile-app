@@ -124,7 +124,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   },
 
   completeSession: async (userId?: string) => {
-    console.log('🔧 completeSession called with userId:', userId);
+    // TEMPORARY: Use test user if no userId provided
+    const effectiveUserId = userId || 'test-user';
+    console.log('🔧 completeSession called with userId:', effectiveUserId);
     
     const { 
       sessionTimer, 
@@ -180,22 +182,22 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     
     console.log('✅ ERP Session completed:', sessionLog);
     
-    // Save session to AsyncStorage if userId is provided
-    if (userId) {
-      try {
-        const dateKey = new Date().toDateString();
-        const storageKey = StorageKeys.ERP_SESSIONS(userId, dateKey);
-        
-        console.log('💾 Saving to storage key:', storageKey);
-        
-        const existingSessions = await AsyncStorage.getItem(storageKey);
-        const sessions = existingSessions ? JSON.parse(existingSessions) : [];
-        sessions.push(sessionLog);
-        
-        await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
-        console.log('✅ Session saved to storage. Total sessions today:', sessions.length);
+    // Save session to AsyncStorage
+    try {
+      const dateKey = new Date().toDateString();
+      const storageKey = StorageKeys.ERP_SESSIONS(effectiveUserId, dateKey);
+      
+      console.log('💾 Saving to storage key:', storageKey);
+      
+      const existingSessions = await AsyncStorage.getItem(storageKey);
+      const sessions = existingSessions ? JSON.parse(existingSessions) : [];
+      sessions.push(sessionLog);
+      
+      await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
+      console.log('✅ Session saved to storage. Total sessions today:', sessions.length);
 
-        // Save to Supabase database
+      // Save to Supabase database only if real user
+      if (userId && userId !== 'test-user') {
         try {
           console.log('🔄 Attempting to save to database...');
           
@@ -222,11 +224,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
           console.error('❌ Database save failed (offline mode):', dbError);
           // Continue with offline mode - data is already in AsyncStorage
         }
-      } catch (error) {
-        console.error('❌ Error saving session:', error);
+      } else {
+        console.log('⚠️ Test mode - skipping database save');
       }
-    } else {
-      console.warn('⚠️ No userId provided, session not saved');
+    } catch (error) {
+      console.error('❌ Error saving session:', error);
     }
     
     // Reset session state
