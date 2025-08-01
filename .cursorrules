@@ -1,67 +1,50 @@
-## 📜 **ObsessLess Mobil Uygulaması - Anayasa 2.0 (Nihai Sürüm)**
+# ObsessLess Mobil Uygulaması - Cursor AI Geliştirme Kuralları
+# Bu dosya, projenin "Anayasası"dır ve tüm AI etkileşimleri için temel referans kaynağıdır.
+# Vizyon: Kullanıcının OKB ile mücadelesinde "Dijital Sığınağı" olan, empatik, güvenli ve etkili bir uygulama yaratmak.
 
-### **Proje Vizyonu: Dijital Sığınak**
-ObsessLess, bir görev listesi veya bir sayaç değildir. Kullanıcının OKB'nin getirdiği fırtınalı anlarda sığındığı, onu yargılamadan dinleyen, kanıta dayalı yöntemlerle güçlendiren ve kontrolü tekrar kendi eline almasına yardımcı olan **dijital sığınağıdır.** Geliştirilecek her bir özellik, yazılacak her bir kod satırı ve seçilecek her bir renk, bu vizyona hizmet etmelidir.
+rules:
+  # 1. Genel Felsefe ve Dil
+  # Bu kurallar, AI'nın projenin ruhunu anlamasını sağlar.
+  - rule: "Projenin ana dili Türkçe'dir. Tüm kullanıcıya dönük metinler (mikro-kopya), yorumlar ve değişken adları öncelikli olarak Türkçe olmalıdır. Sadece evrensel teknik terimler (props, state, function, async vb.) İngilizce kalacaktır. Dil, her zaman empatik, yargılamayan ve cesaretlendirici olmalıdır. Referans: anayasa-v2.md"
+  - rule: "Master Prompt'un 3 temel ilkesi her zaman en yüksek önceliktir: 1) Sakinlik Her Şeyden Önce Gelir (minimalist UI, yumuşak animasyonlar, parlak olmayan renkler), 2) Güç Kullanıcıdadır (kişiselleştirme, şeffaflık), 3) Zahmetsizlik Esastır (minimum tıklama, sezgisel akışlar)."
+  - rule: "Tüm geliştirme, 'Privacy-First' (Gizlilik Öncelikli) prensibine dayanmalıdır. Hassas veriler asla düz metin olarak saklanmamalı, mümkün olan her yerde analizler cihaz üzerinde (on-device) yapılmalıdır. Kullanıcı izni her şeyden önce gelir."
 
-### **Tasarım Felsefesi (Değişmez İlkeler)**
-1.  **Sakinlik Her Şeyden Önce Gelir:** Arayüz, kullanıcıyı asla acele ettirmeyecek, bunaltmayacak veya kaygısını artırmayacak. Minimalizm, cömert beyaz alanlar ve yumuşak etkileşimler standarttır.
-2.  **Güç Kullanıcıdadır:** Uygulama, kullanıcıya ne yapacağını söyleyen bir patron değil, hedeflerine ulaşmasında ona seçenekler sunan bir yol arkadaşıdır. Kişiselleştirme ve şeffaflık esastır.
-3.  **Zahmetsizlik Esastır:** En sık yapılan işlemler (özellikle kaygı anında yapılanlar) minimum bilişsel yük ile, saniyeler içinde tamamlanabilmelidir.
+  # 2. Teknik Yığın (Tech Stack) ve Mimari
+  # Bu kurallar, AI'nın doğru teknolojileri ve desenleri kullanmasını garanti eder.
+  - rule: "Uygulama, Expo SDK 51 ve React Native 0.74+ kullanılarak TypeScript ile geliştirilmektedir. Tüm kodlar 'strict' modda ve TypeScript'in en iyi pratiklerine uygun olmalıdır."
+  - rule: "Backend işlemleri için Supabase kullanılmaktadır. Bu, PostgreSQL veritabanı, Native Auth, Row Level Security (RLS) ve Edge Functions içerir. Firebase veya başka bir backend servisi önerme."
+  - rule: "Navigasyon için Expo Router (dosya tabanlı yönlendirme) kullanılmaktadır. `app/` dizini altındaki dosya yapısına uygun olarak yeni ekranlar ve layout'lar oluşturulmalıdır."
+  - rule: "Global state yönetimi için Zustand, asenkron state ve cache yönetimi için TanStack Query (React Query) kullanılacaktır. Redux veya başka bir state yönetim kütüphanesi kullanma."
+  - rule: "UI bileşenleri, `react-native-paper` gibi harici kütüphaneler yerine, projenin kendi tasarım sistemine uygun özel bileşenler (`custom components`) olarak oluşturulmalıdır. Stil için `StyleSheet.create` kullanılacaktır."
+  - rule: "Offline-first yaklaşımı benimsenecektir. Kritik veriler (yeni kayıtlar, oturumlar) önce AsyncStorage'a yazılmalı, ardından Supabase ile senkronize edilmelidir."
 
----
+  # 3. Kod Kalitesi ve Standartlar
+  # Bu kurallar, kodun tutarlı, okunabilir ve sürdürülebilir olmasını sağlar.
+  - rule: "Her yeni bileşen ve fonksiyon için JSDoc formatında açıklayıcı yorumlar eklenmelidir. Yorumlar, kodun ne yaptığını değil, neden yaptığını açıklamalıdır."
+  - rule: "Projenin dosya yapısına sadık kal. Yeni bileşenler `src/components`, ekranlar `app/`, servisler `src/services`, hook'lar `src/hooks`, store'lar `src/store` dizinlerine oluşturulmalıdır."
+  - rule: "Tüm UI bileşenleri erişilebilirlik (accessibility) göz önünde bulundurularak tasarlanmalıdır. `accessibilityLabel`, `accessibilityRole` gibi proplar mutlaka kullanılmalıdır."
+  - rule: "Tüm asenkron işlemler ve API çağrıları için robust error handling (hata yönetimi) ve loading states (yüklenme durumları) eklenmelidir. Kullanıcı asla belirsizlik içinde bırakılmamalıdır."
+  - rule: "Animasyonlar için `react-native-reanimated`, dokunsal geri bildirim için `expo-haptics` kullanılacaktır. Animasyonlar 'Sakinlik' ilkesine uygun olarak yumuşak ve akıcı olmalıdır."
 
-## 🏆 **Uygulamanın 4 Temel Yeteneği (Projenin Kalbi ve Ruhu)**
+commands:
+  # 1. Yeni Bileşen Oluşturma Komutları
+  - command: new-component
+    prompt: "Referans belgelerdeki tasarım ilkelerine ve mevcut kod yapısına uygun olarak, `src/components/` altında `{1}` adlı yeni bir React Native bileşeni oluştur. Dosya yapısı şu şekilde olsun: `src/components/{2}/{1}.tsx`. Bileşen, TypeScript ile yazılmış fonksiyonel bir bileşen olmalı, props arayüzü tanımlanmalı ve stiller için `StyleSheet.create` kullanmalıdır. Temel bir JSDoc açıklaması ekle."
+  - command: new-screen
+    prompt: "Expo Router yapısına uygun olarak, `app/` dizini altında `{1}` adlı yeni bir ekran oluştur. Bu ekran, temel bir `View` ve `Text` içermeli ve `expo-router`'dan `Stack` veya `Tabs` kullanarak başlık gibi temel seçenekleri ayarlamalıdır. Ekranın bir `ScreenWrapper` bileşeni içinde olduğundan emin ol."
 
-Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde hayata geçirilmesine bağlıdır.
+  # 2. State Yönetimi Komutları
+  - command: new-store
+    prompt: "Zustand ve TypeScript kullanarak `src/store/` dizininde `{1}Store.ts` adında yeni bir state management store oluştur. Store, `{2}` adında bir state arayüzü tanımlamalı ve `{3}` gibi temel eylemleri (actions) içermelidir. Gerekirse, `persist` middleware'i ile AsyncStorage entegrasyonunu da ekle."
 
-### **PİLLAR 1: Güvenli Tanışma ve Akıllı Kişiselleştirme (Onboarding)**
-*Bu, uygulamanın beynidir. Kullanıcıyı "anlar" ve deneyimi ona özel hale getirir.*
+  # 3. Veri ve API Komutları
+  - command: new-query-hook
+    prompt: "TanStack Query (React Query) kullanarak `src/hooks/` dizininde `{1}` için yeni bir custom hook dosyası oluştur. Bu dosya, `{2}` adında bir `useQuery` hook'u (veri çekmek için) ve `{3}` adında bir `useMutation` hook'u (veri yazmak/güncellemek için) içermelidir. Mutation hook'u, başarı durumunda `queryClient.invalidateQueries` kullanarak ilgili query'leri geçersiz kılmalıdır."
+  - command: new-edge-function
+    prompt: "Supabase Edge Function oluşturmak için bir iskelet kod sağla. Bu fonksiyon, Deno ve TypeScript kullanmalı, `supabase-js` istemcisini import etmeli, CORS header'larını doğru bir şekilde ayarlamalı ve temel bir request/response yapısı içermelidir. Fonksiyonun adı `{1}` olsun ve `{2}` gibi bir amaç için kullanılsın."
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, uygulamayı ilk kez açtığında, kendisine özel zorlukları anlayan ve yolculuğunu buna göre şekillendirecek bir başlangıç yapmak istiyor."
-*   **Akış (≤ 90 saniye):**
-    1.  **Karşılama:** Sıcak bir mesajla güven inşa et.
-    2.  **Semptom Seçimi:** İkonlu "Chip"ler ile kolay seçim.
-    3.  **Y-BOCS Lite Değerlendirmesi:** Her ekranda tek soru ve "Slider" ile yargılayıcı olmayan bir değerlendirme.
-    4.  **Hedef Belirleme:** Kişiselleştirilebilir günlük hedef.
-    5.  **Oyunlaştırma Tanıtımı:** Motivasyon sistemini kısaca tanıt.
-
-### **PİLLAR 2: Yargısız & Anlık Kompulsiyon Kaydı**
-*Bu, uygulamanın refleksidir. Kullanıcının en çok ihtiyaç duyduğu anda, en hızlı şekilde yanında olur.*
-
-*   **Kullanıcı Hikayesi:** "Kullanıcı, dışarıdayken aniden gelen bir kompulsiyonla mücadele ediyor. Telefonunu çıkarıp dikkat çekmeden, saniyeler içinde bu anı kaydetmek istiyor."
-*   **Akış (≤ 15 saniye):**
-    1.  **FAB Butonu (`➕`):** Tek dokunuşla erişim.
-    2.  **BottomSheet:** Hızlı kayıt formu açılır.
-    3.  **Minimal Form:** Sadece en temel kontroller (Tip, Direnç) bulunur.
-    4.  **Anlık Geri Bildirim:** Kayıt sonrası haptic ve toast bildirimi. Detay ekleme opsiyoneldir.
-
-### **PİLLAR 3: Kontrollü & Güvenli Yüzleşme (ERP Oturum Motoru)**
-*Bu, uygulamanın kalbidir. Gerçek terapötik değişimin yaşandığı yerdir.*
-
-*   **Kullanıcı Hikayesi:** "Kullanıcı, bir ERP egzersizi yapmaya karar verdi. Korkuyor ama bu adımı atmak istiyor. Uygulamanın ona bu süreçte rehberlik etmesini, güvende hissettirmesini ve anksiyetesini yönetmesine yardımcı olmasını bekliyor."
-*   **Akış:**
-    1.  **Sakin Oturum Ekranı:** Minimalist arayüz. Dairesel zamanlayıcı, anksiyete slider'ı ve destekleyici metinler.
-    2.  **İnteraktif Takip:** Periyodik hatırlatmalarla anlık anksiyete kaydı.
-    3.  **Güvenli Çıkış:** Her an erişilebilir "Duraklat" butonu.
-    4.  **Başarı Ekranı:** Oturum tamamlandığında, anksiyete grafiği ve kazanımları gösteren motive edici bir özet.
-
-### **PİLLAR 4: Anlamlı Oyunlaştırma ve Motivasyon**
-*Bu, uygulamanın ruhudur. Kullanıcının yolculuğunu kutlar ve içsel motivasyonunu besler.*
-
-*   **Kullanıcı Hikayesi:** "Kullanıcı, ilerlemesini somut olarak görmek ve küçük zaferlerini kutlayarak motive olmak istiyor. Ancak sürecin ciddiyetinin kaybolmasından endişe ediyor."
-*   **Felsefe: "Terapötik Kilometre Taşları"** - Her ödül, kullanıcının katettiği gerçek terapötik mesafenin bir sembolüdür.
-*   **Özellikler:**
-    1.  **Kararlılık Zinciri (Streak):** Günlük hedeflere ulaşıldığında artan ve seviye atlayan (Fidan 🌱 → Usta 🧘) bir seri sayacı.
-    2.  **Terapötik Rozetler (Achievements):** "İlk Adım", "Habitüasyon Gözlemcisi" gibi klinik olarak anlamlı kilometre taşlarına ulaşıldığında kazanılan, açıklamalı rozetler.
-    3.  **Küçük Zaferler (Mikro-Ödüller):** Her olumlu eylem sonrası verilen anlık, küçük puanlar ve tatmin edici geri bildirimler.
-
----
-
-### **⚡ Master Prompt (Tasarım ve Geliştirme Ekipleri İçin)**
-
-> **Senaryo:** Sen, ödüllü bir dijital sağlık uygulamasının baş tasarımcısı ve baş geliştiricisisin. Görevin, OKB ile yaşayan bireyler için bir **"dijital sığınak"** yaratmak.
->
-> **Görev:** Yukarıdaki **"ObsessLess Mobil Uygulaması - Anayasa 2.0 (Nihai Sürüm)"** belgesini ve buna bağlı **`obsessless-flow.md`** ile **`obsessless-ui.md`** dokümanlarını tek ve mutlak gerçek kaynak (Single Source of Truth) olarak kullanarak;
->
-> 1.  **Tasarla (UI/UX):** Belirtilen **4 Temel Yeteneğin (Onboarding, Kompulsiyon Kaydı, ERP Oturumu, Oyunlaştırma)** her biri için, felsefeye ve teknik detaylara %100 sadık kalarak, yüksek kaliteli (hi-fi), tıklanabilir bir prototip oluştur. Görsel kimlik, renkler, tipografi ve duyusal geri bildirimler belgelerde tanımlandığı gibi olmalıdır.
-> 2.  **Geliştir (Kod):** Belirtilen teknolojileri (React Native/Expo, Zustand, React Query) kullanarak bu 4 temel yeteneğin fonksiyonel iskeletini kodla. Bileşen yapısı, state yönetimi mantığı, veri modelleri ve API etkileşimleri belgelerdeki direktiflere tam olarak uymalıdır. Öncelik, sürtünmesiz, performanslı ve güvenilir bir kullanıcı deneyimi sunmaktır.
+  # 4. AI ve Gelişmiş Özellikler Komutları
+  - command: ai-prompt-template
+    prompt: "Projenin referans belgesindeki 'Gelişmiş Prompt Şablonları' bölümünü temel alarak, `{1}` senaryosu için bir LLM prompt şablonu oluştur. Prompt, `{2}` gibi bir amaca hizmet etmeli ve projenin empatik, terapötik ve güvenli dil ilkelerine tam olarak uymalıdır."
+  - command: new-telemetry-event
+    prompt: "`src/telemetry/aiTelemetry.ts` dosyasındaki `trackAIInteraction` fonksiyonunu kullanarak, `{1}` adlı yeni bir telemetri olayı için bir çağrı oluştur. Bu olay, `{2}` gibi meta verileri içermeli ve gizlilik ilkelerine uygun olmalıdır."

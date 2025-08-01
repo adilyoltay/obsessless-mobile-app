@@ -9,12 +9,24 @@ module.exports = function (api) {
         {
           root: ['./'],
           alias: {
-            '@': './',
-          },
-        },
+            '@': './src',
+            '@/ai': './src/ai',
+            '@/telemetry': './src/telemetry',
+            '@/features': './src/features',
+            '@/components': './components',
+            '@/constants': './constants',
+            '@/hooks': './hooks',
+            '@/store': './store',
+            '@/types': './types',
+            '@/utils': './utils',
+            '@/services': './services',
+            '@/contexts': './contexts',
+            '@/lib': './lib',
+            '@/localization': './localization'
+          }
+        }
       ],
-      // Reanimated plugin sadece native platformlarda
-      ...(process.env.EXPO_OS !== 'web' ? ['react-native-reanimated/plugin'] : []),
-    ],
+      'react-native-reanimated/plugin'
+    ]
   };
 };
