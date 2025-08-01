@@ -186,12 +186,25 @@ export default function ERPSessionScreen({
   };
 
   const handleComplete = async () => {
-    // TEMPORARY: Use test user if no user logged in
-    const userId = user?.id || 'test-user';
-    console.log('🎯 handleComplete called for user:', userId);
+    if (!user?.id) {
+      console.error('❌ No user logged in');
+      Alert.alert(
+        'Hata',
+        'Oturum tamamlanamadı. Lütfen giriş yapın.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
     
-    const sessionLog = await completeSession(userId);
+    console.log('🎯 handleComplete called for user:', user.id);
+    
+    const sessionLog = await completeSession(user.id);
     console.log('📊 Session log received:', sessionLog);
+    
+    if (!sessionLog) {
+      console.error('❌ Session log is null');
+      return;
+    }
     
     // Add compulsion urges to session log
     const enhancedSessionLog = {
@@ -207,41 +220,37 @@ export default function ERPSessionScreen({
     
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    // Gamification integration - skip if test user
-    if (user?.id) {
-      const { awardMicroReward, checkAchievements, updateStreak } = useGamificationStore.getState();
-      
-      // Award micro-reward for ERP completion
-      await awardMicroReward('erp_completed');
-      
-      // Calculate anxiety reduction percentage
-      const anxietyReduction = ((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety) / (anxietyDataPoints[0]?.level || initialAnxiety) * 100;
-      
-      // Extra reward for significant anxiety reduction
-      if (anxietyReduction >= 30) {
-        await awardMicroReward('anxiety_reduced');
-      }
-      
-      // Bonus for successful urge resistance
-      const resistedUrges = compulsionUrges.filter(urge => urge.resisted).length;
-      if (resistedUrges > 0) {
-        await awardMicroReward('erp_completed');
-      }
-      
-      // Check for achievements
-      await checkAchievements('erp', {
-        anxietyReduction,
-        duration: elapsedTime,
-        urgesResisted: resistedUrges,
-      });
-      
-      // Update streak
-      await updateStreak();
-      
-      console.log('🏆 Gamification updates completed');
-    } else {
-      console.log('⚠️ Test mode - skipping gamification');
+    // Gamification integration
+    const { awardMicroReward, checkAchievements, updateStreak } = useGamificationStore.getState();
+    
+    // Award micro-reward for ERP completion
+    await awardMicroReward('erp_completed');
+    
+    // Calculate anxiety reduction percentage
+    const anxietyReduction = ((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety) / (anxietyDataPoints[0]?.level || initialAnxiety) * 100;
+    
+    // Extra reward for significant anxiety reduction
+    if (anxietyReduction >= 30) {
+      await awardMicroReward('anxiety_reduced');
     }
+    
+    // Bonus for successful urge resistance
+    const resistedUrges = compulsionUrges.filter(urge => urge.resisted).length;
+    if (resistedUrges > 0) {
+      await awardMicroReward('erp_completed');
+    }
+    
+    // Check for achievements
+    await checkAchievements('erp', {
+      anxietyReduction,
+      duration: elapsedTime,
+      urgesResisted: resistedUrges,
+    });
+    
+    // Update streak
+    await updateStreak();
+    
+    console.log('🏆 Gamification updates completed');
     
     if (onComplete) {
       setTimeout(() => onComplete(enhancedSessionLog), 3000);

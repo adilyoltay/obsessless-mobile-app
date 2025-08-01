@@ -60,11 +60,49 @@ export default function ERPScreen() {
     streak: 0,
   });
 
+  // Migrate test data to user data if needed (one-time migration)
+  const migrateTestData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const testUserId = 'test-user';
+      const dateKey = new Date().toDateString();
+      const testStorageKey = StorageKeys.ERP_SESSIONS(testUserId, dateKey);
+      const userStorageKey = StorageKeys.ERP_SESSIONS(user.id, dateKey);
+      
+      // Check if test data exists
+      const testData = await AsyncStorage.getItem(testStorageKey);
+      if (testData) {
+        console.log('🔄 Migrating test data to user account...');
+        
+        // Get existing user data
+        const userData = await AsyncStorage.getItem(userStorageKey);
+        const userSessions = userData ? JSON.parse(userData) : [];
+        const testSessions = JSON.parse(testData);
+        
+        // Merge sessions
+        const mergedSessions = [...userSessions, ...testSessions];
+        
+        // Save to user storage
+        await AsyncStorage.setItem(userStorageKey, JSON.stringify(mergedSessions));
+        
+        // Remove test data
+        await AsyncStorage.removeItem(testStorageKey);
+        
+        console.log('✅ Test data migrated successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error migrating test data:', error);
+    }
+  };
+
   useEffect(() => {
     if (user?.id) {
-      loadAllStats();
+      migrateTestData().then(() => {
+        loadAllStats();
+      });
     }
-  }, [user?.id]);
+  }, [user]);
 
   // Refresh stats when screen is focused (after returning from ERP session)
   useFocusEffect(
@@ -176,8 +214,6 @@ export default function ERPScreen() {
     console.log('🎯 handleExerciseSelect called in ERP page');
     console.log('👤 Current user:', user);
     
-    // TEMPORARY: Comment out auth check for testing
-    /*
     if (!user?.id) {
       console.error('❌ No user ID in handleExerciseSelect');
       Alert.alert(
@@ -187,15 +223,11 @@ export default function ERPScreen() {
       );
       return;
     }
-    */
     
     console.log('🎯 Exercise selected:', exerciseConfig);
     
     setIsQuickStartVisible(false);
-    
-    // Use test user ID if no user
-    const userId = user?.id || 'test-user';
-    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(userId), exerciseConfig.exerciseId);
+    await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
     
     // Store wizard configuration for session
     const sessionConfig = {

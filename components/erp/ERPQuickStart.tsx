@@ -81,8 +81,6 @@ export function ERPQuickStart({
       return;
     }
 
-    // TEMPORARY: Comment out auth check for testing
-    /*
     if (!user?.id) {
       console.error('❌ No user logged in');
       Alert.alert(
@@ -92,7 +90,6 @@ export function ERPQuickStart({
       );
       return;
     }
-    */
 
     // Generate a meaningful personal goal if empty
     const defaultGoal = personalGoal.trim() || `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`;
@@ -114,13 +111,12 @@ export function ERPQuickStart({
 
     console.log('📦 Exercise config:', config);
 
-    // Save last exercise preferences - use a test ID if no user
-    const userId = user?.id || 'test-user';
-    AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(userId), selectedExercise.id);
-    AsyncStorage.setItem(`lastERPType_${userId}`, 'real_life');
-    AsyncStorage.setItem(`lastERPDuration_${userId}`, duration.toString());
-    AsyncStorage.setItem(`lastERPCategory_${userId}`, selectedCategory);
-    AsyncStorage.setItem(`lastERPTargetAnxiety_${userId}`, targetAnxiety.toString());
+    // Save last exercise preferences
+    AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), selectedExercise.id);
+    AsyncStorage.setItem(`lastERPType_${user.id}`, 'real_life');
+    AsyncStorage.setItem(`lastERPDuration_${user.id}`, duration.toString());
+    AsyncStorage.setItem(`lastERPCategory_${user.id}`, selectedCategory);
+    AsyncStorage.setItem(`lastERPTargetAnxiety_${user.id}`, targetAnxiety.toString());
 
     console.log('✅ Calling onExerciseSelect with config');
     onExerciseSelect(config);

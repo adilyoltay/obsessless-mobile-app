@@ -124,9 +124,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   },
 
   completeSession: async (userId?: string) => {
-    // TEMPORARY: Use test user if no userId provided
-    const effectiveUserId = userId || 'test-user';
-    console.log('🔧 completeSession called with userId:', effectiveUserId);
+    console.log('🔧 completeSession called with userId:', userId);
     
     const { 
       sessionTimer, 
@@ -143,6 +141,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     // Validate required data
     if (!exerciseId || !exerciseName) {
       console.error('❌ Missing required session data:', { exerciseId, exerciseName });
+      return null;
+    }
+    
+    if (!userId) {
+      console.error('❌ No userId provided, cannot save session');
       return null;
     }
     
@@ -185,7 +188,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     // Save session to AsyncStorage
     try {
       const dateKey = new Date().toDateString();
-      const storageKey = StorageKeys.ERP_SESSIONS(effectiveUserId, dateKey);
+      const storageKey = StorageKeys.ERP_SESSIONS(userId, dateKey);
       
       console.log('💾 Saving to storage key:', storageKey);
       
@@ -196,36 +199,32 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
       console.log('✅ Session saved to storage. Total sessions today:', sessions.length);
 
-      // Save to Supabase database only if real user
-      if (userId && userId !== 'test-user') {
-        try {
-          console.log('🔄 Attempting to save to database...');
-          
-          // Ensure all required fields are present
-          const dbSession = {
-            user_id: userId,
-            exercise_id: exerciseId || 'unknown',
-            exercise_name: exerciseName || 'Unknown Exercise',
-            category: category || 'general',
-            duration_seconds: elapsedTime,
-            anxiety_initial: initialAnxiety,
-            anxiety_final: finalAnxiety,
-            anxiety_readings: anxietyDataPoints,
-            completed: true,
-            // Add timestamp explicitly
-            timestamp: new Date().toISOString(),
-          };
-          
-          console.log('📤 Database payload:', dbSession);
-          
-          await supabaseService.saveERPSession(dbSession);
-          console.log('✅ ERP session saved to database');
-        } catch (dbError) {
-          console.error('❌ Database save failed (offline mode):', dbError);
-          // Continue with offline mode - data is already in AsyncStorage
-        }
-      } else {
-        console.log('⚠️ Test mode - skipping database save');
+      // Save to Supabase database
+      try {
+        console.log('🔄 Attempting to save to database...');
+        
+        // Ensure all required fields are present
+        const dbSession = {
+          user_id: userId,
+          exercise_id: exerciseId || 'unknown',
+          exercise_name: exerciseName || 'Unknown Exercise',
+          category: category || 'general',
+          duration_seconds: elapsedTime,
+          anxiety_initial: initialAnxiety,
+          anxiety_final: finalAnxiety,
+          anxiety_readings: anxietyDataPoints,
+          completed: true,
+          // Add timestamp explicitly
+          timestamp: new Date().toISOString(),
+        };
+        
+        console.log('📤 Database payload:', dbSession);
+        
+        await supabaseService.saveERPSession(dbSession);
+        console.log('✅ ERP session saved to database');
+      } catch (dbError) {
+        console.error('❌ Database save failed (offline mode):', dbError);
+        // Continue with offline mode - data is already in AsyncStorage
       }
     } catch (error) {
       console.error('❌ Error saving session:', error);
