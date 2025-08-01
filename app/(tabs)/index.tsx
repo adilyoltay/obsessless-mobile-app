@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Custom UI Components
 import { Toast } from '@/components/ui/Toast';
@@ -31,6 +32,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
@@ -85,6 +87,16 @@ export default function TodayScreen() {
     ]).start();
   }, [user?.id]);
 
+  // Refresh stats when screen is focused (after returning from ERP session or other screens)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        console.log('🔄 Today screen focused, refreshing stats...');
+        onRefresh();
+      }
+    }, [user?.id])
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     
@@ -108,10 +120,22 @@ export default function TodayScreen() {
       
       // Load today's ERP sessions
       const erpKey = StorageKeys.ERP_SESSIONS(user.id, today);
+      console.log('🔑 Today page loading ERP with key:', erpKey);
+      
       const erpData = await AsyncStorage.getItem(erpKey);
       const todayErpSessions = erpData ? JSON.parse(erpData) : [];
       
+      console.log('📊 Today page ERP sessions:', todayErpSessions);
+      console.log('📊 Today page ERP count:', todayErpSessions.length);
+      
       setTodayStats({
+        compulsions: todayCompulsions.length,
+        erpSessions: todayErpSessions.length,
+        healingPoints: profile.healingPointsToday,
+        resistanceWins
+      });
+      
+      console.log('📊 Today stats updated:', {
         compulsions: todayCompulsions.length,
         erpSessions: todayErpSessions.length,
         healingPoints: profile.healingPointsToday,

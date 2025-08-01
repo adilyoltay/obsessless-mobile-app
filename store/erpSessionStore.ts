@@ -124,6 +124,8 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   },
 
   completeSession: async (userId?: string) => {
+    console.log('🔧 completeSession called with userId:', userId);
+    
     const { 
       sessionTimer, 
       anxietyReminder, 
@@ -135,6 +137,16 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       categoryName,
       exerciseType,
     } = get();
+    
+    console.log('📋 Session data:', {
+      elapsedTime,
+      exerciseId,
+      exerciseName,
+      category,
+      categoryName,
+      exerciseType,
+      anxietyDataPointsCount: anxietyDataPoints.length
+    });
     
     if (sessionTimer) clearInterval(sessionTimer);
     if (anxietyReminder) clearInterval(anxietyReminder);
@@ -168,16 +180,20 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
         const dateKey = new Date().toDateString();
         const storageKey = StorageKeys.ERP_SESSIONS(userId, dateKey);
         
+        console.log('💾 Saving to storage key:', storageKey);
+        
         const existingSessions = await AsyncStorage.getItem(storageKey);
         const sessions = existingSessions ? JSON.parse(existingSessions) : [];
         sessions.push(sessionLog);
         
         await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
-        console.log('✅ Session saved to storage');
+        console.log('✅ Session saved to storage. Total sessions today:', sessions.length);
 
         // Save to Supabase database
         try {
-          await supabaseService.saveERPSession({
+          console.log('🔄 Attempting to save to database...');
+          
+          const dbSession = {
             user_id: userId,
             exercise_id: exerciseId || 'unknown',
             exercise_name: exerciseName || 'Unknown Exercise',
@@ -187,7 +203,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
             anxiety_final: finalAnxiety,
             anxiety_readings: anxietyDataPoints,
             completed: true,
-          });
+          };
+          
+          console.log('📤 Database payload:', dbSession);
+          
+          await supabaseService.saveERPSession(dbSession);
           console.log('✅ ERP session saved to database');
         } catch (dbError) {
           console.error('❌ Database save failed (offline mode):', dbError);
@@ -196,16 +216,18 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       } catch (error) {
         console.error('❌ Error saving session:', error);
       }
+    } else {
+      console.warn('⚠️ No userId provided, session not saved');
     }
     
-    // Reset state
+    // Reset session state
     set({
       isActive: false,
-      exerciseId: null,
-      exerciseName: null,
-      category: null,
-      categoryName: null,
-      exerciseType: null,
+      exerciseId: '',
+      exerciseName: '',
+      category: '',
+      categoryName: '',
+      exerciseType: '',
       targetDuration: 0,
       elapsedTime: 0,
       currentAnxiety: 5,
@@ -213,6 +235,8 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       sessionTimer: null,
       anxietyReminder: null,
     });
+    
+    console.log('🔄 Session state reset');
     
     return sessionLog;
   },

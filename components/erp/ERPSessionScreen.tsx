@@ -164,7 +164,10 @@ export default function ERPSessionScreen({
   };
 
   const handleComplete = async () => {
+    console.log('🎯 handleComplete called for user:', user?.id);
+    
     const sessionLog = await completeSession(user?.id);
+    console.log('📊 Session log received:', sessionLog);
     
     // Add compulsion urges to session log
     const enhancedSessionLog = {
@@ -173,6 +176,8 @@ export default function ERPSessionScreen({
       exerciseType: exerciseType,
       personalGoal: personalGoal,
     };
+    
+    console.log('✨ Enhanced session log:', enhancedSessionLog);
     
     setShowCompletion(true);
     
@@ -207,6 +212,8 @@ export default function ERPSessionScreen({
     
     // Update streak
     await updateStreak();
+    
+    console.log('🏆 Gamification updates completed');
     
     if (onComplete) {
       setTimeout(() => onComplete(enhancedSessionLog), 3000);

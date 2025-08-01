@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Custom UI Components
 import FAB from '@/components/ui/FAB';
@@ -65,6 +66,16 @@ export default function ERPScreen() {
     }
   }, [user?.id]);
 
+  // Refresh stats when screen is focused (after returning from ERP session)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        console.log('🔄 ERP screen focused, refreshing stats...');
+        loadAllStats();
+      }
+    }, [user?.id])
+  );
+
   useEffect(() => {
     setDisplayLimit(5);
   }, [selectedTimeRange]);
@@ -72,14 +83,24 @@ export default function ERPScreen() {
   const loadAllStats = async () => {
     if (!user?.id) return;
     
+    console.log('📈 Loading ERP stats for user:', user.id);
+    
     try {
       const today = new Date();
       const todayKey = today.toDateString();
       
+      console.log('📅 Today key:', todayKey);
+      
       // Load today's sessions with user ID
       const todayStorageKey = StorageKeys.ERP_SESSIONS(user.id, todayKey);
+      console.log('🔑 Today storage key:', todayStorageKey);
+      
       const todayData = await AsyncStorage.getItem(todayStorageKey);
       const todaySessionsData = todayData ? JSON.parse(todayData) : [];
+      
+      console.log('📊 Today sessions data:', todaySessionsData);
+      console.log('📊 Today sessions count:', todaySessionsData.length);
+      
       setTodaySessions(todaySessionsData);
       
       // Calculate stats
@@ -127,27 +148,34 @@ export default function ERPScreen() {
         }
       }
       
-      const avgAnxietyReduction = sessionCount > 0 
-        ? Math.round((totalAnxietyReduction / sessionCount) * 10) / 10 
+      const avgAnxietyReduction = sessionCount > 0
+        ? Math.round((totalAnxietyReduction / sessionCount) * 10) / 10
         : 0;
       
-      setStats({
+      const newStats = {
         todayCompleted: todaySessionsData.length,
         weekCompleted,
         monthCompleted,
-        todayTime: todaySessionsData.reduce((sum: number, s: ERPSession) => sum + s.durationSeconds, 0),
+        todayTime: todaySessionsData.reduce((total: number, session: ERPSession) => total + session.durationSeconds, 0),
         weekTime,
         monthTime,
         avgAnxietyReduction,
         streak: consecutiveDays,
-      });
+      };
+      
+      console.log('📊 Calculated stats:', newStats);
+      
+      setStats(newStats);
+      
     } catch (error) {
-      console.error('Error loading ERP stats:', error);
+      console.error('❌ Error loading ERP stats:', error);
     }
   };
 
   const handleExerciseSelect = async (exerciseConfig: any) => {
     if (!user?.id) return;
+    
+    console.log('🎯 Exercise selected:', exerciseConfig);
     
     setIsQuickStartVisible(false);
     await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
@@ -162,6 +190,8 @@ export default function ERPScreen() {
       category: exerciseConfig.category,
       categoryName: exerciseConfig.categoryName,
     };
+    
+    console.log('🚀 Navigating to ERP session with config:', sessionConfig);
     
     router.push({
       pathname: '/erp-session',
