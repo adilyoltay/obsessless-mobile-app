@@ -23,8 +23,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 // Import debug helpers in development
 if (__DEV__) {
   require('@/utils/debugHelper');
-  require('@/utils/testRunner');
-  require('@/utils/testValidator');
+  require('@/utils/erpDebugHelper');
 }
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.

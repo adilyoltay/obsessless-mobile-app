@@ -138,6 +138,12 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       exerciseType,
     } = get();
     
+    // Validate required data
+    if (!exerciseId || !exerciseName) {
+      console.error('❌ Missing required session data:', { exerciseId, exerciseName });
+      return null;
+    }
+    
     console.log('📋 Session data:', {
       elapsedTime,
       exerciseId,
@@ -159,11 +165,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     
     const sessionLog = {
       id: Date.now().toString(),
-      exerciseId,
-      exerciseName,
-      category,
-      categoryName,
-      exerciseType,
+      exerciseId: exerciseId || 'unknown',
+      exerciseName: exerciseName || 'Unknown Exercise',
+      category: category || 'general',
+      categoryName: categoryName || 'Genel',
+      exerciseType: exerciseType || 'real_life',
       durationSeconds: elapsedTime,
       anxietyDataPoints,
       anxietyInitial: initialAnxiety,
@@ -193,6 +199,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
         try {
           console.log('🔄 Attempting to save to database...');
           
+          // Ensure all required fields are present
           const dbSession = {
             user_id: userId,
             exercise_id: exerciseId || 'unknown',
@@ -203,6 +210,8 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
             anxiety_final: finalAnxiety,
             anxiety_readings: anxietyDataPoints,
             completed: true,
+            // Add timestamp explicitly
+            timestamp: new Date().toISOString(),
           };
           
           console.log('📤 Database payload:', dbSession);

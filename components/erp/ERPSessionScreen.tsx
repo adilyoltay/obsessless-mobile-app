@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import LottieView from 'lottie-react-native';
+import { router } from 'expo-router';
 
 // UI Components
 import { Slider } from '@/components/ui/Slider';
@@ -113,6 +114,27 @@ export default function ERPSessionScreen({
   const urgeButtonPulse = useSharedValue(1);
 
   useEffect(() => {
+    // Validate props before starting session
+    if (!exerciseId || !exerciseName) {
+      console.error('❌ Missing required props for ERP session:', { exerciseId, exerciseName });
+      Alert.alert(
+        'Hata',
+        'Egzersiz bilgileri eksik. Lütfen geri dönüp tekrar deneyin.',
+        [{ text: 'Tamam', onPress: () => router.back() }]
+      );
+      return;
+    }
+    
+    console.log('🎯 Starting ERP session with:', {
+      exerciseId,
+      exerciseName,
+      category,
+      categoryName,
+      exerciseType,
+      targetDuration,
+      initialAnxiety,
+    });
+    
     // Start session on mount with initial anxiety
     startSession(exerciseId, exerciseName, targetDuration, category, categoryName, exerciseType);
     updateAnxiety(initialAnxiety);
