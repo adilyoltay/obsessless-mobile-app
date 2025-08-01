@@ -113,39 +113,56 @@ export default function ERPSessionScreen({
   const messageOpacity = useSharedValue(1);
   const urgeButtonPulse = useSharedValue(1);
 
+  // Check for session completion
   useEffect(() => {
-    // Validate props before starting session
-    if (!exerciseId || !exerciseName) {
-      console.error('❌ Missing required props for ERP session:', { exerciseId, exerciseName });
-      Alert.alert(
-        'Hata',
-        'Egzersiz bilgileri eksik. Lütfen geri dönüp tekrar deneyin.',
-        [{ text: 'Tamam', onPress: () => router.back() }]
-      );
-      return;
+    if (elapsedTime >= targetDuration && !showCompletion && user?.id) {
+      console.log('⏰ Session duration reached, auto-completing...');
+      handleComplete();
+    }
+  }, [elapsedTime, targetDuration, showCompletion, user?.id]);
+
+  useEffect(() => {
+    // Start session when component mounts
+    if (exerciseId && exerciseName) {
+      console.log('🎯 Starting ERP session with:', {
+        exerciseId,
+        exerciseName,
+        exerciseType,
+        initialAnxiety,
+        targetDuration,
+        category,
+        categoryName,
+      });
+      
+      startSession({
+        exerciseId,
+        exerciseName,
+        exerciseType,
+        targetDuration,
+        initialAnxiety,
+        category,
+        categoryName,
+      });
+      
+      // Update initial anxiety
+      updateAnxiety(initialAnxiety);
     }
     
-    console.log('🎯 Starting ERP session with:', {
-      exerciseId,
-      exerciseName,
-      category,
-      categoryName,
-      exerciseType,
-      targetDuration,
-      initialAnxiety,
-    });
-    
-    // Start session on mount with initial anxiety
-    startSession(exerciseId, exerciseName, targetDuration, category, categoryName, exerciseType);
-    updateAnxiety(initialAnxiety);
-
     // Cleanup on unmount
     return () => {
-      if (isActive) {
+      if (!showCompletion) {
         abandonSession();
       }
     };
   }, []);
+
+  // Check for session completion
+  useEffect(() => {
+    if (elapsedTime >= targetDuration && !showCompletion && user?.id) {
+      console.log('⏰ Session duration reached, auto-completing...');
+      handleComplete();
+    }
+  }, [elapsedTime, targetDuration, showCompletion, user?.id]);
 
   useEffect(() => {
     // Rotate calming messages

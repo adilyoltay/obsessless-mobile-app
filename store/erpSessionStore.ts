@@ -303,10 +303,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     
     set({ elapsedTime: newElapsedTime });
     
-    // Check if session completed
-    if (newElapsedTime >= targetDuration) {
-      get().completeSession();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    // Don't auto-complete here - let the component handle it with userId
+    // The component will check elapsed time and call completeSession with userId
   },
 })); 
