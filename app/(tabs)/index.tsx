@@ -20,6 +20,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 
 // Gamification Components
 import { StreakCounter } from '@/components/gamification/StreakCounter';
+import { AchievementBadge } from '@/components/gamification/AchievementBadge';
 import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnimation';
 
 // Hooks & Utils
@@ -209,7 +210,6 @@ export default function TodayScreen() {
           </View>
           <View style={styles.missionContent}>
             <Text style={styles.missionTitle}>Bugünkü Yolculuğun</Text>
-            <Text style={styles.missionDescription}>Duygularını kaydetmeye ne dersin?</Text>
             <View style={styles.missionProgress}>
               <ProgressBar 
                 progress={Math.min(todayStats.compulsions / 3, 1)} 
@@ -238,7 +238,6 @@ export default function TodayScreen() {
           </View>
           <View style={styles.missionContent}>
             <Text style={styles.missionTitle}>İyileşme Adımın</Text>
-            <Text style={styles.missionDescription}>Kendine biraz zaman ayırmaya ne dersin?</Text>
             <View style={styles.missionProgress}>
               <ProgressBar 
                 progress={Math.min(todayStats.erpSessions / 1, 1)} 
@@ -249,7 +248,7 @@ export default function TodayScreen() {
           </View>
           <View style={styles.missionReward}>
             <MaterialCommunityIcons name="star-outline" size={20} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+75</Text>
+            <Text style={styles.missionRewardText}>+100</Text>
           </View>
         </Pressable>
 
@@ -305,6 +304,66 @@ export default function TodayScreen() {
     </View>
   );
 
+  const renderAchievements = () => {
+    // Merge achievements with unlocked status from profile
+    const achievementsWithStatus = achievements.map(achievement => ({
+      ...achievement,
+      unlockedAt: profile.unlockedAchievements.includes(achievement.id) ? new Date() : undefined
+    }));
+
+    // Sort: unlocked first, then by rarity
+    const sortedAchievements = achievementsWithStatus.sort((a, b) => {
+      if (a.unlockedAt && !b.unlockedAt) return -1;
+      if (!a.unlockedAt && b.unlockedAt) return 1;
+      if (a.rarity === 'Epic' && b.rarity !== 'Epic') return -1;
+      if (a.rarity !== 'Epic' && b.rarity === 'Epic') return 1;
+      return 0;
+    });
+
+    const displayAchievements = sortedAchievements.slice(0, 6); // Show max 6
+    const unlockedCount = profile.unlockedAchievements.length;
+
+    return (
+      <View style={styles.achievementsSection}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="trophy" size={24} color="#F59E0B" />
+          <Text style={styles.sectionTitle}>Başarımlarım ({unlockedCount}/{achievements.length})</Text>
+        </View>
+        
+        <View style={styles.achievementGrid}>
+          {displayAchievements.map((achievement) => (
+            <AchievementBadge
+              key={achievement.id}
+              achievement={achievement}
+              isUnlocked={!!achievement.unlockedAt}
+              onPress={() => {
+                setToastMessage(
+                  achievement.unlockedAt 
+                    ? `🏆 ${achievement.title} - ${achievement.description}` 
+                    : `🔒 ${achievement.title} - Henüz açılmadı`
+                );
+                setShowToast(true);
+              }}
+            />
+          ))}
+        </View>
+        
+        {unlockedCount > 6 && (
+          <Pressable 
+            style={styles.seeAllButton}
+            onPress={() => {
+              setToastMessage('Yakında: Tüm başarımları görüntüleme');
+              setShowToast(true);
+            }}
+          >
+            <Text style={styles.seeAllText}>Tümünü Gör</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#6B7280" />
+          </Pressable>
+        )}
+      </View>
+    );
+  };
+
   return (
     <ScreenLayout>
       <ScrollView
@@ -321,6 +380,7 @@ export default function TodayScreen() {
         {renderHeroSection()}
         {renderQuickStats()}
         {renderDailyMissions()}
+        {renderAchievements()}
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -535,6 +595,41 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontFamily: 'Inter',
     marginTop: 4,
+  },
+  achievementsSection: {
+    marginTop: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  achievementGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F3FF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  seeAllText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#8B5CF6',
+    fontFamily: 'Inter-Medium',
+    marginRight: 8,
   },
   bottomSpacing: {
     height: 100,
