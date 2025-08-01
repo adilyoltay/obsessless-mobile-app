@@ -35,6 +35,8 @@ import { router } from 'expo-router';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -423,6 +425,19 @@ export default function TodayScreen() {
           onComplete={() => {}}
         />
       )}
+
+      {/* AI Chat FAB */}
+      {FEATURE_FLAGS.AI_CHAT && (
+        <Pressable
+          style={styles.aiFab}
+          onPress={() => router.push('/ai-chat-modal')}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="AI Asistan"
+        >
+          <MaterialCommunityIcons name="robot-happy" size={28} color="#FFFFFF" />
+        </Pressable>
+      )}
     </ScreenLayout>
   );
 }
@@ -656,5 +671,21 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  aiFab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
   },
 });

@@ -17,6 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Custom UI Components
 import { Switch } from '@/components/ui/Switch';
 import ScreenLayout from '@/components/layout/ScreenLayout';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
@@ -29,6 +31,8 @@ import { useGamificationStore } from '@/store/gamificationStore';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
+
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Settings data structure
 interface SettingsData {
@@ -146,6 +150,31 @@ export default function SettingsScreen() {
             Alert.alert('Başarılı', 'Verilerin e-posta adresine gönderildi.');
           }
         }
+      ]
+    );
+  };
+
+  const handleClearData = async () => {
+    Alert.alert(
+      'Tüm Verileri Temizle',
+      'Tüm uygulama verilerini temizlemek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Temizle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              Alert.alert('Başarılı', 'Tüm veriler başarıyla temizlendi.');
+              // Optionally, redirect to login or clear auth context
+              // router.replace('/(auth)/login'); 
+            } catch (error) {
+              console.error('Error clearing data:', error);
+              Alert.alert('Hata', 'Veriler temizlenirken bir hata oluştu.');
+            }
+          },
+        },
       ]
     );
   };
@@ -339,6 +368,126 @@ export default function SettingsScreen() {
           <Text style={styles.versionSubtext}>Seninle 💚</Text>
         </View>
 
+        {/* Geliştirici Araçları */}
+        {__DEV__ && (
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>Geliştirici Araçları</Text>
+            
+            {/* AI Feature Toggles */}
+            <View style={styles.aiSection}>
+              <Text style={styles.subsectionTitle}>🤖 AI Özellikleri</Text>
+              
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>AI Chat</Text>
+                <Switch
+                  value={FEATURE_FLAGS.AI_CHAT}
+                  onValueChange={(value) => {
+                    // Feature flag'i runtime'da değiştir
+                    (FEATURE_FLAGS as any).AI_CHAT = value;
+                    Alert.alert(
+                      'AI Chat',
+                      value ? 'Aktif' : 'Deaktif',
+                      [{ text: 'Tamam' }]
+                    );
+                  }}
+                  trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                  thumbColor={FEATURE_FLAGS.AI_CHAT ? '#FFFFFF' : '#F3F4F6'}
+                />
+              </View>
+
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>AI Onboarding</Text>
+                <Switch
+                  value={FEATURE_FLAGS.AI_ONBOARDING}
+                  onValueChange={(value) => {
+                    (FEATURE_FLAGS as any).AI_ONBOARDING = value;
+                    Alert.alert(
+                      'AI Onboarding',
+                      value ? 'Aktif' : 'Deaktif',
+                      [{ text: 'Tamam' }]
+                    );
+                  }}
+                  trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                  thumbColor={FEATURE_FLAGS.AI_ONBOARDING ? '#FFFFFF' : '#F3F4F6'}
+                />
+              </View>
+
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>AI Insights</Text>
+                <Switch
+                  value={FEATURE_FLAGS.AI_INSIGHTS}
+                  onValueChange={(value) => {
+                    (FEATURE_FLAGS as any).AI_INSIGHTS = value;
+                    Alert.alert(
+                      'AI Insights',
+                      value ? 'Aktif' : 'Deaktif',
+                      [{ text: 'Tamam' }]
+                    );
+                  }}
+                  trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                  thumbColor={FEATURE_FLAGS.AI_INSIGHTS ? '#FFFFFF' : '#F3F4F6'}
+                />
+              </View>
+
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>AI Voice</Text>
+                <Switch
+                  value={FEATURE_FLAGS.AI_VOICE}
+                  onValueChange={(value) => {
+                    (FEATURE_FLAGS as any).AI_VOICE = value;
+                    Alert.alert(
+                      'AI Voice',
+                      value ? 'Aktif' : 'Deaktif',
+                      [{ text: 'Tamam' }]
+                    );
+                  }}
+                  trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                  thumbColor={FEATURE_FLAGS.AI_VOICE ? '#FFFFFF' : '#F3F4F6'}
+                />
+              </View>
+
+              {/* Test Buttons */}
+              <View style={styles.testButtons}>
+                <Button
+                  onPress={() => router.push('/ai-test')}
+                  style={styles.testButton}
+                  variant="secondary"
+                >
+                  AI Test Sayfası
+                </Button>
+
+                <Button
+                  onPress={async () => {
+                    // Emergency shutdown test
+                    FEATURE_FLAGS.disableAllAI();
+                    Alert.alert('AI Emergency Shutdown', 'Tüm AI özellikleri kapatıldı');
+                  }}
+                  style={styles.dangerButton}
+                  variant="secondary"
+                >
+                  🚨 Emergency Shutdown
+                </Button>
+              </View>
+            </View>
+
+            <Button
+              onPress={() => router.push('/test-components')}
+              style={{ marginTop: 12 }}
+              variant="secondary"
+            >
+              UI Bileşenlerini Test Et
+            </Button>
+            
+            <Button
+              onPress={handleClearData}
+              style={{ marginTop: 8 }}
+              variant="secondary"
+            >
+              Tüm Verileri Temizle
+            </Button>
+          </Card>
+        )}
+
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </ScreenLayout>
@@ -523,5 +672,33 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 32,
+  },
+  aiSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  testButtons: {
+    marginTop: 16,
+    gap: 8,
+  },
+  testButton: {
+    marginBottom: 8,
+  },
+  dangerButton: {
+    backgroundColor: '#FEE2E2',
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: '#374151',
+    fontFamily: 'Inter',
+    marginBottom: 4,
   },
 });
