@@ -10,20 +10,36 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert
+  Alert,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChatInterface } from '@/features/ai/components/ChatInterface';
-import { useAIChatStore } from '@/features/ai/store/aiChatStore';
-import { AIMessage } from '@/features/ai/types';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+
+interface Message {
+  id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: Date;
+}
 
 export default function AIChatModal() {
   const router = useRouter();
-  const chatStore = useAIChatStore();
-  const [sessionId] = useState(`chat_${Date.now()}`);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      content: 'Merhaba! Ben ObsessLess AI asistanıyım. Size nasıl yardımcı olabilirim?',
+      role: 'assistant',
+      timestamp: new Date()
+    }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Feature flag kontrolü
   if (!FEATURE_FLAGS.AI_CHAT) {
@@ -47,54 +63,69 @@ export default function AIChatModal() {
     );
   }
 
-  const handleSendMessage = async (message: string): Promise<AIMessage> => {
-    // Burada gerçek AI servisi çağrılacak
-    // Şimdilik mock response
-    const mockResponses = [
-      "Anladım, bugün kendinizi endişeli hissediyorsunuz. Bu duyguları daha detaylı anlatır mısınız?",
-      "OKB ile mücadele etmek zor olabilir. Hangi kompulsiyonlar sizi en çok zorluyor?",
-      "Harika bir ilerleme! Kompulsiyonlarınızı fark etmek önemli bir adım. Şimdi bunlarla nasıl başa çıkabileceğimizi konuşalım.",
-      "Nefes egzersizleri yapmayı denediniz mi? Size yardımcı olabilecek birkaç teknik önerebilirim.",
-      "Kendinize karşı nazik olun. İyileşme süreci inişli çıkışlı olabilir ve bu tamamen normal."
-    ];
+  const handleSend = async () => {
+    if (!inputText.trim() || isLoading) return;
 
-    const response: AIMessage = {
-      id: `ai_${Date.now()}`,
-      content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
-      role: 'assistant',
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      content: inputText.trim(),
+      role: 'user',
       timestamp: new Date(),
-      metadata: {
-        sessionId,
-        contextType: 'chat',
-        confidence: 0.9
-      }
     };
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setIsLoading(true);
 
-    return response;
+    try {
+      // Simulate AI response
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+      
+      const aiResponses = [
+        "Anladım, bugün kendinizi endişeli hissediyorsunuz. Bu duyguları daha detaylı anlatır mısınız?",
+        "OKB ile mücadele etmek zor olabilir. Hangi kompulsiyonlar sizi en çok zorluyor?",
+        "Harika bir ilerleme! Kompulsiyonlarınızı fark etmek önemli bir adım. Şimdi bunlarla nasıl başa çıkabileceğimizi konuşalım.",
+        "Nefes egzersizleri yapmayı denediniz mi? Size yardımcı olabilecek birkaç teknik önerebilirim.",
+        "Kendinize karşı nazik olun. İyileşme süreci inişli çıkışlı olabilir ve bu tamamen normal."
+      ];
+
+      const aiMessage: Message = {
+        id: `ai_${Date.now()}`,
+        content: aiResponses[Math.floor(Math.random() * aiResponses.length)],
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      Alert.alert('Hata', 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCrisisDetected = () => {
-    Alert.alert(
-      '⚠️ Önemli',
-      'Zor bir dönemden geçiyor gibi görünüyorsunuz. Profesyonel destek almanızı öneriyorum.',
-      [
-        {
-          text: 'Acil Hatlar',
-          onPress: () => {
-            Alert.alert(
-              'Acil Destek Hatları',
-              '🆘 Ruh Sağlığı Destek Hattı: 182\n🚨 Acil Tıbbi Yardım: 112',
-              [{ text: 'Tamam' }]
-            );
-          }
-        },
-        { text: 'Devam Et', style: 'cancel' }
-      ]
-    );
-  };
+  const renderMessage = (message: Message) => (
+    <View
+      key={message.id}
+      style={[
+        styles.messageContainer,
+        message.role === 'user' ? styles.userMessage : styles.aiMessage
+      ]}
+    >
+      <View style={styles.messageContent}>
+        <Text style={[
+          styles.messageText,
+          message.role === 'user' ? styles.userMessageText : styles.aiMessageText
+        ]}>
+          {message.content}
+        </Text>
+        <Text style={styles.messageTime}>
+          {message.timestamp.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,13 +159,53 @@ export default function AIChatModal() {
         }}
       />
 
-      <ChatInterface
-        sessionId={sessionId}
-        userId="current-user" // Auth'dan alınacak
-        onSendMessage={handleSendMessage}
-        onCrisisDetected={handleCrisisDetected}
-        placeholder="AI asistana bir şey sorun..."
-      />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {messages.map(renderMessage)}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <View style={styles.loadingBubble}>
+                <Text style={styles.loadingText}>AI yazıyor...</Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="AI asistana bir şey sorun..."
+              multiline
+              maxLength={500}
+              editable={!isLoading}
+            />
+            <Pressable
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+              ]}
+              onPress={handleSend}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <MaterialCommunityIcons
+                name="send"
+                size={20}
+                color={(!inputText.trim() || isLoading) ? '#9CA3AF' : '#FFFFFF'}
+              />
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -143,6 +214,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  flex: {
+    flex: 1,
   },
   headerButton: {
     padding: 8,
@@ -176,5 +250,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#374151',
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  messageContainer: {
+    marginBottom: 16,
+  },
+  userMessage: {
+    alignItems: 'flex-end',
+  },
+  aiMessage: {
+    alignItems: 'flex-start',
+  },
+  messageContent: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 16,
+  },
+  userMessageText: {
+    color: '#FFFFFF',
+  },
+  aiMessageText: {
+    color: '#374151',
+  },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  messageTime: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  loadingBubble: {
+    backgroundColor: '#E5E7EB',
+    padding: 12,
+    borderRadius: 16,
+    maxWidth: '80%',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
+  inputContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    padding: 16,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#374151',
+    maxHeight: 100,
+    paddingVertical: 8,
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#E5E7EB',
   },
 }); 
