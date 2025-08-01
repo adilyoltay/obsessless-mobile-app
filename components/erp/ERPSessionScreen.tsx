@@ -115,11 +115,11 @@ export default function ERPSessionScreen({
 
   // Check for session completion
   useEffect(() => {
-    if (elapsedTime >= targetDuration && !showCompletion && user?.id) {
+    if (isActive && elapsedTime >= targetDuration && !showCompletion && user?.id) {
       console.log('⏰ Session duration reached, auto-completing...');
       handleComplete();
     }
-  }, [elapsedTime, targetDuration, showCompletion, user?.id]);
+  }, [elapsedTime, targetDuration, showCompletion, user?.id, isActive]);
 
   useEffect(() => {
     // Start session when component mounts

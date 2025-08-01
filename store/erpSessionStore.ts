@@ -27,7 +27,15 @@ interface ERPSessionState {
   anxietyReminder: number | NodeJS.Timeout | null;
   
   // Actions
-  startSession: (exerciseId: string, exerciseName: string, targetDuration: number, category?: string, categoryName?: string, exerciseType?: string) => void;
+  startSession: (config: {
+    exerciseId: string;
+    exerciseName: string;
+    targetDuration: number;
+    category?: string;
+    categoryName?: string;
+    exerciseType?: string;
+    initialAnxiety?: number;
+  }) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   completeSession: (userId?: string) => Promise<any>;
@@ -51,7 +59,15 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   sessionTimer: null,
   anxietyReminder: null,
 
-  startSession: (exerciseId, exerciseName, targetDuration, category, categoryName, exerciseType) => {
+  startSession: (config: {
+    exerciseId: string;
+    exerciseName: string;
+    targetDuration: number;
+    category?: string;
+    categoryName?: string;
+    exerciseType?: string;
+    initialAnxiety?: number;
+  }) => {
     const { sessionTimer, anxietyReminder } = get();
     
     // Clear any existing timers
@@ -70,26 +86,27 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     }, 120000); // 2 minutes
     
     // Record initial anxiety
-    const initialAnxiety = get().currentAnxiety;
+    const initialAnxiety = config.initialAnxiety || get().currentAnxiety;
     
     set({
       isActive: true,
-      exerciseId,
-      exerciseName,
-      category,
-      categoryName,
-      exerciseType,
-      targetDuration,
+      exerciseId: config.exerciseId,
+      exerciseName: config.exerciseName,
+      category: config.category || null,
+      categoryName: config.categoryName || null,
+      exerciseType: config.exerciseType || null,
+      targetDuration: config.targetDuration,
       elapsedTime: 0,
+      currentAnxiety: initialAnxiety,
       anxietyDataPoints: [{
         timestamp: 0,
-        level: initialAnxiety,
+        level: initialAnxiety
       }],
       sessionTimer: timer,
       anxietyReminder: reminder,
     });
     
-    console.log(`🎯 ERP Session started: ${exerciseName}`);
+    console.log('🎯 ERP Session started:', config.exerciseName);
   },
 
   pauseSession: () => {
@@ -233,11 +250,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     // Reset session state
     set({
       isActive: false,
-      exerciseId: '',
-      exerciseName: '',
-      category: '',
-      categoryName: '',
-      exerciseType: '',
+      exerciseId: null,
+      exerciseName: null,
+      category: null,
+      categoryName: null,
+      exerciseType: null,
       targetDuration: 0,
       elapsedTime: 0,
       currentAnxiety: 5,
