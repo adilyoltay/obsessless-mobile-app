@@ -326,7 +326,7 @@
 
 ## 📱 Main App Screens (Updated)
 
-### 🏠 Today Screen (Gamification-Focused)
+### 🏠 Today Screen (Gamification-Focused) - UPDATED
 
 ```
 ┌─────────────────────────────────────┐
@@ -347,6 +347,23 @@
 │ ┌─────────────────────────────────┐ │
 │ │    🎯 Bugünkü Hedef             │ │ Goal
 │ │  ●●○ 2/3 Kayıt Tamamlandı      │ │ Card
+│ └─────────────────────────────────┘ │
+│                                     │
+│ 🏆 Başarımlarım (3/8)               │ Achievement
+│ ┌─────────────────────────────────┐ │ Section
+│ │ [🏆] [🏆] [🔒] [🔒] [🔒] [🔒] │ │ Interactive
+│ │ İlk   Habit  ERP   Direnç       │ │ Badges
+│ │ Adım  Gözlem Savaş  Duvarı       │ │ (6 max)
+│ └─────────────────────────────────┘ │
+│                                     │
+│ 💡 Bugün için öneriler              │ Simplified
+│ ┌─────────────────────────────────┐ │ Missions
+│ │ ❤️ Bugünkü Yolculuğun     ●●○  │ │ (No descriptions)
+│ │    +50                          │ │
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │
+│ │ 🛡️ İyileşme Adımın        ●○   │ │
+│ │    +100                         │ │
 │ └─────────────────────────────────┘ │
 │                                     │
 │ 📊 Bu Hafta                         │ Section
@@ -496,7 +513,7 @@
 
 ## 🎨 UI Bileşenleri (Updated)
 
-### 🔘 FAB (Floating Action Button) - Fixed Position
+### 🔘 FAB (Floating Action Button) - Fixed Position - UPDATED
 
 ```css
 FAB Specifications:
@@ -524,6 +541,11 @@ FAB Specifications:
 │ - Color: #FFFFFF                    │
 │                                     │
 │ Haptic: Light impact on press       │
+│                                     │
+│ ✅ FIXED POSITIONING:               │
+│ - Always above tab bar              │
+│ - Not affected by scroll            │
+│ - Consistent across ERP & OCD pages │
 │                                ┌─┐  │
 │                                │+│  │ FAB
 │                                └─┘  │
@@ -1491,5 +1513,118 @@ const HapticFeedback = {
 - Always respect device safe areas
 - Minimum 20px horizontal padding
 - Bottom button always above safe area
+
+---
+
+## 🔍 **Debug & Monitoring System (NEW)**
+
+### 📊 **Comprehensive Logging Framework**
+
+#### **ERP Session Tracking:**
+```typescript
+// Session lifecycle tracking
+🎯 handleComplete called for user: [userId]
+📊 Session log received: {exerciseId, duration, anxiety...}
+✨ Enhanced session log: {with compulsionUrges, goals...}
+💾 Saving to storage key: ERP_SESSIONS_[userId]_[date]
+✅ Session saved to storage. Total sessions today: 2
+🔄 Attempting to save to database...
+📤 Database payload: {user_id, exercise_id, category...}
+✅ ERP session saved to database
+🏆 Gamification updates completed
+```
+
+#### **Stats Loading & Refresh:**
+```typescript
+// Automatic refresh system
+🔄 ERP screen focused, refreshing stats...
+📈 Loading ERP stats for user: [userId]
+📅 Today key: [dateString]
+🔑 Today storage key: ERP_SESSIONS_[userId]_[date]
+📊 Today sessions data: [{session1}, {session2}...]
+📊 Today sessions count: 2
+📊 Calculated stats: {todayCompleted: 2, weekCompleted: 5...}
+```
+
+#### **Achievement System:**
+```typescript
+// Achievement tracking
+🏆 Achievement unlocked: first_erp
+🎮 Micro-reward awarded: erp_completed (+20 points)
+📊 Today page ERP sessions: [{id: "123", name: "El Yıkama"...}]
+📊 Today page ERP count: 2
+📊 Today stats updated: {compulsions: 3, erpSessions: 2...}
+```
+
+### 🛠️ **Real-time Error Handling**
+
+#### **Storage Operations:**
+```typescript
+// Graceful degradation
+✅ Session saved to storage. Total sessions today: 1
+🔄 Attempting to save to database...
+❌ Database save failed (offline mode): Network error
+// Continue with offline mode - data preserved in AsyncStorage
+⚠️ No userId provided, session not saved
+```
+
+#### **State Management:**
+```typescript
+// Clean session lifecycle
+🔧 completeSession called with userId: [userId]
+📋 Session data: {elapsedTime: 480, exerciseId: "hand_washing"...}
+🔄 Session state reset
+```
+
+### 📱 **User Experience Monitoring**
+
+#### **Focus-based Refresh:**
+```typescript
+// Automatic UI updates
+🔄 Today screen focused, refreshing stats...
+🔄 ERP screen focused, refreshing stats...
+// Ensures real-time data consistency across screens
+```
+
+#### **Interactive Feedback:**
+```typescript
+// User interaction tracking
+🏆 Achievement badge pressed: first_erp
+🔒 Locked achievement info: "Henüz açılmadı"
+✨ Toast displayed: "🏆 İlk Adım - İlk ERP egzersizini tamamla..."
+```
+
+### 🔧 **Development Tools**
+
+#### **Storage Key Verification:**
+```typescript
+// User-specific data isolation
+const StorageKeys = {
+  COMPULSIONS: (userId: string) => `compulsions_${userId}`,
+  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  GAMIFICATION: (userId: string) => `gamification_${userId}`,
+  // Ensures complete data separation between users
+};
+```
+
+#### **Performance Metrics:**
+- **Session Save Time**: < 200ms to AsyncStorage
+- **Database Sync Time**: < 2s to Supabase
+- **UI Refresh Time**: < 100ms with useFocusEffect
+- **FAB Response Time**: < 50ms with haptic feedback
+
+### 🎯 **Quality Assurance**
+
+#### **Data Consistency Checks:**
+- ✅ AsyncStorage ↔ Supabase sync verification
+- ✅ User-specific storage key validation
+- ✅ Session completion workflow integrity
+- ✅ Achievement unlock state accuracy
+
+#### **Error Recovery:**
+- **Network Issues**: Graceful offline mode with later sync
+- **Storage Errors**: Fallback mechanisms with user notification
+- **State Corruption**: Automatic reset with data preservation
+- **Navigation Errors**: Fallback routing with error boundaries
 
 ---

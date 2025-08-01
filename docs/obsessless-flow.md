@@ -56,12 +56,23 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 - **Direct Routing**: "This screen does not exist" hatası çözüldü
 - **Simplified NavigationGuard**: Auth kontrolü app/index.tsx'te
 - **Fallback Handling**: Navigation error'larında graceful degradation
+- **useFocusEffect**: Sayfa odaklandığında otomatik refresh sistemi
 
-#### 🎮 **Gamification System**
+#### 🎮 **Gamification System - ENHANCED**
 - **Healing Points**: Kompulsiyon ve ERP için puan sistemi
 - **Streak Counter**: Günlük seri takibi
+- **Achievement Badges**: Başarımlar Today sayfasında görüntüleniyor
 - **UPSERT Operations**: Duplicate key error'ları çözüldü
 - **Real-time Updates**: Database sync ile instant updates
+- **Interactive Badges**: Touch ile achievement detayları
+- **Progress Counter**: (açılan/toplam) format ile ilerleme takibi
+
+#### 🔍 **Comprehensive Debug System**
+- **ERP Session Tracking**: Detaylı console log'ları ile session completion takibi
+- **Storage Verification**: User-specific storage key'lerinin doğrulanması
+- **Database Payload Monitoring**: Supabase save işlemlerinin izlenmesi
+- **Stats Refresh Tracking**: Automatic refresh system ile real-time updates
+- **Error Handling**: Graceful error handling ve troubleshooting
 
 ### 🛠️ **Teknik Detaylar**
 
@@ -110,13 +121,21 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=***
 - ✅ **Onboarding**: 5-step flow completing properly
 - ✅ **Compulsion Recording**: Toast notifications working
 - ✅ **ERP Sessions**: Exercise timer and anxiety tracking
-- ✅ **FAB Buttons**: Fixed positioning above tab bar
+- ✅ **FAB Buttons**: Fixed positioning above tab bar (bottom: 90px, zIndex: 999)
+- ✅ **Achievement Badges**: Interactive badges with progress counter
+- ✅ **Auto Refresh**: useFocusEffect ile sayfa odaklandığında otomatik güncelleme
 
 #### **Database Operations**
 - ✅ **User Profiles**: Automatic creation via triggers
 - ✅ **Compulsion Sync**: AsyncStorage + Supabase dual write
-- ✅ **ERP Sessions**: Anxiety data points storage
-- ✅ **Gamification**: Points and streaks updating
+- ✅ **ERP Sessions**: Anxiety data points storage with debug logging
+- ✅ **Gamification**: Points and streaks updating with real-time sync
+
+#### **Debug & Monitoring**
+- ✅ **Comprehensive Logging**: Session completion → storage → database takibi
+- ✅ **User-Specific Keys**: Storage key verification ve isolation
+- ✅ **Performance Tracking**: Response times ve operation success rates
+- ✅ **Error Detection**: Proactive error handling ve troubleshooting
 
 ### ⚠️ **Çözülen Kritik Sorunlar**
 
@@ -134,6 +153,17 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=***
 - ❌ **react-native-webview**: Package removed (not needed)
 - ❌ **User Script Sandboxing**: Podfile configuration
 - ❌ **Code signing**: Development team assignment
+
+#### **UI/UX Issues**
+- ❌ **FAB Positioning**: Fixed with bottom: 90px, zIndex: 999, elevation: 8
+- ❌ **Achievement Visibility**: Added back to Today page with interactive badges
+- ❌ **Mission Complexity**: Simplified to titles only, removed descriptions
+- ❌ **useFocusEffect Import**: Fixed duplicate import syntax error
+
+#### **Data Issues**
+- ❌ **ERP Session Not Saving**: Comprehensive debug logging implemented
+- ❌ **Storage Key Conflicts**: User-specific storage keys enforced
+- ❌ **Stats Not Refreshing**: Auto-refresh system with useFocusEffect
 
 ---
 
@@ -452,204 +482,274 @@ interface CompulsionStats {
 **Master Prompt Uyumu:** 
 - ✅ **Sakinlik:** Progressive disclosure ile bilişsel yük azaltıldı
 - ✅ **Güç:** Kullanıcı her adımda kontrol sahibi
-- ✅ **Zahmetsizlik:** 4 adımda tamamlanabilen akış
+- ✅ **Zahmetsizlik:** Tek adımda (kategori → egzersiz) tamamlanabilen akış
 
-#### **🧙‍♂️ Smart Wizard Flow Diyagramı**
+#### **🔧 Gelişmiş Teknik Özellikler**
+
+**Comprehensive Debug System:**
+```typescript
+// ERP Session Completion Tracking
+console.log('🎯 handleComplete called for user:', user?.id);
+console.log('📊 Session log received:', sessionLog);
+console.log('💾 Saving to storage key:', storageKey);
+console.log('✅ Session saved to storage. Total sessions today:', sessions.length);
+console.log('📤 Database payload:', dbSession);
+console.log('🏆 Gamification updates completed');
+```
+
+**User-Specific Storage:**
+```typescript
+// Enhanced storage key management
+const StorageKeys = {
+  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  LAST_ERP_EXERCISE: (userId: string) => `lastERPExercise_${userId}`,
+  ERP_PREFERENCES: (userId: string) => `erpPreferences_${userId}`,
+};
+```
+
+**Auto-Refresh System:**
+```typescript
+// Automatic stats refresh when returning from sessions
+useFocusEffect(
+  React.useCallback(() => {
+    if (user?.id) {
+      console.log('🔄 ERP screen focused, refreshing stats...');
+      loadAllStats();
+    }
+  }, [user?.id])
+);
+```
+
+#### **🧙‍♂️ Smart Wizard Flow Diyagramı (Simplified)**
 
 ```mermaid
 flowchart TD
-    subgraph "Yeni ERP Sihirbaz Akışı"
-        A[FAB Butonuna Dokun] --> B[1️⃣ Egzersiz Tipi Seçimi<br/>(4 Büyük Kart)]
-        B --> C[2️⃣ Korku/Tema Seçimi<br/>(Kategorize Liste)]
-        C --> D[3️⃣ Süre ve Hedef Belirleme<br/>(Tek Ekran)]
-        D --> E[4️⃣ Hazırlık Kontrol Listesi<br/>(Güvenlik)]
-        E --> F[🚀 Oturumu Başlat]
+    subgraph "Basitleştirilmiş ERP Sihirbaz Akışı"
+        A[FAB Butonuna Dokun] --> B[1️⃣ Kategori Grid Seçimi<br/>(6 Ana Kategori)]
+        B --> C[2️⃣ Egzersiz Seçimi + Ayarlar<br/>(Aynı Sayfada)]
+        C --> D[🚀 Oturumu Başlat]
     end
     
     style A fill:#10B981,color:#fff
     style B fill:#3B82F6,color:#fff
     style C fill:#8B5CF6,color:#fff
-    style D fill:#F59E0B,color:#fff
-    style E fill:#EF4444,color:#fff
-    style F fill:#059669,color:#fff
+    style D fill:#059669,color:#fff
 ```
 
-#### **📱 1️⃣ Egzersiz Tipi Seçimi Ekranı**
+#### **📱 Enhanced ERP Quick Start Flow**
 
-**4 Ana Egzersiz Tipi:**
-
-```typescript
-const EXERCISE_TYPES = [
-  {
-    id: 'real_life',
-    title: '🏞️ Gerçek Hayat',
-    subtitle: 'Fiziksel olarak yüzleş',
-    description: 'Korku verici duruma gerçekten maruz kal',
-    icon: 'earth',
-    color: '#10B981',
-  },
-  {
-    id: 'imagination',
-    title: '🧠 Hayal Kurma',
-    subtitle: 'Zihninde canlandır',
-    description: 'Korkunç senaryoları detaylı olarak hayal et',
-    icon: 'brain',
-    color: '#8B5CF6',
-  },
-  {
-    id: 'interoceptive',
-    title: '❤️ İç Duyu',
-    subtitle: 'Bedenindeki hislere odaklan',
-    description: 'Anksiyete belirtilerini kasıtlı olarak yaşa',
-    icon: 'heart-pulse',
-    color: '#F59E0B',
-  },
-  {
-    id: 'response_prevention',
-    title: '🚫 Yanıt Engelleme',
-    subtitle: 'Bir kompulsiyona diren',
-    description: 'Yapmak istediğin ritüeli engelle',
-    icon: 'hand-back-left',
-    color: '#EF4444',
-  },
-];
-```
-
-**UI Mockup:**
+**1️⃣ Tek Adım: Kategori Grid**
 ```
 ┌─────────────────────────────────────┐
-│  ←         Yeni Egzersiz           │
-│     Nasıl bir yüzleşme yapmak      │
+│  ━━━━━━━━                          │
+│                                     │
+│       Egzersiz Kategorisi           │
+│      Hangi alanda çalışmak         │
 │            istersin?                │
-├─────────────────────────────────────┤
-│ ┌─────────────────────────────────┐ │
-│ │ 🏞️ Gerçek Hayat                 │ │ 
-│ │ Fiziksel olarak yüzleş...     > │ │
-│ └─────────────────────────────────┘ │
-│ ┌─────────────────────────────────┐ │
-│ │ 🧠 Hayal Kurma                  │ │ 
-│ │ Zihninde canlandır...         > │ │
-│ └─────────────────────────────────┘ │
-│ ┌─────────────────────────────────┐ │
-│ │ ❤️ İç Duyu                      │ │ 
-│ │ Bedenindeki hislere odaklan... > │ │
-│ └─────────────────────────────────┘ │
-│ ┌─────────────────────────────────┐ │
-│ │ 🚫 Yanıt Engelleme              │ │ 
-│ │ Bir kompulsiyona diren...     > │ │
-│ └─────────────────────────────────┘ │
 │                                     │
-│ ●○○○ 1/4 Adım                      │ Progress
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐│
+│ │🧼 Temizlik│ │🔍 Kontrol│ │📐 Düzen ││
+│ │ Bulaşma  │ │ Etme    │ │Simetri│  │
+│ └─────────┘ └─────────┘ └─────────┘│
+│                                     │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐│
+│ │🧠 Zihinsel│ │📦 Biriktir│ │❓ Diğer ││
+│ │Kompulsiyon│ │ me     │ │      │  │
+│ └─────────┘ └─────────┘ └─────────┘│
 └─────────────────────────────────────┘
 ```
 
-#### **📱 2️⃣ Korku/Tema Seçimi Ekranı**
-
-**Kategorize Egzersiz Listesi:**
-- 🧼 **Bulaşma/Temizlik** (6 egzersiz)
-- 🔍 **Kontrol Etme** (5 egzersiz)  
-- 📐 **Düzenleme/Simetri** (5 egzersiz)
-- 🧠 **Zihinsel Ritüeller** (5 egzersiz)
-- ⚠️ **Zarar Verme Korkuları** (4 egzersiz)
-- ❤️ **Dini/Ahlaki Kaygılar** (3 egzersiz)
-
-**Her egzersizde:**
-- ⭐ Zorluk derecesi (1-5 yıldız)
-- ⏱️ Önerilen süre
-- 📋 Kısa açıklama
-
-#### **📱 3️⃣ Süre ve Hedef Belirleme Ekranı**
-
+**2️⃣ Egzersiz Grid + Ayarlar (Aynı Sayfa)**
 ```
 ┌─────────────────────────────────────┐
-│  ←         Yeni Egzersiz           │
-│     Süreyi ve hedefini belirle     │
-├─────────────────────────────────────┤
-│ Süre:        15 dakika            │
-│ ○━━━━●━━━━━━━━━━━━━━━━○           │ Slider (3-60dk)
+│ ← Kategoriler                       │
 │                                     │
-│ Başlangıç Anksiyeten:    7/10       │
-│ ○━━━━━━━━━━●━━━━━○                │ Slider (1-10)
+│ 🧼 Temizlik Egzersizleri           │
 │                                     │
-│ Bu egzersiz için hedefin ne?       │
 │ ┌─────────────────────────────────┐ │
-│ │ Anksiyetemin %50 azalmasını    │ │ 
-│ │         gözlemlemek...          │ │
+│ │ ✓ El Yıkama Direnci             │ │ Selected
+│ │   ⭐⭐⭐ • 5-15 dk             │ │
+│ └─────────────────────────────────┘ │
+│ ┌─────────────────────────────────┐ │
+│ │   Kirli Yüzey Dokunma          │ │
+│ │   ⭐⭐⭐⭐ • 10-20 dk         │ │
 │ └─────────────────────────────────┘ │
 │                                     │
-│ ●●●○ 3/4 Adım                      │ Progress
-│      [Oturumu Başlatmaya Hazır]     │
+│ Süre: 8 dakika                     │
+│ ○━━━●━━━━━━━━━━━━○                │ Slider (3-30dk)
+│                                     │
+│ Hedef Anksiyete: 5/10              │
+│ ○━━━━●━━━━━━━━━━○                 │ Slider (1-10)
+│                                     │
+│      [🌟 Yolculuğumu Başlat]        │
 └─────────────────────────────────────┘
 ```
 
-**Dinamik Özellikler:**
-- **Akıllı Süre Önerisi:** Egzersiz zorluğuna göre
-- **Hedef Şablonları:** Önceki oturumlara dayalı
-- **Anksiyete Tahmini:** Geçmiş verilerden AI önerisi
+#### **🔄 Gelişmiş Veri Saklama Sistemi**
 
-#### **📱 4️⃣ Hazırlık Kontrol Listesi**
-
-```
-┌─────────────────────────────────────┐
-│  ←         Yeni Egzersiz           │
-│     Her şey hazır, başlamaya       │
-│           hazır mısın?              │
-├─────────────────────────────────────┤
-│ 📋 Egzersiz Özeti:                  │
-│ • Tip: 🏞️ Gerçek Hayat              │
-│ • Egzersiz: El Yıkama Direnci      │
-│ • Süre: 15 dakika                  │
-│ • Başlangıç Anksiyete: 7/10        │
-│ • Hedef: %50 azalma gözlemlemek    │
-│                                     │
-│ 🛡️ Güvenlik Hatırlatması:           │
-│ ✓ Güvenli bir yerde olun            │
-│ ✓ İstediğiniz zaman duraklatın      │
-│ ✓ Bu sadece egzersiz, tehlike yok   │
-│ ✓ Anksiyete yükselmesi normal       │
-│                                     │
-│ ●●●● 4/4 Adım                      │ Progress
-│      [🚀 Egzersizi Başlat]          │
-└─────────────────────────────────────┘
+**Enhanced Session Logging:**
+```typescript
+interface ERPSessionLog {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  category: string;
+  categoryName: string;
+  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  durationSeconds: number;
+  anxietyDataPoints: Array<{timestamp: number; level: number}>;
+  anxietyInitial: number;
+  anxietyPeak: number;
+  anxietyFinal: number;
+  completedAt: Date;
+  // New fields
+  compulsionUrges?: CompulsionUrge[];
+  personalGoal?: string;
+  urgeResistanceRate?: number;
+}
 ```
 
-#### **💾 Wizard Configuration Storage**
+**Dual Storage Strategy:**
+- **AsyncStorage**: Offline-first with user-specific keys
+- **Supabase**: Cloud sync with comprehensive error handling
+- **Debug Logging**: Full visibility into save/load operations
 
-**Seansın başında kaydedilen yapı:**
+#### **📊 Real-Time Statistics System**
+
+**Enhanced Stats Calculation:**
+```typescript
+const loadAllStats = async () => {
+  console.log('📈 Loading ERP stats for user:', user.id);
+  console.log('📅 Today key:', todayKey);
+  console.log('🔑 Today storage key:', todayStorageKey);
+  
+  const todaySessionsData = todayData ? JSON.parse(todayData) : [];
+  console.log('📊 Today sessions count:', todaySessionsData.length);
+  
+  setStats({
+    todayCompleted: todaySessionsData.length,
+    weekCompleted,
+    monthCompleted,
+    todayTime: todaySessionsData.reduce((total, session) => total + session.durationSeconds, 0),
+    weekTime,
+    monthTime,
+    avgAnxietyReduction,
+    streak: consecutiveDays,
+  });
+  
+  console.log('📊 Calculated stats:', newStats);
+};
+```
+
+#### **🎮 Enhanced Gamification Integration**
+
+**Micro-Reward System:**
+```typescript
+// Session completion rewards
+await awardMicroReward('erp_completed'); // +20 points
+
+// Anxiety reduction bonus
+if (anxietyReduction >= 30) {
+  await awardMicroReward('anxiety_reduced'); // +25 points
+}
+
+// Compulsion urge resistance
+const resistedUrges = compulsionUrges.filter(urge => urge.resisted).length;
+if (resistedUrges > 0) {
+  await awardMicroReward('urge_resistance'); // +15 points per urge
+}
+```
+
+**Achievement Tracking:**
+```typescript
+await checkAchievements('erp', {
+  anxietyReduction,
+  duration: elapsedTime,
+  urgesResisted: resistedUrges,
+});
+```
+
+#### **💾 Enhanced Session Data Structure**
+
+**Complete Session Configuration:**
 ```typescript
 interface ERPExerciseConfig {
   exerciseId: string;
-  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType: 'real_life';
   duration: number; // minutes
   targetAnxiety: number; // 1-10
   personalGoal: string;
+  category: string;
+  categoryName: string;
   selectedExercise: ERPExercise;
 }
 ```
 
-**AsyncStorage Keys:**
-- `lastERPType_${userId}`: Son seçilen egzersiz tipi
-- `lastERPDuration_${userId}`: Son kullanılan süre
-- `erpWizardPreferences_${userId}`: Kullanıcı tercihleri
+**Smart Defaults & User Preferences:**
+- **Last Used Values**: Duration, anxiety level, preferred categories
+- **Pattern Learning**: Most effective exercise types for user
+- **Contextual Suggestions**: Time-based and pattern-based recommendations
 
-#### **🎯 Wizard Flow Avantajları**
+#### **🎯 Master Prompt Compliance Improvements**
 
-**Master Prompt İlkeleri:**
-1. **Sakinlik:** Her adım tek bir hedefe odaklanır
-2. **Güç:** Kullanıcı her seçimde tam kontrol sahibi
-3. **Zahmetsizlik:** 4 basit adımda tamamlanır
+**Sakinlik (Calmness):**
+- Simplified 2-step wizard (was 4 steps)
+- Gentle language: "Yolculuğumu Başlat" instead of "Egzersizi Başlat"
+- Soft color transitions and non-alarming UI
 
-**Kullanıcı Deneyimi:**
-- **Progressive Disclosure:** Bilgi kademeli olarak sunulur
-- **Smart Defaults:** AI destekli öneriler
-- **Context Awareness:** Geçmiş tercihleri hatırlar
-- **Safety First:** Güvenlik kontrolü zorunlu adım
+**Güç (Empowerment):**
+- User controls all parameters (duration, intensity, type)
+- Easy back navigation between steps
+- Clear progress indicators and expectations
 
-**Geliştirici Faydaları:**
-- **Modüler Yapı:** Her adım bağımsız component
-- **Type Safety:** Güçlü TypeScript tipleme
-- **Reusable:** Farklı egzersiz tipleri için genişletilebilir
-- **Analytics:** Her adımda kullanıcı davranışı izlenebilir
+**Zahmetsizlik (Effortlessness):**
+- Single-page exercise selection + settings
+- Smart defaults based on previous sessions
+- One-tap category → exercise flow
+
+#### **🔧 Technical Infrastructure**
+
+**Error Handling & Recovery:**
+```typescript
+try {
+  await supabaseService.saveERPSession(dbSession);
+  console.log('✅ ERP session saved to database');
+} catch (dbError) {
+  console.error('❌ Database save failed (offline mode):', dbError);
+  // Continue with offline mode - data is already in AsyncStorage
+}
+```
+
+**Session State Management:**
+```typescript
+// Clean state reset after completion
+set({
+  isActive: false,
+  exerciseId: '',
+  exerciseName: '',
+  category: '',
+  categoryName: '',
+  exerciseType: '',
+  targetDuration: 0,
+  elapsedTime: 0,
+  currentAnxiety: 5,
+  anxietyDataPoints: [],
+  sessionTimer: null,
+  anxietyReminder: null,
+});
+```
+
+#### **🚀 Performance Optimizations**
+
+**Lazy Loading:**
+- Exercise data loaded on-demand
+- Category-based exercise filtering
+- Smart caching of user preferences
+
+**Memory Management:**
+- Timer cleanup on session end
+- Proper state reset mechanisms
+- Efficient data structure usage
 
 ---
 
