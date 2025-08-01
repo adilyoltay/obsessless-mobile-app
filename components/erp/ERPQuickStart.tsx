@@ -88,11 +88,24 @@ export function ERPQuickStart({
   };
 
   const getStepTitle = () => {
-    return 'Hangi kategoriyi keşfetmek istiyorsun?';
+    if (selectedCategory && !selectedExercise) {
+      const categoryName = getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title;
+      return `${categoryName} Egzersizleri`;
+    }
+    if (selectedExercise) {
+      return 'Egzersiz Ayarları';
+    }
+    return 'Egzersizini Seç ve Başla';
   };
 
   const getStepSubtitle = () => {
-    return 'En sık kullanılan kategoriler üstte. İstediğin egzersizi seç ve hemen başla.';
+    if (selectedCategory && !selectedExercise) {
+      return 'Hangi egzersizi yapmak istiyorsun?';
+    }
+    if (selectedExercise) {
+      return 'Süre ve hedef anksiyete seviyeni ayarla.';
+    }
+    return 'Kategori seç, egzersizini belirle ve hemen başla.';
   };
 
   // Filter exercises by selected type logic
