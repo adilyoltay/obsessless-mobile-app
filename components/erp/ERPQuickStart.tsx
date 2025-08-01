@@ -215,12 +215,8 @@ export function ERPQuickStart({
               ]}
               onPress={() => {
                 setSelectedCategory(category.id);
-                // Auto-select first exercise in category
-                const firstExercise = category.exercises[0];
-                if (firstExercise) {
-                  setSelectedExercise(firstExercise);
-                  setDuration(firstExercise.duration);
-                }
+                // Don't auto-select exercise, let user choose from grid
+                setSelectedExercise(null);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
             >
@@ -240,7 +236,55 @@ export function ERPQuickStart({
         </View>
       </View>
 
-      {/* Exercise Selection - Only show when category is selected */}
+      {/* Exercise Selection - Show when category is selected */}
+      {selectedCategory && !selectedExercise && (
+        <View style={styles.exerciseSelectionSection}>
+          <Text style={styles.sectionTitle}>
+            {getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title} Egzersizleri
+          </Text>
+          <View style={styles.exerciseGrid}>
+            {getCategoriesByPopularity()
+              .find(c => c.id === selectedCategory)
+              ?.exercises.map((exercise: ERPExercise) => (
+                <Pressable
+                  key={exercise.id}
+                  style={styles.exerciseGridCard}
+                  onPress={() => {
+                    setSelectedExercise(exercise);
+                    setDuration(exercise.duration);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <View style={styles.exerciseCardHeader}>
+                    <Text style={styles.exerciseCardTitle}>{exercise.name}</Text>
+                    <View style={styles.exerciseCardMeta}>
+                      <Text style={styles.exerciseCardDuration}>{exercise.duration}dk</Text>
+                      <View style={styles.exerciseCardDifficulty}>
+                        {Array.from({ length: exercise.difficulty }).map((_, i) => (
+                          <MaterialCommunityIcons key={i} name="star" size={12} color="#F59E0B" />
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                </Pressable>
+              ))}
+          </View>
+          
+          <Pressable 
+            style={styles.backToCategoriesButton}
+            onPress={() => {
+              setSelectedCategory('');
+              setSelectedExercise(null);
+            }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color="#6B7280" />
+            <Text style={styles.backToCategoriesText}>Kategorilere Geri Dön</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Selected Exercise + Settings - Show when exercise is selected */}
       {selectedCategory && selectedExercise && (
         <View style={styles.exerciseQuickSection}>
           <Text style={styles.sectionTitle}>Seçili Egzersiz</Text>
@@ -795,5 +839,71 @@ const styles = StyleSheet.create({
     color: '#10B981',
     marginTop: 8,
     fontFamily: 'Inter-Medium',
+  },
+  exerciseGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  exerciseGridCard: {
+    width: '48%', // Two columns
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#E5E7EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  exerciseCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 12,
+  },
+  exerciseCardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    fontFamily: 'Inter-Medium',
+  },
+  exerciseCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseCardDuration: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  exerciseCardDifficulty: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  backToCategoriesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  backToCategoriesText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    marginLeft: 8,
   },
 }); 
