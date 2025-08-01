@@ -1,33 +1,46 @@
 // ObsessLess - Kompulsiyon Türleri ve Form Tanımları
 
-export type CompulsionCategory = 'cleaning' | 'checking' | 'symmetry' | 'counting' | 'mental' | 'other';
+export interface Compulsion {
+  id: string;
+  user_id: string;
+  category: string;
+  subcategory?: string;
+  trigger?: string;
+  notes?: string;
+  resistance_level: number;
+  created_at: string;
+  performed_at?: string;
+  resisted?: boolean;
+}
 
+export interface CompulsionFormData {
+  category: string;
+  subcategory?: string;
+  trigger?: string;
+  notes?: string;
+  resistance_level: number;
+}
+
+// Error types için proper interface
+export interface CompulsionError extends Error {
+  code?: string;
+  details?: string;
+}
+
+// Style types için
+export type CompulsionStyle = {
+  container?: object;
+  text?: object;
+  button?: object;
+}
+
+// CompulsionType interface
 export interface CompulsionType {
   id: string;
   label: string;
   icon: string;
   description: string;
-  category: CompulsionCategory;
-}
-
-export interface CompulsionEntry {
-  id: string;
-  type: string;
-  resistanceLevel: number; // 0-10 scale
-  duration: number; // in minutes
-  intensity: number; // 0-10 scale
-  notes?: string;
-  timestamp: Date;
-  mood?: 'anxious' | 'neutral' | 'calm';
-  triggers?: string[];
-}
-
-export interface CompulsionFormData {
-  type: string;
-  resistanceLevel: number;
-  duration: number;
-  intensity: number;
-  notes?: string;
+  category: 'cleaning' | 'checking' | 'symmetry' | 'counting' | 'mental' | 'other';
 }
 
 export interface CompulsionStats {
@@ -41,7 +54,7 @@ export interface DailyCompulsionSummary {
   date: string;
   count: number;
   avgResistance: number;
-  types: CompulsionCategory[];
+  types: string[];
 }
 
 // Kompulsiyon türleri - OKB'de en sık görülen obsesyon/kompulsiyon temaları
