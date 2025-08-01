@@ -88,22 +88,15 @@ export function ERPQuickStart({
   };
 
   const getStepTitle = () => {
-    if (selectedCategory && !selectedExercise) {
-      const categoryName = getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title;
-      return `${categoryName} Egzersizleri`;
-    }
-    if (selectedExercise) {
+    if (selectedCategory) {
       return 'Egzersiz Ayarları';
     }
     return 'Egzersizini Seç ve Başla';
   };
 
   const getStepSubtitle = () => {
-    if (selectedCategory && !selectedExercise) {
-      return 'Hangi egzersizi yapmak istiyorsun?';
-    }
-    if (selectedExercise) {
-      return 'Süre ve hedef anksiyete seviyeni ayarla.';
+    if (selectedCategory) {
+      return 'Egzersizini seç, süre ve anksiyete seviyeni ayarla.';
     }
     return 'Kategori seç, egzersizini belirle ve hemen başla.';
   };
@@ -240,8 +233,8 @@ export function ERPQuickStart({
               ))}
           </View>
 
-          {/* Settings Section - Show when exercise is selected */}
-          {selectedExercise && (
+          {/* Settings Section - Show when category is selected */}
+          {selectedCategory && (
             <View style={styles.inlineSettingsSection}>
               <Text style={styles.settingsTitle}>Egzersiz Ayarları</Text>
               
@@ -277,10 +270,22 @@ export function ERPQuickStart({
                 />
               </View>
 
-              {/* Start Button */}
-              <Pressable style={styles.inlineStartButton} onPress={handleStartExercise}>
-                <MaterialCommunityIcons name="play" size={20} color="#FFFFFF" />
-                <Text style={styles.inlineStartButtonText}>🌟 Yolculuğumu Başlat</Text>
+              {/* Start Button - Only enabled when exercise is selected */}
+              <Pressable 
+                style={[
+                  styles.inlineStartButton,
+                  !selectedExercise && styles.inlineStartButtonDisabled
+                ]} 
+                onPress={selectedExercise ? handleStartExercise : undefined}
+                disabled={!selectedExercise}
+              >
+                <MaterialCommunityIcons name="play" size={20} color={selectedExercise ? "#FFFFFF" : "#9CA3AF"} />
+                <Text style={[
+                  styles.inlineStartButtonText,
+                  !selectedExercise && styles.inlineStartButtonTextDisabled
+                ]}>
+                  {selectedExercise ? "🌟 Yolculuğumu Başlat" : "Önce egzersiz seç"}
+                </Text>
               </Pressable>
             </View>
           )}
@@ -883,6 +888,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
+  },
+  inlineStartButtonDisabled: {
+    opacity: 0.5,
+  },
+  inlineStartButtonTextDisabled: {
+    color: '#9CA3AF',
   },
   backToCategoriesButton: {
     flexDirection: 'row',
