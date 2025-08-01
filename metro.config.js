@@ -3,6 +3,9 @@ const { getDefaultConfig } = require('expo/metro-config');
 // Metro config that extends @react-native/metro-config (React Native 0.73+ requirement)
 const config = getDefaultConfig(__dirname);
 
+// Force cache reset
+config.resetCache = true;
+
 // Replit CORS fix
 if (process.env.REPL_ID) {
   config.server = {
