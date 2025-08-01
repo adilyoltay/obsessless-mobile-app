@@ -79,8 +79,7 @@ export function ERPQuickStart({
   onExerciseSelect,
   exercises,
 }: ERPQuickStartProps) {
-  const [wizardStep, setWizardStep] = useState<'selection' | 'settings'>('selection');
-  const [selectedType, setSelectedType] = useState<string>('');
+  // Simplified to single step - directly show categories
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedExercise, setSelectedExercise] = useState<ERPExercise | null>(null);
   const [duration, setDuration] = useState<number>(10); // minutes
@@ -97,8 +96,6 @@ export function ERPQuickStart({
   }, [visible]);
 
   const resetWizard = () => {
-    setWizardStep('selection');
-    setSelectedType('');
     setSelectedCategory('');
     setSelectedExercise(null);
     setDuration(10);
@@ -107,22 +104,18 @@ export function ERPQuickStart({
   };
 
   const handleTypeSelect = (typeId: string) => {
-    setSelectedType(typeId);
-    // Auto-advance to settings after type selection
-    setWizardStep('settings');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // No longer needed - removed
   };
 
   const handleThemeSelect = (category: string, exercise: ERPExercise) => {
     setSelectedCategory(category);
     setSelectedExercise(exercise);
     setDuration(exercise.duration);
-    // Stay in settings step to configure duration and goal
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleNext = () => {
-    // Not needed in 2-step flow, but keeping for compatibility
+    // Not needed in single-step flow
   };
 
   const handleStartExercise = () => {
@@ -130,7 +123,7 @@ export function ERPQuickStart({
 
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
-      exerciseType: selectedType as any,
+      exerciseType: 'real_life', // Default type since we removed type selection
       duration: duration,
       targetAnxiety: targetAnxiety,
       personalGoal: personalGoal,
@@ -139,7 +132,7 @@ export function ERPQuickStart({
 
     // Save last exercise preferences
     AsyncStorage.setItem('lastERPExercise', selectedExercise.id);
-    AsyncStorage.setItem('lastERPType', selectedType);
+    AsyncStorage.setItem('lastERPType', 'real_life');
     AsyncStorage.setItem('lastERPDuration', duration.toString());
 
     onExerciseSelect(config);
@@ -148,25 +141,15 @@ export function ERPQuickStart({
   };
 
   const handleBack = () => {
-    if (wizardStep === 'settings') {
-      setWizardStep('selection');
-    }
+    // No back functionality needed in single step
   };
 
   const getStepTitle = () => {
-    switch (wizardStep) {
-      case 'selection': return 'Hangi yolculuğu seçmek istiyorsun?';
-      case 'settings': return 'Bugün için nasıl hissediyorsun?';
-      default: return 'İyileşme Yolculuğun';
-    }
+    return 'Hangi kategoriyi keşfetmek istiyorsun?';
   };
 
   const getStepSubtitle = () => {
-    switch (wizardStep) {
-      case 'selection': return 'Kendine en uygun olan yaklaşımı seç. Her seçim doğru seçimdir.';
-      case 'settings': return 'Bu değerleri istediğin zaman değiştirebilirsin. Kendini zorlamana gerek yok.';
-      default: return '';
-    }
+    return 'En sık kullanılan kategoriler üstte. İstediğin egzersizi seç ve hemen başla.';
   };
 
   // Filter exercises by selected type logic
@@ -209,40 +192,11 @@ export function ERPQuickStart({
     };
   };
 
-  const renderTypeSelection = () => (
-    <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.instructionText}>
-        {getStepSubtitle()}
-      </Text>
-      
-      <View style={styles.typeGrid}>
-        {EXERCISE_TYPES.map((type) => (
-          <Pressable
-            key={type.id}
-            style={[
-              styles.typeCard,
-              selectedType === type.id && { backgroundColor: `${type.color}08`, borderColor: type.color }
-            ]}
-            onPress={() => handleTypeSelect(type.id)}
-          >
-            <View style={[styles.typeIconContainer, { backgroundColor: `${type.color}15` }]}>
-              <MaterialCommunityIcons name={type.icon as any} size={28} color={type.color} />
-            </View>
-            <Text style={styles.typeTitle}>{type.title}</Text>
-            <Text style={styles.typeSubtitle}>{type.subtitle}</Text>
-          </Pressable>
-        ))}
-      </View>
-      
-      <View style={styles.helpSection}>
-        <Text style={styles.helpText}>
-          💫 Hangi yolu seçersen seç, istediğin zaman değiştirebilirsin
-        </Text>
-      </View>
-    </ScrollView>
-  );
+  const renderContent = () => {
+    return renderCategoryGrid();
+  };
 
-  const renderDurationSettings = () => (
+  const renderCategoryGrid = () => (
     <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
       <Text style={styles.instructionText}>
         {getStepSubtitle()}
@@ -370,80 +324,13 @@ export function ERPQuickStart({
     </ScrollView>
   );
 
-  const renderConfirmation = () => (
-    <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.instructionText}>
-        {getStepSubtitle()}
-      </Text>
-      
-      <View style={styles.confirmationCard}>
-        <View style={styles.confirmationRow}>
-          <Text style={styles.confirmationLabel}>Egzersiz Tipi:</Text>
-          <Text style={styles.confirmationValue}>
-            {EXERCISE_TYPES.find(t => t.id === selectedType)?.title}
-          </Text>
-        </View>
-        
-        <View style={styles.confirmationRow}>
-          <Text style={styles.confirmationLabel}>Egzersiz:</Text>
-          <Text style={styles.confirmationValue}>{selectedExercise?.name}</Text>
-        </View>
-        
-        <View style={styles.confirmationRow}>
-          <Text style={styles.confirmationLabel}>Süre:</Text>
-          <Text style={styles.confirmationValue}>{duration} dakika</Text>
-        </View>
-        
-        <View style={styles.confirmationRow}>
-          <Text style={styles.confirmationLabel}>Başlangıç Anksiyete:</Text>
-          <Text style={styles.confirmationValue}>{targetAnxiety}/10</Text>
-        </View>
-        
-        {personalGoal ? (
-          <View style={styles.confirmationRow}>
-            <Text style={styles.confirmationLabel}>Hedef:</Text>
-            <Text style={styles.confirmationValue}>{personalGoal}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Gentle Comfort Reminder */}
-      <View style={styles.comfortSection}>
-        <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
-        <Text style={styles.comfortText}>
-          • Sen her zaman kontroldesin{'\n'}
-          • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
-          • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
-          • Hissettiğin her şey doğal ve geçici
-        </Text>
-      </View>
-
-      <Pressable style={styles.startButton} onPress={handleStartExercise}>
-        <MaterialCommunityIcons name="play" size={20} color="#FFFFFF" />
-        <Text style={styles.startButtonText}>Egzersizi Başlat</Text>
-      </Pressable>
-    </ScrollView>
-  );
-
-  const renderContent = () => {
-    switch (wizardStep) {
-      case 'selection': return renderTypeSelection();
-      case 'settings': return renderDurationSettings();
-      default: return null;
-    }
-  };
-
   return (
     <BottomSheet isVisible={visible} onClose={onDismiss}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {wizardStep !== 'selection' && (
-              <Pressable style={styles.backButton} onPress={handleBack}>
-                <MaterialCommunityIcons name="chevron-left" size={24} color="#6B7280" />
-              </Pressable>
-            )}
+            {/* No back button needed in single step */}
           </View>
           
           <View style={styles.headerCenter}>
@@ -457,19 +344,7 @@ export function ERPQuickStart({
           </View>
         </View>
 
-        {/* Progress Indicators */}
-        <View style={styles.progressContainer}>
-          {['selection', 'settings'].map((step, index) => (
-            <View
-              key={step}
-              style={[
-                styles.progressDot,
-                step === wizardStep && styles.progressDotActive,
-                ['selection', 'settings'].indexOf(wizardStep) > index && styles.progressDotCompleted,
-              ]}
-            />
-          ))}
-        </View>
+        {/* No progress indicators needed for single step */}
 
         {/* Content */}
         {renderContent()}
