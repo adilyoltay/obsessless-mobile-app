@@ -14,9 +14,11 @@ export default function ERPSessionPage() {
     duration?: string;
     targetAnxiety?: string;
     personalGoal?: string;
+    category?: string;
+    categoryName?: string;
   }>();
 
-  const { exerciseId, exerciseType, duration, targetAnxiety, personalGoal } = params;
+  const { exerciseId, exerciseType, duration, targetAnxiety, personalGoal, category, categoryName } = params;
 
   useEffect(() => {
     if (!exerciseId) {
@@ -58,6 +60,8 @@ export default function ERPSessionPage() {
       exerciseType={exerciseType as any}
       initialAnxiety={initialAnxiety}
       personalGoal={personalGoal}
+      category={category}
+      categoryName={categoryName}
       onComplete={() => {
         router.replace('/(tabs)/erp');
       }}

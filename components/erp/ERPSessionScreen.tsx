@@ -66,6 +66,8 @@ interface ERPSessionScreenProps {
   exerciseType?: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
   initialAnxiety?: number;
   personalGoal?: string;
+  category?: string;
+  categoryName?: string;
   onComplete?: (sessionLog: any) => void;
   onAbandon?: () => void;
 }
@@ -77,6 +79,8 @@ export default function ERPSessionScreen({
   exerciseType,
   initialAnxiety = 5,
   personalGoal,
+  category,
+  categoryName,
   onComplete,
   onAbandon,
 }: ERPSessionScreenProps) {
@@ -110,7 +114,7 @@ export default function ERPSessionScreen({
 
   useEffect(() => {
     // Start session on mount with initial anxiety
-    startSession(exerciseId, exerciseName, targetDuration);
+    startSession(exerciseId, exerciseName, targetDuration, category, categoryName, exerciseType);
     updateAnxiety(initialAnxiety);
 
     // Cleanup on unmount

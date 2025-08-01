@@ -16,6 +16,8 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Slider } from '@/components/ui/Slider';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { StorageKeys } from '@/utils/storage';
 
 interface ERPQuickStartProps {
   visible: boolean;
@@ -31,6 +33,9 @@ interface ERPExerciseConfig {
   targetAnxiety: number; // 1-10
   personalGoal: string;
   selectedExercise: ERPExercise;
+  // Add category info for better tracking
+  category: string;
+  categoryName: string;
 }
 
 // Simplified to 2-step flow: Category → Exercise + Settings
@@ -49,6 +54,7 @@ export function ERPQuickStart({
   const [personalGoal, setPersonalGoal] = useState<string>('');
   
   const { awardMicroReward } = useGamificationStore();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (visible) {
@@ -68,19 +74,32 @@ export function ERPQuickStart({
   const handleStartExercise = () => {
     if (!selectedExercise) return;
 
+    // Generate a meaningful personal goal if empty
+    const defaultGoal = personalGoal.trim() || `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`;
+    
+    // Get category info
+    const categoryInfo = getCategoriesByPopularity().find(c => c.id === selectedCategory);
+
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
       exerciseType: 'real_life', // Default type since we removed type selection
       duration: duration,
       targetAnxiety: targetAnxiety,
-      personalGoal: personalGoal,
+      personalGoal: defaultGoal,
       selectedExercise: selectedExercise,
+      // Add category info for better tracking
+      category: selectedCategory,
+      categoryName: categoryInfo?.title || 'Unknown',
     };
 
     // Save last exercise preferences
-    AsyncStorage.setItem('lastERPExercise', selectedExercise.id);
-    AsyncStorage.setItem('lastERPType', 'real_life');
-    AsyncStorage.setItem('lastERPDuration', duration.toString());
+    if (user?.id) {
+      AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), selectedExercise.id);
+      AsyncStorage.setItem(`lastERPType_${user.id}`, 'real_life');
+      AsyncStorage.setItem(`lastERPDuration_${user.id}`, duration.toString());
+      AsyncStorage.setItem(`lastERPCategory_${user.id}`, selectedCategory);
+      AsyncStorage.setItem(`lastERPTargetAnxiety_${user.id}`, targetAnxiety.toString());
+    }
 
     onExerciseSelect(config);
     onDismiss();

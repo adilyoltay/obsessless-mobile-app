@@ -159,6 +159,8 @@ export default function ERPScreen() {
       duration: exerciseConfig.duration * 60, // Convert minutes to seconds
       targetAnxiety: exerciseConfig.targetAnxiety,
       personalGoal: exerciseConfig.personalGoal,
+      category: exerciseConfig.category,
+      categoryName: exerciseConfig.categoryName,
     };
     
     router.push({

@@ -14,6 +14,9 @@ interface ERPSessionState {
   isActive: boolean;
   exerciseId: string | null;
   exerciseName: string | null;
+  category: string | null;
+  categoryName: string | null;
+  exerciseType: string | null;
   targetDuration: number; // seconds
   elapsedTime: number; // seconds
   currentAnxiety: number; // 1-10
@@ -24,7 +27,7 @@ interface ERPSessionState {
   anxietyReminder: number | NodeJS.Timeout | null;
   
   // Actions
-  startSession: (exerciseId: string, exerciseName: string, targetDuration: number) => void;
+  startSession: (exerciseId: string, exerciseName: string, targetDuration: number, category?: string, categoryName?: string, exerciseType?: string) => void;
   pauseSession: () => void;
   resumeSession: () => void;
   completeSession: (userId?: string) => Promise<any>;
@@ -38,6 +41,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   isActive: false,
   exerciseId: null,
   exerciseName: null,
+  category: null,
+  categoryName: null,
+  exerciseType: null,
   targetDuration: 0,
   elapsedTime: 0,
   currentAnxiety: 5,
@@ -45,7 +51,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
   sessionTimer: null,
   anxietyReminder: null,
 
-  startSession: (exerciseId, exerciseName, targetDuration) => {
+  startSession: (exerciseId, exerciseName, targetDuration, category, categoryName, exerciseType) => {
     const { sessionTimer, anxietyReminder } = get();
     
     // Clear any existing timers
@@ -70,6 +76,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       isActive: true,
       exerciseId,
       exerciseName,
+      category,
+      categoryName,
+      exerciseType,
       targetDuration,
       elapsedTime: 0,
       anxietyDataPoints: [{
@@ -122,6 +131,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       anxietyDataPoints,
       exerciseId,
       exerciseName,
+      category,
+      categoryName,
+      exerciseType,
     } = get();
     
     if (sessionTimer) clearInterval(sessionTimer);
@@ -137,6 +149,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       id: Date.now().toString(),
       exerciseId,
       exerciseName,
+      category,
+      categoryName,
+      exerciseType,
       durationSeconds: elapsedTime,
       anxietyDataPoints,
       anxietyInitial: initialAnxiety,
@@ -166,7 +181,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
             user_id: userId,
             exercise_id: exerciseId || 'unknown',
             exercise_name: exerciseName || 'Unknown Exercise',
-            category: 'general', // Add category mapping if needed
+            category: category || 'general',
             duration_seconds: elapsedTime,
             anxiety_initial: initialAnxiety,
             anxiety_final: finalAnxiety,
@@ -188,6 +203,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       isActive: false,
       exerciseId: null,
       exerciseName: null,
+      category: null,
+      categoryName: null,
+      exerciseType: null,
       targetDuration: 0,
       elapsedTime: 0,
       currentAnxiety: 5,
@@ -209,6 +227,9 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       isActive: false,
       exerciseId: null,
       exerciseName: null,
+      category: null,
+      categoryName: null,
+      exerciseType: null,
       targetDuration: 0,
       elapsedTime: 0,
       currentAnxiety: 5,
