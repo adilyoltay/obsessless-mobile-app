@@ -2,6 +2,82 @@
 
 > **Vizyon:** ObsessLess'i AI-destekli, empatik ve terapötik olarak etkili bir dijital sığınağa dönüştürmek
 
+## **🚨 KRİTİK: Önceki Denemeden Çıkarılan Dersler**
+
+### **Yapısal Sorunlar ve Önleme Stratejileri**
+
+#### ❌ **Yaşanan Sorunlar:**
+1. **src/ Dizini Felaketi**
+   - Yeni src/ dizini oluşturuldu ve mevcut yapı bozuldu
+   - Import path'ler karıştı: `../../src/` vs `@/` 
+   - Babel ve TypeScript config uyumsuzlukları
+   - Metro bundler persistent cache hataları
+   - Watchman'ın src/ dizinini aramaya devam etmesi
+
+2. **Bağımlılık Zincirleri**
+   - AI modülleri birbirine sıkı bağımlıydı
+   - Bir modül silinince domino etkisi
+   - Circular dependency'ler
+   - Rollback imkansız hale geldi
+
+3. **Hızlı ve Kontrolsüz Değişiklikler**
+   - Test edilmeden çok sayıda özellik eklendi
+   - Büyük, geri alınamaz commit'ler
+   - Feature flag'ler kullanılmadı
+   - Staging ortamı bypass edildi
+
+#### ✅ **Zorunlu Önlemler:**
+1. **Dizin Yapısı Kuralları**
+   ```bash
+   # ASLA YAPMAYIN:
+   - src/ dizini OLUŞTURMAYIN
+   - Mevcut dizin yapısını DEĞİŞTİRMEYİN
+   - Bulk import refactoring YAPMAYIN
+   
+   # HER ZAMAN:
+   - Mevcut yapıya sadık kalın
+   - Yeni özellikler features/ altına
+   - Import'ları @/ alias'ı ile kullanın
+   ```
+
+2. **Güvenli Geliştirme Protokolü**
+   ```typescript
+   // Her yeni özellik için:
+   1. Feature flag tanımla (varsayılan: false)
+   2. Error boundary ekle
+   3. Fallback mekanizması hazırla
+   4. İzole branch'te geliştir
+   5. Atomic commit'ler yap
+   6. Rollback planı hazırla
+   ```
+
+3. **Import Güvenlik Sistemi**
+   ```bash
+   # Pre-commit hook zorunlu:
+   - Tehlikeli import pattern kontrolü
+   - ../../src/ kullanımını engelle
+   - Config dosyası uyum kontrolü
+   ```
+
+### **Acil Durum Müdahale Planı**
+
+```bash
+# Import hataları oluşursa:
+1. pkill -f "expo start" && pkill -f node
+2. rm -rf node_modules/.cache .expo
+3. watchman watch-del-all && watchman shutdown-server
+4. rm -rf $TMPDIR/metro-* $TMPDIR/haste-*
+5. npm install && npx expo start -c
+
+# Rollback gerekirse:
+1. git tag listesinden son safe point'i bul
+2. git checkout [safe-point-tag]
+3. Feature flag'leri kapat
+4. Emergency deploy prosedürünü uygula
+```
+
+---
+
 ## **📋 Genel Bakış ve Analiz**
 
 ### **Mevcut Plan Analizi**
@@ -14,6 +90,9 @@
 - Sprint-based development methodology
 
 #### 🔧 **Önerilen İyileştirmeler:**
+- ⚠️ **KRİTİK**: Dizin yapısı değişikliği YASAK
+- ⚠️ **KRİTİK**: Her özellik feature flag arkasında
+- ⚠️ **KRİTİK**: Rollback mekanizması zorunlu
 - Daha detaylı technical specifications
 - Risk yönetimi ve fallback scenarios
 - Performance considerations
@@ -24,15 +103,89 @@
 ### **AI Entegrasyonu Felsefesi**
 
 **Temel İlkeler:**
-1. **Privacy-First**: Kullanıcı verisinin korunması her şeyden önce gelir
-2. **Therapeutic Efficacy**: Her AI özelliği kanıta dayalı terapötik değer sağlamalı
-3. **Human-Centric**: AI, insan desteğini destekler, değiştirmez
-4. **Gradual Enhancement**: Mevcut başarılı özellikler üzerine kademeli yapı
-5. **Transparency**: AI'nin ne yaptığı kullanıcıya açık olmalı
+1. **Stability-First**: Mevcut yapıyı ASLA bozmayın
+2. **Privacy-First**: Kullanıcı verisinin korunması her şeyden önce gelir
+3. **Therapeutic Efficacy**: Her AI özelliği kanıta dayalı terapötik değer sağlamalı
+4. **Human-Centric**: AI, insan desteğini destekler, değiştirmez
+5. **Gradual Enhancement**: Mevcut başarılı özellikler üzerine kademeli yapı
+6. **Transparency**: AI'nin ne yaptığı kullanıcıya açık olmalı
 
 ---
 
 ## **🎯 Genişletilmiş Yol Haritası**
+
+### **FAZ 0: Güvenlik ve Stabilite Hazırlığı (2 Hafta)**
+
+#### **🛡️ Sprint 0.0: Rollback ve Güvenlik Sistemi**
+
+**Hedef:** Hiçbir şeyi bozmadan güvenli geliştirme ortamı oluşturmak
+
+**Görev 0.0.1: Feature Flag Sistemi**
+```typescript
+// Cursor Prompt:
+"@file constants/featureFlags.ts Create a robust feature flag system:
+
+export const FEATURE_FLAGS = {
+  // AI features - DEFAULT OFF
+  AI_CHAT: __DEV__ && process.env.ENABLE_AI_CHAT === 'true',
+  AI_ONBOARDING: false,
+  AI_INSIGHTS: false,
+  AI_VOICE: false,
+  
+  // Safety checks
+  isEnabled: (feature: keyof typeof FEATURE_FLAGS): boolean => {
+    // Additional runtime checks
+    // Logging for feature usage
+    // Remote kill switch capability
+    return FEATURE_FLAGS[feature] || false;
+  },
+  
+  // Emergency shutdown
+  disableAll: () => {
+    Object.keys(FEATURE_FLAGS).forEach(key => {
+      if (key !== 'isEnabled' && key !== 'disableAll') {
+        FEATURE_FLAGS[key as keyof typeof FEATURE_FLAGS] = false;
+      }
+    });
+  }
+};
+
+Include environment-based configuration and remote toggle capability."
+```
+
+**Görev 0.0.2: Import Guard System**
+```typescript
+// Cursor Prompt:
+"@file scripts/import-guard.js Create pre-commit hook to prevent import disasters:
+
+const FORBIDDEN_PATTERNS = [
+  /from ['"]\.\.\/\.\.\/src\//,  // ../../src imports
+  /from ['"]src\//,               // src/ imports
+  /require\(['"]src\//,           // require('src/')
+];
+
+// Scan all TypeScript/JavaScript files
+// Fail commit if forbidden patterns found
+// Provide clear error messages with file locations
+// Suggest correct import patterns
+
+This MUST run on every commit to prevent import path issues."
+```
+
+**Görev 0.0.3: Safe Point System**
+```bash
+# Cursor Prompt:
+"@file scripts/create-safe-point.sh Create automated backup system:
+
+#!/bin/bash
+# Run before ANY AI feature development
+# Creates git tag and full backup
+# Stores Metro/Watchman state
+# Documents current working state
+# Provides easy rollback instructions
+
+Include restoration script for emergency rollback."
+```
 
 ### **FAZ 0+: AI Hazırlık ve Telemetri Güçlendirme (Ay 1)**
 
@@ -40,30 +193,36 @@
 
 **Hedef:** AI geliştirme için sağlam bir temel oluşturmak
 
-**Önerilen Proje Yapısı:**
+**⚠️ GÜNCELLENMİŞ Proje Yapısı:**
 ```
-src/
-├── ai/
-│   ├── types/           # AI-related TypeScript types
-│   ├── services/        # AI service integrations
-│   ├── prompts/         # Prompt templates and management
-│   ├── engines/         # Core AI processing engines
-│   ├── utils/           # AI utility functions
-│   └── privacy/         # Privacy and security utilities
-├── telemetry/
-│   ├── aiMetrics.ts     # AI-specific metrics
-│   └── usage.ts         # Usage pattern tracking
-└── features/
-    ├── chat/            # Conversational AI features
-    ├── insights/        # Analytics and insights
-    ├── artTherapy/      # Therapeutic art generation
-    └── voice/           # Voice-based AI features
+# MEVCUT YAPIYI KORU - SADECE features/ EKLE
+obslessless-clean/
+├── app/                    # ✅ DOKUNMA
+├── components/             # ✅ DOKUNMA
+├── contexts/               # ✅ DOKUNMA
+├── services/               # ✅ DOKUNMA
+├── hooks/                  # ✅ DOKUNMA
+├── types/                  # ✅ DOKUNMA
+├── constants/              # ✅ DOKUNMA
+├── localization/           # ✅ DOKUNMA
+└── features/               # 🆕 YENİ - Tüm AI kodu burada
+    └── ai/
+        ├── types/          # AI-specific types
+        ├── services/       # AI service integrations
+        ├── components/     # AI UI components
+        ├── hooks/          # AI-specific hooks
+        └── utils/          # AI utilities
 ```
+
+**⚠️ UYARI: src/ dizini OLUŞTURMAYIN!**
 
 **Görev 0.1: AI Types ve Configuration**
 ```typescript
 // Cursor Prompt:
-"@file ai/types/index.ts Create comprehensive TypeScript interfaces for AI system:
+"@file features/ai/types/index.ts Create comprehensive TypeScript interfaces for AI system:
+
+// ⚠️ CRITICAL: This file goes in features/ai/types, NOT src/ai/types
+// ⚠️ All imports must use @/ alias, no relative paths outside features/
 
 export interface AIMessage {
   id: string;
@@ -86,6 +245,7 @@ export interface AIConfig {
   maxTokens: number;
   systemPrompt: string;
   fallbackBehavior: 'generic' | 'silence' | 'redirect';
+  featureFlag: keyof typeof FEATURE_FLAGS; // Required feature flag
 }
 
 export interface ConversationContext {
@@ -107,12 +267,22 @@ Include error handling types, validation schemas, and privacy compliance markers
 **Görev 0.2: Enhanced Telemetry for AI**
 ```typescript
 // Cursor Prompt:
-"@file telemetry/aiTelemetry.ts Create privacy-first AI telemetry system:
+"@file features/ai/telemetry/aiTelemetry.ts Create privacy-first AI telemetry system:
+
+// ⚠️ CRITICAL: Check feature flag before ANY telemetry
+// ⚠️ No imports from src/, only from existing directories
+
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 export const trackAIInteraction = (
   type: 'chat_start' | 'chat_message' | 'insight_generated' | 'crisis_detected',
   metadata: Record<string, any>
 ) => {
+  // Feature flag check FIRST
+  if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+    return;
+  }
+  
   // Track AI usage for optimization
   // Privacy-first: no personal content, only usage patterns
   // Include performance metrics, user satisfaction, therapeutic outcomes
@@ -131,15 +301,51 @@ Add functions for:
 **Görev 0.3: AI Configuration Management**
 ```typescript
 // Cursor Prompt:
-"@file ai/config/aiManager.ts Create centralized AI configuration management:
+"@file features/ai/config/aiManager.ts Create centralized AI configuration management:
 
-- Environment-specific AI settings (dev/staging/prod)
-- Model fallback chains for reliability
-- Rate limiting and quota management
-- A/B testing framework for AI features
-- Feature flag system for gradual rollouts
-- Cost monitoring and optimization
-- Model performance benchmarking"
+// ⚠️ CRITICAL: All AI features must be behind feature flags
+// ⚠️ Include rollback mechanisms for every feature
+
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+
+export class AIManager {
+  private static instance: AIManager;
+  private enabled: boolean = false;
+  
+  static getInstance(): AIManager {
+    if (!this.instance) {
+      this.instance = new AIManager();
+    }
+    return this.instance;
+  }
+  
+  initialize(): void {
+    // Check ALL prerequisites
+    if (!this.checkPrerequisites()) {
+      console.log('AI features disabled: prerequisites not met');
+      return;
+    }
+    
+    // Gradual initialization
+    this.enabled = true;
+  }
+  
+  private checkPrerequisites(): boolean {
+    // Feature flag check
+    // Environment check
+    // Dependencies check
+    // No import errors check
+    return FEATURE_FLAGS.isEnabled('AI_CHAT');
+  }
+  
+  // Emergency shutdown
+  shutdown(): void {
+    this.enabled = false;
+    FEATURE_FLAGS.disableAll();
+    // Clean up resources
+    // Stop all AI processes
+  }
+}
 ```
 
 ---
@@ -148,51 +354,110 @@ Add functions for:
 
 #### **🗣️ Sprint 1-2: Enhanced Chat Infrastructure**
 
+**⚠️ UYARI: Bu faz SADECE FAZ 0 başarıyla tamamlandıktan sonra başlamalı**
+
 **Hedef:** Terapötik olarak etkili, kullanıcı dostu sohbet sistemi
 
 **Görev 1.1: Advanced Chat Interface**
 ```typescript
 // Cursor Prompt:
-"@file components/ai/ChatInterface.tsx Create an advanced, accessibility-first chat interface:
+"@file features/ai/components/ChatInterface.tsx Create an advanced, accessibility-first chat interface:
 
-Features to implement:
-- Message bubbles with smooth typing animations
-- Support for multiple message types (text, image, suggestion buttons, crisis alerts)
-- Full accessibility support (screen reader, voice control)
-- Message reactions and feedback system for therapeutic assessment
-- Auto-scroll with smart positioning
-- Message retry and edit functionality
-- Offline mode with intelligent queueing
-- Context-aware input suggestions
-- Therapeutic safety features (crisis word detection)
-- Customizable UI themes for different emotional states
+// ⚠️ CRITICAL: This component must:
+// 1. Be completely isolated in features/ai/
+// 2. Have fallback UI when AI is disabled
+// 3. Use error boundaries
+// 4. Check feature flags
 
-Follow Master Prompt principles: Calmness (soft animations), Empowerment (user control), Effortlessness (intuitive interactions)"
+import React from 'react';
+import { View, Text } from 'react-native';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+
+export const ChatInterface: React.FC = () => {
+  // Feature flag check
+  if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+    return (
+      <View>
+        <Text>AI Chat özelliği henüz aktif değil</Text>
+      </View>
+    );
+  }
+  
+  // Error boundary wrapper
+  return (
+    <ErrorBoundary fallback={<ChatFallback />}>
+      <ActualChatInterface />
+    </ErrorBoundary>
+  );
+};
+
+// Implement features:
+// - Message bubbles with smooth typing animations
+// - Support for multiple message types
+// - Full accessibility support
+// - Message reactions and feedback
+// - Auto-scroll with smart positioning
+// - Offline mode with intelligent queueing
+// - Context-aware input suggestions
+// - Therapeutic safety features
+
+Follow Master Prompt principles: Calmness, Empowerment, Effortlessness"
 ```
 
 **Görev 1.2: Context-Aware Chat Store**
 ```typescript
 // Cursor Prompt:
-"@file store/aiChatStore.ts Create sophisticated conversation management:
+"@file features/ai/store/aiChatStore.ts Create sophisticated conversation management:
 
-Core features:
-- Persistent conversation context across app sessions
-- Intelligent message batching for performance optimization
-- Conversation health metrics tracking
-- Multi-threaded conversation support (general chat vs. crisis support)
-- Automatic conversation summarization for long sessions
-- Smart conversation archiving with therapeutic milestone preservation
-- Integration with user's therapeutic progress data
-- Privacy-compliant conversation export/deletion
-- Real-time collaboration with human therapists when needed
+// ⚠️ CRITICAL: Store must be isolated and not affect main app state
+// ⚠️ Use separate Zustand store instance
 
-Include Zustand store with TypeScript, error boundaries, and offline support"
+import { create } from 'zustand';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+
+interface AIChatStore {
+  // State
+  messages: AIMessage[];
+  isEnabled: boolean;
+  
+  // Actions
+  initialize: () => void;
+  shutdown: () => void;
+  addMessage: (message: AIMessage) => void;
+  
+  // Safety
+  emergencyReset: () => void;
+}
+
+export const useAIChatStore = create<AIChatStore>((set, get) => ({
+  messages: [],
+  isEnabled: false,
+  
+  initialize: () => {
+    if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+      return;
+    }
+    set({ isEnabled: true });
+  },
+  
+  shutdown: () => {
+    // Clean shutdown
+    set({ isEnabled: false, messages: [] });
+  },
+  
+  emergencyReset: () => {
+    // Panic button
+    get().shutdown();
+    // Clear all AI data
+    // Notify user
+  }
+}));
 ```
 
 **Görev 1.3: Safety and Crisis Detection**
 ```typescript
 // Cursor Prompt:
-"@file ai/safety/crisisDetection.ts Implement comprehensive safety system:
+"@file features/ai/safety/crisisDetection.ts Implement comprehensive safety system:
 
 - Real-time crisis language detection using multiple algorithms
 - Escalation protocols with human handoff
@@ -211,7 +476,7 @@ Include Zustand store with TypeScript, error boundaries, and offline support"
 **Görev 1.4: Dynamic Y-BOCS Assessment**
 ```typescript
 // Cursor Prompt:
-"@file services/aiOnboarding.ts Create adaptive onboarding system:
+"@file features/ai/services/aiOnboarding.ts Create adaptive onboarding system:
 
 Advanced features:
 - Branching conversation logic based on previous answers
@@ -230,7 +495,7 @@ Generate detailed onboarding completion reports for personalized app configurati
 **Görev 1.5: Onboarding Intelligence Engine**
 ```typescript
 // Cursor Prompt:
-"@file ai/engines/onboardingEngine.ts Build intelligent onboarding processor:
+"@file features/ai/engines/onboardingEngine.ts Build intelligent onboarding processor:
 
 - Natural language understanding for Y-BOCS responses
 - Sentiment analysis for emotional state assessment
@@ -249,7 +514,7 @@ Generate detailed onboarding completion reports for personalized app configurati
 **Görev 2.1: Enhanced CBT Engine**
 ```typescript
 // Cursor Prompt:
-"@file ai/engines/cbtEngine.ts Create comprehensive CBT conversation engine:
+"@file features/ai/engines/cbtEngine.ts Create comprehensive CBT conversation engine:
 
 CBT Techniques to implement:
 - Socratic questioning with adaptive depth
@@ -272,7 +537,7 @@ Advanced features:
 **Görev 2.2: Smart Trigger System**
 ```typescript
 // Cursor Prompt:
-"@file ai/triggers/conversationTriggers.ts Implement intelligent conversation triggers:
+"@file features/ai/triggers/conversationTriggers.ts Implement intelligent conversation triggers:
 
 Trigger types:
 - Post-compulsion processing with contextual support
@@ -298,7 +563,7 @@ Intelligence features:
 **Görev 3.1: Advanced Analytics**
 ```typescript
 // Cursor Prompt:
-"@file ai/analytics/insightEngine.ts Create sophisticated insight generation system:
+"@file features/ai/analytics/insightEngine.ts Create sophisticated insight generation system:
 
 Analytics capabilities:
 - Multi-dimensional pattern analysis (temporal, emotional, environmental, behavioral)
@@ -320,7 +585,7 @@ Privacy and ethics:
 **Görev 3.2: Insight Delivery System**
 ```typescript
 // Cursor Prompt:
-"@file components/insights/InsightCards.tsx Create engaging insight presentation:
+"@file features/ai/components/insights/InsightCards.tsx Create engaging insight presentation:
 
 - Visual insight cards with accessibility support
 - Interactive data visualizations
@@ -361,7 +626,7 @@ Technical implementation:
 **Görev 4.2: Art Therapy Integration**
 ```typescript
 // Cursor Prompt:
-"@file ai/therapy/artTherapyEngine.ts Create art therapy guidance system:
+"@file features/ai/therapy/artTherapyEngine.ts Create art therapy guidance system:
 
 - Therapeutic art prompt generation based on current emotional state
 - Art interpretation assistance with psychological insight
@@ -382,7 +647,7 @@ Technical implementation:
 **Görev 5.1: Advanced Voice System**
 ```typescript
 // Cursor Prompt:
-"@file ai/voice/voiceCoach.ts Create intelligent voice coaching system:
+"@file features/ai/voice/voiceCoach.ts Create intelligent voice coaching system:
 
 Voice capabilities:
 - Real-time speech synthesis with emotional intelligence
@@ -405,7 +670,7 @@ Technical features:
 **Görev 5.2: Voice-Based ERP Guidance**
 ```typescript
 // Cursor Prompt:
-"@file ai/voice/erpVoiceGuide.ts Implement voice-guided ERP sessions:
+"@file features/ai/voice/erpVoiceGuide.ts Implement voice-guided ERP sessions:
 
 ERP Voice features:
 - Step-by-step ERP exercise guidance
@@ -425,7 +690,7 @@ ERP Voice features:
 **Görev 6.1: Dynamic ERP Adaptation**
 ```typescript
 // Cursor Prompt:
-"@file ai/erp/adaptiveErp.ts Build adaptive ERP session management:
+"@file features/ai/erp/adaptiveErp.ts Build adaptive ERP session management:
 
 Adaptation features:
 - Real-time difficulty adjustment based on anxiety levels and biometric data
@@ -447,7 +712,7 @@ Safety and efficacy:
 **Görev 6.2: Biometric Integration**
 ```typescript
 // Cursor Prompt:
-"@file ai/biometrics/physiologicalMonitoring.ts Integrate physiological monitoring:
+"@file features/ai/biometrics/physiologicalMonitoring.ts Integrate physiological monitoring:
 
 - Heart rate variability analysis for anxiety assessment
 - Breathing pattern recognition and guidance
@@ -469,7 +734,7 @@ Safety and efficacy:
 **Görev 7.1: Environmental Context Engine**
 ```typescript
 // Cursor Prompt:
-"@file ai/context/environmentalIntelligence.ts Create context-aware intervention system:
+"@file features/ai/context/environmentalIntelligence.ts Create context-aware intervention system:
 
 Context analysis features:
 - Location-based risk assessment with privacy preservation
@@ -491,7 +756,7 @@ Intervention optimization:
 **Görev 7.2: Predictive Context Modeling**
 ```typescript
 // Cursor Prompt:
-"@file ai/prediction/contextualRiskModel.ts Build predictive risk assessment:
+"@file features/ai/prediction/contextualRiskModel.ts Build predictive risk assessment:
 
 - Machine learning models for compulsion prediction based on contextual factors
 - Trigger pattern recognition with environmental correlation
@@ -508,7 +773,7 @@ Intervention optimization:
 **Görev 8.1: JITAI System**
 ```typescript
 // Cursor Prompt:
-"@file ai/intervention/jitaiEngine.ts Build Just-In-Time Adaptive Intervention system:
+"@file features/ai/intervention/jitaiEngine.ts Build Just-In-Time Adaptive Intervention system:
 
 JITAI capabilities:
 - Multi-modal intervention delivery (text, voice, visual, haptic)
@@ -530,7 +795,7 @@ Advanced features:
 **Görev 8.2: Intervention Effectiveness Monitoring**
 ```typescript
 // Cursor Prompt:
-"@file ai/monitoring/interventionAnalytics.ts Create intervention effectiveness tracking:
+"@file features/ai/monitoring/interventionAnalytics.ts Create intervention effectiveness tracking:
 
 - Real-time intervention response monitoring
 - Long-term outcome correlation analysis
@@ -549,7 +814,7 @@ Advanced features:
 
 ```typescript
 // Cursor Prompt for Privacy Framework:
-"@file ai/privacy/dataMinimization.ts Implement comprehensive privacy framework:
+"@file features/ai/privacy/dataMinimization.ts Implement comprehensive privacy framework:
 
 export const privacyFramework = {
   dataMinimization: {
@@ -582,7 +847,7 @@ Include GDPR, CCPA, HIPAA compliance frameworks and regular audit capabilities"
 
 ```typescript
 // Cursor Prompt for Ethics Framework:
-"@file ai/ethics/guidelines.ts Implement ethical AI framework:
+"@file features/ai/ethics/guidelines.ts Implement ethical AI framework:
 
 export const ethicalFramework = {
   transparency: {
@@ -621,7 +886,7 @@ Include regular ethical review processes and external audit capabilities"
 
 ```typescript
 // Cursor Prompt for Clinical Integration:
-"@file ai/clinical/therapistIntegration.ts Create therapist collaboration system:
+"@file features/ai/clinical/therapistIntegration.ts Create therapist collaboration system:
 
 - Secure therapist dashboard with patient consent
 - AI session summaries for clinical review
@@ -641,7 +906,7 @@ Include regular ethical review processes and external audit capabilities"
 
 ```typescript
 // Cursor Prompt for Metrics Framework:
-"@file monitoring/aiMetrics.ts Create comprehensive AI monitoring system:
+"@file features/monitoring/aiMetrics.ts Create comprehensive AI monitoring system:
 
 export const aiMetrics = {
   conversationQuality: {
@@ -680,7 +945,7 @@ Include real-time dashboards, alerting systems, and automated optimization capab
 
 ```typescript
 // Cursor Prompt for A/B Testing:
-"@file ai/testing/abTestFramework.ts Create ethical A/B testing system:
+"@file features/ai/testing/abTestFramework.ts Create ethical A/B testing system:
 
 - Therapeutic outcome-focused testing with clinical oversight
 - Rapid iteration capabilities with safety guardrails
@@ -699,7 +964,7 @@ Include real-time dashboards, alerting systems, and automated optimization capab
 
 ```typescript
 // Cursor Prompt for Testing Framework:
-"@file testing/aiTestFramework.ts Create comprehensive AI testing system:
+"@file features/testing/aiTestFramework.ts Create comprehensive AI testing system:
 
 export const testingStrategy = {
   unitTests: {
@@ -739,7 +1004,7 @@ Include automated testing pipelines, continuous validation, and clinical trial i
 
 ```typescript
 // Cursor Prompt for Clinical Validation:
-"@file testing/clinicalValidation.ts Create clinical validation framework:
+"@file features/testing/clinicalValidation.ts Create clinical validation framework:
 
 - IRB approval process integration
 - Clinical trial protocol templates
@@ -974,3 +1239,149 @@ Fallback Mechanisms:
 **Son Güncelleme**: 2024
 **Versiyon**: 1.0
 **Onay**: Geliştirme Ekibi ve Klinik Danışma Kurulu 
+
+---
+
+## **🚨 Acil Durum Prosedürleri**
+
+### **Import Hataları Oluştuğunda**
+
+```bash
+# ADIM 1: Metro'yu durdurun
+pkill -f "expo start" && pkill -f node
+
+# ADIM 2: Tüm cache'leri temizleyin
+rm -rf node_modules/.cache
+rm -rf .expo
+rm -rf $TMPDIR/metro-*
+rm -rf $TMPDIR/haste-*
+watchman watch-del-all
+watchman shutdown-server
+
+# ADIM 3: Node modules'ı yenileyin
+rm -rf node_modules
+npm install
+
+# ADIM 4: iOS için pod install
+cd ios && pod install && cd ..
+
+# ADIM 5: Metro'yu temiz başlatın
+npx expo start -c
+```
+
+### **Rollback Prosedürü**
+
+```bash
+# ADIM 1: Son safe point'i bulun
+git tag -l "safe-point-*" | sort -r | head -5
+
+# ADIM 2: Safe point'e dönün
+git checkout [safe-point-tag]
+
+# ADIM 3: Feature flag'leri kapatın
+# features/ai/config/featureFlags.ts dosyasında tüm AI flag'lerini false yapın
+
+# ADIM 4: Emergency branch oluşturun
+git checkout -b emergency/ai-rollback-$(date +%Y%m%d-%H%M%S)
+
+# ADIM 5: Değişiklikleri commit edin
+git add -A
+git commit -m "Emergency: AI features disabled due to [reason]"
+
+# ADIM 6: Push ve deploy
+git push origin HEAD
+```
+
+### **Watchman Sorunları**
+
+```bash
+# Watchman sürekli src/ arıyorsa:
+watchman watch-del '/path/to/project'
+watchman shutdown-server
+
+# .watchmanconfig oluşturun
+echo '{"ignore_dirs": ["src"]}' > .watchmanconfig
+
+# Watchman'ı yeniden başlatın
+watchman watch-project .
+```
+
+## **✅ Güvenlik Kontrol Listesi**
+
+### **Her AI Özelliği İçin**
+
+- [ ] Feature flag tanımlandı mı? (varsayılan: false)
+- [ ] Error boundary eklendi mi?
+- [ ] Fallback UI hazır mı?
+- [ ] Import'lar @/ alias kullanıyor mu?
+- [ ] features/ai/ altında izole mi?
+- [ ] Mevcut state'i etkiliyor mu?
+- [ ] Rollback planı var mı?
+- [ ] Test coverage %80+ mı?
+
+### **Her Commit Öncesi**
+
+- [ ] Import guard script çalıştı mı?
+- [ ] Tehlikeli pattern var mı? (../../src/)
+- [ ] Safe point oluşturuldu mu?
+- [ ] Atomic commit mi?
+- [ ] CI/CD testleri geçti mi?
+
+### **Her Sprint Sonunda**
+
+- [ ] Stable tag oluşturuldu mu?
+- [ ] Backup alındı mı?
+- [ ] Dokümantasyon güncellendi mi?
+- [ ] Performance metrikleri kontrol edildi mi?
+- [ ] Kullanıcı geri bildirimleri değerlendirildi mi?
+
+## **📋 Kritik Kurallar Özeti**
+
+### **🚫 ASLA YAPMAYIN**
+
+1. **src/ dizini OLUŞTURMAYIN**
+2. **Mevcut dizin yapısını DEĞİŞTİRMEYİN**
+3. **Bulk import refactoring YAPMAYIN**
+4. **Feature flag'siz özellik EKLEMEYİN**
+5. **Test edilmemiş kod DEPLOY ETMEYİN**
+6. **Büyük monolitik commit YAPMAYIN**
+7. **Error boundary'siz AI componenti YAZMAYIN**
+
+### **✅ HER ZAMAN YAPIN**
+
+1. **features/ai/ altında izole geliştirin**
+2. **@/ alias ile import yapın**
+3. **Feature flag arkasında geliştirin**
+4. **Error boundary ve fallback ekleyin**
+5. **Atomic commit'ler yapın**
+6. **Safe point'ler oluşturun**
+7. **Rollback planı hazırlayın**
+8. **Progressive enhancement uygulayın**
+
+## **🎯 Başarı Kriterleri**
+
+### **Teknik**
+- Zero import errors
+- Zero dizin yapısı değişikliği
+- 100% feature flag coverage
+- <1% crash rate increase
+
+### **Kullanıcı Deneyimi**
+- Mevcut özellikler etkilenmemeli
+- AI özellikleri optional olmalı
+- Graceful degradation
+- Clear user communication
+
+### **Geliştirme Süreci**
+- Predictable rollouts
+- Quick rollback capability
+- Clear documentation
+- Team alignment
+
+---
+
+*Bu yol haritası, önceki AI entegrasyon denemesinden alınan derslerle güncellenmiştir. Stabilite ve güvenlik önceliklidir.*
+
+**Son Güncelleme**: 2024 - Post-Import Crisis Update
+**Versiyon**: 2.0 - Safety First Edition
+**Durum**: Import hatalarından sonra yeniden yapılandırıldı 
