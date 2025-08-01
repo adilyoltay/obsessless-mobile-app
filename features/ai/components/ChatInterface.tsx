@@ -25,14 +25,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  AIMessage, 
-  AIMessageMetadata,
-  AIError,
-  AIErrorCode 
-} from '@/features/ai/types';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { AIMessage, AIError, ConversationContext } from '@/features/ai/types';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+
+// Services
+import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+import { aiService } from '@/services/aiService';
 
 // Mesaj tipi enum'ı
 enum MessageType {
@@ -219,16 +218,39 @@ const ActualChatInterface: React.FC<ChatInterfaceProps> = ({
 
     try {
       // AI yanıtını al
-      const aiResponse = await onSendMessage(messageText);
+      let aiResponse: ChatMessage;
       
-      // Kullanıcı mesajını güncelle (sent durumu)
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === userMessage.id 
-            ? { ...msg, status: MessageStatus.SENT }
-            : msg
-        )
-      );
+      try {
+        // Try real AI service first
+        aiResponse = await aiService.sendChatMessage(
+          userMessage.content,
+          userMessage.metadata?.conversationId, // Assuming conversationId is part of metadata
+          {
+            sessionId,
+            recentMessages: messages.slice(-5)
+          }
+        );
+      } catch (error) {
+        // Fallback to provided handler or mock
+        if (onSendMessage) {
+          aiResponse = await onSendMessage(userMessage.content);
+        } else {
+          // Mock response
+          aiResponse = {
+            id: `ai_${Date.now()}`,
+            content: 'AI servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+            role: 'assistant',
+            timestamp: new Date(),
+            type: MessageType.SYSTEM,
+            status: MessageStatus.FAILED,
+            metadata: {
+              sessionId,
+              contextType: 'chat',
+              fallback: true
+            }
+          };
+        }
+      }
 
       // Crisis kontrolü
       if (aiResponse.metadata?.safety_score && aiResponse.metadata.safety_score < 0.3) {
@@ -236,14 +258,14 @@ const ActualChatInterface: React.FC<ChatInterfaceProps> = ({
       }
 
       // AI mesajını ekle
-      const aiMessage: ChatMessage = {
+      const finalAiMessage: ChatMessage = {
         ...aiResponse,
         type: MessageType.TEXT,
         status: MessageStatus.DELIVERED,
         suggestions: extractSuggestions(aiResponse.content)
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, finalAiMessage]);
       
       // Accessibility announcement
       AccessibilityInfo.announceForAccessibility(
