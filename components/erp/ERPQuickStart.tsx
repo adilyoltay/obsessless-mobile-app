@@ -33,45 +33,7 @@ interface ERPExerciseConfig {
   selectedExercise: ERPExercise;
 }
 
-// Exercise Type Definitions with category previews
-const EXERCISE_TYPES = [
-  {
-    id: 'real_life',
-    title: '🌱 Nazik Adımlar',
-    subtitle: 'Kendi hızında ilerle',
-    description: 'Günlük yaşamda küçük cesaret adımları at',
-    preview: 'Temizlik, Kontrol, Düzenleme kategorileri',
-    icon: 'sprout',
-    color: '#10B981',
-  },
-  {
-    id: 'imagination',
-    title: '🦋 İç Yolculuk',
-    subtitle: 'Güvenli bir alanda keşfet',
-    description: 'Hayal gücünle nazikçe duygularını tanı',
-    preview: 'Zihinsel senaryolar ve düşünce egzersizleri',
-    icon: 'meditation',
-    color: '#8B5CF6',
-  },
-  {
-    id: 'interoceptive',
-    title: '💙 Beden Farkındalığı',
-    subtitle: 'Nefesine odaklan',
-    description: 'Bedenindeki hisleri gözlemle ve kabul et',
-    preview: 'Nefes, kalp atışı ve bedensel his egzersizleri',
-    icon: 'heart-outline',
-    color: '#3B82F6',
-  },
-  {
-    id: 'response_prevention',
-    title: '🌟 Seçim Özgürlüğü',
-    subtitle: 'Yeni tepkiler dene',
-    description: 'Alışkanlıklarından farklı seçimler yapma fırsatı',
-    preview: 'Kompulsiyonlara alternatif davranış geliştirme',
-    icon: 'star-outline',
-    color: '#F59E0B',
-  },
-];
+// Simplified to 2-step flow: Category → Exercise + Settings
 
 export function ERPQuickStart({
   visible,
@@ -103,21 +65,6 @@ export function ERPQuickStart({
     setPersonalGoal('');
   };
 
-  const handleTypeSelect = (typeId: string) => {
-    // No longer needed - removed
-  };
-
-  const handleThemeSelect = (category: string, exercise: ERPExercise) => {
-    setSelectedCategory(category);
-    setSelectedExercise(exercise);
-    setDuration(exercise.duration);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleNext = () => {
-    // Not needed in single-step flow
-  };
-
   const handleStartExercise = () => {
     if (!selectedExercise) return;
 
@@ -138,10 +85,6 @@ export function ERPQuickStart({
     onExerciseSelect(config);
     onDismiss();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const handleBack = () => {
-    // No back functionality needed in single step
   };
 
   const getStepTitle = () => {
