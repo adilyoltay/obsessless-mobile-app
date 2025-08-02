@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { 
-  View, 
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
   Text,
   TextInput,
   TouchableOpacity,
@@ -10,42 +10,54 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
-  Dimensions
+  Alert
 } from 'react-native';
 import { Stack } from 'expo-router';
+import AIChatService from '@/services/aiChatService';
+import { ChatMessage } from '@/services/aiChatService';
+import { ChatContext } from '@/constants/aiConfig';
+import { isFeatureEnabled } from '@/constants/featureFlags';
+import { useAuthContext as useAuth } from '@/contexts/AuthContext';
 
-interface Message {
+interface DisplayMessage {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: Date;
+  provider?: string;
+  isError?: boolean;
 }
 
-const { height: screenHeight } = Dimensions.get('window');
-
 export default function AIChatScreen() {
-  const [messages, setMessages] = useState<Message[]>([
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<DisplayMessage[]>([
     {
       id: '1',
-      text: 'Merhaba 🌱 Ben sizin dijital destek arkadaşınızım. Buradayım ve sizi dinliyorum. Size nasıl yardımcı olabilirim?',
+      text: 'Merhaba! 🌱 Ben ObsessLess AI uzmanınızım. OKB konusunda size destek olmak için buradayım. Bugün nasıl hissediyorsunuz?',
       isUser: false,
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      text: 'Bu güvenli bir alan. Duygularınızı özgürce paylaşabilirsiniz. 💙',
-      isUser: false,
-      timestamp: new Date(Date.now() - 1000)
+      timestamp: new Date(),
+      provider: 'system'
     }
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentProvider, setCurrentProvider] = useState<string>('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
-  const sendMessage = useCallback(() => {
-    if (!inputText.trim()) return;
+  useEffect(() => {
+    if (!isFeatureEnabled('AI_CHAT')) {
+      Alert.alert(
+        'AI Chat Devre Dışı',
+        'AI Chat özelliği şu anda kullanılamıyor.',
+        [{ text: 'Tamam' }]
+      );
+    }
+  }, []);
 
-    // Kullanıcı mesajını ekle
-    const userMessage: Message = {
+  const sendMessage = useCallback(async () => {
+    if (!inputText.trim() || isTyping) return;
+
+    const userMessage: DisplayMessage = {
       id: Date.now().toString(),
       text: inputText.trim(),
       isUser: true,
@@ -54,99 +66,105 @@ export default function AIChatScreen() {
 
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
-
-    // AI typing simulation
     setIsTyping(true);
-    
-    setTimeout(() => {
-      const aiResponse = generateTherapeuticResponse(userMessage.text);
-      
-      const botMessage: Message = {
+
+    const userChatMessage: ChatMessage = {
+      role: 'user',
+      content: userMessage.text,
+      timestamp: new Date()
+    };
+
+    const updatedHistory = [...chatHistory, userChatMessage];
+    setChatHistory(updatedHistory);
+
+    try {
+      const context: ChatContext = {
+        userProfile: {
+          ocdSymptoms: ['contamination', 'checking'],
+          severityLevel: 6,
+          triggerAreas: ['bathroom', 'kitchen'],
+          copingStrategies: ['breathing', 'grounding']
+        },
+        currentMood: 'anxious',
+        sessionHistory: []
+      };
+
+      const aiResponse = await AIChatService.sendMessage(
+        userMessage.text,
+        context,
+        updatedHistory
+      );
+
+      const aiMessage: DisplayMessage = {
         id: (Date.now() + 1).toString(),
-        text: aiResponse,
+        text: aiResponse.message,
         isUser: false,
+        timestamp: new Date(),
+        provider: aiResponse.provider,
+        isError: !aiResponse.success
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+      setCurrentProvider(aiResponse.provider);
+
+      const aiChatMessage: ChatMessage = {
+        role: 'assistant',
+        content: aiResponse.message,
         timestamp: new Date()
       };
-      
-      setIsTyping(false);
-      setMessages(prev => [...prev, botMessage]);
-    }, 1500 + Math.random() * 1000);
-  }, [inputText]);
 
-  const generateTherapeuticResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    // OKB-Spesifik Terapötik Yanıtlar
-    if (input.includes('kompulsiyon') || input.includes('takıntı') || input.includes('ritual') || input.includes('obsesyon')) {
-      const responses = [
-        'Kompulsiyonlar gerçekten zorlayıcı olabilir. Bu anı fark etmeniz çok önemli bir adım. 🌱 Şu anda nasıl hissediyorsunuz?',
-        'OKB ile mücadele cesaret gerektirir. Her fark etme anı bir zaferdir. 💪 Bu durumla nasıl başa çıkmaya çalışıyorsunuz?',
-        'Kompulsiyonları gözlemlemek, onları kontrol etmeye çalışmaktan daha güçlüdür. 🧘‍♀️ Şu anda hangi düşünceler aklınızdan geçiyor?'
-      ];
-      return responses[Math.floor(Math.random() * responses.length)];
+      setChatHistory(prev => [...prev, aiChatMessage]);
+
+    } catch (error) {
+      console.error('[AI Chat Error]:', error);
+
+      const errorMessage: DisplayMessage = {
+        id: (Date.now() + 2).toString(),
+        text: 'Üzgünüm, şu anda teknik bir sorun yaşıyorum. Lütfen birkaç dakika sonra tekrar deneyin. 🔧\n\nBu arada nefes alma egzersizi yapmayı deneyin: 4 saniye nefes alın, 4 saniye tutun, 6 saniye bırakın. 🧘‍♀️',
+        isUser: false,
+        timestamp: new Date(),
+        provider: 'error',
+        isError: true
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
-    
-    if (input.includes('anksiyete') || input.includes('kaygı') || input.includes('korku') || input.includes('endişe')) {
-      const responses = [
-        'Anksiyete doğal bir tepki. Nefes alma pratiği deneyelim mi? 4 saniye nefes alın, 4 saniye tutun, 6 saniye bırakın. 🧘‍♀️',
-        'Kaygı geçicidir, siz kalıcısınız. Şu anda hangi duyumları vücudunuzda hissediyorsunuz? 💙',
-        'Bu anksiyeteyle birlikte olmak cesaret gerektirir. Sizinle birlikte nefes alalım. 🌊'
-      ];
-      return responses[Math.floor(Math.random() * responses.length)];
-    }
-    
-    if (input.includes('erp') || input.includes('maruz') || input.includes('alıştırma')) {
-      return 'ERP egzersizleri en etkili tedavi yöntemlerinden biri. Küçük adımlarla başlamak en iyisidir. 🚀 Hangi alanda kendinizi hazır hissediyorsunuz?';
-    }
-    
-    if (input.includes('üzgün') || input.includes('depresyon') || input.includes('umutsuz') || input.includes('kötü')) {
-      return 'Bu zor duygular geçicidir ve siz değerlisiniz. İyileşme doğrusal değildir. 💜 Bugün kendinize nasıl nazik davranabilirsiniz?';
-    }
-    
-    if (input.includes('yardım') || input.includes('destek') || input.includes('ne yapmalı')) {
-      return 'Size yardım etmek için buradayım. 🤝 OKB ile yaşamak kolay değil ama yalnız değilsiniz. Kompulsiyonlar, ERP teknikleri, nefes çalışmaları veya günlük başa çıkma stratejileri hakkında konuşabiliriz.';
-    }
-    
-    // Genel destekleyici yanıt
-    const generalResponses = [
-      'Sizi dikkatlice dinliyorum. Bu duygularınızı paylaştığınız için cesursunuz. 💙 Biraz daha anlatır mısınız?',
-      'Her yaşadığınız deneyim değerlidir. 🌱 Bu durumla ilgili daha fazla bilgi paylaşabilir misiniz?',
-      'Yanınızdayım ve sizi anlıyorum. 🤗 Size nasıl daha iyi destek olabilirim?',
-      'Duygularınız geçerli ve önemli. 💜 Bu konuda neler düşünüyorsunuz?'
-    ];
-    
-    return generalResponses[Math.floor(Math.random() * generalResponses.length)];
-  };
+  }, [inputText, isTyping, chatHistory]);
 
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="dark-content" backgroundColor="#F7FAFC" />
-      
-      <Stack.Screen 
-        options={{ 
-          title: 'Destek Arkadaşınız',
+
+      <Stack.Screen
+        options={{
+          title: 'AI Uzman Desteği',
           headerStyle: { backgroundColor: '#F7FAFC' },
           headerTitleStyle: { color: '#2D3748', fontSize: 18, fontWeight: '600' },
           headerShadowVisible: false,
-        }} 
+        }}
       />
 
       <View style={styles.container}>
-        {/* Header Info */}
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>🤖 ObsessLess AI Asistan</Text>
-          <Text style={styles.headerSubtitle}>• Güvenli alan • Yargısız dinleme • 7/24 destek</Text>
+          <Text style={styles.headerTitle}>🧠 OKB Uzmanı AI Asistan</Text>
+          <Text style={styles.headerSubtitle}>
+            {currentProvider
+              ? `• ${currentProvider.toUpperCase()} ile güçlendirildi • Güvenli ve gizli`
+              : '• Güvenli alan • Yargısız dinleme • 7/24 destek'
+            }
+          </Text>
         </View>
 
-        {/* Messages Container - Fixed Height */}
         <View style={styles.messagesWrapper}>
-          <ScrollView 
+          <ScrollView
             style={styles.messagesContainer}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20 }}
           >
             {messages.map((message) => (
-              <View 
+              <View
                 key={message.id}
                 style={[
                   styles.messageRow,
@@ -156,38 +174,46 @@ export default function AIChatScreen() {
                 <View
                   style={[
                     styles.messageBubble,
-                    message.isUser ? styles.userMessage : styles.aiMessage
+                    message.isUser ? styles.userMessage : styles.aiMessage,
+                    message.isError && styles.errorMessage
                   ]}
                 >
                   <Text style={[
                     styles.messageText,
-                    message.isUser ? styles.userMessageText : styles.aiMessageText
+                    message.isUser ? styles.userMessageText : styles.aiMessageText,
+                    message.isError && styles.errorMessageText
                   ]}>
                     {message.text}
                   </Text>
-                  <Text style={styles.timestamp}>
-                    {message.timestamp.toLocaleTimeString('tr-TR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </Text>
+                  <View style={styles.messageFooter}>
+                    <Text style={styles.timestamp}>
+                      {message.timestamp.toLocaleTimeString('tr-TR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                    {message.provider && message.provider !== 'system' && (
+                      <Text style={styles.providerTag}>
+                        {message.provider === 'error' ? '⚠️' : `🤖 ${message.provider}`}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
             ))}
-            
-            {/* Typing Indicator */}
+
             {isTyping && (
               <View style={[styles.messageRow, styles.aiMessageRow]}>
                 <View style={[styles.messageBubble, styles.aiMessage]}>
-                  <Text style={styles.typingText}>💭 Düşünüyor...</Text>
+                  <Text style={styles.typingText}>🧠 AI uzmanınız düşünüyor...</Text>
+                  <Text style={styles.typingSubtext}>Kişiselleştirilmiş yanıt hazırlanıyor</Text>
                 </View>
               </View>
             )}
           </ScrollView>
         </View>
 
-        {/* Input Area - ABSOLUTE BOTTOM FIXED */}
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
@@ -197,26 +223,29 @@ export default function AIChatScreen() {
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Duygularınızı paylaşabilirsiniz..."
+                placeholder="OKB ile ilgili düşüncelerinizi paylaşın..."
                 placeholderTextColor="#A0AEC0"
                 multiline
-                maxLength={300}
+                maxLength={500}
                 returnKeyType="send"
                 onSubmitEditing={sendMessage}
+                editable={!isTyping}
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  !inputText.trim() && styles.sendButtonDisabled
+                  (!inputText.trim() || isTyping) && styles.sendButtonDisabled
                 ]}
                 onPress={sendMessage}
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || isTyping}
               >
-                <Text style={styles.sendButtonText}>💌</Text>
+                <Text style={styles.sendButtonText}>
+                  {isTyping ? '⏳' : '🚀'}
+                </Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.inputHelperText}>
-              • Güvenli alan • Yargısız dinleme • Gizli kalır
+              • AI uzman desteği • Bilimsel kanıta dayalı • Tamamen gizli
             </Text>
           </View>
         </KeyboardAvoidingView>
@@ -252,10 +281,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#718096',
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   messagesWrapper: {
     flex: 1,
-    marginBottom: 0, // Remove any bottom margin
+    marginBottom: 0,
   },
   messagesContainer: {
     flex: 1,
@@ -290,6 +320,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#68D391',
   },
+  errorMessage: {
+    borderLeftColor: '#F56565',
+    backgroundColor: '#FED7D7',
+  },
   messageText: {
     fontSize: 16,
     lineHeight: 24,
@@ -301,26 +335,45 @@ const styles = StyleSheet.create({
   aiMessageText: {
     color: '#2D3748',
   },
+  errorMessageText: {
+    color: '#C53030',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
   timestamp: {
     fontSize: 11,
-    marginTop: 6,
     opacity: 0.6,
     color: '#718096',
     fontWeight: '300',
+  },
+  providerTag: {
+    fontSize: 10,
+    color: '#68D391',
+    fontWeight: '500',
   },
   typingText: {
     fontSize: 14,
     color: '#68D391',
     fontStyle: 'italic',
+    fontWeight: '500',
   },
-  // CRITICAL: BOTTOM TAB SAFE INPUT AREA
+  typingSubtext: {
+    fontSize: 12,
+    color: '#A0AEC0',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
   inputContainer: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 90 : 75, // INCREASED for bottom tab + safe area
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -335,7 +388,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: 16,
-    maxHeight: 100,
+    maxHeight: 120,
     marginRight: 12,
     backgroundColor: '#F7FAFC',
     color: '#2D3748',

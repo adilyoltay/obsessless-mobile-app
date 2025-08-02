@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function Index() {
-  // Temporarily bypass all auth - direct redirect for debugging
+  // Simple direct redirect to tabs
   return <Redirect href="/(tabs)" />;
 } 

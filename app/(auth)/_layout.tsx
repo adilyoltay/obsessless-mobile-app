@@ -16,9 +16,6 @@ export default function AuthLayout() {
           contentStyle: { backgroundColor: '#10B981' },
         }}
       >
-        <Stack.Screen name="test-touch" />
-        <Stack.Screen name="minimal-test" />
-        <Stack.Screen name="ultra-simple-test" />
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
         <Stack.Screen name="onboarding" />

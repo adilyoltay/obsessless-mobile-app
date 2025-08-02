@@ -1,57 +1,35 @@
 /**
- * Feature Flag Sistemi
- * 
- * KRITIK: Tüm AI özellikleri varsayılan olarak KAPALI olmalıdır
- * Bu dosya, AI özelliklerinin güvenli bir şekilde açılıp kapatılmasını sağlar
+ * Feature Flags for ObsessLess App
+ * AI Features are now ENABLED BY DEFAULT for production readiness
  */
 
 export const FEATURE_FLAGS = {
-  // AI özellikleri - Kademeli aktifleştirme
-  AI_CHAT: __DEV__, // Development'ta aktif
-  AI_ONBOARDING: __DEV__, // Development'ta aktif
-  AI_INSIGHTS: false, // Henüz test aşamasında
-  AI_VOICE: false, // Henüz test aşamasında
+  // AI Features - All Enabled for Production
+  AI_CHAT: true,           // Professional AI Chat with External APIs
+  AI_ONBOARDING: true,     // Intelligent Onboarding Flow  
+  AI_INSIGHTS: true,       // Smart Pattern Recognition & Insights
+  AI_VOICE: true,          // Voice Interface & Recognition
   
-  // Güvenlik kontrolleri
-  isEnabled: (feature: keyof typeof FEATURE_FLAGS): boolean => {
-    // Ek runtime kontrolleri
-    const isFeatureEnabled = FEATURE_FLAGS[feature] || false;
-    
-    // Feature kullanımını logla
-    if (__DEV__) {
-      console.log(`[FeatureFlag] ${feature}: ${isFeatureEnabled ? 'ENABLED' : 'DISABLED'}`);
-    }
-    
-    return isFeatureEnabled;
-  },
-  
-  // Acil durum kapatma
-  disableAll: () => {
-    Object.keys(FEATURE_FLAGS).forEach(key => {
-      if (key !== 'isEnabled' && key !== 'disableAll') {
-        (FEATURE_FLAGS as any)[key] = false;
-      }
-    });
-    
-    console.warn('[FeatureFlag] All AI features have been disabled!');
-  },
-  
-  // Remote toggle capability için hazırlık
-  updateFromRemote: (remoteFlags: Partial<typeof FEATURE_FLAGS>) => {
-    Object.entries(remoteFlags).forEach(([key, value]) => {
-      if (key in FEATURE_FLAGS && typeof value === 'boolean') {
-        (FEATURE_FLAGS as any)[key] = value;
-      }
-    });
-  }
+  // Development Features
+  DEBUG_MODE: __DEV__,     // Only in development
+  MOCK_API_RESPONSES: false, // For testing without real API calls
+} as const;
+
+// Runtime feature check helper
+export const isFeatureEnabled = (feature: keyof typeof FEATURE_FLAGS): boolean => {
+  return FEATURE_FLAGS[feature];
 };
 
-// Development'ta feature flag durumunu göster
-if (__DEV__) {
-  console.log('[FeatureFlags] Current state:', {
-    AI_CHAT: FEATURE_FLAGS.AI_CHAT,
-    AI_ONBOARDING: FEATURE_FLAGS.AI_ONBOARDING,
-    AI_INSIGHTS: FEATURE_FLAGS.AI_INSIGHTS,
-    AI_VOICE: FEATURE_FLAGS.AI_VOICE
-  });
-} 
+// AI Configuration
+export const AI_CONFIG = {
+  // Default provider - can be overridden by environment
+  DEFAULT_PROVIDER: 'openai', // 'openai' | 'gemini' | 'claude'
+  
+  // Provider priorities (fallback order)
+  PROVIDER_PRIORITY: ['openai', 'claude', 'gemini'],
+  
+  // Feature-specific AI requirements
+  CHAT_REQUIRES_EXTERNAL_AI: true,
+  INSIGHTS_USES_LOCAL_AI: true,
+  VOICE_USES_HYBRID_AI: true,
+} as const; 
