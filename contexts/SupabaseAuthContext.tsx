@@ -4,12 +4,13 @@ import { supabaseService, UserProfile, SignUpResult, AuthResult } from '@/servic
 import { useGamificationStore } from '@/store/gamificationStore';
 import { migrateToUserSpecificStorage } from '@/utils/storage';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 
 // ===========================
 // CONTEXT TYPE DEFINITION
 // ===========================
 
-interface AuthContextType {
+export interface AuthContextType {
   // State
   user: User | null;
   profile: UserProfile | null;
@@ -74,25 +75,16 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         if (url.includes('obslesstest://auth/callback')) {
           try {
             console.log('🔐 Processing OAuth callback...');
-            console.log('🔐 Full callback URL:', url);
+            const callbackUrl = new URL(url.replace('#', '?'));
+            const accessToken = callbackUrl.searchParams.get('access_token');
+            const refreshToken = callbackUrl.searchParams.get('refresh_token');
             
-            // Extract parameters from URL
-            const urlObj = new URL(url);
-            const params = urlObj.searchParams;
-            console.log('🔐 URL parameters:', {
-              code: params.get('code') ? 'present' : 'missing',
-              state: params.get('state') ? 'present' : 'missing',
-              error: params.get('error'),
-              error_description: params.get('error_description')
-            });
-            
-            // Force a session refresh after OAuth callback
-            console.log('🔐 Forcing session refresh after callback...');
-            const currentUser = await supabaseService.initialize();
-            if (currentUser) {
-              console.log('✅ Session found after OAuth callback:', currentUser.email);
-            } else {
-              console.log('❌ No session found after OAuth callback');
+            if (accessToken && refreshToken) {
+              await supabaseService.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              });
+              await WebBrowser.dismissBrowser();
             }
             
           } catch (error) {

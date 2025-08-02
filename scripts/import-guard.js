@@ -1,99 +1,179 @@
 #!/usr/bin/env node
 
 /**
- * Import Guard Script
+ * Import Guard System
  * 
- * Bu script, tehlikeli import pattern'lerini tespit eder ve commit'i engeller
- * Pre-commit hook olarak çalıştırılmalıdır
+ * KRITIK: Pre-commit hook sistemi - Import felaketlerini önler
+ * Tehlikeli import pattern'lerini tespit eder ve commit'i engeller
  */
 
 const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
+const { execSync } = require('child_process');
 
-// Tehlikeli import pattern'leri
+// Yasaklı import pattern'leri
 const FORBIDDEN_PATTERNS = [
-  /from\s+['"]\.\.\/\.\.\/src\//,     // ../../src imports
-  /from\s+['"]src\//,                  // src/ imports
-  /require\s*\(\s*['"]src\//,          // require('src/')
-  /import\s+.*\s+from\s+['"]src\//,    // import from 'src/'
+  {
+    pattern: /from ['"]\.\.\/\.\.\/src\//g,
+    message: "YASAK: ../../src/ import'u kullanmayın. @/ alias kullanın.",
+    severity: 'CRITICAL'
+  },
+  {
+    pattern: /from ['"]src\//g,
+    message: "YASAK: src/ import'u kullanmayın. Mevcut yapıya uygun import yapın.",
+    severity: 'CRITICAL'
+  },
+  {
+    pattern: /require\(['"]src\//g,
+    message: "YASAK: require('src/') kullanmayın. @/ alias kullanın.",
+    severity: 'CRITICAL'
+  },
+  {
+    pattern: /import.*from ['"]\.\.\/\.\.\/\.\.\/src/g,
+    message: "YASAK: Çok derin relative import. @/ alias kullanın.",
+    severity: 'CRITICAL'
+  },
+  {
+    pattern: /import.*from ['"].*\/src\//g,
+    message: "UYARI: src/ referansı şüpheli. Kontrol edin.",
+    severity: 'WARNING'
+  }
 ];
 
 // Kontrol edilecek dosya uzantıları
 const FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
-// Hataları sakla
-const errors = [];
-
-// Proje kök dizini
-const PROJECT_ROOT = path.resolve(__dirname, '..');
-
-// Dosyaları tara
-function scanFiles() {
-  const files = glob.sync('**/*.{ts,tsx,js,jsx}', {
-    cwd: PROJECT_ROOT,
-    ignore: [
-      'node_modules/**',
-      'ios/**',
-      'android/**',
-      '.expo/**',
-      'scripts/**',
-      'dist/**',
-      'build/**'
-    ]
-  });
-
-  files.forEach(file => {
-    checkFile(path.join(PROJECT_ROOT, file));
-  });
+// Git'ten değişen dosyaları al
+function getChangedFiles() {
+  try {
+    const gitDiff = execSync('git diff --cached --name-only', { encoding: 'utf8' });
+    return gitDiff.split('\n').filter(file => 
+      file && FILE_EXTENSIONS.some(ext => file.endsWith(ext))
+    );
+  } catch (error) {
+    console.log('Git diff alınamadı, tüm dosyalar kontrol edilecek');
+    return getAllRelevantFiles();
+  }
 }
 
-// Tek bir dosyayı kontrol et
-function checkFile(filePath) {
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split('\n');
+// Tüm ilgili dosyaları al (fallback)
+function getAllRelevantFiles() {
+  const files = [];
   
-  lines.forEach((line, index) => {
-    FORBIDDEN_PATTERNS.forEach(pattern => {
-      if (pattern.test(line)) {
-        errors.push({
-          file: path.relative(PROJECT_ROOT, filePath),
-          line: index + 1,
-          content: line.trim(),
-          pattern: pattern.toString()
+  function scanDirectory(dir) {
+    try {
+      const items = fs.readdirSync(dir);
+      
+      for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+        
+        if (stat.isDirectory()) {
+          // node_modules, .git gibi dizinleri atla
+          if (!item.startsWith('.') && item !== 'node_modules' && item !== 'ios' && item !== 'android') {
+            scanDirectory(fullPath);
+          }
+        } else if (FILE_EXTENSIONS.some(ext => item.endsWith(ext))) {
+          files.push(fullPath);
+        }
+      }
+    } catch (error) {
+      // Dizin okunamadı, devam et
+    }
+  }
+  
+  scanDirectory('.');
+  return files;
+}
+
+// Dosyayı kontrol et
+function checkFile(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const violations = [];
+    
+    FORBIDDEN_PATTERNS.forEach(({ pattern, message, severity }) => {
+      const matches = content.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const lineNumber = content.substring(0, content.indexOf(match)).split('\n').length;
+          violations.push({
+            file: filePath,
+            line: lineNumber,
+            pattern: match,
+            message,
+            severity
+          });
         });
       }
     });
-  });
+    
+    return violations;
+  } catch (error) {
+    console.warn(`⚠️  Dosya okunamadı: ${filePath}`);
+    return [];
+  }
 }
 
-// Ana fonksiyon
+// Ana kontrol fonksiyonu
 function main() {
-  console.log('🔍 Import Guard: Checking for dangerous import patterns...\n');
+  console.log('🛡️  Import Guard System - Başlatılıyor...\n');
   
-  scanFiles();
+  const filesToCheck = getChangedFiles();
   
-  if (errors.length > 0) {
-    console.error('❌ DANGEROUS IMPORTS DETECTED!\n');
-    console.error('The following files contain forbidden import patterns:\n');
+  if (filesToCheck.length === 0) {
+    console.log('✅ Kontrol edilecek dosya bulunamadı.');
+    process.exit(0);
+  }
+  
+  console.log(`📁 ${filesToCheck.length} dosya kontrol ediliyor...\n`);
+  
+  let criticalViolations = 0;
+  let warningViolations = 0;
+  
+  filesToCheck.forEach(file => {
+    const violations = checkFile(file);
     
-    errors.forEach(error => {
-      console.error(`📁 ${error.file}:${error.line}`);
-      console.error(`   ${error.content}`);
-      console.error(`   Pattern: ${error.pattern}\n`);
+    violations.forEach(violation => {
+      const icon = violation.severity === 'CRITICAL' ? '🚨' : '⚠️';
+      const color = violation.severity === 'CRITICAL' ? '\x1b[31m' : '\x1b[33m';
+      const reset = '\x1b[0m';
+      
+      console.log(`${icon} ${color}${violation.severity}${reset}: ${violation.file}:${violation.line}`);
+      console.log(`   Pattern: ${violation.pattern}`);
+      console.log(`   Message: ${violation.message}`);
+      console.log('');
+      
+      if (violation.severity === 'CRITICAL') {
+        criticalViolations++;
+      } else {
+        warningViolations++;
+      }
     });
-    
-    console.error('🚫 COMMIT BLOCKED!');
-    console.error('\n✅ To fix this:');
-    console.error('1. Replace src/ imports with @/ alias');
-    console.error('2. Use proper import paths from project root');
-    console.error('3. Never create or import from src/ directory\n');
-    
+  });
+  
+  // Sonuç raporu
+  if (criticalViolations > 0) {
+    console.log(`🚨 ${criticalViolations} KRİTİK import ihlali bulundu!`);
+    console.log('💡 Düzeltme önerileri:');
+    console.log('   - ../../src/ yerine @/ alias kullanın');
+    console.log('   - src/ referanslarını kaldırın');
+    console.log('   - Mevcut dizin yapısına uygun import yapın');
+    console.log('\nCommit engellenmiştir. Lütfen önce hataları düzeltin.\n');
     process.exit(1);
   }
   
-  console.log('✅ Import Guard: All imports are safe!\n');
+  if (warningViolations > 0) {
+    console.log(`⚠️  ${warningViolations} uyarı bulundu. Kontrol etmeyi unutmayın.`);
+  }
+  
+  console.log('✅ Import kontrolü başarılı. Commit devam edebilir.\n');
+  process.exit(0);
 }
 
-// Script'i çalıştır
-main(); 
+// CLI mode kontrolü
+if (require.main === module) {
+  main();
+}
+
+module.exports = { checkFile, FORBIDDEN_PATTERNS }; 

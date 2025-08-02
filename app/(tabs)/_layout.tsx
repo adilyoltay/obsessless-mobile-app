@@ -8,6 +8,7 @@ import { TabBarIcon } from '@/components/ui/TabBarIcon';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -48,6 +49,16 @@ export default function TabLayout() {
           title: 'Takip',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'pulse' : 'pulse-outline'} color={color} />
+          ),
+        }}
+      />
+      {/* AI Chat Tab - Şimdilik her zaman göster */}
+      <Tabs.Screen
+        name="ai-chat"
+        options={{
+          title: 'AI Chat',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
           ),
         }}
       />

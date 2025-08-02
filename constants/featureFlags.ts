@@ -6,11 +6,11 @@
  */
 
 export const FEATURE_FLAGS = {
-  // AI özellikleri - VARSAYILAN KAPALI
-  AI_CHAT: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CHAT === 'true',
-  AI_ONBOARDING: false,
-  AI_INSIGHTS: false,
-  AI_VOICE: false,
+  // AI özellikleri - Kademeli aktifleştirme
+  AI_CHAT: __DEV__, // Development'ta aktif
+  AI_ONBOARDING: __DEV__, // Development'ta aktif
+  AI_INSIGHTS: false, // Henüz test aşamasında
+  AI_VOICE: false, // Henüz test aşamasında
   
   // Güvenlik kontrolleri
   isEnabled: (feature: keyof typeof FEATURE_FLAGS): boolean => {
