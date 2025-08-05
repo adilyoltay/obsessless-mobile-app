@@ -65,16 +65,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: Platform.OS === 'android' ? 8 : 0,
-    shadowColor: '#10B981',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     // Sığınak hissi için yumuşak gölge
     ...Platform.select({
       ios: {
+        backgroundColor: '#10B981', // Explicit for shadow optimization
         shadowColor: '#10B981',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.25,
@@ -82,6 +76,11 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 8,
+        backgroundColor: '#10B981', // Explicit for shadow optimization
+      },
+      web: {
+        backgroundColor: '#10B981', // Explicit for shadow optimization
+        boxShadow: '0px 6px 16px rgba(16, 185, 129, 0.25)',
       },
     }),
   },

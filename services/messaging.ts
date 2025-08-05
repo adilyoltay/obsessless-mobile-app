@@ -54,11 +54,15 @@ export class MessagingService {
       // Push token al (sadece device'da)
       // Expo Go'da projectId gerekmiyor, development build'de gerçek ID kullanılır  
       try {
-      const token = await Notifications.getExpoPushTokenAsync();
+        const projectId = process.env.EXPO_PROJECT_ID || 'a477080d-4d3f-4edc-9c31-4a1076c0967b';
+        
+        const token = await Notifications.getExpoPushTokenAsync({
+          projectId: projectId
+        });
         console.log('Push token obtained successfully:', token.data?.substring(0, 20) + '...');
 
-      // Token'ı sakla
-      await AsyncStorage.setItem('pushToken', token.data);
+        // Token'ı sakla
+        await AsyncStorage.setItem('pushToken', token.data);
       } catch (error: any) {
         console.log('Push token error (normal in Expo Go):', error.message);
         // Expo Go'da push token alamama normal, devam et
@@ -210,7 +214,12 @@ export class MessagingService {
   async getExpoPushToken(): Promise<string | null> {
     try {
       if (Platform.OS === 'web') return null;
-      const token = await Notifications.getExpoPushTokenAsync();
+      
+      const projectId = process.env.EXPO_PROJECT_ID || 'a477080d-4d3f-4edc-9c31-4a1076c0967b';
+      
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: projectId
+      });
       return token.data;
     } catch (error) {
       console.log('Push token error (normal in Expo Go):', error);

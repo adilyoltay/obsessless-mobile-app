@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,31 +24,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   
   const { signInWithEmail, isLoading, error } = useAuth();
-
-  // URL scheme callback listener for Google OAuth
-  useEffect(() => {
-    const subscription = Linking.addEventListener('url', async (event) => {
-      if (event.url.includes('obslesstest://auth/callback')) {
-        try {
-          const url = new URL(event.url.replace('#', '?'));
-          const accessToken = url.searchParams.get('access_token');
-          const refreshToken = url.searchParams.get('refresh_token');
-          
-          if (accessToken && refreshToken) {
-            await supabaseService.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            });
-            await WebBrowser.dismissBrowser();
-          }
-        } catch (error) {
-          console.error('❌ OAuth callback error:', error);
-        }
-      }
-    });
-
-    return () => subscription?.remove();
-  }, []);
 
   const handleEmailLogin = async () => {
     if (!email || !password) {

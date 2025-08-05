@@ -1432,6 +1432,8 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
   - SocketRocket (0.7.0)
+  - stream-chat-react-native (8.3.1):
+    - React-Core
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1528,6 +1530,7 @@ DEPENDENCIES:
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
+  - stream-chat-react-native (from `../node_modules/stream-chat-react-native`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1730,6 +1733,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNSVG:
     :path: "../node_modules/react-native-svg"
+  stream-chat-react-native:
+    :path: "../node_modules/stream-chat-react-native"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -1838,6 +1843,7 @@ SPEC CHECKSUMS:
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
+  stream-chat-react-native: ad2ab17769b1e741b37f5f36f368b7c1be7d3468
   Yoga: 950bbfd7e6f04790fdb51149ed51df41f329fcc8
 
 PODFILE CHECKSUM: 67c15d1ff58c9b54f191020f312e116fd4b545b4
