@@ -1,0 +1,447 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabaseService } from '@/services/supabase';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { WebView } from 'react-native-webview';
+
+export default function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showWebView, setShowWebView] = useState(false);
+  const [oauthUrl, setOauthUrl] = useState('');
+  const [webViewLoading, setWebViewLoading] = useState(true);
+  
+  const { signInWithEmail, isLoading, error, isAuthenticated } = useAuth();
+
+  // Debug state değişikliklerini takip et
+  useEffect(() => {
+    console.log('🔄 State değişti - showWebView:', showWebView, 'oauthUrl:', oauthUrl ? 'MEVCUT' : 'YOK');
+  }, [showWebView, oauthUrl]);
+
+  // Auth state değişikliklerini takip et
+  useEffect(() => {
+    console.log('🔄 Auth state değişti - isLoading:', isLoading, 'error:', error ? 'VAR' : 'YOK', 'isAuthenticated:', isAuthenticated);
+    
+    // If authenticated while OAuth modal is open, close it
+    if (isAuthenticated && showWebView) {
+      console.log('✅ Authentication successful, closing OAuth modal');
+      handleWebViewClose();
+    }
+  }, [isLoading, error, isAuthenticated, showWebView]);
+
+  const handleEmailLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Hata', 'Email ve şifre gerekli');
+      return;
+    }
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await signInWithEmail(email, password);
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('🔐 Google OAuth başlatılıyor...');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const result = await supabaseService.signInWithGoogle();
+      if (result?.url) {
+        console.log('🔐 OAuth URL alındı:', result.url);
+        setOauthUrl(result.url);
+        setShowWebView(true);
+        console.log('🔐 State güncellendi - WebView açılmalı!');
+      } else {
+        console.log('❌ OAuth URL bulunamadı!');
+        Alert.alert('Hata', 'OAuth URL alınamadı');
+      }
+    } catch (error: any) {
+      console.error('❌ Google OAuth hatası:', error);
+      Alert.alert('Hata', error.message || 'Google girişi başarısız');
+    }
+  };
+
+  const handleWebViewClose = () => {
+    console.log('🔐 WebView kapatılıyor');
+    setShowWebView(false);
+    setWebViewLoading(true);
+    setTimeout(() => {
+      setOauthUrl('');
+    }, 300); // Modal kapanma animasyonu için delay
+  };
+
+  // Test butonu ekle
+  const testModal = () => {
+    console.log('🧪 TEST - Modal açma testi...');
+    setOauthUrl('https://google.com');
+    setShowWebView(true);
+  };
+
+  const handleWebViewNavigationStateChange = (navState: any) => {
+    console.log('🔐 WebView URL değişti:', navState.url);
+    
+    // OAuth callback URL'ini kontrol et
+    if (navState.url.includes('obslesstest://auth/callback')) {
+      console.log('✅ OAuth callback alındı!');
+      handleWebViewClose();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    
+    // Hata kontrolü
+    if (navState.url.includes('error=')) {
+      console.log('❌ OAuth hatası:', navState.url);
+      handleWebViewClose();
+      Alert.alert('Hata', 'Google girişi başarısız oldu');
+    }
+  };
+
+  // Modal render kontrolü
+  if (showWebView) {
+    console.log('🔥 MODAL RENDER - visible:', showWebView, 'url:', oauthUrl);
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+      >
+        <View style={styles.content}>
+          {/* Logo */}
+          <Animated.View entering={FadeInDown.delay(100)} style={styles.logoContainer}>
+            <View style={styles.logo}>
+              <MaterialCommunityIcons name="brain" size={48} color="#10B981" />
+            </View>
+            <Text style={styles.title}>ObsessLess</Text>
+            <Text style={styles.subtitle}>Dijital Sığınağınız</Text>
+          </Animated.View>
+
+          {/* Email Input */}
+          <Animated.View entering={FadeInDown.delay(200)} style={styles.inputContainer}>
+            <MaterialCommunityIcons name="email-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+          </Animated.View>
+
+          {/* Password Input */}
+          <Animated.View entering={FadeInDown.delay(300)} style={styles.inputContainer}>
+            <MaterialCommunityIcons name="lock-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Şifre"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="password"
+            />
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <MaterialCommunityIcons
+                name={showPassword ? 'eye-off' : 'eye'}
+                size={20}
+                color="#6B7280"
+              />
+            </Pressable>
+          </Animated.View>
+
+          {/* Error Message */}
+          {error && (
+            <Animated.View entering={FadeInDown} style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </Animated.View>
+          )}
+
+          {/* Login Button */}
+          <Animated.View entering={FadeInDown.delay(400)}>
+            <Pressable
+              style={[styles.loginButton, isLoading && styles.buttonDisabled]}
+              onPress={handleEmailLogin}
+              disabled={isLoading}
+            >
+              <Text style={styles.loginButtonText}>
+                {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+              </Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* Google Login Button */}
+          <Animated.View entering={FadeInDown.delay(500)}>
+            <Pressable
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+              disabled={isLoading}
+            >
+              <MaterialCommunityIcons name="google" size={20} color="#4285f4" />
+              <Text style={styles.googleButtonText}>Google ile Giriş Yap</Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* TEST BUTTON - Modal test için */}
+          <Animated.View entering={FadeInDown.delay(550)}>
+            <Pressable
+              style={[styles.googleButton, { backgroundColor: '#FF6B6B' }]}
+              onPress={testModal}
+            >
+              <MaterialCommunityIcons name="test-tube" size={20} color="#FFFFFF" />
+              <Text style={[styles.googleButtonText, { color: '#FFFFFF' }]}>Modal Test</Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* Signup Link */}
+          <Animated.View entering={FadeInDown.delay(600)} style={styles.footer}>
+            <Text style={styles.footerText}>
+              Hesabınız yok mu?{' '}
+              <Text style={styles.signupLink} onPress={() => router.push('/signup')}>
+                Kayıt Olun
+              </Text>
+            </Text>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={showWebView}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleWebViewClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Google OAuth</Text>
+            <Pressable onPress={handleWebViewClose} style={styles.closeButton}>
+              <MaterialCommunityIcons name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+          {webViewLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#10B981" />
+              <Text style={styles.loadingText}>Yükleniyor...</Text>
+            </View>
+          )}
+          <WebView
+            source={{ uri: oauthUrl }}
+            userAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            onNavigationStateChange={handleWebViewNavigationStateChange}
+            style={styles.webView}
+            onLoad={() => {
+              console.log('🌐 WebView yüklendi');
+              setWebViewLoading(false);
+            }}
+            onLoadStart={() => {
+              console.log('🌐 WebView yüklenmeye başladı');
+              setWebViewLoading(true);
+            }}
+            onError={(e) => {
+              console.log('❌ WebView hatası:', e.nativeEvent);
+              Alert.alert('Hata', 'Sayfa yüklenirken bir hata oluştu');
+              handleWebViewClose();
+            }}
+          />
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    height: 52,
+    fontSize: 16,
+    color: '#111827',
+  },
+  eyeIcon: {
+    padding: 4,
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loginButton: {
+    backgroundColor: '#10B981',
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleButton: {
+    backgroundColor: '#FFFFFF',
+    height: 52,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  googleButtonText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  footer: {
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  signupLink: {
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  webView: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 10,
+    backgroundColor: '#1F2937',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -50 }],
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  loadingText: {
+    color: '#10B981',
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+});

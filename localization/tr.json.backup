@@ -1,0 +1,412 @@
+{
+  "navigation": {
+    "today": "Bugün",
+    "tracking": "Takip",
+    "erp": "ERP",
+    "explore": "Keşfet",
+    "assessment": "Değerlendirme",
+    "settings": "Ayarlar",
+    "back": "Geri",
+    "home": "Ana Sayfa",
+    "profile": "Profil",
+    "history": "Geçmiş"
+  },
+  "auth": {
+    "login": "Giriş Yap",
+    "signup": "Kayıt Ol",
+    "logout": "Çıkış Yap",
+    "email": "E-posta",
+    "password": "Şifre",
+    "confirmPassword": "Şifreyi Onaylayın",
+    "name": "Ad Soyad",
+    "fullName": "Tam Ad",
+    "forgotPassword": "Şifremi Unuttum",
+    "resetPassword": "Şifre Sıfırla",
+    "loginSuccess": "Başarıyla giriş yaptınız",
+    "signupSuccess": "Hesabınız oluşturuldu",
+    "logoutSuccess": "Çıkış yapıldı",
+    "invalidCredentials": "Geçersiz kullanıcı bilgileri",
+    "accountExists": "Bu e-posta ile hesap zaten mevcut",
+    "weakPassword": "Şifre çok zayıf",
+    "invalidEmail": "Geçersiz e-posta adresi"
+  },
+  "general": {
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "loading": "Yükleniyor...",
+    "error": "Hata oluştu",
+    "success": "Başarılı",
+    "warning": "Uyarı",
+    "info": "Bilgi",
+    "confirm": "Onayla",
+    "yes": "Evet",
+    "no": "Hayır",
+    "ok": "Tamam",
+    "close": "Kapat",
+    "next": "İleri",
+    "previous": "Geri",
+    "finish": "Bitir",
+    "skip": "Geç",
+    "retry": "Tekrar Dene",
+    "refresh": "Yenile",
+    "search": "Ara",
+    "filter": "Filtrele",
+    "sort": "Sırala",
+    "clear": "Temizle",
+    "apply": "Uygula",
+    "reset": "Sıfırla"
+  },
+  "home": {
+    "welcome": "Hoş Geldiniz",
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi öğleden sonra",
+      "evening": "İyi akşamlar"
+    },
+    "quickActions": "Hızlı İşlemler",
+    "todaysStats": "Bugünkü İstatistikler",
+    "recentActivity": "Son Aktiviteler",
+    "tipOfTheDay": "Günün İpucu",
+    "logCompulsion": "Kompülsiyon Kaydet",
+    "ybocs": "Y-BOCS Testi",
+    "erpExercise": "ERP Egzersizi",
+    "viewHistory": "Geçmişi Görüntüle",
+    "motivation": {
+      "focus": "Odaklan",
+      "stayStrong": "Güçlü Kal", 
+      "progress": "İlerleme"
+    }
+  },
+  "compulsions": {
+    "compulsion": "Kompülsiyon",
+    "compulsions": "Kompülsiyonlar",
+    "trackCompulsion": "Kompülsiyon Takibi",
+    "logCompulsion": "Kompülsiyon Kaydet",
+    "compulsionHistory": "Kompülsiyon Geçmişi",
+    "type": "Tür",
+    "intensity": "Şiddet",
+    "resistance": "Direnç",
+    "duration": "Süre",
+    "mood": "Ruh Hali",
+    "triggers": "Tetikleyiciler",
+    "location": "Konum",
+    "notes": "Notlar",
+    "completed": "Tamamlandı",
+    "stopped": "Durduruldu",
+    "helpUsed": "Yardım Kullanıldı",
+    "categories": {
+      "washing": "Yıkama/Temizlik",
+      "checking": "Kontrol Etme",
+      "counting": "Sayma",
+      "ordering": "Düzenleme/Sıralama",
+      "mental": "Zihinsel Ritüeller",
+      "reassurance": "Güvence Arama",
+      "avoidance": "Kaçınma",
+      "touching": "Dokunma"
+    },
+    "intensityLevels": {
+      "1": "Çok Hafif",
+      "2": "Hafif",
+      "3": "Hafif-Orta",
+      "4": "Orta",
+      "5": "Orta-Şiddetli",
+      "6": "Şiddetli",
+      "7": "Çok Şiddetli",
+      "8": "Aşırı",
+      "9": "Çok Aşırı",
+      "10": "Dayanılmaz"
+    },
+    "resistanceLevels": {
+      "1": "Hiç Direnmedim",
+      "2": "Çok Az Direndim",
+      "3": "Az Direndim",
+      "4": "Biraz Direndim",
+      "5": "Orta Direndim",
+      "6": "İyi Direndim",
+      "7": "Çok İyi Direndim",
+      "8": "Mükemmel Direndim",
+      "9": "Çok Başarılı Direndim",
+      "10": "Tamamen Direndim"
+    },
+    "moods": {
+      "very_anxious": "Çok Kaygılı",
+      "anxious": "Kaygılı",
+      "neutral": "Nötr",
+      "calm": "Sakin",
+      "very_calm": "Çok Sakin"
+    },
+    "summaryPeriods": {
+      "today": "Bugün",
+      "week": "Bu Hafta",
+      "month": "Bu Ay"
+    },
+    "stats": {
+      "totalEntries": "Toplam Kayıt",
+      "averageIntensity": "Ortalama Şiddet",
+      "averageResistance": "Ortalama Direnç",
+      "longestDuration": "En Uzun Süre",
+      "mostCommonType": "En Yaygın Tür",
+      "dailyTrend": "Günlük Trend"
+    },
+    "filters": {
+      "filtersAndSorting": "Filtreler ve Sıralama",
+      "compulsionType": "Kompülsiyon Türü",
+      "sorting": "Sıralama",
+      "byDate": "Tarihe Göre",
+      "byIntensity": "Şiddete Göre",
+      "byResistance": "Dirençe Göre",
+      "ascending": "Artan",
+      "descending": "Azalan",
+      "clearFilters": "Filtreleri Temizle"
+    },
+    "messages": {
+      "noRecords": "Henüz kayıt yok",
+      "noRecordsSubtitle": "İlk kompülsiyonunuzu kaydetmek için Takip sekmesini kullanın",
+      "noDataForPeriod": "için henüz kompülsiyon kaydı bulunmuyor",
+      "compulsionSaved": "Kompülsiyon kaydedildi",
+      "compulsionDeleted": "Kompülsiyon silindi",
+      "loadingRecords": "Kayıtlar yükleniyor..."
+    }
+  },
+  "ybocs": {
+    "title": "Y-BOCS Değerlendirmesi",
+    "subtitle": "Yale-Brown Obsesif Kompulsif Ölçeği",
+    "description": "Bu test OKB belirtilerinizin şiddetini değerlendirmek için kullanılır.",
+    "question": "Soru",
+    "of": "/",
+    "next": "Sonraki",
+    "previous": "Önceki",
+    "submit": "Gönder",
+    "results": "Sonuçlar",
+    "score": "Puan",
+    "interpretation": "Yorumlama",
+    "categories": {
+      "minimal": "Minimal",
+      "mild": "Hafif",
+      "moderate": "Orta",
+      "severe": "Şiddetli",
+      "extreme": "Aşırı"
+    },
+    "interpretations": {
+      "minimal": "Minimal OKB belirtileri",
+      "mild": "Hafif OKB belirtileri",
+      "moderate": "Orta düzeyde OKB belirtileri",
+      "severe": "Şiddetli OKB belirtileri",
+      "extreme": "Aşırı düzeyde OKB belirtileri"
+    },
+    "retakeTest": "Testi Tekrar Al",
+    "disclaimer": "Bu test tanı amaçlı değildir. Profesyonel yardım alınması önerilir."
+  },
+  "erp": {
+    "title": "ERP Egzersizleri",
+    "subtitle": "Maruz Kalma ve Tepki Önleme",
+    "startExercise": "Egzersizi Başlat",
+    "stopExercise": "Egzersizi Durdur",
+    "pauseExercise": "Duraklat",
+    "resumeExercise": "Devam Et",
+    "completeExercise": "Egzersizi Tamamla",
+    "anxietyLevel": "Kaygı Seviyesi",
+    "duration": "Süre",
+    "targetDuration": "Hedef Süre",
+    "currentAnxiety": "Mevcut Kaygı",
+    "exerciseComplete": "Egzersiz Tamamlandı",
+    "sessionSummary": "Seans Özeti",
+    "totalTime": "Toplam Süre",
+    "peakAnxiety": "En Yüksek Kaygı",
+    "finalAnxiety": "Son Kaygı",
+    "improvement": "İyileşme"
+  },
+  "assessment": {
+    "ocdProfile": "OKB Profili",
+    "createProfile": "Profil Oluştur",
+    "updateProfile": "Profili Güncelle",
+    "profileCreated": "Profil oluşturuldu",
+    "profileUpdated": "Profil güncellendi",
+    "mainConcerns": "Ana Endişeler",
+    "obsessionTypes": "Obsesyon Türleri",
+    "compulsionTypes": "Kompülsiyon Türleri",
+    "severity": "Şiddet",
+    "impactOnLife": "Hayat Üzerindeki Etkisi",
+    "treatmentHistory": "Tedavi Geçmişi",
+    "medications": "İlaçlar",
+    "therapy": "Terapi"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "account": "Hesap",
+    "notifications": "Bildirimler",
+    "privacy": "Gizlilik",
+    "language": "Dil",
+    "theme": "Tema",
+    "support": "Destek",
+    "about": "Hakkında",
+    "profileSettings": "Profil Ayarları",
+    "notificationSettings": "Bildirim Ayarları",
+    "dataAndPrivacy": "Veri ve Gizlilik",
+    "languageSelection": "Dil Seçimi",
+    "pushNotifications": "Push Bildirimleri",
+    "dailyReminders": "Günlük Hatırlatmalar",
+    "weeklyReports": "Haftalık Raporlar",
+    "dataExport": "Veri Dışa Aktarma",
+    "dataImport": "Veri İçe Aktarma",
+    "deleteAccount": "Hesabı Sil",
+    "version": "Versiyon",
+    "buildNumber": "Yapı Numarası"
+  },
+  "errors": {
+    "networkError": "Ağ bağlantısı hatası",
+    "serverError": "Sunucu hatası",
+    "unknownError": "Bilinmeyen hata",
+    "validationError": "Doğrulama hatası",
+    "permissionDenied": "İzin reddedildi",
+    "fileNotFound": "Dosya bulunamadı",
+    "sessionExpired": "Oturum süresi doldu",
+    "rateLimitExceeded": "Hız sınırı aşıldı"
+  },
+  "tips": {
+    "tip1": "Kompülsiyonlarınızla başa çıkarken, küçük adımlar atmanın büyük değişimler yaratabileceğini unutmayın.",
+    "tip2": "Her direnişiniz bir başarıdır! Kendinizi tebrik etmeyi unutmayın.",
+    "tip3": "ERP egzersizlerini düzenli yapmak, zamanla kaygı seviyenizi azaltacaktır.",
+    "tip4": "Kompülsiyonları takip etmek, tetikleyicilerinizi anlamanıza yardımcı olur.",
+    "tip5": "Sabır gösterin - iyileşme zaman alır ve her küçük adım önemlidir."
+  },
+  "assessment": {
+      "title": "Y-BOCS Değerlendirme",
+      "subtitle": "OKB şiddetinizi değerlendirin",
+      "complete": "Tamamla",
+      "retake": "Yeniden Yap",
+      "yourScore": "Skorunuz"
+    },
+    "erp": {
+      "title": "ERP Egzersizleri",
+      "targetDuration": "Hedef Süre",
+      "initialAnxiety": "Başlangıç Kaygısı",
+      "currentAnxiety": "Şu Anki Kaygı",
+      "anxietyCheck": "Kaygı Kontrolü",
+      "rateCurrentAnxiety": "Şu anki kaygı seviyenizi değerlendirin",
+      "keepGoing": "Devam Et!",
+      "motivationMessage1": "Harika gidiyorsun! Kaygı geçici, güçlülük kalıcıdır.",
+      "motivationMessage2": "Her saniye daha güçlü oluyorsun. Pes etme!",
+      "motivationMessage3": "Bu zorluk seni daha güçlü yapacak. Devam et!",
+      "motivationMessage4": "Sen bu mücadeleyi kazanabilirsin. İnanıyorum!",
+      "startSession": "Oturumu Başlat",
+      "complete": "Tamamla",
+      "recordResistance": "Direnç Kaydet",
+      "resistanceRecorded": "Direnç Kaydedildi",
+      "stayStrong": "Güçlü kal! Bu geçici bir his.",
+      "target": "Hedef",
+      "peak": "Pik",
+      "current": "Şu An",
+      "resistances": "Dirençler"
+    },
+    "achievements": {
+      "title": "Başarılar",
+      "level": "Seviye",
+      "points": "Puan",
+      "all": "Tümü",
+      "unlocked": "Açılan",
+      "locked": "Kilitli",
+      "rarity": {
+        "common": "Yaygın",
+        "rare": "Nadir",
+        "epic": "Efsanevi",
+        "legendary": "Efsanevi+"
+      },
+      "firstTrack": {
+        "title": "İlk Adım",
+        "desc": "İlk kompulsiyon kaydını yap"
+      },
+      "track7Days": {
+        "title": "Haftalık Takipçi",
+        "desc": "7 gün boyunca takip yap"
+      },
+      "track30Days": {
+        "title": "Aylık Şampiyon",
+        "desc": "30 gün boyunca takip yap"
+      },
+      "firstERP": {
+        "title": "ERP Başlangıcı",
+        "desc": "İlk ERP egzersizini tamamla"
+      },
+      "erp10Sessions": {
+        "title": "ERP Ustası",
+        "desc": "10 ERP oturumu tamamla"
+      },
+      "erp100Minutes": {
+        "title": "Dayanıklılık Uzmanı",
+        "desc": "Toplam 100 dakika ERP yap"
+      },
+      "streak3": {
+        "title": "Tutarlılık",
+        "desc": "3 gün üst üste aktivite yap"
+      },
+      "streak7": {
+        "title": "Haftalık Alev",
+        "desc": "7 gün üst üste aktivite yap"
+      },
+      "streak30": {
+        "title": "Aylık Ejder",
+        "desc": "30 gün üst üste aktivite yap"
+      }
+    }
+  },
+  "compulsions": {
+    "quickEntry": {
+      "title": "Hızlı Kayıt",
+      "subtitle": "Yaşadığın kompulsiyonu kaydetmek için aşağıdaki bilgileri doldur",
+      "type": "Kompulsiyon Türü",
+      "resistance": "Direnç Seviyesi",
+      "resistanceSubtitle": "Bu kompulsiyona ne kadar direnebildin?",
+      "duration": "Süre",
+      "durationSubtitle": "Bu kompulsiyon ne kadar sürdü?",
+      "intensity": "Yoğunluk",
+      "intensitySubtitle": "Bu kompulsiyonun yoğunluğu nasıldı?",
+      "save": "Kaydet",
+      "cancel": "İptal",
+      "success": "Kaydedildi! 🌱",
+      "error": "Kayıt sırasında bir hata oluştu",
+      "required": "Bu alan zorunludur",
+      "typeRequired": "Kompulsiyon türü seçmelisiniz"
+    },
+    "resistance": {
+      "0": "Hiç direnmeden yaptım",
+      "1": "Çok az direndim",
+      "2": "Az direndim",
+      "3": "Biraz direndim",
+      "4": "Orta derecede direndim",
+      "5": "İyi direndim",
+      "6": "Oldukça iyi direndim",
+      "7": "Çok iyi direndim",
+      "8": "Mükemmel direndim",
+      "9": "Neredeyse yapmadım",
+      "10": "Hiç yapmadım / Tamamen direndi"
+    },
+    "sliderLabels": {
+      "resistance": {
+        "min": "Hiç",
+        "max": "Tamamen"
+      },
+      "intensity": {
+        "min": "Hafif",
+        "max": "Çok Yoğun"
+      }
+    },
+    "types": {
+      "hand_washing": "El Yıkama",
+      "cleaning": "Temizlik",
+      "shower": "Duş Alma",
+      "door_check": "Kapı Kontrolü",
+      "stove_check": "Ocak Kontrolü",
+      "appliance_check": "Cihaz Kontrolü",
+      "symmetry": "Simetri",
+      "ordering": "Düzenleme",
+      "counting": "Sayma",
+      "repetitive_actions": "Tekrarlı Hareketler",
+      "mental_checking": "Zihinsel Kontrol",
+      "mental_repetition": "Zihinsel Tekrar",
+      "avoiding": "Kaçınma",
+      "reassurance": "Güvence Arama"
+    }
+  }
