@@ -4,24 +4,24 @@
  */
 
 export const Colors = {
-  // Primary Colors from Documentation
+  // Primary Colors - Updated Design
   primary: {
-    green: '#10B981',      // Ana renk
+    green: '#10B981',      // Ana renk - Soft green
     lightGreen: '#F0FDF4', // Arka plan
   },
   
-  // Text Colors
+  // Text Colors - Updated
   text: {
-    primary: '#111827',    // Başlıklar (Dark Gray)
+    primary: '#374151',    // Başlıklar (Darker Gray)
     secondary: '#6B7280',  // Alt metin (Medium Gray)
     tertiary: '#9CA3AF',   // Caption
   },
   
-  // UI Colors
+  // UI Colors - Updated
   ui: {
     border: '#E5E7EB',     // Çizgiler (Light Gray)
-    background: '#FFFFFF',  // Pure white
-    backgroundSecondary: '#F3F4F6', // Very light gray
+    background: '#F9FAFB',  // Light gray background
+    backgroundSecondary: '#FFFFFF', // White for cards
   },
   
   // Status Colors
@@ -34,9 +34,9 @@ export const Colors = {
   
   // Legacy support (will be refactored)
   light: {
-    text: '#111827',
-    background: '#FFFFFF',
-    backgroundSecondary: '#F3F4F6',
+    text: '#374151',
+    background: '#F9FAFB',
+    backgroundSecondary: '#FFFFFF',
     tint: '#10B981',
     icon: '#6B7280',
     tabIconDefault: '#6B7280',
@@ -47,7 +47,7 @@ export const Colors = {
     warning: '#F59E0B',
     error: '#EF4444',
     info: '#3B82F6',
-    gradient: ['#10B981', '#059669'],
+    gradient: ['#10B981', '#7bc99e'],
     accent: '#F0FDF4',
   },
   dark: {
@@ -65,7 +65,7 @@ export const Colors = {
     warning: '#f59e0b',
     error: '#ef4444',
     info: '#3b82f6',
-    gradient: ['#10B981', '#059669'],
+    gradient: ['#10B981', '#7bc99e'],
     accent: '#334155',
   },
 };

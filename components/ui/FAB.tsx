@@ -61,7 +61,7 @@ export const FAB: React.FC<FABProps> = ({
 
 const styles = StyleSheet.create({
   fab: {
-    backgroundColor: '#10B981', // Sakin Yeşil - Primary color
+    backgroundColor: '#10B981', // Daha belirgin yeşil
     justifyContent: 'center',
     alignItems: 'center',
     elevation: Platform.OS === 'android' ? 8 : 0,

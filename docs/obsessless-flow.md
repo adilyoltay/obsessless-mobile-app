@@ -77,13 +77,14 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 ### 🛠️ **Teknik Detaylar**
 
 #### **Tech Stack**
-- **Frontend**: React Native 0.74.5 + Expo SDK 51
+- **Frontend**: React Native 0.74.5 + Expo SDK 53.0.0 (UPGRADED)
 - **Backend**: Supabase (PostgreSQL + Auth + RLS)
 - **Authentication**: @supabase/supabase-js + expo-web-browser
 - **State Management**: Zustand (Onboarding, ERP, Gamification)
 - **Navigation**: Expo Router (file-based routing)
 - **Storage**: AsyncStorage (offline-first) + Supabase (cloud sync)
 - **UI Library**: Custom components (React Native Paper removed)
+- **Web Support**: @lottiefiles/dotlottie-react for web compatibility
 
 #### **Bundle Configuration**
 ```json
@@ -417,6 +418,64 @@ interface CompulsionStats {
 - Supabase: Cloud sync
 - User-specific storage keys
 - Category mapping (app → database)
+
+### 🏠 **Today Screen - Complete Redesign (January 2025)**
+
+**Master Prompt Uyumlu Yeni Tasarım:**
+
+```
+┌─────────────────────────────────────┐
+│  ⬤ ⬤ ⬤ ⬤               60          │ Status Bar
+├─────────────────────────────────────┤
+│ Good Afternoon               👤     │ Header with
+│ User                                │ dynamic greeting
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │           ⭐                     │ │ Main Points
+│ │            0                     │ │ Card - Green BG
+│ │       Healing Points             │ │ White text
+│ │                                  │ │
+│ │ Sonraki Seviye: Başlangıç        │ │ Progress info
+│ │ ■■■■■■■■■■■■■■■■■□□□            │ │ Progress bar
+│ │ 0 / 100                         │ │ Point counter
+│ └─────────────────────────────────┘ │
+│                                     │
+│ 📅 0    🔥 0    ✅ 0              │ Quick Stats
+│ Today  Streak  ERP                  │ (Horizontal)
+│                                     │
+│ ❤️ Bugün için öneriler              │ Suggestions
+│                                     │ Header
+│ ┌─────────────────────────────────┐ │
+│ │ ❤️ Bugünkü Yolculuğun           │ │ White cards
+│ │ ■■■■■■■■■■■■□□□□  0/3 kayıt     │ │ Progress bars
+│ │                         ⭐ +50  │ │ Yellow badges
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │ ❤️ İyileşme Adımın              │ │ Same design
+│ │ ■■■■■■■■■■■□□□□  0/1 oturum    │ │ pattern
+│ │                        ⭐ +100  │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ ┌─────────────────────────────────┐ │
+│ │ ○ Direnç Zaferi                  │ │ Circle icon
+│ │   2 kez yüksek direnç göster     │ │ for 3rd item
+│ │ ■■■■■■■□□□□□□□□□  0/2           │ │
+│ │                         ⭐ +75  │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ 🏆 Başarımlarım (0/6)               │ Achievements
+│ [🔒] [🔒] [🔒] [🔒] [🔒] [🔒]     │ Section
+│                                     │
+└─────────────────────────────────────┘
+```
+
+**Tasarım Değişiklikleri:**
+- **Header**: Dinamik selamlama (Good Morning/Afternoon/Evening)
+- **Main Card**: Düz yeşil arka plan, beyaz metin
+- **Quick Stats**: Yatay yerleşim, ikon + sayı + etiket
+- **Suggestions**: Beyaz kartlar, ilerleme çubukları, sarı rozetler
+- **Achievements**: Horizontal grid, 6 rozet maksimum
 
 #### **📱 Grid Layout Quick Entry:**
 ```

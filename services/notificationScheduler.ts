@@ -1,6 +1,10 @@
 
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+// Check if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
 
 export interface NotificationSchedule {
   id: string;
@@ -16,6 +20,12 @@ export class NotificationScheduler {
   private static STORAGE_KEY = 'scheduledNotifications';
 
   static async scheduleERPReminder(time: Date): Promise<string> {
+    // Skip notification scheduling in Expo Go (SDK 53+)
+    if (isExpoGo) {
+      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
+      return 'expo-go-mock-id';
+    }
+    
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: '🧠 ERP Egzersiz Zamanı',
@@ -43,6 +53,12 @@ export class NotificationScheduler {
   }
 
   static async scheduleDailyTrackingReminder(time: Date): Promise<string> {
+    // Skip notification scheduling in Expo Go (SDK 53+)
+    if (isExpoGo) {
+      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
+      return 'expo-go-mock-id';
+    }
+    
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: '📊 Günlük Takip',

@@ -280,12 +280,20 @@ export default function SettingsScreen() {
 
   return (
     <ScreenLayout>
+      {/* Header - New Design */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft} />
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={styles.headerRight} />
+        </View>
+      </View>
+
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {renderHeader()}
         {renderProfileSection()}
 
         {/* Notifications */}
@@ -497,20 +505,36 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
   },
   scrollContent: {
     paddingBottom: 32,
   },
-  header: {
+  headerContainer: {
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    width: 32,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
     fontFamily: 'Inter',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 32,
   },
   profileSection: {
     paddingHorizontal: 16,
@@ -611,7 +635,7 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     fontSize: 16,
-    color: '#111827',
+    color: '#374151',
     fontFamily: 'Inter',
     marginLeft: 12,
   },

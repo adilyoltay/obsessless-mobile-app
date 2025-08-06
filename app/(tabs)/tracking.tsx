@@ -294,15 +294,31 @@ export default function TrackingScreen() {
   const getTimeRangeStats = () => {
     switch (selectedTimeRange) {
       case 'today':
-        return { count: stats.todayCount, label: 'Bugün' };
+        return { count: stats.todayCount, label: 'Today' };
       case 'week':
-        return { count: stats.weekCount, label: 'Bu Hafta' };
+        return { count: stats.weekCount, label: 'This Week' };
       case 'month':
-        return { count: stats.monthCount, label: 'Bu Ay' };
+        return { count: stats.monthCount, label: 'This Month' };
     }
   };
 
   const timeRangeStats = getTimeRangeStats();
+  
+  // Calculate progress percentage
+  const calculateProgress = () => {
+    const goalCount = selectedTimeRange === 'today' ? 5 : selectedTimeRange === 'week' ? 30 : 100;
+    const currentCount = timeRangeStats.count;
+    return Math.min(Math.round((currentCount / goalCount) * 100), 100);
+  };
+  
+  // Calculate weekly change percentage
+  const calculateWeeklyChange = () => {
+    // This is a simplified calculation, you might want to compare with previous week
+    if (stats.weekCount > 0) {
+      return '+5%'; // Placeholder for now
+    }
+    return '0%';
+  };
 
   const getFilteredCompulsions = () => {
     const today = new Date();
@@ -335,6 +351,63 @@ export default function TrackingScreen() {
 
   return (
     <ScreenLayout>
+      {/* Header - New Design */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft} />
+          <Text style={styles.headerTitle}>OCD Tracking</Text>
+          <Pressable 
+            style={styles.headerRight}
+            onPress={() => {
+              // Graph/Stats action
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <MaterialCommunityIcons name="chart-line" size={24} color="#10B981" />
+          </Pressable>
+        </View>
+        
+        {/* Time Range Tabs */}
+        <View style={styles.tabContainer}>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('today');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
+              Today
+            </Text>
+            {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
+          </Pressable>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('week');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
+              Week
+            </Text>
+            {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
+          </Pressable>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('month');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
+              Month
+            </Text>
+            {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView 
         style={styles.container}
         refreshControl={
@@ -346,142 +419,128 @@ export default function TrackingScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>OKB Takibi</Text>
-          <Text style={styles.headerSubtitle}>
-            Kompulsiyonlarını kaydet ve ilerlemeni gör
-          </Text>
-        </View>
+        {/* Date Display */}
+        <Text style={styles.dateText}>
+          {new Date().toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })}
+        </Text>
 
-        {/* Time Range Selector */}
-        <View style={styles.timeRangeContainer}>
-          <Pressable
-            style={[styles.timeRangeButton, selectedTimeRange === 'today' && styles.timeRangeActive]}
-            onPress={() => setSelectedTimeRange('today')}
-          >
-            <Text style={[styles.timeRangeText, selectedTimeRange === 'today' && styles.timeRangeTextActive]}>
-              Bugün
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.timeRangeButton, selectedTimeRange === 'week' && styles.timeRangeActive]}
-            onPress={() => setSelectedTimeRange('week')}
-          >
-            <Text style={[styles.timeRangeText, selectedTimeRange === 'week' && styles.timeRangeTextActive]}>
-              Bu Hafta
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.timeRangeButton, selectedTimeRange === 'month' && styles.timeRangeActive]}
-            onPress={() => setSelectedTimeRange('month')}
-          >
-            <Text style={[styles.timeRangeText, selectedTimeRange === 'month' && styles.timeRangeTextActive]}>
-              Bu Ay
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Summary Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <MaterialCommunityIcons name="brain" size={24} color="#10B981" />
+        {/* Summary Stats Card */}
+        <View style={styles.weekStatsCard}>
+          <View style={styles.weekStatsHeader}>
+            <View>
+              <Text style={styles.weekStatsTitle}>
+                {selectedTimeRange === 'today' ? "Today's Stats" : 
+                 selectedTimeRange === 'week' ? "This Week's Stats" : 
+                 "This Month's Stats"}
+              </Text>
+              <Text style={styles.weekStatsSubtitle}>
+                {selectedTimeRange === 'today' ? 'Your daily summary' : 
+                 selectedTimeRange === 'week' ? 'Your weekly summary' : 
+                 'Your monthly summary'}
+              </Text>
             </View>
-            <Text style={styles.statNumber}>{timeRangeStats.count}</Text>
-            <Text style={styles.statLabel}>Kayıt</Text>
+            {stats.weekCount > 0 && (
+              <View style={styles.percentageBadge}>
+                <Text style={styles.percentageText}>{calculateWeeklyChange()}</Text>
+              </View>
+            )}
           </View>
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <MaterialCommunityIcons name="shield-check" size={24} color="#3B82F6" />
+          
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{timeRangeStats.count}</Text>
+              <Text style={styles.statLabel}>Total Recordings</Text>
             </View>
-            <Text style={styles.statNumber}>{stats.avgResistance}</Text>
-            <Text style={styles.statLabel}>Ort. Direnç</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <MaterialCommunityIcons name="chart-line" size={24} color="#8B5CF6" />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {stats.avgResistance > 0 ? `${stats.avgResistance}/10` : '0/10'}
+              </Text>
+              <Text style={styles.statLabel}>Avg. Resistance</Text>
             </View>
-            <Text style={styles.statNumber}>
-              {Object.keys(stats.typeDistribution).length}
-            </Text>
-            <Text style={styles.statLabel}>Farklı Tip</Text>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{calculateProgress()}%</Text>
+              <Text style={styles.statLabel}>Progress</Text>
+            </View>
           </View>
         </View>
 
-        {/* Compulsion List */}
+        {/* Today's Recordings - New Design */}
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? 'Bugünün Kayıtları' : 
-             selectedTimeRange === 'week' ? 'Bu Haftanın Kayıtları' : 
-             'Bu Ayın Kayıtları'}
+            {selectedTimeRange === 'today' ? "Today's Recordings" : 
+             selectedTimeRange === 'week' ? "This Week's Recordings" : 
+             "This Month's Recordings"}
           </Text>
 
           {filteredCompulsions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>Henüz kayıt yok</Text>
+              <Text style={styles.emptyText}>No recordings yet</Text>
               <Text style={styles.emptySubtext}>
-                Aşağıdaki + butonunu kullanarak ilk kaydını ekle
+                Tap the + button below to add your first recording
               </Text>
             </View>
           ) : (
-            <>
+            <View style={styles.recordingsContainer}>
               {filteredCompulsions.map((compulsion) => {
                 const category = COMPULSION_CATEGORIES.find(c => c.id === compulsion.type);
+                const resistanceLevel = compulsion.resistanceLevel;
+                const resistanceColor = resistanceLevel >= 8 ? '#10B981' : resistanceLevel >= 5 ? '#F59E0B' : '#EF4444';
+                
                 return (
-                  <View key={compulsion.id} style={styles.compulsionCard}>
-                    <View style={styles.compulsionHeader}>
-                      <View style={styles.compulsionInfo}>
-                        <View style={[styles.compulsionIcon, { backgroundColor: getCompulsionColor(compulsion.type) + '20' }]}>
-                          <MaterialCommunityIcons 
-                            name={getCompulsionIcon(compulsion.type) as any} 
-                            size={20} 
-                            color={getCompulsionColor(compulsion.type)} 
-                          />
-                        </View>
-                        <View style={styles.compulsionDetails}>
-                          <Text style={styles.compulsionType}>{category?.name || 'Diğer'}</Text>
-                          <Text style={styles.compulsionTime}>
-                            {new Date(compulsion.timestamp).toLocaleTimeString('tr-TR', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </Text>
-                        </View>
+                  <View key={compulsion.id} style={styles.recordingCard}>
+                    <View style={styles.recordingContent}>
+                      <View style={styles.recordingHeader}>
+                        <Text style={styles.recordingTime}>
+                          {new Date(compulsion.timestamp).toLocaleTimeString('en-US', { 
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          }).toUpperCase()} - {category?.name || 'Other'}
+                        </Text>
+                        <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
+                          {compulsion.resistanceLevel}/10
+                        </Text>
                       </View>
-                      <View style={styles.compulsionActions}>
-                        <View style={[styles.resistanceBadge, { backgroundColor: getResistanceColor(compulsion.resistanceLevel) + '20' }]}>
-                          <Text style={[styles.resistanceText, { color: getResistanceColor(compulsion.resistanceLevel) }]}>
-                            {compulsion.resistanceLevel}/10
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={() => deleteEntry(compulsion.id)}
-                          style={styles.deleteButton}
-                        >
-                          <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                        </Pressable>
-                      </View>
+                      {compulsion.notes && (
+                        <Text style={styles.recordingNotes}>
+                          Notes: {compulsion.notes}
+                        </Text>
+                      )}
                     </View>
-                    {compulsion.notes && (
-                      <Text style={styles.compulsionNotes}>{compulsion.notes}</Text>
-                    )}
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        deleteEntry(compulsion.id);
+                      }}
+                      style={styles.deleteIcon}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MaterialCommunityIcons name="delete-outline" size={20} color="#6B7280" />
+                    </Pressable>
                   </View>
                 );
               })}
+            </View>
+          )}
 
-              {/* Show More Button */}
-              {todayCompulsions.length > displayLimit && (
-                <Pressable
-                  style={styles.showMoreButton}
-                  onPress={() => setDisplayLimit(prev => prev + 5)}
-                >
-                  <Text style={styles.showMoreText}>Daha Fazla Göster</Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#4F46E5" />
-                </Pressable>
-              )}
-            </>
+          {/* Show More Button */}
+          {filteredCompulsions.length > 0 && todayCompulsions.length > displayLimit && (
+            <View style={styles.showMoreContainer}>
+              <Pressable
+                style={styles.showMoreButton}
+                onPress={() => {
+                  setDisplayLimit(prev => prev + 5);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={styles.showMoreText}>Show More</Text>
+              </Pressable>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -490,7 +549,7 @@ export default function TrackingScreen() {
       <FAB 
         icon="plus" 
         onPress={() => setShowQuickEntry(true)}
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: '#10B981' }]}
       />
 
       {/* Quick Entry Bottom Sheet */}
@@ -516,22 +575,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
-  header: {
+  headerContainer: {
+    backgroundColor: '#F9FAFB',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerLeft: {
+    width: 32,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     fontFamily: 'Inter',
+    flex: 1,
+    textAlign: 'center',
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 4,
-    fontFamily: 'Inter',
+  headerRight: {
+    width: 32,
+    alignItems: 'center',
   },
   timeRangeContainer: {
     flexDirection: 'row',
@@ -564,6 +635,107 @@ const styles = StyleSheet.create({
   timeRangeTextActive: {
     color: '#FFFFFF',
   },
+  // Tab Styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-around',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  tabTextActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#10B981',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginVertical: 12,
+    fontFamily: 'Inter',
+  },
+  // New Design Styles
+  weekStatsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  weekStatsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  weekStatsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  weekStatsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+    fontFamily: 'Inter',
+  },
+  percentageBadge: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  percentageText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+    fontFamily: 'Inter',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    fontFamily: 'Inter',
+  },
+  // Old styles kept for compatibility
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -594,13 +766,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
-    fontFamily: 'Inter',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+    color: '#374151',
     fontFamily: 'Inter',
   },
   listSection: {
@@ -611,7 +777,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: '#374151',
     marginBottom: 16,
     fontFamily: 'Inter',
   },
@@ -633,6 +799,52 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter',
   },
+  // Recording Card Styles
+  recordingsContainer: {
+    gap: 12,
+  },
+  recordingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  recordingContent: {
+    flex: 1,
+  },
+  recordingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recordingTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  resistanceScore: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+  },
+  recordingNotes: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    marginTop: 4,
+  },
+  deleteIcon: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  // Old style kept for compatibility
   compulsionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -668,7 +880,7 @@ const styles = StyleSheet.create({
   compulsionType: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: '#374151',
     fontFamily: 'Inter',
   },
   compulsionTime: {
@@ -702,26 +914,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     lineHeight: 20,
   },
+  showMoreContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
   showMoreButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 24,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   showMoreText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#4F46E5',
-    marginRight: 4,
+    fontWeight: '700',
+    color: '#374151',
     fontFamily: 'Inter',
   },
   fab: {

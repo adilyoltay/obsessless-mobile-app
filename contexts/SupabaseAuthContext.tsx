@@ -168,8 +168,12 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       }
       
       // Initialize gamification profile (create if doesn't exist)
-      await supabaseService.createGamificationProfile(user.id);
-      console.log('✅ Gamification profile initialized successfully! 🎮');
+      const gamificationProfile = await supabaseService.createGamificationProfile(user.id);
+      if (gamificationProfile) {
+        console.log('✅ Gamification profile initialized successfully! 🎮');
+      } else {
+        console.warn('⚠️ Gamification profile initialization failed, but app can continue');
+      }
       
       // Profile will be set properly during onboarding completion
       setProfile(null);

@@ -66,6 +66,14 @@ export default function TodayScreen() {
     resistanceWins: 0
   });
 
+  // Greeting function
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   // Load data on mount
   useEffect(() => {
     if (user?.id) {
@@ -160,9 +168,14 @@ export default function TodayScreen() {
       { points: 5000, name: 'Kahraman' }
     ];
     
-    const nextMilestone = milestones.find(m => m.points > profile.healingPointsTotal);
+    const currentMilestone = milestones.reduce((prev, curr) => 
+      profile.healingPointsTotal >= curr.points ? curr : prev,
+      milestones[0]
+    );
+    const nextMilestone = milestones.find(m => m.points > profile.healingPointsTotal) || milestones[milestones.length - 1];
     const progressToNext = nextMilestone 
-      ? (profile.healingPointsTotal / nextMilestone.points) * 100
+      ? ((profile.healingPointsTotal - (currentMilestone.points === nextMilestone.points ? 0 : currentMilestone.points)) / 
+         (nextMilestone.points - (currentMilestone.points === nextMilestone.points ? 0 : currentMilestone.points))) * 100
       : 100;
 
     return (
@@ -175,40 +188,23 @@ export default function TodayScreen() {
           }
         ]}
       >
-        <LinearGradient
-          colors={['#10B981', '#059669']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroGradient}
-        >
-          {/* Streak Display */}
-          <View style={styles.streakContainer}>
-            <StreakCounter />
-          </View>
+        {/* Main Points Display */}
+        <View style={styles.mainPointsContainer}>
+          <MaterialCommunityIcons name="star-outline" size={50} color="white" />
+          <Text style={styles.mainPointsValue}>{profile.healingPointsTotal}</Text>
+          <Text style={styles.mainPointsLabel}>Healing Points</Text>
+        </View>
 
-          {/* Main Points Display */}
-          <View style={styles.mainPointsContainer}>
-            <MaterialCommunityIcons name="star" size={48} color="#FEF3C7" />
-            <Text style={styles.mainPointsValue}>{profile.healingPointsTotal}</Text>
-            <Text style={styles.mainPointsLabel}>Healing Points</Text>
+        {/* Progress to Next Level */}
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressLabel}>Sonraki Seviye: {nextMilestone.name}</Text>
+          <View style={styles.progressBarContainer}>
+            <View style={[styles.progressBarFill, { width: `${Math.min(progressToNext, 100)}%` }]} />
           </View>
-
-          {/* Progress to Next Level */}
-          {nextMilestone && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Sonraki Seviye: {nextMilestone.name}</Text>
-                <Text style={styles.progressValue}>
-                  {profile.healingPointsTotal} / {nextMilestone.points}
-                </Text>
-              </View>
-              <ProgressBar 
-                progress={progressToNext / 100} 
-                style={styles.progressBar}
-              />
-            </View>
-          )}
-        </LinearGradient>
+          <Text style={styles.progressValue}>
+            {profile.healingPointsTotal} / {nextMilestone.points}
+          </Text>
+        </View>
       </Animated.View>
     );
   };
@@ -216,92 +212,85 @@ export default function TodayScreen() {
   const renderDailyMissions = () => (
     <View style={styles.missionsSection}>
       <View style={styles.sectionHeader}>
-        <MaterialCommunityIcons name="heart-outline" size={24} color="#10B981" />
+        <MaterialCommunityIcons name="heart-outline" size={20} color="#10B981" />
         <Text style={styles.sectionTitle}>Bugün için öneriler</Text>
       </View>
 
       <View style={styles.missionsList}>
         {/* Mission 1: Compulsion Tracking */}
         <Pressable 
-          style={[styles.missionCard, todayStats.compulsions >= 3 && styles.missionCompleted]}
+          style={styles.missionCard}
           onPress={() => router.push('/(tabs)/tracking')}
         >
           <View style={styles.missionIcon}>
             <MaterialCommunityIcons 
-              name={todayStats.compulsions >= 3 ? "check-circle" : "heart-outline"} 
-              size={32} 
-              color={todayStats.compulsions >= 3 ? "#10B981" : "#9CA3AF"} 
+              name={todayStats.compulsions >= 3 ? "heart" : "heart-outline"} 
+              size={30} 
+              color={todayStats.compulsions >= 3 ? "#10B981" : "#D1D5DB"} 
             />
           </View>
           <View style={styles.missionContent}>
             <Text style={styles.missionTitle}>Bugünkü Yolculuğun</Text>
             <View style={styles.missionProgress}>
-              <ProgressBar 
-                progress={Math.min(todayStats.compulsions / 3, 1)} 
-                style={styles.missionProgressBar}
-              />
+              <View style={styles.missionProgressBar}>
+                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.compulsions / 3) * 100, 100)}%` }]} />
+              </View>
               <Text style={styles.missionProgressText}>{todayStats.compulsions}/3 kayıt</Text>
             </View>
           </View>
           <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star-outline" size={20} color="#F59E0B" />
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
             <Text style={styles.missionRewardText}>+50</Text>
           </View>
         </Pressable>
 
         {/* Mission 2: ERP Session */}
         <Pressable 
-          style={[styles.missionCard, todayStats.erpSessions >= 1 && styles.missionCompleted]}
+          style={styles.missionCard}
           onPress={() => router.push('/(tabs)/erp')}
         >
           <View style={styles.missionIcon}>
             <MaterialCommunityIcons 
-              name={todayStats.erpSessions >= 1 ? "check-circle" : "heart-outline"} 
-              size={32} 
-              color={todayStats.erpSessions >= 1 ? "#10B981" : "#9CA3AF"} 
+              name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
+              size={30} 
+              color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
             />
           </View>
           <View style={styles.missionContent}>
             <Text style={styles.missionTitle}>İyileşme Adımın</Text>
             <View style={styles.missionProgress}>
-              <ProgressBar 
-                progress={Math.min(todayStats.erpSessions / 1, 1)} 
-                style={styles.missionProgressBar}
-              />
+              <View style={styles.missionProgressBar}>
+                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
+              </View>
               <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
             </View>
           </View>
           <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star-outline" size={20} color="#F59E0B" />
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
             <Text style={styles.missionRewardText}>+100</Text>
           </View>
         </Pressable>
 
         {/* Mission 3: Resistance */}
         <Pressable 
-          style={[styles.missionCard, todayStats.resistanceWins >= 2 && styles.missionCompleted]}
+          style={styles.missionCard}
           onPress={() => router.push('/(tabs)/tracking')}
         >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name={todayStats.resistanceWins >= 2 ? "check-circle" : "circle-outline"} 
-              size={32} 
-              color={todayStats.resistanceWins >= 2 ? "#10B981" : "#9CA3AF"} 
-            />
+          <View style={styles.missionIconCircle}>
+            <View style={[styles.missionCircle, todayStats.resistanceWins >= 2 && styles.missionCircleCompleted]} />
           </View>
           <View style={styles.missionContent}>
             <Text style={styles.missionTitle}>Direnç Zaferi</Text>
             <Text style={styles.missionDescription}>2 kez yüksek direnç göster</Text>
             <View style={styles.missionProgress}>
-              <ProgressBar 
-                progress={Math.min(todayStats.resistanceWins / 2, 1)} 
-                style={styles.missionProgressBar}
-              />
+              <View style={styles.missionProgressBar}>
+                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.resistanceWins / 2) * 100, 100)}%` }]} />
+              </View>
               <Text style={styles.missionProgressText}>{todayStats.resistanceWins}/2</Text>
             </View>
           </View>
           <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={20} color="#F59E0B" />
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
             <Text style={styles.missionRewardText}>+75</Text>
           </View>
         </Pressable>
@@ -312,17 +301,17 @@ export default function TodayScreen() {
   const renderQuickStats = () => (
     <View style={styles.quickStatsSection}>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="calendar-today" size={24} color="#10B981" />
-        <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
-        <Text style={styles.quickStatLabel}>Bugün</Text>
+        <MaterialCommunityIcons name="calendar-today" size={30} color="#10B981" />
+        <Text style={styles.quickStatValue}>{todayStats.compulsions}</Text>
+        <Text style={styles.quickStatLabel}>Today</Text>
       </View>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="fire" size={24} color="#F59E0B" />
+        <MaterialCommunityIcons name="fire" size={30} color="#F59E0B" />
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
-        <Text style={styles.quickStatLabel}>Seri</Text>
+        <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="shield-check" size={24} color="#3B82F6" />
+        <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
         <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
         <Text style={styles.quickStatLabel}>ERP</Text>
       </View>
@@ -391,6 +380,27 @@ export default function TodayScreen() {
 
   return (
     <ScreenLayout>
+      {/* Header - New Design */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{getGreeting()}</Text>
+            <Text style={styles.username}>{user?.email?.split('@')[0] || 'User'}</Text>
+          </View>
+          <Pressable 
+            style={styles.headerRight}
+            onPress={() => {
+              router.push('/(tabs)/settings');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <View style={styles.profileIcon}>
+              <MaterialCommunityIcons name="account" size={24} color="#6B7280" />
+            </View>
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -445,77 +455,104 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
+    backgroundColor: '#F3F4F6',
   },
-  heroSection: {
-    marginTop: 20,
-    marginHorizontal: 20,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  headerContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  heroGradient: {
-    padding: 20,
-    borderRadius: 12,
-  },
-  streakContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  mainPointsContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  mainPointsValue: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: '#FEF3C7',
-    fontFamily: 'Inter-Bold',
-    marginTop: 8,
-  },
-  mainPointsLabel: {
-    fontSize: 18,
-    color: '#FEF3C7',
-    fontFamily: 'Inter-Medium',
-  },
-  progressContainer: {
-    marginTop: 20,
-  },
-  progressHeader: {
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  username: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    fontFamily: 'Inter',
+    marginTop: 2,
+  },
+  headerRight: {
+    padding: 4,
+  },
+  profileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroSection: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  mainPointsContainer: {
+    alignItems: 'center',
+  },
+  mainPointsValue: {
+    fontSize: 50,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  mainPointsLabel: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+  },
+  progressContainer: {
+    width: '100%',
+    marginTop: 24,
   },
   progressLabel: {
-    fontSize: 16,
-    color: '#FEF3C7',
-    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    marginBottom: 4,
+    opacity: 0.9,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
   },
   progressValue: {
-    fontSize: 16,
-    color: '#FEF3C7',
-    fontFamily: 'Inter-Medium',
-  },
-  progressBar: {
-    height: 10,
-    borderRadius: 5,
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    marginTop: 4,
+    textAlign: 'right',
+    opacity: 0.9,
   },
   missionsSection: {
-    marginTop: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    marginTop: 4,
+    paddingHorizontal: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -524,150 +561,147 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-Bold',
     marginLeft: 8,
   },
   missionsList: {
     flexDirection: 'column',
+    gap: 16,
   },
   missionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    elevation: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-  },
-  missionCompleted: {
-    backgroundColor: '#E0F2F7',
-    borderColor: '#10B981',
-    borderWidth: 1,
+    elevation: 1,
   },
   missionIcon: {
-    width: 50,
-    alignItems: 'center',
     marginRight: 16,
+  },
+  missionIconCircle: {
+    marginRight: 16,
+  },
+  missionCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+  },
+  missionCircleCompleted: {
+    borderColor: '#10B981',
+    backgroundColor: '#10B981',
   },
   missionContent: {
     flex: 1,
   },
   missionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-Bold',
     marginBottom: 4,
   },
   missionDescription: {
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'Inter',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   missionProgress: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
   missionProgressBar: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
     marginRight: 8,
+    overflow: 'hidden',
+  },
+  missionProgressFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 3,
   },
   missionProgressText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter',
+    minWidth: 50,
   },
   missionReward: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F3FF',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginTop: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   missionRewardText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8B5CF6',
-    fontFamily: 'Inter-Medium',
-    marginLeft: 8,
+    color: '#F59E0B',
+    fontFamily: 'Inter-Semibold',
+    marginLeft: 4,
   },
   quickStatsSection: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    marginHorizontal: 16,
+    marginVertical: 24,
   },
   quickStatCard: {
     alignItems: 'center',
   },
   quickStatValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
-    fontFamily: 'Inter-Medium',
-    marginTop: 8,
+    fontFamily: 'Inter-Bold',
+    marginTop: 4,
   },
   quickStatLabel: {
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'Inter',
-    marginTop: 4,
+    marginTop: 2,
   },
   achievementsSection: {
-    marginTop: 20,
-    marginHorizontal: 20,
+    marginTop: 16,
+    marginHorizontal: 16,
     marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   achievementGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F3FF',
-    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
   seeAllText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#8B5CF6',
+    color: '#6B7280',
     fontFamily: 'Inter-Medium',
-    marginRight: 8,
+    marginRight: 4,
   },
   bottomSpacing: {
     height: 100,

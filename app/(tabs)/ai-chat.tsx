@@ -224,7 +224,7 @@ export default function AIChatScreen() {
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder="OKB ile ilgili düşüncelerinizi paylaşın..."
-                placeholderTextColor="#A0AEC0"
+                placeholderTextColor="#6B7280"
                 multiline
                 maxLength={500}
                 returnKeyType="send"
@@ -257,29 +257,29 @@ export default function AIChatScreen() {
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#F9FAFB',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#F9FAFB',
   },
   headerInfo: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E5E7EB',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2D3748',
+    color: '#374151',
     marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#718096',
+    color: '#6B7280',
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 6,
     borderLeftWidth: 3,
-    borderLeftColor: '#68D391',
+    borderLeftColor: '#10B981',
   },
   errorMessage: {
     borderLeftColor: '#F56565',
@@ -330,10 +330,10 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   userMessageText: {
-    color: '#2D3748',
+    color: '#374151',
   },
   aiMessageText: {
-    color: '#2D3748',
+    color: '#374151',
   },
   errorMessageText: {
     color: '#C53030',
@@ -347,30 +347,30 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 11,
     opacity: 0.6,
-    color: '#718096',
+    color: '#6B7280',
     fontWeight: '300',
   },
   providerTag: {
     fontSize: 10,
-    color: '#68D391',
+    color: '#10B981',
     fontWeight: '500',
   },
   typingText: {
     fontSize: 14,
-    color: '#68D391',
+    color: '#10B981',
     fontStyle: 'italic',
     fontWeight: '500',
   },
   typingSubtext: {
     fontSize: 12,
-    color: '#A0AEC0',
+    color: '#6B7280',
     fontStyle: 'italic',
     marginTop: 2,
   },
   inputContainer: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E5E7EB',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
@@ -383,15 +383,15 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: 16,
     maxHeight: 120,
     marginRight: 12,
-    backgroundColor: '#F7FAFC',
-    color: '#2D3748',
+    backgroundColor: '#F9FAFB',
+    color: '#374151',
     minHeight: 48,
     fontWeight: '400',
   },
@@ -399,10 +399,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#68D391',
+    backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#68D391',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   },
   inputHelperText: {
     fontSize: 12,
-    color: '#A0AEC0',
+    color: '#6B7280',
     textAlign: 'center',
     fontWeight: '300',
     fontStyle: 'italic',

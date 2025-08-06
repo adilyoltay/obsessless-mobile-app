@@ -23,16 +23,21 @@ export default function TabLayout() {
         tabBarStyle: Platform.select({
           ios: {
             position: 'absolute',
-            boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.15)',
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
           },
           android: {
             elevation: 8,
-            boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.15)',
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
           },
           web: {
             boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
             borderTopWidth: 1,
             borderTopColor: '#E5E7EB',
+            backgroundColor: '#FFFFFF',
           },
         }),
       }}>

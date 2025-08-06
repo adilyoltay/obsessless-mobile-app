@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     textAlign: 'center',
     marginBottom: 16,
     fontFamily: 'Inter',
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     marginBottom: 8,
     fontFamily: 'Inter',
   },
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
+    color: '#374151',
     marginBottom: 32,
     lineHeight: 28,
     fontFamily: 'Inter',
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     marginTop: 16,
     marginBottom: 8,
     fontFamily: 'Inter',
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: '#374151',
     marginBottom: 4,
     fontFamily: 'Inter',
   },
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   stepperValue: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     fontFamily: 'Inter',
     minWidth: 50,
     textAlign: 'center',
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: '#374151',
     marginBottom: 4,
     fontFamily: 'Inter',
   },

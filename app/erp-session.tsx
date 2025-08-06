@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
+    color: '#374151',
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',

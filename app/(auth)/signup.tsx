@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#374151',
     marginTop: 16,
     fontFamily: 'Inter_700Bold',
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     fontSize: 16,
-    color: '#1F2937',
+    color: '#374151',
     marginLeft: 12,
     fontFamily: 'Inter_400Regular',
   },

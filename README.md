@@ -82,6 +82,8 @@ npm start
 # iOS'da çalıştır
 npm run ios
 
+npx eas build --platform ios --profile development
+
 # Android'de çalıştır
 npm run android
 ```

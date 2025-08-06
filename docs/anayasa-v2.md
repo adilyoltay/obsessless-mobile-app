@@ -8,6 +8,23 @@ ObsessLess, bir görev listesi veya bir sayaç değildir. Kullanıcının OKB'ni
 2.  **Güç Kullanıcıdadır:** Uygulama, kullanıcıya ne yapacağını söyleyen bir patron değil, hedeflerine ulaşmasında ona seçenekler sunan bir yol arkadaşıdır. Kişiselleştirme ve şeffaflık esastır.
 3.  **Zahmetsizlik Esastır:** En sık yapılan işlemler (özellikle kaygı anında yapılanlar) minimum bilişsel yük ile, saniyeler içinde tamamlanabilmelidir.
 
+### **Görsel Kimlik ve Renk Paleti**
+**Ana Renkler:**
+- **Arka Plan:** `#F9FAFB` (Açık gri - sakinlik ve temizlik)
+- **Birincil Metin:** `#374151` (Koyu gri - okunabilirlik)
+- **İkincil Metin:** `#6B7280` (Orta gri - destekleyici bilgi)
+- **Vurgu Rengi:** `#10B981` (Yeşil - pozitif eylemler ve başarı)
+- **Ana Vurgu:** `#10B981` (Yeşil - birincil eylemler ve başarı, eski #94e0b2 yerine)
+- **Uyarı:** `#F59E0B` (Turuncu - dikkat çekici öğeler)
+- **Hata:** `#EF4444` (Kırmızı - uyarılar)
+
+**Tasarım Prensipleri:**
+- **Kart Tabanlı Yapı:** Beyaz (`#FFFFFF`) kartlar üzerinde içerik, hafif gölgeler ile derinlik
+- **Tab Navigasyon:** Alt çizgi ile vurgulanan aktif sekmeler
+- **Yumuşak Gölgeler:** `shadowOpacity: 0.05` ile minimal gölge kullanımı
+- **Yuvarlak Köşeler:** `borderRadius: 12` standart kart yuvarlaklığı
+- **Tutarlı Boşluklar:** 16px yatay padding, 12px dikey spacing
+
 ---
 
 ## 🏆 **Uygulamanın 4 Temel Yeteneği (Projenin Kalbi ve Ruhu)**
@@ -54,6 +71,50 @@ Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde h
     1.  **Kararlılık Zinciri (Streak):** Günlük hedeflere ulaşıldığında artan ve seviye atlayan (Fidan 🌱 → Usta 🧘) bir seri sayacı.
     2.  **Terapötik Rozetler (Achievements):** "İlk Adım", "Habitüasyon Gözlemcisi" gibi klinik olarak anlamlı kilometre taşlarına ulaşıldığında kazanılan, açıklamalı rozetler.
     3.  **Küçük Zaferler (Mikro-Ödüller):** Her olumlu eylem sonrası verilen anlık, küçük puanlar ve tatmin edici geri bildirimler.
+
+---
+
+## 🎨 **UI Bileşenleri ve Tasarım Sistemi**
+
+### **Temel Bileşenler:**
+
+#### **1. Header (Başlık) - UPDATED**
+- **Dynamic Header**: Good Morning/Afternoon/Evening selamlama
+- **User Display**: Kullanıcı adı büyük font ile (`fontSize: 24`, `fontWeight: 700`)
+- **Profile Icon**: Sağ üst köşede yuvarlak gri arka plan (`#E5E7EB`)
+- Alt border ile içerikten ayrım (`borderBottomColor: #E5E7EB`)
+
+#### **2. Main Points Card - NEW**
+- **Single Hero Card**: Düz yeşil arka plan (`#10B981`)
+- **White Text**: Tüm metin beyaz renkte (#FFFFFF)
+- **Star Icon**: Merkezi yıldız ikonu (star-outline)
+- **Big Number**: Ana puan sayısı büyük font (`fontSize: 50`)
+- **Progress Info**: Sonraki seviye ve ilerleme çubuğu
+
+#### **3. Quick Stats - REDESIGNED**
+- **Horizontal Layout**: Yatay yerleşim (Today, Streak, ERP)
+- **Icon + Number + Label**: Üçlü yapı her stat için
+- **Centered Alignment**: Ortayla hizalanmış içerik
+- Renk kodlu ikonlar (yeşil, turuncu, mavi)
+
+#### **4. Suggestions Cards - NEW**
+- **White Background**: Beyaz kart arka planları
+- **Heart Icons**: Kalp ikonları (dolu/boş durum göstergesi)
+- **Progress Bars**: Yeşil ilerleme çubukları
+- **Star Badges**: Sarı yıldız rozetleri sağ tarafta
+- **Circle Icon**: "Direnç Zaferi" için özel yuvarlak checkbox
+
+#### **5. Achievements Section - ENHANCED**
+- **Trophy Header**: Trophy ikonu + "Başarımlarım (x/total)"
+- **Horizontal Grid**: 6 rozet maksimum horizontal dizilim
+- **Lock/Unlock States**: Açık/kapalı rozet görünümleri
+- **"Tümünü Gör" Button**: Daha fazla rozet için buton
+
+#### **6. FAB (Floating Action Button)**
+- Sağ alt köşede konumlanmış (`bottom: 90px, right: 16px`)
+- Yeşil arka plan (`#10B981`)
+- Beyaz plus ikonu
+- Gölge efekti ile derinlik
 
 ---
 

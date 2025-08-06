@@ -3,6 +3,7 @@
     "name": "obslessless-clean",
     "slug": "obslessless-clean",
     "version": "1.0.0",
+    "sdkVersion": "53.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -29,8 +30,10 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-localization", 
-      "expo-font"
+      "expo-localization",
+      "expo-font",
+      "expo-router",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

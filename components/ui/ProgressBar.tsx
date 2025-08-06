@@ -29,7 +29,7 @@ export function ProgressBar({
   borderRadius = 4,
   animated = true,
   gradient = false,
-  gradientColors = ['#10B981', '#34D399'],
+  gradientColors = ['#10B981', '#7bc99e'],
   style,
 }: ProgressBarProps) {
   const progressValue = useSharedValue(0);

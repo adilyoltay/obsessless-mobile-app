@@ -413,6 +413,9 @@ class SupabaseNativeService {
     try {
       console.log('🔄 Saving user profile to database...', profile);
       
+      // Ensure user exists in public.users table
+      await this.ensureUserProfileExists(profile.user_id);
+      
       const { data, error } = await this.client
         .from('user_profiles')
         .upsert({
@@ -438,6 +441,9 @@ class SupabaseNativeService {
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
     try {
       console.log('🔄 Saving compulsion to database...', compulsion);
+      
+      // Ensure user exists in public.users table
+      await this.ensureUserProfileExists(compulsion.user_id);
       
       const { data, error } = await this.client
         .from('compulsions')
@@ -506,6 +512,9 @@ class SupabaseNativeService {
     try {
       console.log('🔄 Saving ERP session to database...', session);
       
+      // Ensure user exists in public.users table
+      await this.ensureUserProfileExists(session.user_id);
+      
       const { data, error } = await this.client
         .from('erp_sessions')
         .insert({
@@ -569,8 +578,11 @@ class SupabaseNativeService {
   // GAMIFICATION METHODS
   // ===========================
 
-  async createGamificationProfile(userId: string): Promise<GamificationProfile> {
+  async createGamificationProfile(userId: string): Promise<GamificationProfile | null> {
     try {
+      // First ensure user exists in public.users table
+      await this.ensureUserProfileExists(userId);
+      
       const { data, error } = await this.client
         .from('gamification_profiles')
         .upsert({
@@ -595,6 +607,43 @@ class SupabaseNativeService {
       return data;
     } catch (error) {
       console.error('❌ Create gamification profile failed:', error);
+      // Don't throw error, return null to prevent app crash
+      return null;
+    }
+  }
+
+  private async ensureUserProfileExists(userId: string): Promise<void> {
+    try {
+      // Check if user exists in public.users
+      const { data: existingUser } = await this.client
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (!existingUser) {
+        // Get user info from auth.users
+        const { data: authUser } = await this.client.auth.getUser();
+        
+        if (authUser.user && authUser.user.id === userId) {
+          // Create user profile
+          const { error } = await this.client
+            .from('users')
+            .insert({
+              id: userId,
+              email: authUser.user.email || '',
+              name: authUser.user.user_metadata?.name || authUser.user.email?.split('@')[0] || 'User',
+              provider: authUser.user.app_metadata?.provider || 'email',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+          if (error) throw error;
+          console.log('✅ User profile created in public.users:', userId);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Ensure user profile failed:', error);
       throw error;
     }
   }
