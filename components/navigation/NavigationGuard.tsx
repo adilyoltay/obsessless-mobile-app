@@ -68,10 +68,37 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
           }
         } else {
           // User is authenticated, check profile completion
+          let isProfileComplete = false;
+          
           try {
-            // Check database for onboarding completion
-            const userProfile = await supabaseService.getUserProfile(user.id);
-            const isProfileComplete = userProfile && userProfile.onboarding_completed;
+            // First, check AsyncStorage for faster response (offline-first)
+            const profileCompleted = await AsyncStorage.getItem('profileCompleted');
+            const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id}`);
+            
+            if (profileCompleted === 'true' && localProfile) {
+              const parsedProfile = JSON.parse(localProfile);
+              if (parsedProfile.onboardingCompleted) {
+                isProfileComplete = true;
+                console.log('✅ Profile completion confirmed from AsyncStorage');
+              }
+            }
+
+            // If not complete locally, check database for verification
+            if (!isProfileComplete) {
+              try {
+                const userProfile = await supabaseService.getUserProfile(user.id);
+                isProfileComplete = userProfile && userProfile.onboarding_completed;
+                
+                if (isProfileComplete) {
+                  // Update AsyncStorage cache
+                  await AsyncStorage.setItem('profileCompleted', 'true');
+                  console.log('✅ Profile completion confirmed from database and cached');
+                }
+              } catch (dbError) {
+                console.warn('⚠️ Database profile check failed, using AsyncStorage only:', dbError);
+                // Continue with AsyncStorage result
+              }
+            }
 
             if (!isProfileComplete) {
               // Profile not completed - redirect to onboarding
@@ -93,7 +120,6 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
               if (inAuthGroup || currentPath === '+not-found' || currentPath === '' || currentPath === 'index') {
                 console.log('✅ Redirecting to main app - profile complete');
                 hasNavigatedRef.current = true;
-                // Use push instead of replace for better navigation
                 setTimeout(() => {
                   try {
                     router.push('/(tabs)/index');

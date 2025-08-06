@@ -440,6 +440,27 @@ class SupabaseNativeService {
   // COMPULSION METHODS
   // ===========================
 
+  private mapCategoryForDatabase(category: string): string {
+    // Map frontend categories to database-compatible categories
+    const categoryMapping: Record<string, string> = {
+      'mental': 'contamination', // Map mental rituals to contamination temporarily
+      'washing': 'contamination',
+      'checking': 'checking',
+      'counting': 'ordering',
+      'ordering': 'ordering',
+      'arranging': 'ordering',
+      'reassurance': 'checking',
+      'avoidance': 'contamination',
+      'touching': 'ordering',
+      'repeating': 'ordering',
+      'hoarding': 'contamination',
+      'religious': 'contamination',
+      'other': 'contamination'
+    };
+    
+    return categoryMapping[category] || 'contamination';
+  }
+
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
     try {
       console.log('🔄 Saving compulsion to database...', compulsion);
@@ -447,12 +468,17 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
+      // Map category to database-compatible format and store original as subcategory
+      const mappedCompulsion = {
+        ...compulsion,
+        subcategory: compulsion.category, // Store original category as subcategory
+        category: this.mapCategoryForDatabase(compulsion.category),
+        timestamp: new Date().toISOString(),
+      };
+      
       const { data, error } = await this.client
         .from('compulsions')
-        .insert({
-          ...compulsion,
-          timestamp: new Date().toISOString(),
-        })
+        .insert(mappedCompulsion)
         .select()
         .single();
 
@@ -481,8 +507,15 @@ class SupabaseNativeService {
       const { data, error } = await query;
 
       if (error) throw error;
-      console.log(`✅ Fetched ${data?.length || 0} compulsions from database`);
-      return data || [];
+      
+      // Restore original categories from subcategory field
+      const compulsions = (data || []).map(record => ({
+        ...record,
+        category: record.subcategory || record.category, // Use subcategory if available, fallback to category
+      }));
+
+      console.log(`✅ Fetched ${compulsions.length} compulsions from database`);
+      return compulsions;
     } catch (error) {
       console.error('❌ Get compulsions failed:', error);
       return [];
@@ -724,6 +757,10 @@ class SupabaseNativeService {
   // ===========================
   // UTILITY METHODS
   // ===========================
+
+  getCurrentUser(): User | null {
+    return this.currentUser;
+  }
 
   get supabaseClient() {
     return this.client;

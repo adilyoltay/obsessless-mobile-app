@@ -32,8 +32,7 @@
       "expo-secure-store",
       "expo-localization",
       "expo-font",
-      "expo-router",
-      "expo-web-browser"
+      "expo-router"
     ],
     "extra": {
       "eas": {

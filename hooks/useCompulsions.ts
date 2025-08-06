@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
 
 export interface Compulsion {
   id: string;
@@ -24,45 +25,152 @@ export interface CreateCompulsionData {
   notes?: string;
 }
 
-// Mock API service for demo
+// Enhanced service with Supabase integration
 const compulsionService = {
   async getAll(userId: string): Promise<Compulsion[]> {
-    const stored = await AsyncStorage.getItem(`compulsions_${userId}`);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      console.log('🔍 Fetching compulsions...');
+      
+      // Try to get from AsyncStorage first (offline-first)
+      const stored = await AsyncStorage.getItem(`compulsions_${userId}`);
+      const localCompulsions: Compulsion[] = stored ? JSON.parse(stored) : [];
+      
+      // Try to sync with Supabase
+      try {
+        const supabaseCompulsions = await supabaseService.getCompulsions(userId);
+        
+        // Merge local and remote data (prioritize local for offline changes)
+        const mergedCompulsions = this.mergeCompulsions(localCompulsions, supabaseCompulsions);
+        
+        // Update AsyncStorage with merged data
+        await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(mergedCompulsions));
+        
+        console.log(`✅ Compulsions synced: ${mergedCompulsions.length} total`);
+        return mergedCompulsions;
+      } catch (supabaseError) {
+        console.warn('⚠️ Supabase sync failed, using offline data:', supabaseError);
+        return localCompulsions;
+      }
+    } catch (error) {
+      console.error('❌ Error fetching compulsions:', error);
+      return [];
+    }
+  },
+
+  mergeCompulsions(local: Compulsion[], remote: any[]): Compulsion[] {
+    // Convert Supabase format to local format
+    const remoteConverted: Compulsion[] = remote.map(r => ({
+      id: r.id,
+      type: r.category,
+      severity: r.resistance_level || 5, // Map resistance to severity
+      resistanceLevel: r.resistance_level,
+      duration: 0, // Not available in Supabase schema
+      trigger: r.trigger,
+      notes: r.notes,
+      timestamp: new Date(r.timestamp),
+      userId: r.user_id
+    }));
+
+    // Create a map of all compulsions by ID
+    const compulsionMap = new Map();
+    
+    // Add remote compulsions first
+    remoteConverted.forEach(comp => compulsionMap.set(comp.id, comp));
+    
+    // Override with local compulsions (they might have offline changes)
+    local.forEach(comp => compulsionMap.set(comp.id, comp));
+    
+    return Array.from(compulsionMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
   },
 
   async create(userId: string, data: CreateCompulsionData): Promise<Compulsion> {
-    const compulsion: Compulsion = {
-      id: Date.now().toString(),
-      ...data,
-      timestamp: new Date(),
-      userId,
-    };
+    try {
+      console.log('🔄 Creating compulsion...');
+      
+      const compulsion: Compulsion = {
+        id: Date.now().toString(),
+        ...data,
+        timestamp: new Date(),
+        userId,
+      };
 
-    const existing = await this.getAll(userId);
-    const updated = [...existing, compulsion];
-    await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(updated));
-    
-    return compulsion;
+      // Save to AsyncStorage first (offline-first)
+      const existing = await this.getAll(userId);
+      const updated = [...existing, compulsion];
+      await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(updated));
+      
+      console.log('✅ Compulsion saved to AsyncStorage');
+
+      // Try to save to Supabase
+      try {
+        await supabaseService.saveCompulsion({
+          user_id: userId,
+          category: data.type,
+          resistance_level: data.resistanceLevel,
+          trigger: data.trigger,
+          notes: data.notes
+        });
+        console.log('✅ Compulsion saved to Supabase');
+      } catch (supabaseError) {
+        console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
+        // Continue with offline mode - data is already in AsyncStorage
+      }
+      
+      return compulsion;
+    } catch (error) {
+      console.error('❌ Error creating compulsion:', error);
+      throw error;
+    }
   },
 
   async delete(userId: string, id: string): Promise<void> {
-    const existing = await this.getAll(userId);
-    const filtered = existing.filter(c => c.id !== id);
-    await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(filtered));
+    try {
+      console.log('🗑️ Deleting compulsion...');
+      
+      // Delete from AsyncStorage
+      const existing = await this.getAll(userId);
+      const filtered = existing.filter(c => c.id !== id);
+      await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(filtered));
+      
+      console.log('✅ Compulsion deleted from AsyncStorage');
+
+      // Try to delete from Supabase
+      try {
+        await supabaseService.deleteCompulsion(id);
+        console.log('✅ Compulsion deleted from Supabase');
+      } catch (supabaseError) {
+        console.warn('⚠️ Supabase delete failed, compulsion deleted offline:', supabaseError);
+        // Continue with offline mode - data is already removed from AsyncStorage
+      }
+    } catch (error) {
+      console.error('❌ Error deleting compulsion:', error);
+      throw error;
+    }
   },
 
   async getStats(userId: string) {
-    const compulsions = await this.getAll(userId);
-    const today = new Date().toDateString();
-    const thisWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    
-    return {
-      total: compulsions.length,
-      today: compulsions.filter(c => new Date(c.timestamp).toDateString() === today).length,
-      thisWeek: compulsions.filter(c => new Date(c.timestamp) >= thisWeek).length,
-      averageResistance: compulsions.reduce((sum, c) => sum + c.resistanceLevel, 0) / compulsions.length || 0,
-    };
+    try {
+      const compulsions = await this.getAll(userId);
+      const today = new Date().toDateString();
+      const thisWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      return {
+        total: compulsions.length,
+        today: compulsions.filter(c => new Date(c.timestamp).toDateString() === today).length,
+        thisWeek: compulsions.filter(c => new Date(c.timestamp) >= thisWeek).length,
+        averageResistance: compulsions.reduce((sum, c) => sum + c.resistanceLevel, 0) / compulsions.length || 0,
+      };
+    } catch (error) {
+      console.error('❌ Error calculating stats:', error);
+      return {
+        total: 0,
+        today: 0,
+        thisWeek: 0,
+        averageResistance: 0,
+      };
+    }
   }
 };
 
