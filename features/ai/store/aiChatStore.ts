@@ -1,519 +1,806 @@
 /**
- * AI Chat Store - Zustand ile Konuşma Yönetimi
+ * 💬 AI Chat Store - Context-Aware Conversation Management
  * 
- * KRITIK: Store izole olmalı ve ana app state'ini etkilememeli
- * Ayrı Zustand store instance kullanır
+ * Bu store AI sohbet sisteminin tüm state management'ini yönetir.
+ * Sprint 1-2'de kurulan güvenlik altyapısını kullanır.
+ * 
+ * ⚠️ CRITICAL: Tüm mesajlar crisis detection ve content filtering'den geçer
+ * ⚠️ Feature flag kontrolü her işlemde yapılır
  */
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
   AIMessage, 
-  ConversationContext,
-  UserAIProfile,
-  AIError,
-  AIErrorCode
+  ConversationContext, 
+  ConversationState, 
+  CrisisRiskLevel,
+  AIConfig,
+  UserTherapeuticProfile 
 } from '@/features/ai/types';
-import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
+import { aiManager } from '@/features/ai/config/aiManager';
+import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+import { contentFilterService } from '@/features/ai/safety/contentFilter';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
-// Konuşma durumu
-export enum ConversationState {
-  IDLE = 'idle',
-  ACTIVE = 'active',
-  THINKING = 'thinking',
-  ERROR = 'error',
-  ENDED = 'ended'
-}
+// =============================================================================
+// 🎯 CHAT STORE TYPES
+// =============================================================================
 
-// Konuşma thread'i
-export interface ConversationThread {
+/**
+ * Chat conversation data
+ */
+interface ChatConversation {
   id: string;
   title: string;
+  messages: AIMessage[];
+  context: ConversationContext;
   createdAt: Date;
   updatedAt: Date;
-  messages: AIMessage[];
-  state: ConversationState;
-  metadata: ThreadMetadata;
-  archived: boolean;
+  isActive: boolean;
 }
 
-export interface ThreadMetadata {
-  userId: string;
-  sessionDuration: number;
-  messageCount: number;
-  therapeuticMilestones: string[];
-  emotionalTrend: 'improving' | 'stable' | 'declining' | 'unknown';
-  lastActivity: Date;
-  tags: string[];
-}
-
-// Store state interface
-interface AIChatStore {
-  // State
-  isEnabled: boolean;
-  currentThread: ConversationThread | null;
-  threads: ConversationThread[];
-  conversationContext: ConversationContext | null;
+/**
+ * Chat UI state
+ */
+interface ChatUIState {
   isTyping: boolean;
-  error: AIError | null;
+  isLoading: boolean;
+  error: string | null;
+  inputText: string;
+  showCrisisHelp: boolean;
+  lastCrisisLevel: CrisisRiskLevel;
+}
+
+/**
+ * AI Chat Store State
+ */
+interface AIChatState {
+  // Core State
+  isEnabled: boolean;
+  isInitialized: boolean;
+  
+  // Conversations
+  conversations: ChatConversation[];
+  activeConversationId: string | null;
+  
+  // UI State
+  ui: ChatUIState;
+  
+  // Current Session
+  currentSession: {
+    sessionId: string;
+    startTime: Date;
+    messageCount: number;
+    crisisDetections: number;
+    contentFiltered: number;
+  } | null;
+  
+  // User Context
+  userProfile: UserTherapeuticProfile | null;
   
   // Actions
-  initialize: () => Promise<void>;
-  shutdown: () => void;
+  initialize: (userId: string) => Promise<void>;
+  shutdown: () => Promise<void>;
   
-  // Thread management
-  createThread: (userId: string, title?: string) => ConversationThread;
-  loadThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string) => void;
-  deleteThread: (threadId: string) => void;
+  // Conversation Management
+  createConversation: (title?: string) => Promise<string>;
+  setActiveConversation: (conversationId: string) => void;
+  deleteConversation: (conversationId: string) => Promise<void>;
   
-  // Message management
-  addMessage: (message: AIMessage) => void;
-  updateMessage: (messageId: string, updates: Partial<AIMessage>) => void;
-  deleteMessage: (messageId: string) => void;
+  // Messaging
+  sendMessage: (content: string, userId: string) => Promise<boolean>;
+  retryLastMessage: () => Promise<boolean>;
   
-  // Conversation flow
-  setTyping: (isTyping: boolean) => void;
-  setError: (error: AIError | null) => void;
-  updateContext: (context: Partial<ConversationContext>) => void;
+  // UI Actions
+  setInputText: (text: string) => void;
+  clearError: () => void;
+  dismissCrisisHelp: () => void;
   
-  // Analytics
-  getConversationHealth: () => ConversationHealth;
-  getMessageBatch: (batchSize: number) => AIMessage[];
+  // Context Management
+  updateUserProfile: (profile: Partial<UserTherapeuticProfile>) => void;
+  updateConversationState: (state: ConversationState) => void;
   
-  // Safety
-  emergencyReset: () => void;
-  exportConversation: (threadId: string) => Promise<string>;
+  // Emergency Controls
+  emergencyStop: () => Promise<void>;
+  clearAllData: () => Promise<void>;
 }
 
-// Konuşma sağlığı metrikleri
-export interface ConversationHealth {
-  messageFrequency: number; // Dakika başına mesaj
-  averageResponseTime: number; // Milisaniye
-  sentimentScore: number; // -1 ile 1 arası
-  engagementLevel: 'low' | 'medium' | 'high';
-  therapeuticProgress: number; // 0 ile 100 arası
-}
+// =============================================================================
+// 🔧 CHAT STORE IMPLEMENTATION
+// =============================================================================
 
-// Store implementasyonu
-export const useAIChatStore = create<AIChatStore>()(
+export const useAIChatStore = create<AIChatState>()(
   persist(
     (set, get) => ({
-      // Initial state
+      // Initial State
       isEnabled: false,
-      currentThread: null,
-      threads: [],
-      conversationContext: null,
-      isTyping: false,
-      error: null,
+      isInitialized: false,
+      conversations: [],
+      activeConversationId: null,
+      ui: {
+        isTyping: false,
+        isLoading: false,
+        error: null,
+        inputText: '',
+        showCrisisHelp: false,
+        lastCrisisLevel: CrisisRiskLevel.NONE
+      },
+      currentSession: null,
+      userProfile: null,
 
-      // Initialize
-      initialize: async () => {
-        if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
-          console.log('[AIChatStore] AI Chat is disabled');
-          return;
-        }
+      // =============================================================================
+      // 🚀 INITIALIZATION
+      // =============================================================================
 
-        set({ isEnabled: true });
+      /**
+       * Store'u başlat
+       */
+      initialize: async (userId: string) => {
+        console.log('💬 AI Chat Store: Initializing...');
         
-        // Kaydedilmiş thread'leri yükle
         try {
-          const savedThreads = await AsyncStorage.getItem('@ai_chat_threads');
-          if (savedThreads) {
-            const threads = JSON.parse(savedThreads);
-            set({ threads });
+          // Feature flag kontrolü
+          if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+            console.log('🚫 AI Chat disabled by feature flag');
+            set({ isEnabled: false });
+            return;
           }
-        } catch (error) {
-          console.error('[AIChatStore] Failed to load threads:', error);
-        }
 
-        // Telemetri
-        await trackAIInteraction(AIEventType.FEATURE_ENABLED, {
-          feature: 'chat_store'
-        });
-      },
+          // AI Manager hazır mı kontrol et
+          if (!aiManager.isEnabled) {
+            console.log('🚫 AI Manager not enabled');
+            set({ isEnabled: false });
+            return;
+          }
 
-      // Shutdown
-      shutdown: () => {
-        const { threads } = get();
-        
-        // Thread'leri kaydet
-        AsyncStorage.setItem('@ai_chat_threads', JSON.stringify(threads))
-          .catch(error => console.error('[AIChatStore] Failed to save threads:', error));
+          // Crisis detection ve content filter hazır mı
+          if (!crisisDetectionService.isEnabled || !contentFilterService.isEnabled) {
+            console.log('🚫 Safety systems not ready');
+            set({ isEnabled: false });
+            return;
+          }
 
-        set({
-          isEnabled: false,
-          currentThread: null,
-          conversationContext: null,
-          isTyping: false,
-          error: null
-        });
-
-        // Telemetri
-        trackAIInteraction(AIEventType.FEATURE_DISABLED, {
-          feature: 'chat_store',
-          total_threads: threads.length
-        });
-      },
-
-      // Thread oluştur
-      createThread: (userId: string, title?: string) => {
-        const thread: ConversationThread = {
-          id: `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          title: title || `Konuşma ${new Date().toLocaleDateString('tr-TR')}`,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          messages: [],
-          state: ConversationState.IDLE,
-          metadata: {
-            userId,
-            sessionDuration: 0,
+          // Session başlat
+          const sessionId = `chat_${userId}_${Date.now()}`;
+          const currentSession = {
+            sessionId,
+            startTime: new Date(),
             messageCount: 0,
-            therapeuticMilestones: [],
-            emotionalTrend: 'unknown',
-            lastActivity: new Date(),
-            tags: []
-          },
-          archived: false
-        };
+            crisisDetections: 0,
+            contentFiltered: 0
+          };
 
-        set(state => ({
-          threads: [...state.threads, thread],
-          currentThread: thread
-        }));
+          // Store state güncelle
+          set({
+            isEnabled: true,
+            isInitialized: true,
+            currentSession,
+            ui: { ...get().ui, error: null }
+          });
 
-        // Telemetri
-        trackAIInteraction(AIEventType.CONVERSATION_START, {
-          thread_id: thread.id
-        });
-
-        return thread;
-      },
-
-      // Thread yükle
-      loadThread: async (threadId: string) => {
-        const { threads } = get();
-        const thread = threads.find(t => t.id === threadId);
-        
-        if (!thread) {
-          const error = new Error('Thread not found') as AIError;
-          error.code = AIErrorCode.INVALID_RESPONSE;
-          set({ error });
-          return;
-        }
-
-        set({ currentThread: thread, error: null });
-      },
-
-      // Thread arşivle
-      archiveThread: (threadId: string) => {
-        set(state => ({
-          threads: state.threads.map(thread =>
-            thread.id === threadId
-              ? { ...thread, archived: true, updatedAt: new Date() }
-              : thread
-          ),
-          currentThread: state.currentThread?.id === threadId
-            ? { ...state.currentThread, archived: true }
-            : state.currentThread
-        }));
-      },
-
-      // Thread sil
-      deleteThread: (threadId: string) => {
-        set(state => ({
-          threads: state.threads.filter(t => t.id !== threadId),
-          currentThread: state.currentThread?.id === threadId ? null : state.currentThread
-        }));
-      },
-
-      // Mesaj ekle
-      addMessage: (message: AIMessage) => {
-        const { currentThread } = get();
-        if (!currentThread) return;
-
-        const updatedThread = {
-          ...currentThread,
-          messages: [...currentThread.messages, message],
-          updatedAt: new Date(),
-          state: ConversationState.ACTIVE,
-          metadata: {
-            ...currentThread.metadata,
-            messageCount: currentThread.metadata.messageCount + 1,
-            lastActivity: new Date()
+          // Eğer aktif conversation yoksa yeni bir tane oluştur
+          const state = get();
+          if (!state.activeConversationId && state.conversations.length === 0) {
+            await get().createConversation('Hoş Geldiniz Sohbeti');
           }
-        };
 
-        set(state => ({
-          currentThread: updatedThread,
-          threads: state.threads.map(t =>
-            t.id === currentThread.id ? updatedThread : t
-          )
-        }));
+          // Telemetry
+          await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+            userId,
+            sessionId,
+            timestamp: new Date().toISOString()
+          });
 
-        // Otomatik kaydetme
-        get().saveThreads();
-        
-        // Milestone kontrolü
-        get().checkTherapeuticMilestones(message);
-      },
+          console.log('✅ AI Chat Store initialized successfully');
 
-      // Mesaj güncelle
-      updateMessage: (messageId: string, updates: Partial<AIMessage>) => {
-        const { currentThread } = get();
-        if (!currentThread) return;
-
-        const updatedMessages = currentThread.messages.map(msg =>
-          msg.id === messageId ? { ...msg, ...updates } : msg
-        );
-
-        const updatedThread = {
-          ...currentThread,
-          messages: updatedMessages,
-          updatedAt: new Date()
-        };
-
-        set(state => ({
-          currentThread: updatedThread,
-          threads: state.threads.map(t =>
-            t.id === currentThread.id ? updatedThread : t
-          )
-        }));
-      },
-
-      // Mesaj sil
-      deleteMessage: (messageId: string) => {
-        const { currentThread } = get();
-        if (!currentThread) return;
-
-        const updatedMessages = currentThread.messages.filter(
-          msg => msg.id !== messageId
-        );
-
-        const updatedThread = {
-          ...currentThread,
-          messages: updatedMessages,
-          updatedAt: new Date(),
-          metadata: {
-            ...currentThread.metadata,
-            messageCount: updatedMessages.length
-          }
-        };
-
-        set(state => ({
-          currentThread: updatedThread,
-          threads: state.threads.map(t =>
-            t.id === currentThread.id ? updatedThread : t
-          )
-        }));
-      },
-
-      // Typing durumu
-      setTyping: (isTyping: boolean) => {
-        set({ isTyping });
-      },
-
-      // Error durumu
-      setError: (error: AIError | null) => {
-        set({ error });
-        
-        if (error) {
-          // Error telemetri
-          trackAIInteraction(AIEventType.ERROR_OCCURRED, {
-            error_code: error.code,
-            severity: error.severity
+        } catch (error) {
+          console.error('❌ AI Chat Store initialization failed:', error);
+          set({
+            isEnabled: false,
+            ui: { ...get().ui, error: 'Chat sistemi başlatılamadı. Lütfen daha sonra tekrar deneyin.' }
           });
         }
       },
 
-      // Context güncelle
-      updateContext: (context: Partial<ConversationContext>) => {
+      /**
+       * Store'u kapat
+       */
+      shutdown: async () => {
+        console.log('💬 AI Chat Store: Shutting down...');
+        
+        const state = get();
+        
+        // Session'ı sonlandır
+        if (state.currentSession) {
+          await trackAIInteraction(AIEventType.CHAT_SESSION_ENDED, {
+            sessionId: state.currentSession.sessionId,
+            duration: Date.now() - state.currentSession.startTime.getTime(),
+            messageCount: state.currentSession.messageCount,
+            crisisDetections: state.currentSession.crisisDetections,
+            contentFiltered: state.currentSession.contentFiltered
+          });
+        }
+
+        set({
+          isEnabled: false,
+          isInitialized: false,
+          currentSession: null,
+          ui: {
+            isTyping: false,
+            isLoading: false,
+            error: null,
+            inputText: '',
+            showCrisisHelp: false,
+            lastCrisisLevel: CrisisRiskLevel.NONE
+          }
+        });
+      },
+
+      // =============================================================================
+      // 💬 CONVERSATION MANAGEMENT
+      // =============================================================================
+
+      /**
+       * Yeni conversation oluştur
+       */
+      createConversation: async (title?: string) => {
+        const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const now = new Date();
+        
+        const conversation: ChatConversation = {
+          id: conversationId,
+          title: title || `Sohbet ${now.toLocaleDateString('tr-TR')}`,
+          messages: [],
+          context: {
+            userId: '', // Will be set when first message is sent
+            sessionId: get().currentSession?.sessionId || '',
+            conversationHistory: [],
+            userProfile: get().userProfile || {
+              preferredLanguage: 'tr',
+              symptomSeverity: 5,
+              triggerWords: [],
+              avoidanceTopics: [],
+              preferredCBTTechniques: [],
+              therapeuticGoals: [],
+              communicationStyle: {
+                formality: 'warm',
+                directness: 'gentle',
+                supportStyle: 'encouraging',
+                humorAcceptable: false,
+                preferredPronoun: 'siz'
+              },
+              riskFactors: []
+            },
+            currentState: ConversationState.STABLE,
+            startTime: now,
+            lastActivity: now,
+            messageCount: 0,
+            topicHistory: [],
+            therapeuticGoals: [],
+            sessionObjectives: ['Kullanıcıyı desteklemek', 'CBT teknikleri paylaşmak'],
+            progressNotes: []
+          },
+          createdAt: now,
+          updatedAt: now,
+          isActive: true
+        };
+
+        // Welcome message ekle
+        const welcomeMessage: AIMessage = {
+          id: `msg_welcome_${Date.now()}`,
+          content: 'Merhaba! 🌱 Ben ObsessLess AI uzmanınızım. OKB konusunda size destek olmak için buradayım. Bugün nasıl hissediyorsunuz?',
+          role: 'assistant',
+          timestamp: now,
+          metadata: {
+            sessionId: conversation.context.sessionId,
+            contextType: 'chat',
+            sentiment: {
+              polarity: 'positive',
+              intensity: 0.8,
+              emotions: [{ emotion: 'hope', confidence: 0.9 }]
+            },
+            confidence: 1.0,
+            safetyScore: 1.0,
+            crisisRisk: CrisisRiskLevel.NONE,
+            therapeuticIntent: ['welcome', 'support_offering'],
+            emotionalTone: 'supportive'
+          }
+        };
+
+        conversation.messages.push(welcomeMessage);
+        conversation.context.conversationHistory.push(welcomeMessage);
+
+        // Store'a ekle
         set(state => ({
-          conversationContext: state.conversationContext
-            ? { ...state.conversationContext, ...context }
-            : context as ConversationContext
+          conversations: [...state.conversations, conversation],
+          activeConversationId: conversationId
+        }));
+
+        return conversationId;
+      },
+
+      /**
+       * Aktif conversation'ı değiştir
+       */
+      setActiveConversation: (conversationId: string) => {
+        const state = get();
+        const conversation = state.conversations.find(c => c.id === conversationId);
+        
+        if (conversation) {
+          set({ activeConversationId: conversationId });
+        }
+      },
+
+      /**
+       * Conversation sil
+       */
+      deleteConversation: async (conversationId: string) => {
+        set(state => ({
+          conversations: state.conversations.filter(c => c.id !== conversationId),
+          activeConversationId: state.activeConversationId === conversationId 
+            ? state.conversations.find(c => c.id !== conversationId)?.id || null 
+            : state.activeConversationId
         }));
       },
 
-      // Konuşma sağlığı analizi
-      getConversationHealth: () => {
-        const { currentThread } = get();
-        if (!currentThread || currentThread.messages.length === 0) {
-          return {
-            messageFrequency: 0,
-            averageResponseTime: 0,
-            sentimentScore: 0,
-            engagementLevel: 'low',
-            therapeuticProgress: 0
-          };
+      // =============================================================================
+      // 📨 MESSAGING
+      // =============================================================================
+
+      /**
+       * Mesaj gönder - Ana fonksiyon
+       */
+      sendMessage: async (content: string, userId: string) => {
+        const state = get();
+        
+        // Prerequisite checks
+        if (!state.isEnabled || !state.isInitialized) {
+          set(state => ({ ui: { ...state.ui, error: 'Chat sistemi hazır değil.' }}));
+          return false;
         }
 
-        // Mesaj frekansı hesapla
-        const duration = Date.now() - currentThread.createdAt.getTime();
-        const messageFrequency = (currentThread.messages.length / duration) * 60000; // Dakika başına
-
-        // Ortalama yanıt süresi
-        let totalResponseTime = 0;
-        let responseCount = 0;
-        
-        for (let i = 1; i < currentThread.messages.length; i++) {
-          if (currentThread.messages[i].role === 'assistant' && 
-              currentThread.messages[i - 1].role === 'user') {
-            const responseTime = new Date(currentThread.messages[i].timestamp).getTime() -
-                               new Date(currentThread.messages[i - 1].timestamp).getTime();
-            totalResponseTime += responseTime;
-            responseCount++;
-          }
-        }
-        
-        const averageResponseTime = responseCount > 0 ? totalResponseTime / responseCount : 0;
-
-        // Sentiment analizi (basit)
-        let sentimentSum = 0;
-        currentThread.messages.forEach(msg => {
-          if (msg.metadata?.sentiment) {
-            sentimentSum += msg.metadata.sentiment === 'positive' ? 1 :
-                           msg.metadata.sentiment === 'negative' ? -1 : 0;
-          }
-        });
-        const sentimentScore = sentimentSum / currentThread.messages.length;
-
-        // Engagement seviyesi
-        const engagementLevel = messageFrequency > 2 ? 'high' :
-                               messageFrequency > 0.5 ? 'medium' : 'low';
-
-        // Terapötik ilerleme (milestone bazlı)
-        const therapeuticProgress = Math.min(100, 
-          currentThread.metadata.therapeuticMilestones.length * 20
-        );
-
-        return {
-          messageFrequency,
-          averageResponseTime,
-          sentimentScore,
-          engagementLevel,
-          therapeuticProgress
-        };
-      },
-
-      // Mesaj batch'i al
-      getMessageBatch: (batchSize: number) => {
-        const { currentThread } = get();
-        if (!currentThread) return [];
-
-        return currentThread.messages.slice(-batchSize);
-      },
-
-      // Acil durum reset
-      emergencyReset: () => {
-        console.warn('[AIChatStore] Emergency reset initiated');
-        
-        // Tüm state'i temizle
-        set({
-          isEnabled: false,
-          currentThread: null,
-          threads: [],
-          conversationContext: null,
-          isTyping: false,
-          error: null
-        });
-
-        // Storage'ı temizle
-        AsyncStorage.removeItem('@ai_chat_threads')
-          .catch(error => console.error('[AIChatStore] Failed to clear storage:', error));
-
-        // Telemetri
-        trackAIInteraction(AIEventType.ERROR_OCCURRED, {
-          error_type: 'emergency_reset'
-        });
-      },
-
-      // Konuşmayı export et
-      exportConversation: async (threadId: string) => {
-        const { threads } = get();
-        const thread = threads.find(t => t.id === threadId);
-        
-        if (!thread) {
-          throw new Error('Thread not found');
+        if (!content.trim()) {
+          return false;
         }
 
-        // Privacy-compliant export
-        const exportData = {
-          id: thread.id,
-          title: thread.title,
-          createdAt: thread.createdAt,
-          messages: thread.messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.timestamp
-          })),
-          metadata: {
-            messageCount: thread.metadata.messageCount,
-            duration: thread.metadata.sessionDuration,
-            milestones: thread.metadata.therapeuticMilestones
+        // Active conversation kontrolü
+        if (!state.activeConversationId) {
+          await get().createConversation();
+        }
+
+        const activeConversation = state.conversations.find(c => c.id === state.activeConversationId);
+        if (!activeConversation) {
+          set(state => ({ ui: { ...state.ui, error: 'Aktif sohbet bulunamadı.' }}));
+          return false;
+        }
+
+        // UI state güncelle
+        set(state => ({
+          ui: {
+            ...state.ui,
+            isLoading: true,
+            isTyping: true,
+            error: null,
+            inputText: ''
           }
-        };
+        }));
 
-        return JSON.stringify(exportData, null, 2);
-      },
-
-      // Yardımcı metodlar (private)
-      saveThreads: async () => {
-        const { threads } = get();
         try {
-          await AsyncStorage.setItem('@ai_chat_threads', JSON.stringify(threads));
+          // 1. User mesajını oluştur
+          const userMessage: AIMessage = {
+            id: `msg_user_${Date.now()}`,
+            content: content.trim(),
+            role: 'user',
+            timestamp: new Date(),
+            metadata: {
+              sessionId: activeConversation.context.sessionId,
+              contextType: 'chat',
+              containsPII: false,
+              anonymized: true
+            }
+          };
+
+          // 2. Crisis Detection
+          const crisisResult = await crisisDetectionService.detectCrisis(
+            userMessage, 
+            activeConversation.context
+          );
+
+          // Crisis varsa özel handling
+          if (crisisResult.riskLevel !== CrisisRiskLevel.NONE) {
+            return await get().handleCrisisMessage(userMessage, crisisResult, userId);
+          }
+
+          // 3. User mesajını conversation'a ekle
+          set(state => ({
+            conversations: state.conversations.map(conv => 
+              conv.id === state.activeConversationId 
+                ? {
+                    ...conv,
+                    messages: [...conv.messages, userMessage],
+                    context: {
+                      ...conv.context,
+                      conversationHistory: [...conv.context.conversationHistory, userMessage],
+                      lastActivity: new Date(),
+                      messageCount: conv.context.messageCount + 1
+                    },
+                    updatedAt: new Date()
+                  }
+                : conv
+            )
+          }));
+
+          // 4. AI Response generate et
+          const aiResponse = await get().generateAIResponse(userMessage, activeConversation.context, userId);
+          
+          if (!aiResponse) {
+            throw new Error('AI response generation failed');
+          }
+
+          // 5. Content Filtering
+          const filterResult = await contentFilterService.filterContent(aiResponse, { isTherapeutic: true });
+          
+          if (!filterResult.allowed) {
+            return await get().handleFilteredResponse(filterResult, userId);
+          }
+
+          // 6. AI mesajını conversation'a ekle
+          set(state => ({
+            conversations: state.conversations.map(conv => 
+              conv.id === state.activeConversationId 
+                ? {
+                    ...conv,
+                    messages: [...conv.messages, aiResponse],
+                    context: {
+                      ...conv.context,
+                      conversationHistory: [...conv.context.conversationHistory, aiResponse],
+                      lastActivity: new Date(),
+                      messageCount: conv.context.messageCount + 1
+                    },
+                    updatedAt: new Date()
+                  }
+                : conv
+            ),
+            ui: {
+              ...state.ui,
+              isLoading: false,
+              isTyping: false
+            }
+          }));
+
+          // 7. Session stats güncelle
+          if (state.currentSession) {
+            set(state => ({
+              currentSession: {
+                ...state.currentSession!,
+                messageCount: state.currentSession!.messageCount + 2 // user + ai
+              }
+            }));
+          }
+
+          // 8. Telemetry
+          await trackAIInteraction(AIEventType.CHAT_MESSAGE_SENT, {
+            userId,
+            sessionId: activeConversation.context.sessionId,
+            messageLength: content.length,
+            responseTime: Date.now() - userMessage.timestamp.getTime(),
+            crisisLevel: crisisResult.riskLevel,
+            contentFiltered: !filterResult.allowed
+          });
+
+          return true;
+
         } catch (error) {
-          console.error('[AIChatStore] Failed to save threads:', error);
+          console.error('❌ Send message error:', error);
+          
+          set(state => ({
+            ui: {
+              ...state.ui,
+              isLoading: false,
+              isTyping: false,
+              error: 'Mesaj gönderilemedi. Lütfen tekrar deneyin.'
+            }
+          }));
+          
+          return false;
         }
       },
 
-      checkTherapeuticMilestones: (message: AIMessage) => {
-        const { currentThread } = get();
-        if (!currentThread) return;
-
-        // Basit milestone kontrolü
-        const milestones = [...currentThread.metadata.therapeuticMilestones];
+      /**
+       * Son mesajı tekrar dene
+       */
+      retryLastMessage: async () => {
+        const state = get();
+        const activeConversation = state.conversations.find(c => c.id === state.activeConversationId);
         
-        // İlk 10 mesaj
-        if (currentThread.messages.length === 10 && !milestones.includes('first_10_messages')) {
-          milestones.push('first_10_messages');
-        }
-        
-        // 30 dakika konuşma
-        const duration = Date.now() - currentThread.createdAt.getTime();
-        if (duration > 30 * 60 * 1000 && !milestones.includes('30_min_conversation')) {
-          milestones.push('30_min_conversation');
-        }
-        
-        // Pozitif sentiment
-        if (message.metadata?.sentiment === 'positive' && 
-            !milestones.includes('positive_sentiment')) {
-          milestones.push('positive_sentiment');
+        if (!activeConversation || activeConversation.messages.length === 0) {
+          return false;
         }
 
-        if (milestones.length > currentThread.metadata.therapeuticMilestones.length) {
-          set(state => ({
-            currentThread: state.currentThread ? {
-              ...state.currentThread,
-              metadata: {
-                ...state.currentThread.metadata,
-                therapeuticMilestones: milestones
-              }
-            } : null
-          }));
+        const lastUserMessage = [...activeConversation.messages]
+          .reverse()
+          .find(msg => msg.role === 'user');
+
+        if (!lastUserMessage) {
+          return false;
         }
+
+        // Son AI mesajını sil
+        set(state => ({
+          conversations: state.conversations.map(conv => 
+            conv.id === state.activeConversationId 
+              ? {
+                  ...conv,
+                  messages: conv.messages.filter(msg => 
+                    msg.role === 'user' || msg.timestamp <= lastUserMessage.timestamp
+                  )
+                }
+              : conv
+          )
+        }));
+
+        // Mesajı tekrar gönder
+        return await get().sendMessage(lastUserMessage.content, activeConversation.context.userId);
+      },
+
+      // =============================================================================
+      // 🎛️ UI ACTIONS
+      // =============================================================================
+
+      setInputText: (text: string) => {
+        set(state => ({
+          ui: { ...state.ui, inputText: text }
+        }));
+      },
+
+      clearError: () => {
+        set(state => ({
+          ui: { ...state.ui, error: null }
+        }));
+      },
+
+      dismissCrisisHelp: () => {
+        set(state => ({
+          ui: { ...state.ui, showCrisisHelp: false }
+        }));
+      },
+
+      // =============================================================================
+      // 👤 CONTEXT MANAGEMENT
+      // =============================================================================
+
+      updateUserProfile: (profile: Partial<UserTherapeuticProfile>) => {
+        set(state => ({
+          userProfile: state.userProfile ? { ...state.userProfile, ...profile } : profile as UserTherapeuticProfile
+        }));
+      },
+
+      updateConversationState: (newState: ConversationState) => {
+        set(state => ({
+          conversations: state.conversations.map(conv => 
+            conv.id === state.activeConversationId 
+              ? {
+                  ...conv,
+                  context: { ...conv.context, currentState: newState }
+                }
+              : conv
+          )
+        }));
+      },
+
+      // =============================================================================
+      // 🚨 EMERGENCY CONTROLS
+      // =============================================================================
+
+      emergencyStop: async () => {
+        console.warn('🚨 AI Chat Emergency Stop activated');
+        
+        await get().shutdown();
+        
+        set({
+          ui: {
+            isTyping: false,
+            isLoading: false,
+            error: 'Acil durum protokolü aktive edildi. Chat sistemi durduruldu.',
+            inputText: '',
+            showCrisisHelp: true,
+            lastCrisisLevel: CrisisRiskLevel.CRITICAL
+          }
+        });
+      },
+
+      clearAllData: async () => {
+        console.warn('🗑️ AI Chat: Clearing all data');
+        
+        set({
+          conversations: [],
+          activeConversationId: null,
+          userProfile: null,
+          ui: {
+            isTyping: false,
+            isLoading: false,
+            error: null,
+            inputText: '',
+            showCrisisHelp: false,
+            lastCrisisLevel: CrisisRiskLevel.NONE
+          }
+        });
       }
+
     }),
     {
       name: 'ai-chat-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        threads: state.threads,
-        conversationContext: state.conversationContext
+        conversations: state.conversations,
+        activeConversationId: state.activeConversationId,
+        userProfile: state.userProfile
       })
     }
   )
-); 
+);
+
+// =============================================================================
+// 🔧 HELPER METHODS (Store extension)
+// =============================================================================
+
+// Store'u extend et - helper methods
+const originalStore = useAIChatStore.getState();
+
+// Crisis message handling
+originalStore.handleCrisisMessage = async function(
+  userMessage: AIMessage, 
+  crisisResult: any, 
+  userId: string
+) {
+  console.warn('🚨 Crisis message detected:', crisisResult.riskLevel);
+  
+  // Crisis UI göster
+  useAIChatStore.setState(state => ({
+    ui: {
+      ...state.ui,
+      showCrisisHelp: true,
+      lastCrisisLevel: crisisResult.riskLevel,
+      isLoading: false,
+      isTyping: false
+    },
+    currentSession: state.currentSession ? {
+      ...state.currentSession,
+      crisisDetections: state.currentSession.crisisDetections + 1
+    } : null
+  }));
+
+  // Crisis response mesajı
+  const crisisResponse: AIMessage = {
+    id: `msg_crisis_${Date.now()}`,
+    content: this.getCrisisResponseMessage(crisisResult.riskLevel),
+    role: 'assistant',
+    timestamp: new Date(),
+    metadata: {
+      sessionId: userMessage.metadata?.sessionId || '',
+      contextType: 'crisis',
+      crisisRisk: crisisResult.riskLevel,
+      therapeuticIntent: ['crisis_intervention', 'safety'],
+      emotionalTone: 'supportive'
+    }
+  };
+
+  // Conversation'a ekle
+  useAIChatStore.setState(state => ({
+    conversations: state.conversations.map(conv => 
+      conv.id === state.activeConversationId 
+        ? {
+            ...conv,
+            messages: [...conv.messages, userMessage, crisisResponse],
+            context: {
+              ...conv.context,
+              currentState: ConversationState.CRISIS,
+              conversationHistory: [...conv.context.conversationHistory, userMessage, crisisResponse]
+            }
+          }
+        : conv
+    )
+  }));
+
+  return true;
+};
+
+// Crisis response messages
+originalStore.getCrisisResponseMessage = function(riskLevel: CrisisRiskLevel): string {
+  switch (riskLevel) {
+    case CrisisRiskLevel.CRITICAL:
+      return `🚨 Anlattıklarınızdan çok endişe duyuyorum. Şu anda güvende olmanız çok önemli.
+
+**ACİL YARDIM HATLARI:**
+📞 Yaşam Hattı: 183
+📞 AMATEM: 444 0 644
+📞 Acil Servis: 112
+
+Lütfen derhal bir uzmanla konuşun. Yalnız değilsiniz ve yardım almak cesaret gerektirir. ❤️`;
+
+    case CrisisRiskLevel.HIGH:
+      return `⚠️ Şu anda zor bir dönemden geçtiğinizi anlıyorum. Bu düşünceler ve hisler geçici, siz kalıcısınız.
+
+**DESTEK KAYNAKLARI:**
+📞 Kriz Hattı: 183
+🏥 En yakın hastane acil servisine gidin
+👨‍⚕️ Psikiyatrist ile randevu alın
+
+Kendinizi güvende hissetmiyorsanız, lütfen birisiyle iletişime geçin. Bu yalnız geçirmeniz gereken bir süreç değil.`;
+
+    case CrisisRiskLevel.MEDIUM:
+      return `💛 Bu zorlu anlardan geçtiğinizi görebiliyorum. Bu hisler normal ve anlaşılabilir.
+
+**KENDİNİZE BAKIN:**
+🧘‍♀️ Derin nefes alın: 4 saniye içeri, 4 saniye bekleyin, 6 saniye dışarı
+🌿 Güvenli alanınızda kalın
+💙 Güvendiğiniz biriyle konuşun
+
+İhtiyacınız olursa profesyonel destek almaktan çekinmeyin. Bu cesaret göstergisidir.`;
+
+    default:
+      return 'Size nasıl destek olabilirim?';
+  }
+};
+
+// AI Response generation
+originalStore.generateAIResponse = async function(
+  userMessage: AIMessage,
+  context: ConversationContext,
+  userId: string
+): Promise<AIMessage | null> {
+  // Bu kısım Sprint 4'te CBT Engine ile implement edilecek
+  // Şimdilik mock response
+  
+  const mockResponses = [
+    "Bunu paylaştığınız için teşekkürler. Bu durumla başa çıkmak kolay değil ama siz yalnız değilsiniz. 💙",
+    "OKB ile yaşamak zorlu olabilir. Bu düşünceler sizin kim olduğunuzu tanımlamaz. Neler hissettiğinizi biraz daha anlatabilir misiniz?",
+    "Bu konuda endişelenmeniz çok anlaşılabilir. Birlikte bu durumla başa çıkmanın yollarını keşfedelim. 🌱",
+    "Fark ettiğiniz bu kalıp çok değerli. Bu farkındalık iyileşme sürecinizin önemli bir parçası. 🎯"
+  ];
+
+  const response: AIMessage = {
+    id: `msg_ai_${Date.now()}`,
+    content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
+    role: 'assistant',
+    timestamp: new Date(),
+    metadata: {
+      sessionId: context.sessionId,
+      contextType: 'chat',
+      therapeuticIntent: ['support', 'empathy'],
+      emotionalTone: 'supportive',
+      confidence: 0.8,
+      safetyScore: 1.0,
+      crisisRisk: CrisisRiskLevel.NONE
+    }
+  };
+
+  return response;
+};
+
+// Filtered response handling
+originalStore.handleFilteredResponse = async function(filterResult: any, userId: string) {
+  console.warn('🔒 AI response filtered:', filterResult.severity);
+  
+  useAIChatStore.setState(state => ({
+    ui: {
+      ...state.ui,
+      isLoading: false,
+      isTyping: false,
+      error: 'AI yanıtı güvenlik kontrolünden geçemedi. Lütfen farklı bir konu hakkında konuşalım.'
+    },
+    currentSession: state.currentSession ? {
+      ...state.currentSession,
+      contentFiltered: state.currentSession.contentFiltered + 1
+    } : null
+  }));
+
+  return false;
+};
+
+// Export store and utilities
+export default useAIChatStore;
