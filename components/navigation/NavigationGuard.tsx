@@ -4,6 +4,7 @@ import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 interface NavigationGuardProps {
   children: React.ReactNode;
@@ -78,6 +79,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
         } else {
           // User is authenticated, check profile completion
           let isProfileComplete = false;
+          let aiOnboardingCompleted = false;
           
           try {
             console.log('🧭 Checking profile completion for user:', user.id);
@@ -97,6 +99,16 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                 isProfileComplete = true;
                 console.log('✅ Profile completion confirmed from AsyncStorage');
               }
+            }
+
+            // AI Onboarding v2 status (Sprint 7)
+            try {
+              const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+              const aiOnboarding = await AsyncStorage.getItem(aiOnboardingKey);
+              aiOnboardingCompleted = aiOnboarding === 'true';
+              console.log('🧭 AI Onboarding v2 status:', aiOnboardingCompleted);
+            } catch (e) {
+              console.warn('⚠️ AI onboarding status check failed');
             }
 
             // If not complete locally, check database for verification
@@ -124,7 +136,23 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             console.log('🧭 Final profile check result:', { isProfileComplete });
             
-            if (!isProfileComplete) {
+            // If AI Onboarding v2 is enabled and not completed, force onboarding v2
+            if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2') && !aiOnboardingCompleted) {
+              if (currentPath !== '(auth)/ai-onboarding' && !inAuthGroup) {
+                console.log('👤 Redirecting to AI Onboarding v2');
+                setTimeout(() => {
+                  try {
+                    hasNavigatedRef.current = true;
+                    router.push('/(auth)/ai-onboarding');
+                  } catch (error) {
+                    console.error('AI Onboarding navigation error:', error);
+                    hasNavigatedRef.current = true;
+                    router.push('/ai-onboarding');
+                  }
+                }, 100);
+                return;
+              }
+            } else if (!isProfileComplete) {
               // Profile not completed - redirect to onboarding
               if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
                 console.log('👤 Redirecting to onboarding - profile incomplete');

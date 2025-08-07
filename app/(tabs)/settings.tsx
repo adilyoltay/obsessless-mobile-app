@@ -182,7 +182,7 @@ export default function SettingsScreen() {
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
+    <View style={styles.headerContent}>
       <Text style={styles.headerTitle}>Ayarlar</Text>
     </View>
   );
@@ -283,14 +283,14 @@ export default function SettingsScreen() {
   const renderAIFeatureItem = (
     title: string,
     description: string,
-    featureKey: keyof typeof FEATURE_FLAGS,
+    featureKey: string,
     icon: string,
     benefits: string,
     disabled = false
   ) => {
     // AI özelliğinin aktif olup olmadığını hem feature flag hem de user consent'e göre belirle
     const hasUserConsent = user?.id ? aiSettingsUtils.hasUserConsent(featureKey, user.id) : false;
-    const isEnabled = !disabled && hasUserConsent && FEATURE_FLAGS.isEnabled(featureKey);
+    const isEnabled = !disabled && hasUserConsent && FEATURE_FLAGS.isEnabled(featureKey as any);
     
     const handleFeatureToggle = (value: boolean) => {
       if (disabled) {
@@ -472,6 +472,50 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🤖 Yapay Zeka Asistanı</Text>
           <View style={styles.sectionContent}>
+
+            {/* AI Onboarding - Sprint 7 Integration */}
+            <View style={styles.aiOnboardingSection}>
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.aiOnboardingCard,
+                  pressed && styles.aiOnboardingCardPressed
+                ]} 
+                onPress={() => {
+                  Alert.alert(
+                    '🧭 AI Onboarding',
+                    'Kişiselleştirilmiş AI destekli onboarding deneyimini başlatmak istiyor musunuz? Bu süreç yaklaşık 10-15 dakika sürer.',
+                    [
+                      { text: 'İptal', style: 'cancel' },
+                      {
+                        text: 'Başlat',
+                        onPress: () => {
+                          router.push({
+                            pathname: '/(auth)/ai-onboarding',
+                            params: { fromSettings: 'true' }
+                          });
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <View style={styles.aiOnboardingContent}>
+                  <MaterialCommunityIcons name="brain" size={32} color="#3b82f6" />
+                  <View style={styles.aiOnboardingInfo}>
+                    <Text style={styles.aiOnboardingTitle}>🧭 AI Destekli Onboarding</Text>
+                    <Text style={styles.aiOnboardingDescription}>
+                      Size özel tedavi planı ve risk değerlendirmesi oluşturun
+                    </Text>
+                    <View style={styles.aiOnboardingFeatures}>
+                      <Text style={styles.aiFeatureItem}>• Y-BOCS analizi</Text>
+                      <Text style={styles.aiFeatureItem}>• Kişisel profil</Text>
+                      <Text style={styles.aiFeatureItem}>• Tedavi planı</Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color="#6b7280" />
+                </View>
+              </Pressable>
+            </View>
             
             {/* AI Chat */}
             {renderAIFeatureItem(
@@ -508,6 +552,56 @@ export default function SettingsScreen() {
               'AI_CRISIS_DETECTION',
               'shield-alert',
               '• 7/24 güvenlik izleme\n• Acil durum müdahale\n• Otomatik destek önerileri'
+            )}
+
+            {/* Sprint 7 Features */}
+            {renderAIFeatureItem(
+              '🧠 Y-BOCS Analizi',
+              'AI destekli, kültürümüze uyarlanmış OKB değerlendirmesi',
+              'AI_YBOCS_ANALYSIS',
+              'head-lightbulb',
+              '• Kişiselleştirilmiş analiz\n• Kültürel uyarlama\n• Risk faktörü tespiti'
+            )}
+
+            {renderAIFeatureItem(
+              '👤 Kullanıcı Profilleme',
+              'Size özel terapötik profil ve hedef öneriler oluşturur',
+              'AI_USER_PROFILING',
+              'account-cog',
+              '• AI destekli profil\n• Hedef önerileri\n• Kişiselleştirme'
+            )}
+
+            {renderAIFeatureItem(
+              '📋 Tedavi Planı',
+              'Kanıt tabanlı, adaptive tedavi planları oluşturur',
+              'AI_TREATMENT_PLANNING',
+              'clipboard-text',
+              '• Kanıt tabanlı planlama\n• Gerçek zamanlı adaptasyon\n• İlerleme takibi'
+            )}
+
+            {renderAIFeatureItem(
+              '🛡️ Risk Değerlendirmesi',
+              'Prediktif risk analizi ve kriz önleme protokolleri',
+              'AI_RISK_ASSESSMENT',
+              'shield-account',
+              '• Prediktif modelleme\n• Kriz önleme\n• Güvenlik planları'
+            )}
+
+            {renderAIFeatureItem(
+              '🎯 Akıllı Müdahaleler',
+              'Bağlama göre uyarlanmış anlık terapötik müdahaleler',
+              'AI_ADAPTIVE_INTERVENTIONS',
+              'target',
+              '• Bağlamsal farkındalık\n• Gerçek zamanlı müdahale\n• JITAI algoritmaları'
+            )}
+
+            {/* Art Therapy - Experimental */}
+            {renderAIFeatureItem(
+              '🎨 Sanat Terapisi (Beta)',
+              'Duygularınızı görselleştirin ve yaratıcı ifade ile iyileşin',
+              'AI_ART_THERAPY',
+              'palette',
+              '• Duygu-renk eşleştirmesi\n• Terapötik sanat yaratımı\n• Görsel mindfulness\n• Yaratıcı ifade terapisi'
             )}
 
           </View>
@@ -1009,5 +1103,50 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontFamily: 'Inter',
     lineHeight: 20,
+  },
+  // AI Onboarding Section Styles
+  aiOnboardingSection: {
+    marginBottom: 16,
+  },
+  aiOnboardingCard: {
+    backgroundColor: '#f0f9ff',
+    borderColor: '#3b82f6',
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  aiOnboardingCardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  aiOnboardingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiOnboardingInfo: {
+    flex: 1,
+    marginLeft: 16,
+    marginRight: 12,
+  },
+  aiOnboardingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e40af',
+    fontFamily: 'Inter',
+    marginBottom: 6,
+  },
+  aiOnboardingDescription: {
+    fontSize: 14,
+    color: '#1e40af',
+    fontFamily: 'Inter',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  aiOnboardingFeatures: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
 });

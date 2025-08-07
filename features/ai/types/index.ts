@@ -338,6 +338,7 @@ export enum AIErrorCode {
   PROCESSING_FAILED = 'processing_failed',
   RESOURCE_NOT_FOUND = 'resource_not_found',
   SESSION_NOT_FOUND = 'session_not_found',
+  TIMEOUT = 'timeout',
   UNKNOWN = 'unknown'
 }
 

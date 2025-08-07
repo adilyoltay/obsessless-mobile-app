@@ -26,6 +26,9 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
+import { useAIUserData, useAIActions } from '@/contexts/AIContext';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
 
 interface ERPSession {
   id: string;
@@ -43,6 +46,8 @@ interface ERPSession {
 export default function ERPScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { treatmentPlan } = useAIUserData();
+  const { assessRisk } = useAIActions();
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [isQuickStartVisible, setIsQuickStartVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -474,6 +479,14 @@ export default function ERPScreen() {
             </View>
           </View>
         </View>
+
+        {/* AI Treatment Plan (Sprint 7 Integration) */}
+        {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && treatmentPlan && (
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
+            <TreatmentPlanPreview plan={treatmentPlan} compact />
+          </View>
+        )}
 
         {/* Today's Sessions - New Design */}
         <View style={styles.listSection}>

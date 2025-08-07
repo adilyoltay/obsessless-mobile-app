@@ -51,7 +51,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_ONBOARDING_INTERVENTIONS_INTEGRATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_ONBOARDING_INTERVENTIONS === 'true',
   
   // 🧪 Experimental AI Features
-  AI_ART_THERAPY: false,
+  AI_ART_THERAPY: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ART_THERAPY === 'true',
   AI_VOICE_ERP: false,
   AI_PREDICTIVE_INTERVENTION: false,
   AI_CRISIS_DETECTION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CRISIS === 'true',

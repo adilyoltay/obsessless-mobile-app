@@ -9,9 +9,12 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { aiSettingsUtils } from '@/store/aiSettingsStore';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { user } = useAuth();
 
   return (
     <Tabs
@@ -57,16 +60,18 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* AI Chat Tab - Şimdilik her zaman göster */}
-      <Tabs.Screen
-        name="ai-chat"
-        options={{
-          title: 'AI Chat',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
-          ),
-        }}
-      />
+      {/* AI Chat Tab - Feature flag + user consent */}
+      {FEATURE_FLAGS.isEnabled('AI_CHAT') && user?.id && aiSettingsUtils.isAIFeatureAvailable('AI_CHAT', user.id) && (
+        <Tabs.Screen
+          name="ai-chat"
+          options={{
+            title: 'AI Chat',
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tabs.Screen
         name="erp"
         options={{

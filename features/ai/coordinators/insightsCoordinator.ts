@@ -220,7 +220,7 @@ class InsightsCoordinator {
       this.isEnabled = true;
       
       // Telemetry
-      await trackAIInteraction(AIEventType.INSIGHTS_COORDINATOR_INITIALIZED, {
+      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
         version: '2.0',
         componentStatus,
         enabledComponents,
@@ -427,7 +427,7 @@ class InsightsCoordinator {
       };
 
       // Telemetry
-      await trackAIInteraction(AIEventType.INSIGHT_WORKFLOW_COMPLETED, {
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         executionId,
         userId: context.userId,
         componentsExecuted: components,
@@ -793,7 +793,7 @@ class InsightsCoordinator {
     this.activeExecutions.clear();
     this.lastExecutionTime.clear();
     
-    await trackAIInteraction(AIEventType.INSIGHTS_COORDINATOR_SHUTDOWN, {
+          await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
       version: '2.0'
     });
   }

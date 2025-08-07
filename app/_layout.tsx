@@ -12,6 +12,7 @@ import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { LoadingProvider } from '@/contexts/LoadingContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { AIProvider } from '@/contexts/AIContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { NavigationGuard } from '@/components/navigation/NavigationGuard';
@@ -51,13 +52,15 @@ export default function RootLayout() {
           <LoadingProvider>
             <NotificationProvider>
               <AuthProvider>
-                <NavigationGuard>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <Slot />
-                    <GlobalLoading />
-                    <Toast />
-                  </GestureHandlerRootView>
-                </NavigationGuard>
+                <AIProvider>
+                  <NavigationGuard>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <Slot />
+                      <GlobalLoading />
+                      <Toast />
+                    </GestureHandlerRootView>
+                  </NavigationGuard>
+                </AIProvider>
               </AuthProvider>
             </NotificationProvider>
           </LoadingProvider>

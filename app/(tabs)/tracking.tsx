@@ -31,6 +31,10 @@ import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 
+// AI Integration - Pattern Recognition & Insights
+import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+
 // Map app categories to database categories
 const mapCategoryToDatabase = (appCategory: string): string => {
   const categoryMap: { [key: string]: string } = {
@@ -61,6 +65,11 @@ export default function TrackingScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { awardMicroReward, updateStreak } = useGamificationStore();
+  
+  // AI Integration
+  const { isInitialized: aiInitialized, availableFeatures } = useAI();
+  const { generateInsights } = useAIActions();
+  
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [todayCompulsions, setTodayCompulsions] = useState<CompulsionEntry[]>([]);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
@@ -68,6 +77,11 @@ export default function TrackingScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [displayLimit, setDisplayLimit] = useState(5);
+  
+  // AI Pattern Recognition State
+  const [aiPatterns, setAiPatterns] = useState<any[]>([]);
+  const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -87,6 +101,116 @@ export default function TrackingScreen() {
   useEffect(() => {
     setDisplayLimit(5);
   }, [selectedTimeRange]);
+
+  /**
+   * 🤖 Load AI Pattern Recognition & Insights
+   */
+  const loadAIPatterns = async () => {
+    if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
+      return;
+    }
+
+    try {
+      setIsLoadingAI(true);
+
+      // Track AI pattern analysis request
+      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+        userId: user.id,
+        source: 'tracking_screen',
+        dataType: 'compulsion_patterns'
+      });
+
+      // Get compulsion data for analysis
+      const storageKey = StorageKeys.COMPULSIONS(user.id);
+      const allEntriesData = await AsyncStorage.getItem(storageKey);
+      const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
+
+      // Generate AI insights for patterns
+      const patternData = {
+        compulsions: allEntries.slice(-50), // Last 50 entries for analysis
+        timeRange: selectedTimeRange,
+        userId: user.id
+      };
+
+      const insights = await generateInsights();
+      setAiInsights(insights || []);
+
+      // Mock pattern recognition (simulated AI analysis)
+      const patterns = analyzeTrends(allEntries);
+      setAiPatterns(patterns);
+
+      // Track successful analysis
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        userId: user.id,
+        insightsCount: insights?.length || 0,
+        patternsFound: patterns.length,
+        source: 'tracking_screen'
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading AI patterns:', error);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  /**
+   * 📊 Analyze Trends (Local AI Simulation)
+   */
+  const analyzeTrends = (entries: CompulsionEntry[]) => {
+    if (entries.length < 5) return [];
+
+    const patterns = [];
+    
+    // Time-based patterns
+    const hourCounts = new Array(24).fill(0);
+    entries.forEach(entry => {
+      const hour = new Date(entry.timestamp).getHours();
+      hourCounts[hour]++;
+    });
+    
+    const peakHours = hourCounts
+      .map((count, hour) => ({ hour, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    if (peakHours[0].count >= 3) {
+      patterns.push({
+        type: 'time_pattern',
+        title: `${peakHours[0].hour}:00 Saatinde Yoğunluk`,
+        description: `En çok kompülsiyon ${peakHours[0].hour}:00 saatinde yaşanıyor (${peakHours[0].count} kez)`,
+        suggestion: 'Bu saatlerde önleyici teknikler uygulayın',
+        confidence: 0.8,
+        severity: 'medium'
+      });
+    }
+
+    // Resistance trends
+    const recentEntries = entries.slice(-10);
+    const avgResistance = recentEntries.reduce((sum, e) => sum + e.resistanceLevel, 0) / recentEntries.length;
+    
+    if (avgResistance >= 7) {
+      patterns.push({
+        type: 'progress_pattern',
+        title: 'Güçlü Direnç Trendi',
+        description: `Son kompülsiyonlarda ortalama ${avgResistance.toFixed(1)} direnç seviyesi`,
+        suggestion: 'Mükemmel ilerleme! Bu motivasyonu koruyun',
+        confidence: 0.9,
+        severity: 'positive'
+      });
+    } else if (avgResistance <= 3) {
+      patterns.push({
+        type: 'warning_pattern',
+        title: 'Düşük Direnç Uyarısı',
+        description: `Son kompülsiyonlarda ortalama ${avgResistance.toFixed(1)} direnç seviyesi`,
+        suggestion: 'ERP egzersizleri ve mindfulness teknikleri deneyin',
+        confidence: 0.85,
+        severity: 'warning'
+      });
+    }
+
+    return patterns;
+  };
 
   const loadAllData = async () => {
     if (!user?.id) return;
@@ -144,6 +268,10 @@ export default function TrackingScreen() {
         monthCount: monthEntries.length,
         typeDistribution,
       });
+
+      // Load AI patterns after data loading
+      await loadAIPatterns();
+      
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -467,6 +595,66 @@ export default function TrackingScreen() {
             </View>
           </View>
         </View>
+
+        {/* AI Pattern Recognition & Insights */}
+        {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
+          <View style={styles.aiSection}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
+              <Text style={styles.sectionTitle}>AI Analizleri</Text>
+              {isLoadingAI && (
+                <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
+              )}
+            </View>
+
+            {/* AI Patterns */}
+            {aiPatterns.length > 0 && (
+              <View style={styles.aiPatternsContainer}>
+                {aiPatterns.map((pattern, index) => (
+                  <View key={index} style={[
+                    styles.aiPatternCard,
+                    pattern.severity === 'positive' && styles.aiPatternPositive,
+                    pattern.severity === 'warning' && styles.aiPatternWarning
+                  ]}>
+                    <View style={styles.aiPatternHeader}>
+                      <MaterialCommunityIcons 
+                        name={
+                          pattern.type === 'time_pattern' ? 'clock-outline' :
+                          pattern.type === 'progress_pattern' ? 'trending-up' :
+                          'alert-outline'
+                        }
+                        size={20} 
+                        color={
+                          pattern.severity === 'positive' ? '#10b981' :
+                          pattern.severity === 'warning' ? '#f59e0b' :
+                          '#3b82f6'
+                        }
+                      />
+                      <Text style={styles.aiPatternTitle}>{pattern.title}</Text>
+                      <Text style={styles.aiPatternConfidence}>
+                        {Math.round(pattern.confidence * 100)}%
+                      </Text>
+                    </View>
+                    <Text style={styles.aiPatternDescription}>{pattern.description}</Text>
+                    <Text style={styles.aiPatternSuggestion}>💡 {pattern.suggestion}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* AI Insights */}
+            {aiInsights.length > 0 && (
+              <View style={styles.aiInsightsContainer}>
+                <Text style={styles.aiInsightsTitle}>📊 Kişisel İçgörüler</Text>
+                {aiInsights.slice(0, 2).map((insight, index) => (
+                  <View key={index} style={styles.aiInsightCard}>
+                    <Text style={styles.aiInsightText}>{insight.message || insight.content}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Today's Recordings - New Design */}
         <View style={styles.listSection}>
@@ -935,5 +1123,97 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
+  // AI Pattern Recognition Styles
+  aiSection: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+  },
+  aiPatternsContainer: {
+    gap: 12,
+  },
+  aiPatternCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aiPatternPositive: {
+    borderLeftColor: '#10b981',
+    backgroundColor: '#f0fdf4',
+  },
+  aiPatternWarning: {
+    borderLeftColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
+  aiPatternHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiPatternTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+  },
+  aiPatternConfidence: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  aiPatternDescription: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  aiPatternSuggestion: {
+    fontSize: 13,
+    color: '#059669',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  aiInsightsContainer: {
+    marginTop: 16,
+  },
+  aiInsightsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  aiInsightCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  aiInsightText: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 20,
+  },
 });
 

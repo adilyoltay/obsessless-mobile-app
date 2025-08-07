@@ -85,6 +85,11 @@ export enum AIEventType {
   CBT_TECHNIQUE_APPLIED = 'cbt_technique_applied',
   CBT_ENGINE_SHUTDOWN = 'cbt_engine_shutdown',
   
+  // Sprint 5: Insights System events  
+  INSIGHTS_COORDINATOR_INITIALIZED = 'insights_coordinator_initialized',
+  INSIGHT_WORKFLOW_COMPLETED = 'insight_workflow_completed',
+  INSIGHTS_COORDINATOR_SHUTDOWN = 'insights_coordinator_shutdown',
+  
   // Sprint 7: AI Onboarding Recreation events
   YBOCS_ANALYSIS_STARTED = 'ybocs_analysis_started',
   YBOCS_ANALYSIS_COMPLETED = 'ybocs_analysis_completed',

@@ -504,6 +504,7 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
       [AIErrorCode.PROCESSING_FAILED]: 'İşlem başarısız oldu.',
       [AIErrorCode.RESOURCE_NOT_FOUND]: 'Kaynak bulunamadı.',
       [AIErrorCode.SESSION_NOT_FOUND]: 'Oturum bulunamadı.',
+      [AIErrorCode.TIMEOUT]: 'İşlem zaman aşımına uğradı.',
       [AIErrorCode.UNKNOWN]: 'Beklenmeyen bir hata oluştu.'
     };
     return messages[code] || messages[AIErrorCode.UNKNOWN];

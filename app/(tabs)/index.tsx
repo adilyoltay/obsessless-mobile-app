@@ -36,6 +36,14 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
+// AI Integration - Sprint 7 via Context
+import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+
+// Art Therapy Integration
+import { ArtStyle, EmotionCategory } from '@/features/artTherapy/artGenerator';
+import { RiskAssessmentIndicator } from '@/features/ai/components/onboarding/RiskAssessmentIndicator';
+
 const { width } = Dimensions.get('window');
 
 export default function TodayScreen() {
@@ -45,6 +53,15 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // AI Integration via Context
+  const { isInitialized: aiInitialized, availableFeatures } = useAI();
+  const { hasCompletedOnboarding, currentRiskAssessment } = useAIUserData();
+  const { generateInsights, assessRisk } = useAIActions();
+  
+  // Local AI State
+  const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -99,6 +116,121 @@ export default function TodayScreen() {
     }, [user?.id])
   );
 
+  /**
+   * 🎨 Render Art Therapy Widget
+   */
+  const renderArtTherapyWidget = () => {
+    if (!FEATURE_FLAGS.isEnabled('AI_ART_THERAPY') || !user?.id) {
+      return null;
+    }
+
+    return (
+      <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="palette" size={24} color="#8b5cf6" />
+          <Text style={styles.sectionTitle}>Sanat Terapisi</Text>
+        </View>
+
+        <Pressable 
+          style={styles.artTherapyCard}
+          onPress={() => {
+            // TODO: Navigate to art therapy screen
+            Alert.alert(
+              '🎨 Sanat Terapisi',
+              'Duygularınızı görselleştirin ve iç huzurunuzu bulun. Bu özellik yakında aktif olacak.',
+              [{ text: 'Tamam' }]
+            );
+          }}
+        >
+          <View style={styles.artTherapyContent}>
+            <MaterialCommunityIcons name="brush" size={32} color="#8b5cf6" />
+            <View style={styles.artTherapyInfo}>
+              <Text style={styles.artTherapyTitle}>Duygu Resmi Çiz</Text>
+              <Text style={styles.artTherapyDescription}>
+                Bugünkü hislerinizi renkler ve şekillerle ifade edin
+              </Text>
+              <View style={styles.artTherapyTags}>
+                <Text style={styles.artTag}>Rahatlatıcı</Text>
+                <Text style={styles.artTag}>Yaratıcı</Text>
+                <Text style={styles.artTag}>Terapötik</Text>
+              </View>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#8b5cf6" />
+          </View>
+        </Pressable>
+      </View>
+    );
+  };
+
+  /**
+   * 🛡️ Render Risk Assessment Section
+   */
+  const renderRiskSection = () => {
+    if (!aiInitialized || !FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT') || !user?.id) {
+      return null;
+    }
+
+    return (
+      <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="shield-alert" size={24} color="#ef4444" />
+          <Text style={styles.sectionTitle}>Risk Düzeyi</Text>
+          {!currentRiskAssessment && (
+            <Pressable onPress={assessRisk} accessibilityRole="button" accessibilityLabel="Riski değerlendir">
+              <Text style={{ color: '#2563eb', fontWeight: '600' }}>Değerlendir</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {currentRiskAssessment ? (
+          <RiskAssessmentIndicator riskAssessment={currentRiskAssessment} userId={user.id} />
+        ) : (
+          <View style={styles.noInsightsCard}>
+            <MaterialCommunityIcons name="shield-check" size={28} color="#9ca3af" />
+            <Text style={styles.noInsightsText}>Risk değerlendirmesi için "Değerlendir"e dokunun</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  /**
+   * 🤖 Load AI Insights via Context
+   */
+  const loadAIInsights = async () => {
+    if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
+      return;
+    }
+
+    try {
+      setAiInsightsLoading(true);
+
+      // Track insights request
+      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+        userId: user.id,
+        source: 'home_screen',
+        timestamp: new Date().toISOString()
+      });
+
+      // Generate insights using AI context
+      const insights = await generateInsights();
+      setAiInsights(insights || []);
+
+      // Track insights delivered
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        userId: user.id,
+        insightsCount: insights?.length || 0,
+        source: 'home_screen'
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading AI insights:', error);
+      // Fail silently, don't impact main app functionality
+    } finally {
+      setAiInsightsLoading(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     
@@ -136,6 +268,9 @@ export default function TodayScreen() {
         healingPoints: profile.healingPointsToday,
         resistanceWins
       });
+
+      // Load AI Insights if enabled
+      await loadAIInsights();
       
       console.log('📊 Today stats updated:', {
         compulsions: todayCompulsions.length,
@@ -291,6 +426,85 @@ export default function TodayScreen() {
     </View>
   );
 
+  /**
+   * 🤖 Render AI Insights Widget
+   */
+  const renderAIInsights = () => {
+    if (!FEATURE_FLAGS.isEnabled('AI_INSIGHTS') || !user?.id) {
+      return null;
+    }
+
+    return (
+      <View style={styles.aiInsightsSection}>
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
+          <Text style={styles.sectionTitle}>AI İçgörüleri</Text>
+          {aiInsightsLoading && (
+            <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
+          )}
+        </View>
+
+        {/* AI Onboarding CTA */}
+        {!hasCompletedOnboarding && (
+          <Pressable 
+            style={styles.aiOnboardingCTA}
+            onPress={() => router.push({
+              pathname: '/(auth)/ai-onboarding',
+              params: { fromSettings: 'false' }
+            })}
+          >
+            <View style={styles.aiOnboardingCTAContent}>
+              <MaterialCommunityIcons name="rocket-launch" size={32} color="#3b82f6" />
+              <View style={styles.aiOnboardingCTAText}>
+                <Text style={styles.aiOnboardingCTATitle}>AI Destekli Değerlendirme</Text>
+                <Text style={styles.aiOnboardingCTASubtitle}>
+                  Size özel tedavi planı ve içgörüler için AI onboarding'i tamamlayın
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color="#3b82f6" />
+            </View>
+          </Pressable>
+        )}
+
+        {/* AI Insights Cards */}
+        {hasCompletedOnboarding && aiInsights.length > 0 && (
+          <View style={styles.aiInsightsContainer}>
+            {aiInsights.slice(0, 2).map((insight, index) => (
+              <View key={index} style={styles.aiInsightCard}>
+                <View style={styles.aiInsightHeader}>
+                  <MaterialCommunityIcons 
+                    name={insight.type === 'pattern' ? 'chart-line' : 'lightbulb'} 
+                    size={20} 
+                    color="#10b981" 
+                  />
+                  <Text style={styles.aiInsightType}>{insight.category || 'İçgörü'}</Text>
+                </View>
+                <Text style={styles.aiInsightText}>{insight.message}</Text>
+                {insight.confidence && (
+                  <View style={styles.aiInsightMeta}>
+                    <Text style={styles.aiInsightConfidence}>
+                      Güvenilirlik: {Math.round(insight.confidence * 100)}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* No Insights State */}
+        {hasAIOnboarding && aiInsights.length === 0 && !aiInsightsLoading && (
+          <View style={styles.noInsightsCard}>
+            <MaterialCommunityIcons name="chart-timeline-variant" size={32} color="#9ca3af" />
+            <Text style={styles.noInsightsText}>
+              Daha fazla veri toplandıkça kişisel içgörüler burada görünecek
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const renderQuickStats = () => (
     <View style={styles.quickStatsSection}>
       <View style={styles.quickStatCard}>
@@ -388,7 +602,10 @@ export default function TodayScreen() {
       >
         {renderHeroSection()}
         {renderQuickStats()}
+        {renderRiskSection()}
+        {renderArtTherapyWidget()}
         {renderDailyMissions()}
+        {renderAIInsights()}
         {renderAchievements()}
         
         <View style={styles.bottomSpacing} />
@@ -631,5 +848,136 @@ const styles = StyleSheet.create({
   bottomSpacing: {
     height: 100,
   },
-
+  
+  // AI Insights Styles
+  aiInsightsSection: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+  },
+  aiOnboardingCTA: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    borderStyle: 'dashed',
+  },
+  aiOnboardingCTAContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiOnboardingCTAText: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 12,
+  },
+  aiOnboardingCTATitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginBottom: 4,
+  },
+  aiOnboardingCTASubtitle: {
+    fontSize: 14,
+    color: '#3b82f6',
+    lineHeight: 20,
+  },
+  aiInsightsContainer: {
+    gap: 12,
+  },
+  aiInsightCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aiInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiInsightType: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10b981',
+    marginLeft: 6,
+    textTransform: 'uppercase',
+  },
+  aiInsightText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  aiInsightMeta: {
+    marginTop: 8,
+    alignItems: 'flex-end',
+  },
+  aiInsightConfidence: {
+    fontSize: 11,
+    color: '#6b7280',
+  },
+  noInsightsCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  noInsightsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  
+  // Art Therapy Styles
+  artTherapyCard: {
+    backgroundColor: '#faf5ff',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#c4b5fd',
+  },
+  artTherapyContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  artTherapyInfo: {
+    flex: 1,
+    marginLeft: 16,
+    marginRight: 12,
+  },
+  artTherapyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#6b21a8',
+    marginBottom: 6,
+  },
+  artTherapyDescription: {
+    fontSize: 14,
+    color: '#7c3aed',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  artTherapyTags: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  artTag: {
+    fontSize: 12,
+    color: '#8b5cf6',
+    backgroundColor: '#ede9fe',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
 });

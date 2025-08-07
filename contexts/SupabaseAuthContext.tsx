@@ -31,6 +31,10 @@ export interface AuthContextType {
   
   // Utility
   clearError: () => void;
+  
+  // AI Enhancement Methods
+  getAIEnhancedProfile: () => Promise<UserProfile & { aiMetadata?: any } | null>;
+  updateAIPreferences: (preferences: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -297,6 +301,50 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   // ===========================
+  // AI ENHANCEMENT METHODS
+  // ===========================
+
+  const getAIEnhancedProfile = useCallback(async (): Promise<UserProfile & { aiMetadata?: any } | null> => {
+    if (!profile) return null;
+
+    try {
+      // Combine user profile with AI metadata from AsyncStorage
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const aiMetadata = await AsyncStorage.getItem(`ai_user_metadata_${user?.id}`);
+      
+      return {
+        ...profile,
+        aiMetadata: aiMetadata ? JSON.parse(aiMetadata) : null
+      };
+    } catch (error) {
+      console.error('❌ Failed to get AI enhanced profile:', error);
+      return profile;
+    }
+  }, [profile, user?.id]);
+
+  const updateAIPreferences = useCallback(async (preferences: any): Promise<void> => {
+    if (!user?.id) throw new Error('User not authenticated');
+
+    try {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      
+      // Store AI preferences in AsyncStorage for now
+      await AsyncStorage.setItem(
+        `ai_preferences_${user.id}`, 
+        JSON.stringify({
+          ...preferences,
+          updatedAt: new Date().toISOString()
+        })
+      );
+
+      console.log('✅ AI preferences updated successfully');
+    } catch (error) {
+      console.error('❌ Failed to update AI preferences:', error);
+      throw error;
+    }
+  }, [user?.id]);
+
+  // ===========================
   // CONTEXT VALUE
   // ===========================
 
@@ -312,6 +360,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     signOut,
     resendConfirmation,
     clearError,
+    getAIEnhancedProfile,
+    updateAIPreferences,
   }), [
     user,
     profile,
@@ -323,6 +373,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     signOut,
     resendConfirmation,
     clearError,
+    getAIEnhancedProfile,
+    updateAIPreferences,
   ]);
 
   return (
