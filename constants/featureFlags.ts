@@ -22,11 +22,21 @@ const featureFlagState: Record<string, boolean> = {
   AI_THERAPEUTIC_PROMPTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PROMPTS === 'true',
   AI_REAL_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_REAL === 'true',
   
-  // 🔄 SPRINT 5: Intelligent Insights Engine Recreation
+  // 🔄 SPRINT 5: Intelligent Insights Engine Recreation (COMPLETED)
   AI_INSIGHTS_ENGINE_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS_V2 === 'true',
   AI_PATTERN_RECOGNITION_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PATTERNS_V2 === 'true',
   AI_SMART_NOTIFICATIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_NOTIFICATIONS === 'true',
   AI_PROGRESS_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS === 'true',
+  
+  // 🚀 SPRINT 6: Advanced Features & Optimization
+  AI_ADAPTIVE_INTERVENTIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INTERVENTIONS === 'true',
+  AI_CONTEXT_INTELLIGENCE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CONTEXT === 'true',
+  AI_JITAI_SYSTEM: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_JITAI === 'true',
+  AI_ADVANCED_PERSONALIZATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PERSONALIZATION === 'true',
+  AI_MODEL_OPTIMIZATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_OPTIMIZATION === 'true',
+  AI_PERFORMANCE_MONITORING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_MONITORING === 'true',
+  AI_ADVANCED_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS_V2 === 'true',
+  AI_DASHBOARD: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_DASHBOARD === 'true',
   
   // 🧪 Experimental AI Features
   AI_ART_THERAPY: false,
