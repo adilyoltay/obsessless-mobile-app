@@ -747,39 +747,244 @@ Kendinizi güvende hissetmiyorsanız, lütfen birisiyle iletişime geçin. Bu ya
   }
 };
 
-// AI Response generation
+// AI Response generation - REAL AI INTEGRATION (Sprint 4)
 originalStore.generateAIResponse = async function(
   userMessage: AIMessage,
   context: ConversationContext,
   userId: string
 ): Promise<AIMessage | null> {
-  // Bu kısım Sprint 4'te CBT Engine ile implement edilecek
-  // Şimdilik mock response
+  const { FEATURE_FLAGS } = await import('@/constants/featureFlags');
   
-  const mockResponses = [
-    "Bunu paylaştığınız için teşekkürler. Bu durumla başa çıkmak kolay değil ama siz yalnız değilsiniz. 💙",
-    "OKB ile yaşamak zorlu olabilir. Bu düşünceler sizin kim olduğunuzu tanımlamaz. Neler hissettiğinizi biraz daha anlatabilir misiniz?",
-    "Bu konuda endişelenmeniz çok anlaşılabilir. Birlikte bu durumla başa çıkmanın yollarını keşfedelim. 🌱",
-    "Fark ettiğiniz bu kalıp çok değerli. Bu farkındalık iyileşme sürecinizin önemli bir parçası. 🎯"
-  ];
+  try {
+    // Feature flag kontrolü - Real AI kullanılacak mı?
+    const useRealAI = FEATURE_FLAGS.isEnabled('AI_REAL_RESPONSES');
+    
+    if (!useRealAI) {
+      // Mock response (development/fallback)
+      return await this.generateMockResponse(userMessage, context);
+    }
 
-  const response: AIMessage = {
-    id: `msg_ai_${Date.now()}`,
-    content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
+    // External AI Service'i yükle
+    const { externalAIService } = await import('@/features/ai/services/externalAIService');
+    const { cbtEngine } = await import('@/features/ai/engines/cbtEngine');
+    const { therapeuticPromptEngine } = await import('@/features/ai/prompts/therapeuticPrompts');
+
+    // CBT Analysis yap
+    let cbtAnalysis = null;
+    if (FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE') && cbtEngine.enabled) {
+      try {
+        cbtAnalysis = await cbtEngine.detectCognitiveDistortions(userMessage, context);
+      } catch (error) {
+        console.warn('⚠️ CBT analysis failed, continuing without:', error);
+      }
+    }
+
+    // Therapeutic prompt oluştur
+    let therapeuticPrompt = null;
+    if (FEATURE_FLAGS.isEnabled('AI_THERAPEUTIC_PROMPTS') && therapeuticPromptEngine.enabled) {
+      try {
+        const promptContext = {
+          userProfile: context.userProfile,
+          conversationState: context.currentState,
+          recentMessages: context.conversationHistory.slice(-3), // Son 3 mesaj
+          detectedDistortions: cbtAnalysis?.detectedDistortions,
+          recommendedTechnique: cbtAnalysis?.suggestedTechniques?.[0],
+          crisisLevel: context.crisisLevel,
+          preferredLanguage: context.userProfile?.preferredLanguage || 'tr'
+        };
+
+        therapeuticPrompt = await therapeuticPromptEngine.generateSystemPrompt(promptContext);
+      } catch (error) {
+        console.warn('⚠️ Therapeutic prompt generation failed, using basic prompt:', error);
+      }
+    }
+
+    // External AI API çağrısı
+    if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && externalAIService.enabled) {
+      try {
+        // AI messages hazırla
+        const messages: any[] = [];
+        
+        // System prompt ekle
+        if (therapeuticPrompt) {
+          messages.push({
+            role: 'system',
+            content: therapeuticPrompt.systemPrompt
+          });
+        } else {
+          // Fallback system prompt
+          messages.push({
+            role: 'system',
+            content: 'Sen OKB konusunda uzman, empatik bir AI terapistisisin. Kullanıcıya destekleyici, bilimsel kanıta dayalı yardım sun.'
+          });
+        }
+
+        // Conversation history ekle (son 5 mesaj)
+        const recentHistory = context.conversationHistory.slice(-5);
+        recentHistory.forEach(msg => {
+          if (msg.role !== 'system') {
+            messages.push({
+              role: msg.role,
+              content: msg.content
+            });
+          }
+        });
+
+        // Mevcut kullanıcı mesajını ekle
+        messages.push({
+          role: 'user',
+          content: userMessage.content
+        });
+
+        // AI API çağrısı yap
+        const aiResponse = await externalAIService.getAIResponse(
+          messages,
+          context,
+          {
+            therapeuticMode: true,
+            temperature: 0.7,
+            maxTokens: 1000,
+            includeSafetyInstructions: true
+          }
+        );
+
+        if (aiResponse.success && aiResponse.content) {
+          // AI response'u mesaj formatına çevir
+          const response: AIMessage = {
+            id: `msg_ai_${Date.now()}`,
+            content: aiResponse.content,
+            role: 'assistant',
+            timestamp: new Date(),
+            metadata: {
+              sessionId: context.sessionId,
+              contextType: 'chat',
+              provider: aiResponse.provider,
+              model: aiResponse.model,
+              tokens: aiResponse.tokens.total,
+              latency: aiResponse.latency,
+              confidence: aiResponse.confidence || 0.8,
+              safetyScore: aiResponse.safetyScore || 0.9,
+              crisisRisk: cbtAnalysis?.severity === 'high' ? CrisisRiskLevel.MEDIUM : CrisisRiskLevel.NONE,
+              therapeuticIntent: therapeuticPrompt?.techniques || ['support'],
+              emotionalTone: therapeuticPrompt?.expectedTone || 'supportive',
+              cbtTechniques: cbtAnalysis?.suggestedTechniques,
+              distortionsDetected: cbtAnalysis?.detectedDistortions,
+              filtered: aiResponse.filtered,
+              fallbackUsed: aiResponse.fallbackUsed
+            }
+          };
+
+          console.log('✅ Real AI response generated successfully');
+          return response;
+        } else {
+          console.warn('⚠️ AI API failed, falling back to mock response');
+          throw new Error('AI API response failed');
+        }
+
+      } catch (error) {
+        console.error('❌ External AI API error:', error);
+        // Fallback to mock response
+        return await this.generateMockResponse(userMessage, context);
+      }
+    } else {
+      // External AI disabled, use enhanced mock
+      return await this.generateEnhancedMockResponse(userMessage, context, cbtAnalysis);
+    }
+
+  } catch (error) {
+    console.error('❌ AI Response generation completely failed:', error);
+    return await this.generateMockResponse(userMessage, context);
+  }
+};
+
+// Enhanced mock response with CBT analysis
+originalStore.generateEnhancedMockResponse = async function(
+  userMessage: AIMessage,
+  context: ConversationContext,
+  cbtAnalysis: any
+): Promise<AIMessage> {
+  let response = "";
+  
+  // CBT analysis'e göre mock response seç
+  if (cbtAnalysis && cbtAnalysis.detectedDistortions.length > 0) {
+    const distortion = cbtAnalysis.detectedDistortions[0];
+    
+    switch (distortion) {
+      case 'all_or_nothing':
+        response = "Bu 'ya hep ya hiç' düşüncenizi fark etmeniz harika! Hayatta çoğu şey aslında gri tonlarda değil mi? Birlikte bu düşünceyi biraz daha esnekleştirelim. 🌈";
+        break;
+      case 'catastrophizing':
+        response = "Bu endişelerinizi anlıyorum. Zihnimiz bazen en kötü senaryoları büyütebilir. Şu anda gerçekten olan nedir vs. zihnimizin yarattığı senaryo nedir, birlikte ayıralım. 🧠";
+        break;
+      case 'overgeneralization':
+        response = "Bu genellemeyi fark etmeniz çok değerli! 'Her zaman' veya 'hiçbir zaman' düşünceleri genelde gerçeği tam yansıtmaz. Bu durumun istisnalarını düşünebilir miyiz? 🤔";
+        break;
+      default:
+        response = "Bu düşünce kalıbını fark etmeniz büyük bir ilerleme! Birlikte bu düşünceyi daha dengeli bir şekilde yeniden ele alabiliriz. 💡";
+    }
+  } else {
+    // Genel destekleyici responses
+    const supportiveResponses = [
+      "Bunu paylaştığınız için cesur davrandınız. Bu duygularınız çok anlaşılabilir. Size nasıl destek olabilirim? 💙",
+      "OKB ile yaşamak zorlu olabilir ama siz bu yolda yalnız değilsiniz. Bu düşünceler sizi tanımlamaz. 🌱",
+      "Bu farkındalığınız çok değerli. İyileşme süreci böyle küçük fark etmelerle başlar. Ne hissettirdiğini biraz daha anlatabilir misiniz? 🎯",
+      "Bu durumla başa çıkma konusunda zaten güçlü yanlarınız var. Birlikte bu güçleri daha da geliştirebiliriz. ✨"
+    ];
+    
+    response = supportiveResponses[Math.floor(Math.random() * supportiveResponses.length)];
+  }
+
+  return {
+    id: `msg_mock_${Date.now()}`,
+    content: response,
     role: 'assistant',
     timestamp: new Date(),
     metadata: {
       sessionId: context.sessionId,
       contextType: 'chat',
-      therapeuticIntent: ['support', 'empathy'],
+      provider: 'mock',
+      therapeuticIntent: ['support', 'cbt_guidance'],
       emotionalTone: 'supportive',
-      confidence: 0.8,
+      confidence: 0.7,
       safetyScore: 1.0,
-      crisisRisk: CrisisRiskLevel.NONE
+      crisisRisk: CrisisRiskLevel.NONE,
+      cbtTechniques: cbtAnalysis?.suggestedTechniques,
+      distortionsDetected: cbtAnalysis?.detectedDistortions,
+      mockResponse: true
     }
   };
+};
 
-  return response;
+// Basic mock response (fallback)
+originalStore.generateMockResponse = async function(
+  userMessage: AIMessage,
+  context: ConversationContext
+): Promise<AIMessage> {
+  const basicResponses = [
+    "Teşekkürler, bu duygularınızı paylaştığınız için. Size nasıl destek olabilirim? 💙",
+    "Bu zorlu anları yaşadığınızı anlıyorum. Birlikte bunun üstesinden gelmenin yollarını bulabiliriz. 🌱", 
+    "Fark etmeniz çok değerli. Bu süreçte yanınızdayım. Ne hissettirdiğini anlatabilir misiniz? 🤗",
+    "OKB ile başa çıkmak kolay değil ama siz güçlüsünüz. Bu anı geçireceksiniz. 💪"
+  ];
+
+  return {
+    id: `msg_fallback_${Date.now()}`,
+    content: basicResponses[Math.floor(Math.random() * basicResponses.length)],
+    role: 'assistant',
+    timestamp: new Date(),
+    metadata: {
+      sessionId: context.sessionId,
+      contextType: 'chat',
+      provider: 'fallback',
+      therapeuticIntent: ['support'],
+      emotionalTone: 'supportive',
+      confidence: 0.6,
+      safetyScore: 1.0,
+      crisisRisk: CrisisRiskLevel.NONE,
+      mockResponse: true,
+      fallbackUsed: true
+    }
+  };
 };
 
 // Filtered response handling

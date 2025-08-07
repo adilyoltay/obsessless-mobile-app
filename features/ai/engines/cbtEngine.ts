@@ -1,24 +1,33 @@
 /**
- * CBT (Cognitive Behavioral Therapy) Engine
+ * 🧠 CBT Engine - Cognitive Behavioral Therapy Implementation
  * 
- * Kanıta dayalı CBT teknikleri kullanarak kullanıcıya rehberlik eden motor
- * Socratic questioning, cognitive distortion detection, thought challenging
+ * Bu engine, kanıta dayalı CBT tekniklerini kullanarak kullanıcıya
+ * terapötik rehberlik sağlar. OKB tedavisinde etkili olan CBT yöntemlerini
+ * AI destekli olarak uygular.
+ * 
+ * ⚠️ CRITICAL: Tüm CBT teknikleri klinik araştırmalara dayanır
+ * ⚠️ Feature flag kontrolü zorunludur: AI_CBT_ENGINE
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
-  AIMessage,
-  ConversationContext,
-  AIResponse,
+  AIMessage, 
+  ConversationContext, 
+  UserTherapeuticProfile,
   AIError,
   AIErrorCode,
-  TherapeuticTechnique
+  ErrorSeverity 
 } from '@/features/ai/types';
-import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
 
-// CBT Teknikleri
+// =============================================================================
+// 🎯 CBT TECHNIQUE DEFINITIONS
+// =============================================================================
+
+/**
+ * CBT Teknikleri - Klinik araştırmalara dayalı
+ */
 export enum CBTTechnique {
   SOCRATIC_QUESTIONING = 'socratic_questioning',
   COGNITIVE_RESTRUCTURING = 'cognitive_restructuring',
@@ -27,419 +36,604 @@ export enum CBTTechnique {
   MINDFULNESS_INTEGRATION = 'mindfulness_integration',
   EXPOSURE_HIERARCHY = 'exposure_hierarchy',
   RELAPSE_PREVENTION = 'relapse_prevention',
-  PROGRESS_CELEBRATION = 'progress_celebration'
+  PROGRESS_CELEBRATION = 'progress_celebration',
+  PSYCHOEDUCATION = 'psychoeducation',
+  ACCEPTANCE_COMMITMENT = 'acceptance_commitment'
 }
 
-// Bilişsel Çarpıtmalar (Cognitive Distortions)
+/**
+ * Bilişsel Çarpıtmalar (Cognitive Distortions)
+ */
 export enum CognitiveDistortion {
-  ALL_OR_NOTHING = 'all_or_nothing',           // Siyah-beyaz düşünce
-  OVERGENERALIZATION = 'overgeneralization',   // Aşırı genelleme
-  MENTAL_FILTER = 'mental_filter',             // Zihinsel filtre
-  DISCOUNTING_POSITIVE = 'discounting_positive', // Olumluyu görmezden gelme
-  JUMPING_TO_CONCLUSIONS = 'jumping_to_conclusions', // Acele sonuç çıkarma
-  CATASTROPHIZING = 'catastrophizing',         // Felaketleştirme
-  EMOTIONAL_REASONING = 'emotional_reasoning', // Duygusal akıl yürütme
-  SHOULD_STATEMENTS = 'should_statements',     // "Yapmalıyım" ifadeleri
-  LABELING = 'labeling',                       // Etiketleme
-  PERSONALIZATION = 'personalization'         // Kişiselleştirme
+  ALL_OR_NOTHING = 'all_or_nothing',
+  OVERGENERALIZATION = 'overgeneralization',
+  MENTAL_FILTER = 'mental_filter',
+  CATASTROPHIZING = 'catastrophizing',
+  MIND_READING = 'mind_reading',
+  FORTUNE_TELLING = 'fortune_telling',
+  EMOTIONAL_REASONING = 'emotional_reasoning',
+  SHOULD_STATEMENTS = 'should_statements',
+  LABELING = 'labeling',
+  PERSONALIZATION = 'personalization'
 }
 
-// CBT Oturum Tipi
-export enum CBTSessionType {
-  INITIAL_ASSESSMENT = 'initial_assessment',
-  THOUGHT_EXPLORATION = 'thought_exploration',
-  DISTORTION_IDENTIFICATION = 'distortion_identification',
-  CHALLENGE_NEGATIVE_THOUGHTS = 'challenge_negative_thoughts',
-  BEHAVIORAL_PLANNING = 'behavioral_planning',
-  PROGRESS_REVIEW = 'progress_review',
-  RELAPSE_PREVENTION = 'relapse_prevention'
-}
-
-// CBT Yanıt Tipi
-export interface CBTResponse extends AIResponse {
+/**
+ * CBT Intervention Türleri
+ */
+export interface CBTIntervention {
+  id: string;
   technique: CBTTechnique;
-  sessionType: CBTSessionType;
-  identifiedDistortions: CognitiveDistortion[];
-  therapeuticGoals: string[];
-  homework?: {
-    type: 'thought_record' | 'behavioral_experiment' | 'mindfulness_practice';
-    description: string;
-    duration: number; // dakika
-  };
-  progressNotes: string;
+  title: string;
+  description: string;
+  userPrompt: string;
+  systemPrompt: string;
+  followUpQuestions: string[];
+  expectedOutcome: string;
+  contraindications?: string[];
+  minimumSessions?: number;
 }
 
-// Socratic Soru Kategorileri
-const SOCRATIC_QUESTIONS = {
-  clarification: [
-    "Bu düşünceyi daha detaylı açıklayabilir misiniz?",
-    "Bu durumda ne hissettiğinizi anlatabilir misiniz?",
-    "Size en çok hangi kısmı zor geliyor?"
-  ],
-  evidence: [
-    "Bu düşüncenizi destekleyen kanıtlar neler?",
-    "Bu düşüncenin aksini gösteren durumlar yaşadınız mı?",
-    "Objektif bir gözlemci bu durumu nasıl değerlendirirdi?"
-  ],
-  perspective: [
-    "Bu duruma farklı açılardan nasıl bakılabilir?",
-    "En iyi arkadaşınıza aynı durum yaşansa ona ne tavsiye ederdiniz?",
-    "5 yıl sonra bu duruma nasıl bakacağınızı düşünüyorsunuz?"
-  ],
-  consequences: [
-    "Bu düşünce size nasıl hissettiriyor?",
-    "Bu düşünce davranışlarınızı nasıl etkiliyor?",
-    "Bu şekilde düşünmenin avantaj ve dezavantajları neler?"
-  ]
-};
+/**
+ * Bilişsel Değerlendirme Sonucu
+ */
+export interface CognitiveAssessment {
+  detectedDistortions: CognitiveDistortion[];
+  confidence: number;
+  severity: 'low' | 'moderate' | 'high';
+  suggestedTechniques: CBTTechnique[];
+  immediateIntervention?: CBTIntervention;
+  rationale: string;
+}
 
-// Bilişsel çarpıtma tespit pattern'leri
-const DISTORTION_PATTERNS = {
-  [CognitiveDistortion.ALL_OR_NOTHING]: [
-    /her zaman|asla|hiçbir zaman|tamamen|hiç/gi,
-    /mükemmel|berbat|tam olarak|kesinlikle/gi
-  ],
-  [CognitiveDistortion.OVERGENERALIZATION]: [
-    /hep böyle|sürekli|hiçbir zaman değişmez/gi,
-    /herkesle başıma geliyor/gi
-  ],
-  [CognitiveDistortion.CATASTROPHIZING]: [
-    /felaket|korkunç|dayanamam|mahvoldum/gi,
-    /en kötüsü|berbat bir şey olacak/gi
-  ],
-  [CognitiveDistortion.SHOULD_STATEMENTS]: [
-    /yapmalıyım|olmalıyım|gerekiyor|zorundayım/gi,
-    /yapmamalıyım|olmamalıyım/gi
-  ],
-  [CognitiveDistortion.EMOTIONAL_REASONING]: [
-    /hissediyorum o yüzden doğru|böyle hissediyorum çünkü/gi
-  ]
-};
+/**
+ * CBT Session Context
+ */
+export interface CBTSessionContext {
+  sessionId: string;
+  userId: string;
+  currentTechnique?: CBTTechnique;
+  previousInterventions: CBTIntervention[];
+  userProgress: {
+    mastereTechniques: CBTTechnique[];
+    strugglingWith: CBTTechnique[];
+    overallProgress: number; // 0-100
+  };
+  therapyGoals: string[];
+  sessionObjectives: string[];
+}
+
+// =============================================================================
+// 🧠 CBT ENGINE IMPLEMENTATION
+// =============================================================================
 
 class CBTEngine {
   private static instance: CBTEngine;
-  private initialized: boolean = false;
-
-  static getInstance(): CBTEngine {
-    if (!this.instance) {
-      this.instance = new CBTEngine();
-    }
-    return this.instance;
+  private isEnabled: boolean = false;
+  private interventionLibrary: Map<CBTTechnique, CBTIntervention[]> = new Map();
+  private userSessions: Map<string, CBTSessionContext> = new Map();
+  
+  private constructor() {
+    this.initializeInterventionLibrary();
   }
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    // Feature flag kontrolü
-    if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
-      throw new AIError(
-        AIErrorCode.FEATURE_DISABLED,
-        'CBT Engine requires AI_CHAT feature flag'
-      );
+  static getInstance(): CBTEngine {
+    if (!CBTEngine.instance) {
+      CBTEngine.instance = new CBTEngine();
     }
+    return CBTEngine.instance;
+  }
 
-    this.initialized = true;
+  // =============================================================================
+  // 🚀 INITIALIZATION & SETUP
+  // =============================================================================
+
+  /**
+   * CBT Engine'i başlat
+   */
+  async initialize(): Promise<void> {
+    console.log('🧠 CBT Engine: Initializing...');
     
-    await trackAIInteraction(AIEventType.CBT_ENGINE_INITIALIZED, {
-      timestamp: new Date().toISOString()
-    });
+    try {
+      // Feature flag kontrolü
+      if (!FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE')) {
+        console.log('🚫 CBT Engine disabled by feature flag');
+        this.isEnabled = false;
+        return;
+      }
+
+      // Intervention library'yi yükle
+      await this.loadInterventionLibrary();
+      
+      this.isEnabled = true;
+      
+      // Telemetry
+      await trackAIInteraction(AIEventType.CBT_ENGINE_INITIALIZED, {
+        interventionCount: this.getTotalInterventionCount(),
+        techniquesAvailable: Object.values(CBTTechnique).length
+      });
+
+      console.log('✅ CBT Engine initialized successfully');
+
+    } catch (error) {
+      console.error('❌ CBT Engine initialization failed:', error);
+      this.isEnabled = false;
+      
+      await trackAIError({
+        code: AIErrorCode.INITIALIZATION_FAILED,
+        message: 'CBT Engine başlatılamadı',
+        severity: ErrorSeverity.HIGH,
+        context: { component: 'CBTEngine', method: 'initialize' }
+      });
+    }
   }
 
   /**
-   * CBT Sohbet yanıtı oluştur
+   * Intervention library'yi başlat
    */
-  async generateCBTResponse(
-    userMessage: string,
-    context: ConversationContext,
-    sessionType: CBTSessionType = CBTSessionType.THOUGHT_EXPLORATION
-  ): Promise<CBTResponse> {
-    if (!this.initialized) {
-      await this.initialize();
+  private initializeInterventionLibrary(): void {
+    // Socratic Questioning
+    this.addIntervention(CBTTechnique.SOCRATIC_QUESTIONING, {
+      id: 'socratic_basic',
+      technique: CBTTechnique.SOCRATIC_QUESTIONING,
+      title: 'Sokratik Sorgulama',
+      description: 'Düşüncelerinizi sorularla keşfetme',
+      userPrompt: 'Bu düşünceniz hakkında birlikte düşünelim. Bu düşüncenin doğru olduğuna dair ne gibi kanıtlarınız var?',
+      systemPrompt: 'Kullanıcının düşüncelerini Sokratik sorularla keşfetmesine yardım et. Yargılamadan, meraklı sorular sor.',
+      followUpQuestions: [
+        'Bu düşüncenin tam tersini destekleyen kanıtlar var mı?',
+        'En iyi arkadaşınız aynı durumda olsa ona ne söylerdiniz?',
+        'Bu düşünce size nasıl hissettiriyor?',
+        'Bu düşünceye inanmadan önceki hayatınız nasıldı?'
+      ],
+      expectedOutcome: 'Düşünce esnekliği artışı ve objektif perspektif kazanımı'
+    });
+
+    // Cognitive Restructuring
+    this.addIntervention(CBTTechnique.COGNITIVE_RESTRUCTURING, {
+      id: 'restructuring_basic',
+      technique: CBTTechnique.COGNITIVE_RESTRUCTURING,
+      title: 'Bilişsel Yeniden Yapılandırma',
+      description: 'Zararlı düşünce kalıplarını yeniden değerlendirme',
+      userPrompt: 'Bu düşünceyi daha dengeli ve gerçekçi bir şekilde nasıl ifade edebiliriz?',
+      systemPrompt: 'Kullanıcının çarpıtılmış düşüncelerini daha dengeli ve gerçekçi alternatiflerle değiştirmesine yardım et.',
+      followUpQuestions: [
+        'Bu yeni düşünce size nasıl hissettiriyor?',
+        'Bu perspektif size daha mantıklı geliyor mu?',
+        'Bu yeni bakış açısını günlük hayatınızda nasıl uygulayabilirsiniz?'
+      ],
+      expectedOutcome: 'Daha dengeli ve işlevsel düşünce kalıpları'
+    });
+
+    // Mindfulness Integration
+    this.addIntervention(CBTTechnique.MINDFULNESS_INTEGRATION, {
+      id: 'mindfulness_basic',
+      technique: CBTTechnique.MINDFULNESS_INTEGRATION,
+      title: 'Farkındalık Entegrasyonu',
+      description: 'Şimdiki ana odaklanma ve kabul',
+      userPrompt: 'Bu obsesif düşünceyi yargılamadan, meraklı bir gözlemci gibi fark etmeye çalışalım.',
+      systemPrompt: 'Kullanıcının düşüncelerini yargılamadan gözlemlemesine ve şimdiki ana odaklanmasına yardım et.',
+      followUpQuestions: [
+        'Bu düşünce şu anda vücudunuzda hangi hisleri yaratıyor?',
+        'Nefesinizi fark edebiliyor musunuz?',
+        'Bu düşünceyi bir bulut gibi geçip gitmesine izin verebilir misiniz?'
+      ],
+      expectedOutcome: 'Düşünce-gerçek ayrımı ve kabul kapasitesi artışı'
+    });
+
+    // Thought Challenging
+    this.addIntervention(CBTTechnique.THOUGHT_CHALLENGING, {
+      id: 'challenge_basic',
+      technique: CBTTechnique.THOUGHT_CHALLENGING,
+      title: 'Düşünce Sınama',
+      description: 'Otomatik düşünceleri kanıtlarla sınama',
+      userPrompt: 'Bu düşüncenizi mahkemede savunmanız gerekse, hangi kanıtları sunardınız?',
+      systemPrompt: 'Kullanıcının otomatik düşüncelerini objektif kanıtlarla sınamasına yardım et. Mantıklı analiz yap.',
+      followUpQuestions: [
+        'Bu kanıtlar ne kadar güçlü?',
+        'Karşı kanıtlar da var mı?',
+        'Bu düşünce %100 kesin mi, yoksa bir olasılık mı?'
+      ],
+      expectedOutcome: 'Düşünce kanıtlarını objektif değerlendirme yetisi'
+    });
+
+    // Behavioral Experiment
+    this.addIntervention(CBTTechnique.BEHAVIORAL_EXPERIMENT, {
+      id: 'experiment_basic',
+      technique: CBTTechnique.BEHAVIORAL_EXPERIMENT,
+      title: 'Davranışsal Deney',
+      description: 'Düşünceleri test etmek için güvenli deneyler',
+      userPrompt: 'Bu düşüncenizi test etmek için küçük, güvenli bir deney tasarlayalım.',
+      systemPrompt: 'Kullanıcının düşüncelerini güvenli davranışsal deneylerle test etmesine yardım et.',
+      followUpQuestions: [
+        'Bu deneyi yapmak için ne tür hazırlıklar gerekli?',
+        'En kötü senaryoda ne olabilir?',
+        'Bu deney sonucunda ne öğrenmiş olacaksınız?'
+      ],
+      expectedOutcome: 'Gerçek hayat kanıtları ile düşünce doğrulaması',
+      contraindications: ['yüksek anksiyete dönemleri', 'kriz anları']
+    });
+
+    console.log('📚 CBT Intervention Library initialized with', this.getTotalInterventionCount(), 'interventions');
+  }
+
+  // =============================================================================
+  // 🎯 CORE CBT ANALYSIS METHODS
+  // =============================================================================
+
+  /**
+   * Kullanıcı mesajından bilişsel çarpıtmaları tespit et
+   */
+  async detectCognitiveDistortions(message: AIMessage, context: ConversationContext): Promise<CognitiveAssessment> {
+    if (!this.isEnabled) {
+      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'CBT Engine is not enabled');
     }
 
     try {
-      // Kullanıcı mesajını analiz et
-      const messageAnalysis = await this.analyzeUserMessage(userMessage);
-      
-      // CBT tekniğini belirle
-      const technique = this.selectBestTechnique(messageAnalysis, sessionType);
-      
-      // Bilişsel çarpıtmaları tespit et
-      const distortions = this.identifyDistortions(userMessage);
-      
-      // CBT yanıtı oluştur
-      const response = await this.constructCBTResponse(
-        userMessage,
-        technique,
-        distortions,
-        sessionType,
-        context
-      );
+      const distortions: CognitiveDistortion[] = [];
+      let totalConfidence = 0;
 
-      // Telemetri
-      await trackAIInteraction(AIEventType.CBT_RESPONSE_GENERATED, {
-        technique,
-        sessionType,
-        distortionsFound: distortions.length,
-        messageLength: userMessage.length
+      // Pattern matching for cognitive distortions
+      const messageContent = message.content.toLowerCase();
+
+      // All-or-nothing thinking
+      if (this.detectAllOrNothingThinking(messageContent)) {
+        distortions.push(CognitiveDistortion.ALL_OR_NOTHING);
+        totalConfidence += 0.8;
+      }
+
+      // Catastrophizing
+      if (this.detectCatastrophizing(messageContent)) {
+        distortions.push(CognitiveDistortion.CATASTROPHIZING);
+        totalConfidence += 0.9;
+      }
+
+      // Overgeneralization
+      if (this.detectOvergeneralization(messageContent)) {
+        distortions.push(CognitiveDistortion.OVERGENERALIZATION);
+        totalConfidence += 0.7;
+      }
+
+      // Should statements
+      if (this.detectShouldStatements(messageContent)) {
+        distortions.push(CognitiveDistortion.SHOULD_STATEMENTS);
+        totalConfidence += 0.85;
+      }
+
+      // Emotional reasoning
+      if (this.detectEmotionalReasoning(messageContent)) {
+        distortions.push(CognitiveDistortion.EMOTIONAL_REASONING);
+        totalConfidence += 0.75;
+      }
+
+      const confidence = distortions.length > 0 ? totalConfidence / distortions.length : 0;
+      const severity = this.calculateSeverity(distortions, confidence);
+      const suggestedTechniques = this.recommendTechniques(distortions, context);
+
+      const assessment: CognitiveAssessment = {
+        detectedDistortions: distortions,
+        confidence,
+        severity,
+        suggestedTechniques,
+        rationale: this.generateRationale(distortions, suggestedTechniques)
+      };
+
+      // Immediate intervention gerekli mi?
+      if (severity === 'high' && confidence > 0.8) {
+        assessment.immediateIntervention = this.selectImmediateIntervention(distortions[0], context);
+      }
+
+      // Telemetry
+      await trackAIInteraction(AIEventType.CBT_ANALYSIS_COMPLETED, {
+        distortionsDetected: distortions.length,
+        confidence,
+        severity,
+        techniquesRecommended: suggestedTechniques.length
       });
 
-      return response;
+      return assessment;
 
     } catch (error) {
-      throw new AIError(
-        AIErrorCode.CBT_PROCESSING_FAILED,
-        `CBT yanıt oluşturma hatası: ${error.message}`
-      );
+      console.error('❌ CBT cognitive distortion detection failed:', error);
+      
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'CBT analizi başarısız',
+        severity: ErrorSeverity.MEDIUM,
+        context: { 
+          component: 'CBTEngine', 
+          method: 'detectCognitiveDistortions',
+          messageLength: message.content.length 
+        }
+      });
+
+      throw error;
     }
   }
 
   /**
-   * Kullanıcı mesajını analiz et
+   * CBT tekniği uygula
    */
-  private async analyzeUserMessage(message: string) {
-    return {
-      emotionalIntensity: this.assessEmotionalIntensity(message),
-      themes: this.extractThemes(message),
-      cognitivePatterns: this.identifyThoughtPatterns(message),
-      needsLevel: this.assessSupportNeed(message)
-    };
-  }
-
-  /**
-   * En uygun CBT tekniğini seç
-   */
-  private selectBestTechnique(
-    analysis: any,
-    sessionType: CBTSessionType
-  ): CBTTechnique {
-    // Yüksek duygusal yoğunluk → Mindfulness
-    if (analysis.emotionalIntensity > 8) {
-      return CBTTechnique.MINDFULNESS_INTEGRATION;
-    }
-
-    // Bilişsel çarpıtma tespit edildi → Thought challenging
-    if (analysis.cognitivePatterns.length > 0) {
-      return CBTTechnique.THOUGHT_CHALLENGING;
-    }
-
-    // Session type'a göre varsayılan teknik
-    const techniqueMap = {
-      [CBTSessionType.INITIAL_ASSESSMENT]: CBTTechnique.SOCRATIC_QUESTIONING,
-      [CBTSessionType.THOUGHT_EXPLORATION]: CBTTechnique.SOCRATIC_QUESTIONING,
-      [CBTSessionType.DISTORTION_IDENTIFICATION]: CBTTechnique.COGNITIVE_RESTRUCTURING,
-      [CBTSessionType.CHALLENGE_NEGATIVE_THOUGHTS]: CBTTechnique.THOUGHT_CHALLENGING,
-      [CBTSessionType.BEHAVIORAL_PLANNING]: CBTTechnique.BEHAVIORAL_EXPERIMENT,
-      [CBTSessionType.PROGRESS_REVIEW]: CBTTechnique.PROGRESS_CELEBRATION,
-      [CBTSessionType.RELAPSE_PREVENTION]: CBTTechnique.RELAPSE_PREVENTION
-    };
-
-    return techniqueMap[sessionType] || CBTTechnique.SOCRATIC_QUESTIONING;
-  }
-
-  /**
-   * Bilişsel çarpıtmaları tespit et
-   */
-  private identifyDistortions(message: string): CognitiveDistortion[] {
-    const foundDistortions: CognitiveDistortion[] = [];
-
-    Object.entries(DISTORTION_PATTERNS).forEach(([distortion, patterns]) => {
-      const hasPattern = patterns.some(pattern => pattern.test(message));
-      if (hasPattern) {
-        foundDistortions.push(distortion as CognitiveDistortion);
-      }
-    });
-
-    return foundDistortions;
-  }
-
-  /**
-   * CBT yanıtını oluştur
-   */
-  private async constructCBTResponse(
-    userMessage: string,
-    technique: CBTTechnique,
-    distortions: CognitiveDistortion[],
-    sessionType: CBTSessionType,
+  async applyCBTTechnique(
+    technique: CBTTechnique, 
+    userMessage: AIMessage,
     context: ConversationContext
-  ): Promise<CBTResponse> {
-    let responseText = '';
-    let therapeuticGoals: string[] = [];
-    let homework;
-
-    switch (technique) {
-      case CBTTechnique.SOCRATIC_QUESTIONING:
-        responseText = this.generateSocraticResponse(userMessage);
-        therapeuticGoals = ['Düşünce farkındalığını artırma'];
-        break;
-
-      case CBTTechnique.THOUGHT_CHALLENGING:
-        responseText = this.generateThoughtChallenge(userMessage, distortions);
-        therapeuticGoals = ['Negatif düşünceleri sorgulamaya teşvik etme'];
-        homework = {
-          type: 'thought_record' as const,
-          description: 'Düşünce kaydı tutun: Durum, Düşünce, Duygu, Alternatif düşünce',
-          duration: 10
-        };
-        break;
-
-      case CBTTechnique.MINDFULNESS_INTEGRATION:
-        responseText = this.generateMindfulnessResponse(userMessage);
-        therapeuticGoals = ['Duygusal düzenleme', 'An\'da kalma becerileri'];
-        homework = {
-          type: 'mindfulness_practice' as const,
-          description: '5 dakika nefes farkındalığı egzersizi yapın',
-          duration: 5
-        };
-        break;
-
-      case CBTTechnique.BEHAVIORAL_EXPERIMENT:
-        responseText = this.generateBehavioralExperiment(userMessage);
-        therapeuticGoals = ['Davranışsal değişim', 'Deneyimsel öğrenme'];
-        homework = {
-          type: 'behavioral_experiment' as const,
-          description: 'Küçük bir davranış değişikliği deneyin ve sonuçları gözlemleyin',
-          duration: 30
-        };
-        break;
-
-      default:
-        responseText = this.generateSupportiveResponse(userMessage);
-        therapeuticGoals = ['Empatik destek sağlama'];
+  ): Promise<CBTIntervention> {
+    if (!this.isEnabled) {
+      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'CBT Engine is not enabled');
     }
 
-    return {
-      content: responseText,
-      role: 'assistant',
-      timestamp: new Date(),
-      confidence: 0.85,
-      technique,
-      sessionType,
-      identifiedDistortions: distortions,
-      therapeuticGoals,
-      homework,
-      progressNotes: `CBT ${technique} uygulandı. ${distortions.length} bilişsel çarpıtma tespit edildi.`
-    };
-  }
+    try {
+      const interventions = this.interventionLibrary.get(technique);
+      if (!interventions || interventions.length === 0) {
+        throw new AIError(AIErrorCode.RESOURCE_NOT_FOUND, `No interventions found for technique: ${technique}`);
+      }
 
-  /**
-   * Socratic soru oluştur
-   */
-  private generateSocraticResponse(userMessage: string): string {
-    // Mesaja göre soru kategorisini belirle
-    const questionCategory = this.determineSocraticCategory(userMessage);
-    const questions = SOCRATIC_QUESTIONS[questionCategory];
-    const selectedQuestion = questions[Math.floor(Math.random() * questions.length)];
+      // En uygun intervention'ı seç
+      const selectedIntervention = this.selectOptimalIntervention(interventions, context);
 
-    return `Anlıyorum. ${selectedQuestion} Bu konuda birlikte düşünelim.`;
-  }
+      // Session context güncelle
+      await this.updateSessionContext(context.userId, technique, selectedIntervention);
 
-  /**
-   * Düşünce challenging yanıtı oluştur
-   */
-  private generateThoughtChallenge(
-    userMessage: string, 
-    distortions: CognitiveDistortion[]
-  ): string {
-    if (distortions.length === 0) {
-      return "Bu düşünceyi bir kez daha inceleyelim. Gerçekten bu kadar kesin mi?";
+      // Telemetry
+      await trackAIInteraction(AIEventType.CBT_TECHNIQUE_APPLIED, {
+        technique,
+        interventionId: selectedIntervention.id,
+        userId: context.userId
+      });
+
+      return selectedIntervention;
+
+    } catch (error) {
+      console.error('❌ CBT technique application failed:', error);
+      
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'CBT tekniği uygulanamadı',
+        severity: ErrorSeverity.MEDIUM,
+        context: { 
+          component: 'CBTEngine', 
+          method: 'applyCBTTechnique',
+          technique 
+        }
+      });
+
+      throw error;
     }
-
-    const distortionNames = {
-      [CognitiveDistortion.ALL_OR_NOTHING]: "siyah-beyaz düşünce",
-      [CognitiveDistortion.CATASTROPHIZING]: "felaketleştirme",
-      [CognitiveDistortion.SHOULD_STATEMENTS]: "yapmalıyım düşüncesi",
-      [CognitiveDistortion.OVERGENERALIZATION]: "aşırı genelleme"
-    };
-
-    const mainDistortion = distortions[0];
-    const distortionName = distortionNames[mainDistortion] || "düşünce pattern'i";
-
-    return `Bu düşüncede bir ${distortionName} pattern'i fark ediyorum. ` +
-           `Bu duruma daha dengeli nasıl bakabiliriz? Ara tonlar var mı?`;
   }
 
-  /**
-   * Mindfulness yanıtı oluştur
-   */
-  private generateMindfulnessResponse(userMessage: string): string {
-    return "Şu anda çok yoğun duygular yaşıyorsunuz gibi görünüyor. " +
-           "Birkaç derin nefes alalım. Bu duyguları yargılamadan fark etmeye çalışalım. " +
-           "Bu an geçici, siz güvendesiniz.";
+  // =============================================================================
+  // 🔍 COGNITIVE DISTORTION DETECTION METHODS
+  // =============================================================================
+
+  private detectAllOrNothingThinking(content: string): boolean {
+    const patterns = [
+      /\b(hiç|hiçbir|asla|kesinlikle|tamamen|bütün|hep|her zaman)\b/gi,
+      /\b(hiçbir şey|her şey|herkesi|kimseyi)\b/gi,
+      /\b(ya hep ya hiç|ya da|kesin)\b/gi
+    ];
+    return patterns.some(pattern => pattern.test(content));
   }
 
-  /**
-   * Davranışsal deney önerisi oluştur
-   */
-  private generateBehavioralExperiment(userMessage: string): string {
-    return "Bu düşünceyi test edebileceğiniz küçük bir deneyim düşünelim. " +
-           "Korkunuzun gerçek olup olmadığını kontrollü bir şekilde öğrenebiliriz. " +
-           "Hangi küçük adımla başlayabiliriz?";
+  private detectCatastrophizing(content: string): boolean {
+    const patterns = [
+      /\b(korkunç|felaket|berbat|dehşet|kıyamet|mahvoldum)\b/gi,
+      /\b(dayanamam|öleceğim|çıldıracağım|delireceğim)\b/gi,
+      /\b(en kötü|en berbat|çok kötü şeyler)\b/gi
+    ];
+    return patterns.some(pattern => pattern.test(content));
   }
 
-  /**
-   * Destekleyici yanıt oluştur
-   */
-  private generateSupportiveResponse(userMessage: string): string {
-    return "Bunu paylaştığınız için teşekkürler. Duygularınız tamamen anlaşılabilir. " +
-           "Bu süreçte yalnız değilsiniz. Birlikte adım adım ilerleyebiliriz.";
+  private detectOvergeneralization(content: string): boolean {
+    const patterns = [
+      /\b(hep böyle|her zaman|sürekli|devamlı)\b/gi,
+      /\b(hiçbir zaman|asla|kimse)\b/gi,
+      /\b(tüm|bütün|herkesi|her şeyi)\b/gi
+    ];
+    return patterns.some(pattern => pattern.test(content));
   }
 
-  // Yardımcı metodlar
-  private assessEmotionalIntensity(message: string): number {
-    const intensityWords = {
-      high: ['dehşet', 'korkunç', 'dayanamıyorum', 'çok kötü', 'berbat'],
-      medium: ['kötü', 'üzgün', 'endişeli', 'stresli'],
-      low: ['hafif', 'biraz', 'az']
-    };
+  private detectShouldStatements(content: string): boolean {
+    const patterns = [
+      /\b(yapmalıyım|etmeliyim|olmalıyım|gerekir|zorundayım)\b/gi,
+      /\b(yapmamalıyım|etmemeliyim|olmamalıyım)\b/gi,
+      /\b(gerekiyor|şart|mecbur|lazım)\b/gi
+    ];
+    return patterns.some(pattern => pattern.test(content));
+  }
 
-    if (intensityWords.high.some(word => message.toLowerCase().includes(word))) return 9;
-    if (intensityWords.medium.some(word => message.toLowerCase().includes(word))) return 6;
-    if (intensityWords.low.some(word => message.toLowerCase().includes(word))) return 3;
+  private detectEmotionalReasoning(content: string): boolean {
+    const patterns = [
+      /\b(hissediyorum o yüzden|böyle hissediyorum çünkü)\b/gi,
+      /\b(içgüdüm|sezgim|hissim|duyguların)\b/gi,
+      /\b(öyle hissediyorum|böyle geliyor)\b/gi
+    ];
+    return patterns.some(pattern => pattern.test(content));
+  }
+
+  // =============================================================================
+  // 🎯 HELPER METHODS
+  // =============================================================================
+
+  private calculateSeverity(distortions: CognitiveDistortion[], confidence: number): 'low' | 'moderate' | 'high' {
+    const severityScore = distortions.length * confidence;
     
-    return 5; // varsayılan
+    if (severityScore >= 2.5) return 'high';
+    if (severityScore >= 1.5) return 'moderate';
+    return 'low';
   }
 
-  private extractThemes(message: string): string[] {
-    const themes: string[] = [];
-    const themeKeywords = {
-      'perfectionism': ['mükemmel', 'hata', 'yeterli değil'],
-      'control': ['kontrol', 'kontrol etmek', 'düzen'],
-      'contamination': ['kirli', 'mikrop', 'temizlik'],
-      'harm': ['zarar', 'birini incitmek', 'kötü düşünce']
-    };
-
-    Object.entries(themeKeywords).forEach(([theme, keywords]) => {
-      if (keywords.some(keyword => message.toLowerCase().includes(keyword))) {
-        themes.push(theme);
+  private recommendTechniques(distortions: CognitiveDistortion[], context: ConversationContext): CBTTechnique[] {
+    const techniques: CBTTechnique[] = [];
+    
+    // Distortion'a göre teknik önerileri
+    distortions.forEach(distortion => {
+      switch (distortion) {
+        case CognitiveDistortion.ALL_OR_NOTHING:
+          techniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING);
+          break;
+        case CognitiveDistortion.CATASTROPHIZING:
+          techniques.push(CBTTechnique.THOUGHT_CHALLENGING);
+          break;
+        case CognitiveDistortion.OVERGENERALIZATION:
+          techniques.push(CBTTechnique.SOCRATIC_QUESTIONING);
+          break;
+        case CognitiveDistortion.SHOULD_STATEMENTS:
+          techniques.push(CBTTechnique.ACCEPTANCE_COMMITMENT);
+          break;
+        case CognitiveDistortion.EMOTIONAL_REASONING:
+          techniques.push(CBTTechnique.MINDFULNESS_INTEGRATION);
+          break;
       }
     });
 
-    return themes;
+    return [...new Set(techniques)]; // Remove duplicates
   }
 
-  private identifyThoughtPatterns(message: string): string[] {
-    // Cognitive distortion patterns return edilir
-    return this.identifyDistortions(message);
+  private generateRationale(distortions: CognitiveDistortion[], techniques: CBTTechnique[]): string {
+    if (distortions.length === 0) {
+      return 'Mesajınızda belirgin bilişsel çarpıtma tespit edilmedi. Bu iyi bir durum!';
+    }
+
+    let rationale = `${distortions.length} farklı düşünce kalıbı fark ettim: `;
+    rationale += distortions.map(d => this.getDistortionDescription(d)).join(', ');
+    rationale += `. Bu durumda ${techniques.length} CBT tekniği yardımcı olabilir.`;
+    
+    return rationale;
   }
 
-  private assessSupportNeed(message: string): 'low' | 'medium' | 'high' {
-    const crisisWords = ['intihar', 'ölmek istiyorum', 'dayanamıyorum'];
-    const highNeedWords = ['yardım', 'çaresiz', 'yapamıyorum'];
-    
-    if (crisisWords.some(word => message.toLowerCase().includes(word))) return 'high';
-    if (highNeedWords.some(word => message.toLowerCase().includes(word))) return 'high';
-    
-    return 'medium';
+  private getDistortionDescription(distortion: CognitiveDistortion): string {
+    const descriptions = {
+      [CognitiveDistortion.ALL_OR_NOTHING]: 'ya hep ya hiç düşüncesi',
+      [CognitiveDistortion.CATASTROPHIZING]: 'felaket senaryoları',
+      [CognitiveDistortion.OVERGENERALIZATION]: 'aşırı genelleme',
+      [CognitiveDistortion.SHOULD_STATEMENTS]: 'zorunluluk ifadeleri',
+      [CognitiveDistortion.EMOTIONAL_REASONING]: 'duygusal akıl yürütme',
+      [CognitiveDistortion.MIND_READING]: 'zihin okuma',
+      [CognitiveDistortion.FORTUNE_TELLING]: 'gelecek tahmini',
+      [CognitiveDistortion.MENTAL_FILTER]: 'zihinsel filtreleme',
+      [CognitiveDistortion.LABELING]: 'etiketleme',
+      [CognitiveDistortion.PERSONALIZATION]: 'kişiselleştirme'
+    };
+    return descriptions[distortion] || distortion;
   }
 
-  private determineSocraticCategory(message: string): keyof typeof SOCRATIC_QUESTIONS {
-    if (message.includes('çünkü') || message.includes('kanıt')) return 'evidence';
-    if (message.includes('hissediyorum') || message.includes('düşünüyorum')) return 'clarification';
-    if (message.includes('başka') || message.includes('farklı')) return 'perspective';
+  private selectOptimalIntervention(interventions: CBTIntervention[], context: ConversationContext): CBTIntervention {
+    // En basit intervention'ı seç (gelecekte user profiling ile geliştirilecek)
+    return interventions[0];
+  }
+
+  private selectImmediateIntervention(distortion: CognitiveDistortion, context: ConversationContext): CBTIntervention {
+    const technique = this.recommendTechniques([distortion], context)[0];
+    const interventions = this.interventionLibrary.get(technique);
+    return interventions ? interventions[0] : this.getDefaultIntervention();
+  }
+
+  private getDefaultIntervention(): CBTIntervention {
+    return {
+      id: 'default_mindfulness',
+      technique: CBTTechnique.MINDFULNESS_INTEGRATION,
+      title: 'Basit Farkındalık',
+      description: 'Şu anda burada olma pratiği',
+      userPrompt: 'Şu anda nerede olduğunuzu ve nasıl hissettiğinizi fark etmeye çalışalım.',
+      systemPrompt: 'Kullanıcıyı şimdiki ana getir, basit farkındalık egzersizi yap.',
+      followUpQuestions: ['Nefesinizi takip edebiliyor musunuz?'],
+      expectedOutcome: 'Anksiyete azalması ve şimdiki an farkındalığı'
+    };
+  }
+
+  private async updateSessionContext(userId: string, technique: CBTTechnique, intervention: CBTIntervention): Promise<void> {
+    let sessionContext = this.userSessions.get(userId);
     
-    return 'clarification'; // varsayılan
+    if (!sessionContext) {
+      sessionContext = {
+        sessionId: `cbt_${userId}_${Date.now()}`,
+        userId,
+        previousInterventions: [],
+        userProgress: {
+          mastereTechniques: [],
+          strugglingWith: [],
+          overallProgress: 0
+        },
+        therapyGoals: [],
+        sessionObjectives: []
+      };
+    }
+
+    sessionContext.currentTechnique = technique;
+    sessionContext.previousInterventions.push(intervention);
+    
+    this.userSessions.set(userId, sessionContext);
+  }
+
+  private addIntervention(technique: CBTTechnique, intervention: CBTIntervention): void {
+    if (!this.interventionLibrary.has(technique)) {
+      this.interventionLibrary.set(technique, []);
+    }
+    this.interventionLibrary.get(technique)!.push(intervention);
+  }
+
+  private async loadInterventionLibrary(): Promise<void> {
+    // Future: Load from external source or API
+    console.log('📚 CBT Intervention Library loaded from memory');
+  }
+
+  private getTotalInterventionCount(): number {
+    let total = 0;
+    this.interventionLibrary.forEach(interventions => {
+      total += interventions.length;
+    });
+    return total;
+  }
+
+  // =============================================================================
+  // 🔄 PUBLIC API
+  // =============================================================================
+
+  /**
+   * CBT Engine durumunu kontrol et
+   */
+  get enabled(): boolean {
+    return this.isEnabled && FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE');
+  }
+
+  /**
+   * Mevcut teknik sayısını al
+   */
+  getAvailableTechniques(): CBTTechnique[] {
+    return Array.from(this.interventionLibrary.keys());
+  }
+
+  /**
+   * Kullanıcı session context'ini al
+   */
+  getSessionContext(userId: string): CBTSessionContext | undefined {
+    return this.userSessions.get(userId);
+  }
+
+  /**
+   * Engine'i temizle
+   */
+  async shutdown(): Promise<void> {
+    console.log('🧠 CBT Engine: Shutting down...');
+    this.isEnabled = false;
+    this.userSessions.clear();
+    
+    await trackAIInteraction(AIEventType.CBT_ENGINE_SHUTDOWN, {
+      sessionsCleared: this.userSessions.size
+    });
   }
 }
 
-export const cbtEngine = CBTEngine.getInstance(); 
+// =============================================================================
+// 🎯 EXPORT
+// =============================================================================
+
+export const cbtEngine = CBTEngine.getInstance();
+export default cbtEngine;
+export { 
+  CBTTechnique, 
+  CognitiveDistortion, 
+  type CBTIntervention, 
+  type CognitiveAssessment, 
+  type CBTSessionContext 
+};
