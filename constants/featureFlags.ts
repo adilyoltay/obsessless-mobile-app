@@ -16,11 +16,17 @@ const featureFlagState: Record<string, boolean> = {
   AI_INSIGHTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS === 'true',
   AI_VOICE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_VOICE === 'true',
   
-  // 🚀 SPRINT 4: CBT Engine & External AI API
+  // 🚀 SPRINT 4: CBT Engine & External AI API (COMPLETED)
   AI_CBT_ENGINE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CBT === 'true',
   AI_EXTERNAL_API: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_API === 'true',
   AI_THERAPEUTIC_PROMPTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PROMPTS === 'true',
   AI_REAL_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_REAL === 'true',
+  
+  // 🔄 SPRINT 5: Intelligent Insights Engine Recreation
+  AI_INSIGHTS_ENGINE_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS_V2 === 'true',
+  AI_PATTERN_RECOGNITION_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PATTERNS_V2 === 'true',
+  AI_SMART_NOTIFICATIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_NOTIFICATIONS === 'true',
+  AI_PROGRESS_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS === 'true',
   
   // 🧪 Experimental AI Features
   AI_ART_THERAPY: false,
