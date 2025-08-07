@@ -28,6 +28,7 @@ import { router } from 'expo-router';
 
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
+import { useAISettingsStore, aiSettingsUtils } from '@/store/aiSettingsStore';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const { setLanguage } = useLanguage();
   const { signOut, user } = useAuth();
   const { profile } = useGamificationStore();
+  const { consents, setConsent, getConsent, updatePreferences } = useAISettingsStore();
   
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
@@ -278,6 +280,141 @@ export default function SettingsScreen() {
     </View>
   );
 
+  const renderAIFeatureItem = (
+    title: string,
+    description: string,
+    featureKey: keyof typeof FEATURE_FLAGS,
+    icon: string,
+    benefits: string,
+    disabled = false
+  ) => {
+    // AI özelliğinin aktif olup olmadığını hem feature flag hem de user consent'e göre belirle
+    const hasUserConsent = user?.id ? aiSettingsUtils.hasUserConsent(featureKey, user.id) : false;
+    const isEnabled = !disabled && hasUserConsent && FEATURE_FLAGS.isEnabled(featureKey);
+    
+    const handleFeatureToggle = (value: boolean) => {
+      if (disabled) {
+        Alert.alert(
+          'Özellik Henüz Hazır Değil',
+          'Bu özellik gelecek güncellemelerde aktif olacak.',
+          [{ text: 'Tamam' }]
+        );
+        return;
+      }
+
+      if (value) {
+        // AI özelliği aktifleştirme onay dialogu
+        Alert.alert(
+          'AI Özelliği Aktifleştir',
+          `${title} özelliğini aktifleştirmek istediğinizden emin misiniz?\n\n${description}\n\nFaydaları:\n${benefits}`,
+          [
+            { text: 'İptal', style: 'cancel' },
+            {
+              text: 'Aktifleştir',
+              onPress: () => {
+                // User consent kaydedilir
+                handleAIFeatureConsent(featureKey, true);
+                Alert.alert(
+                  'Başarılı!',
+                  `${title} aktifleştirildi. Özellik artık kullanıma hazır.`,
+                  [{ text: 'Tamam' }]
+                );
+              }
+            }
+          ]
+        );
+      } else {
+        // Deaktifleştirme
+        Alert.alert(
+          'AI Özelliği Deaktifleştir',
+          `${title} özelliğini deaktifleştirmek istediğinizden emin misiniz?`,
+          [
+            { text: 'İptal', style: 'cancel' },
+            {
+              text: 'Deaktifleştir',
+              style: 'destructive',
+              onPress: () => {
+                handleAIFeatureConsent(featureKey, false);
+                Alert.alert(
+                  'Deaktifleştirildi',
+                  `${title} deaktifleştirildi.`,
+                  [{ text: 'Tamam' }]
+                );
+              }
+            }
+          ]
+        );
+      }
+    };
+
+    return (
+      <View style={[styles.aiFeatureItem, disabled && styles.aiFeatureItemDisabled]}>
+        <View style={styles.aiFeatureHeader}>
+          <View style={styles.aiFeatureLeft}>
+            <MaterialCommunityIcons 
+              name={icon as any} 
+              size={24} 
+              color={disabled ? '#9CA3AF' : isEnabled ? '#10B981' : '#6B7280'} 
+            />
+            <View style={styles.aiFeatureInfo}>
+              <Text style={[styles.aiFeatureTitle, disabled && styles.aiFeatureTextDisabled]}>
+                {title}
+              </Text>
+              <Text style={[styles.aiFeatureDescription, disabled && styles.aiFeatureTextDisabled]}>
+                {description}
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={isEnabled}
+            onValueChange={handleFeatureToggle}
+            disabled={disabled}
+            trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+            thumbColor={isEnabled ? '#FFFFFF' : '#F3F4F6'}
+          />
+        </View>
+        
+        {isEnabled && !disabled && (
+          <View style={styles.aiFeatureBenefits}>
+            <Text style={styles.aiFeatureBenefitsTitle}>Aktif özellikler:</Text>
+            <Text style={styles.aiFeatureBenefitsText}>{benefits}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const handleAIFeatureConsent = async (featureKey: string, enabled: boolean) => {
+    if (!user?.id) return;
+    
+    try {
+      // Zustand store ile consent kaydet
+      const consentData = {
+        enabled,
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+        userId: user.id
+      };
+      
+      if (enabled) {
+        setConsent(featureKey, consentData);
+      } else {
+        // Consent'i tamamen kaldır
+        const { revokeConsent } = useAISettingsStore.getState();
+        revokeConsent(featureKey);
+      }
+      
+      Haptics.impactAsync(
+        enabled 
+          ? Haptics.ImpactFeedbackStyle.Light 
+          : Haptics.ImpactFeedbackStyle.Medium
+      );
+    } catch (error) {
+      console.error('Error saving AI consent:', error);
+      Alert.alert('Hata', 'Ayar kaydedilemedi. Lütfen tekrar deneyin.');
+    }
+  };
+
   return (
     <ScreenLayout>
       {/* Header - New Design */}
@@ -331,6 +468,51 @@ export default function SettingsScreen() {
         {/* Language */}
         {renderLanguageSection()}
 
+        {/* AI Özellikleri - Production Ready */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🤖 Yapay Zeka Asistanı</Text>
+          <View style={styles.sectionContent}>
+            
+            {/* AI Chat */}
+            {renderAIFeatureItem(
+              '💬 AI Sohbet Asistanı',
+              'Sorularınızı yanıtlayan, size rehberlik eden empatik AI asistanı',
+              'AI_CHAT',
+              'robot',
+              '• Anlık soru-cevap desteği\n• Duygusal destek ve yönlendirme\n• Güvenli ve özel konuşmalar'
+            )}
+
+            {/* AI Insights */}
+            {renderAIFeatureItem(
+              '📊 Akıllı İçgörüler',
+              'Verilerinizi analiz ederek kişisel içgörüler ve öneriler sunar',
+              'AI_INSIGHTS',
+              'chart-line',
+              '• Pattern tanıma ve analiz\n• Kişiselleştirilmiş öneriler\n• İlerleme takibi ve motivasyon'
+            )}
+
+            {/* AI Voice (Future) */}
+            {renderAIFeatureItem(
+              '🎤 Sesli Asistan (Yakında)',
+              'Sesli komutlar ve konuşmalar ile etkileşim',
+              'AI_VOICE',
+              'microphone',
+              '• Eller serbest kullanım\n• Doğal dil işleme\n• Sesli ERP rehberliği',
+              true // disabled
+            )}
+
+            {/* AI Crisis Detection */}
+            {renderAIFeatureItem(
+              '🚨 Kriz Tespiti',
+              'Zorlayıcı durumları erken tespit eder ve anında destek önerir',
+              'AI_CRISIS_DETECTION',
+              'shield-alert',
+              '• 7/24 güvenlik izleme\n• Acil durum müdahale\n• Otomatik destek önerileri'
+            )}
+
+          </View>
+        </View>
+
         {/* Support */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Destek</Text>
@@ -381,77 +563,87 @@ export default function SettingsScreen() {
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>Geliştirici Araçları</Text>
             
-            {/* AI Feature Toggles */}
+            {/* AI Feature Toggles - DEVELOPMENT ONLY */}
             <View style={styles.aiSection}>
-              <Text style={styles.subsectionTitle}>🤖 AI Özellikleri</Text>
+              <Text style={styles.subsectionTitle}>🤖 AI Özellikleri (Geliştirici)</Text>
+              <Text style={styles.devWarning}>
+                ⚠️ Bu ayarlar sadece geliştirme ortamında çalışır
+              </Text>
               
               <View style={styles.settingItem}>
                 <Text style={styles.settingLabel}>AI Chat</Text>
                 <Switch
-                  value={FEATURE_FLAGS.AI_CHAT}
+                  value={FEATURE_FLAGS.isEnabled('AI_CHAT')}
                   onValueChange={(value) => {
-                    // Feature flag'i runtime'da değiştir
-                    (FEATURE_FLAGS as any).AI_CHAT = value;
+                    FEATURE_FLAGS.setFlag('AI_CHAT', value);
                     Alert.alert(
                       'AI Chat',
-                      value ? 'Aktif' : 'Deaktif',
+                      value ? 'Aktif edildi' : 'Deaktif edildi',
                       [{ text: 'Tamam' }]
                     );
                   }}
                   trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-                  thumbColor={FEATURE_FLAGS.AI_CHAT ? '#FFFFFF' : '#F3F4F6'}
+                  thumbColor={FEATURE_FLAGS.isEnabled('AI_CHAT') ? '#FFFFFF' : '#F3F4F6'}
                 />
               </View>
 
               <View style={styles.settingItem}>
                 <Text style={styles.settingLabel}>AI Onboarding</Text>
                 <Switch
-                  value={FEATURE_FLAGS.AI_ONBOARDING}
+                  value={FEATURE_FLAGS.isEnabled('AI_ONBOARDING')}
                   onValueChange={(value) => {
-                    (FEATURE_FLAGS as any).AI_ONBOARDING = value;
+                    FEATURE_FLAGS.setFlag('AI_ONBOARDING', value);
                     Alert.alert(
                       'AI Onboarding',
-                      value ? 'Aktif' : 'Deaktif',
+                      value ? 'Aktif edildi' : 'Deaktif edildi',
                       [{ text: 'Tamam' }]
                     );
                   }}
                   trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-                  thumbColor={FEATURE_FLAGS.AI_ONBOARDING ? '#FFFFFF' : '#F3F4F6'}
+                  thumbColor={FEATURE_FLAGS.isEnabled('AI_ONBOARDING') ? '#FFFFFF' : '#F3F4F6'}
                 />
               </View>
 
               <View style={styles.settingItem}>
                 <Text style={styles.settingLabel}>AI Insights</Text>
                 <Switch
-                  value={FEATURE_FLAGS.AI_INSIGHTS}
+                  value={FEATURE_FLAGS.isEnabled('AI_INSIGHTS')}
                   onValueChange={(value) => {
-                    (FEATURE_FLAGS as any).AI_INSIGHTS = value;
+                    FEATURE_FLAGS.setFlag('AI_INSIGHTS', value);
                     Alert.alert(
                       'AI Insights',
-                      value ? 'Aktif' : 'Deaktif',
+                      value ? 'Aktif edildi' : 'Deaktif edildi',
                       [{ text: 'Tamam' }]
                     );
                   }}
                   trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-                  thumbColor={FEATURE_FLAGS.AI_INSIGHTS ? '#FFFFFF' : '#F3F4F6'}
+                  thumbColor={FEATURE_FLAGS.isEnabled('AI_INSIGHTS') ? '#FFFFFF' : '#F3F4F6'}
                 />
               </View>
 
               <View style={styles.settingItem}>
                 <Text style={styles.settingLabel}>AI Voice</Text>
                 <Switch
-                  value={FEATURE_FLAGS.AI_VOICE}
+                  value={FEATURE_FLAGS.isEnabled('AI_VOICE')}
                   onValueChange={(value) => {
-                    (FEATURE_FLAGS as any).AI_VOICE = value;
+                    FEATURE_FLAGS.setFlag('AI_VOICE', value);
                     Alert.alert(
                       'AI Voice',
-                      value ? 'Aktif' : 'Deaktif',
+                      value ? 'Aktif edildi' : 'Deaktif edildi',
                       [{ text: 'Tamam' }]
                     );
                   }}
                   trackColor={{ false: '#D1D5DB', true: '#10B981' }}
-                  thumbColor={FEATURE_FLAGS.AI_VOICE ? '#FFFFFF' : '#F3F4F6'}
+                  thumbColor={FEATURE_FLAGS.isEnabled('AI_VOICE') ? '#FFFFFF' : '#F3F4F6'}
                 />
+              </View>
+
+              {/* Feature Usage Stats */}
+              <View style={styles.statsContainer}>
+                <Text style={styles.statsTitle}>Kullanım İstatistikleri:</Text>
+                <Text style={styles.statsText}>
+                  {JSON.stringify(FEATURE_FLAGS.getUsageStats(), null, 2)}
+                </Text>
               </View>
 
               {/* Test Buttons */}
@@ -466,14 +658,24 @@ export default function SettingsScreen() {
 
                 <Button
                   onPress={async () => {
-                    // Emergency shutdown test
-                    FEATURE_FLAGS.disableAllAI();
-                    Alert.alert('AI Emergency Shutdown', 'Tüm AI özellikleri kapatıldı');
+                    FEATURE_FLAGS.disableAll();
+                    Alert.alert('🚨 Emergency Shutdown', 'Tüm AI özellikleri kapatıldı!');
                   }}
                   style={styles.dangerButton}
                   variant="secondary"
                 >
                   🚨 Emergency Shutdown
+                </Button>
+
+                <Button
+                  onPress={async () => {
+                    FEATURE_FLAGS.reactivateAll();
+                    Alert.alert('🔄 Reactivated', 'Environment variable\'lar kontrol ediliyor...');
+                  }}
+                  style={styles.testButton}
+                  variant="secondary"
+                >
+                  🔄 Reactivate All
                 </Button>
               </View>
             </View>
@@ -724,5 +926,88 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontFamily: 'Inter',
     marginBottom: 4,
+  },
+  devWarning: {
+    fontSize: 14,
+    color: '#F59E0B',
+    fontFamily: 'Inter',
+    fontStyle: 'italic',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statsContainer: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  statsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  statsText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'monospace',
+  },
+  aiFeatureItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  aiFeatureItemDisabled: {
+    opacity: 0.6,
+  },
+  aiFeatureHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  aiFeatureLeft: {
+    flexDirection: 'row',
+    flex: 1,
+    marginRight: 16,
+  },
+  aiFeatureInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  aiFeatureTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  aiFeatureDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    lineHeight: 20,
+  },
+  aiFeatureTextDisabled: {
+    color: '#9CA3AF',
+  },
+  aiFeatureBenefits: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  aiFeatureBenefitsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    fontFamily: 'Inter',
+    marginBottom: 6,
+  },
+  aiFeatureBenefitsText: {
+    fontSize: 14,
+    color: '#374151',
+    fontFamily: 'Inter',
+    lineHeight: 20,
   },
 });
