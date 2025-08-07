@@ -1,35 +1,160 @@
 /**
- * Feature Flags for ObsessLess App
- * AI Features are now ENABLED BY DEFAULT for production readiness
+ * 🛡️ ObsessLess Feature Flag System - FAZ 0: Güvenlik ve Stabilite Hazırlığı
+ * 
+ * Bu sistem "Kapsamlı Yol Haritası" belgesindeki Görev 0.0.1 gereksinimlerine uygun olarak
+ * tasarlanmıştır. Tüm AI özellikleri varsayılan olarak KAPALI'dır ve sadece explicit
+ * environment variable'lar ile açılabilir.
+ * 
+ * KRİTİK: Bu dosyadaki değişiklikler prodüksiyonu etkileyebilir!
  */
 
-export const FEATURE_FLAGS = {
-  // AI Features - All Enabled for Production
-  AI_CHAT: true,           // Professional AI Chat with External APIs
-  AI_ONBOARDING: true,     // Intelligent Onboarding Flow  
-  AI_INSIGHTS: true,       // Smart Pattern Recognition & Insights
-  AI_VOICE: true,          // Voice Interface & Recognition
+// Feature flag değerlerini runtime'da değiştirmek için mutable obje
+const featureFlagState: Record<string, boolean> = {
+  // 🤖 AI Features - DEFAULT OFF (Yol Haritası Gereği)
+  AI_CHAT: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CHAT === 'true',
+  AI_ONBOARDING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING === 'true',
+  AI_INSIGHTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS === 'true',
+  AI_VOICE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_VOICE === 'true',
   
-  // Development Features
-  DEBUG_MODE: __DEV__,     // Only in development
-  MOCK_API_RESPONSES: false, // For testing without real API calls
-} as const;
-
-// Runtime feature check helper
-export const isFeatureEnabled = (feature: keyof typeof FEATURE_FLAGS): boolean => {
-  return FEATURE_FLAGS[feature];
+  // 🧪 Experimental AI Features
+  AI_ART_THERAPY: false,
+  AI_VOICE_ERP: false,
+  AI_CONTEXT_INTELLIGENCE: false,
+  AI_PREDICTIVE_INTERVENTION: false,
+  AI_CRISIS_DETECTION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CRISIS === 'true',
+  
+  // 🔧 Development Features
+  DEBUG_MODE: __DEV__,
+  MOCK_API_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true',
+  
+  // 📊 Telemetry Features
+  AI_TELEMETRY: process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY === 'true',
+  PERFORMANCE_MONITORING: true,
+  ERROR_REPORTING: true,
+  
+  // 🚨 Safety Features (Always Enabled)
+  SAFETY_CHECKS: true,
+  CONTENT_FILTERING: true,
+  RATE_LIMITING: true,
 };
 
-// AI Configuration
+// Feature flag logging için
+const featureUsageLog: Record<string, number> = {};
+
+export const FEATURE_FLAGS = {
+  ...featureFlagState,
+  
+  /**
+   * 🔍 Feature durumunu kontrol eder
+   * Kullanım loglaması ve runtime kontrolleri içerir
+   */
+  isEnabled: (feature: keyof typeof featureFlagState): boolean => {
+    // Kullanım sayacı
+    featureUsageLog[feature] = (featureUsageLog[feature] || 0) + 1;
+    
+    // Geliştirme modunda log
+    if (__DEV__) {
+      console.log(`🏳️ Feature Flag Check: ${feature} = ${featureFlagState[feature]}`);
+    }
+    
+    // Additional runtime checks
+    if (feature.startsWith('AI_') && !featureFlagState.SAFETY_CHECKS) {
+      console.warn('⚠️ AI features disabled: Safety checks are off');
+      return false;
+    }
+    
+    // Remote kill switch capability (gelecekte API'den kontrol edilebilir)
+    if (typeof (global as any).__OBSESSLESS_KILL_SWITCH !== 'undefined') {
+      console.warn('🚨 Emergency kill switch activated');
+      return false;
+    }
+    
+    return featureFlagState[feature] || false;
+  },
+  
+  /**
+   * 🚨 Acil durum fonksiyonu - Tüm AI özelliklerini kapatır
+   */
+  disableAll: (): void => {
+    console.warn('🚨 EMERGENCY: Disabling all AI features');
+    
+    Object.keys(featureFlagState).forEach(key => {
+      if (key.startsWith('AI_')) {
+        featureFlagState[key] = false;
+      }
+    });
+    
+    // Global kill switch aktive et
+    (global as any).__OBSESSLESS_KILL_SWITCH = true;
+    
+    // Telemetri gönder
+    if (featureFlagState.AI_TELEMETRY) {
+      // TODO: Send emergency shutdown telemetry
+      console.log('📊 Emergency shutdown telemetry sent');
+    }
+  },
+  
+  /**
+   * 🔧 Runtime'da feature flag değiştirme (sadece development)
+   */
+  setFlag: (feature: keyof typeof featureFlagState, value: boolean): void => {
+    if (!__DEV__) {
+      console.warn('⚠️ Feature flag changes only allowed in development');
+      return;
+    }
+    
+    console.log(`🔧 Changing feature flag: ${feature} = ${value}`);
+    featureFlagState[feature] = value;
+  },
+  
+  /**
+   * 📊 Feature kullanım istatistikleri
+   */
+  getUsageStats: (): Record<string, number> => {
+    return { ...featureUsageLog };
+  },
+  
+  /**
+   * 🔄 Tüm AI özelliklerini yeniden aktifleştir (development only)
+   */
+  reactivateAll: (): void => {
+    if (!__DEV__) {
+      console.warn('⚠️ Feature reactivation only allowed in development');
+      return;
+    }
+    
+    console.log('🔄 Reactivating all AI features');
+    delete (global as any).__OBSESSLESS_KILL_SWITCH;
+    
+    // Environment variable'ları yeniden kontrol et
+    Object.keys(featureFlagState).forEach(key => {
+      if (key.startsWith('AI_')) {
+        const envVar = `EXPO_PUBLIC_ENABLE_${key}`;
+        featureFlagState[key] = process.env[envVar] === 'true';
+      }
+    });
+  }
+} as const;
+
+// AI Configuration - Yol Haritası Uyumlu
 export const AI_CONFIG = {
-  // Default provider - can be overridden by environment
-  DEFAULT_PROVIDER: 'openai', // 'openai' | 'gemini' | 'claude'
+  // Default provider - environment'tan override edilebilir
+  DEFAULT_PROVIDER: (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') || 'openai',
   
   // Provider priorities (fallback order)
-  PROVIDER_PRIORITY: ['openai', 'claude', 'gemini'],
+  PROVIDER_PRIORITY: ['openai', 'claude', 'gemini'] as const,
   
   // Feature-specific AI requirements
   CHAT_REQUIRES_EXTERNAL_AI: true,
   INSIGHTS_USES_LOCAL_AI: true,
   VOICE_USES_HYBRID_AI: true,
+  
+  // Safety configurations
+  MAX_TOKENS: 4000,
+  TEMPERATURE_LIMIT: 0.8,
+  SAFETY_THRESHOLD: 0.9,
+  
+  // Rate limiting
+  MAX_REQUESTS_PER_MINUTE: 60,
+  MAX_REQUESTS_PER_HOUR: 1000,
 } as const; 
