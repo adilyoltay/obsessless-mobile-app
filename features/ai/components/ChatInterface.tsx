@@ -383,7 +383,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       <View style={[
         styles.messageBubble,
         isUser ? styles.userMessage : styles.aiMessage,
-        isError && styles.errorMessage
+        isError && styles.errorMessageBubble
       ]}>
         <Text style={[
           styles.messageText,
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#10B981',
   },
-  errorMessage: {
+  errorMessageBubble: {
     borderLeftColor: '#EF4444',
     backgroundColor: '#FEF2F2',
   },

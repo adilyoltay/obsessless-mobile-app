@@ -55,7 +55,59 @@ export enum AIEventType {
   // User experience events
   USER_FEEDBACK_POSITIVE = 'user_feedback_positive',
   USER_FEEDBACK_NEGATIVE = 'user_feedback_negative',
-  FEATURE_ABANDONED = 'feature_abandoned'
+  FEATURE_ABANDONED = 'feature_abandoned',
+  
+  // Sprint 6: Context Intelligence events
+  CONTEXT_INTELLIGENCE_INITIALIZED = 'context_intelligence_initialized',
+  CONTEXT_ANALYSIS_COMPLETED = 'context_analysis_completed',
+  CONTEXT_INTELLIGENCE_SHUTDOWN = 'context_intelligence_shutdown',
+  
+  // Sprint 6: Adaptive Interventions events
+  ADAPTIVE_INTERVENTIONS_INITIALIZED = 'adaptive_interventions_initialized',
+  INTERVENTION_TRIGGERED = 'intervention_triggered',
+  INTERVENTION_DELIVERED = 'intervention_delivered',
+  INTERVENTION_FEEDBACK = 'intervention_feedback',
+  CRISIS_INTERVENTION_TRIGGERED = 'crisis_intervention_triggered',
+  ADAPTIVE_INTERVENTIONS_SHUTDOWN = 'adaptive_interventions_shutdown',
+  
+  // Sprint 6: JITAI events
+  JITAI_INITIALIZED = 'jitai_initialized',
+  TIMING_PREDICTION_GENERATED = 'timing_prediction_generated',
+  INTERVENTION_PERSONALIZED = 'intervention_personalized',
+  AB_TEST_VARIATION_APPLIED = 'ab_test_variation_applied',
+  AB_TEST_STARTED = 'ab_test_started',
+  AB_TEST_STOPPED = 'ab_test_stopped',
+  JITAI_SHUTDOWN = 'jitai_shutdown',
+  
+  // Sprint 4: CBT Engine events
+  CBT_ENGINE_INITIALIZED = 'cbt_engine_initialized',
+  CBT_ANALYSIS_COMPLETED = 'cbt_analysis_completed',
+  CBT_TECHNIQUE_APPLIED = 'cbt_technique_applied',
+  CBT_ENGINE_SHUTDOWN = 'cbt_engine_shutdown',
+  
+  // Sprint 7: AI Onboarding Recreation events
+  YBOCS_ANALYSIS_STARTED = 'ybocs_analysis_started',
+  YBOCS_ANALYSIS_COMPLETED = 'ybocs_analysis_completed',
+  YBOCS_ENHANCEMENT_APPLIED = 'ybocs_enhancement_applied',
+  
+  ONBOARDING_ENGINE_INITIALIZED = 'onboarding_engine_initialized',
+  ONBOARDING_SESSION_STARTED = 'onboarding_session_started',
+  ONBOARDING_STEP_COMPLETED = 'onboarding_step_completed',
+  ONBOARDING_SESSION_COMPLETED = 'onboarding_session_completed',
+  ONBOARDING_ENGINE_SHUTDOWN = 'onboarding_engine_shutdown',
+  
+  USER_PROFILE_GENERATED = 'user_profile_generated',
+  USER_PROFILE_ENHANCED = 'user_profile_enhanced',
+  USER_PROFILE_UPDATED = 'user_profile_updated',
+  
+  TREATMENT_PLAN_GENERATED = 'treatment_plan_generated',
+  TREATMENT_PLAN_ADAPTED = 'treatment_plan_adapted',
+  TREATMENT_PLAN_OPTIMIZED = 'treatment_plan_optimized',
+  
+  RISK_ASSESSMENT_COMPLETED = 'risk_assessment_completed',
+  RISK_ESCALATION_PREDICTED = 'risk_escalation_predicted',
+  SAFETY_PLAN_CREATED = 'safety_plan_created',
+  PREVENTIVE_INTERVENTION_TRIGGERED = 'preventive_intervention_triggered'
 }
 
 /**
@@ -620,10 +672,22 @@ export const trackAIInteraction = async (
  * AI error'unu track et
  */
 export const trackAIError = async (
-  error: AIError,
+  error: AIError | {
+    code: AIErrorCode;
+    message: string;
+    severity: ErrorSeverity;
+    context?: Record<string, any>;
+  },
   context?: Record<string, any>
 ): Promise<void> => {
-  return telemetryManager.trackAIError(error, context);
+  // If error is not a full AIError, create one
+  const fullError: AIError = 'timestamp' in error ? error : {
+    ...error,
+    timestamp: new Date(),
+    recoverable: error.severity !== ErrorSeverity.CRITICAL
+  };
+  
+  return telemetryManager.trackAIError(fullError, context);
 };
 
 /**

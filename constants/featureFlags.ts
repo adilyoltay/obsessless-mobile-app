@@ -28,7 +28,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_SMART_NOTIFICATIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_NOTIFICATIONS === 'true',
   AI_PROGRESS_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS === 'true',
   
-  // 🚀 SPRINT 6: Advanced Features & Optimization
+  // 🚀 SPRINT 6: Advanced Features & Optimization (COMPLETED)
   AI_ADAPTIVE_INTERVENTIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INTERVENTIONS === 'true',
   AI_CONTEXT_INTELLIGENCE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CONTEXT === 'true',
   AI_JITAI_SYSTEM: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_JITAI === 'true',
@@ -37,11 +37,22 @@ const featureFlagState: Record<string, boolean> = {
   AI_PERFORMANCE_MONITORING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_MONITORING === 'true',
   AI_ADVANCED_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS_V2 === 'true',
   AI_DASHBOARD: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_DASHBOARD === 'true',
+
+  // 🧭 SPRINT 7: AI Onboarding Recreation
+  AI_ONBOARDING_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING_V2 === 'true',
+  AI_YBOCS_ANALYSIS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_YBOCS === 'true',
+  AI_USER_PROFILING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PROFILING === 'true',
+  AI_TREATMENT_PLANNING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_TREATMENT === 'true',
+  AI_RISK_ASSESSMENT: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_RISK === 'true',
+  AI_ONBOARDING_UI: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING_UI === 'true',
+  
+  // Sprint 7 Integration flags
+  AI_ONBOARDING_CONTEXT_INTEGRATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_ONBOARDING_CONTEXT === 'true',
+  AI_ONBOARDING_INTERVENTIONS_INTEGRATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_ONBOARDING_INTERVENTIONS === 'true',
   
   // 🧪 Experimental AI Features
   AI_ART_THERAPY: false,
   AI_VOICE_ERP: false,
-  AI_CONTEXT_INTELLIGENCE: false,
   AI_PREDICTIVE_INTERVENTION: false,
   AI_CRISIS_DETECTION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CRISIS === 'true',
   

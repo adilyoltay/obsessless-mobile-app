@@ -334,6 +334,10 @@ export enum AIErrorCode {
   SAFETY_VIOLATION = 'safety_violation',
   PRIVACY_VIOLATION = 'privacy_violation',
   MODEL_ERROR = 'model_error',
+  INITIALIZATION_FAILED = 'initialization_failed',
+  PROCESSING_FAILED = 'processing_failed',
+  RESOURCE_NOT_FOUND = 'resource_not_found',
+  SESSION_NOT_FOUND = 'session_not_found',
   UNKNOWN = 'unknown'
 }
 
@@ -537,6 +541,408 @@ export const requiresFeatureFlag = (config: AIConfig): boolean => {
 };
 
 // =============================================================================
+// 🧭 SPRINT 7: AI ONBOARDING RECREATION TYPES
+// =============================================================================
+
+/**
+ * Y-BOCS Assessment Answer
+ */
+export interface YBOCSAnswer {
+  questionId: string;
+  questionText: string;
+  response: string | number;
+  severity?: number; // 0-4 scale
+  timestamp: Date;
+  metadata?: {
+    responseTime: number; // ms
+    revisionCount: number;
+    confidence?: number; // 0-1
+  };
+}
+
+/**
+ * Y-BOCS Analysis Result
+ */
+export interface OCDAnalysis {
+  totalScore: number; // 0-40
+  subscores: {
+    obsessions: number; // 0-20
+    compulsions: number; // 0-20
+  };
+  severityLevel: OCDSeverityLevel;
+  dominantSymptoms: string[];
+  riskFactors: string[];
+  confidence: number; // 0-1
+  culturalConsiderations: string[];
+  recommendedInterventions: string[];
+}
+
+/**
+ * OCD Severity Levels
+ */
+export enum OCDSeverityLevel {
+  MINIMAL = 'minimal', // 0-7
+  MILD = 'mild', // 8-15
+  MODERATE = 'moderate', // 16-23
+  SEVERE = 'severe', // 24-31
+  EXTREME = 'extreme' // 32-40
+}
+
+/**
+ * Enhanced Y-BOCS Score with AI Enhancement
+ */
+export interface EnhancedYBOCSScore {
+  baseScore: OCDAnalysis;
+  aiEnhancements: {
+    contextualAdjustments: number;
+    culturalFactors: string[];
+    personalityConsiderations: string[];
+    environmentalInfluences: string[];
+  };
+  finalScore: number;
+  confidence: number;
+  rationale: string;
+}
+
+/**
+ * Onboarding Session
+ */
+export interface OnboardingSession {
+  id: string;
+  userId: string;
+  startTime: Date;
+  currentStep: OnboardingStep;
+  completedSteps: OnboardingStep[];
+  ybocsData: YBOCSAnswer[];
+  userProfile: PartialUserProfile;
+  sessionState: OnboardingSessionState;
+  culturalContext: CulturalContext;
+  progress: {
+    totalSteps: number;
+    completedSteps: number;
+    estimatedTimeRemaining: number; // minutes
+  };
+}
+
+/**
+ * Onboarding Steps
+ */
+export enum OnboardingStep {
+  WELCOME = 'welcome',
+  CONSENT = 'consent',
+  BASIC_INFO = 'basic_info',
+  CULTURAL_PREFERENCES = 'cultural_preferences',
+  YBOCS_ASSESSMENT = 'ybocs_assessment',
+  SYMPTOM_EXPLORATION = 'symptom_exploration',
+  THERAPEUTIC_PREFERENCES = 'therapeutic_preferences',
+  RISK_ASSESSMENT = 'risk_assessment',
+  GOAL_SETTING = 'goal_setting',
+  TREATMENT_PLANNING = 'treatment_planning',
+  SAFETY_PLANNING = 'safety_planning',
+  COMPLETION = 'completion'
+}
+
+/**
+ * Onboarding Session State
+ */
+export enum OnboardingSessionState {
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  COMPLETED = 'completed',
+  ABANDONED = 'abandoned',
+  ERROR = 'error'
+}
+
+/**
+ * Cultural Context
+ */
+export interface CulturalContext {
+  language: string;
+  country: string;
+  culturalBackground: string[];
+  religiousConsiderations?: string[];
+  familyDynamics?: string;
+  communicationStyle: CommunicationStyle;
+  stigmaFactors?: string[];
+  supportSystemStructure?: string;
+}
+
+/**
+ * Partial User Profile (during onboarding)
+ */
+export interface PartialUserProfile {
+  basicInfo?: {
+    age?: number;
+    gender?: string;
+    occupation?: string;
+    educationLevel?: string;
+  };
+  therapeuticHistory?: {
+    previousTreatment: boolean;
+    treatmentTypes?: TreatmentType[];
+    currentMedication: boolean;
+    medicationDetails?: string[];
+  };
+  preferences?: TherapeuticPreferences;
+  goals?: string[];
+  concerns?: string[];
+}
+
+/**
+ * Therapeutic Preferences
+ */
+export interface TherapeuticPreferences {
+  preferredApproach: TherapeuticApproach[];
+  communicationStyle: CommunicationStyle;
+  sessionFrequency: SessionFrequency;
+  contentPreferences: ContentPreferences;
+  accessibilityNeeds?: AccessibilityNeed[];
+  triggerWarnings?: string[];
+}
+
+/**
+ * Therapeutic Approaches
+ */
+export enum TherapeuticApproach {
+  CBT = 'cbt',
+  EXPOSURE_THERAPY = 'exposure_therapy',
+  MINDFULNESS = 'mindfulness',
+  BEHAVIORAL_ACTIVATION = 'behavioral_activation',
+  ACCEPTANCE_COMMITMENT = 'acceptance_commitment',
+  PEER_SUPPORT = 'peer_support',
+  FAMILY_INVOLVEMENT = 'family_involvement'
+}
+
+/**
+ * Session Frequency Preferences
+ */
+export enum SessionFrequency {
+  DAILY = 'daily',
+  TWICE_WEEKLY = 'twice_weekly',
+  WEEKLY = 'weekly',
+  BIWEEKLY = 'biweekly',
+  AS_NEEDED = 'as_needed'
+}
+
+/**
+ * Content Preferences
+ */
+export interface ContentPreferences {
+  textBased: boolean;
+  audioSupport: boolean;
+  visualAids: boolean;
+  interactiveExercises: boolean;
+  progressTracking: boolean;
+  peerStories: boolean;
+  professionalGuidance: boolean;
+}
+
+/**
+ * Accessibility Needs
+ */
+export enum AccessibilityNeed {
+  LARGE_TEXT = 'large_text',
+  HIGH_CONTRAST = 'high_contrast',
+  SCREEN_READER = 'screen_reader',
+  VOICE_CONTROL = 'voice_control',
+  SIMPLIFIED_UI = 'simplified_ui',
+  EXTENDED_TIME = 'extended_time'
+}
+
+/**
+ * Treatment Plan
+ */
+export interface TreatmentPlan {
+  id: string;
+  userId: string;
+  createdAt: Date;
+  lastUpdated: Date;
+  
+  // Plan structure
+  phases: TreatmentPhase[];
+  currentPhase: number;
+  estimatedDuration: number; // weeks
+  
+  // Personalization
+  userProfile: UserTherapeuticProfile;
+  culturalAdaptations: string[];
+  accessibilityAccommodations: string[];
+  
+  // Evidence base
+  evidenceBasedInterventions: EvidenceBasedIntervention[];
+  expectedOutcomes: ExpectedOutcome[];
+  successMetrics: SuccessMetric[];
+  
+  // Adaptive elements
+  adaptationTriggers: AdaptationTrigger[];
+  fallbackStrategies: FallbackStrategy[];
+  emergencyProtocols: EmergencyProtocol[];
+}
+
+/**
+ * Treatment Phase
+ */
+export interface TreatmentPhase {
+  id: string;
+  name: string;
+  description: string;
+  estimatedDuration: number; // weeks
+  objectives: string[];
+  interventions: Intervention[];
+  milestones: Milestone[];
+  prerequisites?: string[];
+  successCriteria: string[];
+}
+
+/**
+ * Evidence-Based Intervention
+ */
+export interface EvidenceBasedIntervention {
+  id: string;
+  name: string;
+  type: InterventionType;
+  evidenceLevel: EvidenceLevel;
+  description: string;
+  protocol: InterventionProtocol;
+  expectedOutcome: string;
+  contraindications?: string[];
+  culturalConsiderations?: string[];
+}
+
+/**
+ * Intervention Types
+ */
+export enum InterventionType {
+  EXPOSURE_RESPONSE_PREVENTION = 'erp',
+  COGNITIVE_RESTRUCTURING = 'cognitive_restructuring',
+  MINDFULNESS_TRAINING = 'mindfulness_training',
+  BEHAVIORAL_ACTIVATION = 'behavioral_activation',
+  PSYCHOEDUCATION = 'psychoeducation',
+  RELAPSE_PREVENTION = 'relapse_prevention',
+  FAMILY_EDUCATION = 'family_education'
+}
+
+/**
+ * Evidence Levels
+ */
+export enum EvidenceLevel {
+  GRADE_A = 'grade_a', // Strong evidence
+  GRADE_B = 'grade_b', // Moderate evidence
+  GRADE_C = 'grade_c', // Weak evidence
+  EXPERT_CONSENSUS = 'expert_consensus',
+  EMERGING = 'emerging'
+}
+
+/**
+ * Risk Assessment Result
+ */
+export interface RiskAssessment {
+  id: string;
+  userId: string;
+  timestamp: Date;
+  
+  // Risk categories
+  immediateRisk: RiskLevel;
+  shortTermRisk: RiskLevel;
+  longTermRisk: RiskLevel;
+  
+  // Risk factors
+  identifiedRisks: RiskFactor[];
+  protectiveFactors: ProtectiveFactor[];
+  
+  // Recommendations
+  immediateActions: ImmediateAction[];
+  monitoringPlan: MonitoringPlan;
+  safeguards: Safeguard[];
+  
+  // Validation
+  confidence: number;
+  humanReviewRequired: boolean;
+  reassessmentInterval: number; // days
+}
+
+/**
+ * Risk Levels
+ */
+export enum RiskLevel {
+  LOW = 'low',
+  MODERATE = 'moderate',
+  HIGH = 'high',
+  VERY_HIGH = 'very_high',
+  IMMINENT = 'imminent'
+}
+
+/**
+ * Risk Factor
+ */
+export interface RiskFactor {
+  category: RiskCategory;
+  description: string;
+  severity: RiskLevel;
+  modifiable: boolean;
+  timeframe: 'immediate' | 'short_term' | 'long_term';
+}
+
+/**
+ * Risk Categories
+ */
+export enum RiskCategory {
+  CLINICAL = 'clinical',
+  PSYCHOSOCIAL = 'psychosocial',
+  ENVIRONMENTAL = 'environmental',
+  BEHAVIORAL = 'behavioral',
+  COGNITIVE = 'cognitive'
+}
+
+/**
+ * Protective Factor
+ */
+export interface ProtectiveFactor {
+  category: string;
+  description: string;
+  strength: 'weak' | 'moderate' | 'strong';
+  reinforceable: boolean;
+}
+
+/**
+ * Onboarding Result
+ */
+export interface OnboardingResult {
+  sessionId: string;
+  userId: string;
+  completedAt: Date;
+  duration: number; // minutes
+  
+  // Assessments
+  ybocsAnalysis: OCDAnalysis;
+  enhancedScore: EnhancedYBOCSScore;
+  riskAssessment: RiskAssessment;
+  
+  // Generated profiles
+  userProfile: UserTherapeuticProfile;
+  treatmentPlan: TreatmentPlan;
+  
+  // Quality metrics
+  completionRate: number; // 0-1
+  dataQuality: number; // 0-1
+  userSatisfaction?: number; // 1-5
+  
+  // Next steps
+  recommendedNextSteps: string[];
+  followUpSchedule: FollowUpSchedule;
+}
+
+/**
+ * Follow-up Schedule
+ */
+export interface FollowUpSchedule {
+  initialCheckIn: Date;
+  weeklyReviews: Date[];
+  monthlyAssessments: Date[];
+  emergencyContactInfo: CrisisContact[];
+}
+
+// =============================================================================
 // 📤 EXPORTS
 // =============================================================================
 
@@ -552,6 +958,18 @@ export default {
   CrisisRiskLevel,
   AIProvider,
   FallbackBehavior,
+  
+  // Sprint 7 Enums
+  OCDSeverityLevel,
+  OnboardingStep,
+  OnboardingSessionState,
+  TherapeuticApproach,
+  SessionFrequency,
+  AccessibilityNeed,
+  InterventionType,
+  EvidenceLevel,
+  RiskLevel,
+  RiskCategory,
   
   // Utilities
   isAIMessage,

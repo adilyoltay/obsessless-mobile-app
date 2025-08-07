@@ -246,7 +246,14 @@ class ContextIntelligenceEngine {
    */
   async analyzeContext(context: ContextIntelligenceContext): Promise<ContextAnalysisResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Context Intelligence Engine is not enabled');
+      const error: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'Context Intelligence Engine is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.MEDIUM,
+        recoverable: true
+      };
+      throw error;
     }
 
     const analysisId = `context_analysis_${Date.now()}_${context.userId}`;
@@ -953,11 +960,3 @@ class ContextIntelligenceEngine {
 
 export const contextIntelligenceEngine = ContextIntelligenceEngine.getInstance();
 export default contextIntelligenceEngine;
-export { 
-  EnvironmentalFactor,
-  UserActivityState,
-  StressLevel,
-  type ContextAnalysisResult,
-  type ContextIntelligenceConfig,
-  type ContextIntelligenceContext
-};

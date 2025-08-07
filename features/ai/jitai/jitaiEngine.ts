@@ -313,7 +313,14 @@ class JITAIEngine {
    */
   async predictOptimalTiming(context: JITAIContext): Promise<TimingPredictionResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'JITAI Engine is not enabled');
+      const error: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'JITAI Engine is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.MEDIUM,
+        recoverable: true
+      };
+      throw error;
     }
 
     const predictionId = `timing_${Date.now()}_${context.userId}`;
@@ -416,7 +423,7 @@ class JITAIEngine {
       
       // Adjust delivery method if needed
       if (personalization.preferredDeliveryMethod) {
-        personalizedIntervention.deliveryMethod = personalization.preferredDeliveryMethod;
+        personalizedIntervention.deliveryMethod = personalization.preferredDeliveryMethod as any;
       }
       
       // Add personalization metadata
@@ -988,7 +995,7 @@ class JITAIEngine {
 
     // Apply cultural adaptation
     if (this.config.culturalContext === 'turkish' || this.config.culturalContext === 'adaptive') {
-      contentStyle = 'warm_turkish';
+      contentStyle = 'gentle'; // Turkish warm style mapped to gentle
       appliedFactors.push('cultural_adaptation');
     }
 
@@ -1325,11 +1332,3 @@ class JITAIEngine {
 
 export const jitaiEngine = JITAIEngine.getInstance();
 export default jitaiEngine;
-export { 
-  TimingModel,
-  EffectivenessFactor,
-  type TimingPredictionResult,
-  type JITAIConfig,
-  type JITAIContext,
-  type ABTestConfig
-};

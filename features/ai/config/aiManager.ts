@@ -500,6 +500,10 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
       [AIErrorCode.SAFETY_VIOLATION]: 'Güvenlik kontrolü başarısız.',
       [AIErrorCode.PRIVACY_VIOLATION]: 'Gizlilik ayarlarınız bu işleme izin vermiyor.',
       [AIErrorCode.MODEL_ERROR]: 'AI modeli hatası.',
+      [AIErrorCode.INITIALIZATION_FAILED]: 'AI sistemi başlatılamadı.',
+      [AIErrorCode.PROCESSING_FAILED]: 'İşlem başarısız oldu.',
+      [AIErrorCode.RESOURCE_NOT_FOUND]: 'Kaynak bulunamadı.',
+      [AIErrorCode.SESSION_NOT_FOUND]: 'Oturum bulunamadı.',
       [AIErrorCode.UNKNOWN]: 'Beklenmeyen bir hata oluştu.'
     };
     return messages[code] || messages[AIErrorCode.UNKNOWN];

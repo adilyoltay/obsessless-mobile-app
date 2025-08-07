@@ -265,7 +265,14 @@ class CBTEngine {
    */
   async detectCognitiveDistortions(message: AIMessage, context: ConversationContext): Promise<CognitiveAssessment> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'CBT Engine is not enabled');
+      const error: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'CBT Engine is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.MEDIUM,
+        recoverable: true
+      };
+      throw error;
     }
 
     try {
@@ -359,13 +366,27 @@ class CBTEngine {
     context: ConversationContext
   ): Promise<CBTIntervention> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'CBT Engine is not enabled');
+      const error: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'CBT Engine is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.MEDIUM,
+        recoverable: true
+      };
+      throw error;
     }
 
     try {
       const interventions = this.interventionLibrary.get(technique);
       if (!interventions || interventions.length === 0) {
-        throw new AIError(AIErrorCode.RESOURCE_NOT_FOUND, `No interventions found for technique: ${technique}`);
+        const error: AIError = {
+          code: AIErrorCode.RESOURCE_NOT_FOUND,
+          message: `No interventions found for technique: ${technique}`,
+          timestamp: new Date(),
+          severity: ErrorSeverity.MEDIUM,
+          recoverable: true
+        };
+        throw error;
       }
 
       // En uygun intervention'ı seç
@@ -630,10 +651,4 @@ class CBTEngine {
 
 export const cbtEngine = CBTEngine.getInstance();
 export default cbtEngine;
-export { 
-  CBTTechnique, 
-  CognitiveDistortion, 
-  type CBTIntervention, 
-  type CognitiveAssessment, 
-  type CBTSessionContext 
-};
+// Note: CBTTechnique, CognitiveDistortion enums and interfaces are already exported above
