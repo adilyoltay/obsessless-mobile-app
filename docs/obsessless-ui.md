@@ -822,7 +822,7 @@ const LAYOUT = {
 
 ---
 
-## 🔄 State Management
+## 🔄 State Management (Updated January 2025)
 
 ### 🗄️ Data Flow
 
@@ -841,6 +841,37 @@ graph TD
     
     UI --> Haptic[Haptic Feedback]
     UI --> Anim[Animations]
+```
+
+### 📊 Güncel Veri Akış Detayları
+
+#### **Offline-First Architecture:**
+1. **Primary Write:** AsyncStorage (immediate)
+2. **Secondary Sync:** Supabase (when online)
+3. **Conflict Resolution:** Server timestamp wins
+4. **Cache Strategy:** User-specific keys
+
+#### **Data Sync Pipeline:**
+```typescript
+// 1. User Action
+onPress={() => recordCompulsion())
+
+// 2. Local State Update
+zustandStore.addCompulsion(data)
+
+// 3. Offline Storage
+AsyncStorage.setItem(key, JSON.stringify(data))
+
+// 4. Online Sync (with retry)
+try {
+  await supabase.from('compulsions').insert(data)
+} catch (error) {
+  // Queue for later sync
+  syncQueue.add(data)
+}
+
+// 5. UI Update
+queryClient.invalidateQueries(['compulsions'])
 ```
 
 ### 📊 User-Specific Storage
@@ -886,6 +917,66 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 ---
 
 *Son güncelleme: Ocak 2025 - Supabase Integration Complete*
+
+---
+
+## 🚀 **Güncel Durum Özeti (Ocak 2025)**
+
+### ✅ **Tamamlanan Kritik Düzeltmeler:**
+
+#### **1. Database Category Mapping** ✅
+- **Sorun:** Frontend kategorileri ile database ENUM değerleri uyumsuzdu
+- **Çözüm:** `mapCategoryForDatabase` fonksiyonu güncellendi
+  - `washing` → `contamination`
+  - `checking` → `harm`
+  - `ordering` → `symmetry`
+  - `mental` → `religious`
+  - `hoarding` → `hoarding`
+
+#### **2. Navigation Router Hatası** ✅
+- **Sorun:** Today sayfasında `router` undefined hatası
+- **Çözüm:** `useRouter` hook import edildi ve component'te tanımlandı
+
+#### **3. Profile Completion Check** ✅
+- **Sorun:** Onboarding sonrası navigation loop
+- **Çözüm:** NavigationGuard'da AsyncStorage öncelikli kontrol eklendi
+
+#### **4. ERP Session Duplicates** ✅
+- **Sorun:** Aynı session birden fazla kez kaydediliyordu
+- **Çözüm:** Session ID ile duplicate check eklendi
+
+### 📊 **Veri Akış Durumu:**
+
+| Özellik | Local Storage | Supabase Sync | Durum |
+|---------|--------------|---------------|--------|
+| User Auth | ✅ Token | ✅ Session | Çalışıyor |
+| Onboarding | ✅ Profile | ✅ user_profiles | Çalışıyor |
+| Compulsions | ✅ AsyncStorage | ✅ compulsions | Çalışıyor |
+| ERP Sessions | ✅ AsyncStorage | ✅ erp_sessions | Çalışıyor |
+| Gamification | ✅ AsyncStorage | ✅ gamification_profiles | Çalışıyor |
+
+### 🎯 **Production Readiness Checklist:**
+
+- [x] Authentication Flow (Email + Google OAuth)
+- [x] Onboarding Completion
+- [x] Compulsion Recording with Category Mapping
+- [x] ERP Session Management
+- [x] Gamification System
+- [x] Offline-First Architecture
+- [x] User-Specific Data Isolation
+- [x] Database Triggers & RLS
+- [x] Error Handling & Recovery
+- [x] Navigation Guards
+
+### 📱 **Test Edilmiş Platformlar:**
+- iOS Simulator ✅
+- iOS Real Device (iPhone 16) ✅
+- Android Emulator ✅
+- Expo Go ✅
+
+---
+
+**Status: Production Ready for Beta Testing** 🚀
 
 ---
 

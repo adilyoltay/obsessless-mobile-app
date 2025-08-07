@@ -126,3 +126,36 @@ Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde h
 >
 > 1.  **Tasarla (UI/UX):** Belirtilen **4 Temel Yeteneğin (Onboarding, Kompulsiyon Kaydı, ERP Oturumu, Oyunlaştırma)** her biri için, felsefeye ve teknik detaylara %100 sadık kalarak, yüksek kaliteli (hi-fi), tıklanabilir bir prototip oluştur. Görsel kimlik, renkler, tipografi ve duyusal geri bildirimler belgelerde tanımlandığı gibi olmalıdır.
 > 2.  **Geliştir (Kod):** Belirtilen teknolojileri (React Native/Expo, Zustand, React Query) kullanarak bu 4 temel yeteneğin fonksiyonel iskeletini kodla. Bileşen yapısı, state yönetimi mantığı, veri modelleri ve API etkileşimleri belgelerdeki direktiflere tam olarak uymalıdır. Öncelik, sürtünmesiz, performanslı ve güvenilir bir kullanıcı deneyimi sunmaktır.
+
+---
+
+## 📊 **Teknik Mimari (Güncel - Ocak 2025)**
+
+### **Teknoloji Yığını:**
+- **Frontend:** React Native 0.74.5 + Expo SDK 53.0.0
+- **State Management:** Zustand (Global) + React Query (Server State)
+- **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions)
+- **Storage:** AsyncStorage (Offline-first) + Supabase (Cloud sync)
+- **Navigation:** Expo Router (File-based routing)
+- **UI Components:** Custom components (React Native Paper kaldırıldı)
+- **Animations:** React Native Reanimated + Lottie
+- **Haptics:** Expo Haptics
+
+### **Veri Akış Mimarisi:**
+```
+User Action → UI Component → Zustand Store → AsyncStorage (Offline)
+                                           ↓
+                                    Supabase (Online Sync)
+                                           ↓
+                                    PostgreSQL + RLS
+```
+
+### **Güncel Düzeltmeler (✅ Tamamlandı):**
+1. **Category Mapping:** Database constraint hataları düzeltildi
+2. **Router Import:** Navigation hataları giderildi
+3. **Profile Check:** AsyncStorage öncelikli kontrol eklendi
+4. **Duplicate Prevention:** ERP session tekrar kayıt önleme
+
+---
+
+*Son güncelleme: Ocak 2025 - Teknik Mimari ve Düzeltmeler Eklendi*

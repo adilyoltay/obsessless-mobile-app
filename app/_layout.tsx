@@ -14,7 +14,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
-// import { NavigationGuard } from '@/components/navigation/NavigationGuard'; // Temporarily disabled
+import { NavigationGuard } from '@/components/navigation/NavigationGuard';
 import { GlobalLoading } from '@/components/ui/GlobalLoading';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -51,11 +51,13 @@ export default function RootLayout() {
           <LoadingProvider>
             <NotificationProvider>
               <AuthProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <Slot />
-                  <GlobalLoading />
-                  <Toast />
-                </GestureHandlerRootView>
+                <NavigationGuard>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <Slot />
+                    <GlobalLoading />
+                    <Toast />
+                  </GestureHandlerRootView>
+                </NavigationGuard>
               </AuthProvider>
             </NotificationProvider>
           </LoadingProvider>

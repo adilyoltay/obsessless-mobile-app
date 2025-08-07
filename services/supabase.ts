@@ -442,20 +442,29 @@ class SupabaseNativeService {
 
   private mapCategoryForDatabase(category: string): string {
     // Map frontend categories to database-compatible categories
+    // Database valid categories: 'contamination', 'harm', 'symmetry', 'religious', 'sexual', 'hoarding'
     const categoryMapping: Record<string, string> = {
-      'mental': 'contamination', // Map mental rituals to contamination temporarily
+      // Direct mappings
       'washing': 'contamination',
-      'checking': 'checking',
-      'counting': 'ordering',
-      'ordering': 'ordering',
-      'arranging': 'ordering',
-      'reassurance': 'checking',
-      'avoidance': 'contamination',
-      'touching': 'ordering',
-      'repeating': 'ordering',
-      'hoarding': 'contamination',
-      'religious': 'contamination',
-      'other': 'contamination'
+      'cleaning': 'contamination',
+      'checking': 'harm',
+      'counting': 'symmetry',
+      'ordering': 'symmetry',
+      'arranging': 'symmetry',
+      'hoarding': 'hoarding',
+      'religious': 'religious',
+      
+      // Mental rituals -> religious (closest match)
+      'mental': 'religious',
+      
+      // Additional mappings
+      'repeating': 'symmetry',
+      'touching': 'contamination',
+      'avoidance': 'harm',
+      'reassurance': 'harm',
+      
+      // Default/Other
+      'other': 'hoarding'
     };
     
     return categoryMapping[category] || 'contamination';
@@ -526,6 +535,13 @@ class SupabaseNativeService {
     try {
       console.log('🗑️ Deleting compulsion from database...', id);
       
+      // Check if ID is a valid UUID (Supabase format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        console.log('⚠️ Skipping database delete - ID is not a valid UUID (likely a local-only record):', id);
+        return; // Skip database delete for local-only records
+      }
+      
       const { error } = await this.client
         .from('compulsions')
         .delete()
@@ -543,19 +559,49 @@ class SupabaseNativeService {
   // ERP SESSION METHODS
   // ===========================
 
-  async saveERPSession(session: Omit<ERPSession, 'id' | 'timestamp'>): Promise<ERPSession> {
+  async getERPSession(sessionId: string): Promise<ERPSession | null> {
+    try {
+      const { data, error } = await this.client
+        .from('erp_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned - session doesn't exist
+          return null;
+        }
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Get ERP session failed:', error);
+      return null; // Return null if session doesn't exist or error occurs
+    }
+  }
+
+  async saveERPSession(session: Omit<ERPSession, 'timestamp'> & { id?: string }): Promise<ERPSession> {
     try {
       console.log('🔄 Saving ERP session to database...', session);
       
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(session.user_id);
       
+      const sessionData = {
+        ...session,
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Include ID if provided for duplicate prevention
+      if (session.id) {
+        sessionData.id = session.id;
+      }
+      
       const { data, error } = await this.client
         .from('erp_sessions')
-        .insert({
-          ...session,
-          timestamp: new Date().toISOString(),
-        })
+        .insert(sessionData)
         .select()
         .single();
 
@@ -711,12 +757,20 @@ class SupabaseNativeService {
     try {
       console.log('📝 Creating compulsion:', compulsion);
       
+      // Ensure user exists in public.users table
+      await this.ensureUserProfileExists(compulsion.user_id);
+      
+      // Map category to database-compatible format and store original as subcategory
+      const mappedCompulsion = {
+        ...compulsion,
+        subcategory: compulsion.category, // Store original category as subcategory
+        category: this.mapCategoryForDatabase(compulsion.category),
+        timestamp: new Date().toISOString(),
+      };
+      
       const { data, error } = await this.client
         .from('compulsions')
-        .insert([{
-          ...compulsion,
-          timestamp: new Date().toISOString(),
-        }])
+        .insert([mappedCompulsion])
         .select()
         .single();
       
@@ -757,10 +811,6 @@ class SupabaseNativeService {
   // ===========================
   // UTILITY METHODS
   // ===========================
-
-  getCurrentUser(): User | null {
-    return this.currentUser;
-  }
 
   get supabaseClient() {
     return this.client;

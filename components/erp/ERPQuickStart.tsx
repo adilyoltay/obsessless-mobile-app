@@ -5,19 +5,20 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  TextInput,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Slider } from '@/components/ui/Slider';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys } from '@/utils/storage';
+
+const { width } = Dimensions.get('window');
 
 interface ERPQuickStartProps {
   visible: boolean;
@@ -46,12 +47,10 @@ export function ERPQuickStart({
   onExerciseSelect,
   exercises,
 }: ERPQuickStartProps) {
-  // Simplified to single step - directly show categories
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedExercise, setSelectedExercise] = useState<ERPExercise | null>(null);
-  const [duration, setDuration] = useState<number>(10); // minutes
-  const [targetAnxiety, setTargetAnxiety] = useState<number>(5); // Default to middle
-  const [personalGoal, setPersonalGoal] = useState<string>('');
+  const [duration, setDuration] = useState<number>(10);
+  const [targetAnxiety, setTargetAnxiety] = useState<number>(5);
   
   const { awardMicroReward } = useGamificationStore();
   const { user } = useAuth();
@@ -67,8 +66,7 @@ export function ERPQuickStart({
     setSelectedCategory('');
     setSelectedExercise(null);
     setDuration(10);
-    setTargetAnxiety(5); // Default to middle
-    setPersonalGoal('');
+    setTargetAnxiety(5);
   };
 
   const handleStartExercise = () => {
@@ -91,20 +89,15 @@ export function ERPQuickStart({
       return;
     }
 
-    // Generate a meaningful personal goal if empty
-    const defaultGoal = personalGoal.trim() || `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`;
-    
-    // Get category info
     const categoryInfo = getCategoriesByPopularity().find(c => c.id === selectedCategory);
 
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
-      exerciseType: 'real_life', // Default type since we removed type selection
+      exerciseType: 'real_life',
       duration: duration,
       targetAnxiety: targetAnxiety,
-      personalGoal: defaultGoal,
+      personalGoal: `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`,
       selectedExercise: selectedExercise,
-      // Add category info for better tracking
       category: selectedCategory,
       categoryName: categoryInfo?.title || 'Unknown',
     };
@@ -113,7 +106,6 @@ export function ERPQuickStart({
 
     // Save last exercise preferences
     AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), selectedExercise.id);
-    AsyncStorage.setItem(`lastERPType_${user.id}`, 'real_life');
     AsyncStorage.setItem(`lastERPDuration_${user.id}`, duration.toString());
     AsyncStorage.setItem(`lastERPCategory_${user.id}`, selectedCategory);
     AsyncStorage.setItem(`lastERPTargetAnxiety_${user.id}`, targetAnxiety.toString());
@@ -124,24 +116,18 @@ export function ERPQuickStart({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const getStepTitle = () => {
+  const getPageTitle = () => {
     if (selectedCategory) {
-      return 'Egzersiz Ayarları';
+      return getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title || 'ERP Egzersizi';
     }
-    return 'Egzersizini Seç ve Başla';
+    return 'ERP Egzersizi';
   };
 
-  const getStepSubtitle = () => {
+  const getPageSubtitle = () => {
     if (selectedCategory) {
-      return 'Egzersizini seç, süre ve anksiyete seviyeni ayarla.';
+      return 'Egzersiz seç ve ayarlarını belirle';
     }
-    return 'Kategori seç, egzersizini belirle ve hemen başla.';
-  };
-
-  // Filter exercises by selected type logic
-  const getFilteredCategories = (): ERPCategory[] => {
-    // For now, return all categories - can be enhanced based on exercise type
-    return ERP_CATEGORIES;
+    return 'Hangi alanda çalışmak istiyorsun?';
   };
 
   // Get categories sorted by popularity (most used first)
@@ -163,225 +149,317 @@ export function ERPQuickStart({
     });
   };
 
-  const getSmartDefaults = (exerciseType: string) => {
-    const goalTemplates = {
-      'real_life': 'Bugün kendime nazik davranarak küçük bir adım atmak istiyorum',
-      'imagination': 'Duygularımı güvenli bir şekilde keşfetmek ve anlamak istiyorum', 
-      'interoceptive': 'Bedenimle bağlantı kurarak huzur bulmak istiyorum',
-      'response_prevention': 'Farklı seçimler yaparak kendimi güçlü hissetmek istiyorum'
-    };
-    
-    return {
-      goal: goalTemplates[exerciseType as keyof typeof goalTemplates] || goalTemplates['real_life'],
-      anxiety: 5, // Ortadan başla
-      duration: 8  // Daha kısa varsayılan
-    };
+  // Duration slider için progress hesaplama
+  const getDurationProgress = (duration: number) => {
+    return ((duration - 3) / (30 - 3)) * 100;
   };
 
-  const renderContent = () => {
-    return renderCategoryGrid();
+  // Anxiety slider için progress hesaplama  
+  const getAnxietyProgress = (anxiety: number) => {
+    return ((anxiety - 1) / (10 - 1)) * 100;
   };
 
-  const renderCategoryGrid = () => (
-    <ScrollView style={styles.wizardContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.instructionText}>
-        {getStepSubtitle()}
-      </Text>
-      
-      {/* Category Grid - Only show when no category is selected */}
-      {!selectedCategory && (
-        <View style={styles.categoryGridSection}>
-          <Text style={styles.sectionTitle}>Kategorini Seç</Text>
-          <View style={styles.categoryGrid}>
-            {getCategoriesByPopularity().map((category) => (
-              <Pressable
-                key={category.id}
-                style={[
-                  styles.categoryGridCard,
-                  selectedCategory === category.id && { borderColor: category.color, backgroundColor: `${category.color}08` }
-                ]}
-                onPress={() => {
-                  setSelectedCategory(category.id);
-                  // Don't auto-select exercise, let user choose from grid
-                  setSelectedExercise(null);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <View style={[styles.categoryIconContainer, { backgroundColor: `${category.color}15` }]}>
-                  <MaterialCommunityIcons 
-                    name={category.icon as any} 
-                    size={24} 
-                    color={category.color} 
-                  />
-                </View>
-                <Text style={styles.categoryGridTitle}>{category.title}</Text>
-                <Text style={styles.categoryExerciseCount}>
-                  {category.exercises.length} egzersiz
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
+  // Duration slider tıklama ile değiştirme
+  const handleDurationSliderPress = (event: any) => {
+    const { locationX } = event.nativeEvent;
+    const sliderWidth = width - 64; // padding hesaba katılarak
+    const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+    const newValue = Math.round(3 + percentage * (30 - 3));
+    setDuration(newValue);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-      {/* Exercise Selection - Show when category is selected */}
-      {selectedCategory && (
-        <View style={styles.exerciseSelectionSection}>
-          <Text style={styles.sectionTitle}>
-            {getCategoriesByPopularity().find(c => c.id === selectedCategory)?.title} Egzersizleri
-          </Text>
-          
-          {/* Exercise Grid */}
-          <View style={styles.exerciseGrid}>
-            {getCategoriesByPopularity()
-              .find(c => c.id === selectedCategory)
-              ?.exercises.map((exercise: ERPExercise) => (
-                <Pressable
-                  key={exercise.id}
-                  style={[
-                    styles.exerciseGridCard,
-                    selectedExercise?.id === exercise.id && styles.exerciseGridCardSelected
-                  ]}
-                  onPress={() => {
-                    setSelectedExercise(exercise);
-                    setDuration(exercise.duration);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <View style={styles.exerciseCardContent}>
-                    <Text style={styles.exerciseCardTitle} numberOfLines={2}>
-                      {exercise.name}
-                    </Text>
-                    <View style={styles.exerciseCardFooter}>
-                      <Text style={styles.exerciseCardDuration}>{exercise.duration}dk</Text>
-                      <View style={styles.exerciseCardDifficulty}>
-                        {Array.from({ length: exercise.difficulty }).map((_, i) => (
-                          <MaterialCommunityIcons key={i} name="star" size={10} color="#F59E0B" />
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                  {selectedExercise?.id === exercise.id && (
-                    <View style={styles.selectedIndicator}>
-                      <MaterialCommunityIcons name="check-circle" size={16} color="#10B981" />
-                    </View>
-                  )}
-                </Pressable>
-              ))}
-          </View>
+  // Anxiety slider tıklama ile değiştirme
+  const handleAnxietySliderPress = (event: any) => {
+    const { locationX } = event.nativeEvent;
+    const sliderWidth = width - 64; // padding hesaba katılarak
+    const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+    const newValue = Math.round(1 + percentage * (10 - 1));
+    setTargetAnxiety(newValue);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-          {/* Settings Section - Show when category is selected */}
-          {selectedCategory && (
-            <View style={styles.inlineSettingsSection}>
-              <Text style={styles.settingsTitle}>Egzersiz Ayarları</Text>
-              
-              {/* Duration Setting */}
-              <View style={styles.settingItem}>
-                <Text style={styles.settingLabel}>Süre: {duration} dakika</Text>
-                <Slider
-                  value={duration}
-                  onValueChange={setDuration}
-                  minimumValue={3}
-                  maximumValue={30}
-                  step={1}
-                  style={styles.settingSlider}
-                  minimumTrackTintColor="#10B981"
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#10B981"
-                />
-              </View>
+  const getDurationColor = (duration: number) => {
+    if (duration <= 10) return '#10B981'; // Yeşil - Kısa
+    if (duration <= 20) return '#F59E0B'; // Turuncu - Orta
+    return '#EF4444'; // Kırmızı - Uzun
+  };
 
-              {/* Anxiety Setting */}
-              <View style={styles.settingItem}>
-                <Text style={styles.settingLabel}>Hedef Anksiyete: {targetAnxiety}/10</Text>
-                <Slider
-                  value={targetAnxiety}
-                  onValueChange={setTargetAnxiety}
-                  minimumValue={1}
-                  maximumValue={10}
-                  step={1}
-                  style={styles.settingSlider}
-                  minimumTrackTintColor="#F59E0B"
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#F59E0B"
-                />
-              </View>
-
-              {/* Start Button - Only enabled when exercise is selected */}
-              <Pressable 
-                style={[
-                  styles.inlineStartButton,
-                  !selectedExercise && styles.inlineStartButtonDisabled
-                ]} 
-                onPress={selectedExercise ? handleStartExercise : undefined}
-                disabled={!selectedExercise}
-              >
-                <MaterialCommunityIcons name="play" size={20} color={selectedExercise ? "#FFFFFF" : "#9CA3AF"} />
-                <Text style={[
-                  styles.inlineStartButtonText,
-                  !selectedExercise && styles.inlineStartButtonTextDisabled
-                ]}>
-                  {selectedExercise ? "🌟 Yolculuğumu Başlat" : "Önce egzersiz seç"}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-          
-          <Pressable 
-            style={styles.backToCategoriesButton}
-            onPress={() => {
-              setSelectedCategory('');
-              setSelectedExercise(null);
-            }}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={20} color="#6B7280" />
-            <Text style={styles.backToCategoriesText}>Kategorilere Geri Dön</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Gentle Comfort Reminder - Always at bottom */}
-      {!selectedCategory && (
-        <View style={styles.comfortSection}>
-          <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
-          <Text style={styles.comfortText}>
-            • Sen her zaman kontroldesin{'\n'}
-            • İstediğin her an duraklayabilir ve nefes alabilirsin{'\n'}
-            • Bu senin güvenli alanın, burası sadece keşif için{'\n'}
-            • Hissettiğin her şey doğal ve geçici
-          </Text>
-        </View>
-      )}
-    </ScrollView>
-  );
+  const getAnxietyColor = (anxiety: number) => {
+    if (anxiety <= 3) return '#10B981'; // Yeşil - Düşük
+    if (anxiety <= 6) return '#F59E0B'; // Turuncu - Orta
+    return '#EF4444'; // Kırmızı - Yüksek
+  };
 
   return (
     <BottomSheet isVisible={visible} onClose={onDismiss}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {/* No back button needed in single step */}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{getPageTitle()}</Text>
+            <Text style={styles.headerSubtitle}>{getPageSubtitle()}</Text>
           </View>
+
+          {/* Categories Grid - Show when no category selected */}
+          {!selectedCategory && (
+            <View style={styles.categoriesGrid}>
+              {getCategoriesByPopularity().map((category) => (
+                <Pressable
+                  key={category.id}
+                  style={[
+                    styles.categoryCard,
+                    selectedCategory === category.id && styles.categoryCardSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedCategory(category.id);
+                    setSelectedExercise(null);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <View style={[
+                    styles.categoryIcon,
+                    { backgroundColor: `${category.color}15` }
+                  ]}>
+                    <MaterialCommunityIcons
+                      name={category.icon as any}
+                      size={20}
+                      color={category.color}
+                    />
+                  </View>
+                  <Text style={styles.categoryName}>{category.title}</Text>
+                  <Text style={styles.categoryCount}>{category.exercises.length} egzersiz</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* Exercises Grid + Settings - Show when category selected */}
+          {selectedCategory && (
+            <View style={styles.combinedSection}>
+              {/* Exercises Grid */}
+              <View style={styles.exercisesGrid}>
+                {(() => {
+                  const category = getCategoriesByPopularity().find(c => c.id === selectedCategory);
+                  if (!category) return null;
+                  
+                  return category.exercises.map((exercise: any) => (
+                    <Pressable
+                      key={exercise.id}
+                      style={[
+                        styles.exerciseCard,
+                        selectedExercise && (selectedExercise as any).id === exercise.id && styles.exerciseCardSelected
+                      ]}
+                      onPress={() => {
+                        setSelectedExercise(exercise);
+                        setDuration(exercise.duration);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={styles.exerciseName} numberOfLines={2}>
+                        {exercise.name}
+                      </Text>
+                      <View style={styles.exerciseFooter}>
+                        <Text style={styles.exerciseDuration}>{exercise.duration}dk</Text>
+                        <View style={styles.exerciseDifficulty}>
+                                                  {Array.from({ length: exercise.difficulty }).map((_, i) => (
+                          <MaterialCommunityIcons key={i} name="star" size={8} color="#F59E0B" />
+                        ))}
+                        </View>
+                      </View>
+                    </Pressable>
+                  ));
+                })()}
+              </View>
+
+              {/* Settings Section - Show always when category is selected */}
+
+              {/* Duration Setting */}
+              <View style={styles.settingCard}>
+                <View style={styles.settingHeader}>
+                  <Text style={styles.settingTitle}>Egzersiz Süresi</Text>
+                  <Text style={styles.settingValue}>{duration} dakika</Text>
+                </View>
+                
+                <View style={styles.settingControls}>
+                  <Pressable
+                    style={[styles.settingButton, duration <= 3 && styles.settingButtonDisabled]}
+                    onPress={() => {
+                      if (duration > 3) {
+                        setDuration(duration - 1);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    disabled={duration <= 3}
+                  >
+                    <MaterialCommunityIcons name="minus" size={18} color={duration <= 3 ? '#D1D5DB' : '#6B7280'} />
+                  </Pressable>
+                  
+                  <View style={styles.settingButtonSpacer} />
+                  
+                  <Pressable
+                    style={[styles.settingButton, duration >= 30 && styles.settingButtonDisabled]}
+                    onPress={() => {
+                      if (duration < 30) {
+                        setDuration(duration + 1);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    disabled={duration >= 30}
+                  >
+                    <MaterialCommunityIcons name="plus" size={18} color={duration >= 30 ? '#D1D5DB' : '#6B7280'} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.sliderContainer}>
+                  <Pressable
+                    style={styles.sliderTrack}
+                    onPress={handleDurationSliderPress}
+                  >
+                    <View 
+                      style={[
+                        styles.sliderProgress,
+                        { 
+                          width: `${getDurationProgress(duration)}%`,
+                          backgroundColor: getDurationColor(duration)
+                        }
+                      ]} 
+                    />
+                    <View
+                      style={[
+                        styles.sliderThumb,
+                        { 
+                          left: `${getDurationProgress(duration) - 3}%`,
+                          backgroundColor: getDurationColor(duration)
+                        }
+                      ]}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Anxiety Setting */}
+              <View style={styles.settingCard}>
+                <View style={styles.settingHeader}>
+                  <Text style={styles.settingTitle}>Hedef Anksiyete</Text>
+                  <Text style={styles.settingValue}>{targetAnxiety}/10</Text>
+                </View>
+                
+                <View style={styles.settingControls}>
+                  <Pressable
+                    style={[styles.settingButton, targetAnxiety <= 1 && styles.settingButtonDisabled]}
+                    onPress={() => {
+                      if (targetAnxiety > 1) {
+                        setTargetAnxiety(targetAnxiety - 1);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    disabled={targetAnxiety <= 1}
+                  >
+                    <MaterialCommunityIcons name="minus" size={18} color={targetAnxiety <= 1 ? '#D1D5DB' : '#6B7280'} />
+                  </Pressable>
+                  
+                  <View style={styles.settingButtonSpacer} />
+                  
+                  <Pressable
+                    style={[styles.settingButton, targetAnxiety >= 10 && styles.settingButtonDisabled]}
+                    onPress={() => {
+                      if (targetAnxiety < 10) {
+                        setTargetAnxiety(targetAnxiety + 1);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }
+                    }}
+                    disabled={targetAnxiety >= 10}
+                  >
+                    <MaterialCommunityIcons name="plus" size={18} color={targetAnxiety >= 10 ? '#D1D5DB' : '#6B7280'} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.sliderContainer}>
+                  <Pressable
+                    style={styles.sliderTrack}
+                    onPress={handleAnxietySliderPress}
+                  >
+                    <View 
+                      style={[
+                        styles.sliderProgress,
+                        { 
+                          width: `${getAnxietyProgress(targetAnxiety)}%`,
+                          backgroundColor: getAnxietyColor(targetAnxiety)
+                        }
+                      ]} 
+                    />
+                    <View
+                      style={[
+                        styles.sliderThumb,
+                        { 
+                          left: `${getAnxietyProgress(targetAnxiety) - 3}%`,
+                          backgroundColor: getAnxietyColor(targetAnxiety)
+                        }
+                      ]}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable 
+                style={styles.backButton}
+                onPress={() => setSelectedCategory('')}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={18} color="#6B7280" />
+                <Text style={styles.backButtonText}>Kategorilere Dön</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Comfort Note - Show only on main category screen */}
+          {!selectedCategory && (
+            <View style={styles.comfortNote}>
+              <Text style={styles.comfortTitle}>🌸 Nazik Hatırlatma</Text>
+              <Text style={styles.comfortText}>
+                • Sen her zaman kontroldesin{'\n'}
+                • İstediğin her an duraklatabilirsin{'\n'}
+                • Bu senin güvenli alanın{'\n'}
+                • Hissettiğin her şey doğal ve geçici
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Action Buttons */}
+        <View style={styles.actions}>
+          <Pressable
+            style={styles.cancelButton}
+            onPress={onDismiss}
+          >
+            <Text style={styles.cancelButtonText}>İptal</Text>
+          </Pressable>
           
-          <View style={styles.headerCenter}>
-            <Text style={styles.title}>{getStepTitle()}</Text>
-          </View>
-          
-          <View style={styles.headerRight}>
-            <Pressable style={styles.closeButton} onPress={onDismiss}>
-              <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
-            </Pressable>
-          </View>
+          <Pressable
+            style={[
+              styles.startButton,
+              !selectedExercise && styles.startButtonDisabled
+            ]}
+            onPress={selectedExercise ? handleStartExercise : undefined}
+            disabled={!selectedExercise}
+          >
+            <MaterialCommunityIcons 
+              name="play" 
+              size={20} 
+              color={selectedExercise ? "#FFFFFF" : "#9CA3AF"} 
+            />
+            <Text style={[
+              styles.startButtonText,
+              !selectedExercise && styles.startButtonTextDisabled
+            ]}>
+              {selectedExercise ? "Başlat" : "Egzersiz Seç"}
+            </Text>
+          </Pressable>
         </View>
-
-        {/* No progress indicators needed for single step */}
-
-        {/* Content */}
-        {renderContent()}
       </View>
     </BottomSheet>
   );
+
 }
 
 const styles = StyleSheet.create({
@@ -389,326 +467,169 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  
+  // Header Section
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerLeft: {
-    width: 40,
-  },
-  headerCenter: {
-    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 20,
     alignItems: 'center',
   },
-  headerRight: {
-    width: 40,
-    alignItems: 'flex-end',
-  },
-  backButton: {
-    padding: 4,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    fontFamily: 'Inter-Medium',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
-  },
-  progressDotActive: {
-    backgroundColor: '#10B981',
-    width: 24,
-  },
-  progressDotCompleted: {
-    backgroundColor: '#D1FAE5',
-  },
-  wizardContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  instructionText: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
     fontFamily: 'Inter',
+    marginBottom: 4,
   },
-  typeGrid: {
-    gap: 24,  // Increased spacing for calmness
-  },
-  typeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,  // More rounded for softness
-    borderWidth: 1,    // Thinner border for gentleness
-    borderColor: '#F3F4F6',  // Very light border
-    padding: 24,       // More padding for breathing room
-    alignItems: 'center',
-    shadowColor: '#10B981',  // Gentle green shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,     // Very subtle shadow
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  typeIconContainer: {
-    width: 56,         // Larger for better visual impact
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,  // More space below icon
-  },
-  typeTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 6,   // Slightly more space
-    fontFamily: 'Inter-Medium',
-    textAlign: 'center',
-  },
-  typeSubtitle: {
+  headerSubtitle: {
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'Inter',
     textAlign: 'center',
-    lineHeight: 20,
   },
-  typeDescription: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 18,
-    fontFamily: 'Inter',
-  },
-  categorySection: {
-    marginBottom: 24,
-  },
-  categoryHeader: {
+  // Categories Grid
+  categoriesGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    fontFamily: 'Inter-Medium',
-  },
-  exerciseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    paddingBottom: 24,
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 16,
+  },
+  categoryCard: {
+    width: '30%',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     marginBottom: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    minHeight: 75,
   },
-  exerciseItemSelected: {
-    backgroundColor: '#F0FDF4',
+  categoryCardSelected: {
+    backgroundColor: '#DCFCE7',
     borderColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
-  exerciseInfo: {
-    flex: 1,
+  categoryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  categoryName: {
+    fontSize: 10,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    lineHeight: 12,
+    flexWrap: 'wrap',
+  },
+  categoryCount: {
+    fontSize: 9,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+    marginTop: 1,
+  },
+  // Exercises Grid
+  exercisesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    paddingBottom: 16,
+    justifyContent: 'space-between',
+  },
+  exerciseCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    minHeight: 70,
+  },
+  exerciseCardSelected: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#10B981',
+    borderWidth: 2,
   },
   exerciseName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 4,
-    fontFamily: 'Inter-Medium',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+    marginBottom: 6,
+    lineHeight: 14,
   },
-  exerciseMeta: {
+  exerciseFooter: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
   },
   exerciseDuration: {
-    fontSize: 13,
+    fontSize: 10,
     color: '#6B7280',
     fontFamily: 'Inter',
   },
-  difficultyContainer: {
+  exerciseDifficulty: {
     flexDirection: 'row',
-    gap: 2,
+    gap: 1,
   },
-  settingSection: {
-    marginBottom: 24,
+  // Combined Section (Exercises + Settings)
+  combinedSection: {
+    paddingHorizontal: 12,
+    paddingBottom: 16,
   },
-  sliderContainer: {
-    alignItems: 'center',
-  },
-  sliderValue: {
+  categoryTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 8,
-    fontFamily: 'Inter-Medium',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 4,
-  },
-  sliderLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontFamily: 'Inter',
-  },
-  goalInput: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    fontSize: 15,
-    color: '#111827',
-    fontFamily: 'Inter',
-    textAlignVertical: 'top',
-    minHeight: 80,
-  },
-  nextButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Medium',
-  },
-  confirmationCard: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  confirmationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  confirmationLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    flex: 1,
-    fontFamily: 'Inter',
-  },
-  confirmationValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    flex: 2,
-    textAlign: 'right',
-    fontFamily: 'Inter-Medium',
-  },
-  comfortSection: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  comfortTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#166534',
-    marginBottom: 8,
-    fontFamily: 'Inter-Medium',
-  },
-  comfortText: {
-    fontSize: 13,
-    color: '#166534',
-    lineHeight: 18,
-    fontFamily: 'Inter',
-  },
-  startButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Medium',
-  },
-  exerciseSelectionSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    color: '#1F2937',
     marginBottom: 16,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter',
   },
   selectedExerciseCard: {
     backgroundColor: '#F0FDF4',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+    padding: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#D1FAE5',
   },
-  selectedExerciseTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-    fontFamily: 'Inter-Medium',
+  selectedExerciseCategory: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    marginBottom: 4,
   },
   selectedExerciseName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 12,
-    fontFamily: 'Inter-Medium',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+    marginBottom: 8,
   },
   changeExerciseButton: {
     alignSelf: 'flex-end',
@@ -718,225 +639,99 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontFamily: 'Inter',
   },
-  helpSection: {
-    marginTop: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  helpText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontFamily: 'Inter',
-  },
-  categoryGridSection: {
-    marginBottom: 24,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  categoryGridCard: {
-    width: '48%', // Two columns
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#E5E7EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  categoryIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  categoryGridTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-    fontFamily: 'Inter-Medium',
-    textAlign: 'center',
-  },
-  categoryExerciseCount: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'Inter',
-  },
-  exerciseQuickSection: {
-    marginBottom: 24,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  selectedExerciseCategory: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Inter',
-  },
-  settingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  compactSetting: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  compactSettingLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontFamily: 'Inter',
-  },
-  compactSliderContainer: {
-    alignItems: 'center',
-  },
-  compactSlider: {
-    width: '100%',
-    height: 40,
-  },
-  compactSliderValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10B981',
-    marginTop: 8,
-    fontFamily: 'Inter-Medium',
-  },
-  exerciseGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  exerciseGridCard: {
-    width: '48%', // Two columns
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#E5E7EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  exerciseGridCardSelected: {
-    borderColor: '#10B981',
-    borderWidth: 2,
-    backgroundColor: '#F0FDF4',
-  },
-  exerciseCardContent: {
-    flex: 1,
-  },
-  exerciseCardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-    fontFamily: 'Inter-Medium',
-  },
-  exerciseCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  exerciseCardDuration: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Inter',
-  },
-  exerciseCardDifficulty: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 8,
-    padding: 4,
-  },
-  inlineSettingsSection: {
-    marginTop: 24,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
   settingsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1F2937',
+    marginTop: 24,
     marginBottom: 16,
-    fontFamily: 'Inter-Medium',
-  },
-  settingItem: {
-    marginBottom: 20,
-  },
-  settingLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
     fontFamily: 'Inter',
   },
-  settingSlider: {
-    width: '100%',
-    height: 40,
-  },
-  inlineStartButton: {
-    backgroundColor: '#10B981',
+  settingCard: {
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  inlineStartButtonText: {
+  settingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Medium',
+    color: '#1F2937',
+    fontFamily: 'Inter',
   },
-  inlineStartButtonDisabled: {
-    opacity: 0.5,
+  settingValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#10B981',
+    fontFamily: 'Inter',
   },
-  inlineStartButtonTextDisabled: {
-    color: '#9CA3AF',
+  settingControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  backToCategoriesButton: {
+  settingButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  settingButtonDisabled: {
+    opacity: 0.3,
+  },
+  settingButtonSpacer: {
+    flex: 1,
+  },
+  // Custom Slider Styles
+  sliderContainer: {
+    marginBottom: 8,
+  },
+  sliderTrack: {
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    position: 'relative',
+  },
+  sliderProgress: {
+    height: '100%',
+    borderRadius: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  sliderThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    position: 'absolute',
+    top: -8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  // Back Button
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,
     backgroundColor: '#F9FAFB',
@@ -944,10 +739,87 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  backToCategoriesText: {
+  backButtonText: {
     fontSize: 14,
     color: '#6B7280',
     fontFamily: 'Inter',
     marginLeft: 8,
+  },
+
+  // Comfort Note
+  comfortNote: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  comfortTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#166534',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  comfortText: {
+    fontSize: 13,
+    color: '#166534',
+    lineHeight: 18,
+    fontFamily: 'Inter',
+  },
+
+  // Action Buttons
+  actions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  startButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  startButtonDisabled: {
+    backgroundColor: '#E5E7EB',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  startButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+  },
+  startButtonTextDisabled: {
+    color: '#9CA3AF',
   },
 }); 

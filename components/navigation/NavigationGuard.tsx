@@ -27,10 +27,22 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
   }, [user?.id]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {
+      console.log('🧭 Auth still loading, waiting...');
+      return;
+    }
     
     const checkNavigation = async () => {
-      if (hasNavigatedRef.current) return;
+      // Check if we should skip navigation
+      const currentPath = segments.join('/');
+      const inTabsGroup = segments[0] === '(tabs)';
+      const inAuthGroup = segments[0] === '(auth)';
+      
+      // If already in the correct group, don't navigate again
+      if (hasNavigatedRef.current && (inTabsGroup || inAuthGroup)) {
+        console.log('🧭 Already in correct group, skipping navigation...');
+        return;
+      }
       
       // Wait for router to be ready
       if (!router || typeof router.replace !== 'function') {
@@ -40,10 +52,6 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       }
 
       try {
-        const currentPath = segments.join('/');
-        const inAuthGroup = segments[0] === '(auth)';
-        const inTabsGroup = segments[0] === '(tabs)';
-
         console.log('🧭 Navigation Guard Check:', {
           isAuthenticated: !!user,
           currentPath,
@@ -55,12 +63,13 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
           // User not authenticated
           if (!inAuthGroup && currentPath !== '(auth)/login') {
             console.log('🔐 Redirecting to login - not authenticated');
-            hasNavigatedRef.current = true;
             setTimeout(() => {
               try {
+                hasNavigatedRef.current = true;
                 router.push('/(auth)/login');
               } catch (error) {
                 console.error('Login navigation error:', error);
+                hasNavigatedRef.current = true;
                 router.push('/login');
               }
             }, 100);
@@ -71,9 +80,16 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
           let isProfileComplete = false;
           
           try {
+            console.log('🧭 Checking profile completion for user:', user.id);
+            
             // First, check AsyncStorage for faster response (offline-first)
             const profileCompleted = await AsyncStorage.getItem('profileCompleted');
             const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id}`);
+            
+            console.log('🧭 AsyncStorage check:', {
+              profileCompleted,
+              hasLocalProfile: !!localProfile
+            });
             
             if (profileCompleted === 'true' && localProfile) {
               const parsedProfile = JSON.parse(localProfile);
@@ -85,9 +101,15 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             // If not complete locally, check database for verification
             if (!isProfileComplete) {
+              console.log('🧭 Checking database for profile completion...');
               try {
                 const userProfile = await supabaseService.getUserProfile(user.id);
-                isProfileComplete = userProfile && userProfile.onboarding_completed;
+                console.log('🧭 Database profile result:', {
+                  hasProfile: !!userProfile,
+                  onboardingCompleted: userProfile?.onboarding_completed
+                });
+                
+                isProfileComplete = !!(userProfile && userProfile.onboarding_completed);
                 
                 if (isProfileComplete) {
                   // Update AsyncStorage cache
@@ -100,35 +122,43 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
               }
             }
 
+            console.log('🧭 Final profile check result:', { isProfileComplete });
+            
             if (!isProfileComplete) {
               // Profile not completed - redirect to onboarding
               if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
                 console.log('👤 Redirecting to onboarding - profile incomplete');
-                hasNavigatedRef.current = true;
                 setTimeout(() => {
                   try {
+                    hasNavigatedRef.current = true;
                     router.push('/(auth)/onboarding');
                   } catch (error) {
                     console.error('Onboarding navigation error:', error);
+                    hasNavigatedRef.current = true;
                     router.push('/onboarding');
                   }
                 }, 100);
                 return;
+              } else {
+                console.log('🧭 Already in onboarding or auth group, staying here');
               }
             } else {
               // Profile completed - redirect to main app
               if (inAuthGroup || currentPath === '+not-found' || currentPath === '' || currentPath === 'index') {
                 console.log('✅ Redirecting to main app - profile complete');
-                hasNavigatedRef.current = true;
                 setTimeout(() => {
                   try {
-                    router.push('/(tabs)/index');
+                    hasNavigatedRef.current = true;
+                    router.push('/(tabs)');
                   } catch (error) {
                     console.error('Navigation error, trying fallback:', error);
+                    hasNavigatedRef.current = true;
                     router.push('/');
                   }
                 }, 100);
                 return;
+              } else {
+                console.log('🧭 Already in tabs group, staying here');
               }
             }
           } catch (error) {
@@ -136,8 +166,10 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             // Fallback to onboarding on error
             if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
               console.log('👤 Redirecting to onboarding - profile check failed');
-              hasNavigatedRef.current = true;
-              setTimeout(() => router.replace('/(auth)/onboarding'), 100);
+              setTimeout(() => {
+                hasNavigatedRef.current = true;
+                router.replace('/(auth)/onboarding');
+              }, 100);
               return;
             }
           }

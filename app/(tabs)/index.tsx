@@ -10,6 +10,7 @@ import {
   Animated
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +39,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 const { width } = Dimensions.get('window');
 
 export default function TodayScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const { t } = useTranslation();
   const [refreshing, setRefreshing] = useState(false);

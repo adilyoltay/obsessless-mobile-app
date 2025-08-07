@@ -187,20 +187,27 @@ class ERPService {
         // Save to AsyncStorage
         await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
 
-        // Try to save to Supabase
+        // Try to save to Supabase (with duplicate prevention)
         try {
-          await supabaseService.saveERPSession({
-            user_id: userId,
-            exercise_id: session.exerciseId,
-            exercise_name: `Exercise ${session.exerciseId}`, // TODO: Get real name
-            category: 'general', // TODO: Get real category
-            duration_seconds: session.duration,
-            anxiety_initial: session.initialAnxiety,
-            anxiety_final: session.finalAnxiety,
-            anxiety_readings: session.anxietyReadings,
-            completed: session.completed
-          });
-          console.log('✅ ERP session saved to Supabase');
+          // Check if session already exists in Supabase to prevent duplicates
+          const existingSession = await supabaseService.getERPSession(session.id);
+          if (!existingSession) {
+            await supabaseService.saveERPSession({
+              id: session.id, // Include session ID for duplicate prevention
+              user_id: userId,
+              exercise_id: session.exerciseId,
+              exercise_name: `Exercise ${session.exerciseId}`, // TODO: Get real name
+              category: 'general', // TODO: Get real category
+              duration_seconds: session.duration,
+              anxiety_initial: session.initialAnxiety,
+              anxiety_final: session.finalAnxiety,
+              anxiety_readings: session.anxietyReadings,
+              completed: session.completed
+            });
+            console.log('✅ ERP session saved to Supabase');
+          } else {
+            console.log('⚠️ Session already exists in Supabase, skipping duplicate save');
+          }
         } catch (supabaseError) {
           console.warn('⚠️ Supabase save failed, session saved offline:', supabaseError);
           // Continue with offline mode - data is already in AsyncStorage

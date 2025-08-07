@@ -933,6 +933,246 @@ interface DetailedGamificationProfile {
 
 ---
 
+## 📊 **Veri Akış Diyagramı (Güncel Mimari)**
+
+### 🔄 **Kapsamlı Veri Akış Şeması**
+
+```mermaid
+flowchart TB
+    subgraph "Frontend - React Native/Expo"
+        UI[UI Components]
+        ZS[Zustand Stores]
+        RQ[React Query]
+        AS[AsyncStorage]
+    end
+    
+    subgraph "Authentication Flow"
+        Login[Login/Signup]
+        OAuth[Google OAuth]
+        Bio[Biometric Auth]
+    end
+    
+    subgraph "Backend - Supabase"
+        Auth[Supabase Auth]
+        DB[(PostgreSQL)]
+        RLS[Row Level Security]
+        Triggers[DB Triggers]
+        Edge[Edge Functions]
+    end
+    
+    subgraph "Data Operations"
+        C1[Compulsion Recording]
+        C2[ERP Sessions]
+        C3[User Profiles]
+        C4[Gamification]
+    end
+    
+    %% Authentication Flow
+    Login --> Auth
+    OAuth --> Auth
+    Bio --> AS
+    Auth --> DB
+    Auth --> Triggers
+    
+    %% UI to State Management
+    UI --> ZS
+    ZS --> AS
+    ZS --> RQ
+    RQ --> DB
+    
+    %% Data Flow
+    C1 --> |Category Mapping| DB
+    C2 --> |Session Data| DB
+    C3 --> |Profile Data| DB
+    C4 --> |Points & Achievements| DB
+    
+    %% Offline/Online Sync
+    AS -.->|Sync when online| DB
+    DB -->|RLS Protection| UI
+    
+    %% Real-time Updates
+    DB -->|Subscriptions| RQ
+    RQ -->|Cache Invalidation| UI
+    
+    style UI fill:#10B981,color:#fff
+    style DB fill:#3B82F6,color:#fff
+    style AS fill:#F59E0B,color:#fff
+    style Auth fill:#8B5CF6,color:#fff
+```
+
+### 📋 **Veri Kayıt Akış Detayları**
+
+#### **1. Kullanıcı Kayıt/Giriş Veri Akışı**
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as UI Layer
+    participant Auth as Supabase Auth
+    participant DB as Database
+    participant AS as AsyncStorage
+    
+    U->>UI: Email/Password or Google
+    UI->>Auth: signIn/signUp Request
+    Auth->>DB: Create auth.users entry
+    DB-->>DB: Trigger: create public.users
+    DB-->>DB: Trigger: create gamification_profile
+    Auth-->>UI: Session Token
+    UI->>AS: Save Session
+    UI->>AS: Save User Profile
+    AS-->>UI: Confirmation
+    UI-->>U: Navigate to App/Onboarding
+```
+
+#### **2. Kompulsiyon Kayıt Veri Akışı**
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as FAB Button
+    participant BS as BottomSheet
+    participant ZS as Zustand Store
+    participant AS as AsyncStorage
+    participant SB as Supabase
+    
+    U->>UI: Tap FAB (+)
+    UI->>BS: Open Quick Entry
+    U->>BS: Select Category & Resistance
+    BS->>ZS: Update Local State
+    ZS->>AS: Save to AsyncStorage
+    ZS->>SB: Save to Database
+    Note over SB: Category Mapping Applied
+    SB-->>ZS: Confirmation
+    ZS->>UI: Update UI & Points
+    UI-->>U: Toast Notification
+```
+
+#### **3. ERP Session Veri Akışı**
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant ERP as ERP Screen
+    participant Store as ERP Store
+    participant AS as AsyncStorage
+    participant DB as Supabase
+    participant GAM as Gamification
+    
+    U->>ERP: Start Session
+    ERP->>Store: Initialize Timer
+    loop Every 30s
+        Store->>Store: Record Anxiety
+    end
+    U->>ERP: Complete Session
+    Store->>AS: Save Session Data
+    Store->>DB: Sync to Database
+    DB-->>GAM: Update Points
+    GAM-->>ERP: Show Rewards
+    ERP-->>U: Success Screen
+```
+
+### 🗂️ **Storage Key Architecture**
+
+```typescript
+// User-Specific Storage Keys
+const StorageKeys = {
+  // Authentication
+  SESSION: 'supabase.auth.token',
+  PROFILE_COMPLETED: 'profileCompleted',
+  
+  // User Data
+  OCD_PROFILE: (userId: string) => `ocd_profile_${userId}`,
+  COMPULSIONS: (userId: string) => `compulsions_${userId}`,
+  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  GAMIFICATION: (userId: string) => `gamification_${userId}`,
+  
+  // Preferences
+  LAST_COMPULSION: (userId: string) => `lastCompulsion_${userId}`,
+  FREQUENT_TYPES: (userId: string) => `frequentTypes_${userId}`,
+  USER_PATTERNS: (userId: string) => `userPatterns_${userId}`,
+  
+  // Daily Data
+  DAILY_ENTRIES: (userId: string, date: string) => `dailyEntries_${userId}_${date}`,
+  LAST_ACTIVITY: (userId: string) => `lastActivity_${userId}`,
+};
+```
+
+### 🔐 **Database Schema Overview**
+
+```sql
+-- Core Tables with Relationships
+┌─────────────────────────────────────────────┐
+│ auth.users (Supabase Auth)                 │
+│ ├── id (UUID)                              │
+│ ├── email                                  │
+│ └── metadata                               │
+└─────────────────────────────────────────────┘
+          ↓ Trigger
+┌─────────────────────────────────────────────┐
+│ public.users                               │
+│ ├── id (UUID) [FK: auth.users.id]         │
+│ ├── email                                  │
+│ ├── name                                   │
+│ └── provider                               │
+└─────────────────────────────────────────────┘
+          ↓ 1:1
+┌─────────────────────────────────────────────┐
+│ public.user_profiles                       │
+│ ├── user_id (UUID) [FK: users.id]         │
+│ ├── ocd_symptoms (TEXT[])                 │
+│ ├── daily_goal (INTEGER)                  │
+│ ├── ybocs_score (INTEGER)                 │
+│ └── onboarding_completed (BOOLEAN)        │
+└─────────────────────────────────────────────┘
+          ↓ 1:N
+┌─────────────────────────────────────────────┐
+│ public.compulsions                         │
+│ ├── id (UUID)                              │
+│ ├── user_id (UUID) [FK: users.id]         │
+│ ├── category (ENUM) ✅ FIXED              │
+│ ├── subcategory (TEXT)                    │
+│ ├── resistance_level (1-10)               │
+│ └── timestamp                              │
+└─────────────────────────────────────────────┘
+          ↓ 1:N
+┌─────────────────────────────────────────────┐
+│ public.erp_sessions                        │
+│ ├── id (UUID)                              │
+│ ├── user_id (UUID) [FK: users.id]         │
+│ ├── exercise_id                           │
+│ ├── anxiety_readings (JSONB)              │
+│ ├── duration_seconds                      │
+│ └── completed (BOOLEAN)                   │
+└─────────────────────────────────────────────┘
+          ↓ 1:1
+┌─────────────────────────────────────────────┐
+│ public.gamification_profiles               │
+│ ├── user_id (UUID) [FK: users.id]         │
+│ ├── healing_points_total                  │
+│ ├── streak_count                          │
+│ ├── achievements (TEXT[])                 │
+│ └── level                                 │
+└─────────────────────────────────────────────┘
+```
+
+### ✅ **Güncel Veri Akış Düzeltmeleri**
+
+1. **Category Mapping (✅ Düzeltildi)**
+   - Frontend kategorileri → Database kategorileri mapping
+   - `ordering` → `symmetry`
+   - `mental` → `religious`
+   - `washing` → `contamination`
+
+2. **Router Import (✅ Düzeltildi)**
+   - Today sayfasında `useRouter` import edildi
+   - Navigation hataları giderildi
+
+3. **Profile Completion Check (✅ İyileştirildi)**
+   - AsyncStorage öncelikli kontrol
+   - Database fallback
+   - NavigationGuard optimizasyonu
+
+4. **Duplicate Prevention (✅ Eklendi)**
+   - ERP Sessions için duplicate check
+   - Session ID ile tekrar kayıt önleme
+
 ## 🌟 Sonuç
 
 ObsessLess artık **production-ready** bir dijital sığınak olarak, OKB ile yaşayan bireylere gerçek değer sunuyor. **Supabase entegrasyonu**, **Master Prompt tasarım ilkeleri** ve **native mobile optimizasyonları** ile güçlü bir foundation kuruldu.
@@ -943,7 +1183,7 @@ ObsessLess artık **production-ready** bir dijital sığınak olarak, OKB ile ya
 
 ---
 
-*Son güncelleme: Ocak 2025*
+*Son güncelleme: Ocak 2025 - Veri Akış Diyagramı Eklendi*
 
 ---
 

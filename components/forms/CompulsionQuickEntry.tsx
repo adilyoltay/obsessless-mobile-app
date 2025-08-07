@@ -28,8 +28,7 @@ interface CompulsionQuickEntryProps {
 
 const { width } = Dimensions.get('window');
 
-// Top featured categories for quick access
-const FEATURED_CATEGORIES = ['washing', 'checking'];
+// Top featured categories removed - using only grid layout
 
 export function CompulsionQuickEntry({
   visible,
@@ -222,41 +221,14 @@ export function CompulsionQuickEntry({
       onClose={onDismiss}
     >
       <View style={styles.container}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Top Featured Categories - Tab Style */}
-          <View style={styles.featuredTabs}>
-            {FEATURED_CATEGORIES.map((categoryId) => {
-              const category = COMPULSION_CATEGORIES.find(c => c.id === categoryId);
-              if (!category) return null;
-              
-              const isSelected = selectedType === categoryId;
-              
-              return (
-                <Pressable
-                  key={categoryId}
-                  style={[
-                    styles.featuredTab,
-                    isSelected && styles.featuredTabSelected
-                  ]}
-                  onPress={() => handleTypeSelect(categoryId)}
-                >
-                  <MaterialCommunityIcons
-                    name={category.icon as any}
-                    size={18}
-                    color={isSelected ? '#FFFFFF' : '#10B981'}
-                  />
-                  <Text style={[
-                    styles.featuredTabText,
-                    isSelected && styles.featuredTabTextSelected
-                  ]}>
-                    {category.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Kompulsiyon Ekle</Text>
+            <Text style={styles.headerSubtitle}>Hangi tür kompulsiyon yaşadınız?</Text>
           </View>
 
-          {/* All Categories Grid - 3x3 Layout */}
+          {/* Categories Grid - Optimized Mobile Layout */}
           <View style={styles.categoriesGrid}>
             {COMPULSION_CATEGORIES.map((category) => {
               const isSelected = selectedType === category.id;
@@ -284,7 +256,7 @@ export function CompulsionQuickEntry({
                     ) : (
                       <MaterialCommunityIcons
                         name={category.icon as any}
-                        size={28}
+                        size={24}
                         color={isSelected ? '#10B981' : '#10B981'}
                       />
                     )}
@@ -432,62 +404,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   
-  // Featured Tabs - Top Section
-  featuredTabs: {
-    flexDirection: 'row',
+  // Header Section
+  header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-    gap: 8,
-  },
-  featuredTab: {
-    flex: 1,
-    flexDirection: 'row',
+    paddingTop: 8,
+    paddingBottom: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-    gap: 4,
   },
-  featuredTabSelected: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+    marginBottom: 4,
   },
-  featuredTabText: {
+  headerSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
     color: '#6B7280',
     fontFamily: 'Inter',
-  },
-  featuredTabTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    textAlign: 'center',
   },
 
-  // Categories Grid - 3x3 Layout
+  // Categories Grid - Optimized Mobile Layout
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 12,
+    paddingBottom: 24,
     justifyContent: 'space-between',
   },
   categoryCard: {
-    width: '30%',
+    width: '31%',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    marginBottom: 10,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -497,6 +452,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    minHeight: 90,
   },
   categoryCardSelected: {
     backgroundColor: '#DCFCE7',
@@ -508,28 +464,29 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   categoryIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   categoryIconSelected: {
     backgroundColor: '#FFFFFF',
   },
   categoryNumber: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 'bold',
     fontFamily: 'Inter',
   },
   categoryName: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
     textAlign: 'center',
     fontFamily: 'Inter',
-    lineHeight: 16,
+    lineHeight: 14,
+    flexWrap: 'wrap',
   },
   categoryNameSelected: {
     color: '#047857',
@@ -539,7 +496,7 @@ const styles = StyleSheet.create({
   // Resistance Section
   resistanceSection: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   resistanceTitle: {
     fontSize: 18,
@@ -637,7 +594,7 @@ const styles = StyleSheet.create({
   // Notes Section
   notesSection: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingBottom: 20,
   },
   notesTitle: {
     fontSize: 18,
@@ -655,11 +612,11 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
     padding: 12,
-    fontSize: 16,
+    fontSize: 14,
     color: '#1F2937',
     fontFamily: 'Inter',
     textAlignVertical: 'top',
-    minHeight: 96,
+    minHeight: 80,
   },
   charCount: {
     position: 'absolute',
