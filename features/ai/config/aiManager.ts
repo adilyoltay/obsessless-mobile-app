@@ -1,52 +1,48 @@
 /**
- * AI Configuration Manager
+ * 🤖 AI Manager - Centralized AI Configuration & Management
  * 
- * KRITIK: Tüm AI özellikleri feature flag arkasında olmalı
- * Her özellik için rollback mekanizması mevcut
+ * Bu sınıf tüm AI özelliklerinin merkezi yönetimini sağlar.
+ * FAZ 0 güvenlik prensiplerine uygun olarak tasarlanmıştır.
+ * 
+ * ⚠️ CRITICAL: Tüm AI özellikleri feature flag'ler arkasında olmalı
+ * ⚠️ Rollback mekanizmaları her özellik için mevcut olmalı
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   AIConfig, 
+  AIProvider, 
+  FallbackBehavior, 
   AIError, 
-  AIErrorCode,
-  AISafetyCheck,
-  SafetyViolation 
+  AIErrorCode, 
+  ErrorSeverity,
+  ConversationContext,
+  CrisisRiskLevel 
 } from '@/features/ai/types';
-import { trackAIInteraction, trackAIError } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
+import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
-// Varsayılan konfigürasyon
-const DEFAULT_CONFIG: AIConfig = {
-  provider: 'openai',
-  model: 'gpt-3.5-turbo',
-  temperature: 0.7,
-  maxTokens: 1000,
-  systemPrompt: 'Sen empatik ve destekleyici bir terapötik asistansın.',
-  fallbackBehavior: 'generic',
-  featureFlag: 'AI_CHAT',
-  safetyThreshold: 0.8,
-  privacyMode: 'strict'
-};
-
-// Konfigürasyon limitleri
-const CONFIG_LIMITS = {
-  temperature: { min: 0, max: 2 },
-  maxTokens: { min: 50, max: 4000 },
-  safetyThreshold: { min: 0.5, max: 1 }
-};
-
+/**
+ * Singleton AI Manager - Tüm AI özelliklerinin merkezi kontrolü
+ */
 export class AIManager {
   private static instance: AIManager;
   private enabled: boolean = false;
-  private config: AIConfig = DEFAULT_CONFIG;
-  private initializationPromise: Promise<void> | null = null;
-
+  private initialized: boolean = false;
+  private configs: Map<string, AIConfig> = new Map();
+  private healthStatus: Map<string, boolean> = new Map();
+  
+  // Emergency state
+  private emergencyShutdown: boolean = false;
+  private lastHealthCheck: Date = new Date();
+  
   private constructor() {
     // Private constructor for singleton
+    this.setupEmergencyListeners();
   }
 
+  /**
+   * Singleton instance getter
+   */
   static getInstance(): AIManager {
     if (!this.instance) {
       this.instance = new AIManager();
@@ -55,269 +51,446 @@ export class AIManager {
   }
 
   /**
-   * AI sistemini başlat
+   * AI Manager başlatma
    */
   async initialize(): Promise<void> {
-    // Çoklu initialization'ı önle
-    if (this.initializationPromise) {
-      return this.initializationPromise;
-    }
-
-    this.initializationPromise = this._initialize();
-    return this.initializationPromise;
-  }
-
-  private async _initialize(): Promise<void> {
-    console.log('[AIManager] Initializing...');
-
-    // Tüm ön koşulları kontrol et
-    if (!this.checkPrerequisites()) {
-      console.log('[AIManager] Prerequisites not met, AI features disabled');
-      await trackAIInteraction(AIEventType.FEATURE_DISABLED, {
-        reason: 'prerequisites_not_met'
-      });
-      return;
-    }
-
+    console.log('🤖 AIManager: Initialization starting...');
+    
     try {
-      // Kaydedilmiş konfigürasyonu yükle
-      await this.loadConfiguration();
-
-      // Güvenlik kontrolü
-      const safetyCheck = await this.performSafetyCheck();
-      if (!safetyCheck.passed) {
-        throw new Error('Safety check failed');
+      // Prerequisites kontrolü
+      if (!this.checkPrerequisites()) {
+        console.log('🚫 AI features disabled: prerequisites not met');
+        return;
       }
-
-      // Başarılı initialization
+      
+      // Configuration yükleme
+      await this.loadConfigurations();
+      
+      // Health check
+      await this.performHealthCheck();
+      
+      // Gradual initialization
       this.enabled = true;
-      await trackAIInteraction(AIEventType.FEATURE_ENABLED, {
-        config: this.getSanitizedConfig()
+      this.initialized = true;
+      
+      console.log('✅ AIManager: Successfully initialized');
+      
+      // Telemetry
+      await trackAIInteraction(AIEventType.SYSTEM_INITIALIZED, {
+        timestamp: new Date().toISOString(),
+        configs_loaded: this.configs.size
       });
       
-      console.log('[AIManager] Initialization successful');
     } catch (error) {
-      console.error('[AIManager] Initialization failed:', error);
+      console.error('❌ AIManager: Initialization failed:', error);
       await this.handleInitializationError(error as Error);
     }
   }
 
   /**
-   * Ön koşulları kontrol et
+   * Prerequisites kontrolü - AI özelliklerinin çalışması için gerekli koşullar
    */
   private checkPrerequisites(): boolean {
     // Feature flag kontrolü
     if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
-      console.log('[AIManager] AI_CHAT feature flag is disabled');
+      console.log('🚫 AI_CHAT feature flag disabled');
       return false;
     }
 
     // Environment kontrolü
     if (!this.checkEnvironment()) {
-      console.log('[AIManager] Environment check failed');
+      console.log('🚫 Environment not suitable for AI features');
       return false;
     }
 
-    // Bağımlılık kontrolü
+    // Dependencies kontrolü
     if (!this.checkDependencies()) {
-      console.log('[AIManager] Dependencies check failed');
+      console.log('🚫 Required dependencies not available');
       return false;
     }
 
-    // Import hataları kontrolü
-    if (!this.checkImportIntegrity()) {
-      console.log('[AIManager] Import integrity check failed');
+    // Global kill switch kontrolü
+    if (typeof (global as any).__OBSESSLESS_KILL_SWITCH !== 'undefined') {
+      console.log('🚨 Global kill switch activated');
       return false;
     }
 
     return true;
   }
 
+  /**
+   * Environment uygunluk kontrolü
+   */
   private checkEnvironment(): boolean {
-    // API key kontrolü (environment variable)
-    const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-    return !!apiKey && apiKey.length > 0;
-  }
-
-  private checkDependencies(): boolean {
-    // Gerekli modüllerin yüklü olduğunu kontrol et
-    try {
-      require('@react-native-async-storage/async-storage');
-      return true;
-    } catch {
-      return false;
+    // Production'da extra kontroller
+    if (!__DEV__) {
+      // API keys varlığı
+      if (!process.env.EXPO_PUBLIC_OPENAI_API_KEY && 
+          !process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY) {
+        return false;
+      }
     }
-  }
 
-  private checkImportIntegrity(): boolean {
-    // src/ dizini import kontrolü (basit kontrol)
-    // Gerçek kontrolü import-guard script yapıyor
+    // Network bağlantısı (basit check)
+    // TODO: Implement proper network connectivity check
+    
     return true;
   }
 
   /**
-   * Güvenlik kontrolü
+   * Dependencies kontrolü
    */
-  private async performSafetyCheck(): Promise<AISafetyCheck> {
-    const violations: SafetyViolation[] = [];
-
-    // API key güvenliği
-    if (this.config.provider === 'openai' && !process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
-      violations.push({
-        type: 'privacy_leak',
-        severity: 'high',
-        description: 'API key not found',
-        suggestedAction: 'Add EXPO_PUBLIC_OPENAI_API_KEY to environment'
-      });
+  private checkDependencies(): boolean {
+    // Gerekli modüllerin varlığını kontrol et
+    try {
+      // AsyncStorage availability
+      require('@react-native-async-storage/async-storage');
+      
+      // Feature flags availability
+      if (!FEATURE_FLAGS) {
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Dependencies check failed:', error);
+      return false;
     }
+  }
 
-    // Model güvenliği
-    if (this.config.temperature > 1.5) {
-      violations.push({
-        type: 'therapeutic_boundary',
-        severity: 'medium',
-        description: 'Temperature too high for therapeutic context',
-        suggestedAction: 'Reduce temperature to <= 1.5'
-      });
-    }
-
-    const passed = violations.length === 0;
-    const score = passed ? 1 : 1 - (violations.length * 0.2);
-
-    return {
-      passed,
-      score: Math.max(0, score),
-      violations,
-      recommendations: violations.map(v => v.suggestedAction)
+  /**
+   * AI konfigürasyonlarını yükle
+   */
+  private async loadConfigurations(): Promise<void> {
+    // Default AI Chat configuration
+    const chatConfig: AIConfig = {
+      provider: this.getPreferredProvider(),
+      model: this.getModelForProvider(this.getPreferredProvider()),
+      temperature: 0.7,
+      maxTokens: 1000,
+      systemPrompt: this.getTherapeuticSystemPrompt(),
+      fallbackBehavior: FallbackBehavior.GENERIC_RESPONSE,
+      featureFlag: 'AI_CHAT' as keyof typeof FEATURE_FLAGS,
+      
+      // Safety settings
+      safetyThreshold: 0.8,
+      crisisDetectionEnabled: true,
+      contentFilteringEnabled: true,
+      
+      // Performance settings
+      timeoutMs: 30000,
+      retryAttempts: 3,
+      cachingEnabled: true
     };
+
+    this.configs.set('chat', chatConfig);
+
+    // AI Insights configuration
+    if (FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
+      const insightsConfig: AIConfig = {
+        ...chatConfig,
+        featureFlag: 'AI_INSIGHTS' as keyof typeof FEATURE_FLAGS,
+        temperature: 0.5, // More deterministic for insights
+        systemPrompt: this.getInsightsSystemPrompt()
+      };
+      
+      this.configs.set('insights', insightsConfig);
+    }
+
+    console.log(`📋 Loaded ${this.configs.size} AI configurations`);
   }
 
   /**
-   * Konfigürasyon yönetimi
+   * Preferred AI provider belirleme
    */
-  async updateConfig(updates: Partial<AIConfig>): Promise<void> {
-    if (!this.enabled) {
-      throw this.createError(
-        AIErrorCode.FEATURE_DISABLED,
-        'AI features are disabled'
-      );
+  private getPreferredProvider(): AIProvider {
+    // Environment variable'dan okuma
+    const envProvider = process.env.EXPO_PUBLIC_AI_PROVIDER;
+    
+    if (envProvider && Object.values(AIProvider).includes(envProvider as AIProvider)) {
+      return envProvider as AIProvider;
     }
 
-    // Validasyon
-    this.validateConfigUpdates(updates);
-
-    // Güncelle
-    this.config = { ...this.config, ...updates };
-
-    // Kaydet
-    await this.saveConfiguration();
-
-    // Telemetri
-    await trackAIInteraction(AIEventType.MESSAGE_SENT, {
-      action: 'config_updated',
-      updates: Object.keys(updates)
-    });
-  }
-
-  private validateConfigUpdates(updates: Partial<AIConfig>): void {
-    if (updates.temperature !== undefined) {
-      const { min, max } = CONFIG_LIMITS.temperature;
-      if (updates.temperature < min || updates.temperature > max) {
-        throw this.createError(
-          AIErrorCode.INVALID_RESPONSE,
-          `Temperature must be between ${min} and ${max}`
-        );
-      }
+    // Development'ta mock kullan
+    if (__DEV__) {
+      return AIProvider.MOCK;
     }
 
-    if (updates.maxTokens !== undefined) {
-      const { min, max } = CONFIG_LIMITS.maxTokens;
-      if (updates.maxTokens < min || updates.maxTokens > max) {
-        throw this.createError(
-          AIErrorCode.INVALID_RESPONSE,
-          `Max tokens must be between ${min} and ${max}`
-        );
-      }
-    }
+    // Production'da OpenAI default
+    return AIProvider.OPENAI;
   }
 
   /**
-   * Konfigürasyon persistence
+   * Provider'a göre model seçimi
    */
-  private async loadConfiguration(): Promise<void> {
-    try {
-      const stored = await AsyncStorage.getItem('@ai_config');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        this.config = { ...DEFAULT_CONFIG, ...parsed };
-      }
-    } catch (error) {
-      console.error('[AIManager] Failed to load config:', error);
-      // Varsayılan konfigürasyonu kullan
-    }
-  }
-
-  private async saveConfiguration(): Promise<void> {
-    try {
-      await AsyncStorage.setItem('@ai_config', JSON.stringify(this.config));
-    } catch (error) {
-      console.error('[AIManager] Failed to save config:', error);
+  private getModelForProvider(provider: AIProvider): string {
+    switch (provider) {
+      case AIProvider.OPENAI:
+        return 'gpt-4-turbo-preview';
+      case AIProvider.ANTHROPIC:
+        return 'claude-3-sonnet-20240229';
+      case AIProvider.MOCK:
+        return 'mock-model-v1';
+      default:
+        return 'gpt-3.5-turbo';
     }
   }
 
   /**
-   * Acil durum kapatma
+   * Terapötik system prompt
+   */
+  private getTherapeuticSystemPrompt(): string {
+    return `Sen ObsessLess uygulamasının empatik AI asistanısın. 
+
+TEMEL İLKELERİN:
+1. 🌸 SAKİNLİK: Her zaman sakin, yumuşak ve rahatlatıcı bir ton kullan
+2. 💪 GÜÇLENDİRME: Kullanıcının kendi gücünü ve kontrolünü destekle
+3. 🌿 ZAHMETSIZLIK: Basit, anlaşılır ve uygulanabilir öneriler sun
+
+CBT TEKNİKLERİN:
+- Sokratik sorular sor
+- Düşünce-his-davranış bağlantılarını keşfet
+- Kademeli maruz bırakma öner
+- Güçlü yönleri vurgula
+
+GÜVENLİK KURALLARIN:
+- Kriz belirtileri için sürekli dikkatli ol
+- Profesyonel yardım gerektiğinde yönlendir
+- Asla tanı koyma veya ilaç önerme
+- Kullanıcının güvenliği her şeyden önemli
+
+TÜRKÇE İLETİŞİM:
+- Sıcak, samimi ama profesyonel
+- Kültürel hassasiyetleri göz önünde bulundur
+- Anlaşılır ve açık dil kullan
+
+Her yanıtında umut, destek ve pratik yardım sunmalısın.`;
+  }
+
+  /**
+   * Insights system prompt
+   */
+  private getInsightsSystemPrompt(): string {
+    return `Sen ObsessLess uygulamasının pattern analizi ve içgörü uzmanısın.
+
+GÖREVİN:
+- Kullanıcı verilerindeki kalıpları tespit et
+- Anlamlı ve uygulanabilir içgörüler çıkar
+- İlerlemeyi vurgula ve motive et
+- Kişisel öneriler sun
+
+ANALİZ PRENSİPLERİN:
+- Objektif veri analizi yap
+- Pozitif değişimleri öncelikle vurgula
+- Pratik öneriler sun
+- Gizlilik ve güvenliği koru
+
+İÇGÖRÜ TÜRLERİN:
+- Kalıp tanıma (tetikleyiciler, zamanlar)
+- İlerleme analizi
+- Güçlü yön tespiti
+- Gelişim alanları
+- Kişiselleştirilmiş öneriler
+
+Her içgörün constructive, motivational ve actionable olmalı.`;
+  }
+
+  /**
+   * Health check - Sistem sağlığını kontrol et
+   */
+  private async performHealthCheck(): Promise<void> {
+    console.log('🔍 AIManager: Performing health check...');
+    
+    for (const [name, config] of this.configs) {
+      try {
+        // Feature flag hala aktif mi?
+        if (!FEATURE_FLAGS.isEnabled(config.featureFlag)) {
+          this.healthStatus.set(name, false);
+          continue;
+        }
+        
+        // Provider erişilebilir mi? (basit test)
+        const healthy = await this.testProviderHealth(config.provider);
+        this.healthStatus.set(name, healthy);
+        
+      } catch (error) {
+        console.error(`Health check failed for ${name}:`, error);
+        this.healthStatus.set(name, false);
+      }
+    }
+    
+    this.lastHealthCheck = new Date();
+    console.log(`✅ Health check completed. Healthy services: ${this.getHealthyServicesCount()}`);
+  }
+
+  /**
+   * Provider sağlık testi
+   */
+  private async testProviderHealth(provider: AIProvider): Promise<boolean> {
+    switch (provider) {
+      case AIProvider.MOCK:
+        return true; // Mock provider her zaman healthy
+      
+      case AIProvider.OPENAI:
+        // TODO: Implement OpenAI health check
+        return true;
+        
+      case AIProvider.ANTHROPIC:
+        // TODO: Implement Anthropic health check
+        return true;
+        
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Emergency shutdown - Tüm AI özelliklerini güvenli şekilde kapat
    */
   async shutdown(): Promise<void> {
-    console.warn('[AIManager] Emergency shutdown initiated');
-
-    // AI özelliklerini kapat
+    console.warn('🚨 AIManager: Emergency shutdown initiated');
+    
+    this.emergencyShutdown = true;
     this.enabled = false;
     
     // Feature flag'leri kapat
     FEATURE_FLAGS.disableAll();
-
-    // Telemetri
-    await trackAIInteraction(AIEventType.FEATURE_DISABLED, {
-      reason: 'emergency_shutdown'
+    
+    // Aktif bağlantıları kapat
+    await this.closeActiveConnections();
+    
+    // Cache'leri temizle
+    await this.clearCaches();
+    
+    // State'i sıfırla
+    this.configs.clear();
+    this.healthStatus.clear();
+    
+    // Telemetry
+    await trackAIInteraction(AIEventType.EMERGENCY_SHUTDOWN, {
+      timestamp: new Date().toISOString(),
+      reason: 'manual_shutdown'
     });
-
-    // Kaynakları temizle
-    this.config = DEFAULT_CONFIG;
-    this.initializationPromise = null;
-
-    console.log('[AIManager] Shutdown complete');
+    
+    console.warn('🚨 AIManager: Emergency shutdown completed');
   }
 
   /**
-   * Yardımcı metodlar
+   * AI özelliği kullanım kontrolü
    */
-  isEnabled(): boolean {
-    return this.enabled && FEATURE_FLAGS.isEnabled('AI_CHAT');
+  canUseFeature(featureName: string): boolean {
+    // Emergency shutdown kontrolü
+    if (this.emergencyShutdown) {
+      return false;
+    }
+    
+    // Initialization kontrolü
+    if (!this.initialized || !this.enabled) {
+      return false;
+    }
+    
+    // Configuration varlığı
+    const config = this.configs.get(featureName);
+    if (!config) {
+      return false;
+    }
+    
+    // Feature flag kontrolü
+    if (!FEATURE_FLAGS.isEnabled(config.featureFlag)) {
+      return false;
+    }
+    
+    // Health status kontrolü
+    const healthy = this.healthStatus.get(featureName);
+    if (!healthy) {
+      return false;
+    }
+    
+    return true;
   }
 
-  getConfig(): Readonly<AIConfig> {
-    return { ...this.config };
+  /**
+   * Configuration getter
+   */
+  getConfig(featureName: string): AIConfig | null {
+    if (!this.canUseFeature(featureName)) {
+      return null;
+    }
+    
+    return this.configs.get(featureName) || null;
   }
 
-  private getSanitizedConfig(): Record<string, any> {
-    // Hassas bilgileri çıkar
-    const { systemPrompt, ...sanitized } = this.config;
-    return sanitized;
+  /**
+   * Crisis durumda otomatik müdahale
+   */
+  async handleCrisisDetection(
+    context: ConversationContext, 
+    riskLevel: CrisisRiskLevel
+  ): Promise<void> {
+    console.warn(`🚨 Crisis detected: ${riskLevel} for user ${context.userId}`);
+    
+    // Telemetry
+    await trackAIInteraction(AIEventType.CRISIS_DETECTED, {
+      userId: context.userId,
+      riskLevel,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Risk seviyesine göre aksiyon al
+    switch (riskLevel) {
+      case CrisisRiskLevel.HIGH:
+      case CrisisRiskLevel.CRITICAL:
+        // Acil müdahale protokolü
+        await this.initiateEmergencyProtocol(context);
+        break;
+        
+      case CrisisRiskLevel.MEDIUM:
+        // Destekleyici kaynaklar sun
+        await this.provideSupportResources(context);
+        break;
+        
+      default:
+        // Normal akışa devam et ama izlemeyi artır
+        break;
+    }
   }
 
-  private createError(
-    code: AIErrorCode,
-    message: string,
-    severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'
+  /**
+   * Error handling ve user-friendly mesajlar
+   */
+  createError(
+    code: AIErrorCode, 
+    message: string, 
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    context?: Record<string, any>
   ): AIError {
-    const error = new Error(message) as AIError;
-    error.code = code;
-    error.severity = severity;
-    error.userMessage = this.getUserFriendlyMessage(code);
-    return error;
+    return {
+      code,
+      message,
+      context,
+      timestamp: new Date(),
+      severity,
+      recoverable: this.isRecoverableError(code),
+      userMessage: this.getUserFriendlyMessage(code)
+    };
   }
 
+  /**
+   * Error'un kurtarılabilir olup olmadığını kontrol et
+   */
+  private isRecoverableError(code: AIErrorCode): boolean {
+    const recoverableErrors = [
+      AIErrorCode.NETWORK_ERROR,
+      AIErrorCode.RATE_LIMIT,
+      AIErrorCode.MODEL_ERROR
+    ];
+    
+    return recoverableErrors.includes(code);
+  }
+
+  /**
+   * Kullanıcı dostu error mesajları
+   */
   private getUserFriendlyMessage(code: AIErrorCode): string {
     const messages: Record<AIErrorCode, string> = {
       [AIErrorCode.FEATURE_DISABLED]: 'AI özellikleri şu anda kullanılamıyor.',
@@ -336,7 +509,7 @@ export class AIManager {
     const aiError = this.createError(
       AIErrorCode.UNKNOWN,
       error.message,
-      'critical'
+      ErrorSeverity.CRITICAL
     );
 
     await trackAIError(aiError);
@@ -348,14 +521,13 @@ export class AIManager {
   /**
    * A/B Test desteği
    */
-  async getExperimentConfig(experimentName: string): Promise<any> {
-    // Basit A/B test implementasyonu
-    // Gerçek uygulamada remote config servisi kullanılmalı
-    const experiments = {
-      'chat_ui_variant': {
-        control: 'simple',
-        variants: ['simple', 'advanced'],
-        allocation: 0.1
+  getExperimentConfig(experimentName: string): any {
+    // Future: A/B testing configurations
+    const experiments: Record<string, any> = {
+      chat_ui_variant: {
+        control: 'default',
+        variants: ['minimal', 'enhanced'],
+        allocation: 0.5
       }
     };
 
@@ -363,20 +535,60 @@ export class AIManager {
   }
 
   /**
-   * Performans monitoring
+   * Private helper methods
    */
-  async reportPerformance(metric: string, value: number): Promise<void> {
-    if (!this.enabled) return;
-
-    // Basit performans raporu
-    console.log(`[AIManager] Performance: ${metric} = ${value}ms`);
-    
-    // Telemetri ile entegre
-    if (value > 3000) {
-      console.warn(`[AIManager] Slow performance detected: ${metric}`);
+  private setupEmergencyListeners(): void {
+    // Global kill switch listener
+    if (typeof window !== 'undefined') {
+      (window as any).obslesslessEmergencyShutdown = () => {
+        this.shutdown();
+      };
     }
+  }
+
+  private async closeActiveConnections(): Promise<void> {
+    // TODO: Implement active connection closing
+    console.log('🔌 Closing active AI connections...');
+  }
+
+  private async clearCaches(): Promise<void> {
+    // TODO: Implement cache clearing
+    console.log('🧹 Clearing AI caches...');
+  }
+
+  private getHealthyServicesCount(): number {
+    return Array.from(this.healthStatus.values()).filter(Boolean).length;
+  }
+
+  private async initiateEmergencyProtocol(context: ConversationContext): Promise<void> {
+    // TODO: Implement emergency protocol
+    console.log('🚨 Initiating emergency protocol for user:', context.userId);
+  }
+
+  private async provideSupportResources(context: ConversationContext): Promise<void> {
+    // TODO: Implement support resources
+    console.log('📞 Providing support resources for user:', context.userId);
+  }
+
+  /**
+   * Getter methods for monitoring
+   */
+  get isEnabled(): boolean {
+    return this.enabled && !this.emergencyShutdown;
+  }
+
+  get isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  get configCount(): number {
+    return this.configs.size;
+  }
+
+  get lastHealthCheckTime(): Date {
+    return this.lastHealthCheck;
   }
 }
 
-// Singleton export
-export const aiManager = AIManager.getInstance(); 
+// Export singleton instance
+export const aiManager = AIManager.getInstance();

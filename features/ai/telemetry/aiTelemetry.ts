@@ -1,315 +1,697 @@
 /**
- * AI Telemetri Sistemi
+ * 📊 AI Telemetry System - Privacy-First Analytics
  * 
- * KRITIK: Feature flag kontrolü her telemetri işleminden önce
- * src/ import'ları yok, sadece mevcut dizinlerden import
+ * Bu sistem AI özelliklerinin kullanımını, performansını ve güvenliğini izler.
+ * FAZ 0 güvenlik prensiplerine uygun olarak gizlilik-öncelikli tasarlanmıştır.
+ * 
+ * ⚠️ CRITICAL: Feature flag kontrolü her telemetri öncesi yapılmalı
+ * ⚠️ Kişisel veri asla loglanmaz, sadece usage pattern'ları
  */
 
-import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
-  AITelemetryEvent, 
-  AIEventType,
-  AIError,
-  AIErrorCode 
+  AIError, 
+  AIInteractionAnalytics, 
+  AIInteractionType,
+  ErrorSeverity 
 } from '@/features/ai/types';
-import { logger } from '@/utils/logger'; // Use the new logger utility
 
-// Telemetri konfigürasyonu
-const TELEMETRY_CONFIG = {
-  BATCH_SIZE: 10,
-  FLUSH_INTERVAL: 30000, // 30 saniye
-  MAX_QUEUE_SIZE: 100,
-  STORAGE_KEY: '@ai_telemetry_queue',
-  PRIVACY_MODE: 'strict' as const,
-  ENABLE_CONSOLE_LOG: __DEV__
+// =============================================================================
+// 📋 TELEMETRY EVENT TYPES
+// =============================================================================
+
+/**
+ * AI Event türleri
+ */
+export enum AIEventType {
+  // System events
+  SYSTEM_INITIALIZED = 'system_initialized',
+  EMERGENCY_SHUTDOWN = 'emergency_shutdown',
+  FEATURE_ENABLED = 'feature_enabled',
+  FEATURE_DISABLED = 'feature_disabled',
+  
+  // Chat events
+  CHAT_SESSION_STARTED = 'chat_session_started',
+  CHAT_MESSAGE_SENT = 'chat_message_sent',
+  CHAT_RESPONSE_RECEIVED = 'chat_response_received',
+  CHAT_SESSION_ENDED = 'chat_session_ended',
+  
+  // Insights events
+  INSIGHT_GENERATED = 'insight_generated',
+  INSIGHT_VIEWED = 'insight_viewed',
+  INSIGHT_SHARED = 'insight_shared',
+  
+  // Crisis events
+  CRISIS_DETECTED = 'crisis_detected',
+  CRISIS_RESOLVED = 'crisis_resolved',
+  EMERGENCY_CONTACT_INITIATED = 'emergency_contact_initiated',
+  
+  // Performance events
+  SLOW_RESPONSE = 'slow_response',
+  API_ERROR = 'api_error',
+  FALLBACK_TRIGGERED = 'fallback_triggered',
+  
+  // User experience events
+  USER_FEEDBACK_POSITIVE = 'user_feedback_positive',
+  USER_FEEDBACK_NEGATIVE = 'user_feedback_negative',
+  FEATURE_ABANDONED = 'feature_abandoned'
+}
+
+/**
+ * Telemetry event base interface
+ */
+export interface TelemetryEvent {
+  eventType: AIEventType;
+  timestamp: string;
+  sessionId?: string;
+  userId?: string; // Hashed for privacy
+  metadata: Record<string, any>;
+  
+  // Privacy & compliance
+  anonymized: boolean;
+  retentionDays: number;
+  consentLevel: ConsentLevel;
+}
+
+/**
+ * Consent seviyeleri
+ */
+export enum ConsentLevel {
+  NONE = 'none',           // No tracking
+  BASIC = 'basic',         // Essential functionality only
+  ANALYTICS = 'analytics', // Usage patterns
+  FULL = 'full'           // All telemetry (with user consent)
+}
+
+/**
+ * Performance metrics
+ */
+export interface PerformanceMetrics {
+  responseTime: number;
+  tokenCount?: number;
+  modelUsed: string;
+  cacheHit: boolean;
+  errorCount: number;
+  retryCount: number;
+}
+
+/**
+ * User satisfaction feedback
+ */
+export interface UserFeedback {
+  helpfulness: number; // 1-5
+  accuracy: number; // 1-5
+  empathy: number; // 1-5
+  overallSatisfaction: number; // 1-5
+  comment?: string; // Sanitized, no PII
+}
+
+// =============================================================================
+// 🔧 TELEMETRY CONFIGURATION
+// =============================================================================
+
+/**
+ * Telemetry konfigürasyonu
+ */
+interface TelemetryConfig {
+  enabled: boolean;
+  consentLevel: ConsentLevel;
+  bufferSize: number;
+  flushIntervalMs: number;
+  maxRetentionDays: number;
+  anonymizationEnabled: boolean;
+  offlineBuffering: boolean;
+}
+
+/**
+ * Default telemetry config
+ */
+const DEFAULT_CONFIG: TelemetryConfig = {
+  enabled: true,
+  consentLevel: ConsentLevel.BASIC,
+  bufferSize: 100,
+  flushIntervalMs: 30000, // 30 seconds
+  maxRetentionDays: 30,
+  anonymizationEnabled: true,
+  offlineBuffering: true
 };
 
-class AITelemetryService {
-  private static instance: AITelemetryService;
-  private eventQueue: AITelemetryEvent[] = [];
-  private flushTimer: ReturnType<typeof setInterval> | null = null;
-  private isEnabled: boolean = false;
+// =============================================================================
+// 📊 TELEMETRY MANAGER CLASS
+// =============================================================================
 
-  private constructor() {
+class AITelemetryManager {
+  private config: TelemetryConfig = DEFAULT_CONFIG;
+  private eventBuffer: TelemetryEvent[] = [];
+  private flushTimer?: NodeJS.Timeout;
+  private sessionId: string;
+  private isInitialized: boolean = false;
+
+  constructor() {
+    this.sessionId = this.generateSessionId();
     this.initialize();
   }
 
-  static getInstance(): AITelemetryService {
-    if (!this.instance) {
-      this.instance = new AITelemetryService();
+  /**
+   * Telemetry sistemini başlat
+   */
+  private async initialize(): Promise<void> {
+    try {
+      // Kullanıcı consent seviyesini yükle
+      await this.loadUserConsent();
+      
+      // Offline buffer'ı yükle
+      if (this.config.offlineBuffering) {
+        await this.loadOfflineBuffer();
+      }
+      
+      // Periodic flush başlat
+      this.startPeriodicFlush();
+      
+      this.isInitialized = true;
+      console.log('📊 AI Telemetry initialized');
+      
+    } catch (error) {
+      console.error('❌ AI Telemetry initialization failed:', error);
     }
-    return this.instance;
-  }
-
-  private async initialize() {
-    // Feature flag kontrolü
-    if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
-      console.log('[AITelemetry] Disabled - feature flag is off');
-      return;
-    }
-
-    this.isEnabled = true;
-    
-    // Kaydedilmiş olayları yükle
-    await this.loadQueueFromStorage();
-    
-    // Periyodik flush başlat
-    this.startFlushTimer();
   }
 
   /**
-   * AI etkileşimini takip et
+   * AI etkileşimini track et
    */
   async trackAIInteraction(
-    type: AIEventType,
-    metadata: Record<string, any> = {}
+    eventType: AIEventType,
+    metadata: Record<string, any> = {},
+    userId?: string
   ): Promise<void> {
-    // Feature flag kontrolü
-    if (!this.isEnabled || !FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+    // Feature flag kontrolü FIRST
+    if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
       return;
     }
 
-    // Privacy-first: hassas verileri temizle
-    const sanitizedMetadata = this.sanitizeMetadata(metadata);
+    // Telemetry disabled ise skip
+    if (!this.config.enabled || this.config.consentLevel === ConsentLevel.NONE) {
+      return;
+    }
 
-    const event: AITelemetryEvent = {
-      eventType: type,
-      timestamp: new Date(),
-      sessionId: await this.getOrCreateSessionId(),
-      metadata: sanitizedMetadata,
-      privacy_compliant: true
-    };
+    try {
+      const event: TelemetryEvent = {
+        eventType,
+        timestamp: new Date().toISOString(),
+        sessionId: this.sessionId,
+        userId: userId ? this.hashUserId(userId) : undefined,
+        metadata: this.sanitizeMetadata(metadata),
+        anonymized: this.config.anonymizationEnabled,
+        retentionDays: this.config.maxRetentionDays,
+        consentLevel: this.config.consentLevel
+      };
 
-    // Kuyruğa ekle
-    this.addToQueue(event);
+      // Event'i buffer'a ekle
+      this.addToBuffer(event);
 
-    // Kritik olayları hemen gönder
-    if (this.isCriticalEvent(type)) {
-      await this.flush();
+      // Debug log (sadece development)
+      if (__DEV__) {
+        console.log(`📊 AI Telemetry: ${eventType}`, metadata);
+      }
+
+    } catch (error) {
+      console.error('❌ Error tracking AI interaction:', error);
     }
   }
 
   /**
-   * Performans metriği kaydet
+   * AI error'unu track et
+   */
+  async trackAIError(error: AIError, context?: Record<string, any>): Promise<void> {
+    await this.trackAIInteraction(AIEventType.API_ERROR, {
+      errorCode: error.code,
+      errorMessage: error.message,
+      severity: error.severity,
+      recoverable: error.recoverable,
+      context: this.sanitizeMetadata(context || {})
+    });
+  }
+
+  /**
+   * Performance metrics'i track et
    */
   async trackPerformance(
-    operation: string,
-    duration: number,
-    success: boolean
+    feature: string,
+    metrics: PerformanceMetrics,
+    userId?: string
   ): Promise<void> {
-    await this.trackAIInteraction(AIEventType.MESSAGE_RECEIVED, {
-      operation,
-      duration,
-      success,
-      performance_category: this.categorizePerformance(duration)
-    });
-  }
-
-  /**
-   * Hata takibi
-   */
-  async trackError(error: AIError): Promise<void> {
-    await this.trackAIInteraction(AIEventType.ERROR_OCCURRED, {
-      error_code: error.code,
-      severity: error.severity,
-      fallback_used: !!error.fallbackAction
-    });
-  }
-
-  /**
-   * Kullanıcı memnuniyeti
-   */
-  async trackSatisfaction(
-    rating: number,
-    sessionId: string,
-    feedback?: string
-  ): Promise<void> {
-    await this.trackAIInteraction(AIEventType.CONVERSATION_END, {
-      satisfaction_rating: rating,
-      has_feedback: !!feedback,
-      session_duration: await this.getSessionDuration(sessionId)
-    });
-  }
-
-  /**
-   * Terapötik sonuç korelasyonu
-   */
-  async trackTherapeuticOutcome(
-    outcomeType: string,
-    improvement: number,
-    confidence: number
-  ): Promise<void> {
-    await this.trackAIInteraction(AIEventType.MESSAGE_RECEIVED, {
-      outcome_type: outcomeType,
-      improvement_score: improvement,
-      confidence_level: confidence,
-      clinical_relevance: improvement > 0.5
-    });
-  }
-
-  // Yardımcı metodlar
-
-  private sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
-    
-    // İzin verilen alanlar
-    const allowedFields = [
-      'duration', 'success', 'error_code', 'severity',
-      'satisfaction_rating', 'has_feedback', 'session_duration',
-      'outcome_type', 'improvement_score', 'confidence_level'
-    ];
-
-    for (const [key, value] of Object.entries(metadata)) {
-      if (allowedFields.includes(key)) {
-        // Sayısal değerleri yuvarla (privacy için)
-        if (typeof value === 'number') {
-          sanitized[key] = Math.round(value * 10) / 10;
-        } else {
-          sanitized[key] = value;
-        }
-      }
+    // Slow response detection
+    if (metrics.responseTime > 5000) {
+      await this.trackAIInteraction(AIEventType.SLOW_RESPONSE, {
+        feature,
+        responseTime: metrics.responseTime,
+        modelUsed: metrics.modelUsed
+      }, userId);
     }
 
+    // General performance tracking
+    await this.trackAIInteraction(AIEventType.CHAT_RESPONSE_RECEIVED, {
+      feature,
+      ...metrics
+    }, userId);
+  }
+
+  /**
+   * User feedback'i track et
+   */
+  async trackUserFeedback(
+    feedback: UserFeedback,
+    feature: string,
+    userId?: string
+  ): Promise<void> {
+    const eventType = feedback.overallSatisfaction >= 4 
+      ? AIEventType.USER_FEEDBACK_POSITIVE 
+      : AIEventType.USER_FEEDBACK_NEGATIVE;
+
+    await this.trackAIInteraction(eventType, {
+      feature,
+      ...feedback,
+      comment: feedback.comment ? this.sanitizeComment(feedback.comment) : undefined
+    }, userId);
+  }
+
+  /**
+   * Crisis detection event'ini track et
+   */
+  async trackCrisisDetection(
+    riskLevel: string,
+    triggers: string[],
+    userId?: string
+  ): Promise<void> {
+    await this.trackAIInteraction(AIEventType.CRISIS_DETECTED, {
+      riskLevel,
+      triggerCount: triggers.length,
+      // Trigger'ları sanitize et - specific content'i loglamıyoruz
+      triggerTypes: triggers.map(t => this.classifyTrigger(t))
+    }, userId);
+  }
+
+  /**
+   * Analytics export (GDPR uyumlu)
+   */
+  async exportUserData(userId: string): Promise<TelemetryEvent[]> {
+    const hashedUserId = this.hashUserId(userId);
+    const userEvents: TelemetryEvent[] = [];
+
+    // Buffer'dan user'a ait event'leri filtrele
+    const bufferEvents = this.eventBuffer.filter(
+      event => event.userId === hashedUserId
+    );
+    userEvents.push(...bufferEvents);
+
+    // Offline storage'dan da yükle
+    try {
+      const offlineEvents = await this.loadUserEventsFromStorage(hashedUserId);
+      userEvents.push(...offlineEvents);
+    } catch (error) {
+      console.error('Error loading user events from storage:', error);
+    }
+
+    return userEvents;
+  }
+
+  /**
+   * User data'sını sil (GDPR right to be forgotten)
+   */
+  async deleteUserData(userId: string): Promise<void> {
+    const hashedUserId = this.hashUserId(userId);
+
+    // Buffer'dan sil
+    this.eventBuffer = this.eventBuffer.filter(
+      event => event.userId !== hashedUserId
+    );
+
+    // Storage'dan sil
+    try {
+      await this.deleteUserEventsFromStorage(hashedUserId);
+      console.log(`🗑️ Deleted telemetry data for user: ${hashedUserId.substring(0, 8)}...`);
+    } catch (error) {
+      console.error('Error deleting user telemetry data:', error);
+    }
+  }
+
+  /**
+   * Consent seviyesini güncelle
+   */
+  async updateConsentLevel(level: ConsentLevel): Promise<void> {
+    this.config.consentLevel = level;
+    
+    // Consent'i kaydet
+    await AsyncStorage.setItem('ai_telemetry_consent', level);
+    
+    // Eğer consent kaldırıldıysa, mevcut data'yı temizle
+    if (level === ConsentLevel.NONE) {
+      this.eventBuffer = [];
+      await this.clearStoredEvents();
+    }
+
+    console.log(`📊 AI Telemetry consent updated to: ${level}`);
+  }
+
+  // =============================================================================
+  // 🔒 PRIVATE HELPER METHODS
+  // =============================================================================
+
+  /**
+   * User ID'sini hash'le (privacy için)
+   */
+  private hashUserId(userId: string): string {
+    // Simple hash - production'da crypto hash kullanılmalı
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      const char = userId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return `user_${Math.abs(hash).toString(16)}`;
+  }
+
+  /**
+   * Metadata'yı sanitize et - PII çıkar
+   */
+  private sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
+    const sanitized = { ...metadata };
+    
+    // PII olabilecek field'ları çıkar
+    const piiFields = ['email', 'phone', 'name', 'address', 'content', 'message'];
+    
+    for (const field of piiFields) {
+      if (sanitized[field]) {
+        delete sanitized[field];
+      }
+    }
+    
+    // String'leri length ile değiştir
+    for (const key in sanitized) {
+      if (typeof sanitized[key] === 'string' && sanitized[key].length > 50) {
+        sanitized[key] = `[string_length_${sanitized[key].length}]`;
+      }
+    }
+    
     return sanitized;
   }
 
-  private async getOrCreateSessionId(): Promise<string> {
+  /**
+   * Comment'i sanitize et
+   */
+  private sanitizeComment(comment: string): string {
+    // Uzun comment'leri kısalt
+    if (comment.length > 100) {
+      return `[comment_length_${comment.length}]`;
+    }
+    
+    // PII pattern'larını mask'le
+    return comment
+      .replace(/\b[\w\.-]+@[\w\.-]+\.\w+\b/g, '[email]')
+      .replace(/\b\d{10,}\b/g, '[phone]')
+      .replace(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/g, '[name]');
+  }
+
+  /**
+   * Trigger type'ını classify et
+   */
+  private classifyTrigger(trigger: string): string {
+    // Trigger content'ini loglamak yerine kategorisini belirle
+    if (trigger.includes('suicide') || trigger.includes('death')) {
+      return 'suicide_ideation';
+    } else if (trigger.includes('harm') || trigger.includes('hurt')) {
+      return 'self_harm';
+    } else if (trigger.includes('panic') || trigger.includes('anxiety')) {
+      return 'anxiety_spike';
+    }
+    return 'general_distress';
+  }
+
+  /**
+   * Session ID generate et
+   */
+  private generateSessionId(): string {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Event'i buffer'a ekle
+   */
+  private addToBuffer(event: TelemetryEvent): void {
+    this.eventBuffer.push(event);
+    
+    // Buffer overflow kontrolü
+    if (this.eventBuffer.length > this.config.bufferSize) {
+      this.flushBuffer();
+    }
+  }
+
+  /**
+   * Buffer'ı flush et
+   */
+  private async flushBuffer(): Promise<void> {
+    if (this.eventBuffer.length === 0) return;
+
     try {
-      let sessionId = await AsyncStorage.getItem('@ai_session_id');
-      if (!sessionId) {
-        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await AsyncStorage.setItem('@ai_session_id', sessionId);
+      // Offline storage'a kaydet
+      if (this.config.offlineBuffering) {
+        await this.saveEventsToStorage(this.eventBuffer);
       }
-      return sessionId;
-    } catch {
-      return 'anonymous_session';
-    }
-  }
 
-  private addToQueue(event: AITelemetryEvent): void {
-    this.eventQueue.push(event);
-
-    // Maksimum kuyruk boyutu kontrolü
-    if (this.eventQueue.length > TELEMETRY_CONFIG.MAX_QUEUE_SIZE) {
-      this.eventQueue.shift(); // En eski olayı sil
-    }
-
-    // Batch boyutuna ulaştıysa flush et
-    if (this.eventQueue.length >= TELEMETRY_CONFIG.BATCH_SIZE) {
-      this.flush();
-    }
-  }
-
-  private async flush(): Promise<void> {
-    if (this.eventQueue.length === 0) return;
-
-    const eventsToSend = [...this.eventQueue];
-    this.eventQueue = [];
-
-    try {
-      // Burada normalde backend'e gönderim yapılır
-      // Şimdilik sadece logluyoruz
-      if (TELEMETRY_CONFIG.ENABLE_CONSOLE_LOG) {
-        console.log('[AITelemetry] Flushing events:', eventsToSend.length);
+      // TODO: Production'da analytics service'e gönder
+      if (__DEV__) {
+        console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
       }
 
-      // Storage'ı temizle
-      await AsyncStorage.removeItem(TELEMETRY_CONFIG.STORAGE_KEY);
+      // Buffer'ı temizle
+      this.eventBuffer = [];
+
     } catch (error) {
-      // Hata durumunda olayları geri ekle
-      this.eventQueue = [...eventsToSend, ...this.eventQueue];
-      await this.saveQueueToStorage();
+      console.error('❌ Error flushing telemetry buffer:', error);
     }
   }
 
-  private async loadQueueFromStorage(): Promise<void> {
-    try {
-      const stored = await AsyncStorage.getItem(TELEMETRY_CONFIG.STORAGE_KEY);
-      if (stored) {
-        this.eventQueue = JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('[AITelemetry] Failed to load queue:', error);
-    }
-  }
-
-  private async saveQueueToStorage(): Promise<void> {
-    try {
-      await AsyncStorage.setItem(
-        TELEMETRY_CONFIG.STORAGE_KEY,
-        JSON.stringify(this.eventQueue)
-      );
-    } catch (error) {
-      console.error('[AITelemetry] Failed to save queue:', error);
-    }
-  }
-
-  private startFlushTimer(): void {
+  /**
+   * Periodic flush başlat
+   */
+  private startPeriodicFlush(): void {
     this.flushTimer = setInterval(() => {
-      this.flush();
-    }, TELEMETRY_CONFIG.FLUSH_INTERVAL);
+      this.flushBuffer();
+    }, this.config.flushIntervalMs);
   }
 
-  private isCriticalEvent(type: AIEventType): boolean {
-    return [
-      AIEventType.ERROR_OCCURRED,
-      AIEventType.SAFETY_TRIGGERED
-    ].includes(type);
+  /**
+   * User consent'ini yükle
+   */
+  private async loadUserConsent(): Promise<void> {
+    try {
+      const consent = await AsyncStorage.getItem('ai_telemetry_consent');
+      if (consent && Object.values(ConsentLevel).includes(consent as ConsentLevel)) {
+        this.config.consentLevel = consent as ConsentLevel;
+      }
+    } catch (error) {
+      console.error('Error loading telemetry consent:', error);
+    }
   }
 
-  private categorizePerformance(duration: number): string {
-    if (duration < 1000) return 'excellent';
-    if (duration < 2000) return 'good';
-    if (duration < 3000) return 'acceptable';
-    return 'poor';
+  /**
+   * Offline buffer'ı yükle
+   */
+  private async loadOfflineBuffer(): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+      if (stored) {
+        const events: TelemetryEvent[] = JSON.parse(stored);
+        this.eventBuffer.push(...events);
+        
+        // Stored events'i temizle
+        await AsyncStorage.removeItem('ai_telemetry_offline');
+      }
+    } catch (error) {
+      console.error('Error loading offline buffer:', error);
+    }
   }
 
-  private async getSessionDuration(sessionId: string): Promise<number> {
-    // Basit implementasyon - gerçek uygulamada session başlangıç zamanı saklanmalı
-    return Math.floor(Math.random() * 3600); // Saniye cinsinden
+  /**
+   * Event'leri storage'a kaydet
+   */
+  private async saveEventsToStorage(events: TelemetryEvent[]): Promise<void> {
+    try {
+      // Retention policy uygula - eski event'leri filtrele
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - this.config.maxRetentionDays);
+      
+      const filteredEvents = events.filter(event => 
+        new Date(event.timestamp) > cutoffDate
+      );
+
+      if (filteredEvents.length > 0) {
+        await AsyncStorage.setItem(
+          'ai_telemetry_offline',
+          JSON.stringify(filteredEvents)
+        );
+      }
+    } catch (error) {
+      console.error('Error saving events to storage:', error);
+    }
   }
 
-  // Cleanup
-  destroy(): void {
+  /**
+   * User event'lerini storage'dan yükle
+   */
+  private async loadUserEventsFromStorage(hashedUserId: string): Promise<TelemetryEvent[]> {
+    try {
+      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+      if (stored) {
+        const events: TelemetryEvent[] = JSON.parse(stored);
+        return events.filter(event => event.userId === hashedUserId);
+      }
+    } catch (error) {
+      console.error('Error loading user events from storage:', error);
+    }
+    return [];
+  }
+
+  /**
+   * User event'lerini storage'dan sil
+   */
+  private async deleteUserEventsFromStorage(hashedUserId: string): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+      if (stored) {
+        const events: TelemetryEvent[] = JSON.parse(stored);
+        const filteredEvents = events.filter(event => event.userId !== hashedUserId);
+        
+        if (filteredEvents.length > 0) {
+          await AsyncStorage.setItem('ai_telemetry_offline', JSON.stringify(filteredEvents));
+        } else {
+          await AsyncStorage.removeItem('ai_telemetry_offline');
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting user events from storage:', error);
+    }
+  }
+
+  /**
+   * Tüm stored event'leri temizle
+   */
+  private async clearStoredEvents(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem('ai_telemetry_offline');
+    } catch (error) {
+      console.error('Error clearing stored events:', error);
+    }
+  }
+
+  /**
+   * Cleanup on app close
+   */
+  async cleanup(): Promise<void> {
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
-      this.flushTimer = null;
     }
-    this.flush();
-    this.isEnabled = false;
+    
+    // Final flush
+    await this.flushBuffer();
   }
 }
 
+// =============================================================================
+// 📤 EXPORTED FUNCTIONS
+// =============================================================================
+
 // Singleton instance
-const telemetryService = AITelemetryService.getInstance();
+const telemetryManager = new AITelemetryManager();
 
-// Export edilecek fonksiyonlar
-export const trackAIInteraction = (
-  type: AIEventType,
-  metadata?: Record<string, any>
-) => telemetryService.trackAIInteraction(type, metadata);
+/**
+ * AI etkileşimini track et
+ */
+export const trackAIInteraction = async (
+  eventType: AIEventType,
+  metadata: Record<string, any> = {},
+  userId?: string
+): Promise<void> => {
+  return telemetryManager.trackAIInteraction(eventType, metadata, userId);
+};
 
-export const trackAIPerformance = (
-  operation: string,
-  duration: number,
-  success: boolean
-) => telemetryService.trackPerformance(operation, duration, success);
+/**
+ * AI error'unu track et
+ */
+export const trackAIError = async (
+  error: AIError,
+  context?: Record<string, any>
+): Promise<void> => {
+  return telemetryManager.trackAIError(error, context);
+};
 
-export const trackAIError = (error: AIError) => 
-  telemetryService.trackError(error);
+/**
+ * Performance metrics'i track et
+ */
+export const trackAIPerformance = async (
+  feature: string,
+  metrics: PerformanceMetrics,
+  userId?: string
+): Promise<void> => {
+  return telemetryManager.trackPerformance(feature, metrics, userId);
+};
 
-export const trackAISatisfaction = (
-  rating: number,
-  sessionId: string,
-  feedback?: string
-) => telemetryService.trackSatisfaction(rating, sessionId, feedback);
+/**
+ * User feedback'i track et
+ */
+export const trackAIFeedback = async (
+  feedback: UserFeedback,
+  feature: string,
+  userId?: string
+): Promise<void> => {
+  return telemetryManager.trackUserFeedback(feedback, feature, userId);
+};
 
-export const trackTherapeuticOutcome = (
-  outcomeType: string,
-  improvement: number,
-  confidence: number
-) => telemetryService.trackTherapeuticOutcome(outcomeType, improvement, confidence);
+/**
+ * Crisis detection'ı track et
+ */
+export const trackCrisisDetection = async (
+  riskLevel: string,
+  triggers: string[],
+  userId?: string
+): Promise<void> => {
+  return telemetryManager.trackCrisisDetection(riskLevel, triggers, userId);
+};
 
-// Cleanup function
-export const cleanupAITelemetry = () => telemetryService.destroy(); 
+/**
+ * User data export (GDPR)
+ */
+export const exportAITelemetryData = async (userId: string): Promise<TelemetryEvent[]> => {
+  return telemetryManager.exportUserData(userId);
+};
+
+/**
+ * User data delete (GDPR)
+ */
+export const deleteAITelemetryData = async (userId: string): Promise<void> => {
+  return telemetryManager.deleteUserData(userId);
+};
+
+/**
+ * Consent güncelle
+ */
+export const updateTelemetryConsent = async (level: ConsentLevel): Promise<void> => {
+  return telemetryManager.updateConsentLevel(level);
+};
+
+/**
+ * Cleanup function
+ */
+export const cleanupTelemetry = async (): Promise<void> => {
+  return telemetryManager.cleanup();
+};
+
+// Export types for external use
+export { 
+  AIEventType, 
+  ConsentLevel, 
+  TelemetryEvent, 
+  PerformanceMetrics, 
+  UserFeedback 
+};

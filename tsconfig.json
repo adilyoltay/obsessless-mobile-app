@@ -35,6 +35,9 @@
       ],
       "@/localization/*": [
         "./localization/*"
+      ],
+      "@/features/*": [
+        "./features/*"
       ]
     }
   },
