@@ -770,6 +770,65 @@ class InsightsCoordinator {
   }
 
   /**
+   * 📊 Generate daily insights for user
+   */
+  async generateDailyInsights(userId: string, userProfile?: UserTherapeuticProfile): Promise<IntelligentInsight[]> {
+    if (!this.isEnabled) {
+      console.warn('⚠️ Insights Coordinator is not enabled');
+      return [];
+    }
+
+    try {
+      // Create context for daily insights
+      const context: ComprehensiveInsightContext = {
+        userId,
+        userProfile: userProfile || {} as UserTherapeuticProfile,
+        recentMessages: [],
+        conversationHistory: [],
+        behavioralData: {
+          compulsions: [],
+          moods: [],
+          exercises: [],
+          achievements: [],
+          assessments: []
+        },
+        timeframe: {
+          start: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+          end: new Date(),
+          analysisDepth: 'standard'
+        },
+        deliveryPreferences: {
+          immediate: false,
+          allowNotifications: true,
+          respectQuietHours: true
+        },
+        currentCrisisLevel: CrisisRiskLevel.NONE,
+        currentContext: {
+          location: 'home',
+          timeOfDay: 'morning',
+          recentActivity: 'app_opened'
+        }
+      };
+
+      // Generate insights
+      const result = await this.orchestrateInsightWorkflow(context);
+      
+      console.log(`📊 Generated ${result.insights.length} daily insights for user ${userId}`);
+      return result.insights;
+      
+    } catch (error) {
+      console.error('❌ Failed to generate daily insights:', error);
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'Daily insights generation failed',
+        severity: ErrorSeverity.MEDIUM,
+        context: { userId, method: 'generateDailyInsights' }
+      });
+      return [];
+    }
+  }
+
+  /**
    * Coordinator'ı temizle
    */
   async shutdown(): Promise<void> {

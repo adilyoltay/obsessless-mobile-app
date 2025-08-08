@@ -717,3 +717,20 @@ interface StrokeAnalysis {
 
 export const artTherapyEngine = ArtTherapyEngineImpl.getInstance();
 export default artTherapyEngine;
+
+// Export enums and types
+export { 
+  GuidanceLevel,
+  PrivacyLevel,
+  ArtTechnique,
+  TherapeuticGoal
+};
+
+// Type exports
+export type {
+  ArtSessionConfig,
+  TherapeuticPrompt,
+  ArtSession,
+  ArtAnalysis,
+  TherapeuticInsight
+};
