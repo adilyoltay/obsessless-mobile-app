@@ -727,7 +727,7 @@ class ModernOnboardingEngine {
       const followUpSchedule = await this.generateFollowUpSchedule(session, riskAssessment);
 
       // Duration calculation
-      const duration = (new Date().getTime() - session.startTime.getTime()) / (1000 * 60);
+      const duration = (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60);
 
       const result: OnboardingResult = {
         sessionId: session.id,
