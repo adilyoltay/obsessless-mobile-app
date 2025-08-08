@@ -60,6 +60,11 @@ interface YBOCSAssessmentUIProps {
   userId?: string;
 }
 
+enum YBOCSQuestionType {
+  OBSESSIONS = 'obsessions',
+  COMPULSIONS = 'compulsions'
+}
+
 interface AssessmentState {
   currentQuestionIndex: number;
   answers: YBOCSAnswer[];

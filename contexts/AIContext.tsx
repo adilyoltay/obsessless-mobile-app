@@ -147,8 +147,12 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        await contextIntelligence.initialize();
-        features.push('AI_CONTEXT_INTELLIGENCE');
+        if (contextIntelligence && typeof contextIntelligence.initialize === 'function') {
+          await contextIntelligence.initialize();
+          features.push('AI_CONTEXT_INTELLIGENCE');
+        } else {
+          console.warn('⚠️ Context Intelligence service not available');
+        }
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {

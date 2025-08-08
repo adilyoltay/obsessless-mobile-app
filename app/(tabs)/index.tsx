@@ -493,7 +493,7 @@ export default function TodayScreen() {
         )}
 
         {/* No Insights State */}
-        {hasAIOnboarding && aiInsights.length === 0 && !aiInsightsLoading && (
+        {FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2') && aiInsights.length === 0 && !aiInsightsLoading && (
           <View style={styles.noInsightsCard}>
             <MaterialCommunityIcons name="chart-timeline-variant" size={32} color="#9ca3af" />
             <Text style={styles.noInsightsText}>
