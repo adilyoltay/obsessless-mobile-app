@@ -134,12 +134,7 @@ export default function TodayScreen() {
         <Pressable 
           style={styles.artTherapyCard}
           onPress={() => {
-            // TODO: Navigate to art therapy screen
-            Alert.alert(
-              '🎨 Sanat Terapisi',
-              'Duygularınızı görselleştirin ve iç huzurunuzu bulun. Bu özellik yakında aktif olacak.',
-              [{ text: 'Tamam' }]
-            );
+            router.push('/(auth)/art-therapy');
           }}
         >
           <View style={styles.artTherapyContent}>

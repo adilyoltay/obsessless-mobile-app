@@ -29,6 +29,7 @@ import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engine
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { artTherapyEngine } from '@/features/ai/artTherapy/artTherapyEngine';
 import { useAIChatStore } from '@/features/ai/store/aiChatStore';
 
 // Types
