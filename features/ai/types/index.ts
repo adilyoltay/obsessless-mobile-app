@@ -947,33 +947,5 @@ export interface FollowUpSchedule {
 // 📤 EXPORTS
 // =============================================================================
 
-export default {
-  // Main types
-  AIMessage,
-  AIConfig,
-  ConversationContext,
-  
-  // Enums
-  CBTTechnique,
-  EmotionalTone,
-  CrisisRiskLevel,
-  AIProvider,
-  FallbackBehavior,
-  
-  // Sprint 7 Enums
-  OCDSeverityLevel,
-  OnboardingStep,
-  OnboardingSessionState,
-  TherapeuticApproach,
-  SessionFrequency,
-  AccessibilityNeed,
-  InterventionType,
-  EvidenceLevel,
-  RiskLevel,
-  RiskCategory,
-  
-  // Utilities
-  isAIMessage,
-  isCrisisLevel,
-  requiresFeatureFlag
-};
+// All types are already exported as named exports above
+// No default export needed since TypeScript interfaces cannot be used as values
