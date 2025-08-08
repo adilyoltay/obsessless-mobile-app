@@ -181,10 +181,10 @@ export const FEATURE_FLAGS = {
 // AI Configuration - Yol Haritası Uyumlu
 export const AI_CONFIG = {
   // Default provider - environment'tan override edilebilir
-  DEFAULT_PROVIDER: (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') || 'openai',
+  DEFAULT_PROVIDER: (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') || 'gemini',
   
   // Provider priorities (fallback order)
-  PROVIDER_PRIORITY: ['openai', 'claude', 'gemini'] as const,
+  PROVIDER_PRIORITY: ['gemini', 'openai', 'claude'] as const,
   
   // Feature-specific AI requirements
   CHAT_REQUIRES_EXTERNAL_AI: true,
