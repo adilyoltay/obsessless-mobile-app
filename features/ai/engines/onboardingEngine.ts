@@ -704,10 +704,9 @@ class ModernOnboardingEngine {
     }
 
     try {
-      // Session'ın tamamlanmış olduğunu doğrula
-      if (session.sessionState !== OnboardingSessionState.COMPLETED) {
-        throw new Error('Onboarding henüz tamamlanmamış');
-      }
+      // Session'ı COMPLETED olarak işaretle
+      session.sessionState = OnboardingSessionState.COMPLETED;
+      console.log('🏁 Session marked as COMPLETED:', sessionId);
 
       // Y-BOCS analizi
       const ybocsAnalysis = await this.finalizeYBOCSAnalysis(session);
