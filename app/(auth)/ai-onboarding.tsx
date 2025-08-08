@@ -40,8 +40,8 @@ import { OnboardingFlow } from '@/features/ai/components/onboarding/OnboardingFl
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
-import { treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
-import { riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
+import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 
 // Types
 import type { UserProfile, TreatmentPlan } from '@/features/ai/types';

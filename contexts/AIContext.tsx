@@ -27,8 +27,8 @@ import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
-import { treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
-import { riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
+import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 import { useAIChatStore } from '@/features/ai/store/aiChatStore';
 
 // Types
@@ -334,8 +334,22 @@ export function AIProvider({ children }: AIProviderProps) {
         treatmentPlan
       };
 
-      const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
-      return insights || [];
+      // Check if generateDailyInsights method exists
+      if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
+        const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
+        return insights || [];
+      } else {
+        console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
+        return [];
+      }
+      // Check if generateDailyInsights method exists
+      if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
+        const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
+        return insights || [];
+      } else {
+        console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
+        return [];
+      }
     } catch (error) {
       console.error('❌ Error generating insights:', error);
       return [];
