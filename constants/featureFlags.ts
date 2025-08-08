@@ -54,7 +54,7 @@ const featureFlagState: Record<string, boolean> = {
   MOCK_API_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true',
   
   // 📊 Telemetry Features
-  AI_TELEMETRY: AI_MASTER_ENABLED && process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY === 'true',
+  AI_TELEMETRY: AI_MASTER_ENABLED, // Master switch ile kontrol edilir
   PERFORMANCE_MONITORING: true,
   ERROR_REPORTING: true,
   
