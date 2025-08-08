@@ -27,50 +27,80 @@ ObsessLess, bir görev listesi veya bir sayaç değildir. Kullanıcının OKB'ni
 
 ---
 
-## 🏆 **Uygulamanın 4 Temel Yeteneği (Projenin Kalbi ve Ruhu)**
+## 🏆 **Uygulamanın 7 Temel Yeteneği (AI-Enhanced)**
 
-Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde hayata geçirilmesine bağlıdır.
+Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz entegrasyonuna bağlıdır.
 
-### **PİLLAR 1: Güvenli Tanışma ve Akıllı Kişiselleştirme (Onboarding)**
-*Bu, uygulamanın beynidir. Kullanıcıyı "anlar" ve deneyimi ona özel hale getirir.*
+### **PİLLAR 1: AI-Powered Güvenli Tanışma ve Akıllı Kişiselleştirme**
+*Bu, uygulamanın beynidir. AI kullanıcıyı derinlemesine "anlar" ve deneyimi tamamen kişiselleştirir.*
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, uygulamayı ilk kez açtığında, kendisine özel zorlukları anlayan ve yolculuğunu buna göre şekillendirecek bir başlangıç yapmak istiyor."
-*   **Akış (≤ 90 saniye):**
-    1.  **Karşılama:** Sıcak bir mesajla güven inşa et.
-    2.  **Semptom Seçimi:** İkonlu "Chip"ler ile kolay seçim.
-    3.  **Y-BOCS Lite Değerlendirmesi:** Her ekranda tek soru ve "Slider" ile yargılayıcı olmayan bir değerlendirme.
-    4.  **Hedef Belirleme:** Kişiselleştirilebilir günlük hedef.
-    5.  **Oyunlaştırma Tanıtımı:** Motivasyon sistemini kısaca tanıt.
+*   **Kullanıcı Hikayesi:** "Kullanıcı, uygulamayı ilk kez açtığında, AI'nın kendisine özel zorlukları anlayıp, kültürel hassasiyetlerini göz önünde bulundurarak kişiselleştirilmiş bir tedavi planı sunmasını bekliyor."
+*   **AI-Enhanced Akış (≤ 10 dakika):**
+    1.  **Karşılama:** AI destekli sıcak karşılama mesajı
+    2.  **Y-BOCS Assessment:** AI analizi ile OKB şiddet değerlendirmesi
+    3.  **Profil Oluşturma:** Kültürel faktörler dahil kişiselleştirme
+    4.  **AI Tedavi Planı:** 4 haftalık kişiselleştirilmiş plan
+    5.  **Güvenlik Protokolleri:** Risk değerlendirmesi ve acil durum planları
 
-### **PİLLAR 2: Yargısız & Anlık Kompulsiyon Kaydı**
-*Bu, uygulamanın refleksidir. Kullanıcının en çok ihtiyaç duyduğu anda, en hızlı şekilde yanında olur.*
+### **PİLLAR 2: AI-Enhanced Kompulsiyon Kaydı & Pattern Tanıma**
+*Bu, uygulamanın refleksidir. AI, her kaydı analiz ederek tetikleyicileri ve pattern'leri tespit eder.*
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, dışarıdayken aniden gelen bir kompulsiyonla mücadele ediyor. Telefonunu çıkarıp dikkat çekmeden, saniyeler içinde bu anı kaydetmek istiyor."
-*   **Akış (≤ 15 saniye):**
-    1.  **FAB Butonu (`➕`):** Tek dokunuşla erişim.
-    2.  **BottomSheet:** Hızlı kayıt formu açılır.
-    3.  **Minimal Form:** Sadece en temel kontroller (Tip, Direnç) bulunur.
-    4.  **Anlık Geri Bildirim:** Kayıt sonrası haptic ve toast bildirimi. Detay ekleme opsiyoneldir.
+*   **Kullanıcı Hikayesi:** "Kullanıcı kompulsiyon yaşadığında, AI'nın bu veriyi analiz edip tetikleyicileri belirlemesini ve önleyici öneriler sunmasını bekliyor."
+*   **AI-Enhanced Akış (≤ 15 saniye):**
+    1.  **FAB Butonu (`➕`):** Tek dokunuşla erişim
+    2.  **BottomSheet:** Hızlı kayıt formu
+    3.  **AI Pattern Analizi:** Otomatik tetikleyici tespiti
+    4.  **Anlık AI Önerisi:** Bağlama uygun müdahale önerisi
 
-### **PİLLAR 3: Kontrollü & Güvenli Yüzleşme (ERP Oturum Motoru)**
-*Bu, uygulamanın kalbidir. Gerçek terapötik değişimin yaşandığı yerdir.*
+### **PİLLAR 3: AI-Guided ERP & Adaptive Interventions**
+*Bu, uygulamanın kalbidir. AI, kullanıcının konumuna, zamanına ve durumuna göre kişiselleştirilmiş müdahaleler sunar.*
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, bir ERP egzersizi yapmaya karar verdi. Korkuyor ama bu adımı atmak istiyor. Uygulamanın ona bu süreçte rehberlik etmesini, güvende hissettirmesini ve anksiyetesini yönetmesine yardımcı olmasını bekliyor."
-*   **Akış:**
-    1.  **Sakin Oturum Ekranı:** Minimalist arayüz. Dairesel zamanlayıcı, anksiyete slider'ı ve destekleyici metinler.
-    2.  **İnteraktif Takip:** Periyodik hatırlatmalarla anlık anksiyete kaydı.
-    3.  **Güvenli Çıkış:** Her an erişilebilir "Duraklat" butonu.
-    4.  **Başarı Ekranı:** Oturum tamamlandığında, anksiyete grafiği ve kazanımları gösteren motive edici bir özet.
+*   **Kullanıcı Hikayesi:** "Kullanıcı ERP yaparken, AI'nın anksiyete seviyesini takip edip, gerektiğinde destekleyici müdahalelerde bulunmasını istiyor."
+*   **AI-Enhanced Akış:**
+    1.  **Adaptive Öneriler:** Konum/zaman/aktivite bazlı egzersizler
+    2.  **Gerçek Zamanlı Destek:** AI anksiyete takibi
+    3.  **Kültürel Egzersizler:** Çay meditasyonu, dua/zikir
+    4.  **Progress Tracking:** AI başarı analizi
 
-### **PİLLAR 4: Anlamlı Oyunlaştırma ve Motivasyon**
-*Bu, uygulamanın ruhudur. Kullanıcının yolculuğunu kutlar ve içsel motivasyonunu besler.*
+### **PİLLAR 4: AI-Powered Progress Analytics & Motivasyon**
+*Bu, uygulamanın vizyonudur. AI, kullanıcının ilerlemesini analiz eder ve geleceği tahmin eder.*
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, ilerlemesini somut olarak görmek ve küçük zaferlerini kutlayarak motive olmak istiyor. Ancak sürecin ciddiyetinin kaybolmasından endişe ediyor."
-*   **Felsefe: "Terapötik Kilometre Taşları"** - Her ödül, kullanıcının katettiği gerçek terapötik mesafenin bir sembolüdür.
-*   **Özellikler:**
-    1.  **Kararlılık Zinciri (Streak):** Günlük hedeflere ulaşıldığında artan ve seviye atlayan (Fidan 🌱 → Usta 🧘) bir seri sayacı.
-    2.  **Terapötik Rozetler (Achievements):** "İlk Adım", "Habitüasyon Gözlemcisi" gibi klinik olarak anlamlı kilometre taşlarına ulaşıldığında kazanılan, açıklamalı rozetler.
-    3.  **Küçük Zaferler (Mikro-Ödüller):** Her olumlu eylem sonrası verilen anlık, küçük puanlar ve tatmin edici geri bildirimler.
+*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın verilerini analiz edip gelecek hafta için risk tahminleri yapmasını ve kişiselleştirilmiş hedefler belirlemesini istiyor."
+*   **AI Analytics:**
+    1.  **Trend Analizi:** 7/30/90 günlük AI analizleri
+    2.  **Risk Tahminleri:** ML-powered öngörüler
+    3.  **Hedef Optimizasyonu:** Otomatik zorluk ayarlama
+    4.  **Motivasyon Mesajları:** Kişiselleştirilmiş teşvik
+
+### **PİLLAR 5: 24/7 AI Therapeutic Chat Assistant**
+*Bu, uygulamanın arkadaşıdır. Her an yanında olan, anlayan ve destekleyen AI terapist.*
+
+*   **Kullanıcı Hikayesi:** "Kullanıcı gece yarısı panik yaşadığında, AI asistanın onu sakinleştirmesini ve CBT teknikleri önermesini bekliyor."
+*   **AI Chat Özellikleri:**
+    1.  **CBT Teknikleri:** Bilişsel yeniden yapılandırma
+    2.  **Kriz Algılama:** Acil durum tespiti
+    3.  **Kültürel Duyarlılık:** Türkçe ve kültürel hassasiyet
+    4.  **Sesli Destek:** Voice-to-text (yakında)
+
+### **PİLLAR 6: AI Crisis Detection & Emergency Response**
+*Bu, uygulamanın koruyucusudur. Kullanıcıyı risk durumlarında proaktif olarak korur.*
+
+*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın davranış pattern'lerini izleyip risk durumlarını önceden tespit etmesini ve gerekirse acil kişileri bilgilendirmesini istiyor."
+*   **Crisis System:**
+    1.  **Background Monitoring:** 15 dakikalık periyodik analiz
+    2.  **Risk Skorlama:** 6 gösterge üzerinden değerlendirme
+    3.  **Emergency Contacts:** Otomatik bildirim sistemi
+    4.  **Intervention Levels:** Kritik/Yüksek/Orta/Düşük
+
+### **PİLLAR 7: AI Art Therapy & Creative Expression**
+*Bu, uygulamanın sanatsal yönüdür. AI rehberliğinde duygusal ifade ve iyileşme.*
+
+*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın rehberliğinde sanat aktiviteleri yaparak duygularını ifade etmek ve rahatlamak istiyor."
+*   **Art Therapy Features:**
+    1.  **Therapeutic Guidance:** AI yönlendirmeli aktiviteler
+    2.  **Emotion Analysis:** Duygu durumu tespiti
+    3.  **Cultural Motifs:** Geleneksel Türk desenleri
+    4.  **Progress Visualization:** Terapötik ilerleme takibi
 
 ---
 
@@ -118,14 +148,71 @@ Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde h
 
 ---
 
-### **⚡ Master Prompt (Tasarım ve Geliştirme Ekipleri İçin)**
+### **⚡ Master Prompt (AI-Enhanced Tasarım ve Geliştirme)**
 
-> **Senaryo:** Sen, ödüllü bir dijital sağlık uygulamasının baş tasarımcısı ve baş geliştiricisisin. Görevin, OKB ile yaşayan bireyler için bir **"dijital sığınak"** yaratmak.
+> **Senaryo:** Sen, ödüllü bir AI-destekli dijital terapi uygulamasının baş mimarısın. Görevin, OKB ile yaşayan bireyler için AI-powered bir **"dijital terapist ve sığınak"** yaratmak.
 >
-> **Görev:** Yukarıdaki **"ObsessLess Mobil Uygulaması - Anayasa 2.0 (Nihai Sürüm)"** belgesini ve buna bağlı **`obsessless-flow.md`** ile **`obsessless-ui.md`** dokümanlarını tek ve mutlak gerçek kaynak (Single Source of Truth) olarak kullanarak;
+> **Görev:** Yukarıdaki **"ObsessLess AI-Enhanced Anayasa 2.0"** belgesini ve bağlı dokümanları referans alarak;
 >
-> 1.  **Tasarla (UI/UX):** Belirtilen **4 Temel Yeteneğin (Onboarding, Kompulsiyon Kaydı, ERP Oturumu, Oyunlaştırma)** her biri için, felsefeye ve teknik detaylara %100 sadık kalarak, yüksek kaliteli (hi-fi), tıklanabilir bir prototip oluştur. Görsel kimlik, renkler, tipografi ve duyusal geri bildirimler belgelerde tanımlandığı gibi olmalıdır.
-> 2.  **Geliştir (Kod):** Belirtilen teknolojileri (React Native/Expo, Zustand, React Query) kullanarak bu 4 temel yeteneğin fonksiyonel iskeletini kodla. Bileşen yapısı, state yönetimi mantığı, veri modelleri ve API etkileşimleri belgelerdeki direktiflere tam olarak uymalıdır. Öncelik, sürtünmesiz, performanslı ve güvenilir bir kullanıcı deneyimi sunmaktır.
+> 1.  **AI Entegrasyonu:** Belirtilen **7 AI Yeteneğinin** her birini, Gemini 2.5 Pro ve fallback sistemleriyle entegre et. Feature flags, telemetry ve cultural adaptation sistemlerini kur.
+> 2.  **Tasarla (UI/UX):** AI özelliklerinin kullanıcı arayüzlerini, sakinlik ve zahmetsizlik ilkelerine sadık kalarak tasarla. AI yanıtları için loading states, error handling ve graceful degradation ekle.
+> 3.  **Geliştir (Kod):** React Native/Expo, Zustand, TanStack Query ve AI Context Provider kullanarak tüm özellikleri implement et. Offline-first yaklaşımı benimse, AsyncStorage ile Supabase senkronizasyonunu kur.
+> 4.  **Optimize Et:** AI yanıt sürelerini < 3 saniye, memory kullanımını < 150MB, battery impact'i < %5 tut. Background monitoring ve emergency response sistemlerini test et.
+
+---
+
+## 🤖 **AI Destekli Özellikler (Yeni - Ocak 2025)**
+
+### **AI Teknoloji Altyapısı:**
+- **AI Provider:** Gemini 2.5 Pro (Primary) + OpenAI GPT-4 (Fallback)
+- **AI Context Management:** Centralized AIContext Provider
+- **Feature Flags:** Granular AI feature control system
+- **Telemetry:** Real-time AI interaction tracking
+- **Cultural Adaptation:** Turkish language & cultural sensitivity
+
+### **7 Temel AI Yeteneği:**
+
+#### **1. 🧠 AI-Powered Onboarding**
+- **Y-BOCS Assessment:** AI analizi ile OKB şiddet değerlendirmesi
+- **Personalized Profile:** Kültürel faktörler dahil kişiselleştirilmiş profil
+- **Treatment Planning:** AI-generated 4 haftalık tedavi planı
+- **Safety Protocols:** Risk değerlendirmesi ve acil durum planları
+
+#### **2. 💬 Therapeutic AI Chat Assistant**
+- **CBT Techniques:** Bilişsel davranışçı terapi teknikleri
+- **Crisis Detection:** Gerçek zamanlı kriz algılama
+- **24/7 Availability:** Sürekli erişilebilir destek
+- **Voice Support:** Sesli mesaj desteği (yakında)
+
+#### **3. 🎯 Adaptive Interventions**
+- **Location-Based:** Konum bazlı öneriler (ev/iş/dışarı)
+- **Time-Sensitive:** Zaman duyarlı müdahaleler
+- **Activity-Aware:** Aktivite takibi ve öneriler
+- **Cultural Exercises:** Çay meditasyonu, dua/zikir pratikleri
+
+#### **4. 📊 Progress Analytics**
+- **Trend Analysis:** 7/30/90 günlük trend analizleri
+- **Pattern Recognition:** Tetikleyici pattern tespiti
+- **Predictions:** ML-powered risk tahminleri
+- **Goal Adjustment:** Otomatik hedef ayarlama
+
+#### **5. 🚨 Crisis Detection System**
+- **Background Monitoring:** 15 dakikalık periyodik analiz
+- **Emergency Contacts:** Acil durum kişi yönetimi
+- **Risk Scoring:** 6 gösterge üzerinden risk puanlama
+- **Auto-Interventions:** Otomatik müdahale sistemi
+
+#### **6. 🎨 Art Therapy Engine**
+- **Therapeutic Guidance:** AI rehberliğinde sanat aktiviteleri
+- **Emotion Analysis:** Duygu durumu analizi
+- **Cultural Motifs:** Geleneksel Türk motifleri
+- **Progress Tracking:** Terapötik ilerleme takibi
+
+#### **7. 🔍 Pattern Recognition**
+- **Temporal Patterns:** Zaman bazlı tekrar tespiti
+- **Environmental Triggers:** Çevresel tetikleyiciler
+- **Behavioral Connections:** Davranışsal bağlantılar
+- **Cultural Patterns:** Kültüre özgü pattern'ler
 
 ---
 
@@ -140,22 +227,40 @@ Uygulamanın tüm başarısı, bu dört temel yeteneğin kusursuz bir şekilde h
 - **UI Components:** Custom components (React Native Paper kaldırıldı)
 - **Animations:** React Native Reanimated + Lottie
 - **Haptics:** Expo Haptics
+- **AI Services:** 
+  - External AI Service (Gemini/OpenAI/Claude)
+  - AI Context Provider
+  - Feature Flag System
+  - Telemetry & Analytics
 
-### **Veri Akış Mimarisi:**
+### **AI Veri Akış Mimarisi:**
 ```
-User Action → UI Component → Zustand Store → AsyncStorage (Offline)
-                                           ↓
-                                    Supabase (Online Sync)
-                                           ↓
-                                    PostgreSQL + RLS
+User Input → AI Context → External AI Service → Response Processing
+                ↓                                        ↓
+          Feature Flags                          Cultural Adaptation
+                ↓                                        ↓
+          Telemetry                              Personalization
+                ↓                                        ↓
+          AsyncStorage ← ← ← ← ← ← ← ← ← ← ← Optimized Response
 ```
 
-### **Güncel Düzeltmeler (✅ Tamamlandı):**
-1. **Category Mapping:** Database constraint hataları düzeltildi
-2. **Router Import:** Navigation hataları giderildi
-3. **Profile Check:** AsyncStorage öncelikli kontrol eklendi
-4. **Duplicate Prevention:** ERP session tekrar kayıt önleme
+### **Güncel AI Entegrasyonları (✅ Tamamlandı):**
+1. **AI Onboarding V2:** Y-BOCS + Profile + Treatment Plan + Safety
+2. **Crisis Detection:** Background monitoring + Emergency contacts
+3. **Adaptive Interventions:** Location/Time/Activity aware
+4. **Progress Analytics:** ML predictions + Pattern recognition
+5. **Art Therapy:** Therapeutic guidance + Cultural motifs
+6. **Feature Flags:** Master toggle + Granular controls
+7. **Telemetry:** Event tracking + Performance metrics
+
+### **Performans Metrikleri:**
+- **AI Response Time:** < 3 saniye
+- **Onboarding Completion:** < 10 dakika
+- **Crisis Detection Interval:** 15 dakika
+- **Pattern Analysis:** 14 günlük veri minimum
+- **Memory Usage:** < 150MB
+- **Battery Impact:** < %5 ek tüketim
 
 ---
 
-*Son güncelleme: Ocak 2025 - Teknik Mimari ve Düzeltmeler Eklendi*
+*Son güncelleme: Ocak 2025 - AI Özellikleri ve Entegrasyonlar Eklendi*
