@@ -282,17 +282,31 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
     };
 
     // Crisis detection check
-    if (value >= 3) { // High severity responses
-      const crisisCheck = await crisisDetectionService.analyzeText(
-        `${currentQuestion.text} - Yanıt: ${option.label}`,
-        { 
-          userId,
-          context: 'ybocs_assessment',
-          severityThreshold: 0.7
-        }
-      );
+    if (value >= 3 && crisisDetectionService && typeof crisisDetectionService.detectCrisis === 'function') { // High severity responses
+      try {
+        const crisisCheck = await crisisDetectionService.detectCrisis(
+          {
+            content: `${currentQuestion.text} - Yanıt: ${option.label}`,
+            role: 'user',
+            timestamp: new Date(),
+            metadata: {
+              questionId: currentQuestion.id,
+              responseValue: value,
+              context: 'ybocs_assessment'
+            }
+          },
+          {
+            userId,
+            sessionId: 'ybocs_assessment',
+            conversationId: `ybocs_${userId}`,
+            metadata: {
+              assessmentContext: 'ybocs',
+              severityThreshold: 0.7
+            }
+          }
+        );
 
-      if (crisisCheck.isCrisis) {
+        if (crisisCheck.riskLevel === 'high' || crisisCheck.riskLevel === 'critical') {
         Alert.alert(
           'Destek Gerekebilir',
           'Verdiğiniz yanıtlar yoğun bir durum yaşadığınızı gösteriyor. İhtiyaç halinde profesyonel destek almanızı öneririz.',
@@ -309,7 +323,9 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
           ]
         );
       }
-    }
+      } catch (error) {
+        console.warn("⚠️ Crisis detection failed during Y-BOCS assessment:", error);
+      }    }
 
     // Update state
     const updatedAnswers = [...state.answers];
