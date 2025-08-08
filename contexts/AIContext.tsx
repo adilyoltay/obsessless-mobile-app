@@ -188,8 +188,12 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
-        if (userProfilingService && typeof userProfilingService.initialize === "function") { await userProfilingService.initialize(); } else { console.warn("⚠️ User Profiling service not available"); }
-        features.push('AI_USER_PROFILING');
+        if (userProfilingService && typeof userProfilingService.initialize === 'function') {
+          await userProfilingService.initialize();
+          features.push('AI_USER_PROFILING');
+        } else {
+          console.warn('⚠️ User Profiling service not available');
+        }
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING')) {

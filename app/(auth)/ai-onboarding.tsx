@@ -92,19 +92,19 @@ export default function AIOnboardingScreen() {
         const initPromises = [];
         
         if (ybocsEnabled) {
-          initPromises.push(ybocsAnalysisService.getInstance().initialize());
+          initPromises.push(ybocsAnalysisService.initialize());
         }
         
         if (profilingEnabled) {
-          initPromises.push(userProfilingService.getInstance().initialize());
+          initPromises.push(userProfilingService.initialize());
         }
         
         if (treatmentEnabled) {
-          initPromises.push(treatmentPlanningEngine.getInstance().initialize());
+          initPromises.push(treatmentPlanningEngine.initialize());
         }
         
         if (riskEnabled) {
-          initPromises.push(riskAssessmentService.getInstance().initialize());
+          initPromises.push(riskAssessmentService.initialize());
         }
 
         initPromises.push(onboardingEngine.getInstance().initialize());
