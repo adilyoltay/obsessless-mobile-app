@@ -3,13 +3,14 @@
  * 
  * Anayasa v2.0 ilkelerine uygun Y-BOCS değerlendirmesi:
  * - Tek ekran, tek soru
+ * - TEK AKSIYON: Slider ile değer seçimi
+ * - Otomatik ilerleme
  * - Minimal görsel karmaşa
- * - Net ilerleme göstergesi
- * - Yumuşak geçişler
  * 
  * Features:
  * ✅ Full-screen question layout
- * ✅ Single action per screen
+ * ✅ SINGLE ACTION: Slider input only
+ * ✅ Auto-progress on selection
  * ✅ Visual severity indicators
  * ✅ Smooth animations
  * ✅ Turkish adaptation
@@ -23,7 +24,6 @@ import {
   Animated,
   TouchableOpacity,
   Dimensions,
-  ScrollView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -55,6 +55,11 @@ const COLORS = {
   white: '#FFFFFF',
   error: '#EF4444',
   warning: '#F59E0B',
+  success: '#10B981',
+  mild: '#34D399',
+  moderate: '#FCD34D',
+  severe: '#FB923C',
+  extreme: '#EF4444',
 };
 
 interface YBOCSAssessmentV2Props {
@@ -70,7 +75,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
     type: YBOCSQuestionType.OBSESSIONS,
     category: 'time',
     text: 'Günde ne kadar zamanınızı obsesyonlar alır?',
-    description: 'İstenmeyen düşünceler için harcadığınız zaman',
+    description: 'Kaydırıcıyı kullanarak değerlendirin',
     options: [
       { value: 0, label: 'Hiç', description: '0 saat' },
       { value: 1, label: 'Az', description: '< 1 saat' },
@@ -84,7 +89,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
     type: YBOCSQuestionType.OBSESSIONS,
     category: 'interference',
     text: 'Obsesyonlar günlük yaşamınızı ne kadar etkiliyor?',
-    description: 'İş, sosyal hayat ve aktivitelere etkisi',
+    description: 'Kaydırıcıyı kullanarak değerlendirin',
     options: [
       { value: 0, label: 'Etkilemiyor', description: 'Normal yaşam' },
       { value: 1, label: 'Hafif', description: 'Küçük aksamalar' },
@@ -98,7 +103,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
     type: YBOCSQuestionType.OBSESSIONS,
     category: 'distress',
     text: 'Obsesyonlar ne kadar sıkıntı veriyor?',
-    description: 'Duygusal rahatsızlık seviyesi',
+    description: 'Kaydırıcıyı kullanarak değerlendirin',
     options: [
       { value: 0, label: 'Hiç', description: 'Rahatsız etmiyor' },
       { value: 1, label: 'Az', description: 'Hafif rahatsızlık' },
@@ -112,7 +117,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
     type: YBOCSQuestionType.COMPULSIONS,
     category: 'time',
     text: 'Günde ne kadar zamanınızı kompulsiyonlar alır?',
-    description: 'Ritüeller için harcadığınız zaman',
+    description: 'Kaydırıcıyı kullanarak değerlendirin',
     options: [
       { value: 0, label: 'Hiç', description: '0 saat' },
       { value: 1, label: 'Az', description: '< 1 saat' },
@@ -126,7 +131,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
     type: YBOCSQuestionType.COMPULSIONS,
     category: 'interference',
     text: 'Kompulsiyonlar günlük yaşamınızı ne kadar etkiliyor?',
-    description: 'Ritüellerin yaşama etkisi',
+    description: 'Kaydırıcıyı kullanarak değerlendirin',
     options: [
       { value: 0, label: 'Etkilemiyor', description: 'Normal yaşam' },
       { value: 1, label: 'Hafif', description: 'Küçük aksamalar' },
@@ -144,13 +149,16 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<YBOCSAnswer[]>([]);
-  const [selectedValue, setSelectedValue] = useState<number | null>(null);
+  const [sliderValue, setSliderValue] = useState(2); // Start at middle
+  const [hasInteracted, setHasInteracted] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const autoProgressTimer = useRef<NodeJS.Timeout | null>(null);
 
   const currentQuestion = YBOCS_QUESTIONS[currentIndex];
   const progress = ((currentIndex + 1) / YBOCS_QUESTIONS.length) * 100;
+  const currentOption = currentQuestion.options[sliderValue];
 
   useEffect(() => {
     // Track question view
@@ -161,20 +169,49 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
         questionIndex: currentIndex,
       });
     }
+    
+    // Reset for new question
+    setHasInteracted(false);
+    setSliderValue(2); // Reset to middle
   }, [currentIndex]);
 
-  const handleAnswer = (value: number) => {
-    setSelectedValue(value);
+  // Auto-progress after user interacts with slider
+  useEffect(() => {
+    if (hasInteracted) {
+      // Clear any existing timer
+      if (autoProgressTimer.current) {
+        clearTimeout(autoProgressTimer.current);
+      }
+      
+      // Set new timer for auto-progress
+      autoProgressTimer.current = setTimeout(() => {
+        handleNext();
+      }, 1500); // 1.5 seconds after interaction
+      
+      return () => {
+        if (autoProgressTimer.current) {
+          clearTimeout(autoProgressTimer.current);
+        }
+      };
+    }
+  }, [hasInteracted, sliderValue]);
+
+  const handleSliderChange = (value: number) => {
+    setSliderValue(Math.round(value));
+    setHasInteracted(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleNext = () => {
-    if (selectedValue === null) return;
+    // Clear timer
+    if (autoProgressTimer.current) {
+      clearTimeout(autoProgressTimer.current);
+    }
 
     // Save answer
     const answer: YBOCSAnswer = {
       questionId: currentQuestion.id,
-      value: selectedValue,
+      value: sliderValue,
       timestamp: new Date(),
     };
 
@@ -215,7 +252,6 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
       ]),
     ]).start(() => {
       setCurrentIndex(currentIndex + 1);
-      setSelectedValue(null);
     });
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -223,6 +259,11 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
 
   const handlePrevious = () => {
     if (currentIndex === 0) return;
+
+    // Clear timer
+    if (autoProgressTimer.current) {
+      clearTimeout(autoProgressTimer.current);
+    }
 
     Animated.sequence([
       Animated.parallel([
@@ -252,17 +293,27 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
     ]).start(() => {
       setCurrentIndex(currentIndex - 1);
       const prevAnswer = answers[currentIndex - 1];
-      setSelectedValue(prevAnswer ? prevAnswer.value : null);
-      setAnswers(answers.slice(0, -1));
+      if (prevAnswer) {
+        setSliderValue(prevAnswer.value);
+        setAnswers(answers.slice(0, -1));
+      }
     });
   };
 
   const getSeverityColor = (value: number): string => {
-    if (value === 0) return COLORS.primary;
-    if (value === 1) return '#34D399';
-    if (value === 2) return COLORS.warning;
-    if (value === 3) return '#FB923C';
-    return COLORS.error;
+    if (value === 0) return COLORS.success;
+    if (value === 1) return COLORS.mild;
+    if (value === 2) return COLORS.moderate;
+    if (value === 3) return COLORS.severe;
+    return COLORS.extreme;
+  };
+
+  const getSeverityEmoji = (value: number): string => {
+    if (value === 0) return '😊';
+    if (value === 1) return '🙂';
+    if (value === 2) return '😐';
+    if (value === 3) return '😟';
+    return '😰';
   };
 
   return (
@@ -297,68 +348,70 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
           <Text style={styles.questionDescription}>{currentQuestion.description}</Text>
         </View>
 
-        {/* Answer Options */}
-        <ScrollView style={styles.optionsContainer} showsVerticalScrollIndicator={false}>
-          {currentQuestion.options.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.optionCard,
-                selectedValue === option.value && styles.optionCardSelected,
-              ]}
-              onPress={() => handleAnswer(option.value)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionContent}>
-                <View style={styles.optionHeader}>
-                  <View 
-                    style={[
-                      styles.optionIndicator,
-                      selectedValue === option.value && {
-                        backgroundColor: getSeverityColor(option.value)
-                      }
-                    ]}
-                  >
-                    {selectedValue === option.value && (
-                      <MaterialCommunityIcons 
-                        name="check" 
-                        size={16} 
-                        color={COLORS.white} 
-                      />
-                    )}
-                  </View>
-                  <Text style={[
-                    styles.optionLabel,
-                    selectedValue === option.value && styles.optionLabelSelected
-                  ]}>
-                    {option.label}
-                  </Text>
-                </View>
-                <Text style={styles.optionDescription}>{option.description}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Single Slider Input - THE ONLY ACTION */}
+        <View style={styles.sliderContainer}>
+          {/* Current Value Display */}
+          <View style={styles.valueDisplay}>
+            <Text style={styles.valueEmoji}>{getSeverityEmoji(sliderValue)}</Text>
+            <Text style={[styles.valueLabel, { color: getSeverityColor(sliderValue) }]}>
+              {currentOption.label}
+            </Text>
+            <Text style={styles.valueDescription}>{currentOption.description}</Text>
+          </View>
+
+          {/* Slider */}
+          <View style={styles.sliderWrapper}>
+            <Slider
+              value={sliderValue}
+              onValueChange={handleSliderChange}
+              minimumValue={0}
+              maximumValue={4}
+              step={1}
+              minimumTrackTintColor={getSeverityColor(sliderValue)}
+              maximumTrackTintColor={COLORS.border}
+              thumbTintColor={getSeverityColor(sliderValue)}
+              style={styles.slider}
+            />
+            
+            {/* Slider Labels */}
+            <View style={styles.sliderLabels}>
+              <Text style={styles.sliderLabelMin}>Hiç</Text>
+              <Text style={styles.sliderLabelMax}>Aşırı</Text>
+            </View>
+          </View>
+
+          {/* Auto-progress indicator */}
+          {hasInteracted && (
+            <Animated.View style={styles.autoProgressIndicator}>
+              <Text style={styles.autoProgressText}>
+                Otomatik ilerleme...
+              </Text>
+            </Animated.View>
+          )}
+        </View>
       </Animated.View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionContainer}>
-        <Button
-          title={currentIndex === YBOCS_QUESTIONS.length - 1 ? "Tamamla" : "İleri"}
-          onPress={handleNext}
-          disabled={selectedValue === null}
-          style={[
-            styles.primaryButton,
-            selectedValue === null && styles.disabledButton
-          ]}
-        />
-        
-        {currentIndex > 0 && (
-          <TouchableOpacity onPress={handlePrevious} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Önceki Soru</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Minimal Navigation - Only Back Button */}
+      {currentIndex > 0 && (
+        <TouchableOpacity 
+          onPress={handlePrevious} 
+          style={styles.backButton}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
+          <Text style={styles.backButtonText}>← Geri</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Manual Continue (Hidden by default, shown only if needed) */}
+      {currentIndex === YBOCS_QUESTIONS.length - 1 && hasInteracted && (
+        <View style={styles.completeContainer}>
+          <Button
+            title="Değerlendirmeyi Tamamla"
+            onPress={handleNext}
+            style={styles.completeButton}
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -394,88 +447,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   questionHeader: {
-    marginTop: 24,
-    marginBottom: 32,
+    marginTop: 32,
+    marginBottom: 48,
+    alignItems: 'center',
   },
   questionText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
     color: COLORS.primaryText,
-    marginBottom: 8,
-    lineHeight: 32,
+    marginBottom: 12,
+    lineHeight: 34,
+    textAlign: 'center',
   },
   questionDescription: {
-    fontSize: 15,
+    fontSize: 16,
     color: COLORS.secondaryText,
-    lineHeight: 20,
+    lineHeight: 22,
+    textAlign: 'center',
   },
-  optionsContainer: {
+  sliderContainer: {
     flex: 1,
-  },
-  optionCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  optionCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#F0FDF4',
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  optionIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    marginRight: 12,
-    alignItems: 'center',
     justifyContent: 'center',
+    paddingBottom: 60,
   },
-  optionLabel: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.primaryText,
+  valueDisplay: {
+    alignItems: 'center',
+    marginBottom: 48,
   },
-  optionLabelSelected: {
-    color: COLORS.primary,
+  valueEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
   },
-  optionDescription: {
+  valueLabel: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  valueDescription: {
+    fontSize: 16,
+    color: COLORS.secondaryText,
+  },
+  sliderWrapper: {
+    paddingHorizontal: 20,
+  },
+  slider: {
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  sliderLabelMin: {
     fontSize: 14,
     color: COLORS.secondaryText,
-    marginLeft: 36,
   },
-  actionContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 12,
+  sliderLabelMax: {
+    fontSize: 14,
+    color: COLORS.secondaryText,
   },
-  primaryButton: {
+  autoProgressIndicator: {
+    alignItems: 'center',
+    marginTop: 32,
+  },
+  autoProgressText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontStyle: 'italic',
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    padding: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: COLORS.secondaryText,
+  },
+  completeContainer: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+  },
+  completeButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 16,
-  },
-  disabledButton: {
-    backgroundColor: COLORS.border,
-    opacity: 0.5,
-  },
-  backButton: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 15,
-    color: COLORS.secondaryText,
   },
 });
 
