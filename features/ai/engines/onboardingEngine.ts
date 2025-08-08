@@ -229,6 +229,39 @@ class ModernOnboardingEngine {
   }
 
   /**
+   * 📝 Update session information (private helper)
+   */
+  private async updateSessionInformation(sessionId: string, data: any): Promise<OnboardingSession> {
+    try {
+      // Update session in memory
+      if (this.sessions.has(sessionId)) {
+        const session = this.sessions.get(sessionId)!;
+        const updatedSession = {
+          ...session,
+          data: { ...session.data, ...data },
+          lastActivity: new Date(),
+          updatedAt: new Date()
+        };
+        
+        this.sessions.set(sessionId, updatedSession);
+        
+        // Save to AsyncStorage
+        await AsyncStorage.setItem(
+          `onboarding_session_${sessionId}`,
+          JSON.stringify(updatedSession)
+        );
+        
+        return updatedSession;
+      } else {
+        throw new Error(`Session not found: ${sessionId}`);
+      }
+    } catch (error) {
+      console.error('❌ Failed to update session information:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 🏁 Finalize onboarding session
    */
   async finalizeSession(sessionId: string): Promise<OnboardingSession> {
