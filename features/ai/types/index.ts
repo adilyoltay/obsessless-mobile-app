@@ -546,6 +546,35 @@ export const requiresFeatureFlag = (config: AIConfig): boolean => {
 // =============================================================================
 
 /**
+ * Y-BOCS Question Type
+ */
+export enum YBOCSQuestionType {
+  OBSESSIONS = 'obsessions',
+  COMPULSIONS = 'compulsions'
+}
+
+/**
+ * Y-BOCS Question
+ */
+export interface YBOCSQuestion {
+  id: string;
+  type: YBOCSQuestionType;
+  category: 'time' | 'interference' | 'distress' | 'resistance' | 'control';
+  text: string;
+  description?: string;
+  options: Array<{
+    value: number;
+    label: string;
+    description?: string;
+  }>;
+  culturalContext?: {
+    religiousFactors?: string;
+    socialFactors?: string;
+    familialFactors?: string;
+  };
+}
+
+/**
  * Y-BOCS Assessment Answer
  */
 export interface YBOCSAnswer {

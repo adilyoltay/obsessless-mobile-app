@@ -170,8 +170,12 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS')) {
-        await ybocsAnalysisService.getInstance().initialize();
-        features.push('AI_YBOCS_ANALYSIS');
+        if (ybocsAnalysisService && typeof ybocsAnalysisService.initialize === 'function') {
+          await ybocsAnalysisService.initialize();
+          features.push('AI_YBOCS_ANALYSIS');
+        } else {
+          console.warn('⚠️ Y-BOCS Analysis service not available');
+        }
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
