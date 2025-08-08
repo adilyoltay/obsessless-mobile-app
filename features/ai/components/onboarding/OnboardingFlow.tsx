@@ -267,67 +267,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     return currentIndex >= 0 ? (currentIndex / (stepOrder.length - 1)) * 100 : 0;
   };
 
-  /**
-   * ➡️ Navigate to Next Step
-   */
-  const proceedToNextStep = useCallback(async () => {
-    if (!state.session || !state.canProceed) return;
-
-    setState(prev => ({ ...prev, isLoading: true }));
-
-    try {
-      // Complete current step
-      const updatedSession = await onboardingEngine.completeStep(
-        state.session.sessionId,
-        state.currentStep
-      );
-
-      // Track step completion
-      await trackAIInteraction(AIEventType.ONBOARDING_STEP_COMPLETED, {
-        sessionId: state.session.sessionId,
-        completedStep: state.currentStep,
-        nextStep: updatedSession.currentStep,
-        progress: calculateStepProgress(updatedSession.currentStep)
-      });
-
-      // Save session
-      await AsyncStorage.setItem(
-        `onboarding_session_${userId}`,
-        JSON.stringify(updatedSession)
-      );
-
-      const newProgress = calculateStepProgress(updatedSession.currentStep);
-
-      // Animate progress
-      Animated.timing(progressAnim, {
-        toValue: newProgress,
-        duration: 400,
-        useNativeDriver: false,
-      }).start();
-
-      setState(prev => ({
-        ...prev,
-        session: updatedSession,
-        currentStep: updatedSession.currentStep,
-        progress: newProgress,
-        isLoading: false,
-        canProceed: false // Will be re-enabled by step-specific logic
-      }));
-
-      // Haptic feedback
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    } catch (error) {
-      console.error('❌ Step progression error:', error);
-      
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Bir sonraki adıma geçilirken hata oluştu.',
-        canProceed: true
-      }));
-    }
-  }, [state.session, state.currentStep, state.canProceed, userId, progressAnim]);
 
   /**
    * 🧠 Handle Y-BOCS Assessment Completion
