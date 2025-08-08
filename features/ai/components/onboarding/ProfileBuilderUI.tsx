@@ -646,10 +646,15 @@ const PreferencesStep: React.FC<{
     profileData.preferences || {}
   );
 
+  // Update parent whenever preferences change
   useEffect(() => {
     onUpdate({ preferences });
-    onCanProceed(true); // Preferences are optional
-  }, [preferences, onUpdate, onCanProceed]);
+  }, [preferences]);
+
+  // Set canProceed status (preferences are optional)
+  useEffect(() => {
+    onCanProceed(true);
+  }, []);
 
   return (
     <Card style={styles.stepCard}>
@@ -712,6 +717,7 @@ const CulturalContextStep: React.FC<{
     profileData.culturalContext?.factors || []
   );
 
+  // Update parent whenever cultural factors change
   useEffect(() => {
     const culturalContext: CulturalContext = {
       factors: culturalFactors,
@@ -719,8 +725,12 @@ const CulturalContextStep: React.FC<{
       region: 'turkey'
     };
     onUpdate({ culturalContext });
-    onCanProceed(true); // Cultural context is optional but recommended
-  }, [culturalFactors, onUpdate, onCanProceed]);
+  }, [culturalFactors]);
+
+  // Set canProceed status (cultural context is optional but recommended)
+  useEffect(() => {
+    onCanProceed(true);
+  }, []);
 
   const toggleFactor = (factorId: string) => {
     setCulturalFactors(prev => 
