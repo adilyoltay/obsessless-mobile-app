@@ -405,6 +405,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         primaryGoals: enhancedProfile.therapeuticGoals?.slice(0, 3)
       });
 
+      // 🚀 CRITICAL: Move to next step after profile completion
+      console.log('🚀 Profile completed, moving to next step: TREATMENT_PLANNING');
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          currentStep: OnboardingStep.TREATMENT_PLANNING,
+          canProceed: true // Enable continue button for treatment planning
+        }));
+        console.log('✅ Moved to TREATMENT_PLANNING step with canProceed: true');
+      }, 1000);
+
     } catch (error) {
       console.error('❌ Profile generation error:', error);
       setState(prev => ({
