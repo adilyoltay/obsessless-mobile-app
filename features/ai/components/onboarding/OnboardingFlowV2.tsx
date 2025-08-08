@@ -210,7 +210,8 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
   const calculateProgress = (step: OnboardingStep): number => {
     const stepOrder = [
       OnboardingStep.CONSENT,
-      OnboardingStep.SYMPTOM_EXPLORATION,
+      OnboardingStep.YBOCS_ASSESSMENT,
+      OnboardingStep.BASIC_INFO,
       OnboardingStep.TREATMENT_PLANNING,
       OnboardingStep.SAFETY_PLANNING,
       OnboardingStep.COMPLETION,
@@ -262,7 +263,8 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
   const getNextStep = (current: OnboardingStep): OnboardingStep | null => {
     const stepOrder = [
       OnboardingStep.CONSENT,
-      OnboardingStep.SYMPTOM_EXPLORATION,
+      OnboardingStep.YBOCS_ASSESSMENT,
+      OnboardingStep.BASIC_INFO,
       OnboardingStep.TREATMENT_PLANNING,
       OnboardingStep.SAFETY_PLANNING,
       OnboardingStep.COMPLETION,
@@ -274,7 +276,8 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
   const getPreviousStep = (current: OnboardingStep): OnboardingStep | null => {
     const stepOrder = [
       OnboardingStep.CONSENT,
-      OnboardingStep.SYMPTOM_EXPLORATION,
+      OnboardingStep.YBOCS_ASSESSMENT,
+      OnboardingStep.BASIC_INFO,
       OnboardingStep.TREATMENT_PLANNING,
       OnboardingStep.SAFETY_PLANNING,
       OnboardingStep.COMPLETION,
@@ -369,7 +372,7 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
           />
         );
 
-      case OnboardingStep.SYMPTOM_EXPLORATION:
+      case OnboardingStep.YBOCS_ASSESSMENT:
         return (
           <YBOCSAssessmentV2
             onComplete={handleYBOCSComplete}
@@ -378,7 +381,7 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
           />
         );
 
-      case OnboardingStep.TREATMENT_PLANNING:
+      case OnboardingStep.BASIC_INFO:
         return (
           <ProfileBuilderV2
             ybocsAnalysis={state.ybocsAnswers}
