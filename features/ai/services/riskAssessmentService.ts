@@ -1005,6 +1005,176 @@ class AdvancedRiskAssessmentService {
     return ['Aile sevgisi', 'Gelecek umutları', 'Kişisel hedefler', 'Manevi değerler']; 
   }
 
+  // =============================================================================
+  // 🧠 PRIVATE IMPLEMENTATION METHODS
+  // =============================================================================
+
+  /**
+   * 🛡️ Perform comprehensive risk assessment (PRIVATE)
+   */
+  private async performComprehensiveRiskAssessment(userId: string, data: {
+    userProfile?: UserProfile;
+    ybocsData?: any;
+    treatmentPlan?: TreatmentPlan;
+  }): Promise<RiskAssessment> {
+    console.log('🛡️ Performing comprehensive risk assessment for user:', userId);
+
+    try {
+      // Basic risk assessment structure
+      const riskAssessment: RiskAssessment = {
+        id: `risk_${userId}_${Date.now()}`,
+        userId,
+        timestamp: new Date(),
+        immediateRisk: RiskLevel.LOW,
+        shortTermRisk: RiskLevel.LOW,
+        longTermRisk: RiskLevel.MEDIUM,
+        identifiedRisks: [],
+        protectiveFactors: [],
+        immediateActions: [],
+        monitoringPlan: {
+          frequency: 'weekly',
+          indicators: [],
+          triggers: []
+        },
+        safeguards: [],
+        confidence: 0.8,
+        humanReviewRequired: false,
+        reassessmentInterval: 30 // days
+      };
+
+      // Analyze Y-BOCS data for risk factors
+      if (data.ybocsData) {
+        riskAssessment.identifiedRisks = this.analyzeYBOCSRisks(data.ybocsData);
+        
+        // Adjust risk levels based on severity
+        const severity = data.ybocsData.severityLevel;
+        if (severity === 'severe' || severity === 'extreme') {
+          riskAssessment.shortTermRisk = RiskLevel.MEDIUM;
+          riskAssessment.longTermRisk = RiskLevel.HIGH;
+          riskAssessment.humanReviewRequired = true;
+        }
+      }
+
+      // Add protective factors
+      riskAssessment.protectiveFactors = [
+        {
+          id: 'prof_1',
+          category: 'social',
+          description: 'Tedavi sürecine katılım',
+          strength: 'high',
+          culturalRelevance: true
+        },
+        {
+          id: 'prof_2',
+          category: 'therapeutic',
+          description: 'Profesyonel destek arayışı',
+          strength: 'medium',
+          culturalRelevance: true
+        }
+      ];
+
+      // Generate immediate actions if needed
+      if (riskAssessment.shortTermRisk >= RiskLevel.MEDIUM) {
+        riskAssessment.immediateActions = [
+          {
+            id: 'action_1',
+            priority: 'high',
+            description: 'Düzenli takip seansları planla',
+            timeframe: 'within_24_hours',
+            assignee: 'therapist'
+          },
+          {
+            id: 'action_2',
+            priority: 'medium',
+            description: 'Aile desteği aktivasyonu',
+            timeframe: 'within_week',
+            assignee: 'support_team'
+          }
+        ];
+      }
+
+      // Set up monitoring plan
+      riskAssessment.monitoringPlan = {
+        frequency: riskAssessment.shortTermRisk >= RiskLevel.MEDIUM ? 'daily' : 'weekly',
+        indicators: [
+          'Kompülsiyon sıklığı',
+          'Kaygı seviyeleri',
+          'Günlük işlevsellik',
+          'Sosyal etkileşim kalitesi'
+        ],
+        triggers: [
+          'Semptom şiddetinde artış',
+          'İşlevsellikte azalma',
+          'İntihar düşünceleri'
+        ]
+      };
+
+      // Generate safeguards
+      riskAssessment.safeguards = [
+        {
+          id: 'safe_1',
+          type: 'crisis_contact',
+          description: '7/24 kriz hattı erişimi',
+          activationTrigger: 'high_risk_detected',
+          contactInfo: '+90 444 7 XXX'
+        },
+        {
+          id: 'safe_2',
+          type: 'support_network',
+          description: 'Aile/arkadaş destek ağı',
+          activationTrigger: 'medium_risk_detected',
+          contactInfo: 'emergency_contacts'
+        }
+      ];
+
+      console.log('✅ Comprehensive risk assessment completed with risk level:', riskAssessment.shortTermRisk);
+      return riskAssessment;
+
+    } catch (error) {
+      console.error('❌ Error performing comprehensive risk assessment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 📊 Analyze Y-BOCS data for risk factors (PRIVATE)
+   */
+  private analyzeYBOCSRisks(ybocsData: any): RiskFactor[] {
+    console.log('📊 Analyzing Y-BOCS data for risk factors');
+
+    const risks: RiskFactor[] = [];
+
+    // High severity risk
+    if (ybocsData.severityLevel === 'severe' || ybocsData.severityLevel === 'extreme') {
+      risks.push({
+        id: 'risk_severity',
+        category: RiskCategory.CLINICAL,
+        description: 'Yüksek semptom şiddeti',
+        severity: 'high',
+        likelihood: 0.8,
+        impact: 'significant',
+        timeframe: 'immediate',
+        culturalFactors: ['Sosyal stigma endişesi', 'Aile beklentileri']
+      });
+    }
+
+    // Functional impairment risk
+    if (ybocsData.totalScore > 20) {
+      risks.push({
+        id: 'risk_impairment',
+        category: RiskCategory.FUNCTIONAL,
+        description: 'Günlük yaşam işlevselliğinde bozulma',
+        severity: 'medium',
+        likelihood: 0.7,
+        impact: 'moderate',
+        timeframe: 'short_term',
+        culturalFactors: ['İş/okul performansı beklentileri']
+      });
+    }
+
+    return risks;
+  }
+
   /**
    * Service'i temizle
    */
