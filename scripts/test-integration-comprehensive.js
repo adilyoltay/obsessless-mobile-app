@@ -79,8 +79,8 @@ test('Navigation Guard - AI Onboarding redirect', () => {
 });
 
 test('Settings Screen - AI features integration', () => {
-  if (!fileContains('app/(tabs)/settings.tsx', 'AI_TREATMENT_PLANNING')) {
-    throw new Error('AI features not integrated in settings');
+  if (!fileContains('app/(tabs)/settings.tsx', 'AI_ENABLED')) {
+    throw new Error('Master AI switch not integrated in settings');
   }
 });
 
