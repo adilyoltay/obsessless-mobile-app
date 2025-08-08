@@ -339,13 +339,21 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
 
     const estimatedSeverity = calculateEstimatedSeverity(updatedAnswers);
 
-    setState(prev => ({
-      ...prev,
-      currentAnswer: answer,
-      answers: updatedAnswers,
-      canProceed: true,
-      estimatedSeverity
-    }));
+    setState(prev => {
+      console.log('🔄 State update:', {
+        currentAnswer: answer,
+        answersLength: updatedAnswers.length,
+        canProceed: true,
+        estimatedSeverity
+      });
+      return {
+        ...prev,
+        currentAnswer: answer,
+        answers: updatedAnswers,
+        canProceed: true,
+        estimatedSeverity
+      };
+    });
 
     // Save progress
     if (userId) {
@@ -585,6 +593,12 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
             <View style={styles.optionsContainer}>
               {currentQuestion.options.map((option, index) => {
                 const isSelected = state.currentAnswer?.value === option.value;
+                console.log('🔍 Option render:', {
+                  optionValue: option.value,
+                  currentAnswerValue: state.currentAnswer?.value,
+                  isSelected,
+                  optionLabel: option.label
+                });
                 
                 return (
                   <View key={index} style={styles.optionWrapper}>
