@@ -32,7 +32,7 @@ import {
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
-import { adaptiveInterventions } from '@/features/ai/interventions/adaptiveInterventions';
+import { adaptiveInterventionsEngine } from '@/features/ai/interventions/adaptiveInterventions';
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
@@ -449,8 +449,8 @@ class ModernOnboardingEngine {
     }
     
     if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
-      if (adaptiveInterventions && typeof adaptiveInterventions.initialize === 'function') {
-        services.push(adaptiveInterventions.initialize());
+      if (adaptiveInterventionsEngine && typeof adaptiveInterventionsEngine.initialize === 'function') {
+        services.push(adaptiveInterventionsEngine.initialize());
       } else {
         console.warn('⚠️ Adaptive Interventions service not available for onboarding');
       }
@@ -1112,7 +1112,7 @@ class ModernOnboardingEngine {
   private async provideAdaptiveSupport(session: OnboardingSession, stepResult: any): Promise<void> {
     try {
       if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
-        const support = await adaptiveInterventions.generateOnboardingSupport({
+        const support = await adaptiveInterventionsEngine.generateOnboardingSupport({
           userId: session.userId,
           currentStep: session.currentStep,
           stepResult,
