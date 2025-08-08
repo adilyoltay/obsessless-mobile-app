@@ -180,6 +180,11 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+        console.log('🧭 OnboardingEngine debug:', { 
+          onboardingEngine: !!onboardingEngine, 
+          hasInitialize: !!(onboardingEngine && onboardingEngine.initialize),
+          initializeType: onboardingEngine && typeof onboardingEngine.initialize
+        });
         if (onboardingEngine && typeof onboardingEngine.initialize === 'function') {
           await onboardingEngine.initialize();
           features.push('AI_ONBOARDING_V2');
