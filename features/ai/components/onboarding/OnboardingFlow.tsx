@@ -35,12 +35,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
+// UI Components
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+
 // Sprint 7 Backend Services
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
-import { treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
-import { riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
+import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 
 // Previous Sprint Integrations
 import { aiManager } from '@/features/ai/config/aiManager';
@@ -61,8 +65,6 @@ import {
 } from '@/features/ai/types';
 
 // UI Components
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Loading } from '@/components/ui/Loading';
 
