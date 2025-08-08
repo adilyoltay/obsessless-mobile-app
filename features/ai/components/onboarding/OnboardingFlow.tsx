@@ -354,15 +354,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       console.log('🎉 Y-BOCS completion process finished successfully!');
 
-      // Move to next step (Profile Building)
-      console.log('🚀 Moving to next step: PROFILE_BUILDING');
+      // Move to next step (Symptom Exploration)
+      console.log('🚀 Moving to next step: SYMPTOM_EXPLORATION');
       setTimeout(() => {
         setState(prev => ({
           ...prev,
-          currentStep: OnboardingStep.PROFILE_BUILDING,
-          canProceed: true // Enable continue button for profile building
+          currentStep: OnboardingStep.SYMPTOM_EXPLORATION, // ✅ Doğru enum değeri
+          canProceed: true // Enable continue button for symptom exploration
         }));
-        console.log('✅ Moved to PROFILE_BUILDING step with canProceed: true');
+        console.log('✅ Moved to SYMPTOM_EXPLORATION step with canProceed: true');
       }, 1000); // Small delay for user feedback
 
     } catch (error) {
