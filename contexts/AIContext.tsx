@@ -179,22 +179,26 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        await onboardingEngine.getInstance().initialize();
-        features.push('AI_ONBOARDING_V2');
+        if (onboardingEngine && typeof onboardingEngine.initialize === 'function') {
+          await onboardingEngine.initialize();
+          features.push('AI_ONBOARDING_V2');
+        } else {
+          console.warn('⚠️ Onboarding Engine not available');
+        }
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
-        await userProfilingService.getInstance().initialize();
+        if (userProfilingService && typeof userProfilingService.initialize === "function") { await userProfilingService.initialize(); } else { console.warn("⚠️ User Profiling service not available"); }
         features.push('AI_USER_PROFILING');
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING')) {
-        await treatmentPlanningEngine.getInstance().initialize();
+        if (treatmentPlanningEngine && typeof treatmentPlanningEngine.initialize === "function") { await treatmentPlanningEngine.initialize(); } else { console.warn("⚠️ Treatment Planning Engine not available"); }
         features.push('AI_TREATMENT_PLANNING');
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
-        await riskAssessmentService.getInstance().initialize();
+        if (riskAssessmentService && typeof riskAssessmentService.initialize === "function") { await riskAssessmentService.initialize(); } else { console.warn("⚠️ Risk Assessment service not available"); }
         features.push('AI_RISK_ASSESSMENT');
       }
 

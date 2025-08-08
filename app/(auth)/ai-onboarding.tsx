@@ -25,6 +25,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// UI Components
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+
 // Auth & Context
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
@@ -47,8 +51,6 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // UI Components
 import { Loading } from '@/components/ui/Loading';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 
 interface OnboardingParams {
   resume?: string; // 'true' if resuming session
