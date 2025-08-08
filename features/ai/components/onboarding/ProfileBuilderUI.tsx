@@ -783,9 +783,10 @@ const AIEnhancementStep: React.FC<{
   selectedGoals: string[];
   onCanProceed: (canProceed: boolean) => void;
 }> = ({ profileData, ybocsAnalysis, selectedGoals, onCanProceed }) => {
+  // Set canProceed status (AI enhancement always allows proceed)
   useEffect(() => {
     onCanProceed(true);
-  }, [onCanProceed]);
+  }, []);
 
   const completeness = ((Object.keys(profileData).length / 8) * 100); // Rough estimate
 
