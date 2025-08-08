@@ -272,24 +272,38 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
    * 🧠 Handle Y-BOCS Assessment Completion
    */
   const handleYBOCSCompletion = useCallback(async (answers: YBOCSAnswer[]) => {
-    if (!isYBOCSAnalysisEnabled || !state.session) return;
+    console.log('🧭 OnboardingFlow: handleYBOCSCompletion called with', answers.length, 'answers');
+    
+    if (!isYBOCSAnalysisEnabled || !state.session) {
+      console.warn('⚠️ Y-BOCS completion blocked:', { isYBOCSAnalysisEnabled, hasSession: !!state.session });
+      return;
+    }
 
+    console.log('🔄 Starting Y-BOCS analysis...');
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
       // Analyze Y-BOCS responses
+      console.log('📊 Calling ybocsAnalysisService.analyzeYBOCS...');
       const analysis = await ybocsAnalysisService.analyzeYBOCS(answers, {
         culturalContext: 'turkish',
         enhanceWithAI: true,
         personalizeRecommendations: true
       });
+      console.log('✅ Y-BOCS analysis completed:', { 
+        severityLevel: analysis.severityLevel, 
+        totalScore: analysis.totalScore 
+      });
 
       // Update session with Y-BOCS data
+      console.log('💾 Updating session with Y-BOCS data...');
       const updatedSession = await onboardingEngine.updateSessionData(
         state.session.sessionId,
         { ybocsAnalysis: analysis }
       );
+      console.log('✅ Session updated successfully');
 
+      console.log('🔄 Updating OnboardingFlow state...');
       setState(prev => ({
         ...prev,
         ybocsAnswers: answers,
@@ -297,14 +311,29 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         canProceed: true,
         isLoading: false
       }));
+      console.log('✅ OnboardingFlow state updated');
 
       // Track Y-BOCS completion
+      console.log('📊 Tracking Y-BOCS completion...');
       await trackAIInteraction(AIEventType.YBOCS_ANALYSIS_COMPLETED, {
         sessionId: state.session.sessionId,
         severityLevel: analysis.severityLevel,
-        primarySymptoms: analysis.primarySymptoms,
+        primarySymptoms: analysis.dominantSymptoms || [],
         riskFactors: analysis.riskFactors.length
       });
+      console.log('✅ Y-BOCS completion tracked');
+
+      console.log('🎉 Y-BOCS completion process finished successfully!');
+
+      // Move to next step (Profile Building)
+      console.log('🚀 Moving to next step: PROFILE_BUILDING');
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          currentStep: OnboardingStep.PROFILE_BUILDING
+        }));
+        console.log('✅ Moved to PROFILE_BUILDING step');
+      }, 1000); // Small delay for user feedback
 
     } catch (error) {
       console.error('❌ Y-BOCS analysis error:', error);

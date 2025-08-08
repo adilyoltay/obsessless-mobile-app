@@ -404,7 +404,9 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
         }
 
         // Return results
+        console.log('🎯 Y-BOCS Assessment calling onComplete with answers:', state.answers.length);
         onComplete(state.answers);
+        console.log('✅ Y-BOCS Assessment onComplete called successfully');
 
       } catch (error) {
         console.error('❌ Y-BOCS completion error:', error);
