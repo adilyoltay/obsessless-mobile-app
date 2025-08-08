@@ -27,7 +27,7 @@ interface ButtonProps {
   testID?: string;
 }
 
-export default function Button({
+export function Button({
   children,
   title,
   onPress,
@@ -165,3 +165,6 @@ const styles = StyleSheet.create({
   },
   },
 });
+
+// Default export for backward compatibility
+export default Button;

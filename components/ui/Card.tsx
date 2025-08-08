@@ -16,7 +16,7 @@ interface CardProps {
   borderRadius?: number;
 }
 
-function Card({
+export function Card({
   children,
   style,
   variant = 'default',

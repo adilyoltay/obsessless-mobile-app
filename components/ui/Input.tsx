@@ -22,7 +22,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   variant?: 'default' | 'filled' | 'outlined';
 }
 
-export function Input_DISABLED({
+export function Input({
   label,
   error,
   helperText,
