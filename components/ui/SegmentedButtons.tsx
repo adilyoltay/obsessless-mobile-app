@@ -15,22 +15,33 @@ interface SegmentedButtonOption {
 }
 
 interface SegmentedButtonsProps {
-  options: SegmentedButtonOption[];
-  selectedValue: string;
-  onSelectionChange: (value: string) => void;
+  options?: SegmentedButtonOption[];
+  buttons?: SegmentedButtonOption[]; // Support both 'buttons' and 'options' props
+  selectedValue?: string;
+  value?: string; // Support both 'value' and 'selectedValue' props
+  onSelectionChange?: (value: string) => void;
+  onValueChange?: (value: string) => void; // Support both callback names
 }
 
 export const SegmentedButtons: React.FC<SegmentedButtonsProps> = ({
   options,
+  buttons,
   selectedValue,
+  value,
   onSelectionChange,
+  onValueChange,
 }) => {
+  // Use buttons if options is not provided (backward compatibility)
+  const items = options || buttons || [];
+  const selected = selectedValue || value || '';
+  const onChange = onSelectionChange || onValueChange || (() => {});
+  
   return (
     <View style={styles.container}>
-      {options.map((option, index) => {
-        const isSelected = option.value === selectedValue;
+      {items.map((option, index) => {
+        const isSelected = option.value === selected;
         const isFirst = index === 0;
-        const isLast = index === options.length - 1;
+        const isLast = index === items.length - 1;
         
         return (
           <TouchableOpacity
@@ -41,7 +52,7 @@ export const SegmentedButtons: React.FC<SegmentedButtonsProps> = ({
               isFirst && styles.firstButton,
               isLast && styles.lastButton,
             ]}
-            onPress={() => onSelectionChange(option.value)}
+            onPress={() => onChange(option.value)}
           >
             {option.icon && (
               <MaterialCommunityIcons
