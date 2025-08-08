@@ -408,15 +408,27 @@ class ModernOnboardingEngine {
     
     // Sprint 6 services (optional)
     if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-      services.push(contextIntelligence.initialize());
+      if (contextIntelligence && typeof contextIntelligence.initialize === 'function') {
+        services.push(contextIntelligence.initialize());
+      } else {
+        console.warn('⚠️ Context Intelligence service not available for onboarding');
+      }
     }
     
     if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
-      services.push(adaptiveInterventions.initialize());
+      if (adaptiveInterventions && typeof adaptiveInterventions.initialize === 'function') {
+        services.push(adaptiveInterventions.initialize());
+      } else {
+        console.warn('⚠️ Adaptive Interventions service not available for onboarding');
+      }
     }
     
     if (FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM')) {
-      services.push(jitaiEngine.initialize());
+      if (jitaiEngine && typeof jitaiEngine.initialize === 'function') {
+        services.push(jitaiEngine.initialize());
+      } else {
+        console.warn('⚠️ JITAI Engine service not available for onboarding');
+      }
     }
 
     await Promise.allSettled(services);
