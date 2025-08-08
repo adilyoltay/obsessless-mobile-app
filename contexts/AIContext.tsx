@@ -156,8 +156,12 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
-        await adaptiveInterventions.initialize();
-        features.push('AI_ADAPTIVE_INTERVENTIONS');
+        if (adaptiveInterventions && typeof adaptiveInterventions.initialize === 'function') {
+          await adaptiveInterventions.initialize();
+          features.push('AI_ADAPTIVE_INTERVENTIONS');
+        } else {
+          console.warn('⚠️ Adaptive Interventions service not available');
+        }
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_JITAI')) {
