@@ -264,6 +264,60 @@ class ModernOnboardingEngine {
     return session;
   }
 
+  /**
+   * 🔄 Update Step Progress
+   */
+  async updateStep(sessionId: string, step: OnboardingStep, stepData: any): Promise<OnboardingSession> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    try {
+      // Update session step data
+      session.currentStep = step;
+      session.metadata = {
+        ...session.metadata,
+        [`step_${step}_completed`]: true,
+        [`step_${step}_timestamp`]: Date.now(),
+        [`step_${step}_data`]: stepData
+      };
+
+      // Update progress calculation
+      const stepOrder = [
+        OnboardingStep.WELCOME,
+        OnboardingStep.YBOCS_ASSESSMENT,
+        OnboardingStep.PROFILE_BUILDING,
+        OnboardingStep.TREATMENT_PLANNING,
+        OnboardingStep.RISK_ASSESSMENT,
+        OnboardingStep.CUSTOMIZATION,
+        OnboardingStep.COMPLETION
+      ];
+
+      const currentIndex = stepOrder.indexOf(step);
+      if (currentIndex >= 0) {
+        session.progress.overallProgress = Math.round((currentIndex / (stepOrder.length - 1)) * 100);
+        session.progress.stepProgress = 100; // Current step completed
+      }
+
+      this.activeSessions.set(sessionId, session);
+
+      console.log(`🧭 Step updated: ${step} for session ${sessionId}`);
+      
+      await trackAIInteraction(AIEventType.ONBOARDING_STEP_UPDATED, {
+        sessionId,
+        step,
+        progress: session.progress.overallProgress
+      });
+
+      return session;
+
+    } catch (error) {
+      console.error('❌ Step update error:', error);
+      throw error;
+    }
+  }
+
   // =============================================================================
   // 🚀 INITIALIZATION & SETUP
   // =============================================================================

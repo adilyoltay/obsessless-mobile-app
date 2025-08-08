@@ -516,6 +516,101 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   }, [state.session, state.userProfile, state.treatmentPlan, state.riskAssessment, userId, onComplete]);
 
   /**
+   * ➡️ Proceed to Next Step
+   */
+  const proceedToNextStep = useCallback(async () => {
+    if (!state.session || state.isLoading) return;
+
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      console.log('🧭 Proceeding to next step from:', state.currentStep);
+      
+      // Update session with current step progress
+      const updatedSession = await onboardingEngine.updateStep(
+        state.session.sessionId,
+        state.currentStep,
+        { completed: true, timestamp: new Date() }
+      );
+
+      // Determine next step
+      const nextStep = getNextStep(state.currentStep);
+      
+      if (nextStep) {
+        setState(prev => ({
+          ...prev,
+          currentStep: nextStep,
+          session: { ...updatedSession, currentStep: nextStep },
+          progress: calculateProgress(nextStep),
+          canProceed: false, // Reset for next step
+          isLoading: false
+        }));
+
+        // Haptic feedback
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        // Track step progression
+        await trackAIInteraction(AIEventType.ONBOARDING_STEP_COMPLETED, {
+          sessionId: state.session.sessionId,
+          completedStep: state.currentStep,
+          nextStep,
+          progress: calculateProgress(nextStep)
+        });
+
+      } else {
+        // No more steps, complete onboarding
+        await completeOnboarding();
+      }
+
+    } catch (error) {
+      console.error('❌ Step progression error:', error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Adım geçişinde hata oluştu.'
+      }));
+    }
+  }, [state.session, state.currentStep, state.isLoading, completeOnboarding]);
+
+
+  /**
+   * 🔄 Helper: Get Next Step
+   */
+  const getNextStep = (currentStep: OnboardingStep): OnboardingStep | null => {
+    const stepOrder = [
+      OnboardingStep.WELCOME,
+      OnboardingStep.YBOCS_ASSESSMENT,
+      OnboardingStep.PROFILE_BUILDING,
+      OnboardingStep.TREATMENT_PLANNING,
+      OnboardingStep.RISK_ASSESSMENT,
+      OnboardingStep.CUSTOMIZATION,
+      OnboardingStep.COMPLETION
+    ];
+
+    const currentIndex = stepOrder.indexOf(currentStep);
+    return currentIndex >= 0 && currentIndex < stepOrder.length - 1 
+      ? stepOrder[currentIndex + 1] 
+      : null;
+  };
+
+  /**
+   * �� Helper: Calculate Progress
+   */
+  const calculateProgress = (currentStep: OnboardingStep): number => {
+    const stepOrder = [
+      OnboardingStep.WELCOME,
+      OnboardingStep.YBOCS_ASSESSMENT, 
+      OnboardingStep.PROFILE_BUILDING,
+      OnboardingStep.TREATMENT_PLANNING,
+      OnboardingStep.RISK_ASSESSMENT,
+      OnboardingStep.CUSTOMIZATION,
+      OnboardingStep.COMPLETION
+    ];
+
+    const currentIndex = stepOrder.indexOf(currentStep);
+    return currentIndex >= 0 ? Math.round((currentIndex / (stepOrder.length - 1)) * 100) : 0;
+  };
+  /**
    * 🚫 Handle Back Navigation
    */
   const handleBackPress = useCallback(() => {

@@ -77,6 +77,16 @@ export enum AIEventType {
   AB_TEST_VARIATION_APPLIED = 'ab_test_variation_applied',
   AB_TEST_STARTED = 'ab_test_started',
   AB_TEST_STOPPED = 'ab_test_stopped',
+  
+  // Sprint 7: Onboarding events
+  ONBOARDING_ENGINE_INITIALIZED = 'onboarding_engine_initialized',
+  ONBOARDING_SESSION_CREATED = 'onboarding_session_created',
+  ONBOARDING_STEP_COMPLETED = 'onboarding_step_completed',
+  ONBOARDING_STEP_UPDATED = 'onboarding_step_updated',
+  ONBOARDING_SESSION_COMPLETED = 'onboarding_session_completed',
+  ONBOARDING_ENGINE_SHUTDOWN = 'onboarding_engine_shutdown',
+  YBOCS_ANALYSIS_COMPLETED = 'ybocs_analysis_completed',
+  TREATMENT_PLAN_GENERATED = 'treatment_plan_generated',
   JITAI_SHUTDOWN = 'jitai_shutdown',
   
   // Sprint 4: CBT Engine events
