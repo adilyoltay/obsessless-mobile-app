@@ -590,7 +590,11 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
                   <View key={index} style={styles.optionWrapper}>
                     <Button
                       title={option.label}
-                      onPress={() => handleAnswerSelect(option.value, option)}
+                      onPress={() => {
+                        console.log('🔘 Button pressed:', option.label, 'value:', option.value);
+                        console.log('🔘 Button state:', { isLoading, isValidating: state.isValidating });
+                        handleAnswerSelect(option.value, option);
+                      }}
                       variant={isSelected ? 'primary' : 'outline'}
                       style={[
                         styles.optionButton,
