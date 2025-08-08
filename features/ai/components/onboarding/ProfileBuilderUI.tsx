@@ -812,7 +812,7 @@ const AIEnhancementStep: React.FC<{
         <Text style={styles.aiFeatureItem}>📊 Akıllı progress takibi</Text>
         <Text style={styles.aiFeatureItem}>💡 Contextual öneriler</Text>
         <Text style={styles.aiFeatureItem}>🛡️ Proaktif güvenlik</Text>
-        <Text style={styles.aiFeatureItem">🎯 Adaptive müdahaleler</Text>
+        <Text style={styles.aiFeatureItem}>🎯 Adaptive müdahaleler</Text>
       </View>
     </Card>
   );

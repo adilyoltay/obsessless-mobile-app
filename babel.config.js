@@ -19,7 +19,8 @@ module.exports = function (api) {
             '@/services': './services',
             '@/contexts': './contexts',
             '@/lib': './lib',
-            '@/localization': './localization'
+            '@/localization': './localization',
+            '@/features': './features'
           }
         }
       ],
