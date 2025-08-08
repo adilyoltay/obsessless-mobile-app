@@ -2,17 +2,17 @@
  * 👤 Profile Builder V2 - Minimalist Full-Screen Design
  * 
  * Anayasa v2.0 ilkelerine uygun profil oluşturma:
- * - Her adım tam ekran
- * - Minimal form alanları
- * - Tek aksiyon prensibi
- * - Otomatik odaklanma
+ * - Tek ekran, tek soru
+ * - TEK AKSIYON: Tek input veya seçim
+ * - Otomatik ilerleme
+ * - Minimal görsel karmaşa
  * 
  * Features:
- * ✅ Full-screen step design
- * ✅ Auto-focus next field
- * ✅ Keyboard avoiding view
- * ✅ Cultural adaptation
- * ✅ Privacy-first approach
+ * ✅ Full-screen single-step layout
+ * ✅ SINGLE ACTION: One input per screen
+ * ✅ Auto-focus and smooth transitions
+ * ✅ Turkish cultural context
+ * ✅ Simple form validation
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -20,12 +20,12 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
+  Animated,
   TouchableOpacity,
-  ScrollView,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
-  Animated,
+  ScrollView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,10 +35,10 @@ import Button from '@/components/ui/Button';
 
 // Types
 import {
-  UserProfile,
   YBOCSAnswer,
+  UserProfile,
   CulturalContext,
-  ProfileStep,
+  TherapeuticGoal,
 } from '@/features/ai/types';
 
 // Telemetry
@@ -57,43 +57,47 @@ const COLORS = {
 };
 
 interface ProfileBuilderV2Props {
-  ybocsAnalysis?: YBOCSAnswer[];
-  onComplete: (profileData: Partial<UserProfile>) => void;
+  ybocsAnalysis: YBOCSAnswer[];
+  onComplete: (profile: Partial<UserProfile>) => void;
   isLoading?: boolean;
   userId?: string;
 }
 
-interface ProfileFormData {
-  firstName: string;
-  age: string;
-  gender: string;
-  occupation: string;
-  culturalFactors: string[];
-  therapyGoals: string[];
+// Profile steps enum
+enum ProfileStep {
+  BASIC_INFO = 'basic_info',
+  CULTURAL_CONTEXT = 'cultural_context', 
+  THERAPEUTIC_GOALS = 'therapeutic_goals',
+  COMPLETE = 'complete',
 }
 
-const PROFILE_STEPS = [
-  { id: 'name', title: 'Adınız nedir?', subtitle: 'Size nasıl hitap edelim?' },
-  { id: 'age', title: 'Yaşınız kaç?', subtitle: 'Yaş grubunuza uygun içerik sunmak için' },
-  { id: 'gender', title: 'Cinsiyetiniz?', subtitle: 'Kişiselleştirilmiş destek için (opsiyonel)' },
-  { id: 'occupation', title: 'Mesleğiniz?', subtitle: 'Günlük rutininizi anlamak için' },
-  { id: 'cultural', title: 'Kültürel değerleriniz', subtitle: 'Size özel yaklaşım için' },
-  { id: 'goals', title: 'Hedefleriniz', subtitle: 'Neyi başarmak istiyorsunuz?' },
+interface ProfileState {
+  currentStep: ProfileStep;
+  progress: number;
+  basicInfo: {
+    firstName: string;
+    age: string;
+    gender: string;
+  };
+  culturalContext: Partial<CulturalContext>;
+  therapeuticGoals: string[];
+}
+
+const TOTAL_STEPS = 3;
+
+const GENDER_OPTIONS = [
+  { value: 'erkek', label: 'Erkek', emoji: '👨' },
+  { value: 'kadin', label: 'Kadın', emoji: '👩' },
+  { value: 'belirtmek_istemiyorum', label: 'Belirtmek İstemiyorum', emoji: '🤷' },
 ];
 
-const CULTURAL_OPTIONS = [
-  { id: 'family_values', label: 'Aile değerleri önemli', icon: 'home-heart' },
-  { id: 'religious_values', label: 'Dini değerler önemli', icon: 'hands-pray' },
-  { id: 'privacy_important', label: 'Gizlilik çok önemli', icon: 'shield-lock' },
-  { id: 'traditional_approach', label: 'Geleneksel yaklaşım', icon: 'account-group' },
-];
-
-const THERAPY_GOALS = [
-  { id: 'reduce_obsessions', label: 'Obsesyonları azaltmak', icon: 'head-minus' },
-  { id: 'reduce_compulsions', label: 'Kompulsiyonları azaltmak', icon: 'hand-back-left' },
-  { id: 'improve_daily_life', label: 'Günlük yaşamı iyileştirmek', icon: 'calendar-check' },
-  { id: 'reduce_anxiety', label: 'Kaygıyı azaltmak', icon: 'emoticon-happy' },
-  { id: 'better_relationships', label: 'İlişkileri düzeltmek', icon: 'account-heart' },
+const GOAL_OPTIONS = [
+  { value: 'reduce_obsessions', label: 'Obsesyonları azaltmak', emoji: '🧠' },
+  { value: 'control_compulsions', label: 'Kompulsiyonları kontrol etmek', emoji: '✋' },
+  { value: 'daily_functioning', label: 'Günlük yaşamı iyileştirmek', emoji: '🌅' },
+  { value: 'anxiety_management', label: 'Kaygıyı yönetmek', emoji: '😌' },
+  { value: 'social_relationships', label: 'İlişkileri geliştirmek', emoji: '👥' },
+  { value: 'work_performance', label: 'İş performansını artırmak', emoji: '💼' },
 ];
 
 export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
@@ -102,40 +106,30 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
   isLoading,
   userId,
 }) => {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [formData, setFormData] = useState<ProfileFormData>({
-    firstName: '',
-    age: '',
-    gender: '',
-    occupation: '',
-    culturalFactors: [],
-    therapyGoals: [],
+  const [state, setState] = useState<ProfileState>({
+    currentStep: ProfileStep.BASIC_INFO,
+    progress: 33, // 1/3 steps
+    basicInfo: {
+      firstName: '',
+      age: '',
+      gender: '',
+    },
+    culturalContext: {
+      language: 'tr',
+      region: 'turkey',
+      factors: ['family_values'],
+    },
+    therapeuticGoals: [],
   });
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const inputRef = useRef<TextInput>(null);
 
-  const currentStep = PROFILE_STEPS[currentStepIndex];
-  const progress = ((currentStepIndex + 1) / PROFILE_STEPS.length) * 100;
+  const transitionToStep = (newStep: ProfileStep) => {
+    const stepIndex = Object.values(ProfileStep).indexOf(newStep);
+    const newProgress = ((stepIndex + 1) / TOTAL_STEPS) * 100;
 
-  useEffect(() => {
-    // Auto-focus input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 300);
-  }, [currentStepIndex]);
-
-  const handleNext = () => {
-    // Validate current step
-    if (!validateStep()) return;
-
-    // Check if completed
-    if (currentStepIndex === PROFILE_STEPS.length - 1) {
-      completeProfile();
-      return;
-    }
-
-    // Transition to next step
+    // Smooth fade transition
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -147,251 +141,237 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
         duration: 150,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setCurrentStepIndex(currentStepIndex + 1);
-    });
+    ]).start();
+
+    setState(prev => ({
+      ...prev,
+      currentStep: newStep,
+      progress: newProgress,
+    }));
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handlePrevious = () => {
-    if (currentStepIndex === 0) return;
-
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setCurrentStepIndex(currentStepIndex - 1);
-    });
-  };
-
-  const validateStep = (): boolean => {
-    switch (currentStep.id) {
-      case 'name':
-        return formData.firstName.trim().length > 0;
-      case 'age':
-        const age = parseInt(formData.age);
-        return age > 0 && age < 120;
-      case 'cultural':
-        return formData.culturalFactors.length > 0;
-      case 'goals':
-        return formData.therapyGoals.length > 0;
-      default:
-        return true;
+  // Auto-focus input when step changes
+  useEffect(() => {
+    if (state.currentStep === ProfileStep.BASIC_INFO && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
     }
+  }, [state.currentStep]);
+
+  const handleBasicInfoNext = () => {
+    if (!state.basicInfo.firstName.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+
+    trackAIInteraction(AIEventType.PROFILE_STEP_COMPLETED, {
+      userId: userId || 'anonymous',
+      step: 'basic_info',
+      data: { hasFirstName: !!state.basicInfo.firstName },
+    });
+
+    transitionToStep(ProfileStep.CULTURAL_CONTEXT);
   };
 
-  const completeProfile = async () => {
-    const profileData: Partial<UserProfile> = {
-      basicInfo: {
-        firstName: formData.firstName,
-        age: formData.age,
-        gender: formData.gender || undefined,
-        occupation: formData.occupation || undefined,
-      },
-      culturalContext: {
-        factors: formData.culturalFactors,
-        language: 'tr',
-        region: 'turkey',
-      },
-      therapeuticGoals: formData.therapyGoals.map(id => ({
-        id,
-        title: THERAPY_GOALS.find(g => g.id === id)?.label || '',
-        priority: 'high',
-        targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+  const handleCulturalContextNext = () => {
+    trackAIInteraction(AIEventType.PROFILE_STEP_COMPLETED, {
+      userId: userId || 'anonymous',
+      step: 'cultural_context',
+    });
+
+    transitionToStep(ProfileStep.THERAPEUTIC_GOALS);
+  };
+
+  const handleGoalsComplete = () => {
+    if (state.therapeuticGoals.length === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+
+    const profile: Partial<UserProfile> = {
+      basicInfo: state.basicInfo,
+      culturalContext: state.culturalContext as CulturalContext,
+      therapeuticGoals: state.therapeuticGoals.map(goal => ({
+        id: goal,
+        description: GOAL_OPTIONS.find(opt => opt.value === goal)?.label || goal,
+        priority: 'medium',
+        targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       })),
     };
 
-    // Track completion
-    if (userId) {
-      await trackAIInteraction(AIEventType.PROFILE_CREATED, {
-        userId,
-        hasGoals: formData.therapyGoals.length > 0,
-        hasCulturalContext: formData.culturalFactors.length > 0,
-      });
-    }
-
-    onComplete(profileData);
+    onComplete(profile);
   };
 
-  const toggleArrayItem = (array: string[], item: string): string[] => {
-    if (array.includes(item)) {
-      return array.filter(i => i !== item);
-    }
-    return [...array, item];
+  const handleGenderSelect = (gender: string) => {
+    setState(prev => ({
+      ...prev,
+      basicInfo: { ...prev.basicInfo, gender }
+    }));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleGoalToggle = (goalValue: string) => {
+    setState(prev => {
+      const goals = prev.therapeuticGoals.includes(goalValue)
+        ? prev.therapeuticGoals.filter(g => g !== goalValue)
+        : [...prev.therapeuticGoals, goalValue];
+      
+      return {
+        ...prev,
+        therapeuticGoals: goals
+      };
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const renderStepContent = () => {
-    switch (currentStep.id) {
-      case 'name':
+    switch (state.currentStep) {
+      case ProfileStep.BASIC_INFO:
         return (
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.textInput}
-              placeholder="Adınız"
-              value={formData.firstName}
-              onChangeText={(text) => setFormData({ ...formData, firstName: text })}
-              autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="next"
-              onSubmitEditing={handleNext}
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Tanışalım</Text>
+            <Text style={styles.stepSubtitle}>
+              Size nasıl hitap edelim?
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                ref={inputRef}
+                style={styles.textInput}
+                placeholder="Adınız"
+                value={state.basicInfo.firstName}
+                onChangeText={(text) => setState(prev => ({
+                  ...prev,
+                  basicInfo: { ...prev.basicInfo, firstName: text }
+                }))}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={handleBasicInfoNext}
+              />
+            </View>
+
+            {/* Gender Selection */}
+            <View style={styles.genderContainer}>
+              <Text style={styles.genderTitle}>Cinsiyet (Opsiyonel)</Text>
+              <View style={styles.genderOptions}>
+                {GENDER_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.genderOption,
+                      state.basicInfo.gender === option.value && styles.genderOptionSelected
+                    ]}
+                    onPress={() => handleGenderSelect(option.value)}
+                  >
+                    <Text style={styles.genderEmoji}>{option.emoji}</Text>
+                    <Text style={[
+                      styles.genderLabel,
+                      state.basicInfo.gender === option.value && styles.genderLabelSelected
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <Button
+              title="Devam Et"
+              onPress={handleBasicInfoNext}
+              style={[
+                styles.continueButton,
+                !state.basicInfo.firstName.trim() && styles.continueButtonDisabled
+              ]}
+              disabled={!state.basicInfo.firstName.trim()}
             />
           </View>
         );
 
-      case 'age':
+      case ProfileStep.CULTURAL_CONTEXT:
         return (
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.textInput}
-              placeholder="Yaşınız"
-              value={formData.age}
-              onChangeText={(text) => setFormData({ ...formData, age: text.replace(/[^0-9]/g, '') })}
-              keyboardType="numeric"
-              returnKeyType="next"
-              onSubmitEditing={handleNext}
-              maxLength={3}
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Kültürel Bağlam</Text>
+            <Text style={styles.stepSubtitle}>
+              Türk kültürüne uygun destek sağlıyoruz
+            </Text>
+
+            <View style={styles.culturalInfo}>
+              <View style={styles.culturalItem}>
+                <Text style={styles.culturalEmoji}>🇹🇷</Text>
+                <Text style={styles.culturalText}>Türkçe dil desteği</Text>
+              </View>
+              <View style={styles.culturalItem}>
+                <Text style={styles.culturalEmoji}>👨‍👩‍👧‍👦</Text>
+                <Text style={styles.culturalText}>Aile değerleri odaklı</Text>
+              </View>
+              <View style={styles.culturalItem}>
+                <Text style={styles.culturalEmoji}>🤲</Text>
+                <Text style={styles.culturalText}>Maneviyat dostu yaklaşım</Text>
+              </View>
+            </View>
+
+            <Button
+              title="Devam Et"
+              onPress={handleCulturalContextNext}
+              style={styles.continueButton}
             />
           </View>
         );
 
-      case 'gender':
+      case ProfileStep.THERAPEUTIC_GOALS:
         return (
-          <View style={styles.optionsContainer}>
-            {['Erkek', 'Kadın', 'Belirtmek istemiyorum'].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.optionButton,
-                  formData.gender === option && styles.optionButtonSelected,
-                ]}
-                onPress={() => {
-                  setFormData({ ...formData, gender: option });
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text style={[
-                  styles.optionText,
-                  formData.gender === option && styles.optionTextSelected,
-                ]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        );
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Hedefleriniz</Text>
+            <Text style={styles.stepSubtitle}>
+              Hangi konularda destek almak istiyorsunuz?
+            </Text>
 
-      case 'occupation':
-        return (
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.textInput}
-              placeholder="Mesleğiniz (opsiyonel)"
-              value={formData.occupation}
-              onChangeText={(text) => setFormData({ ...formData, occupation: text })}
-              autoCapitalize="words"
-              returnKeyType="next"
-              onSubmitEditing={handleNext}
-            />
-            <TouchableOpacity onPress={handleNext} style={styles.skipButton}>
-              <Text style={styles.skipText}>Atla →</Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'cultural':
-        return (
-          <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            {CULTURAL_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.checkboxCard,
-                  formData.culturalFactors.includes(option.id) && styles.checkboxCardSelected,
-                ]}
-                onPress={() => {
-                  setFormData({
-                    ...formData,
-                    culturalFactors: toggleArrayItem(formData.culturalFactors, option.id),
-                  });
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={option.icon as any}
-                  size={24}
-                  color={formData.culturalFactors.includes(option.id) ? COLORS.primary : COLORS.secondaryText}
-                />
-                <Text style={[
-                  styles.checkboxLabel,
-                  formData.culturalFactors.includes(option.id) && styles.checkboxLabelSelected,
-                ]}>
-                  {option.label}
-                </Text>
-                <View style={[
-                  styles.checkbox,
-                  formData.culturalFactors.includes(option.id) && styles.checkboxSelected,
-                ]}>
-                  {formData.culturalFactors.includes(option.id) && (
-                    <MaterialCommunityIcons name="check" size={16} color={COLORS.white} />
+            <ScrollView style={styles.goalsContainer}>
+              {GOAL_OPTIONS.map((goal) => (
+                <TouchableOpacity
+                  key={goal.value}
+                  style={[
+                    styles.goalOption,
+                    state.therapeuticGoals.includes(goal.value) && styles.goalOptionSelected
+                  ]}
+                  onPress={() => handleGoalToggle(goal.value)}
+                >
+                  <Text style={styles.goalEmoji}>{goal.emoji}</Text>
+                  <Text style={[
+                    styles.goalLabel,
+                    state.therapeuticGoals.includes(goal.value) && styles.goalLabelSelected
+                  ]}>
+                    {goal.label}
+                  </Text>
+                  {state.therapeuticGoals.includes(goal.value) && (
+                    <MaterialCommunityIcons 
+                      name="check-circle" 
+                      size={24} 
+                      color={COLORS.primary} 
+                    />
                   )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        );
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-      case 'goals':
-        return (
-          <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-            {THERAPY_GOALS.map((goal) => (
-              <TouchableOpacity
-                key={goal.id}
-                style={[
-                  styles.checkboxCard,
-                  formData.therapyGoals.includes(goal.id) && styles.checkboxCardSelected,
-                ]}
-                onPress={() => {
-                  setFormData({
-                    ...formData,
-                    therapyGoals: toggleArrayItem(formData.therapyGoals, goal.id),
-                  });
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={goal.icon as any}
-                  size={24}
-                  color={formData.therapyGoals.includes(goal.id) ? COLORS.primary : COLORS.secondaryText}
-                />
-                <Text style={[
-                  styles.checkboxLabel,
-                  formData.therapyGoals.includes(goal.id) && styles.checkboxLabelSelected,
-                ]}>
-                  {goal.label}
-                </Text>
-                <View style={[
-                  styles.checkbox,
-                  formData.therapyGoals.includes(goal.id) && styles.checkboxSelected,
-                ]}>
-                  {formData.therapyGoals.includes(goal.id) && (
-                    <MaterialCommunityIcons name="check" size={16} color={COLORS.white} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <Text style={styles.goalHint}>
+              {state.therapeuticGoals.length} hedef seçildi
+            </Text>
+
+            <Button
+              title="Profili Tamamla"
+              onPress={handleGoalsComplete}
+              style={[
+                styles.continueButton,
+                state.therapeuticGoals.length === 0 && styles.continueButtonDisabled
+              ]}
+              disabled={state.therapeuticGoals.length === 0}
+            />
+          </View>
         );
 
       default:
@@ -407,51 +387,27 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
       {/* Progress Header */}
       <View style={styles.progressHeader}>
         <Text style={styles.progressText}>
-          Adım {currentStepIndex + 1} / {PROFILE_STEPS.length}
+          Adım {Object.values(ProfileStep).indexOf(state.currentStep) + 1} / {TOTAL_STEPS}
         </Text>
         <View style={styles.progressBar}>
           <Animated.View 
             style={[
               styles.progressFill,
-              { width: `${progress}%` }
+              { width: `${state.progress}%` }
             ]} 
           />
         </View>
       </View>
 
-      {/* Step Content */}
+      {/* Main Content */}
       <Animated.View 
         style={[
-          styles.stepContainer,
+          styles.content,
           { opacity: fadeAnim }
         ]}
       >
-        <View style={styles.stepHeader}>
-          <Text style={styles.stepTitle}>{currentStep.title}</Text>
-          <Text style={styles.stepSubtitle}>{currentStep.subtitle}</Text>
-        </View>
-
         {renderStepContent()}
       </Animated.View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionContainer}>
-        <Button
-          title={currentStepIndex === PROFILE_STEPS.length - 1 ? "Profili Tamamla" : "İleri"}
-          onPress={handleNext}
-          disabled={!validateStep()}
-          style={[
-            styles.primaryButton,
-            !validateStep() && styles.disabledButton,
-          ]}
-        />
-        
-        {currentStepIndex > 0 && (
-          <TouchableOpacity onPress={handlePrevious} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Geri</Text>
-          </TouchableOpacity>
-        )}
-      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -482,18 +438,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 2,
   },
+  content: {
+    flex: 1,
+  },
   stepContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-  },
-  stepHeader: {
-    marginTop: 32,
-    marginBottom: 40,
-    alignItems: 'center',
+    padding: 20,
+    justifyContent: 'center',
   },
   stepTitle: {
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.primaryText,
     marginBottom: 8,
     textAlign: 'center',
@@ -502,114 +457,131 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.secondaryText,
     textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 40,
   },
   inputContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    marginBottom: 32,
   },
   textInput: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: COLORS.primaryText,
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-    paddingVertical: 12,
-    textAlign: 'center',
-  },
-  skipButton: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  skipText: {
-    fontSize: 15,
-    color: COLORS.secondaryText,
-  },
-  optionsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  optionButton: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  optionButtonSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#F0FDF4',
-  },
-  optionText: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     fontSize: 18,
     color: COLORS.primaryText,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  genderContainer: {
+    marginBottom: 32,
+  },
+  genderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primaryText,
+    marginBottom: 16,
     textAlign: 'center',
   },
-  optionTextSelected: {
+  genderOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  genderOption: {
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    minWidth: 100,
+  },
+  genderOptionSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '10',
+  },
+  genderEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  genderLabel: {
+    fontSize: 14,
+    color: COLORS.secondaryText,
+    textAlign: 'center',
+  },
+  genderLabelSelected: {
     color: COLORS.primary,
     fontWeight: '600',
   },
-  scrollContainer: {
-    flex: 1,
+  culturalInfo: {
+    marginBottom: 40,
   },
-  checkboxCard: {
+  culturalItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
     backgroundColor: COLORS.white,
-    borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  checkboxCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#F0FDF4',
+  culturalEmoji: {
+    fontSize: 24,
+    marginRight: 16,
   },
-  checkboxLabel: {
-    flex: 1,
+  culturalText: {
     fontSize: 16,
     color: COLORS.primaryText,
-    marginLeft: 12,
+    flex: 1,
   },
-  checkboxLabelSelected: {
-    color: COLORS.primary,
-    fontWeight: '500',
+  goalsContainer: {
+    maxHeight: 300,
+    marginBottom: 20,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+  goalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    marginBottom: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  checkboxSelected: {
-    backgroundColor: COLORS.primary,
+  goalOptionSelected: {
     borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '10',
   },
-  actionContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 12,
+  goalEmoji: {
+    fontSize: 24,
+    marginRight: 16,
   },
-  primaryButton: {
+  goalLabel: {
+    fontSize: 16,
+    color: COLORS.primaryText,
+    flex: 1,
+  },
+  goalLabelSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  goalHint: {
+    fontSize: 14,
+    color: COLORS.secondaryText,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  continueButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 16,
   },
-  disabledButton: {
+  continueButtonDisabled: {
     backgroundColor: COLORS.border,
-    opacity: 0.5,
-  },
-  backButton: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 15,
-    color: COLORS.secondaryText,
   },
 });
 

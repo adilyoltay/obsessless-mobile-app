@@ -30,7 +30,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // UI Components
 import Button from '@/components/ui/Button';
-import { Slider } from '@/components/ui/Slider';
+import Slider from '@react-native-community/slider';
 
 // Types
 import {
@@ -369,7 +369,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
               step={1}
               minimumTrackTintColor={getSeverityColor(sliderValue)}
               maximumTrackTintColor={COLORS.border}
-              thumbTintColor={getSeverityColor(sliderValue)}
+              thumbStyle={{ backgroundColor: getSeverityColor(sliderValue) }}
               style={styles.slider}
             />
             
