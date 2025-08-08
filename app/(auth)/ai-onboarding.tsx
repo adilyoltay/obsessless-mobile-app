@@ -33,8 +33,8 @@ import Button from '@/components/ui/Button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useLoading } from '@/contexts/LoadingContext';
 
-// AI Components - Sprint 7 Integration
-import { OnboardingFlow } from '@/features/ai/components/onboarding/OnboardingFlow';
+// AI Components - Sprint 7 Integration V2
+import { OnboardingFlowV2 } from '@/features/ai/components/onboarding/OnboardingFlowV2';
 
 // AI Services - Sprint 7 Integration  
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
@@ -278,7 +278,7 @@ export default function AIOnboardingScreen() {
   // Main onboarding flow
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingFlow
+      <OnboardingFlowV2
         onComplete={handleOnboardingComplete}
         onExit={handleOnboardingExit}
         userId={user?.id || 'anonymous'}
