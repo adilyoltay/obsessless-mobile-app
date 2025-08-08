@@ -330,8 +330,8 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
               Hangi konularda destek almak istiyorsunuz?
             </Text>
 
-            <ScrollView style={styles.goalsContainer}>
-              {GOAL_OPTIONS.map((goal) => (
+            <View style={styles.goalsContainer}>
+              {GOAL_OPTIONS.slice(0, 4).map((goal) => ( // Show only first 4 goals
                 <TouchableOpacity
                   key={goal.value}
                   style={[
@@ -356,7 +356,7 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
 
             <Text style={styles.goalHint}>
               {state.therapeuticGoals.length} hedef seçildi
@@ -539,7 +539,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   goalsContainer: {
-    maxHeight: 300,
     marginBottom: 20,
   },
   goalOption: {
