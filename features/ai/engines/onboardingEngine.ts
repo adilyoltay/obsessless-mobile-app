@@ -268,8 +268,8 @@ class ModernOnboardingEngine {
   /**
    * 🏁 Finalize onboarding session
    */
-  async finalizeSession(sessionId: string): Promise<OnboardingSession> {
-    return this.completeOnboardingProcess(sessionId);
+  async finalizeSession(sessionId: string): Promise<OnboardingResult> {
+    return this.completeOnboarding(sessionId);
   }
 
   /**
