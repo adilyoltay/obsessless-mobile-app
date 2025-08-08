@@ -215,6 +215,55 @@ class ModernOnboardingEngine {
     console.log('🤖 AI services (ybocsAnalysisService, userProfilingService) integrated');
   }
 
+  /**
+   * 🎯 Create a new onboarding session
+   */
+  async createNewSession(userId: string, initialData?: any): Promise<OnboardingSession> {
+    console.log('🧭 Creating new onboarding session for user:', userId);
+    
+    const sessionId = `onboarding_${userId}_${Date.now()}`;
+    
+    const session: OnboardingSession = {
+      sessionId,
+      userId,
+      currentStep: OnboardingStep.WELCOME,
+      status: OnboardingSessionState.IN_PROGRESS,
+      startedAt: new Date(),
+      ybocsData: [],
+      userProfile: {
+        basicInfo: null,
+        preferences: null,
+        goals: [],
+        therapeuticHistory: null,
+        concerns: [],
+        culturalContext: null
+      },
+      culturalContext: CULTURAL_CONTEXTS.turkish,
+      progress: {
+        overallProgress: 0,
+        stepProgress: 0,
+        qualityScore: 0,
+        estimatedTimeRemaining: 15
+      },
+      metadata: {
+        deviceInfo: null,
+        sessionStartTime: Date.now(),
+        userAgent: null,
+        ...initialData
+      }
+    };
+
+    this.activeSessions.set(sessionId, session);
+    
+    await trackAIInteraction(AIEventType.ONBOARDING_SESSION_CREATED, {
+      sessionId,
+      userId,
+      initialStep: session.currentStep
+    });
+
+    return session;
+  }
+
   // =============================================================================
   // 🚀 INITIALIZATION & SETUP
   // =============================================================================
