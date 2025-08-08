@@ -2,66 +2,59 @@
  * 🛡️ ObsessLess Feature Flag System - FAZ 0: Güvenlik ve Stabilite Hazırlığı
  * 
  * Bu sistem "Kapsamlı Yol Haritası" belgesindeki Görev 0.0.1 gereksinimlerine uygun olarak
- * tasarlanmıştır. Tüm AI özellikleri varsayılan olarak KAPALI'dır ve sadece explicit
- * environment variable'lar ile açılabilir.
+ * tasarlanmıştır. Tüm AI özellikleri tek bir master switch ile kontrol edilir.
  * 
  * KRİTİK: Bu dosyadaki değişiklikler prodüksiyonu etkileyebilir!
  */
 
+// 🎯 MASTER AI SWITCH - Tek bir toggle ile tüm AI özellikleri kontrol edilir
+const AI_MASTER_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
+
 // Feature flag değerlerini runtime'da değiştirmek için mutable obje
 const featureFlagState: Record<string, boolean> = {
-  // 🤖 AI Features - DEFAULT OFF (Yol Haritası Gereği)
-  AI_CHAT: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CHAT === 'true',
-  AI_ONBOARDING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING === 'true',
-  AI_INSIGHTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS === 'true',
-  AI_VOICE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_VOICE === 'true',
+  // 🎯 MASTER AI SWITCH
+  AI_ENABLED: AI_MASTER_ENABLED,
   
-  // 🚀 SPRINT 4: CBT Engine & External AI API (COMPLETED)
-  AI_CBT_ENGINE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CBT === 'true',
-  AI_EXTERNAL_API: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_API === 'true',
-  AI_THERAPEUTIC_PROMPTS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PROMPTS === 'true',
-  AI_REAL_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_REAL === 'true',
-  
-  // 🔄 SPRINT 5: Intelligent Insights Engine Recreation (COMPLETED)
-  AI_INSIGHTS_ENGINE_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INSIGHTS_V2 === 'true',
-  AI_PATTERN_RECOGNITION_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PATTERNS_V2 === 'true',
-  AI_SMART_NOTIFICATIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_NOTIFICATIONS === 'true',
-  AI_PROGRESS_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS === 'true',
-  
-  // 🚀 SPRINT 6: Advanced Features & Optimization (COMPLETED)
-  AI_ADAPTIVE_INTERVENTIONS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_INTERVENTIONS === 'true',
-  AI_CONTEXT_INTELLIGENCE: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CONTEXT === 'true',
-  AI_JITAI_SYSTEM: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_JITAI === 'true',
-  AI_ADVANCED_PERSONALIZATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PERSONALIZATION === 'true',
-  AI_MODEL_OPTIMIZATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_OPTIMIZATION === 'true',
-  AI_PERFORMANCE_MONITORING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_MONITORING === 'true',
-  AI_ADVANCED_ANALYTICS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ANALYTICS_V2 === 'true',
-  AI_DASHBOARD: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_DASHBOARD === 'true',
-
-  // 🧭 SPRINT 7: AI Onboarding Recreation
-  AI_ONBOARDING_V2: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING_V2 === 'true',
-  AI_YBOCS_ANALYSIS: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_YBOCS === 'true',
-  AI_USER_PROFILING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_PROFILING === 'true',
-  AI_TREATMENT_PLANNING: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_TREATMENT === 'true',
-  AI_RISK_ASSESSMENT: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_RISK === 'true',
-  AI_ONBOARDING_UI: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ONBOARDING_UI === 'true',
-  
-  // Sprint 7 Integration flags
-  AI_ONBOARDING_CONTEXT_INTEGRATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_ONBOARDING_CONTEXT === 'true',
-  AI_ONBOARDING_INTERVENTIONS_INTEGRATION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_ONBOARDING_INTERVENTIONS === 'true',
-  
-  // 🧪 Experimental AI Features
-  AI_ART_THERAPY: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_ART_THERAPY === 'true',
-  AI_VOICE_ERP: false,
-  AI_PREDICTIVE_INTERVENTION: false,
-  AI_CRISIS_DETECTION: __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI_CRISIS === 'true',
+  // 🤖 Tüm AI Features - Master switch'e bağlı
+  AI_CHAT: AI_MASTER_ENABLED,
+  AI_ONBOARDING: AI_MASTER_ENABLED,
+  AI_INSIGHTS: AI_MASTER_ENABLED,
+  AI_VOICE: AI_MASTER_ENABLED,
+  AI_CBT_ENGINE: AI_MASTER_ENABLED,
+  AI_EXTERNAL_API: AI_MASTER_ENABLED,
+  AI_THERAPEUTIC_PROMPTS: AI_MASTER_ENABLED,
+  AI_REAL_RESPONSES: AI_MASTER_ENABLED,
+  AI_INSIGHTS_ENGINE_V2: AI_MASTER_ENABLED,
+  AI_PATTERN_RECOGNITION_V2: AI_MASTER_ENABLED,
+  AI_SMART_NOTIFICATIONS: AI_MASTER_ENABLED,
+  AI_PROGRESS_ANALYTICS: AI_MASTER_ENABLED,
+  AI_ADAPTIVE_INTERVENTIONS: AI_MASTER_ENABLED,
+  AI_CONTEXT_INTELLIGENCE: AI_MASTER_ENABLED,
+  AI_JITAI_SYSTEM: AI_MASTER_ENABLED,
+  AI_ADVANCED_PERSONALIZATION: AI_MASTER_ENABLED,
+  AI_MODEL_OPTIMIZATION: AI_MASTER_ENABLED,
+  AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
+  AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
+  AI_DASHBOARD: AI_MASTER_ENABLED,
+  AI_ONBOARDING_V2: AI_MASTER_ENABLED,
+  AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
+  AI_USER_PROFILING: AI_MASTER_ENABLED,
+  AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,
+  AI_RISK_ASSESSMENT: AI_MASTER_ENABLED,
+  AI_ONBOARDING_UI: AI_MASTER_ENABLED,
+  AI_ONBOARDING_CONTEXT_INTEGRATION: AI_MASTER_ENABLED,
+  AI_ONBOARDING_INTERVENTIONS_INTEGRATION: AI_MASTER_ENABLED,
+  AI_ART_THERAPY: AI_MASTER_ENABLED,
+  AI_VOICE_ERP: AI_MASTER_ENABLED,
+  AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
+  AI_CRISIS_DETECTION: AI_MASTER_ENABLED,
   
   // 🔧 Development Features
   DEBUG_MODE: __DEV__,
   MOCK_API_RESPONSES: __DEV__ && process.env.EXPO_PUBLIC_MOCK_API === 'true',
   
   // 📊 Telemetry Features
-  AI_TELEMETRY: process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY === 'true',
+  AI_TELEMETRY: AI_MASTER_ENABLED && process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY === 'true',
   PERFORMANCE_MONITORING: true,
   ERROR_REPORTING: true,
   
@@ -88,6 +81,11 @@ export const FEATURE_FLAGS = {
     // Geliştirme modunda log
     if (__DEV__) {
       console.log(`🏳️ Feature Flag Check: ${feature} = ${featureFlagState[feature]}`);
+    }
+    
+    // Master AI switch kontrolü
+    if (feature.startsWith('AI_') && feature !== 'AI_ENABLED' && !featureFlagState.AI_ENABLED) {
+      return false;
     }
     
     // Additional runtime checks
@@ -129,6 +127,7 @@ export const FEATURE_FLAGS = {
   
   /**
    * 🔧 Runtime'da feature flag değiştirme (sadece development)
+   * Master AI switch değiştirildiğinde tüm AI özellikleri etkilenir
    */
   setFlag: (feature: keyof typeof featureFlagState, value: boolean): void => {
     if (!__DEV__) {
@@ -137,7 +136,17 @@ export const FEATURE_FLAGS = {
     }
     
     console.log(`🔧 Changing feature flag: ${feature} = ${value}`);
-    featureFlagState[feature] = value;
+    
+    // Master AI switch değiştiriliyorsa tüm AI özelliklerini güncelle
+    if (feature === 'AI_ENABLED') {
+      Object.keys(featureFlagState).forEach(key => {
+        if (key.startsWith('AI_')) {
+          featureFlagState[key] = value;
+        }
+      });
+    } else {
+      featureFlagState[feature] = value;
+    }
   },
   
   /**
@@ -159,11 +168,11 @@ export const FEATURE_FLAGS = {
     console.log('🔄 Reactivating all AI features');
     delete (global as any).__OBSESSLESS_KILL_SWITCH;
     
-    // Environment variable'ları yeniden kontrol et
+    // Master switch'i aktifleştir
+    const masterEnabled = process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
     Object.keys(featureFlagState).forEach(key => {
       if (key.startsWith('AI_')) {
-        const envVar = `EXPO_PUBLIC_ENABLE_${key}`;
-        featureFlagState[key] = process.env[envVar] === 'true';
+        featureFlagState[key] = masterEnabled;
       }
     });
   }
@@ -190,4 +199,4 @@ export const AI_CONFIG = {
   // Rate limiting
   MAX_REQUESTS_PER_MINUTE: 60,
   MAX_REQUESTS_PER_HOUR: 1000,
-} as const; 
+} as const;
