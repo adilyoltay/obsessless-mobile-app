@@ -139,11 +139,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  },
   outlineButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "#6B7280",
-  },
   },
   disabledButton: {
     opacity: 0.6,
@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     color: '#374151',
+  },
   outlineText: {
     color: "#6B7280",
-  },
   },
 });
 
