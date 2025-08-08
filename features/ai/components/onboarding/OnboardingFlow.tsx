@@ -577,7 +577,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       await trackAIInteraction(AIEventType.ONBOARDING_SESSION_COMPLETED, {
         sessionId: state.session.sessionId,
         totalDuration: Date.now() - state.session.startedAt.getTime(),
-        completedSteps: Object.keys(state.session.completedSteps).length,
+        completedSteps: state.session.completedSteps?.length || 0,
         finalRiskLevel: state.riskAssessment?.overallRiskLevel
       });
 

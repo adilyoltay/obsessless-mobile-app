@@ -730,7 +730,7 @@ class ModernOnboardingEngine {
       const duration = (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60);
 
       const result: OnboardingResult = {
-        sessionId: session.id,
+        sessionId: session.sessionId,
         userId: session.userId,
         completedAt: new Date(),
         duration,
@@ -739,7 +739,7 @@ class ModernOnboardingEngine {
         riskAssessment,
         userProfile: completeProfile,
         treatmentPlan,
-        completionRate: session.progress.completedSteps / session.progress.totalSteps,
+        completionRate: session.progress.overallProgress / 100,
         dataQuality: this.calculateDataQuality(session),
         recommendedNextSteps: this.generateNextSteps(session, riskAssessment),
         followUpSchedule
