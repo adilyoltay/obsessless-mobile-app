@@ -39,7 +39,7 @@ import {
   YBOCSAnswer,
   YBOCSQuestion,
   YBOCSQuestionType,
-  SeverityLevel,
+  OCDSeverityLevel,
   AIError,
   ErrorSeverity,
   AIErrorCode
@@ -68,7 +68,7 @@ interface AssessmentState {
   totalQuestions: number;
   currentAnswer: YBOCSAnswer | null;
   canProceed: boolean;
-  estimatedSeverity: SeverityLevel | null;
+  estimatedSeverity: OCDSeverityLevel | null;
 }
 
 // Y-BOCS Questions (Turkish-adapted)
@@ -251,18 +251,18 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
   /**
    * 📊 Calculate Real-time Severity Estimation
    */
-  const calculateEstimatedSeverity = useCallback((answers: YBOCSAnswer[]): SeverityLevel | null => {
+  const calculateEstimatedSeverity = useCallback((answers: YBOCSAnswer[]): OCDSeverityLevel | null => {
     if (answers.length < 3) return null;
 
     const totalScore = answers.reduce((sum, answer) => sum + answer.value, 0);
     const maxPossibleScore = answers.length * 4;
     const percentage = (totalScore / maxPossibleScore) * 100;
 
-    if (percentage <= 20) return SeverityLevel.MINIMAL;
-    if (percentage <= 40) return SeverityLevel.MILD;
-    if (percentage <= 60) return SeverityLevel.MODERATE;
-    if (percentage <= 80) return SeverityLevel.SEVERE;
-    return SeverityLevel.EXTREME;
+    if (percentage <= 20) return OCDSeverityLevel.MINIMAL;
+    if (percentage <= 40) return OCDSeverityLevel.MILD;
+    if (percentage <= 60) return OCDSeverityLevel.MODERATE;
+    if (percentage <= 80) return OCDSeverityLevel.SEVERE;
+    return OCDSeverityLevel.EXTREME;
   }, []);
 
   /**
@@ -339,21 +339,13 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
 
     const estimatedSeverity = calculateEstimatedSeverity(updatedAnswers);
 
-    setState(prev => {
-      console.log('🔄 State update:', {
-        currentAnswer: answer,
-        answersLength: updatedAnswers.length,
-        canProceed: true,
-        estimatedSeverity
-      });
-      return {
-        ...prev,
-        currentAnswer: answer,
-        answers: updatedAnswers,
-        canProceed: true,
-        estimatedSeverity
-      };
-    });
+    setState(prev => ({
+      ...prev,
+      currentAnswer: answer,
+      answers: updatedAnswers,
+      canProceed: true,
+      estimatedSeverity
+    }));
 
     // Save progress
     if (userId) {
@@ -479,24 +471,24 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
   const renderSeverityIndicator = () => {
     if (!state.estimatedSeverity) return null;
 
-    const getSeverityColor = (severity: SeverityLevel) => {
+    const getSeverityColor = (severity: OCDSeverityLevel) => {
       switch (severity) {
-        case SeverityLevel.MINIMAL: return '#10b981';
-        case SeverityLevel.MILD: return '#f59e0b';
-        case SeverityLevel.MODERATE: return '#ef4444';
-        case SeverityLevel.SEVERE: return '#dc2626';
-        case SeverityLevel.EXTREME: return '#991b1b';
+        case OCDSeverityLevel.MINIMAL: return '#10b981';
+        case OCDSeverityLevel.MILD: return '#f59e0b';
+        case OCDSeverityLevel.MODERATE: return '#ef4444';
+        case OCDSeverityLevel.SEVERE: return '#dc2626';
+        case OCDSeverityLevel.EXTREME: return '#991b1b';
         default: return '#6b7280';
       }
     };
 
-    const getSeverityText = (severity: SeverityLevel) => {
+    const getSeverityText = (severity: OCDSeverityLevel) => {
       switch (severity) {
-        case SeverityLevel.MINIMAL: return 'Minimal';
-        case SeverityLevel.MILD: return 'Hafif';
-        case SeverityLevel.MODERATE: return 'Orta';
-        case SeverityLevel.SEVERE: return 'Ciddi';
-        case SeverityLevel.EXTREME: return 'Aşırı';
+        case OCDSeverityLevel.MINIMAL: return 'Minimal';
+        case OCDSeverityLevel.MILD: return 'Hafif';
+        case OCDSeverityLevel.MODERATE: return 'Orta';
+        case OCDSeverityLevel.SEVERE: return 'Ciddi';
+        case OCDSeverityLevel.EXTREME: return 'Aşırı';
         default: return 'Belirlenmedi';
       }
     };
@@ -593,22 +585,12 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
             <View style={styles.optionsContainer}>
               {currentQuestion.options.map((option, index) => {
                 const isSelected = state.currentAnswer?.value === option.value;
-                console.log('🔍 Option render:', {
-                  optionValue: option.value,
-                  currentAnswerValue: state.currentAnswer?.value,
-                  isSelected,
-                  optionLabel: option.label
-                });
                 
                 return (
                   <View key={index} style={styles.optionWrapper}>
                     <Button
                       title={option.label}
-                      onPress={() => {
-                        console.log('🔘 Button pressed:', option.label, 'value:', option.value);
-                        console.log('🔘 Button state:', { isLoading, isValidating: state.isValidating });
-                        handleAnswerSelect(option.value, option);
-                      }}
+                      onPress={() => handleAnswerSelect(option.value, option)}
                       variant={isSelected ? 'primary' : 'outline'}
                       style={[
                         styles.optionButton,
