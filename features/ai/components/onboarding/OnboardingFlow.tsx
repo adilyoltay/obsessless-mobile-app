@@ -517,8 +517,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
    * ➡️ Proceed to Next Step
    */
   const proceedToNextStep = useCallback(async () => {
-    if (!state.session || state.isLoading) return;
+    console.log('🔄 proceedToNextStep called - session:', !!state.session, 'isLoading:', state.isLoading, 'canProceed:', state.canProceed);
+    
+    if (!state.session || state.isLoading) {
+      console.log('❌ proceedToNextStep blocked - session:', !!state.session, 'isLoading:', state.isLoading);
+      return;
+    }
 
+    console.log('✅ proceedToNextStep proceeding...');
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
@@ -840,7 +846,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             ) : (
               <Button
                 title="Devam Et"
-                onPress={proceedToNextStep}
+                onPress={() => {
+                  console.log('🔘 Devam Et button pressed - canProceed:', state.canProceed, 'isLoading:', state.isLoading, 'session:', !!state.session);
+                  proceedToNextStep();
+                }}
                 disabled={!state.canProceed || state.isLoading}
                 style={styles.nextButton}
               />
