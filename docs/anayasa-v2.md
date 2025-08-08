@@ -222,26 +222,97 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Frontend:** React Native 0.74.5 + Expo SDK 53.0.0
 - **State Management:** Zustand (Global) + React Query (Server State)
 - **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions)
-- **Storage:** AsyncStorage (Offline-first) + Supabase (Cloud sync)
+- **Primary Data Storage:** 
+  - **Supabase PostgreSQL:** Tüm kullanıcı verileri, kompulsiyonlar, ERP kayıtları
+  - **AsyncStorage:** Offline cache ve geçici veri
+  - **Cloud Sync:** Supabase real-time senkronizasyon
 - **Navigation:** Expo Router (File-based routing)
 - **UI Components:** Custom components (React Native Paper kaldırıldı)
 - **Animations:** React Native Reanimated + Lottie
 - **Haptics:** Expo Haptics
-- **AI Services:** 
-  - External AI Service (Gemini/OpenAI/Claude)
-  - AI Context Provider
-  - Feature Flag System
-  - Telemetry & Analytics
+- **AI Services (Analiz & Öneriler):** 
+  - External AI Service (Gemini/OpenAI/Claude) - Sadece analiz için
+  - AI Context Provider - Veri işleme ve öneri üretimi
+  - Feature Flag System - AI özellik kontrolü
+  - Telemetry & Analytics - AI kullanım metrikleri
 
-### **AI Veri Akış Mimarisi:**
+### **Veri Akış Mimarisi (Supabase + AI):**
 ```
-User Input → AI Context → External AI Service → Response Processing
-                ↓                                        ↓
-          Feature Flags                          Cultural Adaptation
-                ↓                                        ↓
-          Telemetry                              Personalization
-                ↓                                        ↓
-          AsyncStorage ← ← ← ← ← ← ← ← ← ← ← Optimized Response
+KULLANICI VERİLERİ (Supabase Primary Storage):
+User Action → Zustand Store → Supabase PostgreSQL (Primary Storage)
+     ↓              ↓                    ↓
+AsyncStorage   React Query         RLS Security
+  (Cache)      (Sync)            (Row Level)
+     ↓              ↓                    ↓
+    Offline    Real-time Sync     Data Protection
+
+AI ANALİZ VE ÖNERİLER (Read-Only):
+Supabase Data → AI Context → External AI Service → Analysis/Suggestions
+      ↓              ↓                                     ↓
+ Historical    Feature Flags                    Cultural Adaptation
+   Data           Check                           & Personalization
+      ↓              ↓                                     ↓
+   Pattern      Telemetry                        User Gets Insights
+  Detection      Tracking                         (No Data Storage)
+```
+
+### **Kritik Veri Yönetimi Prensipleri:**
+1. **Supabase = Single Source of Truth:** Tüm kullanıcı verileri, kompulsiyonlar, ERP kayıtları Supabase'de saklanır
+2. **AI = Read-Only Analiz:** AI servisleri sadece Supabase'den veri okur, analiz eder ve öneriler üretir
+3. **Offline-First:** AsyncStorage ile offline çalışma, online olunca Supabase sync
+4. **Privacy-First:** Hassas veriler sadece Supabase'de, AI'a sadece anonim/işlenmiş veri
+
+### **Supabase Database Schema (PostgreSQL):**
+```sql
+-- Kullanıcı profilleri
+profiles (
+  id UUID PRIMARY KEY,
+  email TEXT,
+  full_name TEXT,
+  avatar_url TEXT,
+  ocd_severity TEXT,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+)
+
+-- Kompulsiyon kayıtları
+compulsions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id),
+  type TEXT,
+  intensity INTEGER,
+  resistance INTEGER,
+  notes TEXT,
+  created_at TIMESTAMP
+)
+
+-- ERP oturum kayıtları
+erp_sessions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id),
+  exercise_type TEXT,
+  duration_minutes INTEGER,
+  anxiety_before INTEGER,
+  anxiety_after INTEGER,
+  notes TEXT,
+  created_at TIMESTAMP
+)
+
+-- Başarımlar ve ödüller
+achievements (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id),
+  achievement_type TEXT,
+  unlocked_at TIMESTAMP
+)
+
+-- AI telemetri (anonim)
+ai_telemetry (
+  id UUID PRIMARY KEY,
+  event_type TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP
+)
 ```
 
 ### **Güncel AI Entegrasyonları (✅ Tamamlandı):**
@@ -263,4 +334,4 @@ User Input → AI Context → External AI Service → Response Processing
 
 ---
 
-*Son güncelleme: Ocak 2025 - AI Özellikleri ve Entegrasyonlar Eklendi*
+*Son güncelleme: Ocak 2025 - AI Özellikleri + Supabase Veri Yönetimi Netleştirildi*
