@@ -46,8 +46,8 @@ import {
 } from '@/features/ai/types';
 
 // UI Components
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Slider } from '@/components/ui/Slider';
 import { SegmentedButtons } from '@/components/ui/SegmentedButtons';
