@@ -54,6 +54,7 @@ const { width: screenWidth } = Dimensions.get('window');
 interface TreatmentPlanPreviewProps {
   userProfile: UserProfile | null;
   treatmentPlan: TreatmentPlan | null;
+  onComplete?: (treatmentPlan: TreatmentPlan) => void;
   isLoading?: boolean;
   userId?: string;
 }
@@ -89,6 +90,7 @@ const INTERVENTION_COLORS = {
 export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
   userProfile,
   treatmentPlan,
+  onComplete,
   isLoading = false,
   userId
 }) => {
@@ -483,6 +485,17 @@ export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
             variant="outline"
             style={styles.actionButton}
           />
+
+          {onComplete && treatmentPlan && (
+            <Button
+              title="✅ Planı Onayla ve Devam Et"
+              onPress={() => {
+                console.log('✅ Treatment plan approved, calling onComplete');
+                onComplete(treatmentPlan);
+              }}
+              style={[styles.actionButton, styles.primaryButton]}
+            />
+          )}
         </View>
 
         <Text style={styles.actionNote}>
@@ -881,6 +894,10 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  primaryButton: {
+    backgroundColor: '#3b82f6',
+    marginTop: 8,
   },
   errorCard: {
     padding: 24,

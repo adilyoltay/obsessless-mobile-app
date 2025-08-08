@@ -479,6 +479,79 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   }, [isTreatmentPlanningEnabled, isRiskAssessmentEnabled, state.userProfile, state.session, userId]);
 
   /**
+   * 📋 Handle Treatment Plan Completion
+   */
+  const handleTreatmentPlanCompletion = useCallback(async (treatmentPlan: TreatmentPlan) => {
+    if (!isRiskAssessmentEnabled || !state.session) return;
+
+    console.log('📋 Treatment plan completed, moving to SAFETY_PLANNING');
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      // Generate risk assessment based on treatment plan
+      const riskAssessment = await riskAssessmentService.assessRisk(userId, {
+        userProfile: state.userProfile,
+        ybocsData: state.session.data?.ybocsAnalysis,
+        treatmentPlan: treatmentPlan
+      });
+
+      setState(prev => ({
+        ...prev,
+        riskAssessment,
+        isLoading: false,
+        canProceed: true
+      }));
+
+      // Track treatment plan completion
+      await trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
+        sessionId: state.session.sessionId,
+        planId: treatmentPlan.id,
+        phases: treatmentPlan.phases?.length || 0,
+        estimatedDuration: treatmentPlan.estimatedDuration
+      });
+
+      // 🚀 CRITICAL: Move to next step after treatment plan completion
+      console.log('🚀 Treatment plan completed, moving to next step: SAFETY_PLANNING');
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          currentStep: OnboardingStep.SAFETY_PLANNING,
+          canProceed: true // Enable continue button for safety planning
+        }));
+        console.log('✅ Moved to SAFETY_PLANNING step with canProceed: true');
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Treatment plan completion error:', error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Risk değerlendirmesi sırasında hata oluştu.'
+      }));
+    }
+  }, [isRiskAssessmentEnabled, state.session, state.userProfile, userId]);
+
+  /**
+   * 🛡️ Handle Risk Assessment Completion  
+   */
+  const handleRiskAssessmentCompletion = useCallback(async () => {
+    if (!state.session) return;
+
+    console.log('🛡️ Risk assessment reviewed, moving to COMPLETION');
+
+    // 🚀 CRITICAL: Move to completion step
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        currentStep: OnboardingStep.COMPLETION,
+        canProceed: true // Enable completion button
+      }));
+      console.log('✅ Moved to COMPLETION step with canProceed: true');
+    }, 500);
+
+  }, [state.session]);
+
+  /**
    * ✅ Complete Onboarding
    */
   const completeOnboarding = useCallback(async () => {
@@ -722,6 +795,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           <TreatmentPlanPreview
             userProfile={state.userProfile}
             treatmentPlan={state.treatmentPlan}
+            onComplete={handleTreatmentPlanCompletion}
             isLoading={state.isLoading}
           />
         );
@@ -739,6 +813,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 showDetails={true}
               />
             )}
+            <View style={styles.safetyActions}>
+              <Button
+                title="✅ Güvenlik Planını Onayla"
+                onPress={() => {
+                  console.log('✅ Safety plan approved, calling handleRiskAssessmentCompletion');
+                  handleRiskAssessmentCompletion();
+                }}
+                style={styles.approveButton}
+              />
+            </View>
           </Card>
         );
 
@@ -1010,6 +1094,15 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 0.6,
+  },
+  safetyActions: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  approveButton: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
   },
 });
 
