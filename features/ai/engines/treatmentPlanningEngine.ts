@@ -994,6 +994,181 @@ class AdaptiveTreatmentPlanningEngine {
   private applyResultAdjustments(plan: TreatmentPlan, adjustments: any): TreatmentPlan { return plan; }
   private updateProgressTracking(planId: string, results: any[], analysis: any): void { }
 
+  // =============================================================================
+  // 🧠 PRIVATE IMPLEMENTATION METHODS
+  // =============================================================================
+
+  /**
+   * 📋 Create comprehensive treatment plan (PRIVATE)
+   */
+  private async createComprehensiveTreatmentPlan(userId: string, data: {
+    userProfile: UserProfile;
+    ybocsAnalysis?: any;
+    culturalAdaptation?: string;
+  }): Promise<TreatmentPlan> {
+    console.log('📋 Creating comprehensive treatment plan for user:', userId);
+
+    try {
+      // Basic treatment plan structure
+      const treatmentPlan: TreatmentPlan = {
+        id: `treatment_${userId}_${Date.now()}`,
+        userId,
+        createdAt: new Date(),
+        lastUpdated: new Date(),
+        status: 'active',
+        phases: [],
+        interventions: [],
+        goals: [],
+        estimatedDuration: 12, // weeks
+        culturalAdaptations: []
+      };
+
+      // Add phases based on Y-BOCS analysis
+      if (data.ybocsAnalysis) {
+        treatmentPlan.phases = this.generateTreatmentPhases(data.ybocsAnalysis);
+      } else {
+        // Default phases for OCD treatment
+        treatmentPlan.phases = [
+          {
+            id: 'phase_1',
+            name: 'Değerlendirme ve Psikoeğitim',
+            description: 'OKB hakkında bilgilendirme ve başlangıç değerlendirmesi',
+            duration: 2,
+            order: 1,
+            objectives: ['OKB anlayışı geliştirme', 'Semptom farkındalığı'],
+            interventions: []
+          },
+          {
+            id: 'phase_2',
+            name: 'Maruz Kalma ve Tepki Önleme',
+            description: 'ERP tekniklerinin uygulanması',
+            duration: 8,
+            order: 2,
+            objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
+            interventions: []
+          },
+          {
+            id: 'phase_3',
+            name: 'İyileşmeyi Sürdürme',
+            description: 'Relaps önleme ve uzun vadeli stratejiler',
+            duration: 2,
+            order: 3,
+            objectives: ['Kazanımları sürdürme', 'Bağımsızlık geliştirme'],
+            interventions: []
+          }
+        ];
+      }
+
+      // Add cultural adaptations for Turkish users
+      if (data.culturalAdaptation === 'turkish') {
+        treatmentPlan.culturalAdaptations = [
+          'Aile odaklı yaklaşım',
+          'Dini değerlere saygılı müdahaleler',
+          'Toplumsal beklentileri göz önünde bulundurma'
+        ];
+      }
+
+      // Generate therapeutic goals
+      treatmentPlan.goals = [
+        {
+          id: 'goal_1',
+          title: 'Obsesyonları Yönetme',
+          description: 'Obsesif düşünceleri tanıma ve yönetme becerileri geliştirme',
+          category: 'symptom_management',
+          priority: 'high',
+          targetDate: new Date(Date.now() + 8 * 7 * 24 * 60 * 60 * 1000), // 8 weeks
+          measurable: true,
+          achieved: false
+        },
+        {
+          id: 'goal_2',
+          title: 'Kompülsiyonları Azaltma',
+          description: 'Kompülsif davranışları kademeli olarak azaltma',
+          category: 'behavior_change',
+          priority: 'high',
+          targetDate: new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000), // 12 weeks
+          measurable: true,
+          achieved: false
+        }
+      ];
+
+      console.log('✅ Comprehensive treatment plan created with', treatmentPlan.phases.length, 'phases');
+      return treatmentPlan;
+
+    } catch (error) {
+      console.error('❌ Error creating comprehensive treatment plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 📊 Generate treatment phases based on analysis (PRIVATE)
+   */
+  private generateTreatmentPhases(ybocsAnalysis: any): TreatmentPhase[] {
+    console.log('📊 Generating treatment phases based on Y-BOCS analysis');
+
+    const phases: TreatmentPhase[] = [
+      {
+        id: 'assessment_phase',
+        name: 'Kapsamlı Değerlendirme',
+        description: 'Detaylı semptom analizi ve tedavi planlaması',
+        duration: 2,
+        order: 1,
+        objectives: [
+          'Semptom şiddetini belirleme',
+          'Tetikleyici faktörleri tanımlama',
+          'Tedavi hedeflerini belirleme'
+        ],
+        interventions: []
+      }
+    ];
+
+    // Severity-based phase planning
+    if (ybocsAnalysis.severityLevel === 'severe' || ybocsAnalysis.severityLevel === 'extreme') {
+      phases.push({
+        id: 'intensive_erp_phase',
+        name: 'Yoğun ERP Tedavisi',
+        description: 'Maruz kalma ve tepki önleme tekniklerinin yoğun uygulanması',
+        duration: 10,
+        order: 2,
+        objectives: [
+          'Kompülsiyonları önemli ölçüde azaltma',
+          'Kaygı toleransını artırma',
+          'Günlük işlevselliği iyileştirme'
+        ],
+        interventions: []
+      });
+    } else {
+      phases.push({
+        id: 'standard_erp_phase',
+        name: 'Standart ERP Tedavisi',
+        description: 'Kademeli maruz kalma ve tepki önleme',
+        duration: 8,
+        order: 2,
+        objectives: [
+          'Kompülsiyonları azaltma',
+          'Kaygı yönetimi geliştirme'
+        ],
+        interventions: []
+      });
+    }
+
+    phases.push({
+      id: 'maintenance_phase',
+      name: 'İyileşmeyi Sürdürme',
+      description: 'Kazanımları koruma ve relaps önleme',
+      duration: 4,
+      order: 3,
+      objectives: [
+        'Tedavi kazanımlarını sürdürme',
+        'Bağımsız başa çıkma becerileri geliştirme'
+      ],
+      interventions: []
+    });
+
+    return phases;
+  }
+
   /**
    * Engine'i temizle
    */
