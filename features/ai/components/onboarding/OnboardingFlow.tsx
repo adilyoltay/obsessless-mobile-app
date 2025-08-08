@@ -637,6 +637,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
    * 🎨 Render Step Content
    */
   const renderStepContent = () => {
+    console.log('🎨 renderStepContent called for step:', state.currentStep);
     switch (state.currentStep) {
       case OnboardingStep.WELCOME:
         return (
@@ -655,7 +656,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           </Card>
         );
 
-      case OnboardingStep.PRIVACY_CONSENT:
+      case OnboardingStep.CONSENT:
         return (
           <Card style={styles.stepCard}>
             <Text style={styles.stepTitle}>Gizlilik ve Güvenlik 🔒</Text>
@@ -696,7 +697,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           />
         );
 
-      case OnboardingStep.PROFILE_BUILDING:
+      case OnboardingStep.SYMPTOM_EXPLORATION:
         return (
           <ProfileBuilderUI
             ybocsAnalysis={state.session?.data?.ybocsAnalysis}
@@ -705,7 +706,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           />
         );
 
-      case OnboardingStep.TREATMENT_PREVIEW:
+      case OnboardingStep.TREATMENT_PLANNING:
         return (
           <TreatmentPlanPreview
             userProfile={state.userProfile}
@@ -714,7 +715,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           />
         );
 
-      case OnboardingStep.SAFETY_PLAN:
+      case OnboardingStep.SAFETY_PLANNING:
         return (
           <Card style={styles.stepCard}>
             <Text style={styles.stepTitle}>Güvenlik Planınız 🛡️</Text>
