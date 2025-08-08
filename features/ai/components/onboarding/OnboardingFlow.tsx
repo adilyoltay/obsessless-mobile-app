@@ -254,12 +254,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const calculateStepProgress = (step: OnboardingStep): number => {
     const stepOrder = [
       OnboardingStep.WELCOME,
-      OnboardingStep.PRIVACY_CONSENT,
+      OnboardingStep.CONSENT, // ✅ Doğru enum değeri
       OnboardingStep.BASIC_INFO,
       OnboardingStep.YBOCS_ASSESSMENT,
-      OnboardingStep.PROFILE_BUILDING,
-      OnboardingStep.TREATMENT_PREVIEW,
-      OnboardingStep.SAFETY_PLAN,
+      OnboardingStep.SYMPTOM_EXPLORATION, // ✅ Doğru enum değeri
+      OnboardingStep.TREATMENT_PLANNING, // ✅ Doğru enum değeri
+      OnboardingStep.SAFETY_PLANNING, // ✅ Doğru enum değeri
       OnboardingStep.COMPLETION
     ];
     
@@ -273,12 +273,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const getNextStep = (currentStep: OnboardingStep): OnboardingStep | null => {
     const stepOrder = [
       OnboardingStep.WELCOME,
-      OnboardingStep.PRIVACY_CONSENT,
+      OnboardingStep.CONSENT, // ✅ PRIVACY_CONSENT yerine CONSENT
       OnboardingStep.BASIC_INFO,
       OnboardingStep.YBOCS_ASSESSMENT,
-      OnboardingStep.PROFILE_BUILDING,
-      OnboardingStep.TREATMENT_PREVIEW,
-      OnboardingStep.SAFETY_PLAN,
+      OnboardingStep.SYMPTOM_EXPLORATION, // ✅ PROFILE_BUILDING yerine gerçek enum değeri
+      OnboardingStep.TREATMENT_PLANNING, // ✅ TREATMENT_PREVIEW yerine gerçek enum değeri
+      OnboardingStep.SAFETY_PLANNING, // ✅ SAFETY_PLAN yerine gerçek enum değeri
       OnboardingStep.COMPLETION
     ];
     
@@ -539,8 +539,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       // Determine next step
       const nextStep = getNextStep(state.currentStep);
+      console.log('🔄 getNextStep result:', state.currentStep, '->', nextStep);
       
       if (nextStep) {
+        console.log('✅ Moving to next step:', nextStep);
         setState(prev => ({
           ...prev,
           currentStep: nextStep,
@@ -614,10 +616,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       case OnboardingStep.YBOCS_ASSESSMENT:
         setState(prev => ({ ...prev, canProceed: state.ybocsAnswers.length > 0 }));
         break;
-      case OnboardingStep.PROFILE_BUILDING:
+      case OnboardingStep.SYMPTOM_EXPLORATION: // ✅ PROFILE_BUILDING yerine doğru enum
         setState(prev => ({ ...prev, canProceed: !!state.userProfile }));
         break;
-      case OnboardingStep.TREATMENT_PREVIEW:
+      case OnboardingStep.TREATMENT_PLANNING: // ✅ TREATMENT_PREVIEW yerine doğru enum
         if (state.userProfile && !state.treatmentPlan) {
           generateTreatmentPlan();
         }
