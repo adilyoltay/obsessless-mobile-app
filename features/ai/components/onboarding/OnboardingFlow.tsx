@@ -267,6 +267,35 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     return currentIndex >= 0 ? (currentIndex / (stepOrder.length - 1)) * 100 : 0;
   };
 
+  /**
+   * 🔄 Get Next Step in Onboarding Flow
+   */
+  const getNextStep = (currentStep: OnboardingStep): OnboardingStep | null => {
+    const stepOrder = [
+      OnboardingStep.WELCOME,
+      OnboardingStep.PRIVACY_CONSENT,
+      OnboardingStep.BASIC_INFO,
+      OnboardingStep.YBOCS_ASSESSMENT,
+      OnboardingStep.PROFILE_BUILDING,
+      OnboardingStep.TREATMENT_PREVIEW,
+      OnboardingStep.SAFETY_PLAN,
+      OnboardingStep.COMPLETION
+    ];
+    
+    const currentIndex = stepOrder.indexOf(currentStep);
+    if (currentIndex >= 0 && currentIndex < stepOrder.length - 1) {
+      return stepOrder[currentIndex + 1];
+    }
+    return null; // No more steps
+  };
+
+  /**
+   * 📈 Calculate Progress Percentage
+   */
+  const calculateProgress = (step: OnboardingStep): number => {
+    return calculateStepProgress(step);
+  };
+
 
   /**
    * 🧠 Handle Y-BOCS Assessment Completion
@@ -330,9 +359,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       setTimeout(() => {
         setState(prev => ({
           ...prev,
-          currentStep: OnboardingStep.PROFILE_BUILDING
+          currentStep: OnboardingStep.PROFILE_BUILDING,
+          canProceed: true // Enable continue button for profile building
         }));
-        console.log('✅ Moved to PROFILE_BUILDING step');
+        console.log('✅ Moved to PROFILE_BUILDING step with canProceed: true');
       }, 1000); // Small delay for user feedback
 
     } catch (error) {
