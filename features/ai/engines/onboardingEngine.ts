@@ -234,8 +234,8 @@ class ModernOnboardingEngine {
   private async updateSessionInformation(sessionId: string, data: any): Promise<OnboardingSession> {
     try {
       // Update session in memory
-      if (this.sessions.has(sessionId)) {
-        const session = this.sessions.get(sessionId)!;
+      if (this.activeSessions.has(sessionId)) {
+        const session = this.activeSessions.get(sessionId)!
         const updatedSession = {
           ...session,
           data: { ...session.data, ...data },
@@ -243,7 +243,7 @@ class ModernOnboardingEngine {
           updatedAt: new Date()
         };
         
-        this.sessions.set(sessionId, updatedSession);
+        this.activeSessions.set(sessionId, updatedSession);
         
         // Save to AsyncStorage
         await AsyncStorage.setItem(
@@ -256,7 +256,11 @@ class ModernOnboardingEngine {
         throw new Error(`Session not found: ${sessionId}`);
       }
     } catch (error) {
-      console.error('❌ Failed to update session information:', error);
+      console.error('❌ Failed to update session information:', {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
