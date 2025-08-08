@@ -502,13 +502,16 @@ const BasicInfoStep: React.FC<{
     occupation: profileData.occupation || ''
   });
 
+  // Update parent whenever form data changes
+  useEffect(() => {
+    onUpdate(formData);
+  }, [formData.firstName, formData.age, formData.gender, formData.occupation]);
+
+  // Update canProceed status
   useEffect(() => {
     const canProceed = formData.firstName.length > 0 && formData.age.length > 0;
     onCanProceed(canProceed);
-    if (canProceed) {
-      onUpdate(formData);
-    }
-  }, [formData, onUpdate, onCanProceed]);
+  }, [formData.firstName, formData.age]);
 
   return (
     <Card style={styles.stepCard}>
@@ -541,7 +544,10 @@ const BasicInfoStep: React.FC<{
         <Text style={styles.label}>Cinsiyet</Text>
         <SegmentedButtons
           value={formData.gender}
-          onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+          onValueChange={(value) => {
+            console.log('🎯 Gender selection:', value);
+            setFormData(prev => ({ ...prev, gender: value }));
+          }}
           buttons={[
             { value: 'female', label: 'Kadın' },
             { value: 'male', label: 'Erkek' },
