@@ -1,0 +1,20 @@
+--- a/features/ai/components/onboarding/YBOCSAssessmentUI.tsx
++++ b/features/ai/components/onboarding/YBOCSAssessmentUI.tsx
+@@ -573,12 +573,13 @@
+                 return (
+                   <View key={index} style={styles.optionWrapper}>
+-                    <Button
+-                      title={option.label}
++                    <TouchableOpacity
+                       onPress={() => handleAnswerSelect(option.value, option)}
+-                      variant={isSelected ? 'primary' : 'outline'}
+                       style={[
+                         styles.optionButton,
+                         isSelected && styles.selectedOption
+                       ]}
+                       disabled={isLoading || state.isValidating}
+-                    />
++                    >
++                      <Text style={styles.optionButtonText}>{option.label}</Text>
++                    </TouchableOpacity>
+                     <Text style={styles.optionDescription}>

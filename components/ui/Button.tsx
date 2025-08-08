@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 
 interface ButtonProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  title?: string; // Support for legacy title prop
   onPress?: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'outline';
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
@@ -28,6 +29,7 @@ interface ButtonProps {
 
 export default function Button({
   children,
+  title,
   onPress,
   variant = 'primary',
   loading = false,
@@ -57,11 +59,11 @@ export default function Button({
         <Text
           style={[
             styles.buttonText,
-            variant === 'primary' ? styles.primaryText : styles.secondaryText,
+            variant === 'primary' ? styles.primaryText : variant === 'outline' ? styles.outlineText : styles.secondaryText,
             textStyle,
           ]}
         >
-          {children}
+          {title || children}
         </Text>
       )}
     </>
@@ -73,7 +75,7 @@ export default function Button({
       <Pressable
         style={({ pressed }) => [
           styles.button,
-          variant === 'primary' ? styles.primaryButton : styles.secondaryButton,
+          variant === 'primary' ? styles.primaryButton : variant === 'outline' ? styles.outlineButton : styles.secondaryButton,
           (disabled || loading) && styles.disabledButton,
           pressed && styles.pressed,
           style,
@@ -99,7 +101,7 @@ export default function Button({
     <TouchableOpacity
       style={[
         styles.button,
-        variant === 'primary' ? styles.primaryButton : styles.secondaryButton,
+        variant === 'primary' ? styles.primaryButton : variant === 'outline' ? styles.outlineButton : styles.secondaryButton,
         (disabled || loading) && styles.disabledButton,
         style,
       ]}
@@ -137,6 +139,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  outlineButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#6B7280",
+  },
   },
   disabledButton: {
     opacity: 0.6,
@@ -153,5 +160,8 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     color: '#374151',
+  outlineText: {
+    color: "#6B7280",
+  },
   },
 });
