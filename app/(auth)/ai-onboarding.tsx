@@ -38,7 +38,7 @@ import { OnboardingFlow } from '@/features/ai/components/onboarding/OnboardingFl
 
 // AI Services - Sprint 7 Integration  
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
@@ -107,7 +107,12 @@ export default function AIOnboardingScreen() {
           initPromises.push(riskAssessmentService.initialize());
         }
 
-        initPromises.push(onboardingEngine.getInstance().initialize());
+        // Check if onboardingEngine has initialize method
+        if (onboardingEngine && typeof onboardingEngine.initialize === 'function') {
+          initPromises.push(onboardingEngine.initialize());
+        } else {
+          console.warn('⚠️ Onboarding Engine not available');
+        }
 
         // Initialize all services in parallel
         await Promise.all(initPromises);

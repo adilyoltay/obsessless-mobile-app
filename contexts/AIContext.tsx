@@ -25,7 +25,7 @@ import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
 import { adaptiveInterventions } from '@/features/ai/interventions/adaptiveInterventions';
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
@@ -334,14 +334,6 @@ export function AIProvider({ children }: AIProviderProps) {
         treatmentPlan
       };
 
-      // Check if generateDailyInsights method exists
-      if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
-        const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
-        return insights || [];
-      } else {
-        console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
-        return [];
-      }
       // Check if generateDailyInsights method exists
       if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
         const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
