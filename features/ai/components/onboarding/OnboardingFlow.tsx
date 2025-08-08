@@ -571,43 +571,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   }, [state.session, state.currentStep, state.isLoading, completeOnboarding]);
 
 
-  /**
-   * 🔄 Helper: Get Next Step
-   */
-  const getNextStep = (currentStep: OnboardingStep): OnboardingStep | null => {
-    const stepOrder = [
-      OnboardingStep.WELCOME,
-      OnboardingStep.YBOCS_ASSESSMENT,
-      OnboardingStep.PROFILE_BUILDING,
-      OnboardingStep.TREATMENT_PLANNING,
-      OnboardingStep.RISK_ASSESSMENT,
-      OnboardingStep.CUSTOMIZATION,
-      OnboardingStep.COMPLETION
-    ];
 
-    const currentIndex = stepOrder.indexOf(currentStep);
-    return currentIndex >= 0 && currentIndex < stepOrder.length - 1 
-      ? stepOrder[currentIndex + 1] 
-      : null;
-  };
-
-  /**
-   * �� Helper: Calculate Progress
-   */
-  const calculateProgress = (currentStep: OnboardingStep): number => {
-    const stepOrder = [
-      OnboardingStep.WELCOME,
-      OnboardingStep.YBOCS_ASSESSMENT, 
-      OnboardingStep.PROFILE_BUILDING,
-      OnboardingStep.TREATMENT_PLANNING,
-      OnboardingStep.RISK_ASSESSMENT,
-      OnboardingStep.CUSTOMIZATION,
-      OnboardingStep.COMPLETION
-    ];
-
-    const currentIndex = stepOrder.indexOf(currentStep);
-    return currentIndex >= 0 ? Math.round((currentIndex / (stepOrder.length - 1)) * 100) : 0;
-  };
   /**
    * 🚫 Handle Back Navigation
    */
