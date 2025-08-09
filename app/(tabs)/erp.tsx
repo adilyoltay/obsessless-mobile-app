@@ -684,6 +684,38 @@ export default function ERPScreen() {
             </View>
           )}
 
+        {/* AI Recommendations Loading */}
+        {isLoadingRecommendations && (
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <View style={styles.aiLoadingCard}>
+              <MaterialCommunityIcons 
+                name="robot" 
+                size={24} 
+                color="#10B981" 
+              />
+              <Text style={styles.aiLoadingText}>
+                AI size özel egzersizler hazırlıyor...
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* AI Recommendations Failed Fallback */}
+        {!isLoadingRecommendations && !showAIRecommendations && userProfile && treatmentPlan && (
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <View style={styles.aiLoadingCard}>
+              <MaterialCommunityIcons 
+                name="alert-circle-outline" 
+                size={24} 
+                color="#F59E0B" 
+              />
+              <Text style={styles.aiLoadingText}>
+                AI önerileri geçici olarak kapalı. Lütfen daha sonra tekrar deneyin.
+              </Text>
+            </View>
+          </View>
+        )}
+
           {/* Show More Button */}
           {filteredSessions.length > 0 && todaySessions.length > displayLimit && (
             <View style={styles.showMoreContainer}>
@@ -1038,11 +1070,26 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  aiLoadingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   aiLoadingText: {
     fontSize: 14,
-    color: '#374151',
-    marginLeft: 12,
+    color: '#6B7280',
     fontFamily: 'Inter',
+    marginLeft: 12,
+    flex: 1,
   },
 
 });

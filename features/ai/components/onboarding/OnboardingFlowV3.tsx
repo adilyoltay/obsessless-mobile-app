@@ -504,14 +504,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     setIsLoading(true);
     
     // Telemetry
-    trackAIInteraction({
-      eventType: AIEventType.TREATMENT_PLAN_GENERATED,
-      userId,
-      metadata: {
-        ybocsScore: calculateYBOCSScore(),
-        goals: selectedGoals,
-      },
-    });
+    trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
+      ybocsScore: calculateYBOCSScore(),
+      goals: selectedGoals,
+    }, userId);
 
     // Mock tedavi planı (gerçekte AI'dan gelecek)
     setTimeout(() => {
