@@ -10,7 +10,8 @@
     "import-guard": "node scripts/import-guard.js",
     "safe-point": "./scripts/create-safe-point.sh",
     "test-ai": "node scripts/test-ai-integration.js",
-    "pre-commit": "npm run import-guard"
+    "flag-audit": "node scripts/flag-audit.js",
+    "pre-commit": "npm run import-guard && npm run flag-audit"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
