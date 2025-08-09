@@ -28,6 +28,7 @@ import { ERP_EXERCISES, ERPExercise } from '@/constants/erpExercises';
 
 // Telemetry
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { externalAIService } from '@/features/ai/services/externalAIService';
 
 interface ERPAnalysisContext {
   userProfile: UserProfile;
@@ -412,7 +413,89 @@ class ERPRecommendationService {
     rankedExercises.sort((a, b) => b.score - a.score);
     const topExercises = rankedExercises.slice(0, 5);
 
-    // ERPRecommendation formatına çevir
+    // Eğer external AI aktifse, önerileri LLM ile rafine et
+    try {
+      if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && externalAIService.enabled) {
+        const candidateSummary = topExercises.map(({ exercise }, idx) => (
+          `${idx + 1}. ${exercise.name} (id: ${exercise.id}, diff: ${exercise.difficulty}, dur: ${exercise.duration}dk, cat: ${exercise.category})`
+        )).join('\n');
+
+        const prompt = `Kullanıcı için ERP egzersizi önerilerini değerlendir. Aşağıdaki adaylar içinden en uygun 3 tanesini sırala ve JSON olarak döndür.\n\n` +
+          `Kullanıcı Profili: ${JSON.stringify({ 
+            ybocsScore: context.userProfile?.ybocsScore,
+            symptomTypes: context.userProfile?.symptomTypes,
+            culturalContext: context.userProfile?.culturalContext
+          })}\n\n` +
+          `Tedavi Planı Özeti: ${JSON.stringify({
+            phases: context.treatmentPlan?.phases?.length,
+            planType: (context.treatmentPlan as any)?.planType
+          })}\n\n` +
+          `Mevcut İlerleme: ${JSON.stringify(progressData)}\n\n` +
+          `Aday Egzersizler:\n${candidateSummary}\n\n` +
+          `ÇIKTI FORMAT (tek bir JSON obje): {"recommendations": [{"exerciseId": string, "reasoning": string, "confidence": number}]}`;
+
+        const aiResponse = await externalAIService.getAIResponse(
+          [ { role: 'user', content: prompt } ],
+          { therapeuticProfile: context.userProfile as any, assessmentMode: false },
+          { therapeuticMode: true, maxTokens: 400, temperature: 0.2 }
+        );
+
+        if (aiResponse.success && aiResponse.content) {
+          // Telemetry: provider metrics
+          await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+            feature: 'erp_recommendations',
+            provider: aiResponse.provider,
+            model: aiResponse.model,
+            latency: aiResponse.latency,
+            tokenTotal: aiResponse.tokens?.total,
+            cached: aiResponse.cached === true
+          });
+
+          // Parse JSON safely
+          let parsed: any = null;
+          try {
+            parsed = JSON.parse(aiResponse.content);
+          } catch {}
+
+          if (parsed && Array.isArray(parsed.recommendations)) {
+            // Map to ERPRecommendation using existing catalog
+            const catalogById: Record<string, ERPExercise> = Object.fromEntries(
+              exercises.map(e => [e.id, e])
+            );
+            const chosen = parsed.recommendations
+              .map((r: any) => ({ rec: r, ex: catalogById[r.exerciseId] }))
+              .filter((p: any) => !!p.ex)
+              .slice(0, 3)
+              .map(({ rec, ex }: any) => ({
+                exerciseId: ex.id,
+                title: ex.name,
+                description: ex.description,
+                difficulty: ex.difficulty,
+                estimatedDuration: ex.duration,
+                category: ex.category,
+                targetSymptoms: ex.targetCompulsion,
+                instructions: ex.instructions,
+                safetyNotes: ex.safetyNotes || [],
+                confidenceScore: typeof rec.confidence === 'number' ? rec.confidence : 0.8,
+                reasoning: rec.reasoning || `LLM seçimi: ${ex.category} ve hedef semptomlar ile uyumlu`
+              } as ERPRecommendation));
+
+            if (chosen.length > 0) {
+              return chosen;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // AI ile rafine etme başarısızsa sessizce heuristic sonuçlara düş
+      await trackAIError(error as any, {
+        component: 'ERPRecommendationService',
+        method: 'generateAIRecommendations',
+        note: 'llm_refine_failed'
+      });
+    }
+
+    // Fallback: ERPRecommendation formatına çevir (heuristic)
     return topExercises.map(({ exercise }) => ({
       exerciseId: exercise.id,
       title: exercise.name,

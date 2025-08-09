@@ -21,13 +21,15 @@ const getAIMasterEnabled = () => {
 
 const AI_MASTER_ENABLED = getAIMasterEnabled();
 
-// Debug logging ve telemetry
-console.log('🔧 Feature Flags Debug:', {
-  __DEV__,
-  expoConfigExtra: Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI,
-  processEnv: process.env.EXPO_PUBLIC_ENABLE_AI,
-  AI_MASTER_ENABLED
-});
+// Debug logging (development only) ve telemetry
+if (__DEV__) {
+  console.log('🔧 Feature Flags Debug:', {
+    __DEV__,
+    expoConfigExtra: Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI,
+    processEnv: process.env.EXPO_PUBLIC_ENABLE_AI,
+    AI_MASTER_ENABLED
+  });
+}
 
 // AI Master Switch durumunu telemetriye gönder
 if (typeof window !== 'undefined') {
@@ -204,7 +206,8 @@ export const FEATURE_FLAGS = {
     delete (global as any).__OBSESSLESS_KILL_SWITCH;
     
     // Master switch'i aktifleştir
-    const masterEnabled = process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
+    const masterEnabled = (Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI === 'true') ||
+                          (process.env.EXPO_PUBLIC_ENABLE_AI === 'true');
     Object.keys(featureFlagState).forEach(key => {
       if (key.startsWith('AI_')) {
         featureFlagState[key] = masterEnabled;
@@ -216,7 +219,11 @@ export const FEATURE_FLAGS = {
 // AI Configuration - Yol Haritası Uyumlu
 export const AI_CONFIG = {
   // Default provider - environment'tan override edilebilir
-  DEFAULT_PROVIDER: (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') || 'gemini',
+  DEFAULT_PROVIDER: (
+    (Constants.expoConfig?.extra?.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') ||
+    (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') ||
+    'gemini'
+  ),
   
   // Provider priorities (fallback order)
   PROVIDER_PRIORITY: ['gemini', 'openai', 'claude'] as const,

@@ -23,6 +23,7 @@ import {
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { aiManager } from '@/features/ai/config/aiManager';
+import Constants from 'expo-constants';
 
 // =============================================================================
 // 🎯 AI PROVIDER DEFINITIONS
@@ -251,13 +252,17 @@ class ExternalAIService {
    * Provider konfigürasyonlarını yükle
    */
   private async loadProviderConfigurations(): Promise<void> {
+    const extra: any = Constants.expoConfig?.extra || {};
+
     // OpenAI Configuration
-    if (process.env.EXPO_PUBLIC_OPENAI_API_KEY) {
+    const openaiKey = extra.EXPO_PUBLIC_OPENAI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+    const openaiModel = extra.EXPO_PUBLIC_OPENAI_MODEL || process.env.EXPO_PUBLIC_OPENAI_MODEL || 'gpt-4o-mini';
+    if (openaiKey) {
       this.providers.set(AIProvider.OPENAI, {
         provider: AIProvider.OPENAI,
-        apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+        apiKey: openaiKey,
         baseURL: 'https://api.openai.com/v1',
-        model: process.env.EXPO_PUBLIC_OPENAI_MODEL || 'gpt-4o-mini',
+        model: openaiModel,
         maxTokens: 4000,
         temperature: 0.7,
         timeout: 30000,
@@ -269,12 +274,14 @@ class ExternalAIService {
     }
 
     // Claude Configuration
-    if (process.env.EXPO_PUBLIC_CLAUDE_API_KEY) {
+    const claudeKey = extra.EXPO_PUBLIC_CLAUDE_API_KEY || process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
+    const claudeModel = extra.EXPO_PUBLIC_CLAUDE_MODEL || process.env.EXPO_PUBLIC_CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+    if (claudeKey) {
       this.providers.set(AIProvider.CLAUDE, {
         provider: AIProvider.CLAUDE,
-        apiKey: process.env.EXPO_PUBLIC_CLAUDE_API_KEY,
+        apiKey: claudeKey,
         baseURL: 'https://api.anthropic.com',
-        model: process.env.EXPO_PUBLIC_CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+        model: claudeModel,
         maxTokens: 4000,
         temperature: 0.7,
         timeout: 30000,
@@ -286,12 +293,14 @@ class ExternalAIService {
     }
 
     // Gemini Configuration
-    if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
+    const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    if (geminiKey) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
-        apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+        apiKey: geminiKey,
         baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-        model: process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-exp',
+        model: geminiModel,
         maxTokens: 4000,
         temperature: 0.7,
         timeout: 30000,
@@ -302,7 +311,9 @@ class ExternalAIService {
       });
     }
 
-    console.log(`🔧 Loaded ${this.providers.size} AI provider configurations`);
+    if (__DEV__) {
+      console.log(`🔧 Loaded ${this.providers.size} AI provider configurations`);
+    }
   }
 
   /**
@@ -316,14 +327,27 @@ class ExternalAIService {
           config.isAvailable = isHealthy;
           config.lastHealthCheck = new Date();
           
-          if (isHealthy) {
-            console.log(`✅ ${provider} is available`);
-          } else {
-            console.warn(`⚠️ ${provider} is not available`);
+          // Telemetry for health result
+          await trackAIInteraction(AIEventType.AI_PROVIDER_HEALTH_CHECK, {
+            provider,
+            isHealthy
+          });
+
+          if (__DEV__) {
+            if (isHealthy) {
+              console.log(`✅ ${provider} is available`);
+            } else {
+              console.warn(`⚠️ ${provider} is not available`);
+            }
           }
         } catch (error) {
           console.error(`❌ Health check failed for ${provider}:`, error);
           config.isAvailable = false;
+
+          await trackAIInteraction(AIEventType.AI_PROVIDER_FAILED, {
+            provider,
+            reason: 'health_check_failed'
+          });
         }
       }
     );
