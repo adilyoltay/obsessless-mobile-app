@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import { User, Session } from '@supabase/supabase-js';
 import { supabaseService, UserProfile, SignUpResult, AuthResult } from '@/services/supabase';
 import { useGamificationStore } from '@/store/gamificationStore';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { migrateToUserSpecificStorage } from '@/utils/storage';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -50,6 +51,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [error, setError] = useState<string | null>(null);
   
   const { initializeGamification, setUserId } = useGamificationStore();
+  const { resetOnboarding } = useOnboardingStore();
 
   // ===========================
   // INITIALIZATION
@@ -269,6 +271,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setLoading(true);
       console.log('🔐 Signing out...');
       
+      // Reset onboarding state before signout
+      resetOnboarding();
+      console.log('🔄 Onboarding state reset on signout');
+      
       await supabaseService.signOut();
       
       // Auth state change will handle cleanup
@@ -280,7 +286,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resetOnboarding]);
 
   const resendConfirmation = useCallback(async (email: string): Promise<void> => {
     try {

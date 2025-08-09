@@ -15,6 +15,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 
 // Auth
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -61,6 +62,11 @@ interface AIContextType {
   isInitializing: boolean;
   initializationError: string | null;
   
+  // Network Status
+  isOnline: boolean;
+  isConnected: boolean;
+  networkType: string | null;
+  
   // User AI Data
   userProfile: UserProfile | null;
   treatmentPlan: TreatmentPlan | null;
@@ -106,6 +112,11 @@ export function AIProvider({ children }: AIProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
+  
+  // Network Status
+  const [isOnline, setIsOnline] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+  const [networkType, setNetworkType] = useState<string | null>(null);
   
   // User AI Data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -397,11 +408,38 @@ export function AIProvider({ children }: AIProviderProps) {
   }, [user?.id, userProfile]);
 
   /**
-   * 💡 Generate Insights
+   * 💡 Generate Insights (Offline-Aware)
    */
   const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
       return [];
+    }
+
+    // Offline fallback
+    if (!isOnline) {
+      console.warn('📱 Offline mode: Using cached insights');
+      
+      try {
+        const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        if (cachedInsights) {
+          const parsed = JSON.parse(cachedInsights);
+          // Return cached insights if less than 24 hours old
+          if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+            return parsed.insights || [];
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading cached insights:', error);
+      }
+      
+      // Return offline message as insight
+      return [{
+        id: 'offline_notice',
+        type: 'system',
+        content: 'İnternet bağlantısı olmadığı için önceki öngörüler gösteriliyor. Bağlantı kurulduğunda güncel öngörüler yüklenecek.',
+        timestamp: new Date(),
+        priority: 'low'
+      }];
     }
 
     try {
@@ -416,6 +454,19 @@ export function AIProvider({ children }: AIProviderProps) {
       // Check if generateDailyInsights method exists
       if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
         const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
+        
+        // Cache successful insights
+        if (insights && insights.length > 0) {
+          try {
+            await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({
+              insights,
+              timestamp: Date.now()
+            }));
+          } catch (cacheError) {
+            console.warn('⚠️ Failed to cache insights:', cacheError);
+          }
+        }
+        
         return insights || [];
       } else {
         console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
@@ -425,7 +476,7 @@ export function AIProvider({ children }: AIProviderProps) {
       console.error('❌ Error generating insights:', error);
       return [];
     }
-  }, [user?.id, userProfile, treatmentPlan]);
+  }, [user?.id, userProfile, treatmentPlan, isOnline]);
 
   /**
    * 🛡️ Assess Risk
@@ -481,6 +532,42 @@ export function AIProvider({ children }: AIProviderProps) {
   }, [user?.id, userProfile, currentRiskAssessment]);
 
   /**
+   * 🌐 Network Status Monitoring
+   */
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      console.log('🌐 Network state changed:', {
+        isConnected: state.isConnected,
+        isInternetReachable: state.isInternetReachable,
+        type: state.type
+      });
+      
+      setIsConnected(state.isConnected ?? false);
+      setIsOnline(state.isInternetReachable ?? false);
+      setNetworkType(state.type || null);
+      
+      // Track network changes for telemetry
+      trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        networkStatus: state.isConnected ? 'connected' : 'disconnected',
+        networkType: state.type,
+        isInternetReachable: state.isInternetReachable,
+        userId: user?.id
+      });
+    });
+
+    // Get initial network state
+    NetInfo.fetch().then(state => {
+      setIsConnected(state.isConnected ?? false);
+      setIsOnline(state.isInternetReachable ?? false);
+      setNetworkType(state.type || null);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
+
+  /**
    * 🔄 Auto-initialize when user changes
    */
   useEffect(() => {
@@ -488,6 +575,23 @@ export function AIProvider({ children }: AIProviderProps) {
       initializeAIServices();
     }
   }, [user?.id, isInitialized, isInitializing, initializeAIServices]);
+
+  /**
+   * 🔄 Reset AI state when user signs out
+   */
+  useEffect(() => {
+    if (!user) {
+      // User signed out - reset all AI state
+      console.log('🔄 User signed out - resetting AI state');
+      setIsInitialized(false);
+      setUserProfile(null);
+      setTreatmentPlan(null);
+      setCurrentRiskAssessment(null);
+      setOnboardingSession(null);
+      setHasCompletedOnboarding(false);
+      setAvailableFeatures([]);
+    }
+  }, [user]);
 
   /**
    * 🧹 Cleanup on unmount
@@ -509,6 +613,11 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    
+    // Network Status
+    isOnline,
+    isConnected,
+    networkType,
     
     // User AI Data
     userProfile,
@@ -534,6 +643,9 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    isOnline,
+    isConnected,
+    networkType,
     userProfile,
     treatmentPlan,
     currentRiskAssessment,

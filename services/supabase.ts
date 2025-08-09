@@ -2,13 +2,23 @@ import { createClient, SupabaseClient, User, Session, AuthError } from '@supabas
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ncniotnzoirwuwwxnipw.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jbmlvdG56b2lyd3V3d3huaXB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzODA2MjIsImV4cCI6MjA2ODk1NjYyMn0.Ks0vevUbys_gGMbYSlTjzqfWXXikAQ74VTJbzCRcbhk';
+// 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-console.log('🔐 Supabase Native Config:', {
-  url: SUPABASE_URL,
-  hasKey: !!SUPABASE_ANON_KEY
-});
+// 🚨 CRITICAL SECURITY CHECK: No fallback values for security
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('🚨 CRITICAL: Supabase credentials missing from environment variables');
+  console.error('Required: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY');
+  
+  // Production'da güvenli bir şekilde app'i kapatmak yerine hata fırlat
+  if (!__DEV__) {
+    throw new Error('SUPABASE_CREDENTIALS_MISSING: Application cannot start without proper credentials');
+  }
+  
+  console.warn('⚠️ Development mode: Using demo credentials for testing');
+  // Development'da fallback sadece test için
+}
 
 // ===========================
 // DATABASE TYPES
