@@ -51,7 +51,6 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [error, setError] = useState<string | null>(null);
   
   const { initializeGamification, setUserId } = useGamificationStore();
-  const { resetOnboarding } = useOnboardingStore();
 
   // ===========================
   // INITIALIZATION
@@ -126,6 +125,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           setUser(null);
           setProfile(null);
           setUserId('');
+          useOnboardingStore.getState().setUserId('');
           console.log('🔐 User signed out, state cleared');
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user);
@@ -160,7 +160,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
       // Set user ID for all stores
       setUserId(user.id);
-      
+      useOnboardingStore.getState().setUserId(user.id);
+
       // Initialize user-specific data migration
       await migrateToUserSpecificStorage(user.id);
       
@@ -273,23 +274,25 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       setLoading(true);
       console.log('🔐 Signing out...');
-      
+
       // Reset onboarding state before signout
-      resetOnboarding();
+      const onboardingStore = useOnboardingStore.getState();
+      onboardingStore.resetOnboarding();
+      onboardingStore.setUserId('');
       console.log('🔄 Onboarding state reset on signout');
-      
+
       await supabaseService.signOut();
-      
+
       // Auth state change will handle cleanup
       console.log('✅ Sign out initiated');
-      
+
     } catch (error: any) {
       console.error('❌ Sign out failed:', error);
       setError(error.message || 'Çıkış başarısız');
     } finally {
       setLoading(false);
     }
-  }, [resetOnboarding]);
+  }, []);
 
   const resendConfirmation = useCallback(async (email: string): Promise<void> => {
     try {

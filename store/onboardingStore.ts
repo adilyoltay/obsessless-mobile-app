@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 
@@ -11,6 +12,7 @@ interface UserOCDProfile {
 }
 
 interface OnboardingState {
+  userId: string;
   currentStep: number;
   profile: Partial<UserOCDProfile>;
   ybocsAnswers: number[];
@@ -26,19 +28,22 @@ interface OnboardingState {
   calculateYbocsSeverity: () => void;
   completeOnboarding: (userId?: string) => Promise<void>;
   resetOnboarding: () => void;
+  setUserId: (userId: string) => void;
 }
 
-export const useOnboardingStore = create<OnboardingState>((set, get) => ({
-  currentStep: 0,
-  profile: {
-    primarySymptoms: [],
-    ybocsLiteScore: 0,
-    ybocsSeverity: 'Subclinical',
-    dailyGoal: 3,
-    onboardingCompleted: false,
-  },
-  ybocsAnswers: [],
-  startTime: Date.now(),
+export const useOnboardingStore = create<OnboardingState>()(
+  subscribeWithSelector((set, get) => ({
+    userId: '',
+    currentStep: 0,
+    profile: {
+      primarySymptoms: [],
+      ybocsLiteScore: 0,
+      ybocsSeverity: 'Subclinical',
+      dailyGoal: 3,
+      onboardingCompleted: false,
+    },
+    ybocsAnswers: [],
+    startTime: Date.now(),
 
   setStep: (step) => set({ currentStep: step }),
   
@@ -133,16 +138,29 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     }));
   },
 
-  resetOnboarding: () => set({
-    currentStep: 0,
-    profile: {
-      primarySymptoms: [],
-      ybocsLiteScore: 0,
-      ybocsSeverity: 'Subclinical',
-      dailyGoal: 3,
-      onboardingCompleted: false,
-    },
-    ybocsAnswers: [],
-    startTime: Date.now(),
-  }),
-})); 
+    resetOnboarding: () =>
+      set({
+        currentStep: 0,
+        profile: {
+          primarySymptoms: [],
+          ybocsLiteScore: 0,
+          ybocsSeverity: 'Subclinical',
+          dailyGoal: 3,
+          onboardingCompleted: false,
+        },
+        ybocsAnswers: [],
+        startTime: Date.now(),
+      }),
+    setUserId: (userId: string) => set({ userId }),
+  }))
+);
+
+// Reset state automatically when userId changes
+useOnboardingStore.subscribe(
+  (state) => state.userId,
+  (userId, previousUserId) => {
+    if (previousUserId && userId !== previousUserId) {
+      useOnboardingStore.getState().resetOnboarding();
+    }
+  }
+);
