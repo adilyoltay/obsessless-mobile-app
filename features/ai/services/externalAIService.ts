@@ -16,7 +16,8 @@ import {
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,
-  ErrorSeverity 
+  ErrorSeverity,
+  isAIError
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
@@ -285,7 +286,11 @@ class ExternalAIService {
     config?: AIRequestConfig
   ): Promise<EnhancedAIResponse> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'External AI Service is not enabled');
+      const error = new Error('External AI Service is not enabled');
+      (error as any).code = AIErrorCode.FEATURE_DISABLED;
+      (error as any).severity = ErrorSeverity.MEDIUM;
+      (error as any).recoverable = true;
+      throw error;
     }
 
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -298,7 +303,11 @@ class ExternalAIService {
       // Provider seç
       const provider = config?.provider || this.selectBestProvider();
       if (!provider) {
-        throw new AIError(AIErrorCode.NO_PROVIDER_AVAILABLE, 'No AI provider available');
+        const error = new Error('No AI provider available');
+        (error as any).code = AIErrorCode.NO_PROVIDER_AVAILABLE;
+        (error as any).severity = ErrorSeverity.HIGH;
+        (error as any).recoverable = false;
+        throw error;
       }
 
       // Request hazırla
@@ -360,7 +369,8 @@ class ExternalAIService {
       const latency = Date.now() - startTime;
       
       await trackAIError({
-        code: error instanceof AIError ? error.code : AIErrorCode.UNKNOWN,
+        code: (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') 
+              ? error.code : AIErrorCode.UNKNOWN,
         message: 'AI yanıtı alınamadı',
         severity: ErrorSeverity.HIGH,
         context: { 
@@ -368,7 +378,8 @@ class ExternalAIService {
           method: 'getAIResponse',
           provider: config?.provider || this.activeProvider,
           latency,
-          requestId
+          requestId,
+          errorType: error?.constructor?.name || 'Unknown'
         }
       });
 

@@ -6,6 +6,8 @@ rules:
   # 1. Genel Felsefe ve Dil
   # Bu kurallar, AI'nın projenin ruhunu anlamasını sağlar.
   - rule: "Projenin ana dili Türkçe'dir. Tüm kullanıcıya dönük metinler (mikro-kopya), yorumlar ve değişken adları öncelikli olarak Türkçe olmalıdır. Sadece evrensel teknik terimler (props, state, function, async vb.) İngilizce kalacaktır. Dil, her zaman empatik, yargılamayan ve cesaretlendirici olmalıdır. Referans: anayasa-v2.md"
+  - rule: "Uygulamada demo-ready aşamsında production ready aşamasına geçtik. Her özelliğin gerçekten çalışır durumda olması ana kuralımız."
+  - rule: "Uygulamada  demo mock yada simulasyon  veri kullanma özellikle onboarding aşamsında toplanan bilgilerin AI tabanlı analiz edilmesi ve kullanılmasını sağla.
   - rule: "Master Prompt'un 3 temel ilkesi her zaman en yüksek önceliktir: 1) Sakinlik Her Şeyden Önce Gelir (minimalist UI, yumuşak animasyonlar, parlak olmayan renkler), 2) Güç Kullanıcıdadır (kişiselleştirme, şeffaflık), 3) Zahmetsizlik Esastır (minimum tıklama, sezgisel akışlar)."
   - rule: "Tüm geliştirme, 'Privacy-First' (Gizlilik Öncelikli) prensibine dayanmalıdır. Hassas veriler asla düz metin olarak saklanmamalı, mümkün olan her yerde analizler cihaz üzerinde (on-device) yapılmalıdır. Kullanıcı izni her şeyden önce gelir."
 
@@ -17,6 +19,7 @@ rules:
   - rule: "Global state yönetimi için Zustand, asenkron state ve cache yönetimi için TanStack Query (React Query) kullanılacaktır. Redux veya başka bir state yönetim kütüphanesi kullanma."
   - rule: "UI bileşenleri, `react-native-paper` gibi harici kütüphaneler yerine, projenin kendi tasarım sistemine uygun özel bileşenler (`custom components`) olarak oluşturulmalıdır. Stil için `StyleSheet.create` kullanılacaktır."
   - rule: "Offline-first yaklaşımı benimsenecektir. Kritik veriler (yeni kayıtlar, oturumlar) önce AsyncStorage'a yazılmalı, ardından Supabase ile senkronize edilmelidir."
+  - rule: "AI altyapısını ve özelikleri içeren herhangi bir geliştirme ve düzeltme yapılacağız zaman öncelikle mevcut koda tabanı ve önceki geliştirmeler incelenecek kod tekrarı olmaması önemli"
 
   # 3. Kod Kalitesi ve Standartlar
   # Bu kurallar, kodun tutarlı, okunabilir ve sürdürülebilir olmasını sağlar.
@@ -25,6 +28,8 @@ rules:
   - rule: "Tüm UI bileşenleri erişilebilirlik (accessibility) göz önünde bulundurularak tasarlanmalıdır. `accessibilityLabel`, `accessibilityRole` gibi proplar mutlaka kullanılmalıdır."
   - rule: "Tüm asenkron işlemler ve API çağrıları için robust error handling (hata yönetimi) ve loading states (yüklenme durumları) eklenmelidir. Kullanıcı asla belirsizlik içinde bırakılmamalıdır."
   - rule: "Animasyonlar için `react-native-reanimated`, dokunsal geri bildirim için `expo-haptics` kullanılacaktır. Animasyonlar 'Sakinlik' ilkesine uygun olarak yumuşak ve akıcı olmalıdır."
+  - rule: "Hataları çözerken kodu derinlemesine ve detaylı incele ve kalıcı çözümler geliştiemeye çalış."
+  - rule: "kod fonksiyon class dosya duplikasyonu olmaması için önlem al"
 
 commands:
   # 1. Yeni Bileşen Oluşturma Komutları

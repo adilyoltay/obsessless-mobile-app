@@ -107,12 +107,8 @@ export default function AIOnboardingScreen() {
           initPromises.push(riskAssessmentService.initialize());
         }
 
-        // Check if onboardingEngine has initialize method
-        if (onboardingEngine && typeof onboardingEngine.initialize === 'function') {
-          initPromises.push(onboardingEngine.initialize());
-        } else {
-          console.warn('⚠️ Onboarding Engine not available');
-        }
+        // Note: OnboardingFlowV3 uses direct state management, no engine needed
+        console.log('🎯 Using OnboardingFlowV3 with direct state management');
 
         // Initialize all services in parallel
         await Promise.all(initPromises);

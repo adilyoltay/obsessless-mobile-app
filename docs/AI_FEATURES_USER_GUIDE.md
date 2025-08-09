@@ -330,6 +330,17 @@ Bu test sürecinde hedefimiz:
 
 **Katılımınız için teşekkür ederiz! Geri bildirimleriniz ObsessLess'i daha iyi hale getirmemize yardımcı olacak.** 💙
 
----
-
-*Versiyon: 1.0 | Güncelleme: Ocak 2025*
+📱 Test Adımları:
+1. İLK KONTROL:
+Settings → Geliştirici Araçları → "AI Profil Durumunu Görüntüle"
+2. FRESH START:
+Settings → Geliştirici Araçları → "AI Onboarding'i Yeniden Başlat"
+Uygulama yeniden yüklenecek ve onboarding'e yönlendirecek
+3. ONBOARDİNG TESTİ:
+13 Adımlık OnboardingFlowV3 → Master Prompt ilkeleriyle tek card design
+Y-BOCS-10 Değerlendirmesi → 10 soru, slider ile tek aksiyon
+Profil Oluşturma → Demographics, History, Symptoms, Culture, Goals
+AI Tedavi Planı → Otomatik oluşturulacak
+Safety Plan → Acil durum protokolleri
+4. SONUÇ KONTROLÜ:
+Settings → "AI Profil Durumunu Görüntüle" → ✅ Profil ve tedavi planı mevcut olmalı

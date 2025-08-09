@@ -634,7 +634,21 @@ export const useAIChatStore = create<AIChatState>()(
     }),
     {
       name: 'ai-chat-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => AsyncStorage, {
+        // Custom serializer to handle Date objects safely
+        reviver: (key: string, value: any) => {
+          if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+            return new Date(value);
+          }
+          return value;
+        },
+        replacer: (key: string, value: any) => {
+          if (value instanceof Date) {
+            return value.toISOString();
+          }
+          return value;
+        }
+      }),
       partialize: (state) => ({
         conversations: state.conversations,
         activeConversationId: state.activeConversationId,

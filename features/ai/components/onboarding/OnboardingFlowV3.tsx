@@ -525,35 +525,214 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     return ybocsAnswers.reduce((sum, answer) => sum + answer.score, 0);
   };
 
-  // Onboarding tamamlama
+
+
+  // Onboarding'i tamamla
   const completeOnboarding = async () => {
-    const userProfile: UserProfile = {
-      id: userId,
-      name: userName,
-      culturalContext,
-      therapeuticGoals: selectedGoals,
-      onboardingCompleted: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      // Y-BOCS analizi
+      const ybocsScore = calculateYBOCSScore();
+      
+      // User profile oluştur
+      const userProfile: UserProfile = {
+        id: userId,
+        name: userName,
+        demographics: {
+          age: parseInt(age) || 0,
+          gender: gender as 'male' | 'female' | 'other',
+          education,
+          occupation
+        },
+        ocdHistory,
+        symptomTypes,
+        culturalContext,
+        ybocsScore,
+        goals: selectedGoals,
+        onboardingCompletedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    const treatmentPlan: TreatmentPlan = {
-      id: `plan_${userId}`,
-      userId,
-      ybocsScore: calculateYBOCSScore(),
-      primaryGoals: selectedGoals.slice(0, 3),
-      interventions: [],
-      weeklySchedule: {},
-      progressMetrics: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      // ✅ PRODUCTION: Gerçek AI treatment plan oluştur
+      console.log('🤖 Generating real AI treatment plan...');
+      let treatmentPlan: TreatmentPlan;
+      
+      try {
+        // Import AI engine
+        const { adaptiveTreatmentPlanningEngine } = await import('@/features/ai/engines/treatmentPlanningEngine');
+        
+        // Y-BOCS responses'ları doğru formata çevir
+        const ybocsResponses = ybocsAnswers.map(answer => ({
+          questionId: answer.questionId,
+          response: answer.score,
+          category: answer.category
+        }));
+        
+        // Comprehensive user therapeutic profile
+        const therapeuticProfile = {
+          userId,
+          preferredLanguage: 'tr',
+          communicationStyle: {
+            directness: 'moderate',
+            emotionalTone: 'supportive',
+            explanationDepth: 'detailed'
+          },
+          therapeuticGoals: selectedGoals,
+          preferredCBTTechniques: ['cognitive_restructuring', 'exposure_therapy', 'mindfulness'],
+          triggerWords: [],
+          culturalContext,
+          accessibilityNeeds: [],
+          treatmentHistory: ocdHistory.previousTreatment ? {
+            previousTreatments: [{
+              type: 'therapy' as any,
+              startDate: new Date(),
+              endDate: new Date(),
+              outcome: 'partial_improvement' as any,
+              notes: 'User indicated previous treatment experience'
+            }],
+            currentMedications: ocdHistory.medication ? ['ssri'] : [],
+            treatmentResponse: 'moderate' as any
+          } : {
+            previousTreatments: [],
+            currentMedications: ocdHistory.medication ? ['ssri'] : [],
+            treatmentResponse: 'unknown' as any
+          }
+        };
+        
+        // Risk assessment data
+        const riskAssessment = {
+          overallRiskLevel: ybocsScore > 25 ? 'high' : ybocsScore > 15 ? 'moderate' : 'low',
+          clinicalFactors: {
+            severityLevel: ybocsScore > 25 ? 'severe' : ybocsScore > 15 ? 'moderate' : 'mild',
+            suicidalIdeation: false,
+            selfHarmHistory: false,
+            substanceUse: false
+          },
+          environmentalFactors: {
+            socialSupport: culturalContext.familyInvolvement === 'supportive' ? 'strong' : 'moderate',
+            stressors: [],
+            triggerEnvironments: []
+          },
+          protectiveFactors: {
+            copingSkills: 'developing',
+            socialConnections: culturalContext.familyInvolvement === 'supportive' ? 'strong' : 'moderate',
+            treatmentEngagement: 'high'
+          }
+        };
+        
+        // Generate real AI treatment plan
+        treatmentPlan = await adaptiveTreatmentPlanningEngine.generateInitialPlan(
+          therapeuticProfile as any,
+          { totalScore: ybocsScore, severityLevel: ybocsScore > 25 ? 'severe' : ybocsScore > 15 ? 'moderate' : 'mild' } as any,
+          riskAssessment as any,
+          culturalContext
+        );
+        
+        console.log('✅ Real AI treatment plan generated:', treatmentPlan.id);
+        
+      } catch (aiError) {
+        console.warn('⚠️ AI treatment plan generation failed, using enhanced fallback:', aiError);
+        
+        // Enhanced fallback with some intelligence
+        const baseInterventions = [];
+        
+        // Y-BOCS tabanlı müdahale seçimi
+        if (ybocsScore >= 20) {
+          baseInterventions.push({
+            type: 'erp',
+            title: 'İleri Düzey ERP',
+            description: 'Yoğun maruz bırakma ve tepki önleme egzersizleri',
+            frequency: 'daily',
+            duration: 45
+          });
+        } else {
+          baseInterventions.push({
+            type: 'erp',
+            title: 'Temel ERP',
+            description: 'Aşamalı maruz bırakma egzersizleri',
+            frequency: 'daily',
+            duration: 30
+          });
+        }
+        
+        // Semptom tipine göre müdahaleler
+        if (symptomTypes.includes('contamination')) {
+          baseInterventions.push({
+            type: 'exposure',
+            title: 'Kirlenme Maruz Bırakma',
+            description: 'Kontrollü kirlenme egzersizleri',
+            frequency: 'every_other_day',
+            duration: 30
+          });
+        }
+        
+        if (symptomTypes.includes('checking')) {
+          baseInterventions.push({
+            type: 'response_prevention',
+            title: 'Kontrol Önleme',
+            description: 'Kontrol davranışlarını azaltma teknikleri',
+            frequency: 'daily',
+            duration: 20
+          });
+        }
+        
+        // Kültürel müdahaleler
+        if (culturalContext.religiousConsiderations) {
+          baseInterventions.push({
+            type: 'mindfulness',
+            title: 'Manevi Farkındalık',
+            description: 'Dini değerlerle uyumlu farkındalık egzersizleri',
+            frequency: 'daily',
+            duration: 15
+          });
+        }
+        
+        treatmentPlan = {
+          id: `plan_${userId}_${Date.now()}`,
+          userId,
+          ybocsScore,
+          primaryGoals: selectedGoals.slice(0, 3),
+          interventions: baseInterventions,
+          weeklySchedule: {
+            monday: baseInterventions.slice(0, 2),
+            tuesday: baseInterventions.slice(1, 3),
+            wednesday: baseInterventions.slice(0, 2),
+            thursday: baseInterventions.slice(1, 3),
+            friday: baseInterventions.slice(0, 2),
+            saturday: [baseInterventions[0]],
+            sunday: [{ type: 'rest', title: 'Dinlenme Günü', description: 'Haftalık değerlendirme' }]
+          },
+          progressMetrics: {
+            ybocsTargetReduction: Math.max(5, Math.floor(ybocsScore * 0.3)),
+            anxietyReductionTarget: 40,
+            functionalImprovementTarget: 50
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
 
-    // Session temizle
-    await AsyncStorage.removeItem(`onboarding_session_${userId}`);
+      // AsyncStorage'a kaydet
+      await AsyncStorage.multiSet([
+        [`ai_onboarding_completed_${userId}`, 'true'],
+        [`ai_user_profile_${userId}`, JSON.stringify(userProfile)],
+        [`ai_treatment_plan_${userId}`, JSON.stringify(treatmentPlan)],
+        [`ai_onboarding_date_${userId}`, new Date().toISOString()]
+      ]);
 
-    // Tamamlama callback
-    onComplete(userProfile, treatmentPlan);
+      // Session temizle
+      await AsyncStorage.removeItem(`onboarding_session_${userId}`);
+
+      console.log('✅ OnboardingFlowV3: Completion successful');
+      
+      // Tamamlama callback
+      onComplete(userProfile, treatmentPlan);
+      
+    } catch (error) {
+      console.error('❌ OnboardingFlowV3: Completion error:', error);
+      // Hata durumunda da callback'i çağır
+      onComplete({} as UserProfile, {} as TreatmentPlan);
+    }
   };
 
   // Progress hesaplama

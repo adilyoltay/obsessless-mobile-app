@@ -25,7 +25,7 @@ import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
 import { adaptiveInterventions } from '@/features/ai/interventions/adaptiveInterventions';
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+// Note: onboardingEngine removed - OnboardingFlowV3 uses direct state management
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
@@ -180,12 +180,9 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        if (onboardingEngine && typeof onboardingEngine.initialize === 'function') {
-          await onboardingEngine.initialize();
-          features.push('AI_ONBOARDING_V2');
-        } else {
-          console.warn('⚠️ Onboarding Engine not available');
-        }
+        // OnboardingFlowV3 uses direct state management, no engine initialization needed
+        features.push('AI_ONBOARDING_V2');
+        console.log('🎯 OnboardingFlowV3 enabled with direct state management');
       }
       
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
@@ -280,10 +277,21 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     try {
-      const session = await onboardingEngine.getInstance().initializeSession(user.id, {
+      // OnboardingFlowV3 uses direct state management, create simple session object
+      const session: OnboardingSession = {
+        id: `onboarding_${user.id}_${Date.now()}`,
+        userId: user.id,
+        status: 'in_progress',
+        currentStep: 'welcome',
+        startedAt: new Date(),
         culturalContext: 'turkish',
-        preferredLanguage: 'tr'
-      });
+        preferredLanguage: 'tr',
+        progress: {
+          completedSteps: [],
+          totalSteps: 13,
+          currentStepIndex: 0
+        }
+      };
       
       setOnboardingSession(session);
       return session;
@@ -363,7 +371,7 @@ export function AIProvider({ children }: AIProviderProps) {
         treatmentPlan
       };
 
-      const assessment = await riskAssessmentService.getInstance().assessRisk(user.id, riskData);
+      const assessment = await riskAssessmentService.assessRisk(user.id, riskData);
       setCurrentRiskAssessment(assessment);
 
       // Persist to storage

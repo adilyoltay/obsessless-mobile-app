@@ -21,7 +21,8 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  CrisisRiskLevel
+  CrisisRiskLevel,
+  isAIError
 } from '@/features/ai/types';
 
 // Sprint 4 imports
@@ -220,7 +221,7 @@ class InsightsCoordinator {
       this.isEnabled = true;
       
       // Telemetry
-      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+      await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
         version: '2.0',
         componentStatus,
         enabledComponents,
@@ -256,7 +257,11 @@ class InsightsCoordinator {
     config?: Partial<WorkflowConfig>
   ): Promise<OrchestratedInsightResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Insights Coordinator is not enabled');
+      const error = new Error('Insights Coordinator is not enabled');
+      (error as any).code = AIErrorCode.FEATURE_DISABLED;
+      (error as any).severity = ErrorSeverity.MEDIUM;
+      (error as any).recoverable = true;
+      throw error;
     }
 
     const executionId = `execution_${Date.now()}_${context.userId}`;
@@ -266,11 +271,36 @@ class InsightsCoordinator {
     try {
       console.log(`🔗 Starting comprehensive insight workflow for user ${context.userId}`);
 
-      // Rate limiting check
+      // ✅ PRODUCTION: Rate limiting - daha akıllı ve esnek
       const lastExecution = this.lastExecutionTime.get(context.userId);
-      if (lastExecution && Date.now() - lastExecution.getTime() < 300000) { // 5 minutes
-        console.log('🚫 Workflow rate limited for user:', context.userId);
-        throw new AIError(AIErrorCode.RATE_LIMIT, 'Workflow execution rate limited');
+      const timeSinceLastExecution = lastExecution ? Date.now() - lastExecution.getTime() : Number.MAX_SAFE_INTEGER;
+      const minInterval = context.timeframe.analysisDepth === 'quick' ? 30000 : 60000; // 30s for quick, 1min for others
+      
+      if (timeSinceLastExecution < minInterval) {
+        console.log(`⏱️ Workflow rate limited for user (${Math.round(timeSinceLastExecution/1000)}s ago, min ${minInterval/1000}s):`, context.userId);
+        
+        // Return empty result instead of throwing error
+        return {
+          executionId: `cached_${Date.now()}_${context.userId}`,
+          userId: context.userId,
+          timestamp: new Date(),
+          patterns: [],
+          insights: [],
+          progressAnalysis: this.getDefaultProgressAnalysis(context),
+          scheduledNotifications: [],
+          immediateInsights: [],
+          executionMetrics: {
+            totalLatency: 0,
+            componentsExecuted: ['cache'],
+            successRate: 1.0,
+            dataQuality: 0.5
+          },
+          recommendations: {
+            nextAnalysisIn: minInterval - timeSinceLastExecution,
+            suggestedInterventions: [],
+            priorityActions: []
+          }
+        };
       }
 
       // Check for existing execution
@@ -292,18 +322,32 @@ class InsightsCoordinator {
       }
 
     } catch (error) {
-      console.error('❌ Insight workflow orchestration failed:', error);
+      // Rate limit durumunda error değil info log
+      if (error && typeof error === 'object' && 'code' in error && error.code === AIErrorCode.RATE_LIMIT) {
+        console.log('ℹ️ Insight workflow rate limited (expected behavior):', error.message);
+      } else {
+        console.error('❌ Insight workflow orchestration failed:', error);
+      }
+      
+      // Only track non-rate-limit errors as HIGH severity
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') 
+                        ? error.code : AIErrorCode.UNKNOWN;
+      const isRateLimit = errorCode === AIErrorCode.RATE_LIMIT;
       
       await trackAIError({
-        code: error instanceof AIError ? error.code : AIErrorCode.UNKNOWN,
-        message: 'Insight workflow orchestration başarısız',
-        severity: ErrorSeverity.HIGH,
+        code: errorCode,
+        message: isRateLimit ? 'Rate limit aktif - normal davranış' : 'Insight workflow orchestration başarısız',
+        severity: isRateLimit ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
         context: { 
           component: 'InsightsCoordinator', 
           method: 'orchestrateInsightWorkflow',
           executionId,
           userId: context.userId,
-          latency: Date.now() - startTime
+          latency: Date.now() - startTime,
+          errorType: error?.constructor?.name || 'Unknown',
+          isExpectedBehavior: isRateLimit,
+          originalMessage: errorMessage
         }
       });
 
@@ -328,7 +372,12 @@ class InsightsCoordinator {
 
     // Timeout protection
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new AIError(AIErrorCode.TIMEOUT, 'Workflow timeout')), config.timeoutMs);
+      setTimeout(() => {
+        const error = new Error('Workflow timeout');
+        (error as any).code = AIErrorCode.TIMEOUT;
+        (error as any).severity = ErrorSeverity.MEDIUM;
+        reject(error);
+      }, config.timeoutMs);
     });
 
     try {
@@ -427,7 +476,7 @@ class InsightsCoordinator {
       };
 
       // Telemetry
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+      await trackAIInteraction(AIEventType.INTERVENTION_RECOMMENDED, {
         executionId,
         userId: context.userId,
         componentsExecuted: components,
@@ -463,7 +512,8 @@ class InsightsCoordinator {
         timeframe: {
           start: context.timeframe.start,
           end: context.timeframe.end,
-          analysisDepth: context.timeframe.analysisDepth
+          analysisDepth: context.timeframe.analysisDepth === 'quick' ? 'shallow' : 
+                        context.timeframe.analysisDepth === 'comprehensive' ? 'comprehensive' : 'deep'
         },
         dataSource: {
           messages: context.recentMessages,
@@ -803,10 +853,10 @@ class InsightsCoordinator {
           respectQuietHours: true
         },
         currentCrisisLevel: CrisisRiskLevel.NONE,
-        currentContext: {
-          location: 'home',
-          timeOfDay: 'morning',
-          recentActivity: 'app_opened'
+        appUsageContext: {
+          isActive: true,
+          currentScreen: 'home',
+          lastActivity: new Date()
         }
       };
 
@@ -852,7 +902,7 @@ class InsightsCoordinator {
     this.activeExecutions.clear();
     this.lastExecutionTime.clear();
     
-          await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+          await trackAIInteraction(AIEventType.SYSTEM_STOPPED, {
       version: '2.0'
     });
   }
@@ -864,8 +914,3 @@ class InsightsCoordinator {
 
 export const insightsCoordinator = InsightsCoordinator.getInstance();
 export default insightsCoordinator;
-export { 
-  type ComprehensiveInsightContext,
-  type OrchestratedInsightResult,
-  type WorkflowConfig
-};

@@ -110,6 +110,78 @@ export default function SettingsScreen() {
     );
   };
 
+  // Development helpers
+  const handleRestartAIOnboarding = async () => {
+    Alert.alert(
+      'AI Onboarding Sıfırlama',
+      'AI Onboarding sürecini sıfırlamak istediğinizden emin misiniz? Bu işlem mevcut profil ve tedavi planı verilerini silecektir.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Sıfırla', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (user?.id) {
+                await AsyncStorage.multiRemove([
+                  `ai_onboarding_completed_${user.id}`,
+                  `ai_user_profile_${user.id}`,
+                  `ai_treatment_plan_${user.id}`,
+                  `onboarding_session_${user.id}`,
+                  'profileCompleted'
+                ]);
+                
+                Alert.alert('✅ Başarılı', 'AI Onboarding sıfırlandı. Uygulamayı yeniden başlatın.');
+              }
+            } catch (error) {
+              Alert.alert('❌ Hata', 'Sıfırlama işlemi başarısız oldu.');
+              console.error('Restart AI onboarding error:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleViewAIProfile = async () => {
+    try {
+      if (user?.id) {
+        const profileData = await AsyncStorage.getItem(`ai_user_profile_${user.id}`);
+        const treatmentData = await AsyncStorage.getItem(`ai_treatment_plan_${user.id}`);
+        const onboardingCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${user.id}`);
+        
+        const profileExists = profileData ? '✅' : '❌';
+        const treatmentExists = treatmentData ? '✅' : '❌';
+        const onboardingStatus = onboardingCompleted === 'true' ? '✅' : '❌';
+        
+        Alert.alert(
+          '🤖 AI Profil Durumu',
+          `${onboardingStatus} Onboarding: ${onboardingCompleted || 'Tamamlanmamış'}\n${profileExists} Profil: ${profileData ? 'Mevcut' : 'Yok'}\n${treatmentExists} Tedavi Planı: ${treatmentData ? 'Mevcut' : 'Yok'}`,
+          [
+            { text: 'Tamam' },
+            ...(profileData ? [{
+              text: 'Profil Detayları',
+              onPress: () => {
+                try {
+                  const profile = JSON.parse(profileData);
+                  Alert.alert(
+                    '📋 Profil Detayları',
+                    `İsim: ${profile.name || 'N/A'}\nYaş: ${profile.demographics?.age || 'N/A'}\nY-BOCS Puanı: ${profile.ybocsScore || 'N/A'}`
+                  );
+                } catch (err) {
+                  Alert.alert('❌ Hata', 'Profil verisi okunamadı');
+                }
+              }
+            }] : [])
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert('❌ Hata', 'Profil bilgileri alınamadı');
+      console.error('View AI profile error:', error);
+    }
+  };
+
   const handleDataExport = async () => {
     Alert.alert(
       'Verilerinizi İndirin',
@@ -363,6 +435,29 @@ export default function SettingsScreen() {
             )}
           </View>
         </View>
+
+
+
+        {/* Developer Tools (only in dev mode) */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🛠️ Geliştirici Araçları</Text>
+            <View style={styles.sectionContent}>
+              {renderActionItem(
+                '🤖 AI Profil Durumunu Görüntüle',
+                'account-details',
+                handleViewAIProfile,
+                false
+              )}
+              {renderActionItem(
+                '🔄 AI Onboarding\'i Yeniden Başlat',
+                'refresh',
+                handleRestartAIOnboarding,
+                true
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Account */}
         <View style={styles.section}>

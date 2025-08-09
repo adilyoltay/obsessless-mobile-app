@@ -29,6 +29,8 @@ import supabaseService from '@/services/supabase';
 import { useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
+// ✅ PRODUCTION: AI ERP Recommendations
+import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
 
 interface ERPSession {
   id: string;
@@ -46,13 +48,18 @@ interface ERPSession {
 export default function ERPScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { treatmentPlan } = useAIUserData();
+  const { treatmentPlan, userProfile } = useAIUserData();
   const { assessRisk } = useAIActions();
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [isQuickStartVisible, setIsQuickStartVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(5);
   const [todaySessions, setTodaySessions] = useState<ERPSession[]>([]);
+  
+  // ✅ PRODUCTION: AI ERP Recommendations State
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [showAIRecommendations, setShowAIRecommendations] = useState(false);
   
   const [stats, setStats] = useState({
     todayCompleted: 0,
@@ -105,9 +112,13 @@ export default function ERPScreen() {
     if (user?.id) {
       migrateTestData().then(() => {
         loadAllStats();
+        // ✅ PRODUCTION: Load AI recommendations when user profile is ready
+        if (userProfile && treatmentPlan) {
+          loadAIRecommendations();
+        }
       });
     }
-  }, [user]);
+  }, [user, userProfile, treatmentPlan]);
 
   // Refresh stats when screen is focused (after returning from ERP session)
   useFocusEffect(
@@ -122,6 +133,44 @@ export default function ERPScreen() {
   useEffect(() => {
     setDisplayLimit(5);
   }, [selectedTimeRange]);
+
+  // ✅ PRODUCTION: AI ERP Recommendations loader
+  const loadAIRecommendations = async () => {
+    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING')) {
+      return;
+    }
+
+    if (!userProfile || !treatmentPlan) {
+      console.log('⚠️ User profile or treatment plan not available for AI recommendations');
+      return;
+    }
+
+    try {
+      setIsLoadingRecommendations(true);
+      console.log('🤖 Loading AI ERP recommendations...');
+
+      // Get personalized recommendations
+      const recommendationResult = await erpRecommendationService.getPersonalizedRecommendations(
+        user.id,
+        {
+          userProfile,
+          treatmentPlan
+        }
+      );
+
+      setAiRecommendations(recommendationResult.recommendedExercises || []);
+      setShowAIRecommendations(true);
+      
+      console.log('✅ AI ERP recommendations loaded:', recommendationResult.recommendedExercises?.length || 0);
+
+    } catch (error) {
+      console.warn('⚠️ AI ERP recommendations failed, using fallback:', error);
+      setAiRecommendations([]);
+      setShowAIRecommendations(false);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
 
   const loadAllStats = async () => {
     if (!user?.id) return;
@@ -263,6 +312,10 @@ export default function ERPScreen() {
     setRefreshing(true);
     setDisplayLimit(5);
     await loadAllStats();
+    // ✅ PRODUCTION: Refresh AI recommendations
+    if (userProfile && treatmentPlan) {
+      await loadAIRecommendations();
+    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(false);
   };
@@ -485,6 +538,92 @@ export default function ERPScreen() {
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
             <TreatmentPlanPreview plan={treatmentPlan} compact />
+          </View>
+        )}
+
+        {/* ✅ PRODUCTION: AI ERP Recommendations */}
+        {showAIRecommendations && aiRecommendations.length > 0 && (
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <View style={styles.aiRecommendationsHeader}>
+              <Text style={styles.sectionTitle}>🤖 AI Önerileri</Text>
+              <Text style={styles.aiRecommendationsSubtitle}>
+                Size özel seçilmiş egzersizler
+              </Text>
+            </View>
+            
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.aiRecommendationsScroll}
+              contentContainerStyle={styles.aiRecommendationsContent}
+            >
+              {aiRecommendations.slice(0, 3).map((recommendation, index) => (
+                <Pressable
+                  key={recommendation.exerciseId || index}
+                  style={styles.aiRecommendationCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Auto-select this AI recommended exercise
+                    const exerciseConfig = {
+                      exerciseId: recommendation.exerciseId,
+                      exerciseType: 'real_life',
+                      duration: recommendation.estimatedDuration || 30,
+                      targetAnxiety: 5,
+                      personalGoal: `AI önerisi: ${recommendation.title}`,
+                      category: recommendation.category || 'in_vivo',
+                      categoryName: recommendation.category || 'AI Önerisi',
+                    };
+                    handleExerciseSelect(exerciseConfig);
+                  }}
+                >
+                  <View style={styles.aiRecommendationHeader}>
+                    <Text style={styles.aiRecommendationTitle}>
+                      {recommendation.title}
+                    </Text>
+                    <View style={[styles.difficultyBadge, {
+                      backgroundColor: recommendation.difficulty <= 2 ? '#D1FAE5' : 
+                                     recommendation.difficulty <= 3 ? '#FEF3C7' : '#FEE2E2'
+                    }]}>
+                      <Text style={[styles.difficultyText, {
+                        color: recommendation.difficulty <= 2 ? '#065F46' : 
+                               recommendation.difficulty <= 3 ? '#92400E' : '#991B1B'
+                      }]}>
+                        {recommendation.difficulty}/5
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.aiRecommendationDescription} numberOfLines={2}>
+                    {recommendation.description}
+                  </Text>
+                  
+                  <View style={styles.aiRecommendationFooter}>
+                    <Text style={styles.aiRecommendationDuration}>
+                      ⏱️ {recommendation.estimatedDuration || 30} dk
+                    </Text>
+                    <Text style={styles.aiRecommendationCategory}>
+                      📋 {recommendation.category}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* AI Recommendations Loading */}
+        {isLoadingRecommendations && (
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <View style={styles.aiLoadingCard}>
+              <MaterialCommunityIcons 
+                name="robot" 
+                size={24} 
+                color="#10B981" 
+              />
+              <Text style={styles.aiLoadingText}>
+                AI size özel egzersizler hazırlıyor...
+              </Text>
+            </View>
           </View>
         )}
 
@@ -807,6 +946,102 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#374151',
+    fontFamily: 'Inter',
+  },
+
+  // ✅ PRODUCTION: AI Recommendations Styles
+  aiRecommendationsHeader: {
+    marginBottom: 12,
+  },
+  aiRecommendationsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    fontFamily: 'Inter',
+  },
+  aiRecommendationsScroll: {
+    marginTop: 8,
+  },
+  aiRecommendationsContent: {
+    paddingHorizontal: 4,
+  },
+  aiRecommendationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginRight: 12,
+    width: 280,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiRecommendationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  aiRecommendationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+    flex: 1,
+    marginRight: 8,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  aiRecommendationDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 12,
+    fontFamily: 'Inter',
+  },
+  aiRecommendationFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  aiRecommendationDuration: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '500',
+    fontFamily: 'Inter',
+  },
+  aiRecommendationCategory: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  aiLoadingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  aiLoadingText: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 12,
     fontFamily: 'Inter',
   },
 

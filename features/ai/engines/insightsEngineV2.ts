@@ -243,7 +243,11 @@ class InsightsEngineV2 {
    */
   async generateInsights(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Insights Engine v2.0 is not enabled');
+      const error = new Error('Insights Engine v2.0 is not enabled');
+      (error as any).code = AIErrorCode.FEATURE_DISABLED;
+      (error as any).severity = ErrorSeverity.MEDIUM;
+      (error as any).recoverable = true;
+      throw error;
     }
 
     const userId = context.userId;

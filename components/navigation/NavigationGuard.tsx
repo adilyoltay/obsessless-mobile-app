@@ -136,26 +136,37 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             console.log('🧭 Final profile check result:', { isProfileComplete });
             
-            // If AI Onboarding v2 is enabled and not completed, force onboarding v2
-            if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2') && !aiOnboardingCompleted) {
-              if (currentPath !== '(auth)/ai-onboarding' && !inAuthGroup) {
-                console.log('👤 Redirecting to AI Onboarding v2');
-                setTimeout(() => {
-                  try {
-                    hasNavigatedRef.current = true;
-                    router.push('/(auth)/ai-onboarding');
-                  } catch (error) {
-                    console.error('AI Onboarding navigation error:', error);
-                    hasNavigatedRef.current = true;
-                    router.push('/ai-onboarding');
-                  }
-                }, 100);
-                return;
+            // AI Onboarding v2 is primary onboarding method
+            if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+              if (!aiOnboardingCompleted) {
+                if (currentPath !== '(auth)/ai-onboarding' && !inAuthGroup) {
+                  console.log('👤 Redirecting to AI Onboarding v2 - not completed');
+                  console.log('🔄 Navigation details:', { currentPath, inAuthGroup, hasNavigated: hasNavigatedRef.current });
+                  
+                  setTimeout(() => {
+                    try {
+                      console.log('🚀 Attempting navigation to AI onboarding...');
+                      hasNavigatedRef.current = true;
+                      router.push('/(auth)/ai-onboarding');
+                      console.log('✅ Navigation command sent successfully');
+                    } catch (error) {
+                      console.error('❌ AI Onboarding navigation error:', error);
+                      console.log('🔄 Trying fallback navigation...');
+                      hasNavigatedRef.current = true;
+                      router.push('/ai-onboarding');
+                    }
+                  }, 200); // Increased timeout
+                  return;
+                } else {
+                  console.log('🧭 Already in AI onboarding, staying here');
+                }
+              } else {
+                console.log('🧭 Already in AI onboarding screen, allowing access');
               }
             } else if (!isProfileComplete) {
-              // Profile not completed - redirect to onboarding
+              // Fallback: Classic onboarding
               if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
-                console.log('👤 Redirecting to onboarding - profile incomplete');
+                console.log('👤 Redirecting to classic onboarding - profile incomplete');
                 setTimeout(() => {
                   try {
                     hasNavigatedRef.current = true;

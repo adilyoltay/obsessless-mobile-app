@@ -524,7 +524,18 @@ export const isAIMessage = (obj: any): obj is AIMessage => {
          typeof obj.id === 'string' &&
          typeof obj.content === 'string' &&
          ['user', 'assistant', 'system'].includes(obj.role) &&
-         obj.timestamp instanceof Date;
+         (obj.timestamp instanceof Date || (obj.timestamp && !isNaN(new Date(obj.timestamp).getTime())));
+};
+
+/**
+ * Type guard for AIError
+ */
+export const isAIError = (obj: any): obj is AIError => {
+  return obj && 
+         typeof obj.code === 'string' &&
+         typeof obj.message === 'string' &&
+         Object.values(AIErrorCode).includes(obj.code) &&
+         Object.values(ErrorSeverity).includes(obj.severity);
 };
 
 /**
