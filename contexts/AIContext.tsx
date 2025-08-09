@@ -12,10 +12,10 @@
  * ✅ Error handling & recovery
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
-import { InteractionManager } from 'react-native';
+import { InteractionManager, Alert } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
 // Auth
@@ -38,6 +38,7 @@ import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/fe
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 import { artTherapyEngine } from '@/features/ai/artTherapy/artTherapyEngine';
 import { useAIChatStore } from '@/features/ai/store/aiChatStore';
+import { offlineSyncService } from '@/services/offlineSync';
 
 // Types
 import type { 
@@ -108,6 +109,7 @@ interface AIProviderProps {
 export function AIProvider({ children }: AIProviderProps) {
   const { user } = useAuth();
   const chatStore = useAIChatStore();
+  const offlineAlertShown = useRef(false);
   
   // Service Status
   const [isInitialized, setIsInitialized] = useState(false);
@@ -459,7 +461,27 @@ export function AIProvider({ children }: AIProviderProps) {
     // Offline fallback
     if (!isOnline) {
       console.warn('📱 Offline mode: Using cached insights');
-      
+
+      offlineSyncService.addAIRequest(async () => {
+        if (!user?.id) return;
+        const todayData = {
+          date: new Date().toDateString(),
+          userId: user.id,
+          profile: userProfile,
+          treatmentPlan
+        };
+
+        if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === 'function') {
+          const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
+          if (insights && insights.length > 0) {
+            await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({
+              insights,
+              timestamp: Date.now()
+            }));
+          }
+        }
+      });
+
       try {
         const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
         if (cachedInsights) {
@@ -533,6 +555,17 @@ export function AIProvider({ children }: AIProviderProps) {
       return null;
     }
 
+    if (!isOnline) {
+      offlineSyncService.addAIRequest(async () => {
+        const riskData = { userProfile, treatmentPlan };
+        const assessment = await riskAssessmentService.assessRisk(userId, riskData);
+        setCurrentRiskAssessment(assessment);
+        const riskKey = `ai_risk_assessment_${userId}`;
+        await AsyncStorage.setItem(riskKey, JSON.stringify(assessment));
+      });
+      return null;
+    }
+
     try {
       const riskData = {
         userProfile,
@@ -551,13 +584,24 @@ export function AIProvider({ children }: AIProviderProps) {
       console.error('❌ Error assessing risk:', error);
       return null;
     }
-  }, [user?.id, userProfile, treatmentPlan]);
+  }, [user?.id, userProfile, treatmentPlan, isOnline]);
 
   /**
    * 🎯 Trigger Intervention
    */
   const triggerIntervention = useCallback(async (context: any): Promise<void> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
+      return;
+    }
+
+    if (!isOnline) {
+      offlineSyncService.addAIRequest(async () => {
+        await adaptiveInterventions.triggerIntervention(user.id, {
+          ...context,
+          userProfile,
+          riskLevel: currentRiskAssessment?.riskLevel
+        });
+      });
       return;
     }
 
@@ -570,7 +614,7 @@ export function AIProvider({ children }: AIProviderProps) {
     } catch (error) {
       console.error('❌ Error triggering intervention:', error);
     }
-  }, [user?.id, userProfile, currentRiskAssessment]);
+  }, [user?.id, userProfile, currentRiskAssessment, isOnline]);
 
   /**
    * 🌐 Network Status Monitoring
@@ -586,6 +630,14 @@ export function AIProvider({ children }: AIProviderProps) {
       setIsConnected(state.isConnected ?? false);
       setIsOnline(state.isInternetReachable ?? false);
       setNetworkType(state.type || null);
+
+      if (!(state.isInternetReachable ?? false) && !offlineAlertShown.current) {
+        Alert.alert('Çevrimdışı', 'Öneriler daha sonra yüklenecek');
+        offlineAlertShown.current = true;
+      }
+      if (state.isInternetReachable) {
+        offlineAlertShown.current = false;
+      }
       
       // Track network changes for telemetry
       trackAIInteraction(AIEventType.SYSTEM_STATUS, {
