@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // AI Onboarding V2
-import { OnboardingFlowV2 } from '@/features/ai/components/onboarding/OnboardingFlowV2';
+import { OnboardingFlowV3 } from '@/features/ai/components/onboarding/OnboardingFlowV3';
 
 // Feature Flags
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -130,10 +130,10 @@ export default function OnboardingScreen() {
     );
   }
 
-  // Use AI Onboarding V2 if enabled
+  // Use AI Onboarding V3 if enabled
   if (useAIOnboarding) {
     return (
-      <OnboardingFlowV2
+      <OnboardingFlowV3
         userId={user.id}
         onComplete={handleOnboardingComplete}
         onExit={handleOnboardingExit}
