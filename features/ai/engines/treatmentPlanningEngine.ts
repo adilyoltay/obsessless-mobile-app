@@ -36,6 +36,8 @@ import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
+import { useOnboardingStore } from '@/store/onboardingStore';
 
 // =============================================================================
 // 🎯 EVIDENCE-BASED TREATMENT PROTOCOLS
@@ -1026,8 +1028,27 @@ class AdaptiveTreatmentPlanningEngine {
   private generateFallbackStrategies(risk: RiskAssessment): any[] { return []; }
   private generateEmergencyProtocols(risk: RiskAssessment, context: CulturalContext): any[] { return []; }
   private extractUserIdFromProfile(profile: UserTherapeuticProfile): string { return 'user_123'; }
-  private persistTreatmentPlan(plan: TreatmentPlan): Promise<void> { 
-    return AsyncStorage.setItem(`treatment_plan_${plan.id}`, JSON.stringify(plan)); 
+  private async persistTreatmentPlan(plan: TreatmentPlan): Promise<void> {
+    try {
+      await AsyncStorage.setItem(`treatment_plan_${plan.id}`, JSON.stringify(plan));
+    } catch (error) {
+      console.error('AsyncStorage save failed:', error);
+    }
+
+    try {
+      await supabaseService.supabaseClient
+        .from('treatment_plans')
+        .upsert({ user_id: plan.userId, plan });
+      console.log('✅ Treatment plan saved to database');
+    } catch (error) {
+      console.error('❌ Failed to save treatment plan:', error);
+    }
+
+    try {
+      await useOnboardingStore.getState().completeOnboarding(plan.userId);
+    } catch (err) {
+      console.error('❌ Onboarding store update failed:', err);
+    }
   }
   private analyzeProgress(data: any, plan: TreatmentPlan): any { return {}; }
   private makeAdaptationDecisions(analysis: any, plan: TreatmentPlan, data: any): Promise<any> { return Promise.resolve({}); }
