@@ -6,18 +6,11 @@ import * as Linking from 'expo-linking';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-// 🚨 CRITICAL SECURITY CHECK: No fallback values for security
+// 🚨 CRITICAL SECURITY CHECK: App should not start without credentials
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('🚨 CRITICAL: Supabase credentials missing from environment variables');
-  console.error('Required: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY');
-  
-  // Production'da güvenli bir şekilde app'i kapatmak yerine hata fırlat
-  if (!__DEV__) {
-    throw new Error('SUPABASE_CREDENTIALS_MISSING: Application cannot start without proper credentials');
-  }
-  
-  console.warn('⚠️ Development mode: Using demo credentials for testing');
-  // Development'da fallback sadece test için
+  console.error('Required: EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY');
+  throw new Error('SUPABASE_CREDENTIALS_MISSING');
 }
 
 // ===========================
