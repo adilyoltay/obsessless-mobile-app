@@ -24,6 +24,7 @@ import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/tel
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { aiManager } from '@/features/ai/config/aiManager';
 import Constants from 'expo-constants';
+import RateLimiter from '@/services/rateLimiter';
 
 // =============================================================================
 // 🎯 AI PROVIDER DEFINITIONS
@@ -125,16 +126,6 @@ interface CacheEntry {
   userId?: string;
 }
 
-/**
- * Rate limit tracker interface
- */
-interface RateLimitTracker {
-  requests: number;
-  windowStart: number;
-  windowSizeMs: number;
-  userId?: string;
-}
-
 // =============================================================================
 // 🌐 EXTERNAL AI SERVICE IMPLEMENTATION
 // =============================================================================
@@ -162,10 +153,15 @@ class ExternalAIService {
     perUser: true
   };
   private responseCache: Map<string, CacheEntry> = new Map();
-  private userRateLimits: Map<string, RateLimitTracker[]> = new Map();
+  private userRateLimiter: RateLimiter;
 
   private constructor() {
     this.initializeProviders();
+    this.userRateLimiter = new RateLimiter({
+      perMinute: this.rateLimitConfig.requestsPerMinute,
+      perHour: this.rateLimitConfig.requestsPerHour,
+      perDay: this.rateLimitConfig.requestsPerDay
+    });
   }
 
   static getInstance(): ExternalAIService {
@@ -490,7 +486,7 @@ class ExternalAIService {
   private generatePromptHash(messages: AIMessage[], context: ConversationContext, config?: AIRequestConfig): string {
     const normalizedMessages = messages.map(msg => ({
       role: msg.role,
-      content: msg.content.trim().toLowerCase()
+      content: msg.content.trim().toLowerCase().replace(/\s+/g, ' ')
     }));
     
     const hashInput = JSON.stringify({
@@ -605,46 +601,14 @@ class ExternalAIService {
    */
   private async checkUserRateLimit(userId?: string): Promise<void> {
     if (!this.rateLimitConfig.enabled || !userId) return;
-
-    const now = Date.now();
-    const userLimits = this.userRateLimits.get(userId) || [];
-
-    // Expired trackers'ları temizle
-    const validLimits = userLimits.filter(limit => 
-      (now - limit.windowStart) < limit.windowSizeMs
-    );
-
-    // Current windows için tracker'ları oluştur
-    const windows = [
-      { sizeMs: 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerMinute }, // 1 minute
-      { sizeMs: 60 * 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerHour }, // 1 hour  
-      { sizeMs: 24 * 60 * 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerDay } // 1 day
-    ];
-
-    for (const window of windows) {
-      const windowTracker = validLimits.find(limit => limit.windowSizeMs === window.sizeMs);
-      
-      if (windowTracker) {
-        if (windowTracker.requests >= window.maxRequests) {
-          const resetTime = new Date(windowTracker.windowStart + window.sizeMs);
-          const error = new Error(`Rate limit exceeded. Resets at: ${resetTime.toISOString()}`);
-          (error as any).code = AIErrorCode.RATE_LIMIT;
-          (error as any).severity = ErrorSeverity.MEDIUM;
-          (error as any).recoverable = true;
-          throw error;
-        }
-        windowTracker.requests++;
-      } else {
-        validLimits.push({
-          requests: 1,
-          windowStart: now,
-          windowSizeMs: window.sizeMs,
-          userId
-        });
-      }
+    try {
+      this.userRateLimiter.check(userId);
+    } catch (error) {
+      (error as any).code = AIErrorCode.RATE_LIMIT;
+      (error as any).severity = ErrorSeverity.MEDIUM;
+      (error as any).recoverable = true;
+      throw error;
     }
-
-    this.userRateLimits.set(userId, validLimits);
   }
 
   // =============================================================================

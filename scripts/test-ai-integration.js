@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { RateLimiter } = require('../services/rateLimiter.js');
 
 // Test Results
 const results = {
@@ -89,6 +90,55 @@ function testFileStructure() {
   });
 }
 
+function testCacheLayer() {
+  console.log('\n🗃️ Testing Cache Layer...');
+
+  class SimpleCache {
+    constructor(ttl) {
+      this.ttl = ttl;
+      this.store = new Map();
+    }
+    normalize(prompt) {
+      return prompt.trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+    get(prompt) {
+      const key = this.normalize(prompt);
+      const entry = this.store.get(key);
+      if (!entry) return null;
+      if (Date.now() - entry.time > this.ttl) {
+        this.store.delete(key);
+        return null;
+      }
+      return entry.value;
+    }
+    set(prompt, value) {
+      const key = this.normalize(prompt);
+      this.store.set(key, { value, time: Date.now() });
+    }
+  }
+
+  const cache = new SimpleCache(10 * 60 * 1000);
+  const miss = cache.get('Hello world') === null;
+  cache.set('Hello world', 'response');
+  const hit = cache.get('  hello   world  ') === 'response';
+  logTest('Cache miss before set', miss);
+  logTest('Cache hit after set', hit);
+}
+
+function testRateLimiterModule() {
+  console.log('\n🚦 Testing Rate Limiter...');
+  const limiter = new RateLimiter({ perMinute: 2, perHour: 2, perDay: 2 });
+  let violated = false;
+  try {
+    limiter.check('user1');
+    limiter.check('user1');
+    limiter.check('user1');
+  } catch (e) {
+    violated = true;
+  }
+  logTest('Rate limit violation throws error', violated);
+}
+
 function generateReport() {
   const passed = results.tests.filter(t => t.passed).length;
   const total = results.tests.length;
@@ -129,7 +179,9 @@ function runTests() {
   testFeatureFlags();
   testAIContextPerformance();
   testFileStructure();
-  
+  testCacheLayer();
+  testRateLimiterModule();
+
   generateReport();
   
   const passRate = (results.tests.filter(t => t.passed).length / results.tests.length) * 100;
