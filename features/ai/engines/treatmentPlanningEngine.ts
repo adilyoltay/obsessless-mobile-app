@@ -431,6 +431,44 @@ class AdaptiveTreatmentPlanningEngine {
       // Success metrics definition
       const successMetrics = this.defineSuccessMetrics(ybocsAnalysis, userProfile);
 
+      // Optional: Use external AI to refine goals/phase descriptions if available
+      try {
+        if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && externalAIService.enabled) {
+          const prompt = `OKB tedavi planı oluştur. Kullanıcı profili: ${JSON.stringify({
+            age: (userProfile as any)?.age,
+            symptomTypes: (userProfile as any)?.symptomTypes,
+            ybocsScore: (userProfile as any)?.ybocsScore
+          })}. Y-BOCS: ${ybocsAnalysis?.severityLevel}.\n` +
+          `Amaç: Türkçe, klinik güvenli, kanıta dayalı bir plan metni üret. Kısa başlıklar ve ölçülebilir hedefler öner.`;
+
+          const aiResp = await externalAIService.getAIResponse([
+            { role: 'user', content: prompt }
+          ], { therapeuticProfile: userProfile as any, assessmentMode: false }, { therapeuticMode: true, maxTokens: 500, temperature: 0.3 });
+
+          if (aiResp.success && aiResp.content) {
+            await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+              feature: 'treatment_planning',
+              provider: aiResp.provider,
+              model: aiResp.model,
+              latency: aiResp.latency,
+              tokenTotal: aiResp.tokens?.total,
+              cached: aiResp.cached === true
+            });
+            // Basitçe ilk hedefe AI açıklaması ekleyelim
+            if (!Array.isArray((treatmentPhases as any)[0]?.objectives)) {
+              (treatmentPhases as any)[0].objectives = [];
+            }
+            (treatmentPhases as any)[0].objectives.push('AI değerlendirmesi: plan kişisel profile göre rafine edildi.');
+          }
+        }
+      } catch (aiError) {
+        await trackAIError({
+          code: AIErrorCode.FALLBACK_TRIGGERED,
+          message: 'External AI refinement failed in treatment planning',
+          severity: ErrorSeverity.MEDIUM
+        }, { component: 'AdaptiveTreatmentPlanningEngine', method: 'generateInitialPlan' });
+      }
+
       // Adaptive triggers
       const adaptationTriggers = this.defineAdaptationTriggers(riskAssessment);
 

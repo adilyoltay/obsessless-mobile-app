@@ -14,6 +14,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
 import { InteractionManager } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -314,23 +315,63 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     try {
-      // Check onboarding status
-      const onboardingKey = `ai_onboarding_completed_${userId}`;
-      const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
-      setHasCompletedOnboarding(onboardingCompleted === 'true');
+      // Check onboarding status - Supabase first then local fallback
+      let completed = false;
+      try {
+        const { data: profileRow } = await supabaseService.supabaseClient
+          .from('ai_profiles')
+          .select('onboarding_completed, profile_data')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (profileRow) {
+          completed = !!profileRow.onboarding_completed;
+          // If profile_data exists in DB, sync to local
+          if (profileRow.profile_data) {
+            setUserProfile(profileRow.profile_data);
+            await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data));
+          }
+        }
+      } catch {}
 
-      // Load user profile
-      const profileKey = `ai_user_profile_${userId}`;
-      const profileData = await AsyncStorage.getItem(profileKey);
-      if (profileData) {
-        setUserProfile(JSON.parse(profileData));
+      if (!completed) {
+        const onboardingKey = `ai_onboarding_completed_${userId}`;
+        const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
+        completed = onboardingCompleted === 'true';
+      }
+      setHasCompletedOnboarding(completed);
+
+      // Load user profile - prefer Supabase if available
+      if (!userProfile) {
+        const { data: profileRow } = await supabaseService.supabaseClient
+          .from('ai_profiles')
+          .select('profile_data')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (profileRow?.profile_data) {
+          setUserProfile(profileRow.profile_data);
+          await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data));
+        } else {
+          const profileKey = `ai_user_profile_${userId}`;
+          const profileData = await AsyncStorage.getItem(profileKey);
+          if (profileData) setUserProfile(JSON.parse(profileData));
+        }
       }
 
-      // Load treatment plan
-      const treatmentKey = `ai_treatment_plan_${userId}`;
-      const treatmentData = await AsyncStorage.getItem(treatmentKey);
-      if (treatmentData) {
-        setTreatmentPlan(JSON.parse(treatmentData));
+      // Load treatment plan - prefer Supabase if available
+      if (!treatmentPlan) {
+        const { data: planRow } = await supabaseService.supabaseClient
+          .from('ai_treatment_plans')
+          .select('plan_data')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (planRow?.plan_data) {
+          setTreatmentPlan(planRow.plan_data);
+          await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data));
+        } else {
+          const treatmentKey = `ai_treatment_plan_${userId}`;
+          const treatmentData = await AsyncStorage.getItem(treatmentKey);
+          if (treatmentData) setTreatmentPlan(JSON.parse(treatmentData));
+        }
       }
 
       // Load latest risk assessment

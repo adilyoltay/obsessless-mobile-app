@@ -1,3 +1,42 @@
+# AI Production Test Checklist
+
+## Hazırlık
+- [ ] app.json `extra` içinde gerçek API anahtarları: `EXPO_PUBLIC_OPENAI_API_KEY` / `EXPO_PUBLIC_GEMINI_API_KEY` / `EXPO_PUBLIC_CLAUDE_API_KEY`
+- [ ] `EXPO_PUBLIC_ENABLE_AI=true`, `EXPO_PUBLIC_AI_PROVIDER=<openai|gemini|claude>`
+- [ ] Supabase URL/Anon key tanımlı (public): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+## Onboarding Doğrulama
+- [ ] Uygulama açılışında Supabase üzerinden onboarding kontrolü yapılıyor (fallback: AsyncStorage)
+- [ ] `ai_profiles.onboarding_completed` = true olduğunda tekrar onboarding’e yönlendirme yapılmıyor
+- [ ] Ağ kesilince local fallback çalışıyor, tekrar çevrimiçi olunca Supabase ile eşitleniyor
+
+## AIContext Senkronizasyonu
+- [ ] `contexts/AIContext.tsx` Supabase’den `ai_profiles.profile_data` ve `ai_treatment_plans.plan_data` çekiyor
+- [ ] Cihazlar arası profil/plan güncellemeleri UI’a yansıyor (pull → persist local)
+
+## Treatment Planning Engine (Gerçek AI)
+- [ ] `treatmentPlanningEngine` externalAIService ile plan metnini/amaçlarını rafine ediyor
+- [ ] Telemetry’de `AI_RESPONSE_GENERATED` event’inde provider/model/latency/token raporlanıyor
+- [ ] Hata durumunda graceful fallback var
+
+## ERP Önerileri (Gerçek AI)
+- [ ] `erpRecommendationService` externalAIService ile aday egzersizleri rafine ediyor
+- [ ] Başarısızlıkta heuristik fallback devrede
+
+## Telemetry & Güvenlik
+- [ ] Sağlayıcı health check event’leri: `AI_PROVIDER_HEALTH_CHECK`, başarısızlık: `AI_PROVIDER_FAILED`
+- [ ] Tüm AI eventleri `trackAIInteraction/trackAIError` ile loglanıyor (PII yok)
+- [ ] Production’da gereksiz log yok (`__DEV__` ile sınırlı)
+
+## Supabase Senkronizasyonu
+- [ ] Onboarding bittiğinde `ai_profiles` ve `ai_treatment_plans` upsert ediliyor
+- [ ] Ağ hatasında RetryQueue devreye giriyor, bağlantı gelince otomatik senkron
+- [ ] Farklı cihazda login: Supabase’ten çekilen profil/plan local’e yazılıp UI güncelleniyor
+
+## Sonuç
+- [ ] Y-BOCS yorumları ve tedavi planı metinleri LLM’den geliyor (demo değil)
+- [ ] ERP ekranında AI önerileri görünüyor ve seçilebiliyor
+
 # ✅ **AI ÖZELLİKLERİ TEST CHECKLIST**
 
 > **Test kullanıcıları için adım adım kontrol listesi**

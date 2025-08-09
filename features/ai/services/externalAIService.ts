@@ -312,7 +312,9 @@ class ExternalAIService {
     }
 
     if (__DEV__) {
+    if (__DEV__) {
       console.log(`🔧 Loaded ${this.providers.size} AI provider configurations`);
+    }
     }
   }
 

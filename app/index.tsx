@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import supabaseService from '@/services/supabase';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -21,19 +22,40 @@ export default function Index() {
           return;
         }
 
-        // Check AI onboarding status
+        // Check AI onboarding status (Supabase first, then local fallback)
         if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-          const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
-          const aiOnboardingCompleted = await AsyncStorage.getItem(aiOnboardingKey);
-          
-          console.log('🏠 AI Onboarding check:', { 
-            key: aiOnboardingKey, 
-            value: aiOnboardingCompleted, 
-            isCompleted: aiOnboardingCompleted === 'true' 
-          });
-          
-          if (aiOnboardingCompleted !== 'true') {
-            console.log('🏠 AI Onboarding not completed, redirecting...');
+          let isCompleted = false;
+
+          try {
+            // Supabase check
+            const { data: profileRow, error } = await supabaseService.supabaseClient
+              .from('ai_profiles')
+              .select('onboarding_completed')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (!error && profileRow) {
+              isCompleted = !!profileRow.onboarding_completed;
+              if (__DEV__) {
+                console.log('🏠 Supabase onboarding status:', isCompleted);
+              }
+            }
+          } catch (e) {
+            // Silent fallback to local
+          }
+
+          if (!isCompleted) {
+            // Local fallback
+            const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+            const localCompleted = await AsyncStorage.getItem(aiOnboardingKey);
+            isCompleted = localCompleted === 'true';
+            if (__DEV__) {
+              console.log('🏠 Local AI Onboarding check:', { key: aiOnboardingKey, isCompleted });
+            }
+          }
+
+          if (!isCompleted) {
+            if (__DEV__) console.log('🏠 AI Onboarding not completed, redirecting...');
             router.replace('/(auth)/ai-onboarding');
             return;
           }
