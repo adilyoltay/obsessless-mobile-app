@@ -9,6 +9,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
   AIError, 
@@ -563,45 +564,59 @@ class AITelemetryManager {
   }
 
   /**
-   * Offline buffer'ı yükle
+   * Offline buffer'ı background'da yükle
    */
   private async loadOfflineBuffer(): Promise<void> {
-    try {
-      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
-      if (stored) {
-        const events: TelemetryEvent[] = JSON.parse(stored);
-        this.eventBuffer.push(...events);
-        
-        // Stored events'i temizle
-        await AsyncStorage.removeItem('ai_telemetry_offline');
+    // UI thread'i bloklamak için InteractionManager kullan
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+        if (stored) {
+          const events: TelemetryEvent[] = JSON.parse(stored);
+          this.eventBuffer.push(...events);
+          
+          // Buffer size limit kontrol et
+          this.eventBuffer = this.eventBuffer.slice(-this.config.bufferSize);
+          
+          // Stored events'i temizle
+          await AsyncStorage.removeItem('ai_telemetry_offline');
+          console.log(`📊 Loaded ${events.length} offline telemetry events`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load offline telemetry buffer:', error);
+        // Telemetry hatasını da track et (recursive error prevention ile)
+        this.trackTelemetryError('loadOfflineBuffer', error);
       }
-    } catch (error) {
-      console.error('Error loading offline buffer:', error);
-    }
+    });
   }
 
   /**
-   * Event'leri storage'a kaydet
+   * Event'leri background'da storage'a kaydet
    */
   private async saveEventsToStorage(events: TelemetryEvent[]): Promise<void> {
-    try {
-      // Retention policy uygula - eski event'leri filtrele
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - this.config.maxRetentionDays);
-      
-      const filteredEvents = events.filter(event => 
-        new Date(event.timestamp) > cutoffDate
-      );
-
-      if (filteredEvents.length > 0) {
-        await AsyncStorage.setItem(
-          'ai_telemetry_offline',
-          JSON.stringify(filteredEvents)
+    // UI thread'i bloklamadan background'da kaydet
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Retention policy uygula - eski event'leri filtrele
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - this.config.maxRetentionDays);
+        
+        const filteredEvents = events.filter(event => 
+          new Date(event.timestamp) > cutoffDate
         );
+
+        if (filteredEvents.length > 0) {
+          await AsyncStorage.setItem(
+            'ai_telemetry_offline',
+            JSON.stringify(filteredEvents)
+          );
+        }
+      } catch (error) {
+        console.error('❌ Error saving events to storage:', error);
+        // Storage hatasını da track et (recursive prevention ile)
+        this.trackTelemetryError('saveEventsToStorage', error);
       }
-    } catch (error) {
-      console.error('Error saving events to storage:', error);
-    }
+    });
   }
 
   /**
@@ -649,6 +664,25 @@ class AITelemetryManager {
       await AsyncStorage.removeItem('ai_telemetry_offline');
     } catch (error) {
       console.error('Error clearing stored events:', error);
+    }
+  }
+
+  /**
+   * Telemetry internal error tracking (recursive prevention ile)
+   */
+  private trackTelemetryError(operation: string, error: any): void {
+    // Recursive telemetry error'larını önlemek için basit console log
+    console.error(`📊 Telemetry Internal Error [${operation}]:`, error);
+    
+    // Critical olmayan internal telemetry hatalarını session'da sayar
+    if (!this.sessionId.includes('_error_count')) {
+      // İlk hata için suffix ekle
+      this.sessionId += '_error_count_1';
+    } else {
+      // Hata sayısını artır
+      const parts = this.sessionId.split('_error_count_');
+      const count = parseInt(parts[1] || '0') + 1;
+      this.sessionId = parts[0] + '_error_count_' + count;
     }
   }
 

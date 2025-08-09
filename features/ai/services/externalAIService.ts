@@ -9,6 +9,7 @@
  * ⚠️ Feature flag kontrolü: AI_EXTERNAL_API
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
   AIMessage, 
@@ -88,6 +89,49 @@ export interface EnhancedAIResponse {
   fallbackUsed?: boolean;
   timestamp: Date;
   requestId: string;
+  cached?: boolean; // Cache'den gelip gelmediği
+}
+
+/**
+ * Cache configuration
+ */
+export interface CacheConfig {
+  enabled: boolean;
+  ttlMs: number; // Time to live in milliseconds
+  maxSize: number; // Maximum cache entries
+  useStorage: boolean; // Use AsyncStorage for persistence
+}
+
+/**
+ * Rate limiting configuration
+ */
+export interface RateLimitConfig {
+  enabled: boolean;
+  requestsPerMinute: number;
+  requestsPerHour: number;
+  requestsPerDay: number;
+  perUser: boolean; // Rate limit per user vs global
+}
+
+/**
+ * Cache entry interface
+ */
+interface CacheEntry {
+  response: EnhancedAIResponse;
+  timestamp: number;
+  ttl: number;
+  promptHash: string;
+  userId?: string;
+}
+
+/**
+ * Rate limit tracker interface
+ */
+interface RateLimitTracker {
+  requests: number;
+  windowStart: number;
+  windowSizeMs: number;
+  userId?: string;
 }
 
 // =============================================================================
@@ -101,6 +145,23 @@ class ExternalAIService {
   private activeProvider: AIProvider | null = null;
   private requestQueue: Map<string, Promise<EnhancedAIResponse>> = new Map();
   private rateLimiter: Map<AIProvider, { count: number; resetTime: number }> = new Map();
+
+  // Cache & Rate Limiting
+  private cacheConfig: CacheConfig = {
+    enabled: true,
+    ttlMs: 10 * 60 * 1000, // 10 minutes
+    maxSize: 100,
+    useStorage: true
+  };
+  private rateLimitConfig: RateLimitConfig = {
+    enabled: true,
+    requestsPerMinute: 60,
+    requestsPerHour: 1000,
+    requestsPerDay: 10000,
+    perUser: true
+  };
+  private responseCache: Map<string, CacheEntry> = new Map();
+  private userRateLimits: Map<string, RateLimitTracker[]> = new Map();
 
   private constructor() {
     this.initializeProviders();
@@ -274,16 +335,184 @@ class ExternalAIService {
   }
 
   // =============================================================================
+  // 🗂️ CACHE & RATE LIMITING METHODS
+  // =============================================================================
+
+  /**
+   * Normalize edilmiş prompt hash oluştur
+   */
+  private generatePromptHash(messages: AIMessage[], context: ConversationContext, config?: AIRequestConfig): string {
+    const normalizedMessages = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content.trim().toLowerCase()
+    }));
+    
+    const hashInput = JSON.stringify({
+      messages: normalizedMessages,
+      provider: config?.provider || this.activeProvider,
+      model: config?.model,
+      temperature: config?.temperature || 0.7,
+      therapeuticMode: config?.therapeuticMode !== false
+    });
+    
+    // Simple hash function - production'da crypto hash kullanılmalı
+    let hash = 0;
+    for (let i = 0; i < hashInput.length; i++) {
+      const char = hashInput.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16);
+  }
+
+  /**
+   * Cache'den response al
+   */
+  private async getCachedResponse(promptHash: string, userId?: string): Promise<EnhancedAIResponse | null> {
+    if (!this.cacheConfig.enabled) return null;
+
+    // Memory cache kontrolü
+    const memoryCached = this.responseCache.get(promptHash);
+    if (memoryCached && this.isCacheEntryValid(memoryCached)) {
+      console.log('📦 Cache hit (memory):', promptHash.substring(0, 8));
+      return { ...memoryCached.response, cached: true };
+    }
+
+    // AsyncStorage cache kontrolü
+    if (this.cacheConfig.useStorage) {
+      try {
+        const storedCache = await AsyncStorage.getItem(`ai_cache_${promptHash}`);
+        if (storedCache) {
+          const cacheEntry: CacheEntry = JSON.parse(storedCache);
+          if (this.isCacheEntryValid(cacheEntry)) {
+            // Memory cache'e de ekle
+            this.responseCache.set(promptHash, cacheEntry);
+            console.log('📦 Cache hit (storage):', promptHash.substring(0, 8));
+            return { ...cacheEntry.response, cached: true };
+          } else {
+            // Expired cache'i temizle
+            await AsyncStorage.removeItem(`ai_cache_${promptHash}`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Cache read error:', error);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Response'u cache'le
+   */
+  private async cacheResponse(promptHash: string, response: EnhancedAIResponse, userId?: string): Promise<void> {
+    if (!this.cacheConfig.enabled || !response.success) return;
+
+    const cacheEntry: CacheEntry = {
+      response: { ...response, cached: false }, // Cache flag'i kaldır
+      timestamp: Date.now(),
+      ttl: this.cacheConfig.ttlMs,
+      promptHash,
+      userId
+    };
+
+    // Memory cache
+    this.responseCache.set(promptHash, cacheEntry);
+    this.cleanupMemoryCache();
+
+    // AsyncStorage cache
+    if (this.cacheConfig.useStorage) {
+      try {
+        await AsyncStorage.setItem(`ai_cache_${promptHash}`, JSON.stringify(cacheEntry));
+      } catch (error) {
+        console.error('❌ Cache write error:', error);
+      }
+    }
+
+    console.log('📦 Response cached:', promptHash.substring(0, 8));
+  }
+
+  /**
+   * Cache entry'sinin geçerli olup olmadığını kontrol et
+   */
+  private isCacheEntryValid(entry: CacheEntry): boolean {
+    const now = Date.now();
+    return (now - entry.timestamp) < entry.ttl;
+  }
+
+  /**
+   * Memory cache'i temizle
+   */
+  private cleanupMemoryCache(): void {
+    if (this.responseCache.size <= this.cacheConfig.maxSize) return;
+
+    // En eski entry'leri sil
+    const entries = Array.from(this.responseCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    
+    const toDelete = entries.slice(0, entries.length - this.cacheConfig.maxSize);
+    toDelete.forEach(([key]) => this.responseCache.delete(key));
+  }
+
+  /**
+   * User-specific rate limit kontrolü
+   */
+  private async checkUserRateLimit(userId?: string): Promise<void> {
+    if (!this.rateLimitConfig.enabled || !userId) return;
+
+    const now = Date.now();
+    const userLimits = this.userRateLimits.get(userId) || [];
+
+    // Expired trackers'ları temizle
+    const validLimits = userLimits.filter(limit => 
+      (now - limit.windowStart) < limit.windowSizeMs
+    );
+
+    // Current windows için tracker'ları oluştur
+    const windows = [
+      { sizeMs: 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerMinute }, // 1 minute
+      { sizeMs: 60 * 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerHour }, // 1 hour  
+      { sizeMs: 24 * 60 * 60 * 1000, maxRequests: this.rateLimitConfig.requestsPerDay } // 1 day
+    ];
+
+    for (const window of windows) {
+      const windowTracker = validLimits.find(limit => limit.windowSizeMs === window.sizeMs);
+      
+      if (windowTracker) {
+        if (windowTracker.requests >= window.maxRequests) {
+          const resetTime = new Date(windowTracker.windowStart + window.sizeMs);
+          const error = new Error(`Rate limit exceeded. Resets at: ${resetTime.toISOString()}`);
+          (error as any).code = AIErrorCode.RATE_LIMIT;
+          (error as any).severity = ErrorSeverity.MEDIUM;
+          (error as any).recoverable = true;
+          throw error;
+        }
+        windowTracker.requests++;
+      } else {
+        validLimits.push({
+          requests: 1,
+          windowStart: now,
+          windowSizeMs: window.sizeMs,
+          userId
+        });
+      }
+    }
+
+    this.userRateLimits.set(userId, validLimits);
+  }
+
+  // =============================================================================
   // 🎯 CORE AI METHODS
   // =============================================================================
 
   /**
-   * AI'dan yanıt al - Ana metod
+   * AI'dan yanıt al - Ana metod (Cache & Rate Limiting ile)
    */
   async getAIResponse(
     messages: AIMessage[],
     context: ConversationContext,
-    config?: AIRequestConfig
+    config?: AIRequestConfig,
+    userId?: string
   ): Promise<EnhancedAIResponse> {
     if (!this.isEnabled) {
       const error = new Error('External AI Service is not enabled');
@@ -297,7 +526,30 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
-      // Rate limiting kontrolü
+      // User-specific rate limiting kontrolü
+      await this.checkUserRateLimit(userId);
+
+      // Cache kontrolü
+      const promptHash = this.generatePromptHash(messages, context, config);
+      const cachedResponse = await this.getCachedResponse(promptHash, userId);
+      if (cachedResponse) {
+        cachedResponse.requestId = requestId;
+        
+        // Cache hit telemetry
+        await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+          provider: cachedResponse.provider,
+          model: cachedResponse.model,
+          success: true,
+          latency: Date.now() - startTime,
+          tokens: cachedResponse.tokens.total,
+          cached: true,
+          userId: userId
+        });
+        
+        return cachedResponse;
+      }
+
+      // Provider-level rate limiting kontrolü (backward compatibility)
       await this.checkRateLimit(config?.provider || this.activeProvider!);
 
       // Provider seç
@@ -350,6 +602,11 @@ class ExternalAIService {
       // Provider statistics güncelle
       this.updateProviderStats(provider, response.success);
 
+      // Cache successful responses
+      if (response.success && !response.filtered) {
+        await this.cacheResponse(promptHash, response, userId);
+      }
+
       // Telemetry
       await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
         provider,
@@ -358,7 +615,9 @@ class ExternalAIService {
         latency: response.latency,
         tokens: response.tokens.total,
         filtered: response.filtered,
-        fallbackUsed: response.fallbackUsed
+        fallbackUsed: response.fallbackUsed,
+        cached: false,
+        userId: userId
       });
 
       return response;

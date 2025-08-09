@@ -290,27 +290,41 @@ export function AIProvider({ children }: AIProviderProps) {
    * 📊 Load User AI Data
    */
   const loadUserAIData = async (): Promise<void> => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.warn('⚠️ loadUserAIData: No user ID available');
+      return;
+    }
+
+    // Güvenli user ID kontrolü
+    const userId = user.id;
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      console.error('❌ loadUserAIData: Invalid user ID:', userId);
+      return;
+    }
 
     try {
       // Check onboarding status
-      const onboardingCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${user.id}`);
+      const onboardingKey = `ai_onboarding_completed_${userId}`;
+      const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
       setHasCompletedOnboarding(onboardingCompleted === 'true');
 
       // Load user profile
-      const profileData = await AsyncStorage.getItem(`ai_user_profile_${user.id}`);
+      const profileKey = `ai_user_profile_${userId}`;
+      const profileData = await AsyncStorage.getItem(profileKey);
       if (profileData) {
         setUserProfile(JSON.parse(profileData));
       }
 
       // Load treatment plan
-      const treatmentData = await AsyncStorage.getItem(`ai_treatment_plan_${user.id}`);
+      const treatmentKey = `ai_treatment_plan_${userId}`;
+      const treatmentData = await AsyncStorage.getItem(treatmentKey);
       if (treatmentData) {
         setTreatmentPlan(JSON.parse(treatmentData));
       }
 
       // Load latest risk assessment
-      const riskData = await AsyncStorage.getItem(`ai_risk_assessment_${user.id}`);
+      const riskKey = `ai_risk_assessment_${userId}`;
+      const riskData = await AsyncStorage.getItem(riskKey);
       if (riskData) {
         setCurrentRiskAssessment(JSON.parse(riskData));
       }
@@ -359,19 +373,23 @@ export function AIProvider({ children }: AIProviderProps) {
   const updateUserProfile = useCallback(async (profileUpdate: Partial<UserProfile>): Promise<void> => {
     if (!user?.id || !userProfile) return;
 
+    const userId = user.id;
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      console.error('❌ updateUserProfile: Invalid user ID:', userId);
+      return;
+    }
+
     try {
       const updatedProfile = { ...userProfile, ...profileUpdate };
       setUserProfile(updatedProfile);
       
-      // Persist to storage
-      await AsyncStorage.setItem(
-        `ai_user_profile_${user.id}`, 
-        JSON.stringify(updatedProfile)
-      );
+      // Persist to storage with safe key
+      const profileKey = `ai_user_profile_${userId}`;
+      await AsyncStorage.setItem(profileKey, JSON.stringify(updatedProfile));
 
       // Update via service if available
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
-        await userProfilingService.getInstance().updateProfile(user.id, profileUpdate);
+        await userProfilingService.getInstance().updateProfile(userId, profileUpdate);
       }
     } catch (error) {
       console.error('❌ Error updating user profile:', error);
@@ -417,20 +435,24 @@ export function AIProvider({ children }: AIProviderProps) {
       return null;
     }
 
+    const userId = user.id;
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      console.error('❌ assessRisk: Invalid user ID:', userId);
+      return null;
+    }
+
     try {
       const riskData = {
         userProfile,
         treatmentPlan
       };
 
-      const assessment = await riskAssessmentService.assessRisk(user.id, riskData);
+      const assessment = await riskAssessmentService.assessRisk(userId, riskData);
       setCurrentRiskAssessment(assessment);
 
-      // Persist to storage
-      await AsyncStorage.setItem(
-        `ai_risk_assessment_${user.id}`, 
-        JSON.stringify(assessment)
-      );
+      // Persist to storage with safe key
+      const riskKey = `ai_risk_assessment_${userId}`;
+      await AsyncStorage.setItem(riskKey, JSON.stringify(assessment));
 
       return assessment;
     } catch (error) {
