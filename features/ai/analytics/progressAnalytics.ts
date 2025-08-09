@@ -881,6 +881,51 @@ class ProgressAnalytics {
     return ProgressTrend.STABLE;
   }
 
+  /**
+   * Calculate trend for a given period in days
+   */
+  private calculateTrendForPeriod(points: ProgressDataPoint[], days: number): ProgressTrend {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const periodPoints = points
+      .filter(p => p.timestamp >= cutoff)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    if (periodPoints.length < 2) return ProgressTrend.STABLE;
+
+    const start = periodPoints[0].normalizedValue;
+    const end = periodPoints[periodPoints.length - 1].normalizedValue;
+    const changePercent = ((end - start) / start) * 100;
+
+    if (changePercent >= 25) return ProgressTrend.SIGNIFICANT_IMPROVEMENT;
+    if (changePercent >= 10) return ProgressTrend.MODERATE_IMPROVEMENT;
+    if (changePercent >= 5) return ProgressTrend.SLIGHT_IMPROVEMENT;
+    if (changePercent <= -25) return ProgressTrend.SIGNIFICANT_DECLINE;
+    if (changePercent <= -10) return ProgressTrend.MODERATE_DECLINE;
+    if (changePercent <= -5) return ProgressTrend.SLIGHT_DECLINE;
+    return ProgressTrend.STABLE;
+  }
+
+  /**
+   * 7-day trend
+   */
+  calculate7DayTrend(points: ProgressDataPoint[]): ProgressTrend {
+    return this.calculateTrendForPeriod(points, 7);
+  }
+
+  /**
+   * 30-day trend
+   */
+  calculate30DayTrend(points: ProgressDataPoint[]): ProgressTrend {
+    return this.calculateTrendForPeriod(points, 30);
+  }
+
+  /**
+   * 90-day trend
+   */
+  calculate90DayTrend(points: ProgressDataPoint[]): ProgressTrend {
+    return this.calculateTrendForPeriod(points, 90);
+  }
+
   private extractKeyMetricsForCategory(points: ProgressDataPoint[]): ProgressAnalyticsResult['categoryProgress'][0]['keyMetrics'] {
     return points.map(point => ({
       metric: point.metric,
