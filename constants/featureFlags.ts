@@ -7,8 +7,25 @@
  * KRİTİK: Bu dosyadaki değişiklikler prodüksiyonu etkileyebilir!
  */
 
+import Constants from 'expo-constants';
+
 // 🎯 MASTER AI SWITCH - Tek bir toggle ile tüm AI özellikleri kontrol edilir
-const AI_MASTER_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
+const getAIMasterEnabled = () => {
+  // Expo config'den environment variable'ı al
+  const enableAI = Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI === 'true' || 
+                   process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
+  return __DEV__ && enableAI;
+};
+
+const AI_MASTER_ENABLED = getAIMasterEnabled();
+
+// Debug logging
+console.log('🔧 Feature Flags Debug:', {
+  __DEV__,
+  expoConfigExtra: Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI,
+  processEnv: process.env.EXPO_PUBLIC_ENABLE_AI,
+  AI_MASTER_ENABLED
+});
 
 // Feature flag değerlerini runtime'da değiştirmek için mutable obje
 const featureFlagState: Record<string, boolean> = {

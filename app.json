@@ -37,7 +37,13 @@
     "extra": {
       "eas": {
         "projectId": "1e0473f8-f317-4813-9b20-4dbe892e3153"
-      }
+      },
+      "EXPO_PUBLIC_ENABLE_AI": "true",
+      "EXPO_PUBLIC_AI_PROVIDER": "gemini",
+      "EXPO_PUBLIC_GEMINI_MODEL": "gemini-2.0-flash-exp",
+      "EXPO_PUBLIC_ENABLE_AI_TELEMETRY": "true",
+      "EXPO_PUBLIC_AI_DEBUG_MODE": "true",
+      "EXPO_PUBLIC_AI_VERBOSE_LOGGING": "true"
     }
   }
 }
