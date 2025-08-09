@@ -262,27 +262,15 @@ class PatternRecognitionV2 {
     try {
       console.log(`🔍 Starting pattern analysis for user ${context.userId}`);
 
-      // Multi-algorithm analysis
+      // Simplified to only AI-assisted analysis
       const detectedPatterns: DetectedPattern[] = [];
 
-      // 1. Rule-based pattern detection
-      const ruleBasedPatterns = await this.ruleBasedPatternDetection(context);
-      detectedPatterns.push(...ruleBasedPatterns);
-
-      // 2. Statistical pattern analysis
-      const statisticalPatterns = await this.statisticalPatternAnalysis(context);
-      detectedPatterns.push(...statisticalPatterns);
-
-      // 3. ML-model based detection (simulated)
-      if (context.timeframe.analysisDepth === 'comprehensive') {
-        const mlPatterns = await this.mlBasedPatternDetection(context);
-        detectedPatterns.push(...mlPatterns);
-      }
-
-      // 4. AI-assisted pattern discovery (if External AI available)
-      if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && context.timeframe.analysisDepth !== 'shallow') {
+      // AI-assisted pattern discovery (only remaining method)
+      if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
         const aiPatterns = await this.aiAssistedPatternDiscovery(context);
         detectedPatterns.push(...aiPatterns);
+      } else {
+        console.log('🔍 AI External API not enabled, skipping pattern analysis');
       }
 
       // Remove duplicates and merge similar patterns

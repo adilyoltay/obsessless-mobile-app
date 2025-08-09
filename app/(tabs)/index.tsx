@@ -40,8 +40,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
-// Art Therapy Integration
-import { ArtStyle, EmotionCategory } from '@/features/artTherapy/artGenerator';
+// Art Therapy Integration - temporarily disabled
 import { RiskAssessmentIndicator } from '@/features/ai/components/onboarding/RiskAssessmentIndicator';
 
 const { width } = Dimensions.get('window');

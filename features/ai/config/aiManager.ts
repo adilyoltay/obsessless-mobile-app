@@ -420,40 +420,7 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
     return this.configs.get(featureName) || null;
   }
 
-  /**
-   * Crisis durumda otomatik müdahale
-   */
-  async handleCrisisDetection(
-    context: ConversationContext, 
-    riskLevel: CrisisRiskLevel
-  ): Promise<void> {
-    console.warn(`🚨 Crisis detected: ${riskLevel} for user ${context.userId}`);
-    
-    // Telemetry
-    await trackAIInteraction(AIEventType.CRISIS_DETECTED, {
-      userId: context.userId,
-      riskLevel,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Risk seviyesine göre aksiyon al
-    switch (riskLevel) {
-      case CrisisRiskLevel.HIGH:
-      case CrisisRiskLevel.CRITICAL:
-        // Acil müdahale protokolü
-        await this.initiateEmergencyProtocol(context);
-        break;
-        
-      case CrisisRiskLevel.MEDIUM:
-        // Destekleyici kaynaklar sun
-        await this.provideSupportResources(context);
-        break;
-        
-      default:
-        // Normal akışa devam et ama izlemeyi artır
-        break;
-    }
-  }
+
 
   /**
    * Error handling ve user-friendly mesajlar

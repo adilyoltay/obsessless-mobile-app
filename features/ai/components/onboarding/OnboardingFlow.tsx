@@ -48,7 +48,7 @@ import { advancedRiskAssessmentService as riskAssessmentService } from '@/featur
 
 // Previous Sprint Integrations
 import { aiManager } from '@/features/ai/config/aiManager';
-import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+// Crisis detection removed
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Types

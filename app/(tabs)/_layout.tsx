@@ -15,6 +15,7 @@ import { aiSettingsUtils } from '@/store/aiSettingsStore';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
+  const chatEnabled = FEATURE_FLAGS.isEnabled('AI_CHAT') && user?.id && aiSettingsUtils.isAIFeatureAvailable('AI_CHAT', user.id);
 
   return (
     <Tabs
@@ -60,18 +61,18 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* AI Chat Tab - Feature flag + user consent */}
-      {false && FEATURE_FLAGS.isEnabled('AI_CHAT') && user?.id && aiSettingsUtils.isAIFeatureAvailable('AI_CHAT', user.id) && (
-        <Tabs.Screen
-          name="ai-chat"
-          options={{
-            title: 'AI Chat',
-            tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
-            ),
-          }}
-        />
-      )}
+      {/* AI Chat Tab - force hidden when disabled */}
+      <Tabs.Screen
+        name="ai-chat"
+        options={{
+          title: 'AI Chat',
+          // Hide tab button entirely when not enabled
+          tabBarButton: chatEnabled ? undefined : () => null,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="erp"
         options={{

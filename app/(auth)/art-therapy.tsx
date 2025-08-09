@@ -36,6 +36,32 @@ import type { ArtSessionConfig, TherapeuticPrompt, ArtTechnique, GuidanceLevel, 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function ArtTherapyScreen() {
+  // Temporarily disabled
+  if (!FEATURE_FLAGS.isEnabled('AI_ART_THERAPY')) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <MaterialCommunityIcons name="palette-outline" size={64} color="#9CA3AF" />
+        <Text style={{ fontSize: 18, textAlign: 'center', color: '#374151', marginTop: 16 }}>
+          Art Therapy geçici olarak devre dışı.
+        </Text>
+        <Text style={{ fontSize: 14, textAlign: 'center', color: '#6B7280', marginTop: 8 }}>
+          Lütfen daha sonra tekrar deneyin.
+        </Text>
+        <Pressable
+          style={{ 
+            backgroundColor: '#6366F1', 
+            paddingHorizontal: 20, 
+            paddingVertical: 12, 
+            borderRadius: 8, 
+            marginTop: 20 
+          }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: 'white', fontWeight: '600' }}>Geri Dön</Text>
+        </Pressable>
+      </View>
+    );
+  }
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(false);
   const [availablePrompts, setAvailablePrompts] = useState<TherapeuticPrompt[]>([]);

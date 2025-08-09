@@ -321,32 +321,25 @@ class InsightsEngineV2 {
   private async performInsightGeneration(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
     const insights: IntelligentInsight[] = [];
 
-    // 1. Pattern Analysis
-    const patternAnalysis = await this.analyzePatterns(context);
-    const patternInsights = await this.createPatternInsights(patternAnalysis, context);
-    insights.push(...patternInsights);
+    // Pattern Analysis removed - keeping AI-powered insights only
 
-    // 2. CBT Analysis - Cognitive distortions and techniques
+    // 1. CBT Analysis - Cognitive distortions and techniques
     if (cbtEngine.enabled && context.recentMessages.length > 0) {
       const cbtInsights = await this.generateCBTInsights(context);
       insights.push(...cbtInsights);
     }
 
-    // 3. AI-Powered Deep Analysis
+    // 2. AI-Powered Deep Analysis
     if (externalAIService.enabled && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
       const aiInsights = await this.generateAIInsights(context);
       insights.push(...aiInsights);
     }
 
-    // 4. Progress Tracking Insights
+    // 3. Progress Tracking Insights
     const progressInsights = await this.generateProgressInsights(context);
     insights.push(...progressInsights);
 
-    // 5. Crisis Prevention Insights
-    if (context.currentCrisisLevel !== CrisisRiskLevel.NONE) {
-      const crisisInsights = await this.generateCrisisPreventionInsights(context);
-      insights.push(...crisisInsights);
-    }
+    // Crisis Prevention Insights removed
 
     // Sort by priority and timing
     return this.prioritizeAndFilterInsights(insights, context);
