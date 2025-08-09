@@ -925,13 +925,24 @@ class AdaptiveTreatmentPlanningEngine {
   private async optimizeTreatmentTiming(plan: TreatmentPlan): Promise<void> {
     try {
       if (FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM')) {
-        const optimalTiming = await jitaiEngine.optimizeTreatmentSchedule({
-          userId: plan.userId,
-          treatmentPlan: plan,
-          userProfile: plan.userProfile
-        });
-        
-        console.log('🎯 JITAI treatment timing optimized:', optimalTiming);
+        try {
+          const jitaiContext = {
+            userId: plan.userId,
+            timestamp: new Date(),
+            stressLevel: 'moderate',
+            userActivity: 'therapy_session',
+            environmentalFactors: {
+              location: 'home',
+              timeOfDay: new Date().getHours(),
+              socialContext: 'private'
+            }
+          };
+
+          const optimalTiming = await jitaiEngine.predictOptimalTiming(jitaiContext);
+          console.log('🎯 JITAI treatment timing optimized:', optimalTiming.recommendedActionTime);
+        } catch (jitaiError) {
+          console.warn('🎯 JITAI timing optimization failed:', jitaiError);
+        }
       }
     } catch (error) {
       console.warn('JITAI treatment timing optimization failed:', error);
@@ -965,7 +976,11 @@ class AdaptiveTreatmentPlanningEngine {
   private defineSuccessMetrics(analysis: OCDAnalysis, profile: UserTherapeuticProfile): any[] { return []; }
   private defineAdaptationTriggers(risk: RiskAssessment): any[] { return []; }
   private calculateTotalDuration(phases: TreatmentPhase[]): number { 
-    return phases.reduce((total, phase) => total + phase.estimatedDuration, 0); 
+    return phases.reduce((total, phase) => {
+      // Phase duration field'ini kontrol et
+      const duration = phase.estimatedDuration || phase.duration || 0;
+      return total + (typeof duration === 'number' ? duration : 0);
+    }, 0); 
   }
   private generateCulturalAdaptations(context: CulturalContext): string[] { return ['Turkish cultural adaptations']; }
   private generateAccessibilityAccommodations(profile: UserTherapeuticProfile): string[] { return []; }

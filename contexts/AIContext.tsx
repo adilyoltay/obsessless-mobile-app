@@ -12,8 +12,9 @@
  * ✅ Error handling & recovery
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 
 // Auth
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -117,15 +118,16 @@ export function AIProvider({ children }: AIProviderProps) {
   const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
 
   /**
-   * 🔄 Initialize AI Services
+   * 🔄 Initialize AI Services - Performance Optimized with Parallel Loading
    */
-  const initializeAIServices = async (): Promise<void> => {
+  const initializeAIServices = useCallback(async (): Promise<void> => {
     if (!user?.id || isInitializing) {
       return;
     }
 
     setIsInitializing(true);
     setInitializationError(null);
+    const startTime = Date.now();
 
     try {
       console.log('🚀 Initializing AI services for user:', user.id);
@@ -136,94 +138,139 @@ export function AIProvider({ children }: AIProviderProps) {
         context: 'ai_context_initialization'
       });
 
-      // Initialize core AI manager
+      // Core manager initialization (must be first)
       await aiManager.initialize();
 
-      // Get available features based on flags
-      const features = [];
-      
+      // Prepare parallel service initialization tasks
+      const initializationTasks: Array<{ name: string; task: () => Promise<void>; enabled: boolean }> = [
+        {
+          name: 'AI_INSIGHTS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_INSIGHTS'),
+          task: async () => await insightsCoordinator.initialize()
+        },
+        {
+          name: 'AI_CONTEXT_INTELLIGENCE',
+          enabled: FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE'),
+          task: async () => {
+            if (contextIntelligence && typeof contextIntelligence.initialize === 'function') {
+              await contextIntelligence.initialize();
+            } else {
+              throw new Error('Context Intelligence service not available');
+            }
+          }
+        },
+        {
+          name: 'AI_ADAPTIVE_INTERVENTIONS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS'),
+          task: async () => {
+            if (adaptiveInterventions && typeof adaptiveInterventions.initialize === 'function') {
+              await adaptiveInterventions.initialize();
+            } else {
+              throw new Error('Adaptive Interventions service not available');
+            }
+          }
+        },
+        {
+          name: 'AI_JITAI',
+          enabled: FEATURE_FLAGS.isEnabled('AI_JITAI'),
+          task: async () => await jitaiEngine.initialize()
+        },
+        {
+          name: 'AI_YBOCS_ANALYSIS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS'),
+          task: async () => {
+            if (ybocsAnalysisService && typeof ybocsAnalysisService.initialize === 'function') {
+              await ybocsAnalysisService.initialize();
+            } else {
+              throw new Error('Y-BOCS Analysis service not available');
+            }
+          }
+        },
+        {
+          name: 'AI_USER_PROFILING',
+          enabled: FEATURE_FLAGS.isEnabled('AI_USER_PROFILING'),
+          task: async () => {
+            if (userProfilingService && typeof userProfilingService.initialize === 'function') {
+              await userProfilingService.initialize();
+            } else {
+              throw new Error('User Profiling service not available');
+            }
+          }
+        },
+        {
+          name: 'AI_TREATMENT_PLANNING',
+          enabled: FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING'),
+          task: async () => {
+            if (treatmentPlanningEngine && typeof treatmentPlanningEngine.initialize === "function") {
+              await treatmentPlanningEngine.initialize();
+            } else {
+              throw new Error('Treatment Planning Engine not available');
+            }
+          }
+        },
+        {
+          name: 'AI_RISK_ASSESSMENT',
+          enabled: FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT'),
+          task: async () => {
+            if (riskAssessmentService && typeof riskAssessmentService.initialize === "function") {
+              await riskAssessmentService.initialize();
+            } else {
+              throw new Error('Risk Assessment service not available');
+            }
+          }
+        }
+      ];
+
+      // Execute initialization tasks in parallel with individual error handling
+      const features: string[] = [];
+      const results = await Promise.allSettled(
+        initializationTasks
+          .filter(task => task.enabled)
+          .map(async (task) => {
+            try {
+              await task.task();
+              features.push(task.name);
+              console.log(`✅ ${task.name} initialized successfully`);
+              return { name: task.name, success: true };
+            } catch (error) {
+              console.warn(`⚠️ ${task.name} initialization failed:`, error);
+              return { name: task.name, success: false, error };
+            }
+          })
+      );
+
+      // Add always-available features
       if (FEATURE_FLAGS.isEnabled('AI_CHAT')) {
         features.push('AI_CHAT');
       }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
-        await insightsCoordinator.initialize();
-        features.push('AI_INSIGHTS');
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        if (contextIntelligence && typeof contextIntelligence.initialize === 'function') {
-          await contextIntelligence.initialize();
-          features.push('AI_CONTEXT_INTELLIGENCE');
-        } else {
-          console.warn('⚠️ Context Intelligence service not available');
-        }
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
-        if (adaptiveInterventions && typeof adaptiveInterventions.initialize === 'function') {
-          await adaptiveInterventions.initialize();
-          features.push('AI_ADAPTIVE_INTERVENTIONS');
-        } else {
-          console.warn('⚠️ Adaptive Interventions service not available');
-        }
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_JITAI')) {
-        await jitaiEngine.initialize();
-        features.push('AI_JITAI');
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS')) {
-        if (ybocsAnalysisService && typeof ybocsAnalysisService.initialize === 'function') {
-          await ybocsAnalysisService.initialize();
-          features.push('AI_YBOCS_ANALYSIS');
-        } else {
-          console.warn('⚠️ Y-BOCS Analysis service not available');
-        }
-      }
-      
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        // OnboardingFlowV3 uses direct state management, no engine initialization needed
         features.push('AI_ONBOARDING_V2');
         console.log('🎯 OnboardingFlowV3 enabled with direct state management');
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
-        if (userProfilingService && typeof userProfilingService.initialize === 'function') {
-          await userProfilingService.initialize();
-          features.push('AI_USER_PROFILING');
-        } else {
-          console.warn('⚠️ User Profiling service not available');
-        }
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING')) {
-        if (treatmentPlanningEngine && typeof treatmentPlanningEngine.initialize === "function") { await treatmentPlanningEngine.initialize(); } else { console.warn("⚠️ Treatment Planning Engine not available"); }
-        features.push('AI_TREATMENT_PLANNING');
-      }
-      
-      if (FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
-        if (riskAssessmentService && typeof riskAssessmentService.initialize === "function") { await riskAssessmentService.initialize(); } else { console.warn("⚠️ Risk Assessment service not available"); }
-        features.push('AI_RISK_ASSESSMENT');
       }
 
       setAvailableFeatures(features);
 
-      // Load existing user data
-      await loadUserAIData();
+      // Load user data in background after UI updates
+      InteractionManager.runAfterInteractions(() => {
+        loadUserAIData();
+      });
 
       setIsInitialized(true);
-      console.log('✅ AI services initialized successfully');
+      const initTime = Date.now() - startTime;
+      console.log(`✅ AI services initialized successfully in ${initTime}ms`);
 
-      // Track successful initialization
+      // Track successful initialization with performance metrics
       await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         userId: user.id,
         context: 'ai_context_initialized',
-        availableFeatures: features
+        availableFeatures: features,
+        initializationTime: initTime,
+        successfulServices: features.length,
+        totalAttempted: initializationTasks.filter(t => t.enabled).length
       });
 
     } catch (error) {
+      const initTime = Date.now() - startTime;
       console.error('❌ AI services initialization failed:', error);
       setInitializationError(error instanceof Error ? error.message : 'Unknown error');
       
@@ -231,12 +278,13 @@ export function AIProvider({ children }: AIProviderProps) {
       await trackAIInteraction(AIEventType.CHAT_ERROR, {
         userId: user.id,
         error: error instanceof Error ? error.message : 'Unknown error',
-        context: 'ai_context_initialization_failed'
+        context: 'ai_context_initialization_failed',
+        initializationTime: initTime
       });
     } finally {
       setIsInitializing(false);
     }
-  };
+  }, [user?.id]);
 
   /**
    * 📊 Load User AI Data
@@ -275,7 +323,7 @@ export function AIProvider({ children }: AIProviderProps) {
   /**
    * 🧭 Start Onboarding
    */
-  const startOnboarding = async (): Promise<OnboardingSession | null> => {
+  const startOnboarding = useCallback(async (): Promise<OnboardingSession | null> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
       return null;
     }
@@ -303,12 +351,12 @@ export function AIProvider({ children }: AIProviderProps) {
       console.error('❌ Error starting onboarding:', error);
       return null;
     }
-  };
+  }, [user?.id]);
 
   /**
    * 👤 Update User Profile
    */
-  const updateUserProfile = async (profileUpdate: Partial<UserProfile>): Promise<void> => {
+  const updateUserProfile = useCallback(async (profileUpdate: Partial<UserProfile>): Promise<void> => {
     if (!user?.id || !userProfile) return;
 
     try {
@@ -328,12 +376,12 @@ export function AIProvider({ children }: AIProviderProps) {
     } catch (error) {
       console.error('❌ Error updating user profile:', error);
     }
-  };
+  }, [user?.id, userProfile]);
 
   /**
    * 💡 Generate Insights
    */
-  const generateInsights = async (): Promise<any[]> => {
+  const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
       return [];
     }
@@ -359,12 +407,12 @@ export function AIProvider({ children }: AIProviderProps) {
       console.error('❌ Error generating insights:', error);
       return [];
     }
-  };
+  }, [user?.id, userProfile, treatmentPlan]);
 
   /**
    * 🛡️ Assess Risk
    */
-  const assessRisk = async (): Promise<RiskAssessment | null> => {
+  const assessRisk = useCallback(async (): Promise<RiskAssessment | null> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
       return null;
     }
@@ -389,12 +437,12 @@ export function AIProvider({ children }: AIProviderProps) {
       console.error('❌ Error assessing risk:', error);
       return null;
     }
-  };
+  }, [user?.id, userProfile, treatmentPlan]);
 
   /**
    * 🎯 Trigger Intervention
    */
-  const triggerIntervention = async (context: any): Promise<void> => {
+  const triggerIntervention = useCallback(async (context: any): Promise<void> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
       return;
     }
@@ -408,7 +456,7 @@ export function AIProvider({ children }: AIProviderProps) {
     } catch (error) {
       console.error('❌ Error triggering intervention:', error);
     }
-  };
+  }, [user?.id, userProfile, currentRiskAssessment]);
 
   /**
    * 🔄 Auto-initialize when user changes
@@ -417,7 +465,7 @@ export function AIProvider({ children }: AIProviderProps) {
     if (user?.id && !isInitialized && !isInitializing) {
       initializeAIServices();
     }
-  }, [user?.id]);
+  }, [user?.id, isInitialized, isInitializing, initializeAIServices]);
 
   /**
    * 🧹 Cleanup on unmount
@@ -433,7 +481,8 @@ export function AIProvider({ children }: AIProviderProps) {
     };
   }, []);
 
-  const contextValue: AIContextType = {
+  // Optimize context value with useMemo to prevent unnecessary re-renders
+  const contextValue: AIContextType = useMemo(() => ({
     // Service Status
     isInitialized,
     isInitializing,
@@ -459,7 +508,24 @@ export function AIProvider({ children }: AIProviderProps) {
     
     // Chat Integration
     chatStore
-  };
+  }), [
+    isInitialized,
+    isInitializing,
+    initializationError,
+    userProfile,
+    treatmentPlan,
+    currentRiskAssessment,
+    onboardingSession,
+    hasCompletedOnboarding,
+    availableFeatures,
+    initializeAIServices,
+    startOnboarding,
+    updateUserProfile,
+    generateInsights,
+    assessRisk,
+    triggerIntervention,
+    chatStore
+  ]);
 
   return (
     <AIContext.Provider value={contextValue}>

@@ -14,18 +14,36 @@ const getAIMasterEnabled = () => {
   // Expo config'den environment variable'ı al
   const enableAI = Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI === 'true' || 
                    process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
-  return __DEV__ && enableAI;
+  
+  // Production'da da AI çalışsın - sadece environment variable kontrolü
+  return enableAI;
 };
 
 const AI_MASTER_ENABLED = getAIMasterEnabled();
 
-// Debug logging
+// Debug logging ve telemetry
 console.log('🔧 Feature Flags Debug:', {
   __DEV__,
   expoConfigExtra: Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI,
   processEnv: process.env.EXPO_PUBLIC_ENABLE_AI,
   AI_MASTER_ENABLED
 });
+
+// AI Master Switch durumunu telemetriye gönder
+if (typeof window !== 'undefined') {
+  // Browser/mobile environment
+  setTimeout(() => {
+    import('@/features/ai/telemetry/aiTelemetry').then(({ trackAIInteraction, AIEventType }) => {
+      trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        aiMasterEnabled: AI_MASTER_ENABLED,
+        environment: __DEV__ ? 'development' : 'production',
+        enabledFeatureCount: Object.values(featureFlagState).filter(Boolean).length
+      });
+    }).catch(() => {
+      // Telemetry yüklenemezse sessizce devam et
+    });
+  }, 1000);
+}
 
 // Feature flag değerlerini runtime'da değiştirmek için mutable obje
 const featureFlagState: Record<string, boolean> = {
