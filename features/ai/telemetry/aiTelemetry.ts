@@ -61,6 +61,9 @@ export enum AIEventType {
   USER_FEEDBACK_POSITIVE = 'user_feedback_positive',
   USER_FEEDBACK_NEGATIVE = 'user_feedback_negative',
   FEATURE_ABANDONED = 'feature_abandoned',
+  SUGGESTION_SHOWN = 'suggestion_shown',
+  SUGGESTION_ACCEPTED = 'suggestion_accepted',
+  SUGGESTION_REJECTED = 'suggestion_rejected',
   
   // Sprint 6: Context Intelligence events
   CONTEXT_INTELLIGENCE_INITIALIZED = 'context_intelligence_initialized',
@@ -233,6 +236,11 @@ class AITelemetryManager {
   private flushTimer?: NodeJS.Timeout;
   private sessionId: string;
   private isInitialized: boolean = false;
+  private suggestionStats = {
+    shown: [] as Date[],
+    accepted: [] as Date[],
+    rejected: [] as Date[]
+  };
 
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -376,6 +384,37 @@ class AITelemetryManager {
       // Trigger'ları sanitize et - specific content'i loglamıyoruz
       triggerTypes: triggers.map(t => this.classifyTrigger(t))
     }, userId);
+  }
+
+  /**
+   * Track suggestion usage and feedback
+   */
+  async trackSuggestionUsage(
+    action: 'shown' | 'accepted' | 'rejected',
+    suggestionId?: string,
+    userId?: string
+  ): Promise<void> {
+    const eventMap = {
+      shown: AIEventType.SUGGESTION_SHOWN,
+      accepted: AIEventType.SUGGESTION_ACCEPTED,
+      rejected: AIEventType.SUGGESTION_REJECTED,
+    } as const;
+
+    this.suggestionStats[action].push(new Date());
+
+    await this.trackAIInteraction(eventMap[action], { suggestionId }, userId);
+  }
+
+  /**
+   * Get suggestion statistics for a given period
+   */
+  getSuggestionStats(days: number): { usage: number; acceptanceRate: number } {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const shown = this.suggestionStats.shown.filter(d => d >= cutoff).length;
+    const accepted = this.suggestionStats.accepted.filter(d => d >= cutoff).length;
+    const usage = shown;
+    const acceptanceRate = shown ? accepted / shown : 0;
+    return { usage, acceptanceRate };
   }
 
   /**
@@ -788,6 +827,24 @@ export const trackCrisisDetection = async (
   userId?: string
 ): Promise<void> => {
   return telemetryManager.trackCrisisDetection(riskLevel, triggers, userId);
+};
+
+/**
+ * Track suggestion usage events
+ */
+export const trackSuggestionUsage = async (
+  action: 'shown' | 'accepted' | 'rejected',
+  suggestionId?: string,
+  userId?: string
+): Promise<void> => {
+  return telemetryManager.trackSuggestionUsage(action, suggestionId, userId);
+};
+
+/**
+ * Get suggestion statistics for charts
+ */
+export const getSuggestionStats = (days: number) => {
+  return telemetryManager.getSuggestionStats(days);
 };
 
 /**
