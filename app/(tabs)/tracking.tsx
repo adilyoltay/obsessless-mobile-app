@@ -38,6 +38,7 @@ import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import CompulsionInterventions from '@/components/compulsions/CompulsionInterventions';
 
 // Map app categories to database categories
 const mapCategoryToDatabase = (appCategory: string): string => {
@@ -599,6 +600,8 @@ export default function TrackingScreen() {
             </View>
           </View>
         </View>
+
+        <CompulsionInterventions />
 
         {/* AI Pattern Recognition & Insights */}
         {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
