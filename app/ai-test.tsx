@@ -151,7 +151,7 @@ export default function AITestScreen() {
               Chat Testini Başlat
             </Button>
             
-            {FEATURE_FLAGS.AI_CHAT && (
+             {false && FEATURE_FLAGS.AI_CHAT && (
               <View style={styles.componentDemo}>
                 <Text style={styles.demoTitle}>Chat Interface Demo:</Text>
                 <Button

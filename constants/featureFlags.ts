@@ -21,6 +21,17 @@ const getAIMasterEnabled = () => {
 
 const AI_MASTER_ENABLED = getAIMasterEnabled();
 
+// 💬 AI_CHAT için bağımsız override desteği
+const resolveChatEnabled = (): boolean => {
+  const chatEnv = (Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI_CHAT ?? process.env.EXPO_PUBLIC_ENABLE_AI_CHAT);
+  if (typeof chatEnv === 'string') {
+    return chatEnv === 'true';
+  }
+  // Varsayılan: master switch ile aynı
+  return AI_MASTER_ENABLED;
+};
+const AI_CHAT_ENABLED = resolveChatEnabled();
+
 // Debug logging (development only) ve telemetry
 if (__DEV__) {
   console.log('🔧 Feature Flags Debug:', {
@@ -53,7 +64,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_ENABLED: AI_MASTER_ENABLED,
   
   // 🤖 Tüm AI Features - Master switch'e bağlı
-  AI_CHAT: AI_MASTER_ENABLED,
+  AI_CHAT: AI_CHAT_ENABLED,
   AI_ONBOARDING: AI_MASTER_ENABLED,
   AI_INSIGHTS: AI_MASTER_ENABLED,
   AI_VOICE: AI_MASTER_ENABLED,

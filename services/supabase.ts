@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import Constants from 'expo-constants';
+import { makeRedirectUri } from 'expo-auth-session';
 
 // 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -256,12 +258,17 @@ class SupabaseNativeService {
   async signInWithGoogle(): Promise<any> {
     try {
       console.log('🔐 Google OAuth initiation...');
-      console.log('🔐 Redirect URL will be: obslesstest://auth/callback');
+      // Use proxy redirect in Expo Go to avoid IP-based deep links and loops
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const redirectUrl = isExpoGo
+        ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
+        : Linking.createURL('auth/callback');
+      console.log('🔐 Redirect URL will be:', redirectUrl);
       
       const { data, error } = await this.client.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'obslesstest://auth/callback',
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

@@ -61,7 +61,7 @@ export default function TabLayout() {
         }}
       />
       {/* AI Chat Tab - Feature flag + user consent */}
-      {FEATURE_FLAGS.isEnabled('AI_CHAT') && user?.id && aiSettingsUtils.isAIFeatureAvailable('AI_CHAT', user.id) && (
+      {false && FEATURE_FLAGS.isEnabled('AI_CHAT') && user?.id && aiSettingsUtils.isAIFeatureAvailable('AI_CHAT', user.id) && (
         <Tabs.Screen
           name="ai-chat"
           options={{

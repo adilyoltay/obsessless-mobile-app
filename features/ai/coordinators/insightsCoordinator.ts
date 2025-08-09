@@ -879,6 +879,65 @@ class InsightsCoordinator {
   }
 
   /**
+   * 📊 Generate daily insights with provided behavioral data
+   * Lightweight API for UI surfaces (e.g., Today screen) to enrich context
+   */
+  async generateDailyInsightsWithData(
+    userId: string,
+    userProfile: UserTherapeuticProfile | undefined,
+    behavioralData: {
+      compulsions: any[];
+      moods: any[];
+      exercises: any[];
+      achievements: any[];
+      assessments: any[];
+    },
+    analysisDepth: 'quick' | 'standard' | 'comprehensive' = 'standard'
+  ): Promise<IntelligentInsight[]> {
+    if (!this.isEnabled) {
+      console.warn('⚠️ Insights Coordinator is not enabled');
+      return [];
+    }
+    try {
+      const context: ComprehensiveInsightContext = {
+        userId,
+        userProfile: userProfile || ({} as UserTherapeuticProfile),
+        recentMessages: [],
+        conversationHistory: [],
+        behavioralData: behavioralData || {
+          compulsions: [],
+          moods: [],
+          exercises: [],
+          achievements: [],
+          assessments: []
+        },
+        timeframe: {
+          start: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          end: new Date(),
+          analysisDepth
+        },
+        deliveryPreferences: {
+          immediate: false,
+          allowNotifications: true,
+          respectQuietHours: true
+        },
+        currentCrisisLevel: CrisisRiskLevel.NONE,
+        appUsageContext: {
+          isActive: true,
+          currentScreen: 'home',
+          lastActivity: new Date()
+        }
+      };
+
+      const result = await this.orchestrateInsightWorkflow(context);
+      return result.insights;
+    } catch (error) {
+      console.error('❌ Failed to generate daily insights (with data):', error);
+      return [];
+    }
+  }
+
+  /**
    * Coordinator'ı temizle
    */
   async shutdown(): Promise<void> {

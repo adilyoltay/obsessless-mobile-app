@@ -39,8 +39,8 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       const inTabsGroup = segments[0] === '(tabs)';
       const inAuthGroup = segments[0] === '(auth)';
       
-      // If already in the correct group, don't navigate again
-      if (hasNavigatedRef.current && (inTabsGroup || inAuthGroup)) {
+      // If already in tabs group, don't navigate again
+      if (hasNavigatedRef.current && inTabsGroup) {
         console.log('🧭 Already in correct group, skipping navigation...');
         return;
       }
@@ -139,7 +139,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             // AI Onboarding v2 is primary onboarding method
             if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
               if (!aiOnboardingCompleted) {
-                if (currentPath !== '(auth)/ai-onboarding' && !inAuthGroup) {
+                if (currentPath !== '(auth)/ai-onboarding') {
                   console.log('👤 Redirecting to AI Onboarding v2 - not completed');
                   console.log('🔄 Navigation details:', { currentPath, inAuthGroup, hasNavigated: hasNavigatedRef.current });
                   
@@ -165,7 +165,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
               }
             } else if (!isProfileComplete) {
               // Fallback: Classic onboarding
-              if (currentPath !== '(auth)/onboarding' && !inAuthGroup) {
+              if (currentPath !== '(auth)/onboarding') {
                 console.log('👤 Redirecting to classic onboarding - profile incomplete');
                 setTimeout(() => {
                   try {

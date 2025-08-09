@@ -78,7 +78,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const handleUrl = async (url: string) => {
         console.log('🔗 Received URL:', url);
         
-        if (url.includes('obslesstest://auth/callback')) {
+        // Handle both custom scheme and Expo Go deep links
+        const callbackPath = 'auth/callback';
+        const isCallback = url.includes(callbackPath);
+        if (isCallback) {
           try {
             console.log('🔐 Processing OAuth callback...');
             const callbackUrl = new URL(url.replace('#', '?'));

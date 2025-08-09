@@ -6,10 +6,13 @@ import {
   SafeAreaView
 } from 'react-native';
 import { Stack } from 'expo-router';
-import { ChatInterface } from '@/features/ai/components/ChatInterface';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { ConversationState } from '@/features/ai/types';
 
 export default function AIChatScreen() {
+  if (!FEATURE_FLAGS.AI_CHAT) {
+    return null;
+  }
   const handleConversationStateChange = (state: ConversationState) => {
     console.log('Conversation state changed:', state);
   };

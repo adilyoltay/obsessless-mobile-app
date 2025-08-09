@@ -451,8 +451,24 @@ export function AIProvider({ children }: AIProviderProps) {
   /**
    * 💡 Generate Insights (Offline-Aware)
    */
+  // Simple cooldown to avoid rapid re-execution/rate-limit: 60s
+  const lastInsightsRef = React.useRef<number>(0);
+
   const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
+      return [];
+    }
+
+    // Cooldown: skip if last call within 60s
+    const now = Date.now();
+    if (now - (lastInsightsRef.current || 0) < 60_000) {
+      try {
+        const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return parsed.insights || [];
+        }
+      } catch {}
       return [];
     }
 
@@ -484,17 +500,33 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     try {
-      // Get today's data for insights context
-      const todayData = {
-        date: new Date().toDateString(),
-        userId: user.id,
-        profile: userProfile,
-        treatmentPlan
+      // Build enriched behavioral data for today if present in storage
+      const today = new Date().toDateString();
+      const compulsionsKey = `compulsions_${user.id}`;
+      const compulsionsRaw = await AsyncStorage.getItem(compulsionsKey);
+      const allCompulsions = compulsionsRaw ? JSON.parse(compulsionsRaw) : [];
+      const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
+
+      const erpKey = `erp_sessions_${user.id}_${today}`;
+      const erpRaw = await AsyncStorage.getItem(erpKey);
+      const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
+
+      const behavioralData = {
+        compulsions: todayCompulsions,
+        moods: [],
+        exercises: todayErpSessions,
+        achievements: [],
+        assessments: []
       };
 
-      // Check if generateDailyInsights method exists
-      if (insightsCoordinator && typeof insightsCoordinator.generateDailyInsights === "function") {
-        const insights = await insightsCoordinator.generateDailyInsights(user.id, todayData);
+      // Prefer enriched insights if method exists
+      if (insightsCoordinator && typeof (insightsCoordinator as any).generateDailyInsightsWithData === "function") {
+        const insights = await (insightsCoordinator as any).generateDailyInsightsWithData(
+          user.id,
+          userProfile as any,
+          behavioralData,
+          'standard'
+        );
         
         // Cache successful insights
         if (insights && insights.length > 0) {
@@ -508,9 +540,33 @@ export function AIProvider({ children }: AIProviderProps) {
           }
         }
         
+        lastInsightsRef.current = Date.now();
+        // Fallback to cached if none generated
+        if (!insights || insights.length === 0) {
+          try {
+            const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              return parsed.insights || [];
+            }
+          } catch {}
+        }
         return insights || [];
       } else {
         console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
+        // Try legacy path
+        if (typeof insightsCoordinator.generateDailyInsights === 'function') {
+          const insights = await insightsCoordinator.generateDailyInsights(user.id, userProfile as any);
+          if (insights && insights.length > 0) {
+            try {
+              await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({ insights, timestamp: Date.now() }));
+            } catch (cacheError) {
+              console.warn('⚠️ Failed to cache insights:', cacheError);
+            }
+          }
+          lastInsightsRef.current = Date.now();
+          return insights || [];
+        }
         return [];
       }
     } catch (error) {

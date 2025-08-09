@@ -41,7 +41,7 @@ export default function AIChatModal() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Feature flag kontrolü
+  // Feature flag kontrolü - kapalıysa tamamen devre dışı ekran
   if (!FEATURE_FLAGS.AI_CHAT) {
     return (
       <SafeAreaView style={styles.container}>
