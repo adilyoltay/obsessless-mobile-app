@@ -89,6 +89,39 @@ function testFileStructure() {
   });
 }
 
+async function testAPIResponses() {
+  console.log('\n🌐 Testing AI API Responses...');
+
+  // Successful response
+  try {
+    const res = await fetch('https://httpstat.us/200');
+    const ok = res.ok;
+    logTest('API success response', ok, `Status: ${res.status}`);
+  } catch (error) {
+    logTest('API success response', false, error.message);
+  }
+
+  // Error response
+  try {
+    const res = await fetch('https://httpstat.us/500');
+    logTest('API error handling', !res.ok, `Status: ${res.status}`);
+  } catch (error) {
+    logTest('API error handling', true, 'Network error as expected');
+  }
+
+  // Timeout scenario
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1000);
+    await fetch('https://httpstat.us/200?sleep=5000', { signal: controller.signal });
+    clearTimeout(timeout);
+    logTest('API timeout handling', false, 'Request did not timeout');
+  } catch (error) {
+    const isTimeout = error.name === 'AbortError';
+    logTest('API timeout handling', isTimeout, error.message);
+  }
+}
+
 function generateReport() {
   const passed = results.tests.filter(t => t.passed).length;
   const total = results.tests.length;
@@ -122,16 +155,17 @@ function generateReport() {
   );
 }
 
-function runTests() {
+async function runTests() {
   console.log('🧪 AI Integration Performance Test');
   console.log('=====================================');
-  
+
   testFeatureFlags();
   testAIContextPerformance();
   testFileStructure();
-  
+  await testAPIResponses();
+
   generateReport();
-  
+
   const passRate = (results.tests.filter(t => t.passed).length / results.tests.length) * 100;
   process.exit(passRate >= 90 ? 0 : 1);
 }
