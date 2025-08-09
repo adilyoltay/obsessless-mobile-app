@@ -82,6 +82,9 @@ enum OnboardingStep {
   YBOCS_INTRO = 'ybocs_intro',
   YBOCS_QUESTIONS = 'ybocs_questions',
   PROFILE_NAME = 'profile_name',
+  PROFILE_DEMOGRAPHICS = 'profile_demographics',
+  PROFILE_HISTORY = 'profile_history',
+  PROFILE_SYMPTOMS = 'profile_symptoms',
   PROFILE_CULTURE = 'profile_culture',
   PROFILE_GOALS = 'profile_goals',
   TREATMENT_PLAN = 'treatment_plan',
@@ -89,32 +92,139 @@ enum OnboardingStep {
   COMPLETION = 'completion',
 }
 
-// Y-BOCS Soruları
+// Y-BOCS-10 Tam Ölçek Soruları
 const YBOCS_QUESTIONS = [
+  // OBSESYONLAR
   {
     id: 'obsessions_time',
     text: 'Obsesif düşünceler günde ne kadar vaktinizi alıyor?',
+    subtitle: 'İstenmeyen tekrarlayan düşünceler',
     category: 'obsessions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Günde 1 saatten az' },
+      { value: 1, label: 'Hafif', description: 'Günde 1-3 saat' },
+      { value: 2, label: 'Orta', description: 'Günde 3-8 saat' },
+      { value: 3, label: 'Şiddetli', description: 'Günde 8+ saat' },
+      { value: 4, label: 'Aşırı', description: 'Sürekli var' },
+    ],
   },
   {
     id: 'obsessions_interference',
-    text: 'Obsesif düşünceler günlük yaşamınızı ne kadar etkiliyor?',
+    text: 'Obsesif düşünceler sosyal/iş yaşamınızı ne kadar etkiliyor?',
+    subtitle: 'Günlük aktivitelerdeki etki',
     category: 'obsessions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Etkilemiyor' },
+      { value: 1, label: 'Hafif', description: 'Az etkiliyor' },
+      { value: 2, label: 'Orta', description: 'Belirgin etkiliyor' },
+      { value: 3, label: 'Şiddetli', description: 'Çok etkiliyor' },
+      { value: 4, label: 'Aşırı', description: 'İşlevsiz hale getiriyor' },
+    ],
   },
   {
     id: 'obsessions_distress',
     text: 'Obsesif düşünceler size ne kadar sıkıntı veriyor?',
+    subtitle: 'Duygusal yoğunluk',
     category: 'obsessions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Rahatsız etmiyor' },
+      { value: 1, label: 'Hafif', description: 'Az rahatsız ediyor' },
+      { value: 2, label: 'Orta', description: 'Belirgin rahatsızlık' },
+      { value: 3, label: 'Şiddetli', description: 'Çok rahatsız ediyor' },
+      { value: 4, label: 'Aşırı', description: 'Dayanılmaz' },
+    ],
   },
+  {
+    id: 'obsessions_resistance',
+    text: 'Obsesif düşüncelere ne kadar karşı koyabiliyorsunuz?',
+    subtitle: 'Düşünceleri engelleme çabası',
+    category: 'obsessions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Her zaman karşı koyarım' },
+      { value: 1, label: 'Hafif', description: 'Çoğunlukla karşı koyarım' },
+      { value: 2, label: 'Orta', description: 'Bazen karşı koyarım' },
+      { value: 3, label: 'Şiddetli', description: 'Nadiren karşı koyarım' },
+      { value: 4, label: 'Aşırı', description: 'Hiç karşı koyamam' },
+    ],
+  },
+  {
+    id: 'obsessions_control',
+    text: 'Obsesif düşüncelerinizi ne kadar kontrol edebiliyorsunuz?',
+    subtitle: 'Düşünceleri durdurabilme',
+    category: 'obsessions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Tam kontrol' },
+      { value: 1, label: 'Hafif', description: 'Çoğunlukla kontrol' },
+      { value: 2, label: 'Orta', description: 'Bazen kontrol' },
+      { value: 3, label: 'Şiddetli', description: 'Az kontrol' },
+      { value: 4, label: 'Aşırı', description: 'Hiç kontrol yok' },
+    ],
+  },
+  // KOMPULSIYONLAR
   {
     id: 'compulsions_time',
     text: 'Kompulsiyonlar günde ne kadar vaktinizi alıyor?',
+    subtitle: 'Tekrarlayan davranışlar',
     category: 'compulsions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Günde 1 saatten az' },
+      { value: 1, label: 'Hafif', description: 'Günde 1-3 saat' },
+      { value: 2, label: 'Orta', description: 'Günde 3-8 saat' },
+      { value: 3, label: 'Şiddetli', description: 'Günde 8+ saat' },
+      { value: 4, label: 'Aşırı', description: 'Sürekli yapıyorum' },
+    ],
   },
   {
     id: 'compulsions_interference',
-    text: 'Kompulsiyonlar günlük yaşamınızı ne kadar etkiliyor?',
+    text: 'Kompulsiyonlar sosyal/iş yaşamınızı ne kadar etkiliyor?',
+    subtitle: 'Günlük aktivitelerdeki etki',
     category: 'compulsions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Etkilemiyor' },
+      { value: 1, label: 'Hafif', description: 'Az etkiliyor' },
+      { value: 2, label: 'Orta', description: 'Belirgin etkiliyor' },
+      { value: 3, label: 'Şiddetli', description: 'Çok etkiliyor' },
+      { value: 4, label: 'Aşırı', description: 'İşlevsiz hale getiriyor' },
+    ],
+  },
+  {
+    id: 'compulsions_distress',
+    text: 'Kompulsiyonları engellemeye çalıştığınızda ne kadar sıkıntı duyarsınız?',
+    subtitle: 'Engelleme sırasında hissedilen kaygı',
+    category: 'compulsions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Sıkıntı duymam' },
+      { value: 1, label: 'Hafif', description: 'Az sıkıntı duyarım' },
+      { value: 2, label: 'Orta', description: 'Belirgin sıkıntı' },
+      { value: 3, label: 'Şiddetli', description: 'Çok sıkıntı duyarım' },
+      { value: 4, label: 'Aşırı', description: 'Dayanılmaz kaygı' },
+    ],
+  },
+  {
+    id: 'compulsions_resistance',
+    text: 'Kompulsiyonlara ne kadar karşı koyabiliyorsunuz?',
+    subtitle: 'Davranışları engelleme çabası',
+    category: 'compulsions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Her zaman karşı koyarım' },
+      { value: 1, label: 'Hafif', description: 'Çoğunlukla karşı koyarım' },
+      { value: 2, label: 'Orta', description: 'Bazen karşı koyarım' },
+      { value: 3, label: 'Şiddetli', description: 'Nadiren karşı koyarım' },
+      { value: 4, label: 'Aşırı', description: 'Hiç karşı koyamam' },
+    ],
+  },
+  {
+    id: 'compulsions_control',
+    text: 'Kompulsiyonlarınızı ne kadar kontrol edebiliyorsunuz?',
+    subtitle: 'Davranışları durdurabilme',
+    category: 'compulsions',
+    options: [
+      { value: 0, label: 'Hiç', description: 'Tam kontrol' },
+      { value: 1, label: 'Hafif', description: 'Çoğunlukla kontrol' },
+      { value: 2, label: 'Orta', description: 'Bazen kontrol' },
+      { value: 3, label: 'Şiddetli', description: 'Az kontrol' },
+      { value: 4, label: 'Aşırı', description: 'Hiç kontrol yok' },
+    ],
   },
 ];
 
@@ -145,6 +255,17 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   const [currentYbocsIndex, setCurrentYbocsIndex] = useState(0);
   const [sliderValue, setSliderValue] = useState(0);
   const [userName, setUserName] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [education, setEducation] = useState('');
+  const [occupation, setOccupation] = useState('');
+  const [ocdHistory, setOcdHistory] = useState({
+    firstSymptoms: '',
+    previousTreatment: false,
+    medication: false,
+    familyHistory: false,
+  });
+  const [symptomTypes, setSymptomTypes] = useState<string[]>([]);
   const [culturalContext, setCulturalContext] = useState<CulturalContext>({
     language: 'tr',
     religiousConsiderations: false,
@@ -175,6 +296,12 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         ybocsAnswers,
         currentYbocsIndex,
         userName,
+        age,
+        gender,
+        education,
+        occupation,
+        ocdHistory,
+        symptomTypes,
         culturalContext,
         selectedGoals,
         timestamp: Date.now(),
@@ -294,8 +421,17 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           break;
         case OnboardingStep.PROFILE_NAME:
           if (userName.trim()) {
-            setCurrentStep(OnboardingStep.PROFILE_CULTURE);
+            setCurrentStep(OnboardingStep.PROFILE_DEMOGRAPHICS);
           }
+          break;
+        case OnboardingStep.PROFILE_DEMOGRAPHICS:
+          setCurrentStep(OnboardingStep.PROFILE_HISTORY);
+          break;
+        case OnboardingStep.PROFILE_HISTORY:
+          setCurrentStep(OnboardingStep.PROFILE_SYMPTOMS);
+          break;
+        case OnboardingStep.PROFILE_SYMPTOMS:
+          setCurrentStep(OnboardingStep.PROFILE_CULTURE);
           break;
         case OnboardingStep.PROFILE_CULTURE:
           setCurrentStep(OnboardingStep.PROFILE_GOALS);
@@ -512,13 +648,20 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       case OnboardingStep.YBOCS_QUESTIONS:
         const currentQuestion = YBOCS_QUESTIONS[currentYbocsIndex];
+        const selectedOption = currentQuestion.options.find(opt => opt.value === Math.round(sliderValue));
         return (
           <View style={styles.contentContainer}>
             <Text style={styles.questionNumber}>
               Soru {currentYbocsIndex + 1} / {YBOCS_QUESTIONS.length}
             </Text>
+            <Text style={styles.questionCategory}>
+              {currentQuestion.category === 'obsessions' ? '🧠 Obsesyonlar' : '🔄 Kompulsiyonlar'}
+            </Text>
             <Text style={styles.questionText}>
               {currentQuestion.text}
+            </Text>
+            <Text style={styles.questionSubtitle}>
+              {currentQuestion.subtitle}
             </Text>
             
             <View style={styles.sliderContainer}>
@@ -526,12 +669,14 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <Text style={[styles.sliderValue, { color: getSliderColor(sliderValue) }]}>
                   {Math.round(sliderValue)}
                 </Text>
-                <Text style={styles.sliderLabel}>
-                  {sliderValue === 0 ? 'Hiç' :
-                   sliderValue === 1 ? 'Hafif' :
-                   sliderValue === 2 ? 'Orta' :
-                   sliderValue === 3 ? 'Şiddetli' : 'Aşırı'}
+                <Text style={[styles.sliderLabel, { color: getSliderColor(sliderValue) }]}>
+                  {selectedOption?.label || 'Hiç'}
                 </Text>
+                {selectedOption && (
+                  <Text style={styles.sliderDescription}>
+                    {selectedOption.description}
+                  </Text>
+                )}
               </View>
               
               <Slider
@@ -543,15 +688,20 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 onValueChange={setSliderValue}
                 minimumTrackTintColor={getSliderColor(sliderValue)}
                 maximumTrackTintColor={COLORS.border}
-                thumbTintColor={getSliderColor(sliderValue)}
+                thumbStyle={{
+                  backgroundColor: getSliderColor(sliderValue),
+                  width: 20,
+                  height: 20,
+                }}
               />
               
               <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabelText}>0</Text>
-                <Text style={styles.sliderLabelText}>1</Text>
-                <Text style={styles.sliderLabelText}>2</Text>
-                <Text style={styles.sliderLabelText}>3</Text>
-                <Text style={styles.sliderLabelText}>4</Text>
+                {currentQuestion.options.map((option, index) => (
+                  <View key={option.value} style={styles.sliderLabelContainer}>
+                    <Text style={styles.sliderLabelText}>{option.value}</Text>
+                    <Text style={styles.sliderLabelName}>{option.label}</Text>
+                  </View>
+                ))}
               </View>
             </View>
           </View>
@@ -583,6 +733,242 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             <Text style={styles.hint}>
               Bu isim uygulama içinde size hitap etmek için kullanılacak
             </Text>
+          </View>
+        );
+
+      case OnboardingStep.PROFILE_DEMOGRAPHICS:
+        return (
+          <View style={styles.contentContainer}>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons 
+                name="account-details" 
+                size={80} 
+                color={COLORS.primary} 
+              />
+            </View>
+            <Text style={styles.title}>Demografik Bilgiler</Text>
+            <Text style={styles.subtitle}>Size daha iyi destek olabilmemiz için</Text>
+            
+            <View style={styles.formContainer}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Yaş</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Yaşınızı girin"
+                  value={age}
+                  onChangeText={setAge}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Cinsiyet (İsteğe bağlı)</Text>
+                <View style={styles.genderContainer}>
+                  {['Kadın', 'Erkek', 'Diğer', 'Belirtmek istemiyorum'].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.genderOption,
+                        gender === option && styles.genderOptionSelected
+                      ]}
+                      onPress={() => setGender(option)}
+                    >
+                      <Text style={[
+                        styles.genderText,
+                        gender === option && styles.genderTextSelected
+                      ]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Eğitim Durumu</Text>
+                <View style={styles.pickerContainer}>
+                  {['İlkokul', 'Ortaokul', 'Lise', 'Üniversite', 'Yüksek Lisans/Doktora'].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.pickerOption,
+                        education === option && styles.pickerOptionSelected
+                      ]}
+                      onPress={() => setEducation(option)}
+                    >
+                      <Text style={[
+                        styles.pickerText,
+                        education === option && styles.pickerTextSelected
+                      ]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </View>
+        );
+
+      case OnboardingStep.PROFILE_HISTORY:
+        return (
+          <View style={styles.contentContainer}>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons 
+                name="history" 
+                size={80} 
+                color={COLORS.primary} 
+              />
+            </View>
+            <Text style={styles.title}>OKB Geçmişi</Text>
+            <Text style={styles.subtitle}>Belirtilerinizin hikayesi</Text>
+            
+            <View style={styles.formContainer}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>İlk belirtiler ne zaman başladı?</Text>
+                <View style={styles.pickerContainer}>
+                  {[
+                    'Son 6 ay içinde',
+                    '6 ay - 1 yıl önce',
+                    '1-2 yıl önce',
+                    '2-5 yıl önce',
+                    '5+ yıl önce',
+                    'Çocukluktan beri'
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.pickerOption,
+                        ocdHistory.firstSymptoms === option && styles.pickerOptionSelected
+                      ]}
+                      onPress={() => setOcdHistory({...ocdHistory, firstSymptoms: option})}
+                    >
+                      <Text style={[
+                        styles.pickerText,
+                        ocdHistory.firstSymptoms === option && styles.pickerTextSelected
+                      ]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              
+              <TouchableOpacity
+                style={[
+                  styles.optionCard,
+                  ocdHistory.previousTreatment && styles.optionCardSelected
+                ]}
+                onPress={() => setOcdHistory({
+                  ...ocdHistory,
+                  previousTreatment: !ocdHistory.previousTreatment
+                })}
+              >
+                <MaterialCommunityIcons 
+                  name={ocdHistory.previousTreatment ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={24} 
+                  color={ocdHistory.previousTreatment ? COLORS.primary : COLORS.secondaryText} 
+                />
+                <Text style={styles.optionText}>Daha önce profesyonel yardım aldım</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.optionCard,
+                  ocdHistory.medication && styles.optionCardSelected
+                ]}
+                onPress={() => setOcdHistory({
+                  ...ocdHistory,
+                  medication: !ocdHistory.medication
+                })}
+              >
+                <MaterialCommunityIcons 
+                  name={ocdHistory.medication ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={24} 
+                  color={ocdHistory.medication ? COLORS.primary : COLORS.secondaryText} 
+                />
+                <Text style={styles.optionText}>Şu anda ilaç kullanıyorum</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.optionCard,
+                  ocdHistory.familyHistory && styles.optionCardSelected
+                ]}
+                onPress={() => setOcdHistory({
+                  ...ocdHistory,
+                  familyHistory: !ocdHistory.familyHistory
+                })}
+              >
+                <MaterialCommunityIcons 
+                  name={ocdHistory.familyHistory ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={24} 
+                  color={ocdHistory.familyHistory ? COLORS.primary : COLORS.secondaryText} 
+                />
+                <Text style={styles.optionText}>Ailemde OKB öyküsü var</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+
+      case OnboardingStep.PROFILE_SYMPTOMS:
+        const SYMPTOM_TYPES = [
+          { id: 'contamination', label: 'Kirlenme/Bulaşma', emoji: '🧼' },
+          { id: 'symmetry', label: 'Simetri/Düzen', emoji: '⚖️' },
+          { id: 'checking', label: 'Kontrol Etme', emoji: '🔍' },
+          { id: 'counting', label: 'Sayma', emoji: '🔢' },
+          { id: 'religious', label: 'Dini Takıntılar', emoji: '🙏' },
+          { id: 'harm', label: 'Zarar Verme Korkusu', emoji: '⚠️' },
+          { id: 'sexual', label: 'Cinsel Düşünceler', emoji: '🤔' },
+          { id: 'hoarding', label: 'Biriktirme', emoji: '📦' },
+        ];
+        
+        return (
+          <View style={styles.contentContainer}>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons 
+                name="brain" 
+                size={80} 
+                color={COLORS.primary} 
+              />
+            </View>
+            <Text style={styles.title}>Belirtileriniz</Text>
+            <Text style={styles.subtitle}>Yaşadığınız ana belirtiler (birden fazla seçebilirsiniz)</Text>
+            
+            <ScrollView style={styles.symptomsScroll} showsVerticalScrollIndicator={false}>
+              {SYMPTOM_TYPES.map((symptom) => (
+                <TouchableOpacity
+                  key={symptom.id}
+                  style={[
+                    styles.symptomCard,
+                    symptomTypes.includes(symptom.id) && styles.symptomCardSelected
+                  ]}
+                  onPress={() => {
+                    if (symptomTypes.includes(symptom.id)) {
+                      setSymptomTypes(symptomTypes.filter(s => s !== symptom.id));
+                    } else {
+                      setSymptomTypes([...symptomTypes, symptom.id]);
+                    }
+                  }}
+                >
+                  <Text style={styles.symptomEmoji}>{symptom.emoji}</Text>
+                  <Text style={[
+                    styles.symptomText,
+                    symptomTypes.includes(symptom.id) && styles.symptomTextSelected
+                  ]}>
+                    {symptom.label}
+                  </Text>
+                  {symptomTypes.includes(symptom.id) && (
+                    <MaterialCommunityIcons 
+                      name="check-circle" 
+                      size={20} 
+                      color={COLORS.primary} 
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         );
 
@@ -1047,6 +1433,127 @@ const styles = StyleSheet.create({
   sliderLabelText: {
     fontSize: 12,
     color: COLORS.secondaryText,
+  },
+  sliderLabelContainer: {
+    alignItems: 'center',
+  },
+  sliderLabelName: {
+    fontSize: 10,
+    color: COLORS.secondaryText,
+    marginTop: 2,
+  },
+  sliderDescription: {
+    fontSize: 12,
+    color: COLORS.secondaryText,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  questionCategory: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  questionSubtitle: {
+    fontSize: 14,
+    color: COLORS.secondaryText,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontStyle: 'italic',
+  },
+  formContainer: {
+    width: '100%',
+    maxHeight: SCREEN_HEIGHT * 0.6,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primaryText,
+    marginBottom: 8,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  genderOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBackground,
+  },
+  genderOptionSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: `${COLORS.primary}10`,
+  },
+  genderText: {
+    fontSize: 14,
+    color: COLORS.primaryText,
+  },
+  genderTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  pickerContainer: {
+    gap: 8,
+  },
+  pickerOption: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBackground,
+  },
+  pickerOptionSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: `${COLORS.primary}10`,
+  },
+  pickerText: {
+    fontSize: 14,
+    color: COLORS.primaryText,
+    textAlign: 'center',
+  },
+  pickerTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  symptomsScroll: {
+    width: '100%',
+    maxHeight: SCREEN_HEIGHT * 0.4,
+    marginTop: 16,
+  },
+  symptomCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: COLORS.cardBackground,
+  },
+  symptomCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: `${COLORS.primary}10`,
+  },
+  symptomEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  symptomText: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.primaryText,
+  },
+  symptomTextSelected: {
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   input: {
     width: '100%',
