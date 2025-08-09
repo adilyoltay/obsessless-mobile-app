@@ -357,7 +357,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const contextValue = useMemo(() => ({
     user,
     profile,
-    isAuthenticated: !!user && !!profile,
+    // Authenticated sayılmak için sadece geçerli bir Supabase user yeterli
+    isAuthenticated: !!user,
     isLoading: loading,
     error,
     signUpWithEmail,

@@ -61,8 +61,8 @@ export default function Index() {
           }
         }
 
-        // Default: go to main app
-        console.log('🏠 User authenticated and onboarded, redirecting to main app');
+        // Default: go to main app (authenticated)
+        console.log('🏠 User authenticated, redirecting to main app');
         router.replace('/(tabs)');
 
       } catch (error) {
