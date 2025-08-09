@@ -17,6 +17,7 @@ export class OfflineSyncService {
   private isOnline: boolean = true;
   private syncQueue: SyncQueueItem[] = [];
   private isSyncing: boolean = false;
+  private offlineQueue: Array<() => Promise<void>> = [];
 
   public static getInstance(): OfflineSyncService {
     if (!OfflineSyncService.instance) {
@@ -38,6 +39,7 @@ export class OfflineSyncService {
       if (wasOffline && this.isOnline) {
         // Came back online, start syncing
         this.processSyncQueue();
+        this.processOfflineQueue();
       }
     });
   }
@@ -75,6 +77,25 @@ export class OfflineSyncService {
     // If online, try to sync immediately
     if (this.isOnline) {
       this.processSyncQueue();
+    }
+  }
+
+  addAIRequest(task: () => Promise<void>): void {
+    this.offlineQueue.push(task);
+    if (this.isOnline) {
+      this.processOfflineQueue();
+    }
+  }
+
+  private async processOfflineQueue(): Promise<void> {
+    while (this.isOnline && this.offlineQueue.length > 0) {
+      const task = this.offlineQueue.shift();
+      if (!task) break;
+      try {
+        await task();
+      } catch (error) {
+        console.error('Error processing offline AI request:', error);
+      }
     }
   }
 

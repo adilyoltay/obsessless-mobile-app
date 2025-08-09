@@ -24,6 +24,8 @@ import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/tel
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { aiManager } from '@/features/ai/config/aiManager';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { offlineSyncService } from '@/services/offlineSync';
 
 // =============================================================================
 // 🎯 AI PROVIDER DEFINITIONS
@@ -670,6 +672,14 @@ class ExternalAIService {
 
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const startTime = Date.now();
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      offlineSyncService.addAIRequest(async () => {
+        await this.getAIResponse(messages, context, config, userId);
+      });
+      const latency = Date.now() - startTime;
+      return this.getFallbackResponse(requestId, latency);
+    }
 
     try {
       // 🔒 CRITICAL: PII Sanitization FIRST
