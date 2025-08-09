@@ -123,7 +123,19 @@ export enum AIEventType {
   RISK_ASSESSMENT_COMPLETED = 'risk_assessment_completed',
   RISK_ESCALATION_PREDICTED = 'risk_escalation_predicted',
   SAFETY_PLAN_CREATED = 'safety_plan_created',
-  PREVENTIVE_INTERVENTION_TRIGGERED = 'preventive_intervention_triggered'
+  PREVENTIVE_INTERVENTION_TRIGGERED = 'preventive_intervention_triggered',
+  
+  // Production telemetry events
+  AI_RESPONSE_GENERATED = 'ai_response_generated',
+  AI_PROVIDER_HEALTH_CHECK = 'ai_provider_health_check',
+  AI_PROVIDER_FAILED = 'ai_provider_failed',
+  AI_CACHE_HIT = 'ai_cache_hit',
+  AI_CACHE_MISS = 'ai_cache_miss',
+  AI_RATE_LIMIT_HIT = 'ai_rate_limit_hit',
+  EXTERNAL_AI_INITIALIZED = 'external_ai_initialized',
+  EXTERNAL_AI_SHUTDOWN = 'external_ai_shutdown',
+  AI_PII_DETECTED = 'ai_pii_detected',
+  AI_CONTENT_FILTERED = 'ai_content_filtered'
 }
 
 /**

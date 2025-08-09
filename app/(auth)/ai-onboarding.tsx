@@ -49,6 +49,10 @@ import type { UserProfile, TreatmentPlan } from '@/features/ai/types';
 // Feature Flags
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
+// Services
+import { retryQueueService } from '@/services/retryQueue';
+import supabaseService from '@/services/supabase';
+
 // UI Components
 import { Loading } from '@/components/ui/Loading';
 
@@ -136,14 +140,85 @@ export default function AIOnboardingScreen() {
     try {
       setLoading(true, 'Profiliniz kaydediliyor...');
 
-      // Save completed onboarding data
-      if (user?.id) {
-        await AsyncStorage.multiSet([
-          [`ai_onboarding_completed_${user.id}`, 'true'],
-          [`ai_user_profile_${user.id}`, JSON.stringify(userProfile)],
-          [`ai_treatment_plan_${user.id}`, JSON.stringify(treatmentPlan)],
-          [`ai_onboarding_date_${user.id}`, new Date().toISOString()]
-        ]);
+      if (!user?.id) {
+        throw new Error('User ID not available');
+      }
+
+      // 1. Save to AsyncStorage first (immediate local persistence)
+      await AsyncStorage.multiSet([
+        [`ai_onboarding_completed_${user.id}`, 'true'],
+        [`ai_user_profile_${user.id}`, JSON.stringify(userProfile)],
+        [`ai_treatment_plan_${user.id}`, JSON.stringify(treatmentPlan)],
+        [`ai_onboarding_date_${user.id}`, new Date().toISOString()]
+      ]);
+
+      // 2. Attempt immediate Supabase sync
+      try {
+        setLoading(true, 'Sunucuya senkronize ediliyor...');
+        
+        // Sync AI Profile
+        await supabaseService.supabaseClient
+          .from('ai_profiles')
+          .upsert({
+            user_id: user.id,
+            profile_data: userProfile,
+            cultural_context: userProfile.culturalBackground || 'turkish',
+            onboarding_completed: true,
+            completed_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        // Sync Treatment Plan
+        await supabaseService.supabaseClient
+          .from('ai_treatment_plans')
+          .upsert({
+            user_id: user.id,
+            plan_data: treatmentPlan,
+            plan_type: 'ai_generated',
+            status: 'active',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        console.log('✅ Onboarding data synced to Supabase successfully');
+
+      } catch (syncError) {
+        console.warn('⚠️ Immediate Supabase sync failed, adding to retry queue:', syncError);
+        
+        // Add to retry queue for background sync
+        await retryQueueService.addToQueue(
+          'supabase_upsert',
+          'ai_profiles',
+          {
+            user_id: user.id,
+            profile_data: userProfile,
+            cultural_context: userProfile.culturalBackground || 'turkish',
+            onboarding_completed: true,
+            completed_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          user.id,
+          'high'
+        );
+
+        await retryQueueService.addToQueue(
+          'supabase_upsert',
+          'ai_treatment_plans',
+          {
+            user_id: user.id,
+            plan_data: treatmentPlan,
+            plan_type: 'ai_generated',
+            status: 'active',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          user.id,
+          'high'
+        );
+
+        console.log('📤 Onboarding data added to retry queue');
       }
 
       // Success feedback

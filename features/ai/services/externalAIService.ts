@@ -200,6 +200,24 @@ class ExternalAIService {
       this.activeProvider = this.selectBestProvider();
       
       if (!this.activeProvider) {
+        // NO_PROVIDER_AVAILABLE telemetry
+        await trackAIError({
+          code: AIErrorCode.NO_PROVIDER_AVAILABLE,
+          message: 'No AI provider available after health checks',
+          severity: ErrorSeverity.HIGH,
+          context: { 
+            component: 'ExternalAIService',
+            method: 'initialize',
+            providersChecked: this.providers.size,
+            healthCheckResults: Array.from(this.providers.entries()).map(([provider, config]) => ({
+              provider,
+              isAvailable: config.isAvailable,
+              lastHealthCheck: config.lastHealthCheck,
+              errorCount: config.errorCount
+            }))
+          }
+        });
+        
         throw new AIError(AIErrorCode.NO_PROVIDER_AVAILABLE, 'No AI provider available');
       }
 

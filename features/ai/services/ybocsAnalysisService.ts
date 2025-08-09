@@ -890,16 +890,33 @@ class YBOCSAnalysisService {
         culturalContext
       );
 
-      const aiResponse = await externalAIService.generateResponse(
-        enhancementPrompt,
+      const aiResponse = await externalAIService.getAIResponse(
+        [{ role: 'user', content: enhancementPrompt }],
+        {
+          therapeuticProfile: userProfile,
+          culturalContext: culturalContext,
+          assessmentMode: true
+        },
         {
           therapeuticMode: true,
-          culturalContext: 'turkish',
-          maxTokens: 500
-        }
+          maxTokens: 500,
+          temperature: 0.3
+        },
+        userProfile.userId
       );
 
-      return this.parseAIEnhancementResponse(aiResponse);
+      if (!aiResponse.success) {
+        throw new Error(`AI enhancement failed: ${aiResponse.content}`);
+      }
+
+      console.log('🤖 Y-BOCS AI enhancement successful:', {
+        provider: aiResponse.provider,
+        latency: aiResponse.latency,
+        tokens: aiResponse.tokens.total,
+        cached: aiResponse.cached
+      });
+
+      return this.parseAIEnhancementResponse(aiResponse.content);
 
     } catch (error) {
       console.warn('AI enhancement failed, using fallback:', error);

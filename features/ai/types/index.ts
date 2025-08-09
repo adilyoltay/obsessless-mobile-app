@@ -324,22 +324,65 @@ export interface AIError {
 }
 
 /**
- * AI hata kodları
+ * AI hata kodları - Production Ready
  */
 export enum AIErrorCode {
+  // System & Configuration
   FEATURE_DISABLED = 'feature_disabled',
+  INITIALIZATION_FAILED = 'initialization_failed',
+  NO_PROVIDER_AVAILABLE = 'no_provider_available',
+  CONFIGURATION_ERROR = 'configuration_error',
+  INVALID_API_KEY = 'invalid_api_key',
+  
+  // Network & Connectivity
   NETWORK_ERROR = 'network_error',
+  TIMEOUT = 'timeout',
+  CONNECTION_FAILED = 'connection_failed',
+  
+  // Rate Limiting & Quotas
   RATE_LIMIT = 'rate_limit',
+  QUOTA_EXCEEDED = 'quota_exceeded',
+  CONCURRENT_LIMIT = 'concurrent_limit',
+  
+  // AI Provider & Model Errors
+  MODEL_ERROR = 'model_error',
   INVALID_RESPONSE = 'invalid_response',
+  MODEL_NOT_AVAILABLE = 'model_not_available',
+  MODEL_OVERLOADED = 'model_overloaded',
+  PROVIDER_ERROR = 'provider_error',
+  
+  // Data & Processing
+  PROCESSING_FAILED = 'processing_failed',
+  INVALID_INPUT = 'invalid_input',
+  DATA_VALIDATION_FAILED = 'data_validation_failed',
+  CONTENT_TOO_LONG = 'content_too_long',
+  
+  // Security & Safety
   SAFETY_VIOLATION = 'safety_violation',
   PRIVACY_VIOLATION = 'privacy_violation',
-  MODEL_ERROR = 'model_error',
-  INITIALIZATION_FAILED = 'initialization_failed',
-  PROCESSING_FAILED = 'processing_failed',
+  PII_DETECTED = 'pii_detected',
+  CONTENT_FILTERED = 'content_filtered',
+  UNAUTHORIZED_ACCESS = 'unauthorized_access',
+  
+  // Resources & State
   RESOURCE_NOT_FOUND = 'resource_not_found',
   SESSION_NOT_FOUND = 'session_not_found',
-  TIMEOUT = 'timeout',
-  UNKNOWN = 'unknown'
+  SESSION_EXPIRED = 'session_expired',
+  CACHE_ERROR = 'cache_error',
+  STORAGE_ERROR = 'storage_error',
+  
+  // User & Context
+  USER_NOT_FOUND = 'user_not_found',
+  CONTEXT_MISSING = 'context_missing',
+  PROFILE_INCOMPLETE = 'profile_incomplete',
+  
+  // Fallback & Recovery
+  FALLBACK_TRIGGERED = 'fallback_triggered',
+  RECOVERY_FAILED = 'recovery_failed',
+  
+  // Generic
+  UNKNOWN = 'unknown',
+  INTERNAL_ERROR = 'internal_error'
 }
 
 /**
