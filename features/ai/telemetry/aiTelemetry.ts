@@ -11,12 +11,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  AIError, 
-  AIInteractionAnalytics, 
+import {
+  AIError,
+  AIInteractionAnalytics,
   AIInteractionType,
-  ErrorSeverity 
+  ErrorSeverity
 } from '@/features/ai/types';
+
+const ENVIRONMENT = __DEV__ ? 'development' : 'production';
+
+const SENTRY_DSN = __DEV__
+  ? process.env.EXPO_PUBLIC_SENTRY_DSN_DEV
+  : process.env.EXPO_PUBLIC_SENTRY_DSN_PROD;
+
+const DATADOG_URL = __DEV__
+  ? process.env.EXPO_PUBLIC_DATADOG_URL_DEV
+  : process.env.EXPO_PUBLIC_DATADOG_URL_PROD;
+
+const DATADOG_API_KEY = __DEV__
+  ? process.env.EXPO_PUBLIC_DATADOG_API_KEY_DEV
+  : process.env.EXPO_PUBLIC_DATADOG_API_KEY_PROD;
+
+interface AlertThresholds {
+  latencyMs: { warning: number; critical: number };
+  errorRate: { warning: number; critical: number };
+  offlineQueue: { warning: number; critical: number };
+}
+
+const ALERT_THRESHOLDS: AlertThresholds = {
+  latencyMs: { warning: 3000, critical: 5000 },
+  errorRate: { warning: 0.02, critical: 0.05 },
+  offlineQueue: { warning: 50, critical: 100 }
+};
 
 // =============================================================================
 // 📋 TELEMETRY EVENT TYPES
@@ -327,8 +353,7 @@ class AITelemetryManager {
     metrics: PerformanceMetrics,
     userId?: string
   ): Promise<void> {
-    // Slow response detection
-    if (metrics.responseTime > 5000) {
+    if (metrics.responseTime > ALERT_THRESHOLDS.latencyMs.critical) {
       await this.trackAIInteraction(AIEventType.SLOW_RESPONSE, {
         feature,
         responseTime: metrics.responseTime,
@@ -336,11 +361,18 @@ class AITelemetryManager {
       }, userId);
     }
 
-    // General performance tracking
     await this.trackAIInteraction(AIEventType.CHAT_RESPONSE_RECEIVED, {
       feature,
       ...metrics
     }, userId);
+
+    await this.checkAlerts('latencyMs', metrics.responseTime);
+
+    const total = metrics.errorCount + metrics.retryCount;
+    if (total > 0) {
+      const errorRate = metrics.errorCount / total;
+      await this.checkAlerts('errorRate', errorRate);
+    }
   }
 
   /**
@@ -545,7 +577,10 @@ class AITelemetryManager {
         await this.saveEventsToStorage(this.eventBuffer);
       }
 
-      // TODO: Production'da analytics service'e gönder
+      await this.checkAlerts('offlineQueue', this.eventBuffer.length);
+
+      await this.sendToMonitoringPlatform(this.eventBuffer);
+
       if (__DEV__) {
         console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
       }
@@ -556,6 +591,54 @@ class AITelemetryManager {
     } catch (error) {
       console.error('❌ Error flushing telemetry buffer:', error);
     }
+  }
+
+  /**
+   * Send events to external monitoring platforms
+   */
+  private async sendToMonitoringPlatform(events: TelemetryEvent[]): Promise<void> {
+    const payload = {
+      environment: ENVIRONMENT,
+      events,
+    };
+    try {
+      if (SENTRY_DSN) {
+        await fetch(SENTRY_DSN, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      if (DATADOG_URL) {
+        await fetch(DATADOG_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'DD-API-KEY': DATADOG_API_KEY || '',
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+    } catch (error) {
+      console.error('❌ Failed to send telemetry to monitoring platform:', error);
+    }
+  }
+
+  /**
+   * Check metric thresholds and log alerts
+   */
+  private async checkAlerts(metric: keyof AlertThresholds, value: number): Promise<void> {
+    const thresholds = ALERT_THRESHOLDS[metric];
+    let level: 'critical' | 'warning' | null = null;
+    if (value > thresholds.critical) level = 'critical';
+    else if (value > thresholds.warning) level = 'warning';
+    if (!level) return;
+
+    await this.trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+      alert: metric,
+      level,
+      value,
+    });
   }
 
   /**
