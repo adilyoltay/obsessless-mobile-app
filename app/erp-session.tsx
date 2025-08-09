@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import ERPSessionScreen from '@/components/erp/ERPSessionScreen';
 import { getExerciseById } from '@/constants/erpCategories';
+import { getERPExercise } from '@/constants/erpExercises';
 
 export default function ERPSessionPage() {
   const params = useLocalSearchParams<{ 
@@ -28,7 +29,8 @@ export default function ERPSessionPage() {
     }
   }, [exerciseId]);
 
-  const exercise = getExerciseById(exerciseId);
+  // Prefer the rich ERP catalog; fallback to simple categories for backward compatibility
+  const exercise = (exerciseId && getERPExercise(exerciseId)) || getExerciseById(exerciseId as any);
 
   if (!exercise) {
     return (
