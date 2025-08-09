@@ -25,6 +25,9 @@ import { aiManager } from '@/features/ai/config/aiManager';
 import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
+import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { RiskLevel } from '@/features/ai/types';
 
 // =============================================================================
 // 🎯 CHAT STORE TYPES
@@ -53,6 +56,7 @@ interface ChatUIState {
   inputText: string;
   showCrisisHelp: boolean;
   lastCrisisLevel: CrisisRiskLevel;
+  redirectToEmergency: boolean;
 }
 
 /**
@@ -127,7 +131,8 @@ export const useAIChatStore = create<AIChatState>()(
         error: null,
         inputText: '',
         showCrisisHelp: false,
-        lastCrisisLevel: CrisisRiskLevel.NONE
+        lastCrisisLevel: CrisisRiskLevel.NONE,
+        redirectToEmergency: false
       },
       currentSession: null,
       userProfile: null,
@@ -412,7 +417,7 @@ export const useAIChatStore = create<AIChatState>()(
 
           // Crisis varsa özel handling
           if (crisisResult.riskLevel !== CrisisRiskLevel.NONE) {
-            return await get().handleCrisisMessage(userMessage, crisisResult, userId);
+            return await get().handleCrisisMessage(userMessage, crisisResult, userId, activeConversation.context);
           }
 
           // 3. User mesajını conversation'a ekle
@@ -565,7 +570,7 @@ export const useAIChatStore = create<AIChatState>()(
 
       dismissCrisisHelp: () => {
         set(state => ({
-          ui: { ...state.ui, showCrisisHelp: false }
+          ui: { ...state.ui, showCrisisHelp: false, redirectToEmergency: false }
         }));
       },
 
@@ -667,9 +672,10 @@ const originalStore = useAIChatStore.getState();
 
 // Crisis message handling
 originalStore.handleCrisisMessage = async function(
-  userMessage: AIMessage, 
-  crisisResult: any, 
-  userId: string
+  userMessage: AIMessage,
+  crisisResult: any,
+  userId: string,
+  context: ConversationContext
 ) {
   console.warn('🚨 Crisis message detected:', crisisResult.riskLevel);
   
@@ -705,8 +711,8 @@ originalStore.handleCrisisMessage = async function(
 
   // Conversation'a ekle
   useAIChatStore.setState(state => ({
-    conversations: state.conversations.map(conv => 
-      conv.id === state.activeConversationId 
+    conversations: state.conversations.map(conv =>
+      conv.id === state.activeConversationId
         ? {
             ...conv,
             messages: [...conv.messages, userMessage, crisisResponse],
@@ -719,6 +725,45 @@ originalStore.handleCrisisMessage = async function(
         : conv
     )
   }));
+
+  // Ek güvenlik kontrolü: JITAI ve Risk Assessment çıktılarıyla değerlendirme
+  try {
+    const risk = await riskAssessmentService.assessRisk(userId, { userProfile: context.userProfile });
+    const jitai = await jitaiEngine.predictOptimalTiming({
+      userId,
+      userProfile: context.userProfile,
+      currentContext: context as any,
+      interventionHistory: [],
+      currentUserState: {
+        isAppActive: true,
+        lastInteraction: new Date(),
+        recentMood: 'negative',
+        energyLevel: 50,
+        stressPattern: []
+      },
+      personalizationProfile: {
+        preferredTimes: [],
+        responsiveStates: [],
+        effectiveCategories: [],
+        culturalPreferences: {},
+        communicationStyle: 'direct'
+      }
+    } as any);
+
+    const stressLevel = (jitai as any)?.contextualFactors?.currentStressLevel;
+    if (
+      risk.immediateRisk === RiskLevel.IMMINENT ||
+      risk.immediateRisk === RiskLevel.VERY_HIGH ||
+      stressLevel === 'very_high' ||
+      stressLevel === 'high'
+    ) {
+      useAIChatStore.setState(state => ({
+        ui: { ...state.ui, redirectToEmergency: true }
+      }));
+    }
+  } catch (error) {
+    console.error('Crisis escalation evaluation failed:', error);
+  }
 
   return true;
 };

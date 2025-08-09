@@ -385,7 +385,7 @@ class ExternalAIService {
   /**
    * PII'yi sanitize et - CRITICAL SECURITY FUNCTION
    */
-  private sanitizeSensitiveData(messages: AIMessage[], context: ConversationContext): {
+  public sanitizeSensitiveData(messages: AIMessage[], context: ConversationContext): {
     sanitizedMessages: AIMessage[];
     sanitizedContext: ConversationContext;
     piiDetected: boolean;
