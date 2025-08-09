@@ -193,6 +193,32 @@ export interface UserFeedback {
   comment?: string; // Sanitized, no PII
 }
 
+interface MonitoringInfo {
+  latency?: number;
+  successRate?: number;
+  errorType?: string;
+}
+
+const sendToMonitoring = (data: { eventType: AIEventType } & MonitoringInfo) => {
+  try {
+    const Sentry = require('@sentry/react-native');
+    Sentry.captureMessage(`AI Interaction: ${data.eventType}`, { extra: data });
+  } catch (e) {
+    // Sentry yoksa sessizce geç
+  }
+
+  try {
+    const { DdRum } = require('@datadog/mobile-react-native');
+    DdRum.addAction('ai_interaction', data);
+  } catch (e) {
+    // Datadog yoksa sessizce geç
+  }
+
+  if (__DEV__) {
+    console.log('📡 Monitoring event', data);
+  }
+};
+
 // =============================================================================
 // 🔧 TELEMETRY CONFIGURATION
 // =============================================================================
@@ -269,7 +295,8 @@ class AITelemetryManager {
   async trackAIInteraction(
     eventType: AIEventType,
     metadata: Record<string, any> = {},
-    userId?: string
+    userId?: string,
+    monitoring?: MonitoringInfo
   ): Promise<void> {
     // Feature flag kontrolü FIRST
     if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
@@ -282,6 +309,11 @@ class AITelemetryManager {
     }
 
     try {
+      if (monitoring) {
+        sendToMonitoring({ eventType, ...monitoring });
+        metadata = { ...metadata, ...monitoring };
+      }
+
       const event: TelemetryEvent = {
         eventType,
         timestamp: new Date().toISOString(),
@@ -427,9 +459,19 @@ class AITelemetryManager {
    */
   async updateConsentLevel(level: ConsentLevel): Promise<void> {
     this.config.consentLevel = level;
-    
+
     // Consent'i kaydet
-    await AsyncStorage.setItem('ai_telemetry_consent', level);
+    await new Promise<void>(resolve => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          await AsyncStorage.setItem('ai_telemetry_consent', level);
+        } catch (error) {
+          console.error('Error saving telemetry consent:', error);
+        } finally {
+          resolve();
+        }
+      });
+    });
     
     // Eğer consent kaldırıldıysa, mevcut data'yı temizle
     if (level === ConsentLevel.NONE) {
@@ -571,14 +613,20 @@ class AITelemetryManager {
    * User consent'ini yükle
    */
   private async loadUserConsent(): Promise<void> {
-    try {
-      const consent = await AsyncStorage.getItem('ai_telemetry_consent');
-      if (consent && Object.values(ConsentLevel).includes(consent as ConsentLevel)) {
-        this.config.consentLevel = consent as ConsentLevel;
-      }
-    } catch (error) {
-      console.error('Error loading telemetry consent:', error);
-    }
+    return new Promise(resolve => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const consent = await AsyncStorage.getItem('ai_telemetry_consent');
+          if (consent && Object.values(ConsentLevel).includes(consent as ConsentLevel)) {
+            this.config.consentLevel = consent as ConsentLevel;
+          }
+        } catch (error) {
+          console.error('Error loading telemetry consent:', error);
+        } finally {
+          resolve();
+        }
+      });
+    });
   }
 
   /**
@@ -641,48 +689,65 @@ class AITelemetryManager {
    * User event'lerini storage'dan yükle
    */
   private async loadUserEventsFromStorage(hashedUserId: string): Promise<TelemetryEvent[]> {
-    try {
-      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
-      if (stored) {
-        const events: TelemetryEvent[] = JSON.parse(stored);
-        return events.filter(event => event.userId === hashedUserId);
-      }
-    } catch (error) {
-      console.error('Error loading user events from storage:', error);
-    }
-    return [];
+    return new Promise(resolve => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+          if (stored) {
+            const events: TelemetryEvent[] = JSON.parse(stored);
+            resolve(events.filter(event => event.userId === hashedUserId));
+            return;
+          }
+        } catch (error) {
+          console.error('Error loading user events from storage:', error);
+        }
+        resolve([]);
+      });
+    });
   }
 
   /**
    * User event'lerini storage'dan sil
    */
   private async deleteUserEventsFromStorage(hashedUserId: string): Promise<void> {
-    try {
-      const stored = await AsyncStorage.getItem('ai_telemetry_offline');
-      if (stored) {
-        const events: TelemetryEvent[] = JSON.parse(stored);
-        const filteredEvents = events.filter(event => event.userId !== hashedUserId);
-        
-        if (filteredEvents.length > 0) {
-          await AsyncStorage.setItem('ai_telemetry_offline', JSON.stringify(filteredEvents));
-        } else {
-          await AsyncStorage.removeItem('ai_telemetry_offline');
+    return new Promise(resolve => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const stored = await AsyncStorage.getItem('ai_telemetry_offline');
+          if (stored) {
+            const events: TelemetryEvent[] = JSON.parse(stored);
+            const filteredEvents = events.filter(event => event.userId !== hashedUserId);
+
+            if (filteredEvents.length > 0) {
+              await AsyncStorage.setItem('ai_telemetry_offline', JSON.stringify(filteredEvents));
+            } else {
+              await AsyncStorage.removeItem('ai_telemetry_offline');
+            }
+          }
+        } catch (error) {
+          console.error('Error deleting user events from storage:', error);
+        } finally {
+          resolve();
         }
-      }
-    } catch (error) {
-      console.error('Error deleting user events from storage:', error);
-    }
+      });
+    });
   }
 
   /**
    * Tüm stored event'leri temizle
    */
   private async clearStoredEvents(): Promise<void> {
-    try {
-      await AsyncStorage.removeItem('ai_telemetry_offline');
-    } catch (error) {
-      console.error('Error clearing stored events:', error);
-    }
+    return new Promise(resolve => {
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          await AsyncStorage.removeItem('ai_telemetry_offline');
+        } catch (error) {
+          console.error('Error clearing stored events:', error);
+        } finally {
+          resolve();
+        }
+      });
+    });
   }
 
   /**
@@ -730,9 +795,10 @@ const telemetryManager = new AITelemetryManager();
 export const trackAIInteraction = async (
   eventType: AIEventType,
   metadata: Record<string, any> = {},
-  userId?: string
+  userId?: string,
+  monitoring?: MonitoringInfo
 ): Promise<void> => {
-  return telemetryManager.trackAIInteraction(eventType, metadata, userId);
+  return telemetryManager.trackAIInteraction(eventType, metadata, userId, monitoring);
 };
 
 /**
@@ -819,10 +885,12 @@ export const cleanupTelemetry = async (): Promise<void> => {
 };
 
 // Export types for external use
-export { 
-  AIEventType, 
-  ConsentLevel, 
-  TelemetryEvent, 
-  PerformanceMetrics, 
-  UserFeedback 
+export {
+  AIEventType,
+  ConsentLevel,
+  TelemetryEvent,
+  PerformanceMetrics,
+  UserFeedback
 };
+
+export const __testing = { telemetryManager };
