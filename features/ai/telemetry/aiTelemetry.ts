@@ -28,6 +28,9 @@ import {
 export enum AIEventType {
   // System events
   SYSTEM_INITIALIZED = 'system_initialized',
+  SYSTEM_STARTED = 'system_started',
+  SYSTEM_STOPPED = 'system_stopped',
+  SYSTEM_STATUS = 'system_status',
   EMERGENCY_SHUTDOWN = 'emergency_shutdown',
   FEATURE_ENABLED = 'feature_enabled',
   FEATURE_DISABLED = 'feature_disabled',
@@ -37,6 +40,7 @@ export enum AIEventType {
   CHAT_MESSAGE_SENT = 'chat_message_sent',
   CHAT_RESPONSE_RECEIVED = 'chat_response_received',
   CHAT_SESSION_ENDED = 'chat_session_ended',
+  CHAT_ERROR = 'chat_error',
   
   // Insights events
   INSIGHT_GENERATED = 'insight_generated',
@@ -100,6 +104,8 @@ export enum AIEventType {
   INSIGHTS_COORDINATOR_INITIALIZED = 'insights_coordinator_initialized',
   INSIGHT_WORKFLOW_COMPLETED = 'insight_workflow_completed',
   INSIGHTS_COORDINATOR_SHUTDOWN = 'insights_coordinator_shutdown',
+  INSIGHTS_REQUESTED = 'insights_requested',
+  INSIGHTS_DELIVERED = 'insights_delivered',
   
   // Sprint 7: AI Onboarding Recreation events
   YBOCS_ANALYSIS_STARTED = 'ybocs_analysis_started',
