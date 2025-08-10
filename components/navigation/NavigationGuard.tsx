@@ -118,7 +118,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             if (!isProfileComplete) {
               console.log('🧭 Checking database for profile completion...');
               try {
-                const userProfile = await supabaseService.getUserProfile(user.id);
+                const userProfile = await supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
                 console.log('🧭 Database profile result:', {
                   hasProfile: !!userProfile,
                   onboardingCompleted: userProfile?.onboarding_completed

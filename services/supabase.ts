@@ -107,6 +107,7 @@ export interface SignUpResult extends AuthResult {
 class SupabaseNativeService {
   private client: SupabaseClient;
   private currentUser: User | null = null;
+  private userProfileCache: Map<string, { data: OCDProfile | null; fetchedAt: number }> = new Map();
 
   constructor() {
     this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -381,8 +382,15 @@ class SupabaseNativeService {
   // DATABASE OPERATIONS
   // ===========================
 
-  async getUserProfile(userId: string): Promise<OCDProfile | null> {
+  async getUserProfile(userId: string, options?: { forceRefresh?: boolean; cacheMs?: number }): Promise<OCDProfile | null> {
     try {
+      const cacheMs = options?.cacheMs ?? 60_000;
+      const forceRefresh = options?.forceRefresh === true;
+      const cached = this.userProfileCache.get(userId);
+      if (!forceRefresh && cached && Date.now() - cached.fetchedAt < cacheMs) {
+        if (__DEV__) console.log('🗄️ Using cached user profile for', userId);
+        return cached.data;
+      }
       console.log('🔍 Fetching user profile from database...', userId);
       
       const { data, error } = await this.client
@@ -393,7 +401,8 @@ class SupabaseNativeService {
 
       if (error && error.code !== 'PGRST116') throw error;
       console.log('✅ User profile fetched from database');
-      return data;
+      this.userProfileCache.set(userId, { data: data ?? null, fetchedAt: Date.now() });
+      return data ?? null;
     } catch (error) {
       console.error('❌ Get user profile failed:', error);
       return null;
@@ -724,20 +733,20 @@ class SupabaseNativeService {
         const { data: authUser } = await this.client.auth.getUser();
         
         if (authUser.user && authUser.user.id === userId) {
-          // Create user profile
+          // Upsert user profile (avoid duplicate key with triggers)
           const { error } = await this.client
             .from('users')
-            .insert({
+            .upsert({
               id: userId,
               email: authUser.user.email || '',
               name: authUser.user.user_metadata?.name || authUser.user.email?.split('@')[0] || 'User',
               provider: authUser.user.app_metadata?.provider || 'email',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
 
           if (error) throw error;
-          console.log('✅ User profile created in public.users:', userId);
+          console.log('✅ User profile upserted in public.users:', userId);
         }
       }
     } catch (error) {

@@ -464,7 +464,7 @@ export default function TodayScreen() {
           <View style={styles.noInsightsCard}>
             <MaterialCommunityIcons name="chart-timeline-variant" size={32} color="#9ca3af" />
             <Text style={styles.noInsightsText}>
-              Daha fazla veri toplandıkça kişisel içgörüler burada görünecek
+              Henüz kişisel içgörü üretmek için yeterli veri yok. ERP oturumları ve günlük kayıtlar arttıkça öneriler burada görünecek.
             </Text>
           </View>
         )}

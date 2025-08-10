@@ -271,6 +271,10 @@ class AITelemetryManager {
     metadata: Record<string, any> = {},
     userId?: string
   ): Promise<void> {
+    if (!eventType) {
+      if (__DEV__) console.warn('⚠️ Telemetry eventType missing, dropping event');
+      return;
+    }
     // Feature flag kontrolü FIRST
     if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
       return;

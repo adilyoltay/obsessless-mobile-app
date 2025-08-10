@@ -168,7 +168,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       await initializeGamification(user.id);
       
       // Check if onboarding profile exists in user_profiles table
-      let userProfile = await supabaseService.getUserProfile(user.id);
+      let userProfile = await supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
       
       if (!userProfile) {
         console.log('📝 No onboarding profile found - user needs to complete onboarding');

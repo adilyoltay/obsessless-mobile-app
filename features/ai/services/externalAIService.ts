@@ -373,7 +373,7 @@ class ExternalAIService {
       // Email patterns
       email: /\b[\w\.-]+@[\w\.-]+\.\w+\b/gi,
       // Phone patterns (Turkish and international)
-      phone: /(\+90|0)?[\s\-\.]?5\d{2}[\s\-\.]?\d{3}[\s\-\.]?\d{2}[\s\-\.]?\d{2}|\b\d{10,}\b/gi,
+      phone: /(\+90|0)?[\s\-\.]?5\d{2}[\s\-\.]?\d{3}[\s\-\.]?\d{2}[\s\-\.]?\d{2}|\b\d{11,}\b/gi,
       // Turkish ID numbers (11 digits)
       turkishId: /\b\d{11}\b/gi,
       // Names (basic pattern - capital letters followed by lowercase)
@@ -395,7 +395,9 @@ class ExternalAIService {
       // Apply PII patterns
       for (const [type, pattern] of Object.entries(piiPatterns)) {
         const matches = sanitizedContent.match(pattern);
-        if (matches) {
+        // Require at least 2 name matches to reduce over-masking; phones require >=1 but >=11 digits
+        const shouldMask = !!matches && (type !== 'names' || matches.length >= 2);
+        if (shouldMask) {
           piiDetected = true;
           if (__DEV__) console.warn(`🔒 PII detected and sanitized: ${type} (${matches.length} instances)`);
           
