@@ -28,7 +28,7 @@ export default function Index() {
           let isCompleted = false;
 
           try {
-            // Supabase check
+            // Supabase check (ai_profiles, fallback user_profiles)
             const { data: profileRow, error } = await supabaseService.supabaseClient
               .from('ai_profiles')
               .select('onboarding_completed')
@@ -37,8 +37,16 @@ export default function Index() {
 
             if (!error && profileRow) {
               isCompleted = !!profileRow.onboarding_completed;
-              if (__DEV__) {
-                console.log('🏠 Supabase onboarding status:', isCompleted);
+              if (__DEV__) console.log('🏠 Supabase onboarding status (ai_profiles):', isCompleted);
+            } else {
+              const { data: legacyRow } = await supabaseService.supabaseClient
+                .from('user_profiles')
+                .select('onboarding_completed')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              if (legacyRow) {
+                isCompleted = !!legacyRow.onboarding_completed;
+                if (__DEV__) console.log('🏠 Supabase onboarding status (user_profiles):', isCompleted);
               }
             }
           } catch (e) {

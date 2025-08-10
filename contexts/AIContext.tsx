@@ -35,7 +35,8 @@ import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisServic
 // Note: onboardingEngine removed - OnboardingFlowV3 uses direct state management
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
-// Risk assessment service removed
+// Risk Assessment Service (advanced) - runtime optional
+import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 // Art Therapy Engine import'u yalnızca feature flag açıkken dinamik yüklenecek
 // AI Chat removed
 

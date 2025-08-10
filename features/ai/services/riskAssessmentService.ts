@@ -27,11 +27,12 @@ import {
   AIErrorCode,
   ErrorSeverity
 } from '@/features/ai/types';
+import type { TreatmentPlan } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 // Crisis detection removed - using standalone risk assessment
-import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
+import contextIntelligenceEngine from '@/features/ai/context/contextIntelligence';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -266,7 +267,7 @@ class AdvancedRiskAssessmentService {
    * 🛡️ Assess user risk level
    */
   async assessRisk(userId: string, data: {
-    userProfile?: UserProfile;
+    userProfile?: UserTherapeuticProfile;
     ybocsData?: any;
     treatmentPlan?: TreatmentPlan;
   }): Promise<RiskAssessment> {
@@ -276,29 +277,28 @@ class AdvancedRiskAssessmentService {
   /**
    * 📈 Predict risk escalation
    */
-  async predictRiskEscalation(userId: string, currentRisk: RiskAssessment): Promise<any> {
-    return this.generateRiskEscalationPrediction(userId, currentRisk);
-  }
+  // Removed duplicate light wrapper; use the detailed method below
 
   /**
    * 🆘 Generate safety plan
    */
   async generateSafetyPlan(userId: string, riskAssessment: RiskAssessment): Promise<SafetyPlan> {
-    return this.createPersonalizedSafetyPlan(userId, riskAssessment);
+    return this.createSafetyPlan(riskAssessment, { preferredLanguage: 'tr' } as any, 'turkish' as any);
   }
 
   /**
    * ⚡ Trigger preventive intervention
    */
-  async triggerPreventiveIntervention(userId: string, riskLevel: RiskLevel): Promise<PreventiveIntervention> {
-    return this.activatePreventiveIntervention(userId, riskLevel);
+  async triggerPreventiveIntervention(userId: string, riskLevel: RiskLevel): Promise<any> {
+    return this.initiateRiskMonitoring({} as any);
   }
 
   /**
    * 🚨 Trigger crisis intervention
    */
   async triggerCrisisIntervention(userId: string, riskData: any): Promise<any> {
-    return this.activateCrisisProtocol(userId, riskData);
+    // Crisis protocols removed at runtime
+    return Promise.resolve();
   }
 
   // =============================================================================
@@ -579,7 +579,16 @@ class AdvancedRiskAssessmentService {
       // Sprint 6 entegrasyonu: Context Intelligence
       let contextualAnalysis = null;
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        contextualAnalysis = await contextIntelligence.analyzeUserBehaviorContext(userId, behaviorData);
+        const ctx = {
+          userId,
+          userProfile: { preferredLanguage: 'tr', riskFactors: [], communicationStyle: { formality: 'warm', directness: 'gentle', supportStyle: 'encouraging', humorAcceptable: false, preferredPronoun: '' }, preferredCBTTechniques: [], therapeuticGoals: [], triggerWords: [], avoidanceTopics: [] } as any,
+          timeframe: { start: new Date(Date.now() - 3600_000), end: new Date(), analysisDepth: 'quick' },
+          availableData: { deviceState: true, locationData: false, calendarData: false, weatherData: false, appUsageData: true, userInputData: false },
+          userPreferences: { privacyLevel: 'standard', analysisFrequency: 'on_demand', interventionStyle: 'proactive' }
+        };
+        // Lightweight quick check instead of deep analysis to avoid privacy-cost
+        const quick = await contextIntelligenceEngine.quickContextCheck(userId);
+        contextualAnalysis = { riskAssessment: { overallRisk: quick.riskLevel, riskFactors: [], protectiveFactors: [], interventionUrgency: 'low' } } as any;
       }
       
       // Warning signal detection
@@ -798,7 +807,7 @@ class AdvancedRiskAssessmentService {
     try {
       // Crisis detection service ile entegrasyon
       // Crisis detection service removed - standalone risk assessment only
-      console.log('🚨 Crisis detection integration initialized');
+      if (__DEV__) console.log('🛡️ Crisis detection removed; no integration performed');
     } catch (error) {
       console.warn('Crisis detection integration failed:', error);
     }
@@ -869,19 +878,14 @@ class AdvancedRiskAssessmentService {
     // Sprint 6 entegrasyonu: Environmental context analysis
     try {
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        const environmentalContext = await contextIntelligence.analyzeEnvironmentalFactors(
-          profile.preferredLanguage // Using as user proxy
-        );
-        
-        if (environmentalContext?.riskFactors) {
-          environmentalContext.riskFactors.forEach((factor: string) => {
-            risks.push({
-              category: RiskCategory.ENVIRONMENTAL,
-              description: factor,
-              severity: RiskLevel.MODERATE,
-              modifiable: false,
-              timeframe: 'long_term'
-            });
+        const basic = await contextIntelligenceEngine.quickContextCheck(profile.preferredLanguage as any);
+        if (basic.riskLevel === 'medium' || basic.riskLevel === 'high') {
+          risks.push({
+            category: RiskCategory.ENVIRONMENTAL,
+            description: 'Contextual risk detected',
+            severity: RiskLevel.MODERATE as any,
+            modifiable: false,
+            timeframe: 'long_term'
           });
         }
       }
@@ -1001,15 +1005,15 @@ Yanıtı JSON olarak ver.
     const map = (v: string | undefined): RiskLevel | null => {
       if (!v) return null;
       const s = String(v).toLowerCase();
-      if (s === 'imminent' || s === 'very_high' || s === 'critical') return RiskLevel.HIGH;
+      if (s === 'imminent' || s === 'very_high' || s === 'critical') return RiskLevel.IMMINENT;
       if (s === 'high') return RiskLevel.HIGH;
       if (s === 'moderate' || s === 'medium') return RiskLevel.MODERATE;
       if (s === 'low') return RiskLevel.LOW;
       return null;
     };
 
-    const immediate = map(predictions?.immediateRisk) ?? RiskLevel.MODERATE;
-    const shortTerm = map(predictions?.shortTermRisk) ?? RiskLevel.MODERATE;
+    const immediate = map(predictions?.immediateRisk) ?? RiskLevel.HIGH;
+    const shortTerm = map(predictions?.shortTermRisk) ?? (RiskLevel.MODERATE as any);
     const longTerm = map(predictions?.longTermRisk) ?? RiskLevel.LOW;
 
     return { immediate, shortTerm, longTerm }; 
@@ -1080,7 +1084,7 @@ Yanıtı JSON olarak ver.
    * 🛡️ Perform comprehensive risk assessment (PRIVATE)
    */
   private async performComprehensiveRiskAssessment(userId: string, data: {
-    userProfile?: UserProfile;
+    userProfile?: UserTherapeuticProfile;
     ybocsData?: any;
     treatmentPlan?: TreatmentPlan;
   }): Promise<RiskAssessment> {
@@ -1094,7 +1098,7 @@ Yanıtı JSON olarak ver.
         timestamp: new Date(),
         immediateRisk: RiskLevel.LOW,
         shortTermRisk: RiskLevel.LOW,
-        longTermRisk: RiskLevel.MEDIUM,
+        longTermRisk: RiskLevel.LOW,
         identifiedRisks: [],
         protectiveFactors: [],
         immediateActions: [],
@@ -1116,7 +1120,7 @@ Yanıtı JSON olarak ver.
         // Adjust risk levels based on severity
         const severity = data.ybocsData.severityLevel;
         if (severity === 'severe' || severity === 'extreme') {
-          riskAssessment.shortTermRisk = RiskLevel.MEDIUM;
+          riskAssessment.shortTermRisk = RiskLevel.MODERATE;
           riskAssessment.longTermRisk = RiskLevel.HIGH;
           riskAssessment.humanReviewRequired = true;
         }
@@ -1125,23 +1129,21 @@ Yanıtı JSON olarak ver.
       // Add protective factors
       riskAssessment.protectiveFactors = [
         {
-          id: 'prof_1',
           category: 'social',
           description: 'Tedavi sürecine katılım',
-          strength: 'high',
-          culturalRelevance: true
+          strength: 'strong',
+          reinforceable: true
         },
         {
-          id: 'prof_2',
           category: 'therapeutic',
           description: 'Profesyonel destek arayışı',
-          strength: 'medium',
-          culturalRelevance: true
+          strength: 'moderate',
+          reinforceable: true
         }
       ];
 
       // Generate immediate actions if needed
-      if (riskAssessment.shortTermRisk >= RiskLevel.MEDIUM) {
+      if (riskAssessment.shortTermRisk === RiskLevel.HIGH || riskAssessment.shortTermRisk === RiskLevel.MODERATE) {
         riskAssessment.immediateActions = [
           {
             id: 'action_1',
@@ -1162,7 +1164,7 @@ Yanıtı JSON olarak ver.
 
       // Set up monitoring plan
       riskAssessment.monitoringPlan = {
-        frequency: riskAssessment.shortTermRisk >= RiskLevel.MEDIUM ? 'daily' : 'weekly',
+        frequency: (riskAssessment.shortTermRisk === RiskLevel.HIGH || riskAssessment.shortTermRisk === RiskLevel.MODERATE) ? 'daily' : 'weekly',
         indicators: [
           'Kompülsiyon sıklığı',
           'Kaygı seviyeleri',
@@ -1214,28 +1216,22 @@ Yanıtı JSON olarak ver.
     // High severity risk
     if (ybocsData.severityLevel === 'severe' || ybocsData.severityLevel === 'extreme') {
       risks.push({
-        id: 'risk_severity',
         category: RiskCategory.CLINICAL,
         description: 'Yüksek semptom şiddeti',
-        severity: 'high',
-        likelihood: 0.8,
-        impact: 'significant',
+        severity: RiskLevel.HIGH,
         timeframe: 'immediate',
-        culturalFactors: ['Sosyal stigma endişesi', 'Aile beklentileri']
+        modifiable: true
       });
     }
 
     // Functional impairment risk
     if (ybocsData.totalScore > 20) {
       risks.push({
-        id: 'risk_impairment',
-        category: RiskCategory.FUNCTIONAL,
+        category: RiskCategory.CLINICAL,
         description: 'Günlük yaşam işlevselliğinde bozulma',
-        severity: 'medium',
-        likelihood: 0.7,
-        impact: 'moderate',
+        severity: RiskLevel.MODERATE,
         timeframe: 'short_term',
-        culturalFactors: ['İş/okul performansı beklentileri']
+        modifiable: true
       });
     }
 

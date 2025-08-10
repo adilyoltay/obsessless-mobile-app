@@ -256,7 +256,7 @@ class InsightsEngineV2 {
     try {
       // Rate limiting - Aynı kullanıcı için çok sık generation engelle
       const lastGeneration = this.lastGenerationTime.get(userId);
-      if (lastGeneration && Date.now() - lastGeneration.getTime() < 300000) { // 5 dakika
+      if (lastGeneration && Date.now() - lastGeneration.getTime() < 60000) { // 60 saniye
         console.log('🚫 Insight generation rate limited for user:', userId);
         return this.getCachedInsights(userId);
       }
