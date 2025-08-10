@@ -159,7 +159,7 @@ export default function ERPScreen() {
       );
 
       setAiRecommendations(recommendationResult.recommendedExercises || []);
-      setShowAIRecommendations(true);
+      setShowAIRecommendations((recommendationResult.recommendedExercises || []).length > 0);
       
       console.log('✅ AI ERP recommendations loaded:', recommendationResult.recommendedExercises?.length || 0);
 
@@ -537,7 +537,7 @@ export default function ERPScreen() {
         {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && treatmentPlan && (
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
-            <TreatmentPlanPreview plan={treatmentPlan} compact />
+            <TreatmentPlanPreview userProfile={userProfile} treatmentPlan={treatmentPlan} userId={user?.id} />
           </View>
         )}
 
