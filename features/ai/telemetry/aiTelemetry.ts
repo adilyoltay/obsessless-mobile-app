@@ -303,13 +303,14 @@ class AITelemetryManager {
           try {
             if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) return;
             const { default: supabaseService } = await import('@/services/supabase');
+            // Do not specify time column; rely on DB default (works with both
+            // legacy "timestamp" and new "occurred_at" schemas)
             await supabaseService.supabaseClient
               .from('ai_telemetry')
               .insert({
                 user_id: userId || null,
                 event_type: eventType,
-                metadata: this.sanitizeMetadata(metadata),
-                occurred_at: new Date().toISOString()
+                metadata: this.sanitizeMetadata(metadata)
               });
           } catch (persistErr) {
             // Swallow persistence errors silently; local buffer still holds
