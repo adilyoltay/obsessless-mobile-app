@@ -181,12 +181,12 @@ class ExternalAIService {
    * External AI Service'i başlat
    */
   async initialize(): Promise<void> {
-    console.log('🌐 External AI Service: Initializing...');
+    if (__DEV__) console.log('🌐 External AI Service: Initializing...');
     
     try {
       // Feature flag kontrolü
       if (!FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
-        console.log('🚫 External AI Service disabled by feature flag');
+        if (__DEV__) console.log('🚫 External AI Service disabled by feature flag');
         this.isEnabled = false;
         return;
       }
@@ -229,7 +229,7 @@ class ExternalAIService {
         totalProviders: this.providers.size
       });
 
-      console.log('✅ External AI Service initialized with provider:', this.activeProvider);
+      if (__DEV__) console.log('✅ External AI Service initialized with provider:', this.activeProvider);
 
     } catch (error) {
       console.error('❌ External AI Service initialization failed:', error);
@@ -283,7 +283,7 @@ class ExternalAIService {
     }
 
     if (__DEV__) {
-      console.log(`🔧 Loaded ${this.providers.size} AI provider configurations (selected: gemini)`);
+      if (__DEV__) console.log(`🔧 Loaded ${this.providers.size} AI provider configurations (selected: gemini)`);
     }
   }
 
@@ -306,9 +306,9 @@ class ExternalAIService {
 
           if (__DEV__) {
             if (isHealthy) {
-              console.log(`✅ ${provider} is available`);
+              if (__DEV__) console.log(`✅ ${provider} is available`);
             } else {
-              console.warn(`⚠️ ${provider} is not available`);
+              if (__DEV__) console.warn(`⚠️ ${provider} is not available`);
             }
           }
         } catch (error) {
@@ -387,7 +387,7 @@ class ExternalAIService {
         const matches = sanitizedContent.match(pattern);
         if (matches) {
           piiDetected = true;
-          console.warn(`🔒 PII detected and sanitized: ${type} (${matches.length} instances)`);
+          if (__DEV__) console.warn(`🔒 PII detected and sanitized: ${type} (${matches.length} instances)`);
           
           switch (type) {
             case 'email':
@@ -489,7 +489,7 @@ class ExternalAIService {
     // Memory cache kontrolü
     const memoryCached = this.responseCache.get(promptHash);
     if (memoryCached && this.isCacheEntryValid(memoryCached)) {
-      console.log('📦 Cache hit (memory):', promptHash.substring(0, 8));
+    if (__DEV__) console.log('📦 Cache hit (memory):', promptHash.substring(0, 8));
       return { ...memoryCached.response, cached: true };
     }
 
@@ -502,7 +502,7 @@ class ExternalAIService {
           if (this.isCacheEntryValid(cacheEntry)) {
             // Memory cache'e de ekle
             this.responseCache.set(promptHash, cacheEntry);
-            console.log('📦 Cache hit (storage):', promptHash.substring(0, 8));
+            if (__DEV__) console.log('📦 Cache hit (storage):', promptHash.substring(0, 8));
             return { ...cacheEntry.response, cached: true };
           } else {
             // Expired cache'i temizle
@@ -544,7 +544,7 @@ class ExternalAIService {
       }
     }
 
-    console.log('📦 Response cached:', promptHash.substring(0, 8));
+    if (__DEV__) console.log('📦 Response cached:', promptHash.substring(0, 8));
   }
 
   /**
@@ -645,7 +645,7 @@ class ExternalAIService {
       const { sanitizedMessages, sanitizedContext, piiDetected } = this.sanitizeSensitiveData(messages, context);
       
       if (piiDetected) {
-        console.warn('🔒 PII detected and sanitized before AI request');
+        if (__DEV__) console.warn('🔒 PII detected and sanitized before AI request');
         // Track PII detection for security monitoring
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
           piiDetected: true,
@@ -698,7 +698,7 @@ class ExternalAIService {
       
       // Fallback mekanizması
       if (!response.success && provider !== this.getBackupProvider(provider)) {
-        console.warn(`⚠️ Primary provider ${provider} failed, trying backup...`);
+        if (__DEV__) console.warn(`⚠️ Primary provider ${provider} failed, trying backup...`);
         const backupProvider = this.getBackupProvider(provider);
         if (backupProvider) {
           response = await this.makeProviderRequest(backupProvider, preparedRequest);
@@ -969,7 +969,7 @@ class ExternalAIService {
 
   private initializeProviders(): void {
     // Provider'lar loadProviderConfigurations'da dinamik yüklenecek
-    console.log('🔧 External AI Service providers initialized');
+    if (__DEV__) console.log('🔧 External AI Service providers initialized');
   }
 
   private selectBestProvider(): AIProvider | null {
@@ -1116,7 +1116,7 @@ class ExternalAIService {
    * Service'i temizle
    */
   async shutdown(): Promise<void> {
-    console.log('🌐 External AI Service: Shutting down...');
+    if (__DEV__) console.log('🌐 External AI Service: Shutting down...');
     this.isEnabled = false;
     this.requestQueue.clear();
     this.rateLimiter.clear();

@@ -14,6 +14,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { InteractionManager } from 'react-native';
 
 // =============================================================================
@@ -124,6 +125,13 @@ class RetryQueueService {
       }
     } catch (error) {
       console.error('❌ Failed to load retry queue from storage:', error);
+      try {
+        await trackAIInteraction(AIEventType.API_ERROR, {
+          component: 'RetryQueue',
+          action: 'load_queue',
+          error: (error as Error).message
+        });
+      } catch {}
       this.queue = [];
     }
   }
@@ -136,6 +144,13 @@ class RetryQueueService {
       await AsyncStorage.setItem('retry_queue', JSON.stringify(this.queue));
     } catch (error) {
       console.error('❌ Failed to save retry queue to storage:', error);
+      try {
+        await trackAIInteraction(AIEventType.API_ERROR, {
+          component: 'RetryQueue',
+          action: 'save_queue',
+          error: (error as Error).message
+        });
+      } catch {}
     }
   }
 
@@ -255,6 +270,16 @@ class RetryQueueService {
           item.nextRetryAt = new Date(Date.now() + delay);
           
           console.warn(`⚠️ Queue item failed, retry #${item.attempts} in ${delay}ms: ${item.table}/${item.id}`);
+          try {
+            await trackAIInteraction(AIEventType.SLOW_RESPONSE, {
+              component: 'RetryQueue',
+              action: 'retry_scheduled',
+              attempts: item.attempts,
+              delayMs: delay,
+              table: item.table,
+              id: item.id
+            });
+          } catch {}
         }
       }
     }

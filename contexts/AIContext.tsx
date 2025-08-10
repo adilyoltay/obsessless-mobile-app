@@ -370,24 +370,30 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     try {
-      // Check onboarding status - Supabase first then local fallback
-      let completed = false;
-      try {
-        const { data: profileRow } = await supabaseService.supabaseClient
+      // Supabase çağrılarını paralel çalıştır
+      const [profileRowRes, planRowRes] = await Promise.all([
+        supabaseService.supabaseClient
           .from('ai_profiles')
           .select('onboarding_completed, profile_data')
           .eq('user_id', userId)
-          .maybeSingle();
-        if (profileRow) {
-          completed = !!profileRow.onboarding_completed;
-          // If profile_data exists in DB, sync to local
-          if (profileRow.profile_data) {
-            setUserProfile(profileRow.profile_data);
-            await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data));
-          }
-        }
-      } catch {}
+          .maybeSingle(),
+        supabaseService.supabaseClient
+          .from('ai_treatment_plans')
+          .select('plan_data')
+          .eq('user_id', userId)
+          .maybeSingle()
+      ]);
 
+      // Onboarding completion
+      let completed = false;
+      const profileRow = profileRowRes?.data as any;
+      if (profileRow) {
+        completed = !!profileRow.onboarding_completed;
+        if (profileRow.profile_data) {
+          setUserProfile(profileRow.profile_data);
+          try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
+        }
+      }
       if (!completed) {
         const onboardingKey = `ai_onboarding_completed_${userId}`;
         const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
@@ -395,38 +401,15 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       setHasCompletedOnboarding(completed);
 
-      // Load user profile - prefer Supabase if available
-      if (!userProfile) {
-        const { data: profileRow } = await supabaseService.supabaseClient
-          .from('ai_profiles')
-          .select('profile_data')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (profileRow?.profile_data) {
-          setUserProfile(profileRow.profile_data);
-          await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data));
-        } else {
-          const profileKey = `ai_user_profile_${userId}`;
-          const profileData = await AsyncStorage.getItem(profileKey);
-          if (profileData) setUserProfile(JSON.parse(profileData));
-        }
-      }
-
-      // Load treatment plan - prefer Supabase if available
-      if (!treatmentPlan) {
-        const { data: planRow } = await supabaseService.supabaseClient
-          .from('ai_treatment_plans')
-          .select('plan_data')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (planRow?.plan_data) {
-          setTreatmentPlan(planRow.plan_data);
-          await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data));
-        } else {
-          const treatmentKey = `ai_treatment_plan_${userId}`;
-          const treatmentData = await AsyncStorage.getItem(treatmentKey);
-          if (treatmentData) setTreatmentPlan(JSON.parse(treatmentData));
-        }
+      // Treatment plan
+      const planRow = planRowRes?.data as any;
+      if (planRow?.plan_data) {
+        setTreatmentPlan(planRow.plan_data);
+        try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
+      } else if (!treatmentPlan) {
+        const treatmentKey = `ai_treatment_plan_${userId}`;
+        const treatmentData = await AsyncStorage.getItem(treatmentKey);
+        if (treatmentData) setTreatmentPlan(JSON.parse(treatmentData));
       }
 
       // Load latest risk assessment
@@ -757,7 +740,6 @@ export function AIProvider({ children }: AIProviderProps) {
     startOnboarding,
     updateUserProfile,
     generateInsights,
-    assessRisk,
     triggerIntervention
   }), [
     isInitialized,
@@ -776,7 +758,6 @@ export function AIProvider({ children }: AIProviderProps) {
     startOnboarding,
     updateUserProfile,
     generateInsights,
-    assessRisk,
     triggerIntervention
   ]);
 
@@ -810,8 +791,8 @@ export function useAIStatus() {
 
 // For components that only need user data
 export function useAIUserData() {
-  const { userProfile, treatmentPlan, currentRiskAssessment, hasCompletedOnboarding } = useAI();
-  return { userProfile, treatmentPlan, currentRiskAssessment, hasCompletedOnboarding };
+  const { userProfile, treatmentPlan, hasCompletedOnboarding } = useAI();
+  return { userProfile, treatmentPlan, hasCompletedOnboarding };
 }
 
 // For components that only need actions
@@ -821,7 +802,6 @@ export function useAIActions() {
     startOnboarding, 
     updateUserProfile, 
     generateInsights, 
-    assessRisk, 
     triggerIntervention 
   } = useAI();
   return { 
@@ -829,7 +809,6 @@ export function useAIActions() {
     startOnboarding, 
     updateUserProfile, 
     generateInsights, 
-    assessRisk, 
     triggerIntervention 
   };
 }
