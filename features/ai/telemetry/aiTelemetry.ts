@@ -296,6 +296,28 @@ class AITelemetryManager {
       // Event'i buffer'a ekle
       this.addToBuffer(event);
 
+      // Persist a minimal copy to Supabase (non-blocking)
+      try {
+        // Use InteractionManager to avoid UI jank
+        InteractionManager.runAfterInteractions(async () => {
+          try {
+            if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) return;
+            const { default: supabaseService } = await import('@/services/supabase');
+            await supabaseService.supabaseClient
+              .from('ai_telemetry')
+              .insert({
+                user_id: userId || null,
+                event_type: eventType,
+                metadata: this.sanitizeMetadata(metadata),
+                timestamp: new Date().toISOString()
+              });
+          } catch (persistErr) {
+            // Swallow persistence errors silently; local buffer still holds
+            if (__DEV__) console.warn('Telemetry persist failed:', persistErr);
+          }
+        });
+      } catch {}
+
       // Debug log (sadece development)
       if (__DEV__) {
         console.log(`📊 AI Telemetry: ${eventType}`, metadata);

@@ -602,6 +602,15 @@ export function AIProvider({ children }: AIProviderProps) {
               insights,
               timestamp: Date.now()
             }));
+            // Persist to Supabase (non-blocking)
+            try {
+              const { default: supabaseService } = await import('@/services/supabase');
+              await supabaseService.supabaseClient
+                .from('ai_insights')
+                .insert({ user_id: user.id, insights });
+            } catch (persistErr) {
+              if (__DEV__) console.warn('Persist ai_insights failed:', persistErr);
+            }
           } catch (cacheError) {
             if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
           }
