@@ -35,6 +35,7 @@ import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
 
 // =============================================================================
 // 🎯 PROFILING ALGORITHMS & CONSTANTS
@@ -170,7 +171,16 @@ class UserProfilingService {
     ybocsData?: any;
     culturalContext?: string;
   }): Promise<UserProfile> {
-    return this.createComprehensiveProfile(userId, data);
+    const profile = await this.createComprehensiveProfile(userId, data);
+    try {
+      await supabaseService.supabaseClient
+        .from('ai_profiles')
+        .upsert({ user_id: userId, profile });
+      console.log('✅ AI profile saved to database');
+    } catch (error) {
+      console.error('❌ Failed to save AI profile:', error);
+    }
+    return profile;
   }
 
   /**
