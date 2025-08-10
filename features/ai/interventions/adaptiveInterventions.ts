@@ -192,6 +192,70 @@ export interface InterventionContext {
   };
 }
 
+/**
+ * Basic context evaluation using location and time information.
+ * Location permission denied -> produce fallback categories and report telemetry.
+ */
+export interface ContextEvaluation {
+  locationType: 'unknown' | 'home' | 'work' | 'public';
+  timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+  suggestedCategories: InterventionCategory[];
+  fallback: boolean;
+}
+
+export async function evaluateContext(
+  location: { latitude: number; longitude: number } | null,
+  timestamp: Date = new Date()
+): Promise<ContextEvaluation> {
+  const hour = timestamp.getHours();
+  const timeOfDay: ContextEvaluation['timeOfDay'] =
+    hour < 5
+      ? 'night'
+      : hour < 12
+      ? 'morning'
+      : hour < 18
+      ? 'afternoon'
+      : 'evening';
+
+  if (!location) {
+    await trackAIInteraction(AIEventType.FALLBACK_TRIGGERED, {
+      source: 'adaptive_interventions',
+      reason: 'location_permission_denied',
+    });
+
+    return {
+      locationType: 'unknown',
+      timeOfDay,
+      suggestedCategories: [
+        InterventionCategory.STRESS_REDUCTION,
+        InterventionCategory.MINDFULNESS,
+      ],
+      fallback: true,
+    };
+  }
+
+  // Simple heuristic: without user-specific landmarks assume public location
+  const locationType: ContextEvaluation['locationType'] = 'public';
+
+  const suggestedCategories: InterventionCategory[] = [];
+  if (timeOfDay === 'night') {
+    suggestedCategories.push(InterventionCategory.SLEEP_HYGIENE);
+  }
+  if (locationType === 'public') {
+    suggestedCategories.push(InterventionCategory.MINDFULNESS);
+  }
+  if (suggestedCategories.length === 0) {
+    suggestedCategories.push(InterventionCategory.STRESS_REDUCTION);
+  }
+
+  return {
+    locationType,
+    timeOfDay,
+    suggestedCategories,
+    fallback: false,
+  };
+}
+
 // =============================================================================
 // ⚡ ADAPTIVE INTERVENTIONS ENGINE IMPLEMENTATION
 // =============================================================================
