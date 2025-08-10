@@ -9,6 +9,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
+import * as Crypto from 'expo-crypto';
 
 // ===========================
 // CONTEXT TYPE DEFINITION
@@ -304,7 +305,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       if (!providerUrl) throw new Error('GOOGLE_OAUTH_URL_MISSING');
 
       // Generate cryptographic app_state and append to auth URL
-      const appState = AuthSession.generateRandom(32);
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const appState = Array.from(randomBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
       oauthAppStateRef.current = appState;
       const authUrlWithState = providerUrl + (providerUrl.includes('?') ? '&' : '?') + `app_state=${appState}`;
 
