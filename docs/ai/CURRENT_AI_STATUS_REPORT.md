@@ -213,7 +213,7 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 10. **Art Therapy** - Creative expression and emotional analysis
 
 ### **⏳ Pending:**
-11. **Crisis Detection** - Removed from runtime (feature flag permanently false)
+11. **Crisis Detection** - Removed from runtime (AI_CRISIS_DETECTION=false by default, init edilmez)
 12. **Language** - System language only (TR else EN); no manual selection
 
 ---

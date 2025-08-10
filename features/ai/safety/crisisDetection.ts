@@ -21,7 +21,7 @@ interface CrisisDetectionConfig {
 }
 
 const DEFAULT_CONFIG: CrisisDetectionConfig = {
-  enabled: true,
+  enabled: false, // Default off; runtime'da feature flag ile açık değilse çalışmaz
   sensitivityLevel: 0.8,
   humanReviewThreshold: 0.7,
   emergencyThreshold: 0.9,

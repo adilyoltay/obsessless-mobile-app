@@ -437,11 +437,12 @@ class ERPRecommendationService {
         const aiResponse = await externalAIService.getAIResponse(
           [ { role: 'user', content: prompt } ],
           { therapeuticProfile: context.userProfile as any, assessmentMode: false },
-          { therapeuticMode: true, maxTokens: 400, temperature: 0.2 }
+          { therapeuticMode: true, maxTokens: 400, temperature: 0.2 },
+          context.userProfile?.id || (context as any).userId
         );
 
         if (aiResponse.success && aiResponse.content) {
-          // Telemetry: provider metrics
+          // Telemetry: provider metrics (standardized fields)
           await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
             feature: 'erp_recommendations',
             provider: aiResponse.provider,
@@ -449,7 +450,7 @@ class ERPRecommendationService {
             latency: aiResponse.latency,
             tokenTotal: aiResponse.tokens?.total,
             cached: aiResponse.cached === true
-          });
+          }, context.userProfile?.id);
 
           // Parse JSON safely
           let parsed: any = null;

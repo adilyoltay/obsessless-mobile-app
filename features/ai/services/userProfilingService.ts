@@ -949,15 +949,15 @@ class UserProfilingService {
         { therapeuticProfile: profile, assessmentMode: false } as any,
         { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
       );
-      if (aiResp.success && aiResp.content) {
-        await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+        if (aiResp.success && aiResp.content) {
+          await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
           feature: 'user_profiling_goal_enhancement',
           provider: aiResp.provider,
           model: aiResp.model,
           latency: aiResp.latency,
           tokenTotal: aiResp.tokens?.total,
-          cached: aiResp.cached === true
-        });
+            cached: aiResp.cached === true
+          });
         try {
           const parsed = JSON.parse(aiResp.content);
           if (Array.isArray(parsed)) return [...new Set([...goals, ...parsed])];

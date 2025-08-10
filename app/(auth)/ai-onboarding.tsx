@@ -201,6 +201,14 @@ export default function AIOnboardingScreen() {
         if (profileCheck.error || profileCheck.data?.onboarding_completed !== true) {
           throw new Error('Post-write verification failed for ai_profiles');
         }
+        const planCheck = await supabaseService.supabaseClient
+          .from('ai_treatment_plans')
+          .select('user_id,status')
+          .eq('user_id', user.id)
+          .single();
+        if (planCheck.error || !planCheck.data?.user_id) {
+          throw new Error('Post-write verification failed for ai_treatment_plans');
+        }
         console.log('✅ Onboarding data synced to Supabase successfully');
 
       } catch (syncError) {
