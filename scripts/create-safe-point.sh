@@ -58,6 +58,14 @@ check_clean_working_tree() {
         fi
     fi
 }
+# Stash current changes (optional but recommended)
+stash_changes() {
+    if ! git diff-index --quiet HEAD --; then
+        info "Geçici olarak değişiklikler stash'e alınıyor..."
+        # Tüm izlenmeyen dosyalar dahil
+        git stash push -u -m "$SAFE_POINT_PREFIX-$DATE_FORMAT" || warn "git stash sırasında uyarı oluştu"
+    fi
+}
 
 # Create backup directory
 create_backup_dir() {
@@ -358,6 +366,9 @@ main() {
     local metro_watchman_file
     metro_watchman_file=$(save_metro_watchman_state)
     
+    # Stash changes to ensure clean tag snapshot
+    stash_changes
+
     # Create git tag
     create_git_tag "$tag_name" "$description"
     
