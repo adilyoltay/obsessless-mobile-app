@@ -327,13 +327,21 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       oauthAppStateRef.current = appState;
       const authUrlWithState = providerUrl + (providerUrl.includes('?') ? '&' : '?') + `app_state=${appState}`;
 
-      // Compute return URL (must match service redirect)
-      const isExpoGo = Constants.appOwnership === 'expo';
-      const returnUrl = isExpoGo
-        ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
-        : Linking.createURL('auth/callback');
+      // Compute return URL (must match service redirect). Prefer provider URL's redirect_to
+      let returnUrl: string;
+      try {
+        const parsed = new URL(providerUrl);
+        const redirectTo = parsed.searchParams.get('redirect_to');
+        returnUrl = redirectTo ? decodeURIComponent(redirectTo) : Linking.createURL('auth/callback');
+      } catch {
+        const isExpoGo = Constants.appOwnership === 'expo';
+        returnUrl = isExpoGo
+          ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
+          : Linking.createURL('auth/callback');
+      }
 
       const result = await WebBrowser.openAuthSessionAsync(authUrlWithState, returnUrl);
+      if (__DEV__) console.log('🔐 AuthSession result:', result);
 
       if (result.type === 'cancel') {
         setError('Giriş iptal edildi.');
@@ -352,6 +360,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const accessToken = urlObj.searchParams.get('access_token');
       const refreshToken = urlObj.searchParams.get('refresh_token');
       const authCode = urlObj.searchParams.get('code');
+      if (__DEV__) console.log('🔐 Parsed callback params:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, hasCode: !!authCode, cbState });
 
       if (!cbState || oauthAppStateRef.current !== cbState) {
         setError('Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');

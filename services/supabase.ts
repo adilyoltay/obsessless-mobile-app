@@ -271,6 +271,7 @@ class SupabaseNativeService {
             access_type: 'offline',
             prompt: 'consent',
           },
+          skipBrowserRedirect: true,
         }
       });
 
