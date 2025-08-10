@@ -362,7 +362,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const authCode = urlObj.searchParams.get('code');
       if (__DEV__) console.log('🔐 Parsed callback params:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, hasCode: !!authCode, cbState });
 
-      if (!cbState || oauthAppStateRef.current !== cbState) {
+      // Enforce state only if both are present and mismatch
+      if (oauthAppStateRef.current && cbState && oauthAppStateRef.current !== cbState) {
         setError('Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
         return;
       }
@@ -387,6 +388,13 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           await loadUserProfile(data.user);
           return;
         }
+      }
+      // Fallback: attempt to refresh session (Supabase may have already set session)
+      const { data: refreshed } = await supabaseService.supabaseClient.auth.getSession();
+      if (refreshed?.session?.user) {
+        setUser(refreshed.session.user);
+        await loadUserProfile(refreshed.session.user);
+        return;
       }
       setError('Giriş tamamlanamadı. Lütfen tekrar deneyin.');
     } catch (error: any) {
