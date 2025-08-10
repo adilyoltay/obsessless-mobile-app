@@ -1,9 +1,9 @@
 /**
- * 🌐 External AI Service - OpenAI/Claude Integration
+ * 🌐 External AI Service - Gemini Integration (Gemini-only)
  * 
- * Bu servis external AI provider'ları (OpenAI, Claude, Gemini) ile
- * güvenli ve etkili entegrasyon sağlar. Therapeutic context için
- * optimize edilmiş, fallback mekanizmaları ile robust bir yapı sunar.
+ * Bu servis, Google Gemini ile güvenli ve etkili entegrasyon sağlar.
+ * Therapeutic context için optimize edilmiştir. Sadece Gemini desteklenir;
+ * yedek sağlayıcı ve OpenAI/Claude entegrasyonları kaldırılmıştır.
  * 
  * ⚠️ CRITICAL: Tüm API çağrıları safety filter'dan geçer
  * ⚠️ Feature flag kontrolü: AI_EXTERNAL_API
