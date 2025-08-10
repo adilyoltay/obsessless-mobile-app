@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS public.ai_telemetry (
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
   metadata JSONB NOT NULL,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  occurred_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 ALTER TABLE public.ai_telemetry ENABLE ROW LEVEL SECURITY;
@@ -75,6 +75,11 @@ DO $$ BEGIN
   CREATE POLICY "Users can insert own ai telemetry" ON public.ai_telemetry FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user_time ON public.ai_telemetry(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user_time ON public.ai_telemetry(user_id, occurred_at DESC);
+
+-- Backward compatibility: rename column if previously created as "timestamp"
+DO $$ BEGIN
+  ALTER TABLE public.ai_telemetry RENAME COLUMN "timestamp" TO occurred_at;
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
 
 

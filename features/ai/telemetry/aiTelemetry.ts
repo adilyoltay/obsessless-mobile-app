@@ -309,7 +309,7 @@ class AITelemetryManager {
                 user_id: userId || null,
                 event_type: eventType,
                 metadata: this.sanitizeMetadata(metadata),
-                timestamp: new Date().toISOString()
+                occurred_at: new Date().toISOString()
               });
           } catch (persistErr) {
             // Swallow persistence errors silently; local buffer still holds
