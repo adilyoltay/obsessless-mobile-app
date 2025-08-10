@@ -11,6 +11,7 @@
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 
 // =============================================================================
 // 🎯 TYPE DEFINITIONS
@@ -172,6 +173,7 @@ class ArtTherapyEngineImpl {
   private isInitialized: boolean = false;
   private activeSessions: Map<string, ArtSession> = new Map();
   private userArtHistory: Map<string, ArtworkData[]> = new Map();
+  private analysisCache: Map<string, ArtAnalysis> = new Map();
 
   private constructor() {}
 
@@ -299,56 +301,73 @@ class ArtTherapyEngineImpl {
   async analyzeArtwork(artwork: ArtworkData): Promise<ArtAnalysis> {
     console.log(`🤖 Analyzing artwork: ${artwork.artworkId}`);
 
-    try {
-      // Color analysis
-      const colorAnalysis = this.analyzeColors(artwork.colors);
-      
-      // Stroke pattern analysis
-      const strokeAnalysis = this.analyzeStrokes(artwork.strokes);
-      
-      // Emotional signature detection
-      const emotionalSignature = this.detectEmotionalSignature(artwork);
-      
-      // Therapeutic indicators
-      const therapeuticIndicators = this.assessTherapeuticIndicators(artwork);
+    const cached = await this.getCachedAnalysis(artwork.artworkId);
+    if (cached) {
+      console.log(`♻️ Using cached analysis for: ${artwork.artworkId}`);
+      return cached;
+    }
 
-      const analysis: ArtAnalysis = {
-        emotionalSignature,
-        complexityScore: strokeAnalysis.complexity,
-        colorPsychology: colorAnalysis,
-        therapeuticIndicators,
-        moodAssessment: {
-          primaryMood: emotionalSignature.dominant,
-          intensity: emotionalSignature.intensity,
-          valence: emotionalSignature.valence,
-          confidence: 0.75
-        },
-        progressIndicators: this.calculateProgressIndicators(artwork)
+    return new Promise<ArtAnalysis>((resolve) => {
+      const runAnalysis = async () => {
+        try {
+          // Color analysis
+          const colorAnalysis = this.analyzeColors(artwork.colors);
+
+          // Stroke pattern analysis
+          const strokeAnalysis = this.analyzeStrokes(artwork.strokes);
+
+          // Emotional signature detection
+          const emotionalSignature = this.detectEmotionalSignature(artwork);
+
+          // Therapeutic indicators
+          const therapeuticIndicators = this.assessTherapeuticIndicators(artwork);
+
+          const analysis: ArtAnalysis = {
+            emotionalSignature,
+            complexityScore: strokeAnalysis.complexity,
+            colorPsychology: colorAnalysis,
+            therapeuticIndicators,
+            moodAssessment: {
+              primaryMood: emotionalSignature.dominant,
+              intensity: emotionalSignature.intensity,
+              valence: emotionalSignature.valence,
+              confidence: 0.75
+            },
+            progressIndicators: this.calculateProgressIndicators(artwork)
+          };
+
+          await this.cacheAnalysis(artwork.artworkId, analysis);
+          console.log(`✅ Artwork analysis completed for: ${artwork.artworkId}`);
+
+          await trackAIInteraction(AIEventType.AI_ANALYSIS_COMPLETED, {
+            artworkId: artwork.artworkId,
+            analysisType: 'art_therapy',
+            emotionalSignature: analysis.emotionalSignature.dominant,
+            complexityScore: analysis.complexityScore
+          });
+
+          resolve(analysis);
+        } catch (error) {
+          console.error(`❌ Artwork analysis failed for: ${artwork.artworkId}`, error);
+
+          await trackAIError({
+            code: 'ART_ANALYSIS_FAILED',
+            message: 'Failed to analyze artwork',
+            context: { artworkId: artwork.artworkId },
+            severity: 'medium'
+          });
+
+          // Return basic analysis on failure
+          resolve(this.createBasicAnalysis(artwork));
+        }
       };
 
-      console.log(`✅ Artwork analysis completed for: ${artwork.artworkId}`);
-      
-      await trackAIInteraction(AIEventType.AI_ANALYSIS_COMPLETED, {
-        artworkId: artwork.artworkId,
-        analysisType: 'art_therapy',
-        emotionalSignature: analysis.emotionalSignature.dominant,
-        complexityScore: analysis.complexityScore
-      });
-
-      return analysis;
-    } catch (error) {
-      console.error(`❌ Artwork analysis failed for: ${artwork.artworkId}`, error);
-      
-      await trackAIError({
-        code: 'ART_ANALYSIS_FAILED',
-        message: 'Failed to analyze artwork',
-        context: { artworkId: artwork.artworkId },
-        severity: 'medium'
-      });
-
-      // Return basic analysis on failure
-      return this.createBasicAnalysis(artwork);
-    }
+      if (typeof (global as any).requestIdleCallback === 'function') {
+        (global as any).requestIdleCallback(runAnalysis);
+      } else {
+        InteractionManager.runAfterInteractions(runAnalysis);
+      }
+    });
   }
 
   /**
@@ -473,6 +492,34 @@ class ArtTherapyEngineImpl {
   private async initializePromptLibrary(): Promise<void> {
     // Initialize therapeutic prompt library
     console.log('🎨 Therapeutic prompt library initialized');
+  }
+
+  private async getCachedAnalysis(artworkId: string): Promise<ArtAnalysis | null> {
+    if (this.analysisCache.has(artworkId)) {
+      return this.analysisCache.get(artworkId)!;
+    }
+
+    try {
+      const data = await AsyncStorage.getItem(`art_analysis_${artworkId}`);
+      if (data) {
+        const parsed: ArtAnalysis = JSON.parse(data);
+        this.analysisCache.set(artworkId, parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.error('❌ Failed to load cached analysis:', error);
+    }
+
+    return null;
+  }
+
+  private async cacheAnalysis(artworkId: string, analysis: ArtAnalysis): Promise<void> {
+    this.analysisCache.set(artworkId, analysis);
+    try {
+      await AsyncStorage.setItem(`art_analysis_${artworkId}`, JSON.stringify(analysis));
+    } catch (error) {
+      console.error('❌ Failed to cache analysis:', error);
+    }
   }
 
   private analyzeColors(colors: ColorUsage[]): ColorAnalysis {
