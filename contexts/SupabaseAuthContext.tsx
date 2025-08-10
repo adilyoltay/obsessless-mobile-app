@@ -52,6 +52,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   
   const { initializeGamification, setUserId } = useGamificationStore();
   const { resetOnboarding } = useOnboardingStore();
+  const lastProfileLoadRef = React.useRef<{ userId: string; ts: number } | null>(null);
+  const isProfileLoadInFlightRef = React.useRef<boolean>(false);
 
   // ===========================
   // INITIALIZATION
@@ -157,6 +159,21 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const loadUserProfile = useCallback(async (user: User) => {
     try {
       console.log('👤 Loading user profile for:', user.email);
+      // Debounce duplicate loads on rapid auth events
+      const now = Date.now();
+      if (isProfileLoadInFlightRef.current) {
+        if (__DEV__) console.log('⏳ Profile load in flight, skipping');
+        return;
+      }
+      if (
+        lastProfileLoadRef.current &&
+        lastProfileLoadRef.current.userId === user.id &&
+        now - lastProfileLoadRef.current.ts < 60_000
+      ) {
+        if (__DEV__) console.log('🗄️ Using recent profile load, skipping duplicate');
+        return;
+      }
+      isProfileLoadInFlightRef.current = true;
       
       // Set user ID for all stores
       setUserId(user.id);
@@ -164,7 +181,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       // Initialize user-specific data migration
       await migrateToUserSpecificStorage(user.id);
       
-      // Initialize gamification for this user
+      // Initialize gamification for this user (idempotent at store level)
       await initializeGamification(user.id);
       
       // Check if onboarding profile exists in user_profiles table
@@ -176,7 +193,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         console.log('✅ User profile loaded:', user.email);
       }
       
-      // Initialize gamification profile (create if doesn't exist)
+      // Initialize gamification profile (create/update if needed)
       const gamificationProfile = await supabaseService.createGamificationProfile(user.id);
       if (gamificationProfile) {
         console.log('✅ Gamification profile initialized successfully! 🎮');
@@ -186,9 +203,12 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
       // Profile will be set properly during onboarding completion
       setProfile(null);
+      lastProfileLoadRef.current = { userId: user.id, ts: now };
     } catch (error) {
       console.error('❌ Load user profile failed:', error);
       setProfile(null);
+    } finally {
+      isProfileLoadInFlightRef.current = false;
     }
   }, [setUserId, initializeGamification]);
 
