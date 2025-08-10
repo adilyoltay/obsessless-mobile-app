@@ -11,6 +11,9 @@ import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 
+// Ensure pending auth sessions are completed (iOS 13+)
+WebBrowser.maybeCompleteAuthSession();
+
 // ===========================
 // CONTEXT TYPE DEFINITION
 // ===========================
@@ -318,12 +321,13 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
         : Linking.createURL('auth/callback');
 
-      const result = await AuthSession.startAsync({ authUrl: authUrlWithState, returnUrl });
+      const result = await WebBrowser.openAuthSessionAsync(authUrlWithState, returnUrl);
 
       if (result.type === 'cancel') {
         setError('Giriş iptal edildi.');
         return;
       }
+      // openAuthSessionAsync returns { type: 'success' | 'cancel', url?: string }
       if (result.type !== 'success' || !('url' in result) || !result.url) {
         setError('Giriş başarısız. Lütfen tekrar deneyin.');
         return;
