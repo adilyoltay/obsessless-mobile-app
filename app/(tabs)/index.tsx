@@ -417,7 +417,7 @@ export default function TodayScreen() {
             style={styles.aiOnboardingCTA}
             onPress={() => router.push({
               pathname: '/(auth)/ai-onboarding',
-              params: { fromSettings: 'false' }
+              params: { fromSettings: 'false', resume: 'true' }
             })}
           >
             <View style={styles.aiOnboardingCTAContent}>
@@ -425,7 +425,7 @@ export default function TodayScreen() {
               <View style={styles.aiOnboardingCTAText}>
                 <Text style={styles.aiOnboardingCTATitle}>AI Destekli Değerlendirme</Text>
                 <Text style={styles.aiOnboardingCTASubtitle}>
-                  Size özel tedavi planı ve içgörüler için AI onboarding'i tamamlayın
+                  Size özel tedavi planı ve içgörüler için AI onboarding'i tamamlayın. Kaldığın yerden devam edebilirsin.
                 </Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color="#3b82f6" />

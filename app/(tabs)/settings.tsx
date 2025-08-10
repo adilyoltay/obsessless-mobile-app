@@ -33,6 +33,7 @@ import { useAISettingsStore, aiSettingsUtils } from '@/store/aiSettingsStore';
 import { StorageKeys } from '@/utils/storage';
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { useRouter } from 'expo-router';
 
 // Settings data structure
 interface SettingsData {
@@ -48,6 +49,7 @@ const LANGUAGE_OPTIONS = [
 ];
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
   const { user, signOut, profile } = useAuth();
@@ -60,8 +62,13 @@ export default function SettingsScreen() {
     weeklyReports: true
   });
 
+  // AI Onboarding local status
+  const [aiOnboardingCompleted, setAiOnboardingCompleted] = useState<boolean>(false);
+  const [aiOnboardingHasProgress, setAiOnboardingHasProgress] = useState<boolean>(false);
+
   useEffect(() => {
     loadSettings();
+    loadAIOnboardingStatus();
   }, []);
 
   const loadSettings = async () => {
@@ -73,6 +80,28 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  const loadAIOnboardingStatus = async () => {
+    try {
+      if (!user?.id) return;
+      const [completed, session] = await Promise.all([
+        AsyncStorage.getItem(`ai_onboarding_completed_${user.id}`),
+        AsyncStorage.getItem(`onboarding_session_${user.id}`)
+      ]);
+      setAiOnboardingCompleted(completed === 'true');
+      setAiOnboardingHasProgress(!!session);
+    } catch (e) {
+      // noop
+    }
+  };
+
+  const handleContinueAIOnboarding = async () => {
+    if (!user?.id) return;
+    router.push({
+      pathname: '/(auth)/ai-onboarding',
+      params: { fromSettings: 'true', resume: aiOnboardingHasProgress ? 'true' : 'false' }
+    });
   };
 
   const updateSetting = async (key: keyof SettingsData, value: boolean) => {
@@ -406,6 +435,29 @@ export default function SettingsScreen() {
                 );
               }
             )}
+          </View>
+        </View>
+
+        {/* AI Onboarding Durumu */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>AI Onboarding</Text>
+          <View style={styles.sectionContent}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="rocket-launch" size={24} color="#3B82F6" />
+                <Text style={styles.settingTitle}>
+                  {aiOnboardingCompleted ? 'Tamamlandı' : aiOnboardingHasProgress ? 'Devam Edebilir' : 'Henüz Tamamlanmadı'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {!aiOnboardingCompleted && (
+                  <Button title={aiOnboardingHasProgress ? 'Devam Et' : 'Başlat'} onPress={handleContinueAIOnboarding} />
+                )}
+                {__DEV__ && (
+                  <Button title="Sıfırla" onPress={handleRestartAIOnboarding} variant="outline" />
+                )}
+              </View>
+            </View>
           </View>
         </View>
 
