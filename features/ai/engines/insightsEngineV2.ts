@@ -258,7 +258,17 @@ class InsightsEngineV2 {
       const lastGeneration = this.lastGenerationTime.get(userId);
       if (lastGeneration && Date.now() - lastGeneration.getTime() < 60000) { // 60 saniye
         console.log('🚫 Insight generation rate limited for user:', userId);
-        return this.getCachedInsights(userId);
+        const cached = this.getCachedInsights(userId);
+        if (cached.length === 0) {
+          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+            userId,
+            reason: 'rate_limited_no_cache',
+            messageCount: context.recentMessages.length,
+            compulsionCount: context.behavioralData.compulsions?.length || 0,
+            timeframe: context.timeframe.period
+          });
+        }
+        return cached;
       }
 
       // Existing generation check
@@ -287,6 +297,16 @@ class InsightsEngineV2 {
           latency: Date.now() - startTime,
           aiUsed: insights.some(i => i.aiProvider)
         });
+
+        if (insights.length === 0) {
+          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+            userId,
+            reason: 'no_insights_generated',
+            messageCount: context.recentMessages.length,
+            compulsionCount: context.behavioralData.compulsions?.length || 0,
+            timeframe: context.timeframe.period
+          });
+        }
 
         console.log(`✅ Generated ${insights.length} insights for user ${userId}`);
         return insights;

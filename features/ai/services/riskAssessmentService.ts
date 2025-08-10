@@ -528,6 +528,8 @@ class AdvancedRiskAssessmentService {
 
       await trackAIInteraction(AIEventType.RISK_ESCALATION_PREDICTED, {
         riskId: currentRisk.id,
+        riskLevel: currentRisk.immediateRisk ?? RiskLevel.MODERATE,
+        riskFactors: currentRisk.identifiedRisks?.map(r => r.description) || [],
         escalationProbability: prediction.escalationProbability ?? 0,
         timeframe: prediction.timeframe ?? 'days',
         triggeringFactorsCount: Array.isArray(prediction.triggeringFactors) ? prediction.triggeringFactors.length : 0

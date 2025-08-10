@@ -15,7 +15,8 @@ import {
   AIError, 
   AIInteractionAnalytics, 
   AIInteractionType,
-  ErrorSeverity 
+  ErrorSeverity,
+  AIErrorCode
 } from '@/features/ai/types';
 
 // =============================================================================
@@ -107,22 +108,16 @@ export enum AIEventType {
   INSIGHTS_REQUESTED = 'insights_requested',
   INSIGHTS_DELIVERED = 'insights_delivered',
   
-  // Sprint 7: AI Onboarding Recreation events
+  // Sprint 7: AI Onboarding Recreation events (consolidated)
   YBOCS_ANALYSIS_STARTED = 'ybocs_analysis_started',
-  YBOCS_ANALYSIS_COMPLETED = 'ybocs_analysis_completed',
   YBOCS_ENHANCEMENT_APPLIED = 'ybocs_enhancement_applied',
-  
-  ONBOARDING_ENGINE_INITIALIZED = 'onboarding_engine_initialized',
   ONBOARDING_SESSION_STARTED = 'onboarding_session_started',
-  ONBOARDING_STEP_COMPLETED = 'onboarding_step_completed',
-  ONBOARDING_SESSION_COMPLETED = 'onboarding_session_completed',
-  ONBOARDING_ENGINE_SHUTDOWN = 'onboarding_engine_shutdown',
   
   USER_PROFILE_GENERATED = 'user_profile_generated',
   USER_PROFILE_ENHANCED = 'user_profile_enhanced',
   USER_PROFILE_UPDATED = 'user_profile_updated',
   
-  TREATMENT_PLAN_GENERATED = 'treatment_plan_generated',
+  // duplicate removed
   TREATMENT_PLAN_ADAPTED = 'treatment_plan_adapted',
   TREATMENT_PLAN_OPTIMIZED = 'treatment_plan_optimized',
   
@@ -165,6 +160,9 @@ export enum AIEventType {
   
   // Therapeutic Prompts
   THERAPEUTIC_PROMPTS_INITIALIZED = 'therapeutic_prompts_initialized'
+  ,
+  // Insights data insufficiency
+  INSIGHTS_DATA_INSUFFICIENT = 'insights_data_insufficient'
 }
 
 /**
@@ -866,11 +864,4 @@ export const cleanupTelemetry = async (): Promise<void> => {
   return telemetryManager.cleanup();
 };
 
-// Export types for external use
-export { 
-  AIEventType, 
-  ConsentLevel, 
-  TelemetryEvent, 
-  PerformanceMetrics, 
-  UserFeedback 
-};
+// Types already exported via 'export' declarations above
