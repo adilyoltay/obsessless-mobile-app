@@ -253,11 +253,17 @@ class ExternalAIService {
    */
   private async loadProviderConfigurations(): Promise<void> {
     const extra: any = Constants.expoConfig?.extra || {};
+    
+    const isLikelyPlaceholder = (value?: string) => {
+      if (!value) return true;
+      const v = String(value);
+      return /REPLACE_WITH_REAL|REPLACE|your_?api_?key/i.test(v);
+    };
 
     // OpenAI Configuration
     const openaiKey = extra.EXPO_PUBLIC_OPENAI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
     const openaiModel = extra.EXPO_PUBLIC_OPENAI_MODEL || process.env.EXPO_PUBLIC_OPENAI_MODEL || 'gpt-4o-mini';
-    if (openaiKey) {
+    if (openaiKey && !isLikelyPlaceholder(openaiKey)) {
       this.providers.set(AIProvider.OPENAI, {
         provider: AIProvider.OPENAI,
         apiKey: openaiKey,
@@ -276,7 +282,7 @@ class ExternalAIService {
     // Claude Configuration
     const claudeKey = extra.EXPO_PUBLIC_CLAUDE_API_KEY || process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
     const claudeModel = extra.EXPO_PUBLIC_CLAUDE_MODEL || process.env.EXPO_PUBLIC_CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
-    if (claudeKey) {
+    if (claudeKey && !isLikelyPlaceholder(claudeKey)) {
       this.providers.set(AIProvider.CLAUDE, {
         provider: AIProvider.CLAUDE,
         apiKey: claudeKey,
@@ -295,7 +301,7 @@ class ExternalAIService {
     // Gemini Configuration
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
     const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-exp';
-    if (geminiKey) {
+    if (geminiKey && !isLikelyPlaceholder(geminiKey)) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
         apiKey: geminiKey,
@@ -941,6 +947,13 @@ class ExternalAIService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+      // Normalize messages to Gemini format defensively
+      const safeMessages = Array.isArray(request.messages) ? request.messages : [];
+      const normalizedContents = safeMessages.map((m: any) => ({
+        role: m?.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(m?.content ?? '') }]
+      }));
+
       const response = await fetch(
         `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
         {
@@ -949,10 +962,7 @@ class ExternalAIService {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            contents: request.messages.map((m: any) => ({
-              role: m.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: m.content }]
-            })),
+            contents: normalizedContents,
             generationConfig: {
               temperature: request.temperature || config.temperature,
               maxOutputTokens: request.maxTokens || config.maxTokens

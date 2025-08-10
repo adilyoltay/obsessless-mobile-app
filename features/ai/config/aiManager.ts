@@ -91,9 +91,9 @@ export class AIManager {
    * Prerequisites kontrolü - AI özelliklerinin çalışması için gerekli koşullar
    */
   private checkPrerequisites(): boolean {
-    // Feature flag kontrolü
-    if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
-      console.log('🚫 AI_CHAT feature flag disabled');
+    // Feature flag kontrolü - AI master switch (AI_ENABLED)
+    if (!FEATURE_FLAGS.isEnabled('AI_ENABLED')) {
+      console.log('🚫 AI master (AI_ENABLED) feature flag disabled');
       return false;
     }
 
