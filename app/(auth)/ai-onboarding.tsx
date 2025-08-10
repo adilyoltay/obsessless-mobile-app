@@ -55,6 +55,7 @@ import supabaseService from '@/services/supabase';
 
 // UI Components
 import { Loading } from '@/components/ui/Loading';
+import { useAIActions } from '@/contexts/AIContext';
 
 interface OnboardingParams {
   resume?: string; // 'true' if resuming session
@@ -65,6 +66,7 @@ export default function AIOnboardingScreen() {
   const { user } = useAuth();
   const { setLoading } = useLoading();
   const params = useLocalSearchParams() as unknown as OnboardingParams;
+  const { initializeAIServices } = useAIActions();
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isOnboardingEnabled, setIsOnboardingEnabled] = useState(false);
@@ -238,6 +240,11 @@ export default function AIOnboardingScreen() {
 
         console.log('📤 Onboarding data added to retry queue');
       }
+
+      // 3. Refresh AI context so ERP ekranı plan ve önerileri anında göstersin
+      try {
+        await initializeAIServices();
+      } catch {}
 
       // Success feedback
       Alert.alert(
