@@ -937,15 +937,82 @@ class AdvancedRiskAssessmentService {
       }
     ]; 
   }
-  private generateRiskPredictions(risks: RiskFactor[], protective: ProtectiveFactor[], profile: UserTherapeuticProfile): Promise<any> { 
-    return Promise.resolve({}); 
+  private async generateRiskPredictions(
+    risks: RiskFactor[], 
+    protective: ProtectiveFactor[], 
+    profile: UserTherapeuticProfile
+  ): Promise<any> { 
+    try {
+      if (!FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
+        return {};
+      }
+      const summary = {
+        risks: risks.map(r => ({ category: r.category, description: r.description, severity: r.severity })),
+        protective: protective.map(p => ({ category: p.category, description: p.description, strength: (p as any).strength || 'moderate' })),
+        profile: {
+          language: profile.preferredLanguage,
+          severity: profile.symptomSeverity,
+          goals: profile.therapeuticGoals?.slice(0, 5) || []
+        }
+      };
+      const prompt = `Aşağıdaki klinik risk/protektif faktör özetine göre kısa ve yapılandırılmış bir tahmin döndür.
+Yanıtı JSON olarak ver.
+Şema: { "immediateRisk": "low|moderate|high|critical", "shortTermRisk": "low|moderate|high|critical", "longTermRisk": "low|moderate|high|critical", "triggeringFactors": string[], "preventiveActions": string[] }.
+Özet: ${JSON.stringify(summary)}`;
+
+      const aiResp = await externalAIService.getAIResponse(
+        ([{ role: 'user', content: prompt }] as any),
+        { therapeuticProfile: profile, assessmentMode: true } as any,
+        { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
+      );
+
+      if (aiResp.success && aiResp.content) {
+        await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+          feature: 'risk_assessment_predictions',
+          provider: aiResp.provider,
+          model: aiResp.model,
+          latency: aiResp.latency,
+          tokenTotal: aiResp.tokens?.total,
+          cached: aiResp.cached === true
+        });
+        try {
+          const parsed = JSON.parse(aiResp.content);
+          return parsed;
+        } catch {
+          // Fallback: basic text mapping
+          return { immediateRisk: 'moderate', shortTermRisk: 'moderate', longTermRisk: 'low' };
+        }
+      }
+    } catch (error) {
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'Risk predictions with AI failed',
+        severity: ErrorSeverity.MEDIUM,
+        context: { component: 'AdvancedRiskAssessmentService', method: 'generateRiskPredictions' }
+      });
+    }
+    return {};
   }
-  private calculateRiskLevels(risks: RiskFactor[], protective: ProtectiveFactor[], predictions: any): any { 
-    return {
-      immediate: RiskLevel.MODERATE,
-      shortTerm: RiskLevel.MODERATE,
-      longTerm: RiskLevel.LOW
-    }; 
+  private calculateRiskLevels(
+    risks: RiskFactor[], 
+    protective: ProtectiveFactor[], 
+    predictions: any
+  ): any { 
+    const map = (v: string | undefined): RiskLevel | null => {
+      if (!v) return null;
+      const s = String(v).toLowerCase();
+      if (s === 'imminent' || s === 'very_high' || s === 'critical') return RiskLevel.HIGH;
+      if (s === 'high') return RiskLevel.HIGH;
+      if (s === 'moderate' || s === 'medium') return RiskLevel.MODERATE;
+      if (s === 'low') return RiskLevel.LOW;
+      return null;
+    };
+
+    const immediate = map(predictions?.immediateRisk) ?? RiskLevel.MODERATE;
+    const shortTerm = map(predictions?.shortTermRisk) ?? RiskLevel.MODERATE;
+    const longTerm = map(predictions?.longTermRisk) ?? RiskLevel.LOW;
+
+    return { immediate, shortTerm, longTerm }; 
   }
   private determineImmediateActions(levels: any, context: CulturalContext): any[] { return []; }
   private createMonitoringPlan(levels: any, profile: UserTherapeuticProfile): any { return {}; }

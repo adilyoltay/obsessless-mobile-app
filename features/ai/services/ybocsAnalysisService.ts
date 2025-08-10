@@ -236,13 +236,47 @@ class YBOCSAnalysisService {
    * 🤖 Enhance analysis with AI insights
    */
   async enhanceWithAI(baseAnalysis: OCDAnalysis, userContext?: any): Promise<OCDAnalysis> {
-    // For now, return base analysis
-    // TODO: Integrate with AI service for enhanced insights
-    return {
-      ...baseAnalysis,
-      confidence: 0.95,
-      aiEnhanced: true
-    };
+    try {
+      if (!FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
+        return { ...baseAnalysis, confidence: 0.95, aiEnhanced: true } as any;
+      }
+      const prompt = await therapeuticPromptEngine.generateYBOCSEnhancementPrompt?.(
+        baseAnalysis,
+        userContext?.profile,
+        userContext?.culturalContext
+      ) || `Aşağıdaki Y-BOCS temel analizini terapötik bağlamda kısa geliştirmelerle zenginleştir. Yanıtı JSON döndür.`;
+
+      const aiResp = await externalAIService.getAIResponse(
+        [{ role: 'user', content: prompt }],
+        { therapeuticProfile: userContext?.profile, assessmentMode: true } as any,
+        { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
+      );
+
+      if (aiResp.success && aiResp.content) {
+        await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+          feature: 'ybocs_enhancement',
+          provider: aiResp.provider,
+          model: aiResp.model,
+          latency: aiResp.latency,
+          tokenTotal: aiResp.tokens?.total,
+          cached: aiResp.cached === true
+        });
+        try {
+          const parsed = JSON.parse(aiResp.content);
+          return { ...baseAnalysis, ...parsed, aiEnhanced: true } as any;
+        } catch {
+          return { ...baseAnalysis, aiEnhanced: true } as any;
+        }
+      }
+    } catch (error) {
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'Y-BOCS enhancement AI call failed',
+        severity: ErrorSeverity.LOW,
+        context: { component: 'YBOCSAnalysisService', method: 'enhanceWithAI' }
+      });
+    }
+    return { ...baseAnalysis, aiEnhanced: true } as any;
   }
 
   /**

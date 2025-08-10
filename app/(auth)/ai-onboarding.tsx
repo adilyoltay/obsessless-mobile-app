@@ -44,7 +44,7 @@ import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/fe
 import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 
 // Types
-import type { UserProfile, TreatmentPlan } from '@/features/ai/types';
+import type { UserTherapeuticProfile as UserProfile, TreatmentPlan } from '@/features/ai/types';
 
 // Feature Flags
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -64,7 +64,7 @@ interface OnboardingParams {
 export default function AIOnboardingScreen() {
   const { user } = useAuth();
   const { setLoading } = useLoading();
-  const params = useLocalSearchParams<OnboardingParams>();
+  const params = useLocalSearchParams() as unknown as OnboardingParams;
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isOnboardingEnabled, setIsOnboardingEnabled] = useState(false);
@@ -157,20 +157,22 @@ export default function AIOnboardingScreen() {
         setLoading(true, 'Sunucuya senkronize ediliyor...');
         
         // Sync AI Profile
-        await supabaseService.supabaseClient
+        const profileUpsert = await supabaseService.supabaseClient
           .from('ai_profiles')
           .upsert({
             user_id: user.id,
             profile_data: userProfile,
-            cultural_context: userProfile.culturalBackground || 'turkish',
+            cultural_context: (userProfile as any).culturalContext || 'turkish',
             onboarding_completed: true,
             completed_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          });
+          })
+          .select('user_id')
+          .single();
 
         // Sync Treatment Plan
-        await supabaseService.supabaseClient
+        const planUpsert = await supabaseService.supabaseClient
           .from('ai_treatment_plans')
           .upsert({
             user_id: user.id,
@@ -179,8 +181,24 @@ export default function AIOnboardingScreen() {
             status: 'active',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          });
+          })
+          .select('user_id')
+          .single();
 
+        // Post-write verification (defensive)
+        if (profileUpsert.error || planUpsert.error) {
+          throw new Error(`Supabase upsert verification failed: ${profileUpsert.error?.message || ''} ${planUpsert.error?.message || ''}`);
+        }
+
+        // Post-read verification
+        const profileCheck = await supabaseService.supabaseClient
+          .from('ai_profiles')
+          .select('user_id,onboarding_completed')
+          .eq('user_id', user.id)
+          .single();
+        if (profileCheck.error || profileCheck.data?.onboarding_completed !== true) {
+          throw new Error('Post-write verification failed for ai_profiles');
+        }
         console.log('✅ Onboarding data synced to Supabase successfully');
 
       } catch (syncError) {
@@ -193,7 +211,7 @@ export default function AIOnboardingScreen() {
           {
             user_id: user.id,
             profile_data: userProfile,
-            cultural_context: userProfile.culturalBackground || 'turkish',
+            cultural_context: (userProfile as any).culturalContext || 'turkish',
             onboarding_completed: true,
             completed_at: new Date().toISOString(),
             created_at: new Date().toISOString(),
