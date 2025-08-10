@@ -49,6 +49,8 @@ export default function ERPScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { treatmentPlan, userProfile } = useAIUserData();
+  const [localPlan, setLocalPlan] = useState<any | null>(null);
+  const [localProfile, setLocalProfile] = useState<any | null>(null);
   const { assessRisk } = useAIActions();
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [isQuickStartVisible, setIsQuickStartVisible] = useState(false);
@@ -113,12 +115,28 @@ export default function ERPScreen() {
       migrateTestData().then(() => {
         loadAllStats();
         // ✅ PRODUCTION: Load AI recommendations when user profile is ready
-        if (userProfile && treatmentPlan) {
-          loadAIRecommendations();
-        }
+        loadAIRecommendations();
       });
     }
   }, [user, userProfile, treatmentPlan]);
+  // Local fallback for plan/profile if AI context not yet populated
+  useEffect(() => {
+    const loadLocalAI = async () => {
+      if (!user?.id) return;
+      try {
+        if (!treatmentPlan) {
+          const tp = await AsyncStorage.getItem(`ai_treatment_plan_${user.id}`);
+          if (tp) setLocalPlan(JSON.parse(tp));
+        }
+        if (!userProfile) {
+          const up = await AsyncStorage.getItem(`ai_user_profile_${user.id}`);
+          if (up) setLocalProfile(JSON.parse(up));
+        }
+      } catch {}
+    };
+    loadLocalAI();
+  }, [user?.id, treatmentPlan, userProfile]);
+
 
   // Refresh stats when screen is focused (after returning from ERP session)
   useFocusEffect(
@@ -140,11 +158,6 @@ export default function ERPScreen() {
       return;
     }
 
-    if (!userProfile || !treatmentPlan) {
-      console.log('⚠️ User profile or treatment plan not available for AI recommendations');
-      return;
-    }
-
     try {
       setIsLoadingRecommendations(true);
       console.log('🤖 Loading AI ERP recommendations...');
@@ -152,10 +165,7 @@ export default function ERPScreen() {
       // Get personalized recommendations
       const recommendationResult = await erpRecommendationService.getPersonalizedRecommendations(
         user.id,
-        {
-          userProfile,
-          treatmentPlan
-        }
+        (userProfile && treatmentPlan) ? { userProfile, treatmentPlan } : undefined
       );
 
       setAiRecommendations(recommendationResult.recommendedExercises || []);
@@ -534,10 +544,10 @@ export default function ERPScreen() {
         </View>
 
         {/* AI Treatment Plan (Sprint 7 Integration) */}
-        {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && treatmentPlan && (
+        {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && (treatmentPlan || localPlan) && (
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
-            <TreatmentPlanPreview userProfile={userProfile} treatmentPlan={treatmentPlan} userId={user?.id} />
+            <TreatmentPlanPreview userProfile={userProfile || localProfile} treatmentPlan={treatmentPlan || localPlan} userId={user?.id} />
           </View>
         )}
 
