@@ -119,7 +119,21 @@ function checkFile(filePath) {
 function main() {
   console.log('🛡️  Import Guard System - Başlatılıyor...\n');
   
-  const filesToCheck = getChangedFiles();
+  // CLI arg ile tekil dosya/dizin kontrolünü destekle (testler için)
+  const cliTarget = process.argv[2];
+  let filesToCheck = [];
+  if (cliTarget) {
+    const stat = fs.existsSync(cliTarget) ? fs.statSync(cliTarget) : null;
+    if (stat && stat.isDirectory()) {
+      filesToCheck = getAllRelevantFiles(cliTarget);
+    } else if (stat) {
+      filesToCheck = [cliTarget];
+    }
+  }
+
+  if (filesToCheck.length === 0) {
+    filesToCheck = getChangedFiles();
+  }
   
   if (filesToCheck.length === 0) {
     console.log('✅ Kontrol edilecek dosya bulunamadı.');

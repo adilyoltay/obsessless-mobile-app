@@ -1,11 +1,11 @@
 {
   "sprint": "Sprint 7: AI Onboarding Recreation",
-  "timestamp": "2025-08-07T19:55:52.588Z",
+  "timestamp": "2025-08-10T09:14:49.868Z",
   "summary": {
     "total": 20,
-    "passed": 20,
-    "failed": 0,
-    "successRate": "100%"
+    "passed": 17,
+    "failed": 3,
+    "successRate": "85%"
   },
   "categories": {
     "backend_infrastructure": [
@@ -31,8 +31,8 @@
       },
       {
         "name": "Risk Assessment Service",
-        "status": "PASSED",
-        "details": "Predictive modeling with crisis integration"
+        "status": "FAILED",
+        "error": "Error: Crisis detection integration missing"
       }
     ],
     "ui_components": [
@@ -43,8 +43,8 @@
       },
       {
         "name": "YBOCSAssessmentUI Component",
-        "status": "PASSED",
-        "details": "Interactive Y-BOCS with cultural adaptation and crisis detection"
+        "status": "FAILED",
+        "error": "Error: Crisis detection integration missing"
       },
       {
         "name": "ProfileBuilderUI Component",
@@ -64,7 +64,7 @@
       {
         "name": "Component Size Analysis",
         "status": "PASSED",
-        "details": "5 components, total: 123KB"
+        "details": "5 components, total: 130KB"
       }
     ],
     "integration": [
@@ -90,15 +90,15 @@
       },
       {
         "name": "Crisis Detection Integration",
-        "status": "PASSED",
-        "details": "Crisis detection active in assessment and risk evaluation"
+        "status": "FAILED",
+        "error": "Error: Crisis detection not integrated in Y-BOCS assessment"
       }
     ],
     "privacy_security": [
       {
         "name": "Crisis Detection Integration",
-        "status": "PASSED",
-        "details": "Crisis detection active in assessment and risk evaluation"
+        "status": "FAILED",
+        "error": "Error: Crisis detection not integrated in Y-BOCS assessment"
       },
       {
         "name": "Consent Management",
@@ -110,7 +110,7 @@
       {
         "name": "Component Size Analysis",
         "status": "PASSED",
-        "details": "5 components, total: 123KB"
+        "details": "5 components, total: 130KB"
       },
       {
         "name": "Memory Management",
@@ -142,8 +142,8 @@
     },
     {
       "name": "Risk Assessment Service",
-      "status": "PASSED",
-      "details": "Predictive modeling with crisis integration"
+      "status": "FAILED",
+      "error": "Error: Crisis detection integration missing"
     },
     {
       "name": "OnboardingFlow Component",
@@ -152,8 +152,8 @@
     },
     {
       "name": "YBOCSAssessmentUI Component",
-      "status": "PASSED",
-      "details": "Interactive Y-BOCS with cultural adaptation and crisis detection"
+      "status": "FAILED",
+      "error": "Error: Crisis detection integration missing"
     },
     {
       "name": "ProfileBuilderUI Component",
@@ -192,8 +192,8 @@
     },
     {
       "name": "Crisis Detection Integration",
-      "status": "PASSED",
-      "details": "Crisis detection active in assessment and risk evaluation"
+      "status": "FAILED",
+      "error": "Error: Crisis detection not integrated in Y-BOCS assessment"
     },
     {
       "name": "Data Protection Compliance",
@@ -208,12 +208,12 @@
     {
       "name": "Component Size Analysis",
       "status": "PASSED",
-      "details": "5 components, total: 123KB"
+      "details": "5 components, total: 130KB"
     },
     {
       "name": "Async Operations",
       "status": "PASSED",
-      "details": "12 async functions with proper error handling"
+      "details": "14 async functions with proper error handling"
     },
     {
       "name": "Memory Management",

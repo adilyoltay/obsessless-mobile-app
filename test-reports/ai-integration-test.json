@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-09T18:12:26.239Z",
+  "timestamp": "2025-08-10T09:14:49.835Z",
   "tests": [
     {
       "name": "Production AI enabled",
@@ -23,8 +23,8 @@
     },
     {
       "name": "useCallback optimization",
-      "passed": true,
-      "details": "Found 6/6 callbacks"
+      "passed": false,
+      "details": "Found 5/6 callbacks"
     },
     {
       "name": "Parallel initialization",
@@ -69,9 +69,9 @@
   ],
   "summary": {
     "totalTests": 13,
-    "passed": 13,
-    "failed": 0,
-    "passRate": "100.0%",
+    "passed": 12,
+    "failed": 1,
+    "passRate": "92.3%",
     "recommendation": "READY FOR PRODUCTION"
   }
 }
