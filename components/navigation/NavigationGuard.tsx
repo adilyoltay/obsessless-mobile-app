@@ -106,6 +106,9 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
               const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
               const aiOnboarding = await AsyncStorage.getItem(aiOnboardingKey);
               aiOnboardingCompleted = aiOnboarding === 'true';
+              if (aiOnboardingCompleted) {
+                isProfileComplete = true; // Treat AI onboarding completion as profile completion
+              }
               console.log('🧭 AI Onboarding v2 status:', aiOnboardingCompleted);
             } catch (e) {
               console.warn('⚠️ AI onboarding status check failed');
@@ -142,12 +145,15 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                 if (currentPath !== '(auth)/ai-onboarding') {
                   console.log('👤 Redirecting to AI Onboarding v2 - not completed');
                   console.log('🔄 Navigation details:', { currentPath, inAuthGroup, hasNavigated: hasNavigatedRef.current });
-                  
+
                   setTimeout(() => {
                     try {
                       console.log('🚀 Attempting navigation to AI onboarding...');
                       hasNavigatedRef.current = true;
-                      router.push('/(auth)/ai-onboarding');
+                      router.push({
+                        pathname: '/(auth)/ai-onboarding',
+                        params: { resume: 'true', fromSettings: 'false' }
+                      } as any);
                       console.log('✅ Navigation command sent successfully');
                     } catch (error) {
                       console.error('❌ AI Onboarding navigation error:', error);
@@ -155,13 +161,27 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                       hasNavigatedRef.current = true;
                       router.push('/ai-onboarding');
                     }
-                  }, 200); // Increased timeout
+                  }, 200);
                   return;
                 } else {
                   console.log('🧭 Already in AI onboarding, staying here');
                 }
               } else {
-                console.log('🧭 Already in AI onboarding screen, allowing access');
+                // AI onboarding completed: ensure we are in tabs
+                if (inAuthGroup || currentPath === '+not-found' || currentPath === '' || currentPath === 'index') {
+                  console.log('✅ Redirecting to main app - AI onboarding complete');
+                  setTimeout(() => {
+                    try {
+                      hasNavigatedRef.current = true;
+                      router.push('/(tabs)');
+                    } catch (error) {
+                      console.error('Navigation error, trying fallback:', error);
+                      hasNavigatedRef.current = true;
+                      router.push('/');
+                    }
+                  }, 100);
+                  return;
+                }
               }
             } else if (!isProfileComplete) {
               // Fallback: Classic onboarding
