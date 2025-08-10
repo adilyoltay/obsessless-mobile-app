@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import supabaseService from '@/services/supabase';
+import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -41,10 +42,19 @@ export default function Index() {
               }
             }
           } catch (e) {
-            // Silent fallback to local
+            // Telemetry: Supabase onboarding check failed
+            await trackAIError({
+              code: 'storage_error' as any,
+              message: 'Supabase onboarding check failed',
+              severity: 'medium' as any,
+            }, {
+              component: 'app/index',
+              method: 'handleInitialNavigation',
+              phase: 'supabase_onboarding_check'
+            });
           }
 
-          if (!isCompleted) {
+           if (!isCompleted) {
             // Local fallback
             const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
             const localCompleted = await AsyncStorage.getItem(aiOnboardingKey);
@@ -52,6 +62,11 @@ export default function Index() {
             if (__DEV__) {
               console.log('🏠 Local AI Onboarding check:', { key: aiOnboardingKey, isCompleted });
             }
+             // Telemetry: Local fallback path observed
+             await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+               source: 'local_onboarding_fallback',
+               isCompleted
+             }, user.id);
           }
 
           if (!isCompleted) {
@@ -65,8 +80,16 @@ export default function Index() {
         console.log('🏠 User authenticated, redirecting to main app');
         router.replace('/(tabs)');
 
-      } catch (error) {
+       } catch (error) {
         console.error('🏠 Navigation error:', error);
+        await trackAIError({
+          code: 'unknown' as any,
+          message: 'Navigation error',
+          severity: 'high' as any,
+        }, {
+          component: 'app/index',
+          method: 'handleInitialNavigation'
+        });
         router.replace('/(auth)/login');
       }
     };

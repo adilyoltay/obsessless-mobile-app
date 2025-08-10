@@ -785,120 +785,14 @@ class ExternalAIService {
     config?: AIRequestConfig
   ): Promise<EnhancedAIResponse> {
     // Future implementation for streaming
-    throw new AIError(AIErrorCode.NOT_IMPLEMENTED, 'Streaming not yet implemented');
+    throw new AIError(AIErrorCode.UNKNOWN, 'Streaming not yet implemented');
   }
 
   // =============================================================================
   // 🔧 PROVIDER-SPECIFIC IMPLEMENTATIONS
   // =============================================================================
 
-  /**
-   * OpenAI API çağrısı
-   */
-  private async callOpenAI(request: any): Promise<EnhancedAIResponse> {
-    const config = this.providers.get(AIProvider.OPENAI)!;
-    const startTime = Date.now();
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
-      const response = await fetch(`${config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify({
-          model: request.model || config.model,
-          messages: request.messages,
-          max_tokens: request.maxTokens || config.maxTokens,
-          temperature: request.temperature || config.temperature
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new AIError(AIErrorCode.API_ERROR, `OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        content: data.choices[0]?.message?.content || '',
-        provider: AIProvider.OPENAI,
-        model: data.model,
-        tokens: {
-          prompt: data.usage?.prompt_tokens || 0,
-          completion: data.usage?.completion_tokens || 0,
-          total: data.usage?.total_tokens || 0
-        },
-        latency: Date.now() - startTime,
-        timestamp: new Date(),
-        requestId: ''
-      };
-
-    } catch (error) {
-      console.error('❌ OpenAI API call failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Claude API çağrısı
-   */
-  private async callClaude(request: any): Promise<EnhancedAIResponse> {
-    const config = this.providers.get(AIProvider.CLAUDE)!;
-    const startTime = Date.now();
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
-      const response = await fetch(`${config.baseURL}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': config.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: request.model || config.model,
-          max_tokens: request.maxTokens || config.maxTokens,
-          temperature: request.temperature || config.temperature,
-          messages: request.messages.filter((m: any) => m.role !== 'system'),
-          system: request.messages.find((m: any) => m.role === 'system')?.content || ''
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new AIError(AIErrorCode.API_ERROR, `Claude API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      return {
-        success: true,
-        content: data.content[0]?.text || '',
-        provider: AIProvider.CLAUDE,
-        model: data.model,
-        tokens: {
-          prompt: data.usage?.input_tokens || 0,
-          completion: data.usage?.output_tokens || 0,
-          total: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
-        },
-        latency: Date.now() - startTime,
-        timestamp: new Date(),
-        requestId: ''
-      };
-
-    } catch (error) {
-      console.error('❌ Claude API call failed:', error);
-      throw error;
-    }
-  }
+  // OpenAI ve Claude çağrıları kaldırıldı; yalnızca Gemini desteklenir
 
   /**
    * Gemini API çağrısı
@@ -992,16 +886,8 @@ class ExternalAIService {
   }
 
   private getBackupProvider(primaryProvider: AIProvider): AIProvider | null {
-    const backupOrder = {
-      [AIProvider.OPENAI]: AIProvider.CLAUDE,
-      [AIProvider.CLAUDE]: AIProvider.OPENAI,
-      [AIProvider.GEMINI]: AIProvider.OPENAI
-    };
-
-    const backup = backupOrder[primaryProvider];
-    const config = this.providers.get(backup);
-    
-    return config?.isAvailable ? backup : null;
+    // Yalnızca Gemini desteklenir; yedek sağlayıcı yok
+    return null;
   }
 
   private async makeProviderRequest(provider: AIProvider, request: any): Promise<EnhancedAIResponse> {
@@ -1068,7 +954,7 @@ class ExternalAIService {
     return {
       success: false,
       content: 'Üzgünüm, şu anda AI sistemi kullanılamıyor. Lütfen daha sonra tekrar deneyin. Bu arada nefes alma egzersizi yapmayı deneyebilirsiniz: 4 saniye nefes alın, 4 saniye tutun, 6 saniye bırakın.',
-      provider: AIProvider.LOCAL,
+      provider: AIProvider.GEMINI,
       model: 'fallback',
       tokens: { prompt: 0, completion: 0, total: 0 },
       latency,

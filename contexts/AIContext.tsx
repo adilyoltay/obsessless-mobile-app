@@ -49,7 +49,7 @@ import type {
 } from '@/features/ai/types';
 
 // Telemetry
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Feature Flags
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -421,6 +421,15 @@ export function AIProvider({ children }: AIProviderProps) {
 
     } catch (error) {
       console.error('❌ Error loading user AI data:', error);
+      // Telemetry: Hata raporla
+      await trackAIError({
+        code: 'storage_error' as any,
+        message: 'Error loading user AI data',
+        severity: 'medium' as any,
+      }, {
+        component: 'AIContext',
+        method: 'loadUserAIData'
+      });
     }
   };
 

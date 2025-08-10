@@ -170,10 +170,7 @@ export interface AIConfig {
  * Desteklenen AI sağlayıcıları
  */
 export enum AIProvider {
-  OPENAI = 'openai',
-  ANTHROPIC = 'anthropic',
-  LOCAL = 'local',
-  MOCK = 'mock' // Development/testing için
+  GEMINI = 'gemini'
 }
 
 /**

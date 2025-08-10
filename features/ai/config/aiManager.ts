@@ -204,36 +204,15 @@ export class AIManager {
    * Preferred AI provider belirleme
    */
   private getPreferredProvider(): AIProvider {
-    // Environment variable'dan okuma
-    const envProvider = process.env.EXPO_PUBLIC_AI_PROVIDER;
-    
-    if (envProvider && Object.values(AIProvider).includes(envProvider as AIProvider)) {
-      return envProvider as AIProvider;
-    }
-
-    // Development'ta mock kullan
-    if (__DEV__) {
-      return AIProvider.MOCK;
-    }
-
-    // Production'da OpenAI default
-    return AIProvider.OPENAI;
+    // Tek sağlayıcı: Gemini
+    return AIProvider.GEMINI;
   }
 
   /**
    * Provider'a göre model seçimi
    */
   private getModelForProvider(provider: AIProvider): string {
-    switch (provider) {
-      case AIProvider.OPENAI:
-        return 'gpt-4-turbo-preview';
-      case AIProvider.ANTHROPIC:
-        return 'claude-3-sonnet-20240229';
-      case AIProvider.MOCK:
-        return 'mock-model-v1';
-      default:
-        return 'gpt-3.5-turbo';
-    }
+    return 'gemini-2.0-flash-exp';
   }
 
   /**
@@ -327,21 +306,8 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
    * Provider sağlık testi
    */
   private async testProviderHealth(provider: AIProvider): Promise<boolean> {
-    switch (provider) {
-      case AIProvider.MOCK:
-        return true; // Mock provider her zaman healthy
-      
-      case AIProvider.OPENAI:
-        // TODO: Implement OpenAI health check
-        return true;
-        
-      case AIProvider.ANTHROPIC:
-        // TODO: Implement Anthropic health check
-        return true;
-        
-      default:
-        return false;
-    }
+    // Tek sağlayıcı; health check AI dışı yapılır
+    return true;
   }
 
   /**
