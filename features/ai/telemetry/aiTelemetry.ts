@@ -142,6 +142,29 @@ export enum AIEventType {
   EXTERNAL_AI_SHUTDOWN = 'external_ai_shutdown',
   AI_PII_DETECTED = 'ai_pii_detected',
   AI_CONTENT_FILTERED = 'ai_content_filtered'
+  ,
+  // Progress Analytics
+  PROGRESS_ANALYTICS_INITIALIZED = 'progress_analytics_initialized',
+  PROGRESS_ANALYSIS_COMPLETED = 'progress_analysis_completed',
+  PROGRESS_ANALYTICS_SHUTDOWN = 'progress_analytics_shutdown',
+  
+  // Pattern Recognition V2
+  PATTERN_RECOGNITION_INITIALIZED = 'pattern_recognition_initialized',
+  PATTERN_ANALYSIS_COMPLETED = 'pattern_analysis_completed',
+  PATTERN_VALIDATED = 'pattern_validated',
+  PATTERN_RECOGNITION_SHUTDOWN = 'pattern_recognition_shutdown',
+  
+  // Insights Engine V2
+  INSIGHTS_ENGINE_INITIALIZED = 'insights_engine_initialized',
+  INSIGHTS_GENERATED = 'insights_generated',
+  INSIGHTS_ENGINE_SHUTDOWN = 'insights_engine_shutdown',
+  
+  // Smart Notifications
+  SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',
+  NOTIFICATION_SCHEDULED = 'notification_scheduled',
+  
+  // Therapeutic Prompts
+  THERAPEUTIC_PROMPTS_INITIALIZED = 'therapeutic_prompts_initialized'
 }
 
 /**
