@@ -258,10 +258,15 @@ class ExternalAIService {
       return /REPLACE_WITH_REAL|REPLACE|your_?api_?key/i.test(v);
     };
 
-    // Determine selected provider; default from AI_CONFIG
-    const selectedProvider = 'gemini';
+    // Determine selected provider from Expo env (fallback gemini). Only gemini is supported.
+    const selectedProvider = String(
+      (extra.EXPO_PUBLIC_AI_PROVIDER || process.env.EXPO_PUBLIC_AI_PROVIDER || 'gemini')
+    ).toLowerCase();
 
-    // Remove OpenAI/Claude entirely
+    // Remove OpenAI/Claude entirely – warn if non-gemini configured
+    if (selectedProvider !== 'gemini') {
+      if (__DEV__) console.warn(`⚠️ Only Gemini is supported. Configured provider '${selectedProvider}' will be ignored.`);
+    }
 
     // Gemini Configuration (only if selected)
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -282,9 +287,13 @@ class ExternalAIService {
       });
     }
 
-    if (__DEV__) {
-      if (__DEV__) console.log(`🔧 Loaded ${this.providers.size} AI provider configurations (selected: gemini)`);
-    }
+    // Telemetry: configuration load summary
+    await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+      component: 'ExternalAIService',
+      event: 'config_loaded',
+      selectedProvider: 'gemini',
+      providersConfigured: Array.from(this.providers.keys())
+    });
   }
 
   /**

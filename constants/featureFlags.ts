@@ -11,11 +11,9 @@ import Constants from 'expo-constants';
 
 // 🎯 MASTER AI SWITCH - Tek bir toggle ile tüm AI özellikleri kontrol edilir
 const getAIMasterEnabled = () => {
-  // Expo config'den environment variable'ı al
-  const enableAI = Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI === 'true' || 
-                   process.env.EXPO_PUBLIC_ENABLE_AI === 'true';
-  
-  // Production'da da AI çalışsın - sadece environment variable kontrolü
+  // Expo config ve process env üzerinden kontrol (prod dahil)
+  const enableAI = (Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI === 'true') ||
+                   (process.env.EXPO_PUBLIC_ENABLE_AI === 'true');
   return enableAI;
 };
 
