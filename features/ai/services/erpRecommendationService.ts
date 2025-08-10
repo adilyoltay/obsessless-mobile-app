@@ -77,7 +77,7 @@ class ERPRecommendationService {
     }
 
     try {
-      console.log('🎯 ERP Recommendation Service: Initializing...');
+      if (__DEV__) console.log('🎯 ERP Recommendation Service: Initializing...');
       
       // Cache'leri temizle
       this.recommendationCache.clear();
@@ -91,7 +91,7 @@ class ERPRecommendationService {
         exerciseCount: ERP_EXERCISES.length
       });
       
-      console.log('✅ ERP Recommendation Service initialized successfully');
+      if (__DEV__) console.log('✅ ERP Recommendation Service initialized successfully');
       
     } catch (error) {
       console.error('❌ ERP Recommendation Service initialization failed:', error);
@@ -131,7 +131,7 @@ class ERPRecommendationService {
       const cacheKey = `${userId}_${context.treatmentPlan.updatedAt}`;
       const cached = this.recommendationCache.get(cacheKey);
       if (cached) {
-        console.log('📋 Using cached ERP recommendations');
+        if (__DEV__) console.log('📋 Using cached ERP recommendations');
         return cached;
       }
 
@@ -189,7 +189,7 @@ class ERPRecommendationService {
       return result;
 
     } catch (error) {
-      console.error('❌ ERP recommendation generation failed:', error);
+      if (__DEV__) console.error('❌ ERP recommendation generation failed:', error);
       
       await trackAIError(error, {
         userId,
@@ -221,7 +221,7 @@ class ERPRecommendationService {
         treatmentPlan: JSON.parse(treatmentData)
       };
     } catch (error) {
-      console.error('❌ Failed to load user context:', error);
+      if (__DEV__) console.error('❌ Failed to load user context:', error);
       throw error;
     }
   }
@@ -257,7 +257,7 @@ class ERPRecommendationService {
         totalSessions: sessions.length
       };
     } catch (error) {
-      console.error('❌ Progress analysis failed:', error);
+      if (__DEV__) console.error('❌ Progress analysis failed:', error);
       return {
         completedExercises: [],
         averageAnxietyReduction: 0,

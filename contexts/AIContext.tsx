@@ -142,7 +142,7 @@ export function AIProvider({ children }: AIProviderProps) {
     const startTime = Date.now();
 
     try {
-      console.log('🚀 Initializing AI services for user:', user.id);
+      if (__DEV__) console.log('🚀 Initializing AI services for user:', user.id);
 
       // Track initialization start
       await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
@@ -308,7 +308,7 @@ export function AIProvider({ children }: AIProviderProps) {
             try {
               await task.task();
               features.push(task.name);
-              console.log(`✅ ${task.name} initialized successfully`);
+              if (__DEV__) console.log(`✅ ${task.name} initialized successfully`);
               return { name: task.name, success: true };
             } catch (error) {
               console.warn(`⚠️ ${task.name} initialization failed:`, error);
@@ -323,7 +323,7 @@ export function AIProvider({ children }: AIProviderProps) {
       }
       if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
         features.push('AI_ONBOARDING_V2');
-        console.log('🎯 OnboardingFlowV3 enabled with direct state management');
+        if (__DEV__) console.log('🎯 OnboardingFlowV3 enabled with direct state management');
       }
 
       setAvailableFeatures(features);
@@ -335,7 +335,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
       setIsInitialized(true);
       const initTime = Date.now() - startTime;
-      console.log(`✅ AI services initialized successfully in ${initTime}ms`);
+      if (__DEV__) console.log(`✅ AI services initialized successfully in ${initTime}ms`);
 
       // Track successful initialization with performance metrics
       await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
@@ -349,7 +349,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
     } catch (error) {
       const initTime = Date.now() - startTime;
-      console.error('❌ AI services initialization failed:', error);
+      if (__DEV__) console.error('❌ AI services initialization failed:', error);
       setInitializationError(error instanceof Error ? error.message : 'Unknown error');
       
       // Track initialization failure
@@ -369,14 +369,14 @@ export function AIProvider({ children }: AIProviderProps) {
    */
   const loadUserAIData = async (): Promise<void> => {
     if (!user?.id) {
-      console.warn('⚠️ loadUserAIData: No user ID available');
+      if (__DEV__) console.warn('⚠️ loadUserAIData: No user ID available');
       return;
     }
 
     // Güvenli user ID kontrolü
     const userId = user.id;
     if (typeof userId !== 'string' || userId.trim() === '') {
-      console.error('❌ loadUserAIData: Invalid user ID:', userId);
+      if (__DEV__) console.error('❌ loadUserAIData: Invalid user ID:', userId);
       return;
     }
 
@@ -430,8 +430,17 @@ export function AIProvider({ children }: AIProviderProps) {
         setCurrentRiskAssessment(JSON.parse(riskData));
       }
 
+      // Telemetry: cross-device sync verification
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        event: 'ai_context_sync_check',
+        profilePresent: !!profileRow?.profile_data,
+        planPresent: !!planRow?.plan_data,
+        completed,
+        source: 'supabase_pull',
+      }, userId);
+
     } catch (error) {
-      console.error('❌ Error loading user AI data:', error);
+      if (__DEV__) console.error('❌ Error loading user AI data:', error);
       // Telemetry: Hata raporla
       await trackAIError({
         code: 'storage_error' as any,
@@ -472,7 +481,7 @@ export function AIProvider({ children }: AIProviderProps) {
       setOnboardingSession(session);
       return session;
     } catch (error) {
-      console.error('❌ Error starting onboarding:', error);
+      if (__DEV__) console.error('❌ Error starting onboarding:', error);
       return null;
     }
   }, [user?.id]);
@@ -485,7 +494,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
     const userId = user.id;
     if (typeof userId !== 'string' || userId.trim() === '') {
-      console.error('❌ updateUserProfile: Invalid user ID:', userId);
+      if (__DEV__) console.error('❌ updateUserProfile: Invalid user ID:', userId);
       return;
     }
 
@@ -502,7 +511,7 @@ export function AIProvider({ children }: AIProviderProps) {
         await userProfilingService.getInstance().updateProfile(userId, profileUpdate);
       }
     } catch (error) {
-      console.error('❌ Error updating user profile:', error);
+      if (__DEV__) console.error('❌ Error updating user profile:', error);
     }
   }, [user?.id, userProfile]);
 
@@ -532,7 +541,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
     // Offline fallback
     if (!isOnline) {
-      console.warn('📱 Offline mode: Using cached insights');
+      if (__DEV__) console.warn('📱 Offline mode: Using cached insights');
       
       try {
         const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
@@ -544,7 +553,7 @@ export function AIProvider({ children }: AIProviderProps) {
           }
         }
       } catch (error) {
-        console.error('❌ Error loading cached insights:', error);
+        if (__DEV__) console.error('❌ Error loading cached insights:', error);
       }
       
       // Return offline message as insight
@@ -594,7 +603,7 @@ export function AIProvider({ children }: AIProviderProps) {
               timestamp: Date.now()
             }));
           } catch (cacheError) {
-            console.warn('⚠️ Failed to cache insights:', cacheError);
+            if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
           }
         }
         
@@ -611,7 +620,7 @@ export function AIProvider({ children }: AIProviderProps) {
         }
         return insights || [];
       } else {
-        console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
+        if (__DEV__) console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
         // Try legacy path
         if (typeof insightsCoordinator.generateDailyInsights === 'function') {
           const insights = await insightsCoordinator.generateDailyInsights(user.id, userProfile as any);
@@ -619,7 +628,7 @@ export function AIProvider({ children }: AIProviderProps) {
             try {
               await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({ insights, timestamp: Date.now() }));
             } catch (cacheError) {
-              console.warn('⚠️ Failed to cache insights:', cacheError);
+              if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
             }
           }
           lastInsightsRef.current = Date.now();
@@ -628,7 +637,7 @@ export function AIProvider({ children }: AIProviderProps) {
         return [];
       }
     } catch (error) {
-      console.error('❌ Error generating insights:', error);
+      if (__DEV__) console.error('❌ Error generating insights:', error);
       return [];
     }
   }, [user?.id, userProfile, treatmentPlan, isOnline]);
@@ -653,7 +662,7 @@ export function AIProvider({ children }: AIProviderProps) {
         riskLevel: currentRiskAssessment?.riskLevel
       });
     } catch (error) {
-      console.error('❌ Error triggering intervention:', error);
+      if (__DEV__) console.error('❌ Error triggering intervention:', error);
     }
   }, [user?.id, userProfile, currentRiskAssessment]);
 
@@ -662,7 +671,7 @@ export function AIProvider({ children }: AIProviderProps) {
    */
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
-      console.log('🌐 Network state changed:', {
+      if (__DEV__) console.log('🌐 Network state changed:', {
         isConnected: state.isConnected,
         isInternetReachable: state.isInternetReachable,
         type: state.type
@@ -708,7 +717,7 @@ export function AIProvider({ children }: AIProviderProps) {
   useEffect(() => {
     if (!user) {
       // User signed out - reset all AI state
-      console.log('🔄 User signed out - resetting AI state');
+      if (__DEV__) console.log('🔄 User signed out - resetting AI state');
       setIsInitialized(false);
       setUserProfile(null);
       setTreatmentPlan(null);

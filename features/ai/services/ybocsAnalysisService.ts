@@ -950,7 +950,7 @@ class YBOCSAnalysisService {
         throw new Error(`AI enhancement failed: ${aiResponse.content}`);
       }
 
-      console.log('🤖 Y-BOCS AI enhancement successful:', {
+      if (__DEV__) console.log('🤖 Y-BOCS AI enhancement successful:', {
         provider: aiResponse.provider,
         latency: aiResponse.latency,
         tokens: aiResponse.tokens.total,
@@ -960,7 +960,7 @@ class YBOCSAnalysisService {
       return this.parseAIEnhancementResponse(aiResponse.content);
 
     } catch (error) {
-      console.warn('AI enhancement failed, using fallback:', error);
+      if (__DEV__) console.warn('AI enhancement failed, using fallback:', error);
       
       // Fallback enhancement based on basic analysis
       return {

@@ -213,7 +213,7 @@ class UserProfilingService {
    * User Profiling Service'i başlat
    */
   async initialize(): Promise<void> {
-    console.log('🎯 User Profiling Service: Initializing...');
+    if (__DEV__) console.log('🎯 User Profiling Service: Initializing...');
     
     try {
       // Feature flag kontrolü
@@ -236,10 +236,10 @@ class UserProfilingService {
         culturalFactors: Object.keys(CULTURAL_PROFILING_FACTORS).length
       });
 
-      console.log('✅ User Profiling Service initialized successfully');
+      if (__DEV__) console.log('✅ User Profiling Service initialized successfully');
 
     } catch (error) {
-      console.error('❌ User Profiling Service initialization failed:', error);
+      if (__DEV__) console.error('❌ User Profiling Service initialization failed:', error);
       this.isInitialized = false;
       
       await trackAIError({
@@ -1015,7 +1015,7 @@ class UserProfilingService {
     ybocsData?: any;
     culturalContext?: string;
   }): Promise<UserProfile> {
-    console.log('🎯 Creating comprehensive profile for user:', userId);
+    if (__DEV__) console.log('🎯 Creating comprehensive profile for user:', userId);
 
     try {
       // Basic profile structure
@@ -1046,11 +1046,11 @@ class UserProfilingService {
       // Calculate final completeness
       profile.completenessScore = Math.min(100, profile.completenessScore + 50);
 
-      console.log('✅ Comprehensive profile created with completeness:', profile.completenessScore);
+      if (__DEV__) console.log('✅ Comprehensive profile created with completeness:', profile.completenessScore);
       return profile;
 
     } catch (error) {
-      console.error('❌ Error creating comprehensive profile:', error);
+      if (__DEV__) console.error('❌ Error creating comprehensive profile:', error);
       throw error;
     }
   }
@@ -1059,7 +1059,7 @@ class UserProfilingService {
    * ⚡ Enhance profile with AI (PRIVATE)
    */
   private async enhanceProfileWithAI(userId: string, existingProfile: UserProfile): Promise<UserProfile> {
-    console.log('🤖 Enhancing profile with AI for user:', userId);
+    if (__DEV__) console.log('🤖 Enhancing profile with AI for user:', userId);
 
     try {
       const enhancedProfile = {
@@ -1068,11 +1068,11 @@ class UserProfilingService {
         completenessScore: Math.min(100, existingProfile.completenessScore + 10)
       };
 
-      console.log('✅ Profile enhanced with AI');
+      if (__DEV__) console.log('✅ Profile enhanced with AI');
       return enhancedProfile;
 
     } catch (error) {
-      console.error('❌ Error enhancing profile:', error);
+      if (__DEV__) console.error('❌ Error enhancing profile:', error);
       throw error;
     }
   }
@@ -1081,7 +1081,7 @@ class UserProfilingService {
    * 🎯 Generate therapeutic goal suggestions (PRIVATE)
    */
   private async generateTherapeuticGoalSuggestions(data: any): Promise<TherapeuticGoal[]> {
-    console.log('🎯 Generating therapeutic goal suggestions');
+    if (__DEV__) console.log('🎯 Generating therapeutic goal suggestions');
 
     try {
       // Basic therapeutic goals for OCD
@@ -1104,11 +1104,11 @@ class UserProfilingService {
         }
       ];
 
-      console.log('✅ Generated', goals.length, 'therapeutic goals');
+      if (__DEV__) console.log('✅ Generated', goals.length, 'therapeutic goals');
       return goals;
 
     } catch (error) {
-      console.error('❌ Error generating therapeutic goals:', error);
+      if (__DEV__) console.error('❌ Error generating therapeutic goals:', error);
       return [];
     }
   }
@@ -1117,7 +1117,7 @@ class UserProfilingService {
    * 📝 Update user profile (PRIVATE)
    */
   private async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
-    console.log('📝 Updating user profile:', userId);
+    if (__DEV__) console.log('📝 Updating user profile:', userId);
 
     try {
       // Get existing profile or create new
@@ -1141,11 +1141,11 @@ class UserProfilingService {
       // Cache updated profile
       this.profileCache.set(userId, updatedProfile);
 
-      console.log('✅ User profile updated successfully');
+      if (__DEV__) console.log('✅ User profile updated successfully');
       return updatedProfile;
 
     } catch (error) {
-      console.error('❌ Error updating user profile:', error);
+      if (__DEV__) console.error('❌ Error updating user profile:', error);
       throw error;
     }
   }
@@ -1154,7 +1154,7 @@ class UserProfilingService {
    * Service'i temizle
    */
   async shutdown(): Promise<void> {
-    console.log('🎯 User Profiling Service: Shutting down...');
+    if (__DEV__) console.log('🎯 User Profiling Service: Shutting down...');
     this.isInitialized = false;
     this.profileCache.clear();
     this.preferenceModels.clear();

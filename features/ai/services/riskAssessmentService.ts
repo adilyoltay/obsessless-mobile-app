@@ -309,7 +309,7 @@ class AdvancedRiskAssessmentService {
    * Risk Assessment Service'i başlat
    */
   async initialize(): Promise<void> {
-    console.log('🛡️ Advanced Risk Assessment Service: Initializing...');
+    if (__DEV__) console.log('🛡️ Advanced Risk Assessment Service: Initializing...');
     
     try {
       // Feature flag kontrolü
@@ -336,10 +336,10 @@ class AdvancedRiskAssessmentService {
                         Object.keys(CULTURAL_FACTORS_TURKISH.protectiveFactors).length
       });
 
-      console.log('✅ Advanced Risk Assessment Service initialized successfully');
+      if (__DEV__) console.log('✅ Advanced Risk Assessment Service initialized successfully');
 
     } catch (error) {
-      console.error('❌ Advanced Risk Assessment Service initialization failed:', error);
+      if (__DEV__) console.error('❌ Advanced Risk Assessment Service initialization failed:', error);
       this.isInitialized = false;
       
       await trackAIError({
@@ -1088,7 +1088,7 @@ Yanıtı JSON olarak ver.
     ybocsData?: any;
     treatmentPlan?: TreatmentPlan;
   }): Promise<RiskAssessment> {
-    console.log('🛡️ Performing comprehensive risk assessment for user:', userId);
+    if (__DEV__) console.log('🛡️ Performing comprehensive risk assessment for user:', userId);
 
     try {
       // Basic risk assessment structure
@@ -1196,11 +1196,11 @@ Yanıtı JSON olarak ver.
         }
       ];
 
-      console.log('✅ Comprehensive risk assessment completed with risk level:', riskAssessment.shortTermRisk);
+      if (__DEV__) console.log('✅ Comprehensive risk assessment completed with risk level:', riskAssessment.shortTermRisk);
       return riskAssessment;
 
     } catch (error) {
-      console.error('❌ Error performing comprehensive risk assessment:', error);
+      if (__DEV__) console.error('❌ Error performing comprehensive risk assessment:', error);
       throw error;
     }
   }
@@ -1209,7 +1209,7 @@ Yanıtı JSON olarak ver.
    * 📊 Analyze Y-BOCS data for risk factors (PRIVATE)
    */
   private analyzeYBOCSRisks(ybocsData: any): RiskFactor[] {
-    console.log('📊 Analyzing Y-BOCS data for risk factors');
+    if (__DEV__) console.log('📊 Analyzing Y-BOCS data for risk factors');
 
     const risks: RiskFactor[] = [];
 
@@ -1242,7 +1242,7 @@ Yanıtı JSON olarak ver.
    * Service'i temizle
    */
   async shutdown(): Promise<void> {
-    console.log('🛡️ Advanced Risk Assessment Service: Shutting down...');
+    if (__DEV__) console.log('🛡️ Advanced Risk Assessment Service: Shutting down...');
     this.isInitialized = false;
     this.riskModels.clear();
     this.assessmentCache.clear();
