@@ -831,6 +831,8 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
       const response = await fetch(`${config.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -843,8 +845,9 @@ class ExternalAIService {
           max_tokens: request.maxTokens || config.maxTokens,
           temperature: request.temperature || config.temperature
         }),
-        signal: AbortSignal.timeout(config.timeout)
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new AIError(AIErrorCode.API_ERROR, `OpenAI API error: ${response.status}`);
@@ -881,6 +884,8 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
       const response = await fetch(`${config.baseURL}/v1/messages`, {
         method: 'POST',
         headers: {
@@ -895,8 +900,9 @@ class ExternalAIService {
           messages: request.messages.filter((m: any) => m.role !== 'system'),
           system: request.messages.find((m: any) => m.role === 'system')?.content || ''
         }),
-        signal: AbortSignal.timeout(config.timeout)
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new AIError(AIErrorCode.API_ERROR, `Claude API error: ${response.status}`);
@@ -933,6 +939,8 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
       const response = await fetch(
         `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
         {
@@ -950,9 +958,10 @@ class ExternalAIService {
               maxOutputTokens: request.maxTokens || config.maxTokens
             }
           }),
-          signal: AbortSignal.timeout(config.timeout)
+          signal: controller.signal
         }
       );
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new AIError(AIErrorCode.API_ERROR, `Gemini API error: ${response.status}`);
