@@ -236,8 +236,8 @@ export const AI_CONFIG = {
     'gemini'
   ),
   
-  // Provider priorities (fallback order)
-  PROVIDER_PRIORITY: ['gemini', 'openai', 'claude'] as const,
+  // Provider priorities (single provider)
+  PROVIDER_PRIORITY: ['gemini'] as const,
   
   // Feature-specific AI requirements
   CHAT_REQUIRES_EXTERNAL_AI: true,

@@ -24,6 +24,7 @@ import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/tel
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { aiManager } from '@/features/ai/config/aiManager';
 import Constants from 'expo-constants';
+import { AI_CONFIG } from '@/constants/featureFlags';
 
 // =============================================================================
 // 🎯 AI PROVIDER DEFINITIONS
@@ -33,10 +34,7 @@ import Constants from 'expo-constants';
  * Supported AI Providers
  */
 export enum AIProvider {
-  OPENAI = 'openai',
-  CLAUDE = 'claude',
-  GEMINI = 'gemini',
-  LOCAL = 'local'
+  GEMINI = 'gemini'
 }
 
 /**
@@ -260,48 +258,15 @@ class ExternalAIService {
       return /REPLACE_WITH_REAL|REPLACE|your_?api_?key/i.test(v);
     };
 
-    // OpenAI Configuration
-    const openaiKey = extra.EXPO_PUBLIC_OPENAI_API_KEY || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-    const openaiModel = extra.EXPO_PUBLIC_OPENAI_MODEL || process.env.EXPO_PUBLIC_OPENAI_MODEL || 'gpt-4o-mini';
-    if (openaiKey && !isLikelyPlaceholder(openaiKey)) {
-      this.providers.set(AIProvider.OPENAI, {
-        provider: AIProvider.OPENAI,
-        apiKey: openaiKey,
-        baseURL: 'https://api.openai.com/v1',
-        model: openaiModel,
-        maxTokens: 4000,
-        temperature: 0.7,
-        timeout: 30000,
-        isAvailable: false,
-        lastHealthCheck: new Date(),
-        errorCount: 0,
-        successRate: 1.0
-      });
-    }
+    // Determine selected provider; default from AI_CONFIG
+    const selectedProvider = 'gemini';
 
-    // Claude Configuration
-    const claudeKey = extra.EXPO_PUBLIC_CLAUDE_API_KEY || process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
-    const claudeModel = extra.EXPO_PUBLIC_CLAUDE_MODEL || process.env.EXPO_PUBLIC_CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
-    if (claudeKey && !isLikelyPlaceholder(claudeKey)) {
-      this.providers.set(AIProvider.CLAUDE, {
-        provider: AIProvider.CLAUDE,
-        apiKey: claudeKey,
-        baseURL: 'https://api.anthropic.com',
-        model: claudeModel,
-        maxTokens: 4000,
-        temperature: 0.7,
-        timeout: 30000,
-        isAvailable: false,
-        lastHealthCheck: new Date(),
-        errorCount: 0,
-        successRate: 1.0
-      });
-    }
+    // Remove OpenAI/Claude entirely
 
-    // Gemini Configuration
+    // Gemini Configuration (only if selected)
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
     const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-exp';
-    if (geminiKey && !isLikelyPlaceholder(geminiKey)) {
+    if (selectedProvider === 'gemini' && geminiKey && !isLikelyPlaceholder(geminiKey)) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
         apiKey: geminiKey,
@@ -318,9 +283,7 @@ class ExternalAIService {
     }
 
     if (__DEV__) {
-    if (__DEV__) {
-      console.log(`🔧 Loaded ${this.providers.size} AI provider configurations`);
-    }
+      console.log(`🔧 Loaded ${this.providers.size} AI provider configurations (selected: gemini)`);
     }
   }
 
@@ -1042,16 +1005,8 @@ class ExternalAIService {
   }
 
   private async makeProviderRequest(provider: AIProvider, request: any): Promise<EnhancedAIResponse> {
-    switch (provider) {
-      case AIProvider.OPENAI:
-        return await this.callOpenAI(request);
-      case AIProvider.CLAUDE:
-        return await this.callClaude(request);
-      case AIProvider.GEMINI:
-        return await this.callGemini(request);
-      default:
-        throw new AIError(AIErrorCode.INVALID_PROVIDER, `Unsupported provider: ${provider}`);
-    }
+    // Only Gemini is supported
+    return await this.callGemini(request);
   }
 
   private async prepareRequest(
