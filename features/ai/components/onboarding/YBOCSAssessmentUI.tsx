@@ -31,7 +31,7 @@ import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+// Crisis detection tamamen kaldırıldı; güvenlik için sadece içerik filtreleme ve yönlendirmeler kullanılır
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Types
@@ -281,51 +281,8 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
       responseTime: 0 // Will be calculated if needed
     };
 
-    // Crisis detection check
-    if (value >= 3 && crisisDetectionService && typeof crisisDetectionService.detectCrisis === 'function') { // High severity responses
-      try {
-        const crisisCheck = await crisisDetectionService.detectCrisis(
-          {
-            content: `${currentQuestion.text} - Yanıt: ${option.label}`,
-            role: 'user',
-            timestamp: new Date(),
-            metadata: {
-              questionId: currentQuestion.id,
-              responseValue: value,
-              context: 'ybocs_assessment'
-            }
-          },
-          {
-            userId,
-            sessionId: 'ybocs_assessment',
-            conversationId: `ybocs_${userId}`,
-            metadata: {
-              assessmentContext: 'ybocs',
-              severityThreshold: 0.7
-            }
-          }
-        );
-
-        if (crisisCheck.riskLevel === 'high' || crisisCheck.riskLevel === 'critical') {
-        Alert.alert(
-          'Destek Gerekebilir',
-          'Verdiğiniz yanıtlar yoğun bir durum yaşadığınızı gösteriyor. İhtiyaç halinde profesyonel destek almanızı öneririz.',
-          [
-            { text: 'Devam Et', style: 'default' },
-            { 
-              text: 'Destek Al', 
-              style: 'default',
-              onPress: () => {
-                // Crisis intervention will be handled by parent component
-                console.log('🆘 Crisis intervention triggered during Y-BOCS');
-              }
-            }
-          ]
-        );
-      }
-      } catch (error) {
-        console.warn("⚠️ Crisis detection failed during Y-BOCS assessment:", error);
-      }    }
+    // Crisis detection kaldırıldı – burada yalnızca kullanıcıyı destek kaynaklarına yönlendirecek
+    // nazik bir bilgilendirme kullanılabilir (gelecekte flag ile geri eklenebilir)
 
     // Update state
     const updatedAnswers = [...state.answers];

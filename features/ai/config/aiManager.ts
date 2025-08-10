@@ -174,7 +174,7 @@ export class AIManager {
       
       // Safety settings
       safetyThreshold: 0.8,
-      crisisDetectionEnabled: true,
+      crisisDetectionEnabled: false,
       contentFilteringEnabled: true,
       
       // Performance settings

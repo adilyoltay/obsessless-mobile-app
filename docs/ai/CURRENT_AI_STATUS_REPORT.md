@@ -208,7 +208,7 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 3. **User Profiling** - Comprehensive demographic and therapeutic profiling
 4. **Treatment Planning** - Evidence-based, AI-generated treatment plans
 5. **ERP Recommendations** - Personalized exposure exercises
-6. **Risk Assessment** - Real-time crisis detection and safety planning
+6. **Risk Assessment** - Crisis-related modules disabled; only non-crisis assessments considered
 
 ### **🔄 In Testing:**
 7. **Daily Insights** - Pattern recognition and personalized recommendations
@@ -217,7 +217,7 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 10. **Art Therapy** - Creative expression and emotional analysis
 
 ### **⏳ Pending:**
-11. **Crisis Detection** - Advanced safety monitoring (needs real user data)
+11. **Crisis Detection** - Removed from runtime (feature flag permanently false)
 12. **External AI Integration** - OpenAI/Claude API setup (needs API keys)
 
 ---
@@ -242,8 +242,8 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 
 ### **Priority 3 - Real User Data**
 ```bash
-1. Replace remaining mock data in risk assessment
-2. Implement real crisis detection patterns
+1. Replace remaining mock data in non-crisis risk checks
+2. Crisis detection remains disabled; do not implement until policy update
 3. Add ML model training pipeline
 4. Deploy analytics dashboard
 ```

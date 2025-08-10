@@ -36,7 +36,7 @@ import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisServic
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
 // Risk assessment service removed
-import { artTherapyEngine } from '@/features/ai/artTherapy/artTherapyEngine';
+// Art Therapy Engine import'u yalnızca feature flag açıkken dinamik yüklenecek
 // AI Chat removed
 
 // Types
@@ -272,6 +272,16 @@ export function AIProvider({ children }: AIProviderProps) {
               await treatmentPlanningEngine.initialize();
             } else {
               throw new Error('Treatment Planning Engine not available');
+            }
+          }
+        },
+        {
+          name: 'AI_ART_THERAPY',
+          enabled: FEATURE_FLAGS.isEnabled('AI_ART_THERAPY'),
+          task: async () => {
+            const { artTherapyEngine } = await import('@/features/ai/artTherapy/artTherapyEngine');
+            if (artTherapyEngine && typeof artTherapyEngine.initialize === 'function') {
+              await artTherapyEngine.initialize();
             }
           }
         },

@@ -19,7 +19,7 @@ import {
   ErrorSeverity 
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+// Crisis detection entegrasyonu kaldırıldı
 
 // =============================================================================
 // 🎯 CBT TECHNIQUE DEFINITIONS

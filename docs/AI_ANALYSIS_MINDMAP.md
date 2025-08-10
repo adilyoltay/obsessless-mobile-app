@@ -99,14 +99,14 @@
 - **Timing**: Immediate > Today > This Week
 - **Category**: Progress > Educational > Therapeutic
 
-## ❌ Crisis Detection System - **COMPLETELY REMOVED**
+## ❌ Crisis Detection System - **REMOVED FROM RUNTIME**
 
-**Status**: Sistem tamamen kaldırıldı
-- Feature flag disabled: `AI_CRISIS_DETECTION: false`
-- Tüm crisis detection logic'i silindi
-- Emergency protocols kaldırıldı
-- Early warning systems kaldırıldı
-- Risk assessment (crisis-related) kaldırıldı
+**Status**: Runtime’dan kaldırıldı (flag daima false)
+- Feature flag: `AI_CRISIS_DETECTION: false` (kalıcı)
+- Kod tabanında referans dosyaları kalabilir; entegrasyonlar devre dışıdır.
+- Emergency protocols devre dışı
+- Early warning systems devre dışı
+- Crisis-related risk assessment devre dışı
 
 **Previously Removed Features**:
 - Keyword-Based Detection
@@ -328,8 +328,8 @@
    - 📚 **ERP Recommendations**: Kişiselleştirilmiş egzersiz önerileri
 
 4. **Removed/Disabled Components**:
-   - ❌ **Crisis Detection**: Completely removed
-   - 🔒 **Art Therapy**: Temporarily disabled
+   - ❌ **Crisis Detection**: Runtime’dan kaldırıldı (flag daima false)
+   - 🔒 **Art Therapy**: Feature flag ile koşullu (varsayılan: off)
 
 ## 🔐 Güvenlik ve Gizlilik
 

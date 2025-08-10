@@ -194,19 +194,7 @@ export default function EmergencyContactsManager() {
     return icons[relationship] || 'account';
   };
 
-  if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) {
-    return (
-      <Card style={styles.disabledCard}>
-        <MaterialCommunityIcons name="shield-off" size={48} color="#9ca3af" />
-        <Text style={styles.disabledText}>
-          Kriz Algılama özelliği devre dışı
-        </Text>
-        <Text style={styles.disabledSubtext}>
-          Bu özelliği kullanmak için Ayarlar'dan AI özelliklerini etkinleştirin
-        </Text>
-      </Card>
-    );
-  }
+  // Crisis detection modülü kaldırıldı – bu ekran her zaman kullanılabilir
 
   return (
     <View style={styles.container}>
