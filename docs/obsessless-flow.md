@@ -74,6 +74,17 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 - **Stats Refresh Tracking**: Automatic refresh system ile real-time updates
 - **Error Handling**: Graceful error handling ve troubleshooting
 
+#### 🤖 **AI Altyapısı (Güncellendi)**
+- **Gemini-Only Sağlayıcı**: Harici AI entegrasyonu yalnızca Google Gemini ile çalışacak şekilde sadeleştirildi. OpenAI/Claude kod yolları kaldırıldı; derleme hataları ve bakım yükü azaltıldı.
+- **Log Gating**: ExternalAI servisindeki geliştirici logları sadece `__DEV__` ortamında etkin.
+- **Paralel Veri Yükleme**: `AIContext` içinde Supabase okumaları paralelleştirildi; ilk yükleme süresi iyileştirildi.
+
+#### 📊 **AI Telemetry & Monitoring (Gizlilik Öncelikli)**
+- **Merkezi Telemetri**: Tüm AI olayları gizlilik-öncelikli telemetri sistemi ile izlenir (PII loglanmaz, metadata sanitize edilir, offline buffer AsyncStorage'da tutulur).
+- **Onboarding İzleme**: `app/index.tsx` içinde Supabase onboarding kontrol hataları telemetriye raporlanır; local fallback durumunda `SYSTEM_STATUS` olayı yazılır.
+- **Veri Yükleme Hataları**: `AIContext.loadUserAIData` sırasında oluşan hatalar telemetriye `API_ERROR`/`storage_error` bağlamında gönderilir.
+- **Sağlayıcı Sağlığı**: `EXTERNAL_AI_INITIALIZED`, `AI_PROVIDER_HEALTH_CHECK`, `AI_PROVIDER_FAILED`, `AI_RESPONSE_GENERATED`, `SLOW_RESPONSE` gibi olaylar izlenir.
+
 ### 🛠️ **Teknik Detaylar**
 
 #### **Tech Stack**
@@ -102,6 +113,8 @@ EXPO_PUBLIC_SUPABASE_URL=https://ncniotnzoirwuwwxnipw.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=***
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=***
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=***
+EXPO_PUBLIC_GEMINI_API_KEY=***
+EXPO_PUBLIC_GEMINI_MODEL=gemini-2.0-flash-exp
 ```
 
 ### 📊 **Başarılı Test Metrikleri**
@@ -1183,7 +1196,7 @@ ObsessLess artık **production-ready** bir dijital sığınak olarak, OKB ile ya
 
 ---
 
-*Son güncelleme: Ocak 2025 - Veri Akış Diyagramı Eklendi*
+*Son güncelleme: Ağustos 2025 - AI Telemetry ve Gemini-only güncellemesi*
 
 ---
 
