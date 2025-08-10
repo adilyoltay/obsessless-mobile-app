@@ -78,6 +78,8 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 - **Gemini-Only Sağlayıcı**: Harici AI entegrasyonu yalnızca Google Gemini ile çalışacak şekilde sadeleştirildi. OpenAI/Claude kod yolları kaldırıldı; derleme hataları ve bakım yükü azaltıldı.
 - **Log Gating**: ExternalAI servisindeki geliştirici logları sadece `__DEV__` ortamında etkin.
 - **Paralel Veri Yükleme**: `AIContext` içinde Supabase okumaları paralelleştirildi; ilk yükleme süresi iyileştirildi.
+- **Onboarding Devam Etme**: AI onboarding artık `resume` desteğiyle kaldığı yerden devam eder; Ayarlar/Today girişleri eklendi.
+- **NavigationGuard Hizalaması**: `ai_onboarding_completed_${userId}` anahtarı profil tamamlandı kabul edilir; yanlış yönlendirmeler giderildi.
 
 #### 📊 **AI Telemetry & Monitoring (Gizlilik Öncelikli)**
 - **Merkezi Telemetri**: Tüm AI olayları gizlilik-öncelikli telemetri sistemi ile izlenir (PII loglanmaz, metadata sanitize edilir, offline buffer AsyncStorage'da tutulur).
@@ -138,18 +140,21 @@ EXPO_PUBLIC_GEMINI_MODEL=gemini-2.0-flash-exp
 - ✅ **FAB Buttons**: Fixed positioning above tab bar (bottom: 90px, zIndex: 999)
 - ✅ **Achievement Badges**: Interactive badges with progress counter
 - ✅ **Auto Refresh**: useFocusEffect ile sayfa odaklandığında otomatik güncelleme
+ - ✅ **Dil Yönetimi**: Sistem dili otomatik kullanılır (TR → Türkçe, diğerleri → İngilizce); manuel seçim yok
 
 #### **Database Operations**
 - ✅ **User Profiles**: Automatic creation via triggers
 - ✅ **Compulsion Sync**: AsyncStorage + Supabase dual write
 - ✅ **ERP Sessions**: Anxiety data points storage with debug logging
 - ✅ **Gamification**: Points and streaks updating with real-time sync
+ - ✅ **AI Onboarding Senkronu**: Onboarding biter bitmez Supabase upsert; hata halinde RetryQueue ile arka planda tekrar
 
 #### **Debug & Monitoring**
 - ✅ **Comprehensive Logging**: Session completion → storage → database takibi
 - ✅ **User-Specific Keys**: Storage key verification ve isolation
 - ✅ **Performance Tracking**: Response times ve operation success rates
 - ✅ **Error Detection**: Proactive error handling ve troubleshooting
+ - ✅ **Insights Cooldown**: 60 saniye rate-limit ve cache doğrulandı; veri yetersizliğinde 0 insight normal kabul
 
 ### ⚠️ **Çözülen Kritik Sorunlar**
 

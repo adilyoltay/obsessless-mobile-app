@@ -2,7 +2,7 @@
 
 *Son güncelleme: $(date)*
 
-## 🎯 **EXECUTİVE SUMMARY**
+## 🎯 **EXECUTIVE SUMMARY**
 
 ObsessLess AI sistemi **7 ana bileşenden** oluşan, **production-ready** bir mimaridir. Analiz sonucunda:
 
@@ -78,13 +78,12 @@ features/ai/coordinators/insightsCoordinator.ts  ✅ ACTIVE
    - Therapeutic history
 
 ✅ features/ai/services/riskAssessmentService.ts
-   - Crisis risk evaluation
+   - Non-crisis risk evaluation (crisis runtime kaldırıldı)
    - Safety planning integration
-   - Real-time monitoring
+   - Monitoring
 
 ✅ features/ai/services/externalAIService.ts
-   - OpenAI/Claude/Gemini integration
-   - Provider fallback system
+   - Gemini-only integration (OpenAI/Claude kaldırıldı)
    - Safety filtering
 
 ✅ features/ai/services/erpRecommendationService.ts  
@@ -95,7 +94,7 @@ features/ai/coordinators/insightsCoordinator.ts  ✅ ACTIVE
 
 ### **4. 🎨 Advanced Features**
 ```typescript
-✅ features/ai/artTherapy/artTherapyEngine.ts
+✅ features/ai/artTherapy/artTherapyEngine.ts (flag-controlled)
    - Creative therapy sessions
    - Emotional expression analysis
    - Guided art exercises
@@ -131,10 +130,7 @@ features/ai/coordinators/insightsCoordinator.ts  ✅ ACTIVE
    - Real treatment plan generation
    - Comprehensive profiling
 
-✅ features/ai/store/aiChatStore.ts
-   - Therapeutic chat management
-   - Real AI responses
-   - Conversation context
+❌ features/ai/store/aiChatStore.ts (removed from UX scope)
 ```
 
 ---
@@ -218,7 +214,7 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 
 ### **⏳ Pending:**
 11. **Crisis Detection** - Removed from runtime (feature flag permanently false)
-12. **External AI Integration** - OpenAI/Claude API setup (needs API keys)
+12. **Language** - System language only (TR else EN); no manual selection
 
 ---
 
@@ -257,9 +253,9 @@ const recommendations = await erpRecommendationService.getPersonalizedExercises(
 | AI Context | 465 | - | ✅ Active |
 | Insights Coordinator | 916 | - | ✅ Active |
 | Treatment Planning | 800+ | - | ✅ Active |
-| OnboardingFlowV3 | 700+ | - | ✅ Active |
+| OnboardingFlowV3 | 700+ | - | ✅ Active (resume supported) |
 | CBT Engine | 654 | - | ✅ Active |
-| External AI Service | 749 | - | ✅ Active |
+| External AI Service | 749 | - | ✅ Active (Gemini-only) |
 | **TOTAL** | **~5000+** | **TBD** | **85% Active** |
 
 ---

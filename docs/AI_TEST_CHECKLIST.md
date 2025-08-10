@@ -4,6 +4,7 @@
 - [ ] app.json `extra` içinde gerçek API anahtarı: `EXPO_PUBLIC_GEMINI_API_KEY`
 - [ ] `EXPO_PUBLIC_ENABLE_AI=true`, `EXPO_PUBLIC_AI_PROVIDER=gemini`
 - [ ] Supabase URL/Anon key tanımlı (public): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [ ] Cihaz dili otomatik kullanılır (TR cihazlar için Türkçe, diğerleri İngilizce). Ayarlarda dil seçeneği yok.
 
 ## Onboarding Doğrulama
 - [ ] Uygulama açılışında Supabase üzerinden onboarding kontrolü yapılıyor (fallback: AsyncStorage)
@@ -13,6 +14,7 @@
 ## AIContext Senkronizasyonu
 - [ ] `contexts/AIContext.tsx` Supabase’den `ai_profiles.profile_data` ve `ai_treatment_plans.plan_data` çekiyor
 - [ ] Cihazlar arası profil/plan güncellemeleri UI’a yansıyor (pull → persist local)
+- [ ] ERP ekranında plan/profil AIContext’ten gelmezse AsyncStorage fallback ile görüntülenir
 
 ## Treatment Planning Engine (Gerçek AI)
 - [ ] `treatmentPlanningEngine` externalAIService ile plan metnini/amaçlarını rafine ediyor
@@ -22,11 +24,19 @@
 ## ERP Önerileri (Gerçek AI)
 - [ ] `erpRecommendationService` externalAIService ile aday egzersizleri rafine ediyor
 - [ ] Başarısızlıkta heuristik fallback devrede
+- [ ] Öneri kartları yalnızca öneri sayısı > 0 olduğunda görünür
+- [ ] Log’da “AI ERP recommendations loaded: N” doğrulanır (N > 0 beklenir)
 
 ## Telemetry & Güvenlik
 - [ ] Sağlayıcı health check event’leri: `AI_PROVIDER_HEALTH_CHECK`, başarısızlık: `AI_PROVIDER_FAILED`
 - [ ] Tüm AI eventleri `trackAIInteraction/trackAIError` ile loglanıyor (PII yok)
 - [ ] Production’da gereksiz log yok (`__DEV__` ile sınırlı)
+
+## Insights Engine V2
+- [ ] 60 saniye cooldown uygulanır; bu sürede gelen çağrılar cache’den döner
+- [ ] Veri gereksinimi: Bugüne ait en az 1 ERP oturumu ve birkaç kompulsiyon kaydı içgörü üretimini artırır
+- [ ] Veri azsa “0 insights” normaldir; hata değildir (telemetri `success` fakat içerik 0)
+- [ ] Telemetri: `INSIGHTS_REQUESTED`, `INSIGHTS_DELIVERED` olayları userId ve counts ile görünür
 
 ## Supabase Senkronizasyonu
 - [ ] Onboarding bittiğinde `ai_profiles` ve `ai_treatment_plans` upsert ediliyor
@@ -36,6 +46,7 @@
 ## Sonuç
 - [ ] Y-BOCS yorumları ve tedavi planı metinleri LLM’den geliyor (demo değil)
 - [ ] ERP ekranında AI önerileri görünüyor ve seçilebiliyor
+ - [ ] Today ekranında içgörüler veri yeterliyse görünür; 60 sn kuralı ve cache çalışır
 
 # ✅ **AI ÖZELLİKLERİ TEST CHECKLIST**
 
