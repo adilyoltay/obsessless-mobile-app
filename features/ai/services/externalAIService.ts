@@ -287,12 +287,13 @@ class ExternalAIService {
       });
     }
 
-    // Telemetry: configuration load summary
+    // Telemetry: configuration load summary (dinamik)
+    const configuredProviders = Array.from(this.providers.keys());
     await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
       component: 'ExternalAIService',
       event: 'config_loaded',
-      selectedProvider: 'gemini',
-      providersConfigured: Array.from(this.providers.keys())
+      selectedProvider,
+      providersConfigured: configuredProviders,
     });
   }
 

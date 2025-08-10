@@ -28,7 +28,7 @@ import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
 import { riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
-import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+// Crisis detection runtime'dan kaldırıldı; UI tarafında import edilmez
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Types

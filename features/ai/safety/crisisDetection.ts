@@ -82,7 +82,13 @@ export class CrisisDetectionService {
   
   constructor(config: CrisisDetectionConfig = DEFAULT_CONFIG) {
     this.config = config;
-    this.initialize();
+    // Koşullu init: Flag kapalıysa init etme, gereksiz log/kaynak tüketimini engelle
+    if (FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) {
+      this.initialize();
+    } else {
+      this.config.enabled = false;
+      this.isInitialized = false;
+    }
   }
 
   private async initialize(): Promise<void> {

@@ -1,8 +1,8 @@
 # AI Production Test Checklist
 
 ## Hazırlık
-- [ ] app.json `extra` içinde gerçek API anahtarları: `EXPO_PUBLIC_OPENAI_API_KEY` / `EXPO_PUBLIC_GEMINI_API_KEY` / `EXPO_PUBLIC_CLAUDE_API_KEY`
-- [ ] `EXPO_PUBLIC_ENABLE_AI=true`, `EXPO_PUBLIC_AI_PROVIDER=<openai|gemini|claude>`
+- [ ] app.json `extra` içinde gerçek API anahtarı: `EXPO_PUBLIC_GEMINI_API_KEY`
+- [ ] `EXPO_PUBLIC_ENABLE_AI=true`, `EXPO_PUBLIC_AI_PROVIDER=gemini`
 - [ ] Supabase URL/Anon key tanımlı (public): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
 ## Onboarding Doğrulama
@@ -160,21 +160,8 @@
 
 ---
 
-## 🚨 **CRISIS DETECTION TESTİ (Simülasyon)**
-
-### **Acil Kişi Ekleme**
-- [ ] En az 2 acil kişi ekleyin
-- [ ] Farklı kategoriler seçin (terapist, aile, arkadaş)
-- [ ] Otomatik bildirim ayarlarını yapın
-- [ ] Test bildirimi gönderin
-- [ ] **Not Alın**: Ekleme süreci kolay mı? Kategoriler yeterli mi?
-
-### **Risk Simülasyonu**
-- [ ] Art arda 5+ kompulsiyon verisi girin
-- [ ] Düşük ruh hali skoru verin
-- [ ] Uyku kalitesini kötü işaretleyin
-- [ ] AI'nın risk uyarısını bekleyin
-- [ ] **Not Alın**: Uyarı zamanında geldi mi? Uygun mudahale önerildi mi?
+## 🚫 **CRISIS DETECTION TESTİ (Kaldırıldı)**
+Bu sürümde kriz tespiti runtime’dan kaldırılmıştır. İlgili testler uygulanmaz.
 
 ---
 

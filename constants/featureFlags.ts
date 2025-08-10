@@ -86,7 +86,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,
   AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,
-  AI_RISK_ASSESSMENT: false,
+  AI_RISK_ASSESSMENT: AI_MASTER_ENABLED,
   AI_ONBOARDING_UI: AI_MASTER_ENABLED,
   AI_ONBOARDING_CONTEXT_INTEGRATION: AI_MASTER_ENABLED,
   AI_ONBOARDING_INTERVENTIONS_INTEGRATION: AI_MASTER_ENABLED,
@@ -228,11 +228,14 @@ export const FEATURE_FLAGS = {
 // AI Configuration - Yol Haritası Uyumlu
 export const AI_CONFIG = {
   // Default provider - environment'tan override edilebilir
-  DEFAULT_PROVIDER: (
-    (Constants.expoConfig?.extra?.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') ||
-    (process.env.EXPO_PUBLIC_AI_PROVIDER as 'openai' | 'gemini' | 'claude') ||
-    'gemini'
-  ),
+  DEFAULT_PROVIDER: (() => {
+    const raw = (Constants.expoConfig?.extra?.EXPO_PUBLIC_AI_PROVIDER as string) ||
+                (process.env.EXPO_PUBLIC_AI_PROVIDER as string) ||
+                'gemini';
+    const lower = String(raw).toLowerCase();
+    // Gemini-only: başka değer gelirse gemini'ye düş
+    return (lower === 'gemini' ? 'gemini' : 'gemini') as 'gemini';
+  })(),
   
   // Provider priorities (single provider)
   PROVIDER_PRIORITY: ['gemini'] as const,
