@@ -84,6 +84,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         const appState = callbackUrl.searchParams.get('app_state');
         const accessToken = callbackUrl.searchParams.get('access_token');
         const refreshToken = callbackUrl.searchParams.get('refresh_token');
+        const authCode = callbackUrl.searchParams.get('code');
 
         // State validation
         const expected = oauthAppStateRef.current || null;
@@ -106,6 +107,17 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             access_token: accessToken,
             refresh_token: refreshToken,
           });
+          await WebBrowser.dismissBrowser();
+        } else if (authCode) {
+          // Authorization Code flow with PKCE
+          const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession({ authCode });
+          if (exchError) {
+            console.error('❌ Code exchange failed:', exchError);
+            setError('Giriş başarısız. Lütfen tekrar deneyin.');
+          } else if (data?.user) {
+            setUser(data.user);
+            await loadUserProfile(data.user);
+          }
           await WebBrowser.dismissBrowser();
         } else {
           console.error('❌ OAuth callback missing tokens');
@@ -339,6 +351,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const errorDesc = urlObj.searchParams.get('error_description');
       const accessToken = urlObj.searchParams.get('access_token');
       const refreshToken = urlObj.searchParams.get('refresh_token');
+      const authCode = urlObj.searchParams.get('code');
 
       if (!cbState || oauthAppStateRef.current !== cbState) {
         setError('Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
@@ -352,6 +365,19 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       if (accessToken && refreshToken) {
         await supabaseService.setSession({ access_token: accessToken, refresh_token: refreshToken });
         return;
+      }
+      if (authCode) {
+        const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession({ authCode });
+        if (exchError) {
+          setError('Giriş başarısız. Lütfen tekrar deneyin.');
+          if (__DEV__) console.error('Code exchange error:', exchError);
+          return;
+        }
+        if (data?.user) {
+          setUser(data.user);
+          await loadUserProfile(data.user);
+          return;
+        }
       }
       setError('Giriş tamamlanamadı. Lütfen tekrar deneyin.');
     } catch (error: any) {
