@@ -32,7 +32,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +41,9 @@ import Slider from '@react-native-community/slider';
 // UI Components
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+
+// Design Tokens
+import { Colors } from '@/constants/Colors';
 
 // Types
 import {
@@ -53,18 +56,7 @@ import {
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
-// Anayasa v2.0 Renk Paleti
-const COLORS = {
-  background: '#F9FAFB',
-  cardBackground: '#FFFFFF',
-  primary: '#10B981',
-  primaryText: '#374151',
-  secondaryText: '#6B7280',
-  border: '#E5E7EB',
-  error: '#EF4444',
-  warning: '#F59E0B',
-  success: '#10B981',
-};
+// Using global design tokens
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -244,6 +236,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   userId,
   resumeSession = false,
 }) => {
+  const insets = useSafeAreaInsets();
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -740,9 +733,9 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // Slider renk hesaplama
   const getSliderColor = (value: number) => {
-    if (value < 2) return COLORS.success;
-    if (value < 3) return COLORS.warning;
-    return COLORS.error;
+    if (value < 2) return Colors.status.success;
+    if (value < 3) return Colors.status.warning;
+    return Colors.status.error;
   };
 
   // Step içeriğini render et
@@ -755,7 +748,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="hand-wave" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>ObsessLess'e Hoş Geldiniz</Text>
@@ -776,7 +769,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="shield-check" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Gizlilik ve Güvenlik</Text>
@@ -807,7 +800,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="clipboard-check" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>OKB Değerlendirmesi</Text>
@@ -825,7 +818,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         const currentQuestion = YBOCS_QUESTIONS[currentYbocsIndex];
         const selectedOption = currentQuestion.options.find(opt => opt.value === Math.round(sliderValue));
         return (
-          <View style={styles.contentContainer}>
+          <View style={styles.ybocsContainer}>
             <Text style={styles.questionNumber}>
               Soru {currentYbocsIndex + 1} / {YBOCS_QUESTIONS.length}
             </Text>
@@ -862,7 +855,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 value={sliderValue}
                 onValueChange={setSliderValue}
                 minimumTrackTintColor={getSliderColor(sliderValue)}
-                maximumTrackTintColor={COLORS.border}
+                maximumTrackTintColor={Colors.ui.border}
                 thumbStyle={{
                   backgroundColor: getSliderColor(sliderValue),
                   width: 20,
@@ -889,7 +882,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="account" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Sizi Tanıyalım</Text>
@@ -918,7 +911,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="account-details" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Demografik Bilgiler</Text>
@@ -993,7 +986,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="history" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>OKB Geçmişi</Text>
@@ -1043,7 +1036,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <MaterialCommunityIcons 
                   name={ocdHistory.previousTreatment ? "checkbox-marked" : "checkbox-blank-outline"}
                   size={24} 
-                  color={ocdHistory.previousTreatment ? COLORS.primary : COLORS.secondaryText} 
+                  color={ocdHistory.previousTreatment ? Colors.primary.green : Colors.text.secondary} 
                 />
                 <Text style={styles.optionText}>Daha önce profesyonel yardım aldım</Text>
               </TouchableOpacity>
@@ -1061,7 +1054,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <MaterialCommunityIcons 
                   name={ocdHistory.medication ? "checkbox-marked" : "checkbox-blank-outline"}
                   size={24} 
-                  color={ocdHistory.medication ? COLORS.primary : COLORS.secondaryText} 
+                  color={ocdHistory.medication ? Colors.primary.green : Colors.text.secondary} 
                 />
                 <Text style={styles.optionText}>Şu anda ilaç kullanıyorum</Text>
               </TouchableOpacity>
@@ -1079,7 +1072,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <MaterialCommunityIcons 
                   name={ocdHistory.familyHistory ? "checkbox-marked" : "checkbox-blank-outline"}
                   size={24} 
-                  color={ocdHistory.familyHistory ? COLORS.primary : COLORS.secondaryText} 
+                  color={ocdHistory.familyHistory ? Colors.primary.green : Colors.text.secondary} 
                 />
                 <Text style={styles.optionText}>Ailemde OKB öyküsü var</Text>
               </TouchableOpacity>
@@ -1105,7 +1098,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="brain" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Belirtileriniz</Text>
@@ -1138,7 +1131,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                     <MaterialCommunityIcons 
                       name="check-circle" 
                       size={20} 
-                      color={COLORS.primary} 
+                      color={Colors.primary.green} 
                     />
                   )}
                 </TouchableOpacity>
@@ -1154,7 +1147,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="earth" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Kültürel Tercihler</Text>
@@ -1173,7 +1166,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name={culturalContext.religiousConsiderations ? "checkbox-marked" : "checkbox-blank-outline"}
                 size={24} 
-                color={culturalContext.religiousConsiderations ? COLORS.primary : COLORS.secondaryText} 
+                color={culturalContext.religiousConsiderations ? Colors.primary.green : Colors.text.secondary} 
               />
               <Text style={styles.optionText}>Dini hassasiyetlerimi göz önünde bulundur</Text>
             </TouchableOpacity>
@@ -1191,7 +1184,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name={culturalContext.familyInvolvement === 'supportive' ? "checkbox-marked" : "checkbox-blank-outline"}
                 size={24} 
-                color={culturalContext.familyInvolvement === 'supportive' ? COLORS.primary : COLORS.secondaryText} 
+                color={culturalContext.familyInvolvement === 'supportive' ? Colors.primary.green : Colors.text.secondary} 
               />
               <Text style={styles.optionText}>Ailem tedavi sürecimde destekçi</Text>
             </TouchableOpacity>
@@ -1205,7 +1198,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="target" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Hedefleriniz</Text>
@@ -1239,7 +1232,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                     <MaterialCommunityIcons 
                       name="check-circle" 
                       size={20} 
-                      color={COLORS.primary} 
+                      color={Colors.primary.green} 
                     />
                   )}
                 </TouchableOpacity>
@@ -1255,7 +1248,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="clipboard-text" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Tedavi Planınız Hazır</Text>
@@ -1292,14 +1285,14 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="lifebuoy" 
                 size={80} 
-                color={COLORS.primary} 
+                color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Güvenlik Planı</Text>
             <Text style={styles.subtitle}>Zor anlarda yanınızdayız</Text>
             
             <View style={styles.safetyCard}>
-              <MaterialCommunityIcons name="phone" size={24} color={COLORS.primary} />
+              <MaterialCommunityIcons name="phone" size={24} color={Colors.primary.green} />
               <View style={styles.safetyTextContainer}>
                 <Text style={styles.safetyTitle}>Acil Durum Hattı</Text>
                 <Text style={styles.safetyText}>182 - Psikolojik Destek</Text>
@@ -1307,7 +1300,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             </View>
             
             <View style={styles.safetyCard}>
-              <MaterialCommunityIcons name="alert" size={24} color={COLORS.warning} />
+              <MaterialCommunityIcons name="alert" size={24} color={Colors.status.warning} />
               <View style={styles.safetyTextContainer}>
                 <Text style={styles.safetyTitle}>Kriz Anında</Text>
                 <Text style={styles.safetyText}>Uygulama içi SOS butonu kullanılabilir</Text>
@@ -1315,7 +1308,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             </View>
             
             <View style={styles.safetyCard}>
-              <MaterialCommunityIcons name="heart" size={24} color={COLORS.error} />
+              <MaterialCommunityIcons name="heart" size={24} color={Colors.status.error} />
               <View style={styles.safetyTextContainer}>
                 <Text style={styles.safetyTitle}>Öz-Bakım</Text>
                 <Text style={styles.safetyText}>Günlük nefes egzersizleri önerilir</Text>
@@ -1331,7 +1324,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="check-circle" 
                 size={80} 
-                color={COLORS.success} 
+                color={Colors.status.success} 
               />
             </View>
             <Text style={styles.title}>Tebrikler {userName}! 🎉</Text>
@@ -1409,7 +1402,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <MaterialCommunityIcons 
                 name="arrow-left" 
                 size={24} 
-                color={COLORS.primaryText} 
+                color={Colors.text.primary} 
               />
             </TouchableOpacity>
           )}
@@ -1451,7 +1444,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             {renderStepContent()}
             
             {/* Action Button */}
-            <View style={styles.actionContainer}>
+            <View style={[styles.actionContainer, { paddingBottom: Math.max(16, insets.bottom + 12) }]}>
               <Button
                 title={getButtonText()}
                 onPress={handleNext}
@@ -1470,7 +1463,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.ui.background,
   },
   keyboardView: {
     flex: 1,
@@ -1490,7 +1483,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   skipText: {
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     fontSize: 16,
   },
   progressContainer: {
@@ -1499,13 +1492,13 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: Colors.ui.border,
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: Colors.primary.green,
     borderRadius: 2,
   },
   cardContainer: {
@@ -1516,7 +1509,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     padding: 24,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: Colors.ui.backgroundSecondary,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1529,32 +1522,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ybocsContainer: {
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    justifyContent: 'flex-start',
+  },
   iconContainer: {
     marginBottom: 24,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 18,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     textAlign: 'center',
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 16,
   },
   bold: {
     fontWeight: '600',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
   },
   consentScroll: {
     maxHeight: SCREEN_HEIGHT * 0.35,
@@ -1562,30 +1561,31 @@ const styles = StyleSheet.create({
   },
   consentText: {
     fontSize: 15,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     lineHeight: 22,
   },
   questionNumber: {
     fontSize: 14,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     marginBottom: 8,
   },
   questionText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 16,
+    marginBottom: 24,
+    paddingHorizontal: 8,
     lineHeight: 26,
   },
   sliderContainer: {
     width: '100%',
     paddingHorizontal: 16,
+    marginBottom: 40,
   },
   sliderValueContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sliderValue: {
     fontSize: 48,
@@ -1593,7 +1593,7 @@ const styles = StyleSheet.create({
   },
   sliderLabel: {
     fontSize: 16,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     marginTop: 4,
   },
   slider: {
@@ -1603,36 +1603,36 @@ const styles = StyleSheet.create({
   sliderLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 12,
   },
   sliderLabelText: {
     fontSize: 12,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
   },
   sliderLabelContainer: {
     alignItems: 'center',
   },
   sliderLabelName: {
     fontSize: 10,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     marginTop: 2,
   },
   sliderDescription: {
     fontSize: 12,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     textAlign: 'center',
     marginTop: 4,
   },
   questionCategory: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: Colors.primary.green,
     fontWeight: '600',
     marginBottom: 16,
     textAlign: 'center',
   },
   questionSubtitle: {
     fontSize: 14,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     textAlign: 'center',
     marginBottom: 24,
     fontStyle: 'italic',
@@ -1647,7 +1647,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     marginBottom: 8,
   },
   genderContainer: {
@@ -1660,19 +1660,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.cardBackground,
+    borderColor: Colors.ui.border,
+    backgroundColor: Colors.ui.backgroundSecondary,
   },
   genderOptionSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: Colors.primary.green,
+    backgroundColor: `${Colors.primary.green}10`,
   },
   genderText: {
     fontSize: 14,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
   },
   genderTextSelected: {
-    color: COLORS.primary,
+    color: Colors.primary.green,
     fontWeight: '600',
   },
   pickerContainer: {
@@ -1682,20 +1682,20 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.cardBackground,
+    borderColor: Colors.ui.border,
+    backgroundColor: Colors.ui.backgroundSecondary,
   },
   pickerOptionSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: Colors.primary.green,
+    backgroundColor: `${Colors.primary.green}10`,
   },
   pickerText: {
     fontSize: 14,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     textAlign: 'center',
   },
   pickerTextSelected: {
-    color: COLORS.primary,
+    color: Colors.primary.green,
     fontWeight: '600',
   },
   symptomsScroll: {
@@ -1708,14 +1708,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: Colors.ui.border,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: Colors.ui.backgroundSecondary,
   },
   symptomCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: Colors.primary.green,
+    backgroundColor: `${Colors.primary.green}10`,
   },
   symptomEmoji: {
     fontSize: 24,
@@ -1724,27 +1724,27 @@ const styles = StyleSheet.create({
   symptomText: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
   },
   symptomTextSelected: {
     fontWeight: '600',
-    color: COLORS.primary,
+    color: Colors.primary.green,
   },
   input: {
     width: '100%',
     height: 56,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: Colors.ui.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 18,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     marginTop: 24,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.ui.background,
   },
   hint: {
     fontSize: 14,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -1754,19 +1754,19 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: Colors.ui.border,
     borderRadius: 12,
     marginTop: 12,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: Colors.ui.backgroundSecondary,
   },
   optionCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: Colors.primary.green,
+    backgroundColor: `${Colors.primary.green}10`,
   },
   optionText: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     marginLeft: 12,
   },
   goalsScroll: {
@@ -1779,14 +1779,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: Colors.ui.border,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: Colors.ui.backgroundSecondary,
   },
   goalCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
+    borderColor: Colors.primary.green,
+    backgroundColor: `${Colors.primary.green}10`,
   },
   goalEmoji: {
     fontSize: 24,
@@ -1795,28 +1795,28 @@ const styles = StyleSheet.create({
   goalText: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
   },
   goalTextSelected: {
     fontWeight: '600',
-    color: COLORS.primary,
+    color: Colors.primary.green,
   },
   planCard: {
     width: '100%',
     padding: 16,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.ui.background,
     borderRadius: 12,
     marginTop: 12,
   },
   planTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
     marginBottom: 8,
   },
   planText: {
     fontSize: 14,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     lineHeight: 20,
   },
   safetyCard: {
@@ -1824,7 +1824,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     padding: 16,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.ui.background,
     borderRadius: 12,
     marginTop: 12,
   },
@@ -1835,11 +1835,11 @@ const styles = StyleSheet.create({
   safetyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.primaryText,
+    color: Colors.text.primary,
   },
   safetyText: {
     fontSize: 14,
-    color: COLORS.secondaryText,
+    color: Colors.text.secondary,
     marginTop: 2,
   },
   actionContainer: {

@@ -25,6 +25,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
@@ -130,6 +131,7 @@ export const ProfileBuilderUI: React.FC<ProfileBuilderUIProps> = ({
   isLoading = false,
   userId
 }) => {
+  const insets = useSafeAreaInsets();
   // Animation values
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -442,7 +444,7 @@ export const ProfileBuilderUI: React.FC<ProfileBuilderUIProps> = ({
       >
         <ScrollView 
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(32, insets.bottom + 16) }]}
           showsVerticalScrollIndicator={false}
         >
           {renderStepContent()}
@@ -457,7 +459,7 @@ export const ProfileBuilderUI: React.FC<ProfileBuilderUIProps> = ({
       </Animated.View>
 
       {/* Footer */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
         <View style={styles.navigationContainer}>
           <Button
             title="⬅️ Geri"

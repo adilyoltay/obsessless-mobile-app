@@ -78,7 +78,6 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 *   **Kullanıcı Hikayesi:** "Kullanıcı gece yarısı panik yaşadığında, AI asistanın onu sakinleştirmesini ve CBT teknikleri önermesini bekliyor."
 *   **AI Chat Özellikleri:**
     1.  **CBT Teknikleri:** Bilişsel yeniden yapılandırma
-    2.  **Kriz Algılama:** Acil durum tespiti
     3.  **Kültürel Duyarlılık:** Türkçe ve kültürel hassasiyet
     4.  **Sesli Destek:** Voice-to-text (yakında)
 
@@ -164,7 +163,7 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 ## 🤖 **AI Destekli Özellikler (Yeni - Ocak 2025)**
 
 ### **AI Teknoloji Altyapısı:**
-- **AI Provider:** Gemini 2.5 Pro (Primary) + OpenAI GPT-4 (Fallback)
+- **AI Provider:** Gemini (Gemini-only)
 - **AI Context Management:** Centralized AIContext Provider
 - **Feature Flags:** Granular AI feature control system
 - **Telemetry:** Real-time AI interaction tracking
@@ -262,76 +261,24 @@ Supabase Data → AI Context → External AI Service → Analysis/Suggestions
 3. **Offline-First:** AsyncStorage ile offline çalışma, online olunca Supabase sync
 4. **Privacy-First:** Hassas veriler sadece Supabase'de, AI'a sadece anonim/işlenmiş veri
 
-### **Supabase Database Schema (PostgreSQL):**
-```sql
--- Kullanıcı profilleri
-profiles (
-  id UUID PRIMARY KEY,
-  email TEXT,
-  full_name TEXT,
-  avatar_url TEXT,
-  ocd_severity TEXT,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-)
-
--- Kompulsiyon kayıtları
-compulsions (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id),
-  type TEXT,
-  intensity INTEGER,
-  resistance INTEGER,
-  notes TEXT,
-  created_at TIMESTAMP
-)
-
--- ERP oturum kayıtları
-erp_sessions (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id),
-  exercise_type TEXT,
-  duration_minutes INTEGER,
-  anxiety_before INTEGER,
-  anxiety_after INTEGER,
-  notes TEXT,
-  created_at TIMESTAMP
-)
-
--- Başarımlar ve ödüller
-achievements (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id),
-  achievement_type TEXT,
-  unlocked_at TIMESTAMP
-)
-
--- AI telemetri (anonim)
-ai_telemetry (
-  id UUID PRIMARY KEY,
-  event_type TEXT,
-  metadata JSONB,
-  created_at TIMESTAMP
-)
-```
+### Not
+Bu dokümanda veritabanı şeması tutulmaz; şema ve migration’lar `database/schema.sql` ve `supabase/migrations/` altında versiyonlanır.
 
 ### **Güncel AI Entegrasyonları (✅ Tamamlandı):**
-1. **AI Onboarding V2:** Y-BOCS + Profile + Treatment Plan + Safety
-2. **Crisis Detection:** Background monitoring + Emergency contacts
-3. **Adaptive Interventions:** Location/Time/Activity aware
-4. **Progress Analytics:** ML predictions + Pattern recognition
-5. **Art Therapy:** Therapeutic guidance + Cultural motifs
-6. **Feature Flags:** Master toggle + Granular controls
-7. **Telemetry:** Event tracking + Performance metrics
+1. **AI Onboarding V2:** Y-BOCS + Profil + Tedavi Planı (safety plan bilgilendirici)
+2. **Adaptive Interventions:** Location/Time/Activity aware
+3. **Progress Analytics:** ML predictions + Pattern recognition
+4. **Art Therapy:** Therapeutic guidance + Cultural motifs (flag ile kontrol)
+5. **Feature Flags:** Master toggle + Granular controls
+6. **Telemetry:** Event tracking + Performance metrics (privacy-first)
 
 ### **Performans Metrikleri:**
 - **AI Response Time:** < 3 saniye
 - **Onboarding Completion:** < 10 dakika
-- **Crisis Detection Interval:** 15 dakika
 - **Pattern Analysis:** 14 günlük veri minimum
 - **Memory Usage:** < 150MB
 - **Battery Impact:** < %5 ek tüketim
 
 ---
 
-*Son güncelleme: Ocak 2025 - AI Özellikleri + Supabase Veri Yönetimi Netleştirildi*
+*Son güncelleme: Ağustos 2025 - Gemini-only, Crisis Detection kaldırıldı, veritabanı şeması dışarı taşındı*

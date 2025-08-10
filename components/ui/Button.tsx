@@ -3,6 +3,7 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
+  View,
   ViewStyle,
   TextStyle,
   ActivityIndicator,
@@ -20,6 +21,8 @@ interface ButtonProps {
   disabled?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
   // Accessibility props
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -40,6 +43,8 @@ export function Button({
   accessibilityHint,
   accessibilityRole = 'button',
   testID,
+  leftIcon,
+  rightIcon,
 }: ButtonProps) {
   const handlePress = () => {
     if (!loading && !disabled && onPress) {
@@ -49,13 +54,14 @@ export function Button({
   };
 
   const buttonContent = (
-    <>
+    <View style={styles.contentRow}>
+      {!loading && leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
       {loading ? (
         <ActivityIndicator
           color={variant === 'primary' ? '#FFFFFF' : '#10B981'}
           size="small"
         />
-      ) : (
+      ) : typeof children === 'string' || typeof title === 'string' ? (
         <Text
           style={[
             styles.buttonText,
@@ -63,10 +69,14 @@ export function Button({
             textStyle,
           ]}
         >
-          {title || children}
+          {title || (children as string)}
         </Text>
+      ) : (
+        // children doğrudan render edilir (mixed content)
+        <View style={styles.childrenWrapper}>{children}</View>
       )}
-    </>
+      {!loading && rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
+    </View>
   );
 
   // iOS için Pressable kullan, Android için TouchableOpacity
@@ -131,6 +141,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  childrenWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconLeft: {
+    marginRight: 6,
+  },
+  iconRight: {
+    marginLeft: 6,
   },
   primaryButton: {
     backgroundColor: '#10B981',

@@ -25,6 +25,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
@@ -94,6 +95,7 @@ export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
   isLoading = false,
   userId
 }) => {
+  const insets = useSafeAreaInsets();
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -545,7 +547,7 @@ export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
     >
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(32, insets.bottom + 16) }]}
         showsVerticalScrollIndicator={false}
       >
         {renderPlanOverview()}
