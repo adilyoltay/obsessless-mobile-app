@@ -9,6 +9,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import Constants from 'expo-constants';
 import { 
   AIConfig, 
   AIProvider, 
@@ -122,18 +123,17 @@ export class AIManager {
    * Environment uygunluk kontrolü
    */
   private checkEnvironment(): boolean {
-    // Production'da extra kontroller
+    // Production'da Gemini anahtar kontrolü (Gemini-only)
     if (!__DEV__) {
-      // API keys varlığı
-      if (!process.env.EXPO_PUBLIC_OPENAI_API_KEY && 
-          !process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY) {
+      const extra: any = Constants.expoConfig?.extra || {};
+      const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+      if (!geminiKey || /REPLACE_WITH_REAL|REPLACE|your_?api_?key/i.test(String(geminiKey))) {
+        console.warn('Gemini API anahtarı bulunamadı veya geçersiz');
         return false;
       }
     }
 
-    // Network bağlantısı (basit check)
-    // TODO: Implement proper network connectivity check
-    
+    // Network bağlantısı (gelecekte geliştirilecek)
     return true;
   }
 

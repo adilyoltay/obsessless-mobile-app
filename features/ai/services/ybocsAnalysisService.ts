@@ -219,7 +219,14 @@ class YBOCSAnalysisService {
     
     // Enhance with AI if requested
     if (options.enhanceWithAI) {
-      return this.enhanceWithAI(analysis);
+      const enhanced = await this.enhanceWithAI(analysis);
+      // Telemetry: AI metrikleri (varsa son çağrıdan alınamaz, burada sadece enhanced flag raporlanır)
+      await trackAIInteraction(AIEventType.YBOCS_ENHANCEMENT_APPLIED, {
+        enhanced: true,
+        baseScore: analysis.totalScore,
+        finalScore: enhanced.totalScore ?? analysis.totalScore
+      });
+      return enhanced;
     }
     
     return analysis;

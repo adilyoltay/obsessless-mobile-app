@@ -934,8 +934,46 @@ class UserProfilingService {
   private generatePriorityBasedGoals(profile: UserTherapeuticProfile, priorities: string[], patterns: any): string[] { 
     return ['Öncelikli hedef 1', 'Öncelikli hedef 2']; 
   }
-  private enhanceGoalsWithAI(goals: string[], profile: UserTherapeuticProfile, patterns: any): Promise<string[]> { 
-    return Promise.resolve(goals); 
+  private async enhanceGoalsWithAI(
+    goals: string[],
+    profile: UserTherapeuticProfile,
+    patterns: any
+  ): Promise<string[]> {
+    try {
+      if (!FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) return goals;
+      const prompt = (therapeuticPromptEngine as any).generateGoalEnhancementPrompt
+        ? await (therapeuticPromptEngine as any).generateGoalEnhancementPrompt(goals, profile, patterns)
+        : 'Mevcut terapötik hedefleri daha somut, ölçülebilir ve kültürel olarak uygun hale getir. JSON array döndür.';
+      const aiResp = await externalAIService.getAIResponse(
+        [{ role: 'user', content: prompt }],
+        { therapeuticProfile: profile, assessmentMode: false } as any,
+        { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
+      );
+      if (aiResp.success && aiResp.content) {
+        await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {
+          feature: 'user_profiling_goal_enhancement',
+          provider: aiResp.provider,
+          model: aiResp.model,
+          latency: aiResp.latency,
+          tokenTotal: aiResp.tokens?.total,
+          cached: aiResp.cached === true
+        });
+        try {
+          const parsed = JSON.parse(aiResp.content);
+          if (Array.isArray(parsed)) return [...new Set([...goals, ...parsed])];
+        } catch {}
+        const extra = aiResp.content.split('\n').map(s => s.trim()).filter(Boolean);
+        return [...new Set([...goals, ...extra])];
+      }
+    } catch (err) {
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'Profil hedefleri AI ile geliştirilemedi',
+        severity: ErrorSeverity.LOW,
+        context: { component: 'UserProfilingService', method: 'enhanceGoalsWithAI' }
+      });
+    }
+    return goals;
   }
   private adaptGoalsToCulture(goals: string[], context: any): string[] { return goals; }
   private convertToSMARTGoals(goals: string[]): string[] { return goals; }

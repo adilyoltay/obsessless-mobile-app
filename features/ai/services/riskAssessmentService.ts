@@ -396,7 +396,7 @@ class AdvancedRiskAssessmentService {
         additionalData
       );
       
-      // Predictive modeling
+      // Predictive modeling (LLM destekli rafinman)
       const riskPredictions = await this.generateRiskPredictions(
         [...clinicalRisks, ...psychosocialRisks, ...environmentalRisks, ...behavioralRisks, ...cognitiveRisks],
         protectiveFactors,
