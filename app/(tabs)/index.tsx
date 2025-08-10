@@ -41,7 +41,7 @@ import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Art Therapy Integration - temporarily disabled
-import { RiskAssessmentIndicator } from '@/features/ai/components/onboarding/RiskAssessmentIndicator';
+// Risk assessment UI removed
 
 const { width } = Dimensions.get('window');
 
@@ -55,8 +55,8 @@ export default function TodayScreen() {
   
   // AI Integration via Context
   const { isInitialized: aiInitialized, availableFeatures } = useAI();
-  const { hasCompletedOnboarding, currentRiskAssessment } = useAIUserData();
-  const { generateInsights, assessRisk } = useAIActions();
+  const { hasCompletedOnboarding } = useAIUserData();
+  const { generateInsights } = useAIActions();
   
   // Local AI State
   const [aiInsights, setAiInsights] = useState<any[]>([]);
@@ -159,34 +159,7 @@ export default function TodayScreen() {
   /**
    * 🛡️ Render Risk Assessment Section
    */
-  const renderRiskSection = () => {
-    if (!aiInitialized || !FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT') || !user?.id) {
-      return null;
-    }
-
-    return (
-      <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons name="shield-alert" size={24} color="#ef4444" />
-          <Text style={styles.sectionTitle}>Risk Düzeyi</Text>
-          {!currentRiskAssessment && (
-            <Pressable onPress={assessRisk} accessibilityRole="button" accessibilityLabel="Riski değerlendir">
-              <Text style={{ color: '#2563eb', fontWeight: '600' }}>Değerlendir</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {currentRiskAssessment ? (
-          <RiskAssessmentIndicator riskAssessment={currentRiskAssessment} userId={user.id} />
-        ) : (
-          <View style={styles.noInsightsCard}>
-            <MaterialCommunityIcons name="shield-check" size={28} color="#9ca3af" />
-            <Text style={styles.noInsightsText}>Risk değerlendirmesi için "Değerlendir"e dokunun</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
+  // Risk section removed
 
   /**
    * 🤖 Load AI Insights via Context
@@ -596,7 +569,7 @@ export default function TodayScreen() {
       >
         {renderHeroSection()}
         {renderQuickStats()}
-        {renderRiskSection()}
+        {/* Risk section removed */}
         {renderArtTherapyWidget()}
         {renderDailyMissions()}
         {renderAIInsights()}

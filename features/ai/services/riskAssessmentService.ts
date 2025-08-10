@@ -7,7 +7,7 @@
  * 
  * ⚠️ CRITICAL: Tüm risk değerlendirmeleri klinik standartlara uygun
  * ⚠️ Feature flag kontrolü: AI_RISK_ASSESSMENT
- * ⚠️ Crisis detection entegrasyonu zorunlu
+ * ⚠️ Standalone risk assessment (crisis detection removed)
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -30,7 +30,7 @@ import {
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
-import { crisisDetectionService } from '@/features/ai/safety/crisisDetection';
+// Crisis detection removed - using standalone risk assessment
 import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
@@ -797,7 +797,7 @@ class AdvancedRiskAssessmentService {
   private async initializeCrisisIntegration(): Promise<void> {
     try {
       // Crisis detection service ile entegrasyon
-      await crisisDetectionService.initialize();
+      // Crisis detection service removed - standalone risk assessment only
       console.log('🚨 Crisis detection integration initialized');
     } catch (error) {
       console.warn('Crisis detection integration failed:', error);

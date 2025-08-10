@@ -29,7 +29,7 @@ type TestSection = 'chat' | 'onboarding' | 'insights' | 'voice' | 'crisis';
 
 export default function AITestScreen() {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<TestSection>('chat');
+  const [activeSection, setActiveSection] = useState<TestSection>('insights');
   const [isLoading, setIsLoading] = useState(false);
   const [testResults, setTestResults] = useState<string[]>([]);
 
@@ -147,21 +147,7 @@ export default function AITestScreen() {
       case 'chat':
         return (
           <View>
-            <Button onPress={runChatTest} disabled={isLoading}>
-              Chat Testini Başlat
-            </Button>
-            
-             {false && FEATURE_FLAGS.AI_CHAT && (
-              <View style={styles.componentDemo}>
-                <Text style={styles.demoTitle}>Chat Interface Demo:</Text>
-                <Button
-                  onPress={() => router.push('/ai-chat-modal')}
-                  variant="secondary"
-                >
-                  Chat Modal'ı Aç
-                </Button>
-              </View>
-            )}
+            <Text style={styles.demoText}>AI Chat özelliği uygulamadan kaldırıldı.</Text>
           </View>
         );
         

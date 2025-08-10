@@ -35,9 +35,9 @@ import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisServic
 // Note: onboardingEngine removed - OnboardingFlowV3 uses direct state management
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
-import { advancedRiskAssessmentService as riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+// Risk assessment service removed
 import { artTherapyEngine } from '@/features/ai/artTherapy/artTherapyEngine';
-import { useAIChatStore } from '@/features/ai/store/aiChatStore';
+// AI Chat removed
 
 // Types
 import type { 
@@ -83,11 +83,10 @@ interface AIContextType {
   startOnboarding: () => Promise<OnboardingSession | null>;
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
   generateInsights: () => Promise<any[]>;
-  assessRisk: () => Promise<RiskAssessment | null>;
+  // assessRisk removed
   triggerIntervention: (context: any) => Promise<void>;
   
-  // Chat Integration
-  chatStore: ReturnType<typeof useAIChatStore>;
+  // Chat Integration removed
 }
 
 /**
@@ -107,7 +106,7 @@ interface AIProviderProps {
  */
 export function AIProvider({ children }: AIProviderProps) {
   const { user } = useAuth();
-  const chatStore = useAIChatStore();
+  // Chat store removed
   
   // Service Status
   const [isInitialized, setIsInitialized] = useState(false);
@@ -207,6 +206,62 @@ export function AIProvider({ children }: AIProviderProps) {
             } else {
               throw new Error('User Profiling service not available');
             }
+          }
+        },
+        {
+          name: 'AI_EXTERNAL_SERVICE',
+          enabled: FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API'),
+          task: async () => {
+            const { externalAIService } = await import('@/features/ai/services/externalAIService');
+            await externalAIService.initialize();
+          }
+        },
+        {
+          name: 'AI_CBT_ENGINE',
+          enabled: FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE'),
+          task: async () => {
+            const { cbtEngine } = await import('@/features/ai/engines/cbtEngine');
+            await cbtEngine.initialize();
+          }
+        },
+        {
+          name: 'AI_INSIGHTS_ENGINE_V2',
+          enabled: FEATURE_FLAGS.isEnabled('AI_INSIGHTS_ENGINE_V2'),
+          task: async () => {
+            const { insightsEngineV2 } = await import('@/features/ai/engines/insightsEngineV2');
+            await insightsEngineV2.initialize();
+          }
+        },
+        {
+          name: 'AI_PATTERN_RECOGNITION_V2',
+          enabled: FEATURE_FLAGS.isEnabled('AI_PATTERN_RECOGNITION_V2'),
+          task: async () => {
+            const { patternRecognitionV2 } = await import('@/features/ai/services/patternRecognitionV2');
+            await patternRecognitionV2.initialize();
+          }
+        },
+        {
+          name: 'AI_PROGRESS_ANALYTICS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_PROGRESS_ANALYTICS'),
+          task: async () => {
+            const { progressAnalytics } = await import('@/features/ai/analytics/progressAnalytics');
+            await progressAnalytics.initialize();
+          }
+        },
+        {
+          name: 'AI_SMART_NOTIFICATIONS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_SMART_NOTIFICATIONS'),
+          task: async () => {
+            const { smartNotificationService } = await import('@/features/ai/services/smartNotifications');
+            await smartNotificationService.initialize();
+          }
+        },
+        {
+          name: 'AI_THERAPEUTIC_PROMPTS',
+          enabled: FEATURE_FLAGS.isEnabled('AI_THERAPEUTIC_PROMPTS'),
+          task: async () => {
+            const { therapeuticPromptEngine } = await import('@/features/ai/prompts/therapeuticPrompts');
+            await therapeuticPromptEngine.initialize();
           }
         },
         {
@@ -578,36 +633,7 @@ export function AIProvider({ children }: AIProviderProps) {
   /**
    * 🛡️ Assess Risk
    */
-  const assessRisk = useCallback(async (): Promise<RiskAssessment | null> => {
-    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
-      return null;
-    }
-
-    const userId = user.id;
-    if (typeof userId !== 'string' || userId.trim() === '') {
-      console.error('❌ assessRisk: Invalid user ID:', userId);
-      return null;
-    }
-
-    try {
-      const riskData = {
-        userProfile,
-        treatmentPlan
-      };
-
-      const assessment = await riskAssessmentService.assessRisk(userId, riskData);
-      setCurrentRiskAssessment(assessment);
-
-      // Persist to storage with safe key
-      const riskKey = `ai_risk_assessment_${userId}`;
-      await AsyncStorage.setItem(riskKey, JSON.stringify(assessment));
-
-      return assessment;
-    } catch (error) {
-      console.error('❌ Error assessing risk:', error);
-      return null;
-    }
-  }, [user?.id, userProfile, treatmentPlan]);
+  // assessRisk removed
 
   /**
    * 🎯 Trigger Intervention
@@ -732,10 +758,7 @@ export function AIProvider({ children }: AIProviderProps) {
     updateUserProfile,
     generateInsights,
     assessRisk,
-    triggerIntervention,
-    
-    // Chat Integration
-    chatStore
+    triggerIntervention
   }), [
     isInitialized,
     isInitializing,
@@ -754,8 +777,7 @@ export function AIProvider({ children }: AIProviderProps) {
     updateUserProfile,
     generateInsights,
     assessRisk,
-    triggerIntervention,
-    chatStore
+    triggerIntervention
   ]);
 
   return (

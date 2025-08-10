@@ -378,14 +378,10 @@ class InsightsEngineV2 {
       }
     });
 
-    // Risk assessment
-    const riskAssessment = this.assessRiskFromPatterns(patterns);
-
     return {
       patterns,
-      recommendations,
-      riskAssessment
-    };
+      recommendations
+    } as PatternAnalysisResult;
   }
 
   private analyzeMessagePatterns(messages: AIMessage[]): PatternAnalysisResult['patterns'] {
