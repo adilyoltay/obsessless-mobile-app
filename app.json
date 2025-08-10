@@ -47,7 +47,7 @@
       "EXPO_PUBLIC_AI_VERBOSE_LOGGING": "true",
       "EXPO_PUBLIC_SUPABASE_URL": "https://ncniotnzoirwuwwxnipw.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jbmlvdG56b2lyd3V3d3huaXB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzODA2MjIsImV4cCI6MjA2ODk1NjYyMn0.Ks0vevUbys_gGMbYSlTjzqfWXXikAQ74VTJbzCRcbhk",
-      "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBgPA7sQMiyZtpmp8ud0V_1ncqUZ4wpLhw",
+      "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyD5gZ1Ez0OL1h4Fxmpv1R0eO7BDrmwZ000",
       "EXPO_PUBLIC_GEMINI_MODEL": "gemini-1.5-flash"
     }
   }

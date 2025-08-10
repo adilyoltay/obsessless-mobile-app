@@ -528,9 +528,9 @@ class AdvancedRiskAssessmentService {
 
       await trackAIInteraction(AIEventType.RISK_ESCALATION_PREDICTED, {
         riskId: currentRisk.id,
-        escalationProbability: prediction.escalationProbability,
-        timeframe: prediction.timeframe,
-        triggeringFactorsCount: prediction.triggeringFactors.length
+        escalationProbability: prediction.escalationProbability ?? 0,
+        timeframe: prediction.timeframe ?? 'days',
+        triggeringFactorsCount: Array.isArray(prediction.triggeringFactors) ? prediction.triggeringFactors.length : 0
       });
 
       return prediction;

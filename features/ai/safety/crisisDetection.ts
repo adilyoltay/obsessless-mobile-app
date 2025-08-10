@@ -283,6 +283,10 @@ export class CrisisDetectionService {
   }
 }
 
-// Singleton instance
-export const crisisDetectionService = new CrisisDetectionService();
+// Prefer explicit creation to avoid side effects at module import time
+export function getCrisisDetectionService(): CrisisDetectionService | null {
+  if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) return null;
+  return new CrisisDetectionService();
+}
+
 export { CrisisDetectionConfig, DEFAULT_CONFIG as DEFAULT_CRISIS_CONFIG };

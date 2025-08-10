@@ -29,7 +29,7 @@ export interface CreateCompulsionData {
 const compulsionService = {
   async getAll(userId: string): Promise<Compulsion[]> {
     try {
-      console.log('🔍 Fetching compulsions...');
+      if (__DEV__) console.log('🔍 Fetching compulsions...');
       
       // Try to get from AsyncStorage first (offline-first)
       const stored = await AsyncStorage.getItem(`compulsions_${userId}`);
@@ -45,14 +45,14 @@ const compulsionService = {
         // Update AsyncStorage with merged data
         await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(mergedCompulsions));
         
-        console.log(`✅ Compulsions synced: ${mergedCompulsions.length} total`);
+         if (__DEV__) console.log(`✅ Compulsions synced: ${mergedCompulsions.length} total`);
         return mergedCompulsions;
       } catch (supabaseError) {
-        console.warn('⚠️ Supabase sync failed, using offline data:', supabaseError);
+        if (__DEV__) console.warn('⚠️ Supabase sync failed, using offline data:', supabaseError);
         return localCompulsions;
       }
     } catch (error) {
-      console.error('❌ Error fetching compulsions:', error);
+      if (__DEV__) console.error('❌ Error fetching compulsions:', error);
       return [];
     }
   },
@@ -87,7 +87,7 @@ const compulsionService = {
 
   async create(userId: string, data: CreateCompulsionData): Promise<Compulsion> {
     try {
-      console.log('🔄 Creating compulsion...');
+      if (__DEV__) console.log('🔄 Creating compulsion...');
       
       const compulsion: Compulsion = {
         id: Date.now().toString(),
@@ -101,7 +101,7 @@ const compulsionService = {
       const updated = [...existing, compulsion];
       await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(updated));
       
-      console.log('✅ Compulsion saved to AsyncStorage');
+      if (__DEV__) console.log('✅ Compulsion saved to AsyncStorage');
 
       // Try to save to Supabase
       try {
@@ -112,40 +112,40 @@ const compulsionService = {
           trigger: data.trigger,
           notes: data.notes
         });
-        console.log('✅ Compulsion saved to Supabase');
+        if (__DEV__) console.log('✅ Compulsion saved to Supabase');
       } catch (supabaseError) {
-        console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
+        if (__DEV__) console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
         // Continue with offline mode - data is already in AsyncStorage
       }
       
       return compulsion;
     } catch (error) {
-      console.error('❌ Error creating compulsion:', error);
+      if (__DEV__) console.error('❌ Error creating compulsion:', error);
       throw error;
     }
   },
 
   async delete(userId: string, id: string): Promise<void> {
     try {
-      console.log('🗑️ Deleting compulsion...');
+      if (__DEV__) console.log('🗑️ Deleting compulsion...');
       
       // Delete from AsyncStorage
       const existing = await this.getAll(userId);
       const filtered = existing.filter(c => c.id !== id);
       await AsyncStorage.setItem(`compulsions_${userId}`, JSON.stringify(filtered));
       
-      console.log('✅ Compulsion deleted from AsyncStorage');
+      if (__DEV__) console.log('✅ Compulsion deleted from AsyncStorage');
 
       // Try to delete from Supabase
       try {
         await supabaseService.deleteCompulsion(id);
-        console.log('✅ Compulsion deleted from Supabase');
+        if (__DEV__) console.log('✅ Compulsion deleted from Supabase');
       } catch (supabaseError) {
-        console.warn('⚠️ Supabase delete failed, compulsion deleted offline:', supabaseError);
+        if (__DEV__) console.warn('⚠️ Supabase delete failed, compulsion deleted offline:', supabaseError);
         // Continue with offline mode - data is already removed from AsyncStorage
       }
     } catch (error) {
-      console.error('❌ Error deleting compulsion:', error);
+      if (__DEV__) console.error('❌ Error deleting compulsion:', error);
       throw error;
     }
   },
@@ -163,7 +163,7 @@ const compulsionService = {
         averageResistance: compulsions.reduce((sum, c) => sum + c.resistanceLevel, 0) / compulsions.length || 0,
       };
     } catch (error) {
-      console.error('❌ Error calculating stats:', error);
+      if (__DEV__) console.error('❌ Error calculating stats:', error);
       return {
         total: 0,
         today: 0,

@@ -320,9 +320,7 @@ class AITelemetryManager {
       } catch {}
 
       // Debug log (sadece development)
-      if (__DEV__) {
-        console.log(`📊 AI Telemetry: ${eventType}`, metadata);
-      }
+      if (__DEV__) console.log(`📊 AI Telemetry: ${eventType}`, JSON.stringify(metadata));
 
     } catch (error) {
       console.error('❌ Error tracking AI interaction:', error);

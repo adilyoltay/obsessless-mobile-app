@@ -12,7 +12,7 @@ import {
   AIEventType 
 } from '@/features/ai/types';
 import { trackAIInteraction, trackCrisisDetection } from '@/features/ai/telemetry/aiTelemetry';
-import { crisisDetection } from '@/features/ai/safety/crisisDetection';
+import { getCrisisDetectionService } from '@/features/ai/safety/crisisDetection';
 import * as Notifications from 'expo-notifications';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
@@ -66,13 +66,10 @@ class BackgroundCrisisMonitor {
    * 🚀 Background monitoring başlat
    */
   async startMonitoring(userId: string): Promise<void> {
-    if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) {
-      console.log('⚠️ Crisis detection is disabled');
-      return;
-    }
+    if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) return;
 
     if (this.isMonitoring) {
-      console.log('📊 Background monitoring already active');
+      if (__DEV__) console.log('📊 Background monitoring already active');
       return;
     }
 
@@ -87,7 +84,7 @@ class BackgroundCrisisMonitor {
       this.isMonitoring = true;
       this.lastCheckTime = new Date();
       
-      console.log('🚨 Background crisis monitoring started');
+      if (__DEV__) console.log('🚨 Background crisis monitoring started');
       
       await trackAIInteraction(AIEventType.CRISIS_MONITORING_STARTED, {
         userId,
@@ -95,7 +92,7 @@ class BackgroundCrisisMonitor {
       });
       
     } catch (error) {
-      console.error('❌ Failed to start background monitoring:', error);
+      if (__DEV__) console.error('❌ Failed to start background monitoring:', error);
       this.isMonitoring = false;
     }
   }
@@ -109,7 +106,7 @@ class BackgroundCrisisMonitor {
     try {
       await BackgroundFetch.unregisterTaskAsync(BACKGROUND_CRISIS_TASK);
       this.isMonitoring = false;
-      console.log('🛑 Background crisis monitoring stopped');
+      if (__DEV__) console.log('🛑 Background crisis monitoring stopped');
     } catch (error) {
       console.error('❌ Failed to stop monitoring:', error);
     }

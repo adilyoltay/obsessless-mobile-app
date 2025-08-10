@@ -194,19 +194,19 @@ class ContextIntelligenceEngine {
    * Context Intelligence Engine'i başlat
    */
   async initialize(): Promise<void> {
-    console.log('🌍 Context Intelligence Engine: Initializing...');
+    if (__DEV__) console.log('🌍 Context Intelligence Engine: Initializing...');
     
     try {
       // Feature flag kontrolü
       if (!FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        console.log('🚫 Context Intelligence disabled by feature flag');
+        if (__DEV__) console.log('🚫 Context Intelligence disabled by feature flag');
         this.isEnabled = false;
         return;
       }
 
       // Privacy compliance check
       if (!this.validatePrivacyCompliance()) {
-        console.warn('⚠️ Privacy compliance requirements not met');
+        if (__DEV__) console.warn('⚠️ Privacy compliance requirements not met');
         this.isEnabled = false;
         return;
       }
@@ -220,10 +220,10 @@ class ContextIntelligenceEngine {
         enabledFeatures: this.getEnabledFeatures()
       });
 
-      console.log('✅ Context Intelligence Engine initialized successfully');
+      if (__DEV__) console.log('✅ Context Intelligence Engine initialized successfully');
 
     } catch (error) {
-      console.error('❌ Context Intelligence Engine initialization failed:', error);
+      if (__DEV__) console.error('❌ Context Intelligence Engine initialization failed:', error);
       this.isEnabled = false;
       
       await trackAIError({
@@ -260,11 +260,11 @@ class ContextIntelligenceEngine {
     const startTime = Date.now();
 
     try {
-      console.log(`🌍 Starting context analysis for user ${context.userId}`);
+      if (__DEV__) console.log(`🌍 Starting context analysis for user ${context.userId}`);
 
       // Check for existing analysis
       if (this.activeAnalysis.has(context.userId)) {
-        console.log('⏳ Context analysis already in progress, waiting...');
+        if (__DEV__) console.log('⏳ Context analysis already in progress, waiting...');
         return await this.activeAnalysis.get(context.userId)!;
       }
 
@@ -293,7 +293,7 @@ class ContextIntelligenceEngine {
           insights: result.insights.keyObservations.length
         });
 
-        console.log(`✅ Context analysis completed: ${result.riskAssessment.overallRisk} risk level`);
+        if (__DEV__) console.log(`✅ Context analysis completed: ${result.riskAssessment.overallRisk} risk level`);
         return result;
 
       } finally {
@@ -301,7 +301,7 @@ class ContextIntelligenceEngine {
       }
 
     } catch (error) {
-      console.error('❌ Context analysis failed:', error);
+      if (__DEV__) console.error('❌ Context analysis failed:', error);
       
       await trackAIError({
         code: AIErrorCode.PROCESSING_FAILED,
@@ -472,7 +472,7 @@ class ContextIntelligenceEngine {
       }
 
     } catch (error) {
-      console.warn('⚠️ Environmental factor analysis failed:', error);
+      if (__DEV__) console.warn('⚠️ Environmental factor analysis failed:', error);
     }
 
     return factors;
@@ -943,7 +943,7 @@ class ContextIntelligenceEngine {
    * Engine'i temizle
    */
   async shutdown(): Promise<void> {
-    console.log('🌍 Context Intelligence Engine: Shutting down...');
+      if (__DEV__) console.log('🌍 Context Intelligence Engine: Shutting down...');
     this.isEnabled = false;
     this.analysisCache.clear();
     this.activeAnalysis.clear();
