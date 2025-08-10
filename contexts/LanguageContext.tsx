@@ -34,7 +34,6 @@ export type TranslationPath = Join<PathsToStringProps<TranslationKeys>, '.'>;
 
 interface LanguageContextType {
   language: Language;
-  setLanguage: (lang: Language) => void;
   t: (key: TranslationPath, fallback?: string) => string;
   isRTL: boolean;
   systemLanguage: string;
@@ -72,7 +71,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return languageMap[languageCode] || languageMap[locale] || 'en';
   };
 
-  // Initialize language settings
+  // Initialize language settings (no manual override; follow system)
   useEffect(() => {
     const initializeLanguage = async () => {
       try {
@@ -80,16 +79,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         const systemLang = detectSystemLanguage();
         setSystemLanguage(systemLang);
 
-        // Check stored language preference
-        const storedLanguage = await AsyncStorage.getItem(STORAGE_KEY);
-        
-        if (storedLanguage && (storedLanguage === 'tr' || storedLanguage === 'en')) {
-          setLanguageState(storedLanguage as Language);
-        } else {
-          // Use system language as default
-          setLanguageState(systemLang);
-          await AsyncStorage.setItem(STORAGE_KEY, systemLang);
-      }
+        // Always follow system language
+        setLanguageState(systemLang);
+        try { await AsyncStorage.setItem(STORAGE_KEY, systemLang); } catch {}
     } catch (error) {
         console.error('Error initializing language:', error);
         // Fallback to Turkish
@@ -100,15 +92,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     initializeLanguage();
   }, []);
 
-  // Set language and persist to storage
-  const setLanguage = async (lang: Language) => {
-    try {
-      setLanguageState(lang);
-      await AsyncStorage.setItem(STORAGE_KEY, lang);
-    } catch (error) {
-      console.error('Error setting language:', error);
-    }
-  };
+  // Manual setLanguage is disabled; we keep API shape minimal in context value
 
   // Translation function with type safety
   const t = (key: TranslationPath, fallback?: string): string => {
@@ -155,7 +139,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const value: LanguageContextType = {
     language,
-    setLanguage,
     t,
     isRTL,
     systemLanguage,

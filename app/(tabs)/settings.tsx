@@ -21,7 +21,6 @@ import Button from '@/components/ui/Button';
 
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { router } from 'expo-router';
 
@@ -51,7 +50,7 @@ const LANGUAGE_OPTIONS = [
 export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { language, setLanguage } = useLanguage();
+  // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile } = useAuth();
   const { aiConsents, setConsent } = useAISettingsStore();
   
@@ -116,10 +115,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleLanguageChange = async (code: string) => {
-    setLanguage(code);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  // Dil değişimi devre dışı
 
   const handleSignOut = () => {
     Alert.alert(
@@ -257,31 +253,7 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
-  const renderLanguageSection = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Dil</Text>
-      <View style={styles.languageContainer}>
-        {LANGUAGE_OPTIONS.map((lang) => (
-          <Pressable
-            key={lang.code}
-            style={[
-              styles.languageOption,
-              language === lang.code && styles.languageOptionActive
-            ]}
-            onPress={() => handleLanguageChange(lang.code)}
-          >
-            <Text style={styles.languageFlag}>{lang.flag}</Text>
-            <Text style={[
-              styles.languageName,
-              language === lang.code && styles.languageNameActive
-            ]}>
-              {lang.name}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
+  // Dil bölümü kaldırıldı
 
   return (
     <ScreenLayout>
@@ -333,8 +305,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Language */}
-        {renderLanguageSection()}
+        {/* Dil seçimi kaldırıldı */}
 
         {/* AI Özellikleri - MASTER SWITCH */}
         <View style={styles.section}>
