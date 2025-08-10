@@ -12,18 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { supabaseService } from '@/services/supabase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import * as WebBrowser from 'expo-web-browser';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const { signInWithEmail, isLoading, error } = useAuth();
+  const { signInWithEmail, signInWithGoogle, isLoading, error } = useAuth();
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -42,13 +40,7 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await supabaseService.signInWithGoogle();
-      
-      if (result?.url) {
-        await WebBrowser.openBrowserAsync(result.url);
-      } else {
-        Alert.alert('Hata', 'Google girişi başlatılamadı');
-      }
+      await signInWithGoogle();
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Google girişi başarısız');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

@@ -6,6 +6,9 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { migrateToUserSpecificStorage } from '@/utils/storage';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import Constants from 'expo-constants';
+import { makeRedirectUri } from 'expo-auth-session';
 
 // ===========================
 // CONTEXT TYPE DEFINITION
@@ -54,103 +57,109 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const { resetOnboarding } = useOnboardingStore();
   const lastProfileLoadRef = React.useRef<{ userId: string; ts: number } | null>(null);
   const isProfileLoadInFlightRef = React.useRef<boolean>(false);
+  const oauthAppStateRef = React.useRef<string | null>(null);
 
   // ===========================
   // INITIALIZATION
   // ===========================
 
   useEffect(() => {
+    let isMounted = true;
     console.log('🚀 SupabaseAuthProvider initialized');
-    initializeAuth();
-  }, []);
 
-  const initializeAuth = async () => {
-    try {
-      setLoading(true);
-      
-      // Get current session
-      const currentUser = await supabaseService.initialize();
-      
-      if (currentUser) {
-        setUser(currentUser);
-        await loadUserProfile(currentUser);
-      }
-      
-      // Setup URL scheme listener for OAuth callbacks
-      const handleUrl = async (url: string) => {
+    const handleUrl = async (url: string) => {
+      try {
+        if (!url) return;
         console.log('🔗 Received URL:', url);
-        
-        // Handle both custom scheme and Expo Go deep links
-        const callbackPath = 'auth/callback';
-        const isCallback = url.includes(callbackPath);
-        if (isCallback) {
-          try {
-            console.log('🔐 Processing OAuth callback...');
-            const callbackUrl = new URL(url.replace('#', '?'));
-            const accessToken = callbackUrl.searchParams.get('access_token');
-            const refreshToken = callbackUrl.searchParams.get('refresh_token');
-            
-            if (accessToken && refreshToken) {
-              await supabaseService.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken
-              });
-              await WebBrowser.dismissBrowser();
-            }
-            
-          } catch (error) {
-            console.error('❌ OAuth callback processing failed:', error);
-          }
+        const callbackUrl = new URL(url.replace('#', '?'));
+        const isCallback = callbackUrl.pathname?.includes('auth/callback') || url.includes('auth/callback');
+        if (!isCallback) return;
+
+        const errorParam = callbackUrl.searchParams.get('error');
+        const errorDescription = callbackUrl.searchParams.get('error_description');
+        const appState = callbackUrl.searchParams.get('app_state');
+        const accessToken = callbackUrl.searchParams.get('access_token');
+        const refreshToken = callbackUrl.searchParams.get('refresh_token');
+
+        // State validation
+        const expected = oauthAppStateRef.current || null;
+        if (expected && appState && expected !== appState) {
+          console.warn('⚠️ OAuth state mismatch');
+          setError('Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
+          await WebBrowser.dismissBrowser();
+          return;
+        }
+
+        if (errorParam) {
+          console.error('❌ OAuth error:', errorParam, errorDescription);
+          setError('Google ile giriş iptal edildi veya başarısız oldu.');
+          await WebBrowser.dismissBrowser();
+          return;
+        }
+
+        if (accessToken && refreshToken) {
+          await supabaseService.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          await WebBrowser.dismissBrowser();
         } else {
-          console.log('🔗 Non-OAuth URL received:', url);
+          console.error('❌ OAuth callback missing tokens');
+          setError('Giriş tamamlanamadı. Lütfen tekrar deneyin.');
+          await WebBrowser.dismissBrowser();
         }
-      };
-
-      // Listen for URL changes
-      const subscription = Linking.addEventListener('url', ({ url }) => {
-        handleUrl(url);
-      });
-
-      // Check if app was opened with a URL
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        handleUrl(initialUrl);
+      } catch (err) {
+        console.error('❌ OAuth callback processing failed:', err);
+        setError('Giriş tamamlanamadı.');
       }
-      
-      // Setup auth state listener
-      const { data: authListener } = supabaseService.onAuthStateChange(async (event, session) => {
-        console.log('🔐 Auth event:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user);
-          await loadUserProfile(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setProfile(null);
-          setUserId('');
-          console.log('🔐 User signed out, state cleared');
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user);
-          // Profile should already be loaded, no need to reload
+    };
+
+    // Kick off auth init
+    (async () => {
+      try {
+        setLoading(true);
+        const currentUser = await supabaseService.initialize();
+        if (currentUser && isMounted) {
+          setUser(currentUser);
+          await loadUserProfile(currentUser);
         }
-        
-        setLoading(false);
-      });
-      
-      setLoading(false);
-      
-      // Cleanup listener on unmount
-      return () => {
-        subscription?.remove?.();
-        authListener?.subscription?.unsubscribe?.();
-      };
-      
-    } catch (error) {
-      console.error('❌ Auth initialization failed:', error);
-      setError('Kimlik doğrulama başlatılamadı');
-      setLoading(false);
-    }
-  };
+      } catch (e) {
+        console.error('❌ Auth initialization failed:', e);
+        setError('Kimlik doğrulama başlatılamadı');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    })();
+
+    // URL listener
+    const urlSub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    // Initial URL
+    Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl) handleUrl(initialUrl);
+    });
+
+    // Auth state listener
+    const { data: authListener } = supabaseService.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth event:', event);
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+        await loadUserProfile(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setUserId('');
+        console.log('🔐 User signed out, state cleared');
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        setUser(session.user);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      urlSub?.remove?.();
+      authListener?.subscription?.unsubscribe?.();
+    };
+  }, [loadUserProfile, setUserId]);
 
   // ===========================
   // PROFILE LOADING
@@ -247,6 +256,12 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setError(null);
       
       console.log('🔐 Starting email login...');
+      // RFC5322-ish basic validation to avoid network call on invalid input
+      const emailRegex = /^(?:[a-zA-Z0-9_'^&+%`{}~!-]+(?:\.[a-zA-Z0-9_'^&+%`{}~!-]+)*)@(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})$/;
+      if (!emailRegex.test(email)) {
+        setError('Lütfen geçerli bir email adresi girin.');
+        throw new Error('INVALID_EMAIL_FORMAT');
+      }
       await supabaseService.signInWithEmail(email, password);
       
       // Auth state change will handle the rest
@@ -254,14 +269,22 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
     } catch (error: any) {
       console.error('❌ Email login failed:', error);
-      
-      // Handle specific error messages
-      if (error.message?.includes('Email not confirmed')) {
-        setError('Email adresinizi doğrulamanız gerekiyor. Email kutunuzu kontrol edin.');
-      } else if (error.message?.includes('Invalid login credentials')) {
-        setError('Email veya şifre hatalı');
-      } else {
-        setError(error.message || 'Giriş başarısız');
+      // Map Supabase Auth errors to stable i18n keys
+      const code = error?.code || error?.status || '';
+      switch (code) {
+        case 'email_not_confirmed':
+        case 400:
+          if (String(error?.message || '').toLowerCase().includes('confirm')) {
+            setError('Email adresinizi doğrulamanız gerekiyor. Email kutunuzu kontrol edin.');
+            break;
+          }
+          // fallthrough
+        default:
+          if (String(error?.message || '').toLowerCase().includes('invalid login')) {
+            setError('Email veya şifre hatalı');
+          } else {
+            setError('Giriş başarısız');
+          }
       }
       throw error;
     } finally {
@@ -269,23 +292,66 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  const signInWithGoogle = useCallback(async (): Promise<any> => {
+  const signInWithGoogle = useCallback(async (): Promise<void> => {
     try {
-      // setLoading(true); // RE-RENDER SORUNU
+      setLoading(true);
       setError(null);
-      
-      console.log('🔐 Starting Google OAuth...');
-      const result = await supabaseService.signInWithGoogle();
-      
-      console.log('🔐 Google OAuth data ready for WebView');
-      return result; // Return the OAuth data with URL
-      
+      console.log('🔐 Starting Google OAuth via AuthSession...');
+
+      // Request provider URL from Supabase
+      const supa = await supabaseService.signInWithGoogle();
+      const providerUrl: string | undefined = supa?.url;
+      if (!providerUrl) throw new Error('GOOGLE_OAUTH_URL_MISSING');
+
+      // Generate cryptographic app_state and append to auth URL
+      const appState = AuthSession.generateRandom(32);
+      oauthAppStateRef.current = appState;
+      const authUrlWithState = providerUrl + (providerUrl.includes('?') ? '&' : '?') + `app_state=${appState}`;
+
+      // Compute return URL (must match service redirect)
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const returnUrl = isExpoGo
+        ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
+        : Linking.createURL('auth/callback');
+
+      const result = await AuthSession.startAsync({ authUrl: authUrlWithState, returnUrl });
+
+      if (result.type === 'cancel') {
+        setError('Giriş iptal edildi.');
+        return;
+      }
+      if (result.type !== 'success' || !('url' in result) || !result.url) {
+        setError('Giriş başarısız. Lütfen tekrar deneyin.');
+        return;
+      }
+
+      const urlObj = new URL(result.url.replace('#', '?'));
+      const cbState = urlObj.searchParams.get('app_state');
+      const errorParam = urlObj.searchParams.get('error');
+      const errorDesc = urlObj.searchParams.get('error_description');
+      const accessToken = urlObj.searchParams.get('access_token');
+      const refreshToken = urlObj.searchParams.get('refresh_token');
+
+      if (!cbState || oauthAppStateRef.current !== cbState) {
+        setError('Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.');
+        return;
+      }
+      if (errorParam) {
+        setError('Google ile giriş başarısız veya iptal edildi.');
+        if (__DEV__) console.error('OAuth error:', errorParam, errorDesc);
+        return;
+      }
+      if (accessToken && refreshToken) {
+        await supabaseService.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        return;
+      }
+      setError('Giriş tamamlanamadı. Lütfen tekrar deneyin.');
     } catch (error: any) {
       console.error('❌ Google OAuth failed:', error);
       setError(error.message || 'Google ile giriş başarısız');
       throw error;
     } finally {
-      // setLoading(false); // RE-RENDER SORUNU
+      setLoading(false);
     }
   }, []);
 

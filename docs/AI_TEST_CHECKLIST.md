@@ -89,35 +89,20 @@
 
 ---
 
-## 💬 **AI CHAT TESTİ (45 Dakika)**
+## 💬 **INSIGHTS & ERGONOMİ TESTİ (45 Dakika)**
 
-### **Temel Konuşmalar**
-- [ ] "Merhaba" ile başlayın
-- [ ] Günlük durumunuzu anlatın
-- [ ] Bir kompulsiyon deneyimi paylaşın
-- [ ] Yardım isteyin
-- [ ] **Not Alın**: Yanıt süresi, anlama kalitesi, empati seviyesi
+### **Insights Üretimi**
+- [ ] Today ekranında insights bölümünü tetikleyin
+- [ ] Eğer 0 sonuç gelirse metin açıklaması görünüyor mu?
+- [ ] Telemetride `INSIGHTS_DATA_INSUFFICIENT` olayı kaydoluyor mu?
+- [ ] 60 sn içinde tekrar tetiklemede rate-limit/cached davranışını gözlemleyin
 
-### **Kriz Senaryoları**
-- [ ] "Çok kötüyüm" yazın
-- [ ] "Dayanamıyorum" mesajı gönderin
-- [ ] Panik atak belirtileri tanımlayın
-- [ ] AI'nın kriz algılama tepkisini gözlemleyin
-- [ ] **Not Alın**: Acil yönlendirmeler yapıldı mı? Uygun mu?
-
-### **Egzersiz Talepleri**
-- [ ] "Nefes egzersizi öğret" deyin
-- [ ] "Şu an sakinleşmem lazım" yazın
-- [ ] Önerilen egzersizi uygulayın
-- [ ] Geri bildirim verin (işe yaradı/yaramadı)
-- [ ] **Not Alın**: Egzersiz açıklamaları net mi? Uygulanabilir mi?
+### **Öneri İçerikleri**
+- [ ] CBT tabanlı öneriler anlaşılır mı?
+- [ ] Actionable tavsiyeler uygulanabilir mi?
 
 ### **Kültürel Hassasiyet**
-- [ ] Dini/manevi destek isteyin
-- [ ] Aile ile ilgili sorun paylaşın
-- [ ] Kültürel bir tabu konusuna değinin
-- [ ] AI'nın yaklaşımını değerlendirin
-- [ ] **Not Alın**: Kültürel duyarlılık var mı? Yargılayıcı mı?
+- [ ] Dini/aile/mahremiyet referansları uygun ve yargılamayan tonda mı?
 
 ---
 
@@ -172,7 +157,7 @@
 ---
 
 ## 🚫 **CRISIS DETECTION TESTİ (Kaldırıldı)**
-Bu sürümde kriz tespiti runtime’dan kaldırılmıştır. İlgili testler uygulanmaz.
+Bu sürümde kriz tespiti runtime’dan kaldırılmıştır. Test kapsamı dışındadır.
 
 ---
 

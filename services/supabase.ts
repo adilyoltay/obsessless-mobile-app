@@ -1,8 +1,9 @@
-import { createClient, SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
+import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
+import { supabase as sharedClient } from '@/lib/supabase';
 
 // 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -110,16 +111,12 @@ class SupabaseNativeService {
   private userProfileCache: Map<string, { data: OCDProfile | null; fetchedAt: number }> = new Map();
 
   constructor() {
-    this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        storage: AsyncStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    });
-
-    console.log('✅ Supabase Native Service initialized');
+    // Tek supabase client kullanımı (lib/supabase.ts)
+    // Ortak istemci, storage/refresh ayarlarını zaten içerir
+    // Ortam değişkenleri lib içinde doğrulanır
+    // @ts-expect-error - shared client type is SupabaseClient
+    this.client = sharedClient as unknown as SupabaseClient;
+    console.log('✅ Supabase Native Service initialized (shared client)');
   }
 
   // ===========================
