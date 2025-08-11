@@ -53,11 +53,7 @@ import {
   type SmartNotification
 } from '@/features/ai/services/smartNotifications';
 
-import { 
-  progressAnalytics,
-  type ProgressTrackingContext,
-  type ProgressAnalyticsResult
-} from '@/features/ai/analytics/progressAnalytics';
+// Progress Analytics removed
 
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -208,7 +204,7 @@ class InsightsCoordinator {
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
         smartNotifications: smartNotificationService.enabled,
-        progressAnalytics: progressAnalytics.enabled
+         progressAnalytics: false
       };
 
       const enabledComponents = Object.values(componentStatus).filter(Boolean).length;
@@ -367,7 +363,7 @@ class InsightsCoordinator {
     const components: string[] = [];
     let patterns: DetectedPattern[] = [];
     let insights: IntelligentInsight[] = [];
-    let progressAnalysis: ProgressAnalyticsResult | null = null;
+      let progressAnalysis: any | null = null;
     let scheduledNotifications: SmartNotification[] = [];
 
     // Timeout protection
@@ -393,13 +389,7 @@ class InsightsCoordinator {
           }));
         }
 
-        // Progress Analytics
-        if (config.enableProgressTracking && progressAnalytics.enabled) {
-          promises.push(this.executeProgressAnalysis(context).then(result => {
-            progressAnalysis = result;
-            components.push('progressAnalytics');
-          }));
-        }
+        // Progress Analytics removed
 
         // Wait for initial analysis
         await Promise.race([Promise.all(promises), timeoutPromise]);
@@ -428,10 +418,7 @@ class InsightsCoordinator {
           components.push('insightsEngine');
         }
 
-        if (config.enableProgressTracking && progressAnalytics.enabled) {
-          progressAnalysis = await this.executeProgressAnalysis(context);
-          components.push('progressAnalytics');
-        }
+        // Progress Analytics removed
 
         if (config.enableNotificationScheduling && smartNotificationService.enabled && insights.length > 0) {
           scheduledNotifications = await this.executeNotificationScheduling(context, insights);
@@ -570,9 +557,9 @@ class InsightsCoordinator {
   /**
    * Progress analysis yürüt
    */
-  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<ProgressAnalyticsResult> {
+  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<any> {
     try {
-      const progressContext: ProgressTrackingContext = {
+      const progressContext: any = {
         userId: context.userId,
         userProfile: context.userProfile,
         timeframe: {
@@ -592,7 +579,7 @@ class InsightsCoordinator {
         includePredicitive: context.timeframe.analysisDepth === 'comprehensive'
       };
 
-      return await progressAnalytics.analyzeProgress(progressContext);
+      return this.getDefaultProgressAnalysis(context);
 
     } catch (error) {
       console.warn('⚠️ Progress analysis failed:', error);
