@@ -745,6 +745,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.WELCOME:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="hand-wave" 
@@ -1080,6 +1081,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <Text style={styles.optionText}>Ailemde OKB öyküsü var</Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         );
 
