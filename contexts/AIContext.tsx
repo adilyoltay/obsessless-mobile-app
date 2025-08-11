@@ -41,13 +41,16 @@ import { advancedRiskAssessmentService as riskAssessmentService } from '@/featur
 // AI Chat removed
 
 // Types
-import type { 
-  UserProfile, 
-  TreatmentPlan, 
+import type {
+  UserTherapeuticProfile as UserProfile,
+  TreatmentPlan,
   OnboardingSession,
+  CulturalContext,
+  CommunicationStyle,
   RiskAssessment,
-  OCDAnalysis 
+  OCDAnalysis
 } from '@/features/ai/types';
+import { OnboardingStep, OnboardingSessionState } from '@/features/ai/types';
 
 // Telemetry
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -311,7 +314,18 @@ export function AIProvider({ children }: AIProviderProps) {
               if (__DEV__) console.log(`✅ ${task.name} initialized successfully`);
               return { name: task.name, success: true };
             } catch (error) {
-              console.warn(`⚠️ ${task.name} initialization failed:`, error);
+              if (__DEV__) console.warn(`⚠️ ${task.name} initialization failed:`, error);
+              try {
+                await trackAIInteraction(
+                  AIEventType.SYSTEM_STATUS,
+                  {
+                    event: 'service_init_failed',
+                    service: task.name,
+                    error: error instanceof Error ? error.message : String(error)
+                  },
+                  user?.id
+                );
+              } catch {}
               return { name: task.name, success: false, error };
             }
           })
@@ -466,15 +480,28 @@ export function AIProvider({ children }: AIProviderProps) {
       const session: OnboardingSession = {
         id: `onboarding_${user.id}_${Date.now()}`,
         userId: user.id,
-        status: 'in_progress',
-        currentStep: 'welcome',
-        startedAt: new Date(),
-        culturalContext: 'turkish',
-        preferredLanguage: 'tr',
+        startTime: new Date(),
+        currentStep: OnboardingStep.WELCOME,
+        completedSteps: [],
+        ybocsData: [],
+        userProfile: {},
+        sessionState: OnboardingSessionState.ACTIVE,
+        culturalContext: {
+          language: 'tr',
+          country: 'TR',
+          culturalBackground: ['turkish'],
+          communicationStyle: {
+            formality: 'warm',
+            directness: 'gentle',
+            supportStyle: 'encouraging',
+            humorAcceptable: false,
+            preferredPronoun: ''
+          } as CommunicationStyle
+        } as CulturalContext,
         progress: {
-          completedSteps: [],
           totalSteps: 13,
-          currentStepIndex: 0
+          completedSteps: 0,
+          estimatedTimeRemaining: 20
         }
       };
       
@@ -508,7 +535,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // Update via service if available
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
-        await userProfilingService.getInstance().updateProfile(userId, profileUpdate);
+        await userProfilingService.updateProfile(userId, profileUpdate as any);
       }
     } catch (error) {
       if (__DEV__) console.error('❌ Error updating user profile:', error);
@@ -665,10 +692,20 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     try {
-      await adaptiveInterventions.triggerIntervention(user.id, {
-        ...context,
-        userProfile,
-        riskLevel: currentRiskAssessment?.riskLevel
+      await (adaptiveInterventions as any).triggerContextualIntervention({
+        userId: user.id,
+        userProfile: userProfile as any,
+        currentContext: {
+          analysisId: `ctx_${Date.now()}`,
+          riskAssessment: { overallRisk: (currentRiskAssessment?.immediateRisk as any) || 'low', riskFactors: [], protectiveFactors: [], interventionUrgency: 'low' },
+          userState: { stressLevel: 'medium', activityState: 'unknown', energyLevel: 50, socialEngagement: 50 },
+          environmentalFactors: [],
+          insights: { patterns: [] }
+        },
+        userConfig: (adaptiveInterventions as any).getDefaultConfig(),
+        recentInterventions: [],
+        recentUserActivity: { lastAppUsage: new Date(), sessionDuration: 0 },
+        deviceState: { batteryLevel: 1, isCharging: false, networkConnected: true, inFocus: true }
       });
     } catch (error) {
       if (__DEV__) console.error('❌ Error triggering intervention:', error);
