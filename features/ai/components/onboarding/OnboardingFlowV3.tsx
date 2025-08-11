@@ -237,6 +237,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   resumeSession = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(100, insets.bottom + 80);
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -744,6 +745,11 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.WELCOME:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="hand-wave" 
@@ -872,6 +878,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 ))}
               </View>
             </View>
+            </ScrollView>
           </View>
         );
 
@@ -976,6 +983,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 </View>
               </View>
             </View>
+            </ScrollView>
           </View>
         );
 
@@ -1104,7 +1112,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             <Text style={styles.title}>Belirtileriniz</Text>
             <Text style={styles.subtitle}>Yaşadığınız ana belirtiler (birden fazla seçebilirsiniz)</Text>
             
-            <ScrollView style={styles.symptomsScroll} showsVerticalScrollIndicator={false}>
+            <View>
               {SYMPTOM_TYPES.map((symptom) => (
                 <TouchableOpacity
                   key={symptom.id}
@@ -1136,6 +1144,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                   )}
                 </TouchableOpacity>
               ))}
+            </View>
             </ScrollView>
           </View>
         );
@@ -1188,6 +1197,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               />
               <Text style={styles.optionText}>Ailem tedavi sürecimde destekçi</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         );
 
@@ -1204,7 +1214,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             <Text style={styles.title}>Hedefleriniz</Text>
             <Text style={styles.subtitle}>En fazla 3 hedef seçin</Text>
             
-            <ScrollView style={styles.goalsScroll} showsVerticalScrollIndicator={false}>
+            <View>
               {TREATMENT_GOALS.map((goal) => (
                 <TouchableOpacity
                   key={goal.id}
@@ -1237,6 +1247,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                   )}
                 </TouchableOpacity>
               ))}
+            </View>
             </ScrollView>
           </View>
         );
@@ -1516,6 +1527,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  stepScroll: {
+    width: '100%',
   },
   contentContainer: {
     flex: 1,
