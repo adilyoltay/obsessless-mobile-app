@@ -639,25 +639,28 @@ class InsightsEngineV2 {
       `"${msg.content}"`
     ).join(', ');
 
-    return `OKB uzmanı bir terapist olarak, kullanıcının son aktivitelerini analiz et ve kişiselleştirilmiş bir içgörü oluştur:
+    return `OKB uzmanı bir terapist olarak, aşağıdaki verilerle kullanıcının durumunu analiz et ve kısa, uygulanabilir bir içgörü oluştur:
 
 KULLANICI PROFİLİ:
 - Son mesajlar: ${recentActivity}
 - Kompulsiyon sayısı: ${context.behavioralData.compulsions?.length || 0}
 - Zaman dilimi: ${context.timeframe.period}
 
-LÜTFEN ŞUNLARI İÇEREN BİR İÇGÖRÜ OLUŞTUR:
-1. Tespit ettiğin ana pattern/eğilim
-2. Bu pattern'in OKB ile ilişkisi
-3. Kullanıcıya özel 2-3 actionable tavsiye
-4. Motivasyonel bir mesaj
+ ÇIKTI GEREKSİNİMLERİ:
+ 1) Ana pattern (1 cümle)
+ 2) OKB ile ilişkisi (1 cümle, tıbbi tanı koymadan)
+ 3) 3 adet net ve güvenli eylem adımı (madde işaretleri, her biri 1 cümle)
+ 4) 1 cümlelik umut verici kapanış mesajı
 
-FORMAT:
-BAŞLIK: [motivasyonel başlık]
-MESAJ: [ana içgörü]
-TAVSİYELER: [somut öneriler]
+ FORMAT:
+ BAŞLIK: [kısa motivasyonel başlık]
+ MESAJ: [ana içgörü]
+ TAVSİYELER:
+ - [adım 1]
+ - [adım 2]
+ - [adım 3]
 
-Türkçe yaz, empatik ol, umudu artır.`;
+ SINIRLAR: Tanı koyma/yasal/ilaç önerme yok. Kısa, anlaşılır, Türkçe ve empatik ol.`;
   }
 
   private parseAIInsightResponse(response: string, context: InsightGenerationContext): IntelligentInsight | null {

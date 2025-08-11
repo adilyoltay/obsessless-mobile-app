@@ -434,12 +434,12 @@ class AdaptiveTreatmentPlanningEngine {
       // Optional: Use external AI to refine goals/phase descriptions if available
       try {
         if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && externalAIService.enabled) {
-          const prompt = `OKB tedavi planı oluştur. Kullanıcı profili: ${JSON.stringify({
+          const prompt = `OKB için kanıta dayalı, kültürel olarak uyarlanmış tedavi planı tasarla. Kullanıcı profili: ${JSON.stringify({
             age: (userProfile as any)?.age,
             symptomTypes: (userProfile as any)?.symptomTypes,
             ybocsScore: (userProfile as any)?.ybocsScore
           })}. Y-BOCS: ${ybocsAnalysis?.severityLevel}.\n` +
-          `Amaç: Türkçe, klinik güvenli, kanıta dayalı bir plan metni üret. Kısa başlıklar ve ölçülebilir hedefler öner.`;
+          `Amaç: Türkçe, güvenli ve pratik bir plan üret. Her faz için 2-3 ölçülebilir hedef ve kısa açıklama ver. Tanı/ilaç önerme. Kısa yaz.`;
 
           const aiResp = await externalAIService.getAIResponse([
             { role: 'user', content: prompt }

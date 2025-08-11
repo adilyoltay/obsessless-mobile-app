@@ -961,10 +961,11 @@ class AdvancedRiskAssessmentService {
           goals: profile.therapeuticGoals?.slice(0, 5) || []
         }
       };
-      const prompt = `Aşağıdaki klinik risk/protektif faktör özetine göre kısa ve yapılandırılmış bir tahmin döndür.
-Yanıtı JSON olarak ver.
-Şema: { "immediateRisk": "low|moderate|high|critical", "shortTermRisk": "low|moderate|high|critical", "longTermRisk": "low|moderate|high|critical", "triggeringFactors": string[], "preventiveActions": string[] }.
-Özet: ${JSON.stringify(summary)}`;
+      const prompt = `Klinik ve kültürel risk/protektif faktör özetine göre kısa, güvenli ve uygulanabilir bir risk tahmini yap.
+Yanıtı JSON ver.
+ŞEMA: { "immediateRisk": "low|moderate|high|critical", "shortTermRisk": "low|moderate|high|critical", "longTermRisk": "low|moderate|high|critical", "triggeringFactors": string[], "preventiveActions": string[] }.
+KISITLAR: Tanı/ilaç önerme yok, kriz çağrısı gerektiğinde sadece genel önlem öner.
+ÖZET: ${JSON.stringify(summary)}`;
 
       const aiResp = await externalAIService.getAIResponse(
         ([{ role: 'user', content: prompt }] as any),

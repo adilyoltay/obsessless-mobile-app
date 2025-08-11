@@ -270,7 +270,7 @@ class ExternalAIService {
 
     // Gemini Configuration (only if selected)
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-pro';
     if (selectedProvider === 'gemini' && geminiKey && !isLikelyPlaceholder(geminiKey)) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,

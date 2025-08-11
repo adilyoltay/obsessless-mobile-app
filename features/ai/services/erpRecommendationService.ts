@@ -15,16 +15,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types
 import {
-  UserProfile,
+  UserTherapeuticProfile as UserProfile,
   TreatmentPlan,
-  ERPRecommendation,
-  AIError,
   AIErrorCode,
   ErrorSeverity
 } from '@/features/ai/types';
 
 // ERP Exercise Data
-import { ERP_EXERCISES, ERPExercise } from '@/constants/erpExercises';
+import { ERP_EXERCISES } from '@/constants/erpExercises';
 
 // Telemetry
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -41,8 +39,22 @@ interface ERPAnalysisContext {
   sessionHistory?: any[];
 }
 
+interface ERPRecommendationItem {
+  exerciseId: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  estimatedDuration: number;
+  category: string;
+  targetSymptoms: string[];
+  instructions: string[];
+  safetyNotes: string[];
+  confidenceScore: number;
+  reasoning: string;
+}
+
 interface ERPRecommendationResult {
-  recommendedExercises: ERPRecommendation[];
+  recommendedExercises: ERPRecommendationItem[];
   priority: 'high' | 'medium' | 'low';
   reasoning: string;
   adaptationNote?: string;
@@ -96,10 +108,11 @@ class ERPRecommendationService {
     } catch (error) {
       console.error('❌ ERP Recommendation Service initialization failed:', error);
       this.isInitialized = false;
-      
-      await trackAIError(error, {
-        component: 'ERPRecommendationService',
-        method: 'initialize'
+      await trackAIError({
+        code: AIErrorCode.INITIALIZATION_FAILED,
+        message: 'ERP Recommendation Service initialization failed',
+        severity: ErrorSeverity.MEDIUM,
+        context: { component: 'ERPRecommendationService', method: 'initialize', error: String(error) }
       });
       
       throw error;
@@ -128,7 +141,7 @@ class ERPRecommendationService {
       }
 
       // Cache kontrolü
-      const cacheKey = `${userId}_${context.treatmentPlan.updatedAt}`;
+      const cacheKey = `${userId}_${context.treatmentPlan.lastUpdated}`;
       const cached = this.recommendationCache.get(cacheKey);
       if (cached) {
         if (__DEV__) console.log('📋 Using cached ERP recommendations');
@@ -143,12 +156,12 @@ class ERPRecommendationService {
       
       // Semptom tiplerine göre egzersizleri filtrele
       const symptomBasedExercises = this.filterExercisesBySymptoms(
-        context.userProfile.symptomTypes || []
+        ((context.userProfile as any).symptomTypes || []) as string[]
       );
       
       // Y-BOCS skoruna göre zorluk seviyesi
       const difficultyRange = this.calculateDifficultyRange(
-        context.userProfile.ybocsScore,
+        Number((context.userProfile as any).ybocsScore || 0),
         progressData
       );
       
@@ -169,7 +182,7 @@ class ERPRecommendationService {
       // Sonucu oluştur
       const result: ERPRecommendationResult = {
         recommendedExercises: recommendations,
-        priority: this.calculatePriority(context.userProfile.ybocsScore, progressData),
+        priority: this.calculatePriority(Number((context.userProfile as any).ybocsScore || 0), progressData),
         reasoning: this.generateReasoning(context, recommendations),
         adaptationNote: this.generateAdaptationNote(context, progressData),
         culturalConsiderations: this.generateCulturalNotes(context.userProfile.culturalContext)
@@ -179,22 +192,22 @@ class ERPRecommendationService {
       this.recommendationCache.set(cacheKey, result);
       
       // Telemetry
-      await trackAIInteraction(AIEventType.INTERVENTION_RECOMMENDED, {
+      await trackAIInteraction(AIEventType.INTERVENTION_TRIGGERED, {
         userId,
         recommendationCount: recommendations.length,
         priority: result.priority,
-        ybocsScore: context.userProfile.ybocsScore
+        ybocsScore: (context.userProfile as any).ybocsScore
       });
 
       return result;
 
     } catch (error) {
       if (__DEV__) console.error('❌ ERP recommendation generation failed:', error);
-      
-      await trackAIError(error, {
-        userId,
-        component: 'ERPRecommendationService',
-        method: 'getPersonalizedRecommendations'
+      await trackAIError({
+        code: AIErrorCode.PROCESSING_FAILED,
+        message: 'ERP recommendation generation failed',
+        severity: ErrorSeverity.MEDIUM,
+        context: { userId, component: 'ERPRecommendationService', method: 'getPersonalizedRecommendations', error: String(error) }
       });
 
       // Fallback recommendations
@@ -273,11 +286,12 @@ class ERPRecommendationService {
   private analyzeTreatmentPlanInterventions(treatmentPlan: TreatmentPlan): string[] {
     const interventionTypes: string[] = [];
     
-    // Interventions array'i varsa analiz et
-    if (treatmentPlan.interventions && Array.isArray(treatmentPlan.interventions)) {
-      treatmentPlan.interventions.forEach((intervention: any) => {
-        if (intervention.type) {
-          interventionTypes.push(intervention.type);
+    if (Array.isArray(treatmentPlan.phases)) {
+      treatmentPlan.phases.forEach((phase: any) => {
+        if (Array.isArray(phase.interventions)) {
+          phase.interventions.forEach((intervention: any) => {
+            if (intervention?.type) interventionTypes.push(intervention.type);
+          });
         }
       });
     }
@@ -288,7 +302,7 @@ class ERPRecommendationService {
   /**
    * 🧠 Semptom tipine göre egzersizleri filtrele
    */
-  private filterExercisesBySymptoms(symptomTypes: string[]): ERPExercise[] {
+  private filterExercisesBySymptoms(symptomTypes: string[]): any[] {
     if (symptomTypes.length === 0) {
       return ERP_EXERCISES;
     }
@@ -316,8 +330,8 @@ class ERPRecommendationService {
       return ERP_EXERCISES;
     }
 
-    return ERP_EXERCISES.filter(exercise => 
-      exercise.targetCompulsion.some(tc => targetCompulsions.includes(tc))
+    return (ERP_EXERCISES as any[]).filter((exercise: any) => 
+      Array.isArray(exercise.targetCompulsion) && exercise.targetCompulsion.some((tc: string) => targetCompulsions.includes(tc))
     );
   }
 
@@ -355,13 +369,13 @@ class ERPRecommendationService {
   /**
    * 🌍 Kültürel filtreler uygula
    */
-  private applyCulturalFilters(exercises: ERPExercise[], culturalContext: any): ERPExercise[] {
+  private applyCulturalFilters(exercises: any[], culturalContext: any): any[] {
     if (!culturalContext.religiousConsiderations) {
       return exercises;
     }
 
     // Dini hassasiyetler varsa bazı egzersizleri filtrele/uyarla
-    return exercises.filter(exercise => {
+    return exercises.filter((exercise: any) => {
       // Örnek: religious obsessions için uygun olmayan egzersizleri çıkar
       if (exercise.targetCompulsion.includes('religious') && 
           exercise.id.includes('blasphemy')) {
@@ -375,11 +389,11 @@ class ERPRecommendationService {
    * 🤖 AI tabanlı öneri üretimi
    */
   private async generateAIRecommendations(
-    exercises: ERPExercise[],
+    exercises: any[],
     difficultyRange: { min: number; max: number },
     context: ERPAnalysisContext,
     progressData: any
-  ): Promise<ERPRecommendation[]> {
+  ): Promise<ERPRecommendationItem[]> {
     
     // Zorluk seviyesine göre filtrele
     const suitableExercises = exercises.filter(exercise => 
@@ -388,7 +402,7 @@ class ERPRecommendationService {
     );
 
     // Daha önce yapılmış egzersizleri deprioritize et
-    const rankedExercises = suitableExercises.map(exercise => {
+    const rankedExercises = suitableExercises.map((exercise: any) => {
       let score = 100;
       
       // Daha önce yapıldıysa puanı düşür
@@ -416,14 +430,14 @@ class ERPRecommendationService {
     // Eğer external AI aktifse, önerileri LLM ile rafine et
     try {
       if (FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API') && externalAIService.enabled) {
-        const candidateSummary = topExercises.map(({ exercise }, idx) => (
+        const candidateSummary = topExercises.map(({ exercise }: any, idx: number) => (
           `${idx + 1}. ${exercise.name} (id: ${exercise.id}, diff: ${exercise.difficulty}, dur: ${exercise.duration}dk, cat: ${exercise.category})`
         )).join('\n');
 
-        const prompt = `Kullanıcı için ERP egzersizi önerilerini değerlendir. Aşağıdaki adaylar içinden en uygun 3 tanesini sırala ve JSON olarak döndür.\n\n` +
+        const prompt = `Bir OKB terapisti olarak, ERP egzersizi adaylarını değerlendir ve KİŞİSELLEŞTİRİLMİŞ en iyi 3 seçimi döndür. Güvenli, kısa ve uygulanabilir öneriler üret.\n\n` +
           `Kullanıcı Profili: ${JSON.stringify({ 
-            ybocsScore: context.userProfile?.ybocsScore,
-            symptomTypes: context.userProfile?.symptomTypes,
+            ybocsScore: (context.userProfile as any)?.ybocsScore,
+            symptomTypes: (context.userProfile as any)?.symptomTypes,
             culturalContext: context.userProfile?.culturalContext
           })}\n\n` +
           `Tedavi Planı Özeti: ${JSON.stringify({
@@ -432,13 +446,14 @@ class ERPRecommendationService {
           })}\n\n` +
           `Mevcut İlerleme: ${JSON.stringify(progressData)}\n\n` +
           `Aday Egzersizler:\n${candidateSummary}\n\n` +
-          `ÇIKTI FORMAT (tek bir JSON obje): {"recommendations": [{"exerciseId": string, "reasoning": string, "confidence": number}]}`;
+          `KISITLAR: Zorlayıcı/tetikleyici içerik detayına girme, güvenlik notlarını koru, kültürel duyarlılığı gözet.\n` +
+          `ÇIKTI (tek JSON obje): {"recommendations": [{"exerciseId": string, "reasoning": string, "confidence": number}]}`;
 
         const aiResponse = await externalAIService.getAIResponse(
-          [ { role: 'user', content: prompt } ],
-          { therapeuticProfile: context.userProfile as any, assessmentMode: false },
+          [ { id: `erp_${Date.now()}`, role: 'user', content: prompt, timestamp: new Date() } ],
+          (context as any),
           { therapeuticMode: true, maxTokens: 400, temperature: 0.2 },
-          context.userProfile?.id || (context as any).userId
+          ((context as any)?.userId)
         );
 
         if (aiResponse.success && aiResponse.content) {
@@ -450,7 +465,7 @@ class ERPRecommendationService {
             latency: aiResponse.latency,
             tokenTotal: aiResponse.tokens?.total,
             cached: aiResponse.cached === true
-          }, context.userProfile?.id);
+          }, (context as any)?.userId);
 
           // Parse JSON safely
           let parsed: any = null;
@@ -460,8 +475,8 @@ class ERPRecommendationService {
 
           if (parsed && Array.isArray(parsed.recommendations)) {
             // Map to ERPRecommendation using existing catalog
-            const catalogById: Record<string, ERPExercise> = Object.fromEntries(
-              exercises.map(e => [e.id, e])
+            const catalogById: Record<string, any> = Object.fromEntries(
+              exercises.map((e: any) => [e.id, e])
             );
             const chosen = parsed.recommendations
               .map((r: any) => ({ rec: r, ex: catalogById[r.exerciseId] }))
@@ -479,7 +494,7 @@ class ERPRecommendationService {
                 safetyNotes: ex.safetyNotes || [],
                 confidenceScore: typeof rec.confidence === 'number' ? rec.confidence : 0.8,
                 reasoning: rec.reasoning || `LLM seçimi: ${ex.category} ve hedef semptomlar ile uyumlu`
-              } as ERPRecommendation));
+              } as ERPRecommendationItem));
 
             if (chosen.length > 0) {
               return chosen;
@@ -497,7 +512,7 @@ class ERPRecommendationService {
     }
 
     // Fallback: ERPRecommendation formatına çevir (heuristic)
-    return topExercises.map(({ exercise }) => ({
+    return topExercises.map(({ exercise }: any) => ({
       exerciseId: exercise.id,
       title: exercise.name,
       description: exercise.description,
@@ -527,9 +542,9 @@ class ERPRecommendationService {
   /**
    * 📝 Açıklama üret
    */
-  private generateReasoning(context: ERPAnalysisContext, recommendations: ERPRecommendation[]): string {
-    const ybocsScore = context.userProfile.ybocsScore;
-    const symptomCount = context.userProfile.symptomTypes?.length || 0;
+  private generateReasoning(context: ERPAnalysisContext, recommendations: ERPRecommendationItem[]): string {
+    const ybocsScore = Number((context.userProfile as any).ybocsScore || 0);
+    const symptomCount = ((context.userProfile as any).symptomTypes?.length) || 0;
     
     return `Y-BOCS skorunuz (${ybocsScore}) ve ${symptomCount} ana semptom tipiniz temel alınarak, 
 size en uygun ${recommendations.length} egzersiz seçildi. Bu egzersizler aşamalı zorluk seviyesinde 
@@ -576,7 +591,7 @@ düzenlenmiş olup, kültürel değerlerinize uygun şekilde tasarlanmıştır.`
   private getFallbackRecommendations(userId: string): ERPRecommendationResult {
     console.log('🆘 Using fallback ERP recommendations');
     
-    const fallbackExercises: ERPRecommendation[] = [
+    const fallbackExercises: ERPRecommendationItem[] = [
       {
         exerciseId: 'touch_doorknob',
         title: 'Kapı Kolu Dokunma',
