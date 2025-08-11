@@ -864,7 +864,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 }}
               />
               
-              <View style={styles.sliderLabels}>
+            <View style={styles.sliderLabels}>
                 {currentQuestion.options.map((option, index) => (
                   <View key={option.value} style={styles.sliderLabelContainer}>
                     <Text style={styles.sliderLabelText}>{option.value}</Text>
@@ -873,7 +873,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 ))}
               </View>
             </View>
-            </ScrollView>
+          
           </View>
         );
 
