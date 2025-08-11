@@ -184,7 +184,7 @@ export function AIProvider({ children }: AIProviderProps) {
         },
         {
           name: 'AI_JITAI',
-          enabled: FEATURE_FLAGS.isEnabled('AI_JITAI'),
+          enabled: FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM'),
           task: async () => await jitaiEngine.initialize()
         },
         {

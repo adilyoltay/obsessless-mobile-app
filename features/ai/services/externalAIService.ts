@@ -727,7 +727,10 @@ class ExternalAIService {
         
         if (!filterResult.allowed) {
           response.filtered = true;
-          response.content = this.getFilteredResponse(filterResult.reason);
+          const reasonText = Array.isArray(filterResult.reasons) && filterResult.reasons.length > 0
+            ? filterResult.reasons[0]
+            : 'content_filtered';
+          response.content = this.getFilteredResponse(reasonText);
           response.safetyScore = 0.1;
         } else {
           response.safetyScore = filterResult.confidence || 0.9;
