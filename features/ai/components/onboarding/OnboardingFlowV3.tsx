@@ -988,6 +988,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_HISTORY:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="history" 
