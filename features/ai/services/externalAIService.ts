@@ -863,23 +863,29 @@ class ExternalAIService {
         role: (m?.role === 'assistant' ? 'model' : 'user') || 'user',
         parts: [{ text: String(m?.content ?? '') }]
       }));
+      // Ensure at least one message is sent
+      const contentsToSend = normalizedContents.length > 0
+        ? normalizedContents
+        : [{ role: 'user', parts: [{ text: 'Kısa, güvenli ve terapötik bir yanıt üret.' }] }];
 
+      const fetchOptions: any = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: contentsToSend,
+          generationConfig: {
+            temperature: (request && request.temperature) != null ? request.temperature : config.temperature,
+            maxOutputTokens: (request && request.maxTokens) != null ? request.maxTokens : config.maxTokens,
+            model: config.model
+          }
+        })
+      };
+      if (hasAbort && controller) {
+        fetchOptions.signal = (controller as any).signal;
+      }
       const response = await fetch(
         `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: normalizedContents,
-            generationConfig: {
-              temperature: request.temperature || config.temperature,
-              maxOutputTokens: request.maxTokens || config.maxTokens
-            }
-          }),
-          signal: hasAbort ? (controller as any).signal : undefined
-        }
+        fetchOptions
       );
       if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
 
