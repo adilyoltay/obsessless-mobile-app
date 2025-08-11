@@ -300,10 +300,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         selectedGoals,
         timestamp: Date.now(),
       };
-      await AsyncStorage.setItem(
-        `onboarding_session_${userId}`,
-        JSON.stringify(sessionData)
-      );
+      const key = userId ? `onboarding_session_${userId}` : 'onboarding_session_anon';
+      await AsyncStorage.setItem(key, JSON.stringify(sessionData));
     } catch (error) {
       console.error('Session kaydetme hatası:', error);
     }
@@ -311,7 +309,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   const loadSession = async () => {
     try {
-      const saved = await AsyncStorage.getItem(`onboarding_session_${userId}`);
+      const key = userId ? `onboarding_session_${userId}` : 'onboarding_session_anon';
+      const saved = await AsyncStorage.getItem(key);
       if (saved) {
         const sessionData = JSON.parse(saved);
         setCurrentStep(sessionData.currentStep);

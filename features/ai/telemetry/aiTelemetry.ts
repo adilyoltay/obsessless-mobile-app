@@ -52,6 +52,7 @@ export enum AIEventType {
   CRISIS_DETECTED = 'crisis_detected',
   CRISIS_RESOLVED = 'crisis_resolved',
   EMERGENCY_CONTACT_INITIATED = 'emergency_contact_initiated',
+  CRISIS_MONITORING_STARTED = 'crisis_monitoring_started',
   
   // Performance events
   SLOW_RESPONSE = 'slow_response',
@@ -292,8 +293,9 @@ class AITelemetryManager {
     metadata: Record<string, any> = {},
     userId?: string
   ): Promise<void> {
-    if (!eventType) {
-      if (__DEV__) console.warn('⚠️ Telemetry eventType missing, dropping event');
+    // Guard: enforce valid event type
+    if (!eventType || typeof eventType !== 'string') {
+      if (__DEV__) console.warn('⚠️ Telemetry eventType missing/invalid, dropping event');
       return;
     }
     // Feature flag kontrolü FIRST
@@ -311,7 +313,7 @@ class AITelemetryManager {
         eventType,
         timestamp: new Date().toISOString(),
         sessionId: this.sessionId,
-        userId: userId ? this.hashUserId(userId) : undefined,
+        userId: userId && typeof userId === 'string' && userId.length > 0 ? this.hashUserId(userId) : undefined,
         metadata: this.sanitizeMetadata(metadata),
         anonymized: this.config.anonymizationEnabled,
         retentionDays: this.config.maxRetentionDays,

@@ -32,9 +32,9 @@ export const StorageKeys = {
  * Get user-specific storage key
  */
 export const getUserStorageKey = (baseKey: string, userId?: string): string => {
-  if (!userId) {
-    console.warn(`⚠️ No userId provided for key: ${baseKey}`);
-    return baseKey;
+  if (!userId || typeof userId !== 'string') {
+    // Fallback: ensure string key to avoid AsyncStorage undefined warnings
+    return `${baseKey}_anon`;
   }
   return `${baseKey}_${userId}`;
 };
