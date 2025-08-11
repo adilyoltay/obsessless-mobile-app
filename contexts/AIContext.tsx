@@ -245,14 +245,6 @@ export function AIProvider({ children }: AIProviderProps) {
           }
         },
         {
-          name: 'AI_PROGRESS_ANALYTICS',
-          enabled: FEATURE_FLAGS.isEnabled('AI_PROGRESS_ANALYTICS'),
-          task: async () => {
-            const { progressAnalytics } = await import('@/features/ai/analytics/progressAnalytics');
-            await progressAnalytics.initialize();
-          }
-        },
-        {
           name: 'AI_SMART_NOTIFICATIONS',
           enabled: FEATURE_FLAGS.isEnabled('AI_SMART_NOTIFICATIONS'),
           task: async () => {
