@@ -1102,6 +1102,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="brain" 
@@ -1152,6 +1153,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_CULTURE:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="earth" 
@@ -1204,6 +1206,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_GOALS:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="target" 
