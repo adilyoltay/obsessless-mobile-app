@@ -857,7 +857,9 @@ class ExternalAIService {
             generationConfig: {
               temperature: request.temperature || config.temperature,
               maxOutputTokens: request.maxTokens || config.maxTokens
-            }
+            },
+            // Hint model server to prefer requested model (some SDKs use route-only)
+            model: config.model
           }),
           signal: controller.signal
         }
