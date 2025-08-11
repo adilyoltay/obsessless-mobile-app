@@ -629,7 +629,7 @@ class JITAIEngine {
     const preferredTimes = context.personalizationProfile.preferredTimes;
     const now = new Date();
     
-    if (preferredTimes.length > 0) {
+    if ((preferredTimes ?? []).length > 0) {
       const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
       const nextPreferredTime = preferredTimes.find(time => time > currentTimeStr);
       
@@ -719,7 +719,7 @@ class JITAIEngine {
     confidence: number;
     rationale: string;
   } {
-    const stressPattern = context.currentUserState.stressPattern;
+    const stressPattern = context.currentUserState?.stressPattern ?? [];
     const currentStress = context.currentContext.userState.stressLevel;
     
     // Predict when stress might be lower
@@ -870,13 +870,13 @@ class JITAIEngine {
 
   private selectOptimalTimingModel(context: JITAIContext): TimingModel {
     // Simple model selection logic
-    if (context.interventionHistory.length >= 10) {
+    if ((context.interventionHistory?.length ?? 0) >= 10) {
       return TimingModel.MACHINE_LEARNING;
     }
     if (context.currentContext.userState.stressLevel === StressLevel.VERY_HIGH) {
       return TimingModel.STRESS_BASED;
     }
-    if (context.currentUserState.isAppActive) {
+    if (context.currentUserState?.isAppActive) {
       return TimingModel.CONTEXTUAL;
     }
     return this.config.primaryTimingModel;
@@ -1169,10 +1169,11 @@ class JITAIEngine {
   }
 
   private calculateHistoricalSuccessRate(context: JITAIContext): number {
-    if (context.interventionHistory.length === 0) return 0.7; // Default
+    const history = context.interventionHistory ?? [];
+    if (history.length === 0) return 0.7; // Default
 
-    const completedInterventions = context.interventionHistory.filter(h => h.effectiveness > 0.5);
-    return completedInterventions.length / context.interventionHistory.length;
+    const completedInterventions = history.filter(h => h.effectiveness > 0.5);
+    return completedInterventions.length / history.length;
   }
 
   private calculatePredictionQuality(context: JITAIContext, confidence: number): number {
@@ -1187,11 +1188,11 @@ class JITAIEngine {
 
     // Check available context factors
     const contextChecks = [
-      context.currentContext.userState.stressLevel !== undefined,
-      context.currentContext.userState.activityState !== undefined,
-      context.currentUserState.isAppActive !== undefined,
-      context.personalizationProfile.preferredTimes.length > 0,
-      context.interventionHistory.length > 0
+      context.currentContext?.userState?.stressLevel !== undefined,
+      context.currentContext?.userState?.activityState !== undefined,
+      context.currentUserState?.isAppActive !== undefined,
+      (context.personalizationProfile?.preferredTimes ?? []).length > 0,
+      (context.interventionHistory?.length ?? 0) > 0
     ];
 
     contextChecks.forEach(check => {
