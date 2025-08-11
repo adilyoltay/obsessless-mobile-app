@@ -875,8 +875,7 @@ class ExternalAIService {
           contents: contentsToSend,
           generationConfig: {
             temperature: (request && request.temperature) != null ? request.temperature : config.temperature,
-            maxOutputTokens: (request && request.maxTokens) != null ? request.maxTokens : config.maxTokens,
-            model: config.model
+            maxOutputTokens: (request && request.maxTokens) != null ? request.maxTokens : config.maxTokens
           }
         })
       };
