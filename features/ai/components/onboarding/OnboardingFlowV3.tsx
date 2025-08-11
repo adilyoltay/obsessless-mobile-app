@@ -761,6 +761,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               Size özel bir destek planı oluşturmak için birkaç kısa adımda 
               sizi tanımak istiyoruz. Bu süreç yaklaşık 10 dakika sürecek.
             </Text>
+            </ScrollView>
           </View>
         );
 
