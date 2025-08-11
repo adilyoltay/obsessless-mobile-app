@@ -142,6 +142,8 @@ export enum AIEventType {
   AI_PII_DETECTED = 'ai_pii_detected',
   AI_CONTENT_FILTERED = 'ai_content_filtered'
   ,
+  // Prompts (sanitized) logging
+  AI_PROMPT_LOGGED = 'ai_prompt_logged',
   // Progress Analytics
   PROGRESS_ANALYTICS_INITIALIZED = 'progress_analytics_initialized',
   PROGRESS_ANALYSIS_COMPLETED = 'progress_analysis_completed',

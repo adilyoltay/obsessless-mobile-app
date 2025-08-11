@@ -704,6 +704,25 @@ class ExternalAIService {
 
       // Request hazırla (sanitized data ile)
       const preparedRequest = await this.prepareRequest(sanitizedMessages, sanitizedContext, config);
+
+      // Optional: Prompt logging (sanitized) – controlled by feature flag
+      if (FEATURE_FLAGS.isEnabled('AI_PROMPT_LOGGING')) {
+        try {
+          const preview = (sanitizedMessages || []).map(m => ({ role: m.role, content: m.content })).slice(-8);
+          if (__DEV__) {
+            console.log('📝 [AI_PROMPT_LOGGING] Sanitized Prompt (last messages):', preview);
+          }
+          // Telemetry (non-blocking)
+          trackAIInteraction(AIEventType.AI_PROMPT_LOGGED, {
+            promptHash,
+            messageCount: sanitizedMessages?.length || 0,
+            provider: (config?.provider || this.activeProvider) || 'gemini',
+            model: config?.model,
+            piiDetected,
+            lastUserMessage: preview.reverse().find(p => p.role === 'user')?.content?.slice(0, 280) || null
+          }, userId).catch(() => {});
+        } catch {}
+      }
       
       // API çağrısı yap
       let response = await this.makeProviderRequest(provider, preparedRequest);

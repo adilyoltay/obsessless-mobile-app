@@ -19,6 +19,10 @@ const getAIMasterEnabled = () => {
 
 const AI_MASTER_ENABLED = getAIMasterEnabled();
 
+// Geçici: Prompt logging toggle (varsayılan kapalı, env ile açılabilir)
+const AI_PROMPT_LOGGING_ENV = (Constants.expoConfig?.extra?.EXPO_PUBLIC_AI_PROMPT_LOGGING === 'true') ||
+                              (process.env.EXPO_PUBLIC_AI_PROMPT_LOGGING === 'true');
+
 // 💬 AI_CHAT için bağımsız override desteği
 const resolveChatEnabled = (): boolean => {
   const chatEnv = (Constants.expoConfig?.extra?.EXPO_PUBLIC_ENABLE_AI_CHAT ?? process.env.EXPO_PUBLIC_ENABLE_AI_CHAT);
@@ -97,6 +101,9 @@ const featureFlagState: Record<string, boolean> = {
   AI_VOICE_ERP: AI_MASTER_ENABLED,
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
   AI_CRISIS_DETECTION: false, // Removed from system
+  
+  // 📝 Prompt Logging (sanitized) – geçici debugging toggle
+  AI_PROMPT_LOGGING: !!AI_PROMPT_LOGGING_ENV,
   
   // 🔧 Development Features
   DEBUG_MODE: __DEV__,
