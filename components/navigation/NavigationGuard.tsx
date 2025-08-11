@@ -139,10 +139,10 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             console.log('🧭 Final profile check result:', { isProfileComplete });
             
-            // AI Onboarding v2 is primary onboarding method
-            if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+            // Onboarding her zaman kullanılabilir: AI flags sadece ek modülleri kontrol eder
+            if (true) {
               if (!aiOnboardingCompleted) {
-                if (currentPath !== '(auth)/ai-onboarding') {
+                if (currentPath !== '(auth)/onboarding') {
                   console.log('👤 Redirecting to AI Onboarding v2 - not completed');
                   console.log('🔄 Navigation details:', { currentPath, inAuthGroup, hasNavigated: hasNavigatedRef.current });
 
@@ -150,10 +150,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                     try {
                       console.log('🚀 Attempting navigation to AI onboarding...');
                       hasNavigatedRef.current = true;
-                      router.push({
-                        pathname: '/(auth)/ai-onboarding',
-                        params: { resume: 'true', fromSettings: 'false' }
-                      } as any);
+                      router.push('/(auth)/onboarding');
                       console.log('✅ Navigation command sent successfully');
                     } catch (error) {
                       console.error('❌ AI Onboarding navigation error:', error);

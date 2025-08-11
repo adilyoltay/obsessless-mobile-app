@@ -37,7 +37,7 @@ const COLORS = {
 export default function OnboardingScreen() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [useAIOnboarding, setUseAIOnboarding] = useState(false);
+  const [useAIOnboarding, setUseAIOnboarding] = useState(true);
 
   useEffect(() => {
     checkOnboardingType();
@@ -45,9 +45,8 @@ export default function OnboardingScreen() {
 
   const checkOnboardingType = async () => {
     try {
-      // Check if AI onboarding is enabled
-      const aiEnabled = FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2');
-      setUseAIOnboarding(aiEnabled);
+      // Onboarding her zaman V3 ile çalışacak
+      setUseAIOnboarding(true);
       
       // Check if already completed
       if (user?.id) {

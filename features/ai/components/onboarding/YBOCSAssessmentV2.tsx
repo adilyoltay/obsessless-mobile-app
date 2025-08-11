@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // UI Components
 import Button from '@/components/ui/Button';
@@ -147,6 +148,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
   isLoading,
   userId,
 }) => {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<YBOCSAnswer[]>([]);
   const [sliderValue, setSliderValue] = useState(2); // Start at middle
@@ -395,7 +397,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
       {currentIndex > 0 && (
         <TouchableOpacity 
           onPress={handlePrevious} 
-          style={styles.backButton}
+          style={[styles.backButton, { bottom: Math.max(40, insets.bottom + 12) }]}
           hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
         >
           <Text style={styles.backButtonText}>← Geri</Text>
@@ -404,7 +406,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
 
       {/* Manual Continue (Hidden by default, shown only if needed) */}
       {currentIndex === YBOCS_QUESTIONS.length - 1 && hasInteracted && (
-        <View style={styles.completeContainer}>
+        <View style={[styles.completeContainer, { bottom: Math.max(100, insets.bottom + 60) }]}>
           <Button
             title="Değerlendirmeyi Tamamla"
             onPress={handleNext}

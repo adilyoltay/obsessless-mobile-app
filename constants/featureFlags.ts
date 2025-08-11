@@ -60,6 +60,8 @@ if (typeof window !== 'undefined') {
 const featureFlagState: Record<string, boolean> = {
   // 🎯 MASTER AI SWITCH
   AI_ENABLED: AI_MASTER_ENABLED,
+  // 🧩 AI RUNTIME MODULES: Onboarding’dan bağımsız ek analiz/telemetry modülleri
+  AI_RUNTIME_MODULES: AI_MASTER_ENABLED,
   
   // 🤖 Tüm AI Features - Master switch'e bağlı
   AI_CHAT: AI_CHAT_ENABLED,
@@ -82,7 +84,8 @@ const featureFlagState: Record<string, boolean> = {
   AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
   AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
   AI_DASHBOARD: AI_MASTER_ENABLED,
-  AI_ONBOARDING_V2: AI_MASTER_ENABLED,
+  // Onboarding Flow her zaman kullanılabilir, AI flag sadece ek modülleri etkiler
+  AI_ONBOARDING_V2: true,
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,
   AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,

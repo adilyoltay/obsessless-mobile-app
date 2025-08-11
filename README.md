@@ -1,3 +1,20 @@
+## Feature Flags ve Onboarding Davranışı
+
+Onboarding her zaman aktiftir ve en kapsamlı akış olan `OnboardingFlowV3` kullanılır. AI flag’leri onboarding’i kapatmaz; yalnızca ek AI modüllerini (analiz/telemetry) kontrol eder.
+
+- Onboarding akışı: Her zaman `/(auth)/onboarding` rotası.
+- AI runtime modülleri: `AI_RUNTIME_MODULES` flag’i ile kontrol edilir (default: master ile aynı).
+- Ek modüller (AI açık olduğunda devreye girenler):
+  - `AI_YBOCS_ANALYSIS`
+  - `AI_USER_PROFILING`
+  - `AI_TREATMENT_PLANNING`
+  - `AI_RISK_ASSESSMENT`
+  - `AI_TELEMETRY`
+
+Notlar:
+- `AI_ONBOARDING_V2` her zaman true’dur. Onboarding hiçbir flag ile kapatılmaz.
+- Eski `/(auth)/ai-onboarding` rotası kaldırıldı; tek giriş `/(auth)/onboarding`.
+
 # 🌟 ObsessLess Mobile App
 
 ## 📱 Genel Bakış
