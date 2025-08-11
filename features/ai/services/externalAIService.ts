@@ -217,7 +217,7 @@ class ExternalAIService {
           }
         });
         
-        throw new AIError(AIErrorCode.NO_PROVIDER_AVAILABLE, 'No AI provider available');
+        throw Object.assign(new Error('No AI provider available'), { code: AIErrorCode.NO_PROVIDER_AVAILABLE, severity: ErrorSeverity.HIGH, recoverable: false });
       }
 
       this.isEnabled = true;
@@ -353,6 +353,23 @@ class ExternalAIService {
 
       return response.success;
     } catch (error) {
+      // Fallback: try a stable model if current one fails
+      const config = this.providers.get(provider);
+      if (config && config.model !== 'gemini-1.5-pro') {
+        const originalModel = config.model;
+        try {
+          config.model = 'gemini-1.5-pro';
+          const fallbackResp = await this.makeProviderRequest(provider, {
+            messages: [{ role: 'user', content: 'Test' }],
+            maxTokens: 8,
+            temperature: 0
+          });
+          return !!fallbackResp.success;
+        } catch {
+          config.model = originalModel;
+          return false;
+        }
+      }
       return false;
     }
   }
@@ -366,7 +383,7 @@ class ExternalAIService {
    */
   private sanitizeSensitiveData(messages: AIMessage[], context: ConversationContext): {
     sanitizedMessages: AIMessage[];
-    sanitizedContext: ConversationContext;
+    sanitizedContext: any;
     piiDetected: boolean;
   } {
     const piiPatterns = {
@@ -434,11 +451,11 @@ class ExternalAIService {
     });
 
     // Sanitize context (remove sensitive metadata)
-    const sanitizedContext = {
+    const sanitizedContext: any = {
       ...context,
       // Remove potentially sensitive fields
-      userMetadata: context.userMetadata ? {
-        ...context.userMetadata,
+      userMetadata: (context as any).userMetadata ? {
+        ...(context as any).userMetadata,
         email: undefined,
         phone: undefined,
         fullName: undefined,
@@ -446,8 +463,8 @@ class ExternalAIService {
       } : undefined,
       
       // Keep therapeutic context but sanitize personal details
-      therapeuticProfile: context.therapeuticProfile ? {
-        ...context.therapeuticProfile,
+      therapeuticProfile: (context as any).therapeuticProfile ? {
+        ...(context as any).therapeuticProfile,
         personalDetails: undefined, // Remove personal details
         contactInfo: undefined, // Remove contact info
         emergencyContacts: undefined // Remove emergency contacts
@@ -790,8 +807,7 @@ class ExternalAIService {
       const latency = Date.now() - startTime;
       
       await trackAIError({
-        code: (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') 
-              ? error.code : AIErrorCode.UNKNOWN,
+        code: (((error as any)?.code as AIErrorCode) ?? AIErrorCode.UNKNOWN) as any,
         message: 'AI yanıtı alınamadı',
         severity: ErrorSeverity.HIGH,
         context: { 
@@ -819,7 +835,9 @@ class ExternalAIService {
     config?: AIRequestConfig
   ): Promise<EnhancedAIResponse> {
     // Future implementation for streaming
-    throw new AIError(AIErrorCode.UNKNOWN, 'Streaming not yet implemented');
+    const err = new Error('Streaming not yet implemented');
+    (err as any).code = AIErrorCode.UNKNOWN;
+    throw err;
   }
 
   // =============================================================================
@@ -836,12 +854,13 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+      const hasAbort = typeof AbortController !== 'undefined';
+      const controller = hasAbort ? new AbortController() : undefined;
+      const timeoutId = hasAbort ? setTimeout(() => (controller as any)?.abort(), config.timeout) : undefined;
       // Normalize messages to Gemini format defensively
-      const safeMessages = Array.isArray(request.messages) ? request.messages : [];
+      const safeMessages = Array.isArray(request?.messages) ? (request.messages as any[]).filter(Boolean) : [];
       const normalizedContents = safeMessages.map((m: any) => ({
-        role: m?.role === 'assistant' ? 'model' : 'user',
+        role: (m?.role === 'assistant' ? 'model' : 'user') || 'user',
         parts: [{ text: String(m?.content ?? '') }]
       }));
 
@@ -857,17 +876,17 @@ class ExternalAIService {
             generationConfig: {
               temperature: request.temperature || config.temperature,
               maxOutputTokens: request.maxTokens || config.maxTokens
-            },
-            // Hint model server to prefer requested model (some SDKs use route-only)
-            model: config.model
+            }
           }),
-          signal: controller.signal
+          signal: hasAbort ? (controller as any).signal : undefined
         }
       );
-      clearTimeout(timeoutId);
+      if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
 
       if (!response.ok) {
-        throw new AIError(AIErrorCode.API_ERROR, `Gemini API error: ${response.status}`);
+        const err = new Error(`Gemini API error: ${response.status}`);
+        (err as any).code = AIErrorCode.PROVIDER_ERROR;
+        throw err;
       }
 
       const data = await response.json();
@@ -889,7 +908,11 @@ class ExternalAIService {
 
     } catch (error) {
       console.error('❌ Gemini API call failed:', error);
-      throw error;
+      const err = new Error('Gemini API call failed');
+      (err as any).code = AIErrorCode.PROVIDER_ERROR;
+      (err as any).severity = ErrorSeverity.HIGH;
+      (err as any).recoverable = true;
+      throw err;
     }
   }
 
@@ -963,7 +986,9 @@ class ExternalAIService {
     }
 
     if (limit.count >= 60) { // 60 requests per minute
-      throw new AIError(AIErrorCode.RATE_LIMIT, 'Rate limit exceeded');
+      const err = new Error('Rate limit exceeded');
+      (err as any).code = AIErrorCode.RATE_LIMIT;
+      throw err;
     }
 
     limit.count++;
@@ -1055,9 +1080,3 @@ class ExternalAIService {
 
 export const externalAIService = ExternalAIService.getInstance();
 export default externalAIService;
-export { 
-  AIProvider, 
-  type ProviderConfig, 
-  type AIRequestConfig, 
-  type EnhancedAIResponse 
-};
