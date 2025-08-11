@@ -911,6 +911,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_DEMOGRAPHICS:
         return (
           <View style={styles.contentContainer}>
+            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="account-details" 
@@ -1284,6 +1285,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 );
               })}
             </View>
+            </ScrollView>
           </View>
         );
 
