@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Alert } from 'react-native';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { generateReframes } from '@/features/ai/services/reframeService';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { Modal } from '@/components/ui/Modal';
 
 type Distortion =
@@ -31,9 +32,11 @@ export default function ThoughtRecordForm() {
 
   const handleReframe = async () => {
     const text = [automaticThought, evidenceFor, evidenceAgainst].filter(Boolean).join(' | ');
+    await trackAIInteraction(AIEventType.REFRAME_STARTED, { distortions: distortions.length });
     const out = await generateReframes({ text, lang: 'tr' });
     setReframes(out.map(o => o.text));
     setShowReframe(true);
+    await trackAIInteraction(AIEventType.REFRAME_COMPLETED, { suggestions: out.length });
   };
 
   const handleSave = () => {
@@ -84,7 +87,7 @@ export default function ThoughtRecordForm() {
       <Text style={styles.label}>Bilişsel Çarpıtmalar (en fazla 3)</Text>
       <View style={styles.chips}>
         {(['mind_reading','catastrophizing','should_statements','all_or_nothing','overgeneralization','labeling','mental_filter','disqualifying_the_positive','emotional_reasoning','personalization'] as Distortion[]).map(d => (
-          <Pressable key={d} style={[styles.chip, distortions.includes(d) && styles.chipActive]} onPress={() => toggleDistortion(d)}>
+          <Pressable key={d} style={[styles.chip, distortions.includes(d) && styles.chipActive]} onPress={() => { toggleDistortion(d); trackAIInteraction(AIEventType.DISTORTION_SELECTED, { id: d }).catch(() => {}); }}>
             <Text style={[styles.chipText, distortions.includes(d) && styles.chipTextActive]}>{d.replace(/_/g,' ')}</Text>
           </Pressable>
         ))}

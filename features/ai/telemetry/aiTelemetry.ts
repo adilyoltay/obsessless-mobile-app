@@ -197,6 +197,16 @@ export enum AIEventType {
   PDF_SHARED = 'pdf_shared',
   PDF_CANCELLED = 'pdf_cancelled',
   PDF_ERROR = 'pdf_error'
+  ,
+  // Sprint 1: Breathwork
+  BREATH_STARTED = 'breath_started',
+  BREATH_PAUSED = 'breath_paused',
+  BREATH_RESUMED = 'breath_resumed',
+  BREATH_COMPLETED = 'breath_completed',
+  // Sprint 1: CBT Thought Record
+  REFRAME_STARTED = 'reframe_started',
+  REFRAME_COMPLETED = 'reframe_completed',
+  DISTORTION_SELECTED = 'distortion_selected'
 }
 
 /**

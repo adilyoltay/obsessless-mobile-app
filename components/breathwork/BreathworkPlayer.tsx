@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 type Protocol = 'box' | '478' | 'paced';
 
@@ -41,6 +42,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
   const start = async () => {
     setRunning(true);
     setStep(0);
+    await trackAIInteraction(AIEventType.BREATH_STARTED, { protocol });
     await next();
   };
 
@@ -48,6 +50,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     setRunning(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     Speech.stop();
+    trackAIInteraction(AIEventType.BREATH_COMPLETED, { protocol }).catch(() => {});
   };
 
   useEffect(() => {
