@@ -116,7 +116,7 @@ export const ERPDebugHelper = {
       const testConfig = {
         exerciseId: 'hand_washing',
         exerciseName: 'El Yıkama Direnci',
-        exerciseType: 'real_life',
+        exerciseType: 'in_vivo',
         duration: 5, // minutes
         targetAnxiety: 7,
         personalGoal: 'Test goal',

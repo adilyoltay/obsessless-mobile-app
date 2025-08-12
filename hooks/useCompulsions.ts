@@ -61,7 +61,8 @@ const compulsionService = {
     // Convert Supabase format to local format
     const remoteConverted: Compulsion[] = remote.map(r => ({
       id: r.id,
-      type: r.category,
+      // Prefer original label from subcategory if present; fallback to category
+      type: r.subcategory || r.category,
       severity: r.resistance_level || 5, // Map resistance to severity
       resistanceLevel: r.resistance_level,
       duration: 0, // Not available in Supabase schema

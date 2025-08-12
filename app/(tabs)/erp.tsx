@@ -591,8 +591,9 @@ export default function ERPScreen() {
                       duration: recommendation.estimatedDuration || 30,
                       targetAnxiety: 5,
                       personalGoal: `AI önerisi: ${recommendation.title}`,
-                      category: recommendation.category || 'in_vivo',
-                      categoryName: recommendation.category || 'AI Önerisi',
+                      // category: domain kategorisi kanonik basamakta tutulmalı; öneriden yoksa "other"
+                      category: mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'),
+                      categoryName: mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'),
                     };
                     handleExerciseSelect(exerciseConfig);
                   }}
