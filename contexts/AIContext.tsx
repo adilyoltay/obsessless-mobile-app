@@ -712,6 +712,9 @@ export function AIProvider({ children }: AIProviderProps) {
     }
   }, [user?.id, userProfile, currentRiskAssessment]);
 
+  // Wrap non-memo callbacks if any were missed
+  // (generateInsights and updateUserProfile are already memoized)
+
   /**
    * 🌐 Network Status Monitoring
    */

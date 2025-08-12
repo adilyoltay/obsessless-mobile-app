@@ -24,7 +24,10 @@ const ALL_DISTORTIONS: Distortion[] = [
 export default function ThoughtRecordForm() {
   const { user } = useAuth();
   const { t, language } = useTranslation();
+  const tr: (k: string, f?: string) => string = t;
   const [step, setStep] = useState<1|2|3>(1);
+
+  const labelFor = (key: Distortion) => tr(`cbt.distortions.${key}`, key.replace(/_/g, ' '));
 
   // Fields
   const [automaticThought, setAutomaticThought] = useState('');
@@ -171,7 +174,7 @@ export default function ThoughtRecordForm() {
           <View style={styles.chips}>
             {ALL_DISTORTIONS.map(d => (
               <Pressable key={d} style={[styles.chip, distortions.includes(d) && styles.chipActive]} onPress={() => toggleDistortion(d)} accessibilityRole="button" accessibilityLabel={`Çarpıtma ${d.replace(/_/g,' ')}`}>
-                <Text style={[styles.chipText, distortions.includes(d) && styles.chipTextActive]}>{d.replace(/_/g,' ')}</Text>
+                <Text style={[styles.chipText, distortions.includes(d) && styles.chipTextActive]}>{labelFor(d)}</Text>
               </Pressable>
             ))}
           </View>
