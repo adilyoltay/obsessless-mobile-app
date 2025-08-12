@@ -270,12 +270,12 @@ class ExternalAIService {
 
     // Gemini Configuration (only if selected)
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-pro';
+    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
     if (selectedProvider === 'gemini' && geminiKey && !isLikelyPlaceholder(geminiKey)) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
         apiKey: geminiKey,
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        baseURL: 'https://generativelanguage.googleapis.com/v1',
         model: geminiModel,
         maxTokens: 4000,
         temperature: 0.7,
@@ -407,7 +407,8 @@ class ExternalAIService {
 
     // Sanitize messages
     const sanitizedMessages = messages.map(message => {
-      let sanitizedContent = message.content;
+      let sanitizedContent: string =
+        message?.content != null ? String((message as any).content) : '';
       
       // Apply PII patterns
       for (const [type, pattern] of Object.entries(piiPatterns)) {
@@ -925,15 +926,18 @@ class ExternalAIService {
         throw parseErr;
       }
       
+      const contentText =
+        (data?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined) || '';
+
       return {
         success: true,
-        content: data.candidates[0]?.content?.parts[0]?.text || '',
+        content: contentText,
         provider: AIProvider.GEMINI,
         model: config.model,
         tokens: {
-          prompt: data.usageMetadata?.promptTokenCount || 0,
-          completion: data.usageMetadata?.candidatesTokenCount || 0,
-          total: data.usageMetadata?.totalTokenCount || 0
+          prompt: (data?.usageMetadata?.promptTokenCount as number | undefined) || 0,
+          completion: (data?.usageMetadata?.candidatesTokenCount as number | undefined) || 0,
+          total: (data?.usageMetadata?.totalTokenCount as number | undefined) || 0
         },
         latency: Date.now() - startTime,
         timestamp: new Date(),

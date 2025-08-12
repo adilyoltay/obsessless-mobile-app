@@ -212,7 +212,9 @@ export class AIManager {
    * Provider'a göre model seçimi
    */
   private getModelForProvider(provider: AIProvider): string {
-    return 'gemini-2.0-flash-exp';
+    // Prefer stable Gemini model
+    const extra: any = Constants.expoConfig?.extra || {};
+    return extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
   }
 
   /**
@@ -425,7 +427,7 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
    * Kullanıcı dostu error mesajları
    */
   private getUserFriendlyMessage(code: AIErrorCode): string {
-    const messages: Record<AIErrorCode, string> = {
+    const messages: Record<any, string> = {
       [AIErrorCode.FEATURE_DISABLED]: 'AI özellikleri şu anda kullanılamıyor.',
       [AIErrorCode.NETWORK_ERROR]: 'Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.',
       [AIErrorCode.RATE_LIMIT]: 'Çok fazla istek. Lütfen biraz bekleyin.',
