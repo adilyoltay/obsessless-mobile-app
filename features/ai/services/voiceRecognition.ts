@@ -12,9 +12,9 @@ import {
   AIError,
   AIErrorCode
 } from '@/features/ai/types';
-import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { logger } from '@/utils/logger';
+const aiLogger: any = logger;
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Ses tanıma durumları
@@ -100,7 +100,7 @@ class VoiceRecognitionService {
    */
   async initialize(): Promise<void> {
     if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
-      logger.ai.info('Voice recognition is disabled by feature flag');
+      aiLogger.ai?.info?.('Voice recognition is disabled by feature flag');
       return;
     }
 
@@ -126,7 +126,7 @@ class VoiceRecognitionService {
       await this.loadSettings();
 
       this.isInitialized = true;
-      logger.ai.info('Voice recognition initialized successfully');
+      aiLogger.ai?.info?.('Voice recognition initialized successfully');
 
       // Telemetri
       await trackAIInteraction(AIEventType.FEATURE_ENABLED, {
@@ -134,7 +134,7 @@ class VoiceRecognitionService {
         language: this.settings.language
       });
     } catch (error) {
-      logger.ai.error('Failed to initialize voice recognition', error);
+      aiLogger.ai?.error?.('Failed to initialize voice recognition', error);
       throw error;
     }
   }
@@ -147,8 +147,8 @@ class VoiceRecognitionService {
       await this.initialize();
     }
 
-    if (this.recording) {
-      logger.ai.warn('Recording already in progress');
+      if (this.recording) {
+      aiLogger.ai?.warn?.('Recording already in progress');
       return;
     }
 
@@ -191,15 +191,15 @@ class VoiceRecognitionService {
 
       await this.recording.startAsync();
       
-      logger.ai.info('Voice recording started', { sessionId: this.currentSession.id });
+      aiLogger.ai?.info?.('Voice recording started', { sessionId: this.currentSession.id });
 
       // Telemetri
-      await trackAIInteraction(AIEventType.CONVERSATION_START, {
+      await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
         type: 'voice',
         sessionId: this.currentSession.id
       });
     } catch (error) {
-      logger.ai.error('Failed to start recording', error);
+      aiLogger.ai?.error?.('Failed to start recording', error);
       this.handleRecordingError(error as Error);
       throw error;
     }
@@ -210,7 +210,7 @@ class VoiceRecognitionService {
    */
   async stopListening(): Promise<TranscriptionResult | null> {
     if (!this.recording || !this.currentSession) {
-      logger.ai.warn('No active recording to stop');
+      aiLogger.ai?.warn?.('No active recording to stop');
       return null;
     }
 
@@ -253,7 +253,7 @@ class VoiceRecognitionService {
       await this.saveSession();
 
       // Telemetri
-      await trackAIInteraction(AIEventType.CONVERSATION_END, {
+      await trackAIInteraction(AIEventType.CHAT_SESSION_ENDED, {
         type: 'voice',
         sessionId: this.currentSession.id,
         duration: durationMillis,
@@ -262,7 +262,7 @@ class VoiceRecognitionService {
 
       return transcription;
     } catch (error) {
-      logger.ai.error('Failed to stop recording', error);
+      aiLogger.ai?.error?.('Failed to stop recording', error);
       this.handleRecordingError(error as Error);
       throw error;
     }
@@ -284,24 +284,24 @@ class VoiceRecognitionService {
         language: this.settings.language,
         pitch: 1.0,
         rate: 0.9,
-        onDone: () => {
-          logger.ai.info('TTS completed');
+          onDone: () => {
+          aiLogger.ai?.info?.('TTS completed');
         },
         onError: (error) => {
-          logger.ai.error('TTS error', error);
+          aiLogger.ai?.error?.('TTS error', error);
         }
       };
 
       await Speech.speak(text, { ...defaultOptions, ...options });
 
       // Telemetri
-      await trackAIInteraction(AIEventType.MESSAGE_SENT, {
+      await trackAIInteraction(AIEventType.CHAT_MESSAGE_SENT, {
         type: 'tts',
         length: text.length,
         language: this.settings.language
       });
     } catch (error) {
-      logger.ai.error('TTS failed', error);
+      aiLogger.ai?.error?.('TTS failed', error);
       throw error;
     }
   }
@@ -324,7 +324,7 @@ class VoiceRecognitionService {
       this.commands.set(alias.toLowerCase(), command);
     });
 
-    logger.ai.info(`Voice command registered: ${command.command}`);
+    aiLogger.ai?.info?.(`Voice command registered: ${command.command}`);
   }
 
   /**
@@ -334,7 +334,7 @@ class VoiceRecognitionService {
     this.settings = { ...this.settings, ...settings };
     await this.saveSettings();
 
-    logger.ai.info('Voice settings updated', settings);
+      aiLogger.ai?.info?.('Voice settings updated', settings);
   }
 
   /**
@@ -376,7 +376,7 @@ class VoiceRecognitionService {
         alternatives: []
       };
     } catch (error) {
-      logger.ai.error('Transcription failed', error);
+      aiLogger.ai?.error?.('Transcription failed', error);
       return null;
     }
   }
@@ -389,7 +389,7 @@ class VoiceRecognitionService {
 
     for (const [trigger, command] of this.commands) {
       if (normalizedText.includes(trigger)) {
-        logger.ai.info(`Voice command detected: ${command.command}`);
+        aiLogger.ai?.info?.(`Voice command detected: ${command.command}`);
 
         if (command.requiresConfirmation) {
           // Onay iste
@@ -401,7 +401,7 @@ class VoiceRecognitionService {
             await command.action();
             await this.speak('Komut başarıyla çalıştırıldı');
           } catch (error) {
-            logger.ai.error(`Command execution failed: ${command.command}`, error);
+            aiLogger.ai?.error?.(`Command execution failed: ${command.command}`, error);
             await this.speak('Komut çalıştırılamadı');
           }
         }
@@ -421,7 +421,7 @@ class VoiceRecognitionService {
       command: 'kayıt başlat',
       aliases: ['kaydı başlat', 'kompulsiyon kaydet'],
       action: async () => {
-        logger.ai.info('Voice command: Start recording');
+        aiLogger.ai?.info?.('Voice command: Start recording');
         // Kompulsiyon kaydı başlat
       }
     });
@@ -431,7 +431,7 @@ class VoiceRecognitionService {
       command: 'oturumu bitir',
       aliases: ['oturumu kapat', 'bitir'],
       action: async () => {
-        logger.ai.info('Voice command: Stop session');
+        aiLogger.ai?.info?.('Voice command: Stop session');
         // ERP oturumunu bitir
       }
     });
@@ -441,7 +441,7 @@ class VoiceRecognitionService {
       command: 'içgörü ver',
       aliases: ['öneri ver', 'tavsiye ver'],
       action: async () => {
-        logger.ai.info('Voice command: Get insight');
+        aiLogger.ai?.info?.('Voice command: Get insight');
         // Anlık içgörü üret
       }
     });
@@ -451,7 +451,7 @@ class VoiceRecognitionService {
       command: 'acil yardım',
       aliases: ['yardım', 'panik'],
       action: async () => {
-        logger.ai.info('Voice command: Emergency help');
+        aiLogger.ai?.info?.('Voice command: Emergency help');
         // Acil yardım protokolü
       },
       requiresConfirmation: false // Acil durumda onay bekleme
@@ -483,7 +483,7 @@ class VoiceRecognitionService {
         JSON.stringify(this.settings)
       );
     } catch (error) {
-      logger.ai.error('Failed to save voice settings', error);
+      aiLogger.ai?.error?.('Failed to save voice settings', error);
     }
   }
 
@@ -497,7 +497,7 @@ class VoiceRecognitionService {
         this.settings = { ...this.settings, ...JSON.parse(saved) };
       }
     } catch (error) {
-      logger.ai.error('Failed to load voice settings', error);
+      aiLogger.ai?.error?.('Failed to load voice settings', error);
     }
   }
 
@@ -519,7 +519,7 @@ class VoiceRecognitionService {
         JSON.stringify(recentSessions)
       );
     } catch (error) {
-      logger.ai.error('Failed to save voice session', error);
+      aiLogger.ai?.error?.('Failed to save voice session', error);
     }
   }
 
@@ -531,7 +531,7 @@ class VoiceRecognitionService {
       const saved = await AsyncStorage.getItem('@voice_sessions');
       return saved ? JSON.parse(saved) : [];
     } catch (error) {
-      logger.ai.error('Failed to load voice sessions', error);
+      aiLogger.ai?.error?.('Failed to load voice sessions', error);
       return [];
     }
   }
@@ -557,10 +557,15 @@ class VoiceRecognitionService {
     message: string, 
     code: AIErrorCode = AIErrorCode.UNKNOWN
   ): AIError {
-    const error = new Error(message) as AIError;
-    error.code = code;
-    error.severity = 'medium';
-    error.userMessage = 'Ses tanıma hatası oluştu';
+    const error: AIError = {
+      code,
+      message,
+      context: {},
+      timestamp: new Date(),
+      severity:  'MEDIUM' as any,
+      recoverable: true,
+      userMessage: 'Ses tanıma hatası oluştu'
+    } as any;
     return error;
   }
 
@@ -572,7 +577,7 @@ class VoiceRecognitionService {
       try {
         await this.recording.stopAndUnloadAsync();
       } catch (error) {
-        logger.ai.error('Failed to cleanup recording', error);
+        aiLogger.ai?.error?.('Failed to cleanup recording', error);
       }
       this.recording = null;
     }
@@ -581,7 +586,7 @@ class VoiceRecognitionService {
     this.currentSession = null;
     this.isInitialized = false;
 
-    logger.ai.info('Voice recognition cleaned up');
+    aiLogger.ai?.info?.('Voice recognition cleaned up');
   }
 }
 
