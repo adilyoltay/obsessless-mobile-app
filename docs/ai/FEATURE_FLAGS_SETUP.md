@@ -1,3 +1,5 @@
+Bayraklar Notu\n\n- AI_CHAT: Opsiyonel env ile açılabilir ancak UI yok; pratikte devre dışı.\n- AI_CRISIS_DETECTION: Sistemden kaldırıldı, daima false.
+
 # 🛡️ Feature Flags Setup Guide - FAZ 0
 
 ## 📋 Genel Bakış

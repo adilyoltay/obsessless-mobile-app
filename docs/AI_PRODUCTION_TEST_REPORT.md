@@ -1,3 +1,5 @@
+Rapor Notu (Ağustos 2025)\n\n- AI Chat ve Crisis Detection kapsam dışı (kodda yok/devre dışı).\n- Dış AI: Gemini v1 + x-goog-api-key; geçerli anahtar gereklidir.\n- Test kapsamı: Voice Check-in, CBT Thought Record, Breathwork, Telemetry.
+
 # 🧪 AI Production Readiness Test Report
 **Test Tarihi:** 2025-08-09  
 **Test Edilen Version:** v3.0.0  

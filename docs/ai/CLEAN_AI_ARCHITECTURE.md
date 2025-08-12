@@ -1,3 +1,5 @@
+Status Correction (Ağustos 2025)\n\n- Chat System: Not Implemented (UI/servis yok).\n- Crisis Detection: Disabled/Removed.\n- Content Filtering ve Telemetry aktif.
+
 # 🏗️ ObsessLess Clean AI Architecture
 
 ## 📋 **LEGACY CLEANUP TAMAMLANDI**

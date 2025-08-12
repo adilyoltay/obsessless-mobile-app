@@ -1,3 +1,5 @@
+Durum Notu\n\n- Tablo: AI Chat ve Crisis Detection satırları geçici olarak devre dışı/kaldırıldı olarak kabul edilmelidir.
+
 # 🤖 AI Ayarları Stratejisi - Kullanıcı Dostu Aktivasyon Sistemi
 
 ## 📋 Genel Bakış

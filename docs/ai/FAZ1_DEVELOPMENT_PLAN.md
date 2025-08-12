@@ -1,3 +1,5 @@
+Hizalama Notu\n\n- FAZ1 hedeflerinden AI Chat ve Crisis Detection bu sürüm kapsamı dışı.
+
 # 🚀 FAZ 1 Geliştirme Planı: İçgörü, Empatik Sohbet ve Terapötik Sanat
 
 ## 📋 FAZ 1 Genel Bakış

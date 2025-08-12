@@ -1,3 +1,5 @@
+Hizalama Notu\n\n- Kaldırılmış modül referansları (crisis) geçersiz sayılır; mevcut JITAI/Context/Insights ile uyumlu ilerlenir.
+
 # 🚀 Sprint 6: Advanced Features & Optimization Development Plan
 
 ## 📋 **Sprint 6 Genel Bakış**

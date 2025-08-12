@@ -1,3 +1,5 @@
+Güncelleme Notu\n\n- Priority 2: Crisis Detection Enhancement kaldırıldı; alternatif odak: JITAI zamanlama kalitesi ve i18n kapsam genişletme.
+
 # 🎯 **SONRAKI ADIMLAR PLANI**
 
 ## 📊 **MEVCUT DURUM (Başarı: %85)**

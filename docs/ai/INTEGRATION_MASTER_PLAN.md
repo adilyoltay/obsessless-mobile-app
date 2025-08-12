@@ -1,3 +1,5 @@
+Durum Notu\n\n- AI Chat System: Not Implemented – future work.\n- Crisis Detection Integration: Removed.
+
 # 🔗 **AI FEATURES INTEGRATION MASTER PLAN**
 
 ## 📊 **Mevcut Durum Analizi**

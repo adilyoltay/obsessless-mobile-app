@@ -1,3 +1,5 @@
+Güncel Durum Notu\n\n- AI Chat System: Gelecek özellik (şu an devre dışı).\n- Crisis Detection: Kaldırıldı; lansman kapsamı dışı.
+
 # 🚀 **ObsessLess - Nihai Lansman ve Geliştirme Planı**
 
 **Rapor Tarihi:** 8 Ağustos 2025  

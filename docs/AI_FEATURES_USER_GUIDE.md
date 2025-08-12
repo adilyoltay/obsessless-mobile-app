@@ -1,3 +1,5 @@
+Durum Notu (Ağustos 2025)\n\n- AI Chat: Kod tabanında UI/servis bulunmuyor (gelecek özellik).\n- Crisis Detection: Sistemden kaldırıldı (flag daima false).\n- Progress Analytics: PDF indirme ve bazı ileri raporlar plan/gelecek; mevcut temel metrikler aktif.\n\nGüncel Özellikler\n- Sesli Mood Check-in (STT, NLU, rota önerisi, PII maskeleme, Supabase senkron)\n- CBT Thought Record (taslak+kalıcı kayıt, i18n, reframe önerileri)\n- Breathwork (Pro UI, TTS/Haptik, seans kalıcılığı)\n- JITAI/Context Intelligence (temel, krizsiz)
+
 # 🤖 **OBSESSLESS AI ÖZELLİKLERİ - KULLANICI TEST REHBERİ**
 
 > **Bu doküman, ObsessLess uygulamasındaki AI destekli özellikleri test edecek kullanıcılar için hazırlanmıştır.**

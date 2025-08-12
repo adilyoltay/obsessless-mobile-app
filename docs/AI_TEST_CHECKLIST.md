@@ -1,3 +1,5 @@
+Test Kapsam Notu (Ağustos 2025)\n\n- AI Chat: kapsam dışı (kod yok).\n- Crisis Detection: kaldırıldı, test adımlarından çıkarıldı.\n- Odak: Voice Check-in, CBT Thought Record, Breathwork, Telemetry.
+
 # AI Production Test Checklist
 
 ## Hazırlık

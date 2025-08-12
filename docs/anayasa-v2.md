@@ -1,3 +1,5 @@
+Durum Notu\n\n- 7 temel yetenek içinde AI Chat ve Crisis Detection sütunları güncel sürümde devre dışıdır/çıkarılmıştır.\n- Bu başlıklar şimdilik gelecek/planned olarak değerlendirilmelidir.
+
 ## 📜 **ObsessLess Mobil Uygulaması - Anayasa 2.0 (Nihai Sürüm)**
 
 ### **Proje Vizyonu: Dijital Sığınak**
