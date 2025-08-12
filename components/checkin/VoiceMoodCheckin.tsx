@@ -5,6 +5,8 @@ import { simpleNLU, decideRoute, trackCheckinLifecycle, trackRouteSuggested, NLU
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import { router } from 'expo-router';
+import { generateReframes } from '@/features/ai/services/reframeService';
 
 type SuggestionCardProps = {
   nlu: NLUResult;
@@ -56,7 +58,14 @@ export default function VoiceMoodCheckin() {
 
   const handleSelect = async (route: 'ERP'|'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
-    // Entegrasyon noktası: ERP akışına yönlendir veya reframe modalı aç
+    if (route === 'ERP') {
+      // Basit yönlendirme: kategoriye göre bir egzersiz seçimi yapılabilir. Şimdilik ERP ana sekmesine yönlendirelim.
+      router.push('/erp-session?exerciseId=exposure_response_prevention');
+    } else {
+      const suggestions = await generateReframes({ text: transcript, lang: (nlu?.lang || 'tr') as any });
+      // Basitçe kartı güncelle:
+      setTranscript(suggestions.map(s => `• ${s.text}`).join('\n'));
+    }
   };
 
   if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
