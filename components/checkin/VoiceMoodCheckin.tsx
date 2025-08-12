@@ -9,9 +9,8 @@ import { router } from 'expo-router';
 import { generateReframes } from '@/features/ai/services/reframeService';
 import { Modal } from '@/components/ui/Modal';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { saveUserData, StorageKeys } from '@/utils/storage';
+import { saveUserData, loadUserData, StorageKeys } from '@/utils/storage';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 
@@ -55,10 +54,9 @@ export default function VoiceMoodCheckin() {
     const item: CheckinPersist = { id: `chk_${Date.now()}`, text, nlu: n, createdAt: new Date().toISOString() };
     try {
       const key = StorageKeys.CHECKINS(user.id);
-      const prevRaw = await AsyncStorage.getItem(key).catch(() => null);
-      const prev = prevRaw ? JSON.parse(prevRaw) : [];
+      const prev = (await loadUserData<CheckinPersist[]>(key)) || [];
       const next = [...prev, item].slice(-50);
-      await saveUserData(StorageKeys.CHECKINS(user.id), next);
+      await saveUserData(key, next);
     } catch { /* ignore */ }
   };
 
@@ -70,13 +68,9 @@ export default function VoiceMoodCheckin() {
       await trackCheckinLifecycle('stt_failed', { reason: 'too_short', durationSec });
       return;
     }
-    if (durationSec > 90) {
-      // Uzun monolog: biz yine NLU yapalım ama UI’ı sade tutalım
-    }
     const n = simpleNLU(res.text);
     setNlu(n);
     if ((res.confidence ?? 0) < 0.6) setLowConfidence(true);
-    await trackCheckinLifecycle('start', { durationSec, sttConfidence: res.confidence });
     // Kalıcılaştır
     await persistCheckin(res.text, n);
   };
@@ -116,9 +110,11 @@ export default function VoiceMoodCheckin() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sesli Check-in</Text>
-      <VoiceInterface onTranscription={handleTranscription as any} onError={async () => {
-        await trackCheckinLifecycle('stt_failed', { reason: 'interface_error' });
-      }} />
+      <VoiceInterface 
+        onTranscription={handleTranscription as any} 
+        onError={async () => { await trackCheckinLifecycle('stt_failed', { reason: 'interface_error' }); }}
+        onStartListening={async () => { await trackCheckinLifecycle('start', { source: 'ui' }); }}
+      />
       {tooShort && (
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>Yetersiz Veri</Text>

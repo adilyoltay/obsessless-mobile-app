@@ -246,6 +246,18 @@ class VoiceRecognitionService {
         
         // Komut kontrolü
         await this.checkForCommands(transcription.text);
+      } else if (FEATURE_FLAGS.isEnabled('MOCK_API_RESPONSES')) {
+        const mock = {
+          text: 'Bu bir test transkripsiyonudur',
+          confidence: 0.6,
+          language: this.settings.language,
+          duration: durationMillis || 0,
+          timestamp: new Date(),
+          alternatives: []
+        } as TranscriptionResult;
+        this.currentSession.transcriptions.push(mock);
+        this.currentSession.state = VoiceRecognitionState.COMPLETED;
+        await this.checkForCommands(mock.text);
       }
 
       // Oturumu bitir

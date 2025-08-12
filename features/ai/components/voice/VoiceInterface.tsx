@@ -32,13 +32,15 @@ interface VoiceInterfaceProps {
   onError?: (error: Error) => void;
   disabled?: boolean;
   style?: any;
+  onStartListening?: () => void;
 }
 
 export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   onTranscription,
   onError,
   disabled = false,
-  style
+  style,
+  onStartListening
 }) => {
   const [state, setState] = useState<VoiceRecognitionState>(VoiceRecognitionState.IDLE);
   const [isListening, setIsListening] = useState(false);
@@ -167,6 +169,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       setTranscription('');
       setIsListening(true);
       setState(VoiceRecognitionState.LISTENING);
+
+      // Notify start
+      try { onStartListening?.(); } catch {}
 
       // Haptic feedback
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
