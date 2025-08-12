@@ -17,6 +17,7 @@ import { logger } from '@/utils/logger';
 const aiLogger: any = logger;
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
+import { sanitizePII } from '@/utils/privacy';
 
 // Ses tanıma durumları
 export enum VoiceRecognitionState {
@@ -242,11 +243,12 @@ class VoiceRecognitionService {
       const transcription = await this.transcribeAudio(uri, durationMillis || 0);
 
       if (transcription) {
-        this.currentSession.transcriptions.push(transcription);
+        const sanitized = { ...transcription, text: sanitizePII(transcription.text) };
+        this.currentSession.transcriptions.push(sanitized);
         this.currentSession.state = VoiceRecognitionState.COMPLETED;
         
         // Komut kontrolü
-        await this.checkForCommands(transcription.text);
+        await this.checkForCommands(sanitized.text);
       } else if (FEATURE_FLAGS.isEnabled('MOCK_API_RESPONSES')) {
         const mock = {
           text: 'Bu bir test transkripsiyonudur',
@@ -256,9 +258,9 @@ class VoiceRecognitionService {
           timestamp: new Date(),
           alternatives: []
         } as TranscriptionResult;
-        this.currentSession.transcriptions.push(mock);
+        this.currentSession.transcriptions.push({ ...mock, text: sanitizePII(mock.text) });
         this.currentSession.state = VoiceRecognitionState.COMPLETED;
-        await this.checkForCommands(mock.text);
+        await this.checkForCommands(sanitizePII(mock.text));
       } else {
         // STT failed path
         await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'no_result' });

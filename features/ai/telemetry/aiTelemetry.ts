@@ -163,6 +163,9 @@ export enum AIEventType {
   // Smart Notifications
   SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',
   NOTIFICATION_SCHEDULED = 'notification_scheduled',
+  NOTIFICATION_PREFERENCES_UPDATED = 'notification_preferences_updated',
+  NOTIFICATION_FEEDBACK = 'notification_feedback',
+  SMART_NOTIFICATIONS_SHUTDOWN = 'smart_notifications_shutdown',
   
   // Therapeutic Prompts
   THERAPEUTIC_PROMPTS_INITIALIZED = 'therapeutic_prompts_initialized'
