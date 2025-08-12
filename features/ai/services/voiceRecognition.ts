@@ -264,6 +264,22 @@ class VoiceRecognitionService {
       this.currentSession.endTime = new Date();
       await this.saveSession();
 
+      // Remote summary (best-effort)
+      try {
+        const { supabaseService } = await import('@/services/supabase');
+        const user = supabaseService.getCurrentUser?.();
+        if (user?.id) {
+          await supabaseService.saveVoiceSessionSummary({
+            user_id: user.id,
+            started_at: this.currentSession.startTime.toISOString(),
+            ended_at: this.currentSession.endTime?.toISOString(),
+            duration_ms: durationMillis || 0,
+            transcription_count: this.currentSession.transcriptions.length,
+            error_count: this.currentSession.errors.length,
+          });
+        }
+      } catch {}
+
       // Telemetri
       await trackAIInteraction(AIEventType.CHAT_SESSION_ENDED, {
         type: 'voice',

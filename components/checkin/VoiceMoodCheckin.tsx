@@ -55,7 +55,18 @@ export default function VoiceMoodCheckin() {
       const prev = (await loadUserData<CheckinPersist[]>(key)) || [];
       const next = [...prev, item].slice(-50);
       await saveUserData(key, next);
-      // TODO: Supabase sync (privacy-first with user consent)
+      // Supabase sync (best-effort, privacy-first)
+      try {
+        const { supabaseService } = await import('@/services/supabase');
+        await supabaseService.saveVoiceCheckin({
+          user_id: user.id,
+          text,
+          mood: n.mood,
+          trigger: n.trigger,
+          confidence: n.confidence,
+          lang: n.lang,
+        });
+      } catch {}
     } catch { /* ignore */ }
   };
 

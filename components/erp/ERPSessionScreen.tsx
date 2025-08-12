@@ -518,6 +518,13 @@ export default function ERPSessionScreen({
         </Text>
       </Animated.View>
 
+      {/* Breathwork Shortcut */}
+      <View style={{ paddingHorizontal: 32, marginBottom: 12 }}>
+        <Pressable onPress={() => router.push('/(tabs)/breathwork')} style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, padding: 12, alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Nefes egzersizi aç">
+          <Text style={{ color: '#047857', fontWeight: '600' }}>Nefes Egzersizi</Text>
+        </Pressable>
+      </View>
+
       {/* Complete Button (shown when time is up) */}
       {elapsedTime >= targetDuration && (
         <Animated.View 

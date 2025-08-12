@@ -123,7 +123,19 @@ export default function ThoughtRecordForm() {
     const prev = await loadUserData<any[]>(key) || [];
     await saveUserData(key, [...prev, record]);
 
-    // TODO: Supabase sync (privacy-first; send minimal fields)
+    // Supabase sync (best-effort)
+    try {
+      const { supabaseService } = await import('@/services/supabase');
+      await supabaseService.saveThoughtRecord({
+        user_id: user.id,
+        automatic_thought: automaticThought,
+        evidence_for: evidenceFor,
+        evidence_against: evidenceAgainst,
+        distortions,
+        new_view: newView,
+        lang: language,
+      });
+    } catch {}
 
     // Clear draft and reset form
     await saveUserData(StorageKeys.THOUGHT_RECORD_DRAFT(user.id), null as any);

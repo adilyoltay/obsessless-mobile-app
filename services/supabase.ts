@@ -87,6 +87,40 @@ export interface GamificationProfile {
   updated_at: string;
 }
 
+export interface VoiceCheckinRecord {
+  id?: string;
+  user_id: string;
+  text: string;
+  mood: number;
+  trigger: string;
+  confidence: number;
+  lang: string;
+  created_at?: string;
+}
+
+export interface ThoughtRecordItem {
+  id?: string;
+  user_id: string;
+  automatic_thought: string;
+  evidence_for?: string;
+  evidence_against?: string;
+  distortions: string[];
+  new_view?: string;
+  lang: string;
+  created_at?: string;
+}
+
+export interface VoiceSessionDB {
+  id?: string;
+  user_id: string;
+  started_at: string;
+  ended_at?: string;
+  duration_ms?: number;
+  transcription_count?: number;
+  error_count?: number;
+  created_at?: string;
+}
+
 // ===========================
 // AUTH RESULT TYPES
 // ===========================
@@ -829,6 +863,62 @@ class SupabaseNativeService {
     } catch (error) {
       console.error('❌ Failed to fetch compulsions:', error);
       return [];
+    }
+  }
+
+  // ===========================
+  // NEW: VOICE CHECK-IN / THOUGHT RECORD / VOICE SESSION
+  // ===========================
+
+  async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      await this.client.from('voice_checkins').insert({
+        user_id: record.user_id,
+        text: record.text,
+        mood: record.mood,
+        trigger: record.trigger,
+        confidence: record.confidence,
+        lang: record.lang,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn('⚠️ saveVoiceCheckin skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      await this.client.from('thought_records').insert({
+        user_id: record.user_id,
+        automatic_thought: record.automatic_thought,
+        evidence_for: record.evidence_for,
+        evidence_against: record.evidence_against,
+        distortions: record.distortions,
+        new_view: record.new_view,
+        lang: record.lang,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveVoiceSessionSummary(session: VoiceSessionDB): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(session.user_id);
+      await this.client.from('voice_sessions').insert({
+        user_id: session.user_id,
+        started_at: session.started_at,
+        ended_at: session.ended_at,
+        duration_ms: session.duration_ms,
+        transcription_count: session.transcription_count,
+        error_count: session.error_count,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn('⚠️ saveVoiceSessionSummary skipped (table may not exist):', (error as any)?.message);
     }
   }
 
