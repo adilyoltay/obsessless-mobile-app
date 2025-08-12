@@ -44,16 +44,16 @@ export const ERP_CATEGORIES: ERPCategory[] = [
     ]
   },
   {
-    id: 'ordering',
-    title: 'Düzenleme/Simetri',
+    id: 'symmetry',
+    title: 'Simetri/Düzen',
     icon: 'shape-outline',
     color: '#8B5CF6',
     exercises: [
-      { id: 'order-1', name: 'Eşyaları düzensiz bırakma', duration: 5, difficulty: 2, category: 'ordering' },
-      { id: 'order-2', name: 'Asimetrik düzenleme', duration: 10, difficulty: 4, category: 'ordering' },
-      { id: 'order-3', name: 'Mükemmeliyetçilikten kaçınma', duration: 15, difficulty: 5, category: 'ordering' },
-      { id: 'order-4', name: 'Sayıları tamamlamama', duration: 8, difficulty: 3, category: 'ordering' },
-      { id: 'order-5', name: 'Çift/tek sayı kurallarını bozma', duration: 12, difficulty: 4, category: 'ordering' }
+      { id: 'sym-1', name: 'Eşyaları düzensiz bırakma', duration: 5, difficulty: 2, category: 'symmetry' },
+      { id: 'sym-2', name: 'Asimetrik düzenleme', duration: 10, difficulty: 4, category: 'symmetry' },
+      { id: 'sym-3', name: 'Mükemmeliyetçilikten kaçınma', duration: 15, difficulty: 5, category: 'symmetry' },
+      { id: 'sym-4', name: 'Sayıları tamamlamama', duration: 8, difficulty: 3, category: 'symmetry' },
+      { id: 'sym-5', name: 'Çift/tek sayı kurallarını bozma', duration: 12, difficulty: 4, category: 'symmetry' }
     ]
   },
   {
@@ -70,26 +70,26 @@ export const ERP_CATEGORIES: ERPCategory[] = [
     ]
   },
   {
-    id: 'harm',
-    title: 'Zarar Verme Korkuları',
+    id: 'other',
+    title: 'Diğer (Zarar Korkuları vb.)',
     icon: 'shield-alert',
     color: '#F59E0B',
     exercises: [
-      { id: 'harm-1', name: 'Keskin eşya yakınında durma', duration: 5, difficulty: 4, category: 'harm' },
-      { id: 'harm-2', name: 'Araba kullanırken düşüncelere izin verme', duration: 30, difficulty: 5, category: 'harm' },
-      { id: 'harm-3', name: 'Yüksek yerlerden bakma', duration: 8, difficulty: 3, category: 'harm' },
-      { id: 'harm-4', name: 'Bebek/çocuk yakınında olma', duration: 15, difficulty: 5, category: 'harm' }
+      { id: 'other-1', name: 'Keskin eşya yakınında durma', duration: 5, difficulty: 4, category: 'other' },
+      { id: 'other-2', name: 'Araba kullanırken düşüncelere izin verme', duration: 30, difficulty: 5, category: 'other' },
+      { id: 'other-3', name: 'Yüksek yerlerden bakma', duration: 8, difficulty: 3, category: 'other' },
+      { id: 'other-4', name: 'Bebek/çocuk yakınında olma', duration: 15, difficulty: 5, category: 'other' }
     ]
   },
   {
-    id: 'religious',
-    title: 'Dini/Ahlaki Kaygılar',
+    id: 'mental',
+    title: 'Zihinsel/Dini Kaygılar',
     icon: 'heart-outline',
     color: '#EF4444',
     exercises: [
-      { id: 'relig-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'religious' },
-      { id: 'relig-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'religious' },
-      { id: 'relig-3', name: 'Ahlaki şüpheleri kabul etme', duration: 12, difficulty: 4, category: 'religious' }
+      { id: 'ment-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'mental' },
+      { id: 'ment-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'mental' },
+      { id: 'ment-3', name: 'Ahlaki şüpheleri kabul etme', duration: 12, difficulty: 4, category: 'mental' }
     ]
   }
 ];

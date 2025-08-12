@@ -38,6 +38,7 @@ const legacyToCanonicalMap: Record<string, CanonicalCategory> = {
   // Zihinsel ritüeller ve dini/ahlaki temalar
   mental: 'mental',
   religious: 'mental',
+  morality: 'mental',
 
   // Biriktirme
   hoarding: 'hoarding',
@@ -46,6 +47,10 @@ const legacyToCanonicalMap: Record<string, CanonicalCategory> = {
   reassurance: 'other',
   avoidance: 'other',
   other: 'other',
+  
+  // ERP domain legacy IDs mapped to closest canonical OCD category
+  harm: 'other',
+  sexual: 'other',
 };
 
 /**

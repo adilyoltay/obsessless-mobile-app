@@ -52,7 +52,7 @@ export default function ERPScreen() {
   const { treatmentPlan, userProfile } = useAIUserData();
   const [localPlan, setLocalPlan] = useState<any | null>(null);
   const [localProfile, setLocalProfile] = useState<any | null>(null);
-  const { assessRisk } = useAIActions();
+  const { generateInsights } = useAIActions();
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [isQuickStartVisible, setIsQuickStartVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -619,14 +619,14 @@ export default function ERPScreen() {
                     {recommendation.description}
                   </Text>
                   
-                  <View style={styles.aiRecommendationFooter}>
-                    <Text style={styles.aiRecommendationDuration}>
-                      ⏱️ {recommendation.estimatedDuration || 30} dk
-                    </Text>
-                    <Text style={styles.aiRecommendationCategory}>
-                      📋 {recommendation.category}
-                    </Text>
-                  </View>
+                    <View style={styles.aiRecommendationFooter}>
+                      <Text style={styles.aiRecommendationDuration}>
+                        ⏱️ {recommendation.estimatedDuration || 30} dk
+                      </Text>
+                      <Text style={styles.aiRecommendationCategory}>
+                        🧩 Tür: {recommendation.category} • 📋 Kategori: {mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other')}
+                      </Text>
+                    </View>
                 </Pressable>
               ))}
             </ScrollView>
@@ -1079,18 +1079,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter',
-  },
-  aiLoadingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   aiLoadingCard: {
     backgroundColor: '#FFFFFF',
