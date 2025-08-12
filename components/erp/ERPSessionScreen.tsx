@@ -595,7 +595,7 @@ export default function ERPSessionScreen({
       <BottomSheet isVisible={showBreath} onClose={() => setShowBreath(false)}>
         <View style={{ padding: 12 }}>
           <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Nefes Egzersizi</Text>
-          <BreathworkPlayer />
+          <BreathworkPlayer hideHeader />
         </View>
       </BottomSheet>
     </View>

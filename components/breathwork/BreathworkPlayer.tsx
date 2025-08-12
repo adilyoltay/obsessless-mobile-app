@@ -31,9 +31,9 @@ export type BreathworkPlayerHandle = {
   isRunning: () => boolean;
 };
 
-type PlayerProps = { protocol?: Protocol; tts?: boolean; onPhaseChange?: (p: BreathingPhase, ms: number) => void; onRunningChange?: (running: boolean) => void; hideControls?: boolean };
+type PlayerProps = { protocol?: Protocol; tts?: boolean; onPhaseChange?: (p: BreathingPhase, ms: number) => void; onRunningChange?: (running: boolean) => void; hideControls?: boolean; hideHeader?: boolean };
 
-const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(function BreathworkPlayer({ protocol = 'box' as Protocol, tts = true, onPhaseChange, onRunningChange, hideControls = false }, ref) {
+const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(function BreathworkPlayer({ protocol = 'box' as Protocol, tts = true, onPhaseChange, onRunningChange, hideControls = false, hideHeader = false }, ref) {
   const [step, setStep] = useState(0);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -108,15 +108,18 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
   useEffect(() => {
     if (!running || paused) return;
     tick();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   const phaseLabel = () => prompts[step % prompts.length];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{language === 'tr' ? 'Nefes Çalışması' : 'Breathwork'}</Text>
-      <Text style={styles.subtitle}>{language === 'tr' ? `Protokol: ${protocol.toUpperCase()}` : `Protocol: ${protocol.toUpperCase()}`}</Text>
+      {!hideHeader && (
+        <>
+          <Text style={styles.title}>{language === 'tr' ? 'Nefes Çalışması' : 'Breathwork'}</Text>
+          <Text style={styles.subtitle}>{language === 'tr' ? `Protokol: ${protocol.toUpperCase()}` : `Protocol: ${protocol.toUpperCase()}`}</Text>
+        </>
+      )}
 
       <View style={styles.timerCard} accessibilityLabel={`Aşama: ${phaseLabel()}`}>
         <Text style={styles.phase}>{phaseLabel()}</Text>
