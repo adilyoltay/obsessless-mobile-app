@@ -57,9 +57,15 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
 
   const prompts = language === 'tr' ? PROTOCOLS[protocol].promptTR : PROTOCOLS[protocol].promptEN;
 
-  const speak = async (text: string) => {
-    if (!tts) return;
-    await Speech.speak(text, { language: language === 'tr' ? 'tr-TR' : 'en-US', rate: 0.9 });
+  // Safe TTS helper (Speech.speak is fire-and-forget)
+  const speak = (text: string) => {
+    try {
+      if (!tts) return;
+      Speech.stop();
+      Speech.speak(text, { language: language === 'tr' ? 'tr-TR' : 'en-US', rate: 0.9 });
+    } catch (e) {
+      console.warn('TTS speak error', e);
+    }
   };
 
   const tick = async () => {
@@ -70,7 +76,7 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
     try { onPhaseChange?.(phase, durSec * 1000); } catch {}
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await speak(prompts[pIndex]);
+    speak(prompts[pIndex]);
 
     timerRef.current = setTimeout(() => setStep(s => s + 1), durSec * 1000);
   };

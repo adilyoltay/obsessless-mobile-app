@@ -8,6 +8,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import BreathingWave from '@/components/breathing/BreathingWave';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { StorageKeys, loadUserData, saveUserData } from '@/utils/storage';
+import supabaseService, { BreathSessionDB } from '@/services/supabase';
+
+type BreathworkProProps = {
+  protocol?: 'box' | '478' | 'paced';
+  totalDurationMs?: number; // session target duration for progress bar
+};
 
 function BreathingVisualization({ label, instruction, scale, circleSize, ring1, ring2 }: { label: string; instruction: string; scale: Animated.SharedValue<number>; circleSize: number; ring1: number; ring2: number }) {
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -32,16 +40,15 @@ function formatTime(ms: number) {
   return `${mm}:${ss}`;
 }
 
-export default function BreathworkPro() {
+export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_000 }: BreathworkProProps) {
+  const { user } = useAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const maxContentWidth = Math.min(width, 500);
 
-  // Estimate bottom section height to keep layout within screen without scroll
   const estimatedBottom = Math.max(220, Math.min(280, height * 0.28));
   const availableForTop = height - insets.top - insets.bottom - estimatedBottom;
 
-  // responsive sizes (cap by available height too)
   const circleSize = Math.max(180, Math.min(maxContentWidth * 0.68, availableForTop * 0.55));
   const ring1 = circleSize + 24;
   const ring2 = circleSize + 48;
@@ -69,7 +76,7 @@ export default function BreathworkPro() {
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
 
-  const TOTAL_MS = 60_000;
+  const TOTAL_MS = totalDurationMs;
   const [elapsedMs, setElapsedMs] = useState(0);
 
   const [currentPhase, setCurrentPhase] = useState<BreathingPhase>('inhale');
@@ -101,7 +108,13 @@ export default function BreathworkPro() {
     if (!running || paused) return;
     const id = setInterval(() => setElapsedMs((v) => Math.min(TOTAL_MS, v + 250)), 250);
     return () => clearInterval(id);
-  }, [running, paused]);
+  }, [running, paused, TOTAL_MS]);
+
+  useEffect(() => {
+    if (elapsedMs >= TOTAL_MS && running) {
+      handleFinish();
+    }
+  }, [elapsedMs, running, TOTAL_MS]);
 
   const handleStartPause = async () => {
     const api = playerRef.current;
@@ -121,10 +134,38 @@ export default function BreathworkPro() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     playerRef.current?.stop();
     setRunning(false);
     setPaused(false);
+
+    // Persist session (offline-first)
+    try {
+      const now = new Date();
+      const dateKey = now.toDateString();
+      const localKey = StorageKeys.BREATH_SESSIONS(user?.id || 'anon', dateKey);
+      const existing = (await loadUserData<any[]>(localKey)) || [];
+      const session = {
+        protocol,
+        duration_ms: Math.min(elapsedMs, TOTAL_MS),
+        started_at: now.toISOString(),
+        completed_at: now.toISOString(),
+      };
+      await saveUserData(localKey, [session, ...existing]);
+
+      if (user?.id) {
+        const dbPayload: BreathSessionDB = {
+          user_id: user.id,
+          protocol,
+          duration_ms: session.duration_ms,
+          started_at: session.started_at,
+          completed_at: session.completed_at,
+        };
+        await supabaseService.saveBreathSession(dbPayload);
+      }
+    } catch (e) {
+      console.warn('breath session persist failed', e);
+    }
   };
 
   const handleReset = async () => {
@@ -144,7 +185,6 @@ export default function BreathworkPro() {
     <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Top content (no scroll, responsive) */}
       <View style={[styles.topContent, { maxWidth: maxContentWidth, alignSelf: 'center', height: availableForTop }]}> 
         <BreathingVisualization label={phaseLabel} instruction={instruction} scale={scale} circleSize={circleSize} ring1={ring1} ring2={ring2} />
         <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
@@ -153,9 +193,8 @@ export default function BreathworkPro() {
         </View>
       </View>
 
-      {/* Bottom controls */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg, maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
-        <BreathworkPlayer ref={playerRef} protocol="box" hideControls hideHeader onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
+        <BreathworkPlayer ref={playerRef} protocol={protocol} hideControls hideHeader onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
         <View style={[styles.controlsRow, { gap: Math.max(12, maxContentWidth * 0.06) }]}>
           <Pressable onPress={handleStartPause} style={[styles.iconBtn, { backgroundColor: '#10B981', width: btnSize, height: btnSize, borderRadius: btnSize / 2 }]} accessibilityRole="button" accessibilityLabel={!running ? i18n.start : paused ? i18n.resume : i18n.pause}>
             <Ionicons name={!running ? 'play' : paused ? 'play' : 'pause'} size={Math.round(btnSize * 0.33)} color="#FFFFFF" />

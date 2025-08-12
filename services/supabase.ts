@@ -121,6 +121,14 @@ export interface VoiceSessionDB {
   created_at?: string;
 }
 
+export type BreathSessionDB = {
+  user_id: string;
+  protocol: 'box' | '478' | 'paced';
+  duration_ms: number;
+  started_at: string;
+  completed_at?: string | null;
+};
+
 // ===========================
 // AUTH RESULT TYPES
 // ===========================
@@ -919,6 +927,17 @@ class SupabaseNativeService {
       });
     } catch (error) {
       console.warn('⚠️ saveVoiceSessionSummary skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveBreathSession(session: BreathSessionDB): Promise<void> {
+    try {
+      const { data, error } = await this.client
+        .from('breath_sessions')
+        .insert(session);
+      if (error) throw error;
+    } catch (error) {
+      console.warn('⚠️ saveBreathSession skipped (table may not exist):', (error as any)?.message);
     }
   }
 

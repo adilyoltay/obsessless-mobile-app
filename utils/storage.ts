@@ -17,6 +17,10 @@ export const StorageKeys = {
   ERP_SESSIONS: (userId: string, date?: string) => 
     date ? `erp_sessions_${userId}_${date}` : `erp_sessions_${userId}`,
   
+  // Breathwork Sessions
+  BREATH_SESSIONS: (userId: string, date?: string) =>
+    date ? `breath_sessions_${userId}_${date}` : `breath_sessions_${userId}`,
+  
   // Gamification
   GAMIFICATION: (userId: string) => `gamification_${userId}`,
   
