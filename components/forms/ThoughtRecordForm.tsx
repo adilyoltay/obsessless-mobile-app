@@ -126,13 +126,14 @@ export default function ThoughtRecordForm() {
     // Supabase sync (best-effort)
     try {
       const { supabaseService } = await import('@/services/supabase');
+      const { sanitizePII } = await import('@/utils/privacy');
       await supabaseService.saveThoughtRecord({
         user_id: user.id,
-        automatic_thought: automaticThought,
-        evidence_for: evidenceFor,
-        evidence_against: evidenceAgainst,
+        automatic_thought: sanitizePII(automaticThought),
+        evidence_for: sanitizePII(evidenceFor),
+        evidence_against: sanitizePII(evidenceAgainst),
         distortions,
-        new_view: newView,
+        new_view: sanitizePII(newView),
         lang: language,
       });
     } catch {}

@@ -16,6 +16,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 import { logger } from '@/utils/logger';
 const aiLogger: any = logger;
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
 
 // Ses tanıma durumları
 export enum VoiceRecognitionState {
@@ -316,17 +317,14 @@ class VoiceRecognitionService {
         language: this.settings.language,
         pitch: 1.0,
         rate: 0.9,
-          onDone: () => {
-          aiLogger.ai?.info?.('TTS completed');
-        },
-        onError: (error) => {
-          aiLogger.ai?.error?.('TTS error', error);
-        }
+        onDone: () => { aiLogger.ai?.info?.('TTS completed'); },
+        onError: (error) => { aiLogger.ai?.error?.('TTS error', error); }
       };
 
-      await Speech.speak(text, { ...defaultOptions, ...options });
+      // Fire-and-forget
+      Speech.stop();
+      Speech.speak(text, { ...defaultOptions, ...options });
 
-      // Telemetri
       await trackAIInteraction(AIEventType.CHAT_MESSAGE_SENT, {
         type: 'tts',
         length: text.length,
@@ -334,7 +332,6 @@ class VoiceRecognitionService {
       });
     } catch (error) {
       aiLogger.ai?.error?.('TTS failed', error);
-      throw error;
     }
   }
 
@@ -542,14 +539,26 @@ class VoiceRecognitionService {
     try {
       const sessions = await this.loadSessions();
       sessions.push(this.currentSession);
-      
-      // Son 50 oturumu tut
       const recentSessions = sessions.slice(-50);
-      
       await AsyncStorage.setItem(
         '@voice_sessions',
         JSON.stringify(recentSessions)
       );
+
+      // Also push a lightweight summary to Supabase (best-effort)
+      try {
+        const currentUser = supabaseService.getCurrentUser?.();
+        if (currentUser?.id) {
+          await supabaseService.saveVoiceSessionSummary({
+            user_id: currentUser.id,
+            started_at: this.currentSession.startTime.toISOString(),
+            ended_at: this.currentSession.endTime?.toISOString(),
+            duration_ms: (this.currentSession.recordings[0]?.duration ?? 0),
+            transcription_count: this.currentSession.transcriptions.length,
+            error_count: this.currentSession.errors.length,
+          });
+        }
+      } catch {}
     } catch (error) {
       aiLogger.ai?.error?.('Failed to save voice session', error);
     }

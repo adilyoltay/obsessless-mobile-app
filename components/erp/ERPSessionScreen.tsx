@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,9 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
 const STROKE_WIDTH = 12;
+
+// Safe divide to prevent NaN/Infinity
+const safeDivide = (a: number, b: number): number => (b === 0 ? 0 : a / b);
 
 // Sakinleştirici ve şefkatli mikro-kopyalar
 const CALMING_MESSAGES = [
@@ -248,7 +251,7 @@ export default function ERPSessionScreen({
     await awardMicroReward('erp_completed');
     
     // Calculate anxiety reduction percentage
-    const anxietyReduction = ((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety) / (anxietyDataPoints[0]?.level || initialAnxiety) * 100;
+    const anxietyReduction = safeDivide((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety, (anxietyDataPoints[0]?.level || initialAnxiety)) * 100;
     
     // Extra reward for significant anxiety reduction
     if (anxietyReduction >= 30) {
@@ -341,7 +344,7 @@ export default function ERPSessionScreen({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = elapsedTime / targetDuration;
+  const progress = safeDivide(elapsedTime, targetDuration);
   const circumference = 2 * Math.PI * ((CIRCLE_SIZE - STROKE_WIDTH) / 2);
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -359,7 +362,7 @@ export default function ERPSessionScreen({
 
   // Calculate anxiety reduction
   const initialAnxietyLevel = anxietyDataPoints[0]?.level || initialAnxiety;
-  const anxietyReduction = ((initialAnxietyLevel - currentAnxiety) / initialAnxietyLevel) * 100;
+  const anxietyReduction = safeDivide((initialAnxietyLevel - currentAnxiety), initialAnxietyLevel) * 100;
 
   if (showCompletion) {
     return (
