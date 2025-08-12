@@ -6,7 +6,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { Audio } from 'expo-av';
+import { audio } from '@/features/ai/services/audioAdapter';
 import * as Speech from 'expo-speech';
 import { 
   AIError,
@@ -79,7 +79,7 @@ interface Recording {
 
 class VoiceRecognitionService {
   private static instance: VoiceRecognitionService;
-  private recording: Audio.Recording | null = null;
+  private recording: any | null = null;
   private currentSession: VoiceSession | null = null;
   private commands: Map<string, VoiceCommand> = new Map();
   private settings: VoiceSettings;
@@ -110,13 +110,13 @@ class VoiceRecognitionService {
 
     try {
       // Ses izinlerini kontrol et
-      const { status } = await Audio.requestPermissionsAsync();
+      const { status } = await audio.requestPermissionsAsync();
       if (status !== 'granted') {
         throw this.createError('Microphone permission denied', AIErrorCode.PRIVACY_VIOLATION);
       }
 
       // Audio mode ayarla
-      await Audio.setAudioModeAsync({
+      await audio.setModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
@@ -166,21 +166,21 @@ class VoiceRecognitionService {
       };
 
       // Kayıt başlat
-      this.recording = new Audio.Recording();
+      this.recording = await audio.createRecording();
       
-      await this.recording.prepareToRecordAsync({
+      await this.recording.prepareAsync({
         android: {
           extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
+          outputFormat: 2,
+          audioEncoder: 3,
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
         },
         ios: {
           extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
+          outputFormat: 2,
+          audioQuality: 2,
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
@@ -308,7 +308,7 @@ class VoiceRecognitionService {
       };
 
       // Fire-and-forget
-      Speech.stop();
+      await Speech.stop();
       Speech.speak(text, { ...defaultOptions, ...options });
 
       await trackAIInteraction(AIEventType.CHAT_MESSAGE_SENT, {
