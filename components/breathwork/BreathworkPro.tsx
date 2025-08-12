@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, StatusBar, Text, Pressable, useWindowDimensions, ScrollView } from 'react-native';
+import { View, StyleSheet, StatusBar, Text, Pressable, useWindowDimensions } from 'react-native';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import { Spacing, Sizes } from '@/constants/DesignSystem';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -36,12 +36,17 @@ export default function BreathworkPro() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const maxContentWidth = Math.min(width, 500);
-  // responsive sizes (cap by height too)
-  const circleSize = Math.min(maxContentWidth * 0.7, height * 0.33, 360);
+
+  // Estimate bottom section height to keep layout within screen without scroll
+  const estimatedBottom = Math.max(220, Math.min(280, height * 0.28));
+  const availableForTop = height - insets.top - insets.bottom - estimatedBottom;
+
+  // responsive sizes (cap by available height too)
+  const circleSize = Math.max(180, Math.min(maxContentWidth * 0.68, availableForTop * 0.55));
   const ring1 = circleSize + 24;
   const ring2 = circleSize + 48;
-  const btnSize = Math.max(64, Math.min(92, maxContentWidth * 0.22));
-  const waveHeight = Math.max(56, Math.min(90, height * 0.09));
+  const btnSize = Math.max(60, Math.min(92, maxContentWidth * 0.22));
+  const waveHeight = Math.max(56, Math.min(90, availableForTop * 0.18));
 
   const { language } = useLanguage();
   const i18n = useMemo(() => ({
@@ -55,7 +60,6 @@ export default function BreathworkPro() {
     resume: language === 'tr' ? 'Devam' : 'Resume',
     reset: language === 'tr' ? 'Yeniden Başla' : 'Reset',
     finish: language === 'tr' ? 'Bitir' : 'Finish',
-    completed: language === 'tr' ? 'Tamamlandı' : 'Completed',
     progress: language === 'tr' ? 'İlerleme' : 'Progress',
   }), [language]);
 
@@ -64,7 +68,6 @@ export default function BreathworkPro() {
   const [instruction, setInstruction] = useState(i18n.pressToStart);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [completed, setCompleted] = useState(false);
 
   const TOTAL_MS = 60_000;
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -95,22 +98,15 @@ export default function BreathworkPro() {
   };
 
   useEffect(() => {
-    if (!running || paused || completed) return;
+    if (!running || paused) return;
     const id = setInterval(() => setElapsedMs((v) => Math.min(TOTAL_MS, v + 250)), 250);
     return () => clearInterval(id);
-  }, [running, paused, completed]);
-
-  useEffect(() => {
-    if (elapsedMs >= TOTAL_MS && running) {
-      handleFinish();
-    }
-  }, [elapsedMs, running]);
+  }, [running, paused]);
 
   const handleStartPause = async () => {
     const api = playerRef.current;
     if (!api) return;
     if (!running) {
-      setCompleted(false);
       setElapsedMs(0);
       api.start();
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -129,15 +125,12 @@ export default function BreathworkPro() {
     playerRef.current?.stop();
     setRunning(false);
     setPaused(false);
-    setCompleted(true);
-    setElapsedMs(TOTAL_MS);
   };
 
   const handleReset = async () => {
     playerRef.current?.stop();
     setRunning(false);
     setPaused(false);
-    setCompleted(false);
     setElapsedMs(0);
     setPhaseLabel(i18n.ready);
     setInstruction(i18n.pressToStart);
@@ -151,16 +144,16 @@ export default function BreathworkPro() {
     <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <ScrollView contentContainerStyle={[styles.main, { maxWidth: maxContentWidth, alignSelf: 'center', alignItems: 'center' }]}>
+      {/* Top content (no scroll, responsive) */}
+      <View style={[styles.topContent, { maxWidth: maxContentWidth, alignSelf: 'center', height: availableForTop }]}> 
         <BreathingVisualization label={phaseLabel} instruction={instruction} scale={scale} circleSize={circleSize} ring1={ring1} ring2={ring2} />
-        <View style={styles.timerWrap}>
-          <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
-        </View>
-        <View style={{ width: '100%' }}>
+        <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
+        <View style={{ width: '100%', marginTop: 4 }}>
           <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} height={waveHeight} />
         </View>
-      </ScrollView>
+      </View>
 
+      {/* Bottom controls */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg, maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <BreathworkPlayer ref={playerRef} protocol="box" hideControls onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
         <View style={[styles.controlsRow, { gap: Math.max(12, maxContentWidth * 0.06) }]}>
@@ -191,17 +184,16 @@ export default function BreathworkPro() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  main: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  topContent: { justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, gap: Spacing.sm },
   bottom: { paddingHorizontal: Spacing.md, gap: Spacing.lg },
   vizContainer: { alignItems: 'center', justifyContent: 'center' },
   outerRing1: { position: 'absolute', borderWidth: 8, borderColor: '#99F6E4' },
   outerRing2: { position: 'absolute', borderWidth: 8, borderColor: '#5EEAD4' },
   breathingCircle: { overflow: 'hidden', backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' },
   textOverlay: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
-  phaseText: { fontSize: 36, fontWeight: '700', color: '#115E59', textAlign: 'center', marginBottom: Spacing.xs },
-  instructionText: { fontSize: 16, color: '#0F766E', textAlign: 'center' },
-  timerWrap: { alignItems: 'center' },
-  timer: { fontSize: 48, fontWeight: '300', color: '#0F172A' },
+  phaseText: { fontSize: 32, fontWeight: '700', color: '#115E59', textAlign: 'center', marginBottom: Spacing.xs },
+  instructionText: { fontSize: 15, color: '#0F766E', textAlign: 'center' },
+  timer: { fontSize: 44, fontWeight: '300', color: '#0F172A' },
   controlsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   iconBtn: { alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   progressCard: { backgroundColor: '#F1F5F9', padding: 14, borderRadius: 16 },
