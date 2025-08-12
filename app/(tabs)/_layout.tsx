@@ -72,6 +72,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="thought-record"
+        options={{
+          title: 'CBT',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'book' : 'book-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="breathwork"
+        options={{
+          title: 'Nefes',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Ayarlar',
