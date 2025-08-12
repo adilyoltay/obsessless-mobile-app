@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.adilyoltay.obslesstest"
+      "bundleIdentifier": "com.adilyoltay.obslesstest",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Sesli check-in ve nefes egzersizleri için mikrofon erişimine ihtiyaç duyuyoruz. Erişim yalnızca sizin başlatmanızla kullanılır.",
+        "NSSpeechRecognitionUsageDescription": "Sesli check-in sırasında konuşmanızı cihaz üzerinde yazıya dönüştürmek için konuşma tanıma iznine ihtiyaç duyuyoruz. Veriler gizlilik odaklı işlenir."
+      }
     },
     "scheme": "obslesstest",
     "android": {
