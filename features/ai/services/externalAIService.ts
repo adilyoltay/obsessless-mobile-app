@@ -886,63 +886,97 @@ class ExternalAIService {
         ? normalizedContents
         : [{ role: 'user', parts: [{ text: 'Kısa, güvenli ve terapötik bir yanıt üret.' }] }];
 
-      const fetchOptions: any = {
+      const buildFetchOptions = (body: any) => ({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: contentsToSend,
-          generationConfig: {
-            temperature: (req && req.temperature) != null ? req.temperature : config.temperature,
-            maxOutputTokens: (req && req.maxTokens) != null ? req.maxTokens : config.maxTokens
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-goog-api-key': config.apiKey
+        },
+        body: JSON.stringify(body),
+        signal: hasAbort && controller ? (controller as any).signal : undefined
+      } as any);
+
+      const buildBody = () => ({
+        contents: contentsToSend,
+        generationConfig: {
+          temperature: (req && req.temperature) != null ? req.temperature : config.temperature,
+          maxOutputTokens: (req && req.maxTokens) != null ? req.maxTokens : config.maxTokens
+        }
+      });
+
+      const attemptModels: string[] = Array.from(new Set([
+        config.model,
+        config.model?.includes('-latest') ? config.model : `${config.model}-latest`,
+        'gemini-1.5-pro',
+        'gemini-1.5-pro-latest'
+      ].filter(Boolean)));
+
+      let lastError: any = null;
+      for (const modelName of attemptModels) {
+        let response: any;
+        try {
+          response = await fetch(
+            `${config.baseURL}/models/${modelName}:generateContent`,
+            buildFetchOptions(buildBody())
+          );
+        } catch (netErr) {
+          if (__DEV__) console.warn('⚠️ Gemini network error at fetch():', netErr);
+          lastError = netErr;
+          continue;
+        }
+
+        if (!response.ok) {
+          let detail: any = null;
+          try { detail = await response.json(); } catch {}
+          if (__DEV__) console.warn(`⚠️ Gemini API error ${response.status} for model ${modelName}:`, detail?.error || detail || 'no-body');
+          // 400/404 -> model/validation fallbacks deneyelim
+          if (response.status === 400 || response.status === 404) {
+            lastError = detail || { status: response.status };
+            continue;
           }
-        })
-      };
-      if (hasAbort && controller) {
-        fetchOptions.signal = (controller as any).signal;
+          const err = new Error(`Gemini API error: ${response.status}`);
+          (err as any).code = AIErrorCode.PROVIDER_ERROR;
+          (err as any).detail = detail;
+          throw err;
+        }
+
+        let data: any;
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          if (__DEV__) console.warn('⚠️ Gemini response.json() parse error:', parseErr);
+          lastError = parseErr;
+          continue;
+        }
+
+        const contentText = (data?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined) || '';
+
+        if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
+
+        return {
+          success: true,
+          content: contentText,
+          provider: AIProvider.GEMINI,
+          model: modelName,
+          tokens: {
+            prompt: (data?.usageMetadata?.promptTokenCount as number | undefined) || 0,
+            completion: (data?.usageMetadata?.candidatesTokenCount as number | undefined) || 0,
+            total: (data?.usageMetadata?.totalTokenCount as number | undefined) || 0
+          },
+          latency: Date.now() - startTime,
+          timestamp: new Date(),
+          requestId: ''
+        };
       }
-      let response: any;
-      try {
-        response = await fetch(
-          `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
-          fetchOptions
-        );
-      } catch (netErr) {
-        if (__DEV__) console.warn('⚠️ Gemini network error at fetch():', netErr);
-        throw netErr;
-      }
+
       if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
 
-      if (!response.ok) {
-        const err = new Error(`Gemini API error: ${response.status}`);
-        (err as any).code = AIErrorCode.PROVIDER_ERROR;
-        throw err;
-      }
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (parseErr) {
-        if (__DEV__) console.warn('⚠️ Gemini response.json() parse error:', parseErr);
-        throw parseErr;
-      }
-      
-      const contentText =
-        (data?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined) || '';
-
-      return {
-        success: true,
-        content: contentText,
-        provider: AIProvider.GEMINI,
-        model: config.model,
-        tokens: {
-          prompt: (data?.usageMetadata?.promptTokenCount as number | undefined) || 0,
-          completion: (data?.usageMetadata?.candidatesTokenCount as number | undefined) || 0,
-          total: (data?.usageMetadata?.totalTokenCount as number | undefined) || 0
-        },
-        latency: Date.now() - startTime,
-        timestamp: new Date(),
-        requestId: ''
-      };
+      const err = new Error(`Gemini API call failed (all fallbacks). Last error: ${JSON.stringify(lastError)}`);
+      (err as any).code = AIErrorCode.PROVIDER_ERROR;
+      (err as any).severity = ErrorSeverity.HIGH;
+      (err as any).recoverable = true;
+      throw err;
 
     } catch (error) {
       if (__DEV__) console.error('❌ Gemini API call failed:', error);
