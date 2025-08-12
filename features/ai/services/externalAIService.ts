@@ -1031,7 +1031,7 @@ class ExternalAIService {
     context: ConversationContext,
     config?: AIRequestConfig
   ): Promise<any> {
-    return {
+    const body: any = {
       messages: messages.map(msg => ({
         role: msg.role,
         content: msg.content
@@ -1040,6 +1040,13 @@ class ExternalAIService {
       temperature: config?.temperature,
       model: config?.model
     };
+    if (config?.systemPrompt) {
+      body.systemInstruction = {
+        role: 'system',
+        parts: [{ text: String(config.systemPrompt) }]
+      };
+    }
+    return body;
   }
 
   private async checkRateLimit(provider: AIProvider): Promise<void> {
