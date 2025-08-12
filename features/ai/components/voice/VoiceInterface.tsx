@@ -426,10 +426,12 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
               style={[
                 styles.audioLevelFill,
                 {
-                  width: waveAnim1.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['20%', '80%'],
-                  }),
+                  transform: [{
+                    scaleX: waveAnim1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1.0],
+                    })
+                  }],
                 },
               ]}
             />
