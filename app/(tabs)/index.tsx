@@ -61,6 +61,7 @@ export default function TodayScreen() {
   // Local AI State
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
+  const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -168,8 +169,13 @@ export default function TodayScreen() {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
+    if (isInsightsRunning) {
+      if (__DEV__) console.log('ℹ️ Insights workflow already in progress, skipping');
+      return;
+    }
 
     try {
+      setIsInsightsRunning(true);
       setAiInsightsLoading(true);
 
       // Track insights request
@@ -195,6 +201,7 @@ export default function TodayScreen() {
       // Fail silently, don't impact main app functionality
     } finally {
       setAiInsightsLoading(false);
+      setIsInsightsRunning(false);
     }
   };
 

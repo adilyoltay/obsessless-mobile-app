@@ -87,6 +87,7 @@ export default function TrackingScreen() {
   const [aiPatterns, setAiPatterns] = useState<any[]>([]);
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -114,8 +115,13 @@ export default function TrackingScreen() {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
+    if (isInsightsRunning) {
+      if (__DEV__) console.log('ℹ️ Insights already running, skip');
+      return;
+    }
 
     try {
+      setIsInsightsRunning(true);
       setIsLoadingAI(true);
 
       // Track AI pattern analysis request
@@ -156,6 +162,7 @@ export default function TrackingScreen() {
       console.error('❌ Error loading AI patterns:', error);
     } finally {
       setIsLoadingAI(false);
+      setIsInsightsRunning(false);
     }
   };
 
