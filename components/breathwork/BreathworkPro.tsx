@@ -155,7 +155,7 @@ export default function BreathworkPro() {
 
       {/* Bottom controls */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg, maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
-        <BreathworkPlayer ref={playerRef} protocol="box" hideControls onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
+        <BreathworkPlayer ref={playerRef} protocol="box" hideControls hideHeader onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
         <View style={[styles.controlsRow, { gap: Math.max(12, maxContentWidth * 0.06) }]}>
           <Pressable onPress={handleStartPause} style={[styles.iconBtn, { backgroundColor: '#10B981', width: btnSize, height: btnSize, borderRadius: btnSize / 2 }]} accessibilityRole="button" accessibilityLabel={!running ? i18n.start : paused ? i18n.resume : i18n.pause}>
             <Ionicons name={!running ? 'play' : paused ? 'play' : 'pause'} size={Math.round(btnSize * 0.33)} color="#FFFFFF" />
