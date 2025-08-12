@@ -5,7 +5,7 @@ import type { BreathingPhase } from '@/components/breathwork/BreathworkPlayer';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-export default function BreathingWave({ phase, durationMs }: { phase: BreathingPhase; durationMs: number }) {
+export default function BreathingWave({ phase, durationMs, height = 60 }: { phase: BreathingPhase; durationMs: number; height?: number }) {
   const t = useSharedValue(0);
   const phaseSV = useSharedValue<0 | 1 | 2>(0); // 0: inhale, 1: hold, 2: exhale
 
@@ -17,26 +17,24 @@ export default function BreathingWave({ phase, durationMs }: { phase: BreathingP
 
   const animatedProps = useAnimatedProps(() => {
     'worklet';
-    const showTarget = t.value > 0.5;
-    let d = 'M 0 15 L 100 15';
-    if (showTarget) {
-      if (phaseSV.value === 0) {
-        // inhale
-        d = 'M 0 15 L 20 15 L 25 5 L 45 5 L 50 15 L 100 15';
-      } else if (phaseSV.value === 1) {
-        // hold
-        d = 'M 0 15 L 100 15';
-      } else {
-        // exhale
-        d = 'M 0 15 L 20 15 L 25 25 L 45 25 L 50 15 L 100 15';
-      }
-    }
+    const base = 15; // midline in viewBox
+    const ampMax = 10; // vertical excursion
+    const amp = ampMax * t.value; // grow within phase duration
+
+    let top = base;
+    if (phaseSV.value === 0) top = base - amp; // inhale: hill
+    else if (phaseSV.value === 2) top = base + amp; // exhale: valley
+    else top = base; // hold
+
+    // Build smooth symmetric cubic curve from left to right
+    const d = `M 0 ${base} C 25 ${base}, 25 ${top}, 50 ${top} S 75 ${base}, 100 ${base}`;
+
     return { d } as any;
   });
 
   return (
-    <Svg viewBox="0 0 100 30" width="100%" height={60}>
-      <AnimatedPath animatedProps={animatedProps} stroke="#14B8A6" strokeWidth={2} fill="none" />
+    <Svg viewBox="0 0 100 30" width="100%" height={height}>
+      <AnimatedPath animatedProps={animatedProps} stroke="#10B981" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" fill="none" />
     </Svg>
   );
 }

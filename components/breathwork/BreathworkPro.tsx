@@ -28,7 +28,7 @@ function BreathingVisualization({ label, instruction, scale, circleSize, ring1, 
 function formatTime(ms: number) {
   const totalSec = Math.floor(ms / 1000);
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60).padStart(2, '0');
+  const ss = String(totalSec % 60)).padStart(2, '0');
   return `${mm}:${ss}`;
 }
 
@@ -56,30 +56,23 @@ export default function BreathworkPro() {
     finish: language === 'tr' ? 'Bitir' : 'Finish',
     completed: language === 'tr' ? 'Tamamlandı' : 'Completed',
     progress: language === 'tr' ? 'İlerleme' : 'Progress',
-    breathwork: language === 'tr' ? 'Nefes' : 'Breathwork',
-    protocol: language === 'tr' ? 'Protokol' : 'Protocol',
   }), [language]);
 
-  // Visual animation scale
   const scale = useSharedValue(1);
-  // Session state
   const [phaseLabel, setPhaseLabel] = useState(i18n.ready);
   const [instruction, setInstruction] = useState(i18n.pressToStart);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  // Time and progress
-  const TOTAL_MS = 60_000; // 1 minute target session for progress bar
+  const TOTAL_MS = 60_000;
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Wave animation inputs
   const [currentPhase, setCurrentPhase] = useState<BreathingPhase>('inhale');
   const [phaseDurationMs, setPhaseDurationMs] = useState<number>(4000);
 
   const playerRef = useRef<BreathworkPlayerHandle>(null);
 
-  // Drive visual by phase changes
   const onPhaseChange = (p: BreathingPhase, ms: number) => {
     setCurrentPhase(p);
     setPhaseDurationMs(ms);
@@ -100,19 +93,16 @@ export default function BreathworkPro() {
     setPaused(false);
   };
 
-  // Elapsed timer when running
   useEffect(() => {
     if (!running || paused || completed) return;
     const id = setInterval(() => setElapsedMs((v) => Math.min(TOTAL_MS, v + 250)), 250);
     return () => clearInterval(id);
   }, [running, paused, completed]);
 
-  // Auto complete when reaching total
   useEffect(() => {
     if (elapsedMs >= TOTAL_MS && running) {
       handleFinish();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elapsedMs, running]);
 
   const handleStartPause = async () => {
@@ -166,21 +156,9 @@ export default function BreathworkPro() {
           <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
           {completed ? <Text style={styles.completed}>✓ {i18n.completed}</Text> : null}
         </View>
-
         <View style={{ width: '100%' }}>
-          <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} />
+          <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} height={70} />
         </View>
-
-        <View style={styles.metaRow}>
-          <View>
-            <Text style={styles.metaTitle}>{i18n.breathwork}</Text>
-            <Text style={styles.metaSubtitle}>{i18n.protocol}: BOX</Text>
-          </View>
-        </View>
-
-        <Pressable onPress={handleStartPause} style={[styles.phaseButton, { width: '100%' }]} accessibilityRole="button" accessibilityLabel={phaseLabel}>
-          <Text style={styles.phaseButtonText}>{phaseLabel}</Text>
-        </Pressable>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg, maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
@@ -225,11 +203,6 @@ const styles = StyleSheet.create({
   timerWrap: { alignItems: 'center', marginTop: Spacing.md },
   timer: { fontSize: 48, fontWeight: '300', color: '#0F172A' },
   completed: { marginTop: 6, color: '#10B981', fontWeight: '600' },
-  metaRow: { width: '100%', alignItems: 'flex-start' },
-  metaTitle: { fontSize: 24, fontWeight: '700', color: '#111827' },
-  metaSubtitle: { fontSize: 14, color: '#6B7280' },
-  phaseButton: { backgroundColor: '#F3F4F6', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: Spacing.sm },
-  phaseButtonText: { fontSize: 18, fontWeight: '700', color: '#111827' },
   controlsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   iconBtn: { alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   progressCard: { backgroundColor: '#F1F5F9', padding: 14, borderRadius: 16 },
