@@ -799,10 +799,7 @@ class SupabaseNativeService {
   async createCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord | null> {
     try {
       console.log('📝 Creating compulsion:', compulsion);
-      
-      // Ensure user exists in public.users table
-      await this.ensureUserProfileExists(compulsion.user_id);
-      
+      // User profile existence is ensured inside saveCompulsion; no need to duplicate here
       // Reuse saveCompulsion to avoid duplication
       const saved = await this.saveCompulsion(compulsion);
       console.log('✅ Compulsion created via saveCompulsion:', saved?.id);

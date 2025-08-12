@@ -587,7 +587,8 @@ export default function ERPScreen() {
                     // Auto-select this AI recommended exercise
                     const exerciseConfig = {
                       exerciseId: recommendation.exerciseId,
-                      exerciseType: 'in_vivo',
+                      // Use exercise type from recommendation (in_vivo/imaginal/interoceptive/response_prevention)
+                      exerciseType: recommendation.category,
                       duration: recommendation.estimatedDuration || 30,
                       targetAnxiety: 5,
                       personalGoal: `AI önerisi: ${recommendation.title}`,

@@ -70,18 +70,6 @@ export const ERP_CATEGORIES: ERPCategory[] = [
     ]
   },
   {
-    id: 'other',
-    title: 'Diğer (Zarar Korkuları vb.)',
-    icon: 'shield-alert',
-    color: '#F59E0B',
-    exercises: [
-      { id: 'other-1', name: 'Keskin eşya yakınında durma', duration: 5, difficulty: 4, category: 'other' },
-      { id: 'other-2', name: 'Araba kullanırken düşüncelere izin verme', duration: 30, difficulty: 5, category: 'other' },
-      { id: 'other-3', name: 'Yüksek yerlerden bakma', duration: 8, difficulty: 3, category: 'other' },
-      { id: 'other-4', name: 'Bebek/çocuk yakınında olma', duration: 15, difficulty: 5, category: 'other' }
-    ]
-  },
-  {
     id: 'mental',
     title: 'Zihinsel/Dini Kaygılar',
     icon: 'heart-outline',
@@ -90,6 +78,16 @@ export const ERP_CATEGORIES: ERPCategory[] = [
       { id: 'ment-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'mental' },
       { id: 'ment-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'mental' },
       { id: 'ment-3', name: 'Ahlaki şüpheleri kabul etme', duration: 12, difficulty: 4, category: 'mental' }
+    ]
+  },
+  {
+    id: 'hoarding',
+    title: 'Biriktirme',
+    icon: 'package-variant',
+    color: '#F59E0B',
+    exercises: [
+      { id: 'hoard-1', name: 'Gazete/dergi biriktirmemek', duration: 10, difficulty: 3, category: 'hoarding' },
+      { id: 'hoard-2', name: 'Eski eşyaları eleme', duration: 20, difficulty: 4, category: 'hoarding' },
     ]
   }
 ];

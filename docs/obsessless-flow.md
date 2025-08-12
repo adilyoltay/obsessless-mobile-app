@@ -1325,7 +1325,7 @@ interface EnhancedERPSessionLog {
   
   // Yeni veriler ⚠️
   compulsionUrges: CompulsionUrge[];
-  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   personalGoal: string;
   urgeResistanceRate: number; // Hesaplanan direnç yüzdesi
 }
