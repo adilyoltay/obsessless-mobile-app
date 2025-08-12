@@ -168,28 +168,8 @@ class VoiceRecognitionService {
       // Kayıt başlat
       this.recording = await audio.createRecording();
       
-      await this.recording.prepareAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: 2,
-          audioEncoder: 3,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: 2,
-          audioQuality: 2,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {}
-      });
+      const defaultOptions = await audio.getDefaultRecordingOptions();
+      await this.recording.prepareAsync(defaultOptions);
 
       await this.recording.startAsync();
       

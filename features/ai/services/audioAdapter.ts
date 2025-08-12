@@ -28,7 +28,7 @@ class AudioAdapter {
     try {
       // Attempt to load expo-audio (SDK 54+)
       this.AudioMod = await import('expo-audio').catch(() => null);
-      if (this.AudioMod && this.AudioMod.Audio) {
+      if (this.AudioMod && (this.AudioMod.Audio || this.AudioMod.Recording)) {
         this.impl = 'expo-audio';
         return;
       }
@@ -44,7 +44,6 @@ class AudioAdapter {
     if (this.impl === 'expo-av') {
       return this.AudioMod.Audio.requestPermissionsAsync();
     }
-    // expo-audio hypothetical permissions
     const perms = this.AudioMod.Audio?.requestPermissionsAsync || this.AudioMod.requestPermissionsAsync;
     return perms ? perms() : { granted: true };
   }
@@ -64,11 +63,9 @@ class AudioAdapter {
       const rec = new this.AudioMod.Audio.Recording();
       return new ExpoAVRecordingHandle(rec);
     }
-    // Generic minimal wrapper for expo-audio recording
     const Recorder = this.AudioMod.Audio?.Recording || this.AudioMod.Recording;
     if (Recorder) {
       const rec = new Recorder();
-      // Ensure method compat
       if (!rec.prepareAsync && rec.prepareToRecordAsync) {
         rec.prepareAsync = rec.prepareToRecordAsync.bind(rec);
       }
@@ -77,10 +74,18 @@ class AudioAdapter {
       }
       return rec as unknown as RecordingHandle;
     }
-    // Fallback to expo-av as last resort
     const av = await import('expo-av');
     const rec = new av.Audio.Recording();
     return new ExpoAVRecordingHandle(rec);
+  }
+
+  async getDefaultRecordingOptions(): Promise<any> {
+    if (!this.AudioMod) await this.initialize();
+    if (this.impl === 'expo-av') {
+      return this.AudioMod.Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY;
+    }
+    // expo-audio: let the module choose sensible defaults
+    return {};
   }
 }
 
