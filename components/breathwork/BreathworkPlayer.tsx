@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Protocol = 'box' | '478' | 'paced';
 
-const PROTOCOLS: Record<Protocol, { pattern: number[]; promptTR: string[] }> = {
-  box: { pattern: [4, 4, 4, 4], promptTR: ['Nefes al', 'Tut', 'Nefes ver', 'Bekle'] },
-  '478': { pattern: [4, 7, 8], promptTR: ['Nefes al (4)', 'Tut (7)', 'Nefes ver (8)'] },
-  paced: { pattern: [6, 6], promptTR: ['Nefes al (6)', 'Nefes ver (6)'] },
+type ProtocolDef = { pattern: number[]; promptTR: string[]; promptEN: string[] };
+
+const PROTOCOLS: Record<Protocol, ProtocolDef> = {
+  box: { pattern: [4, 4, 4, 4], promptTR: ['Nefes al', 'Tut', 'Nefes ver', 'Bekle'], promptEN: ['Inhale', 'Hold', 'Exhale', 'Hold'] },
+  '478': { pattern: [4, 7, 8], promptTR: ['Nefes al (4)', 'Tut (7)', 'Nefes ver (8)'], promptEN: ['Inhale (4)', 'Hold (7)', 'Exhale (8)'] },
+  paced: { pattern: [6, 6], promptTR: ['Nefes al (6)', 'Nefes ver (6)'], promptEN: ['Inhale (6)', 'Exhale (6)'] },
 };
 
 export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = true }: { protocol?: Protocol; tts?: boolean }) {
@@ -17,6 +20,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const { language } = useLanguage();
 
   useEffect(() => {
     return () => {
@@ -25,18 +29,21 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     };
   }, []);
 
+  const prompts = useMemo(() => {
+    const conf = PROTOCOLS[protocol];
+    return language === 'tr' ? conf.promptTR : conf.promptEN;
+  }, [protocol, language]);
+
   const speak = async (text: string) => {
     if (!tts) return;
-    await Speech.speak(text, { language: 'tr-TR', rate: 0.9 });
+    await Speech.speak(text, { language: language === 'tr' ? 'tr-TR' : 'en-US', rate: 0.9 });
   };
 
   const tick = async () => {
-    const conf = PROTOCOLS[protocol];
-    const prompts = conf.promptTR;
     const pIndex = step % prompts.length;
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await speak(prompts[pIndex]);
-    const durSec = conf.pattern[pIndex] || conf.pattern[conf.pattern.length - 1];
+    const durSec = PROTOCOLS[protocol].pattern[pIndex] || PROTOCOLS[protocol].pattern[PROTOCOLS[protocol].pattern.length - 1];
     timerRef.current = setTimeout(() => setStep(s => s + 1), durSec * 1000);
   };
 
@@ -74,15 +81,12 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  const phaseLabel = () => {
-    const p = PROTOCOLS[protocol].promptTR;
-    return p[step % p.length];
-  };
+  const phaseLabel = () => prompts[step % prompts.length];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Nefes Çalışması</Text>
-      <Text style={styles.subtitle}>Protokol: {protocol.toUpperCase()}</Text>
+      <Text style={styles.title}>{language === 'tr' ? 'Nefes Çalışması' : 'Breathwork'}</Text>
+      <Text style={styles.subtitle}>{language === 'tr' ? `Protokol: ${protocol.toUpperCase()}` : `Protocol: ${protocol.toUpperCase()}`}</Text>
 
       <View style={styles.timerCard} accessibilityLabel={`Aşama: ${phaseLabel()}`}>
         <Text style={styles.phase}>{phaseLabel()}</Text>
@@ -90,25 +94,25 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
 
       <View style={styles.actions}>
         {!running ? (
-          <Pressable onPress={start} style={[styles.button, styles.start]} accessibilityRole="button" accessibilityLabel="Başlat">
-            <Text style={styles.buttonText}>Başlat</Text>
+          <Pressable onPress={start} style={[styles.button, styles.start]} accessibilityRole="button" accessibilityLabel={language === 'tr' ? 'Başlat' : 'Start'}>
+            <Text style={styles.buttonText}>{language === 'tr' ? 'Başlat' : 'Start'}</Text>
           </Pressable>
         ) : paused ? (
           <>
-            <Pressable onPress={resume} style={[styles.button, styles.start]} accessibilityRole="button" accessibilityLabel="Devam Et">
-              <Text style={styles.buttonText}>Devam Et</Text>
+            <Pressable onPress={resume} style={[styles.button, styles.start]} accessibilityRole="button" accessibilityLabel={language === 'tr' ? 'Devam Et' : 'Resume'}>
+              <Text style={styles.buttonText}>{language === 'tr' ? 'Devam Et' : 'Resume'}</Text>
             </Pressable>
-            <Pressable onPress={stop} style={[styles.button, styles.stop]} accessibilityRole="button" accessibilityLabel="Bitir">
-              <Text style={styles.buttonText}>Bitir</Text>
+            <Pressable onPress={stop} style={[styles.button, styles.stop]} accessibilityRole="button" accessibilityLabel={language === 'tr' ? 'Bitir' : 'Finish'}>
+              <Text style={styles.buttonText}>{language === 'tr' ? 'Bitir' : 'Finish'}</Text>
             </Pressable>
           </>
         ) : (
           <>
-            <Pressable onPress={pause} style={[styles.button, styles.secondary]} accessibilityRole="button" accessibilityLabel="Duraklat">
-              <Text style={styles.buttonText}>Duraklat</Text>
+            <Pressable onPress={pause} style={[styles.button, styles.secondary]} accessibilityRole="button" accessibilityLabel={language === 'tr' ? 'Duraklat' : 'Pause'}>
+              <Text style={styles.buttonText}>{language === 'tr' ? 'Duraklat' : 'Pause'}</Text>
             </Pressable>
-            <Pressable onPress={stop} style={[styles.button, styles.stop]} accessibilityRole="button" accessibilityLabel="Bitir">
-              <Text style={styles.buttonText}>Bitir</Text>
+            <Pressable onPress={stop} style={[styles.button, styles.stop]} accessibilityRole="button" accessibilityLabel={language === 'tr' ? 'Bitir' : 'Finish'}>
+              <Text style={styles.buttonText}>{language === 'tr' ? 'Bitir' : 'Finish'}</Text>
             </Pressable>
           </>
         )}

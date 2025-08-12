@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Alert, AccessibilityInfo, ScrollView } from 'react-native';
 import { generateReframes } from '@/features/ai/services/reframeService';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { Modal } from '@/components/ui/Modal';
+import { saveUserData, loadUserData, StorageKeys } from '@/utils/storage';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Calm, step-by-step CBT Thought Record (3 steps)
 // Step 1: Automatic thought
@@ -19,6 +22,8 @@ const ALL_DISTORTIONS: Distortion[] = [
 ];
 
 export default function ThoughtRecordForm() {
+  const { user } = useAuth();
+  const { t, language } = useTranslation();
   const [step, setStep] = useState<1|2|3>(1);
 
   // Fields
@@ -33,6 +38,33 @@ export default function ThoughtRecordForm() {
   const [showReframe, setShowReframe] = useState(false);
   const [reframeLoading, setReframeLoading] = useState(false);
 
+  // Load draft on mount
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) return;
+      const draft = await loadUserData<any>(StorageKeys.THOUGHT_RECORD_DRAFT(user.id));
+      if (draft) {
+        setAutomaticThought(draft.automaticThought || '');
+        setEvidenceFor(draft.evidenceFor || '');
+        setEvidenceAgainst(draft.evidenceAgainst || '');
+        setDistortions(draft.distortions || []);
+        setNewView(draft.newView || '');
+      }
+    })();
+  }, [user?.id]);
+
+  // Auto-save draft
+  useEffect(() => {
+    const saveDraft = async () => {
+      if (!user?.id) return;
+      const payload = { automaticThought, evidenceFor, evidenceAgainst, distortions, newView, language };
+      await saveUserData(StorageKeys.THOUGHT_RECORD_DRAFT(user.id), payload);
+    };
+    // Debounce-like simple save
+    const id = setTimeout(saveDraft, 400);
+    return () => clearTimeout(id);
+  }, [automaticThought, evidenceFor, evidenceAgainst, distortions, newView, language, user?.id]);
+
   const canNext = useMemo(() => {
     if (step === 1) return automaticThought.trim().length >= 1;
     if (step === 2) return distortions.length >= 1;
@@ -44,7 +76,7 @@ export default function ThoughtRecordForm() {
       const has = prev.includes(d);
       const next = has ? prev.filter(x => x !== d) : [...prev, d];
       if (next.length > 3) {
-        Alert.alert('Uyarı', 'En fazla 3 bilişsel çarpıtma seçebilirsiniz.');
+        Alert.alert(t('general.error'), t('cbt.maxDistortions') || 'En fazla 3 bilişsel çarpıtma seçebilirsiniz.');
         return prev;
       }
       return next;
@@ -58,47 +90,61 @@ export default function ThoughtRecordForm() {
     try {
       const text = [automaticThought, evidenceFor, evidenceAgainst].filter(Boolean).join(' | ');
       await trackAIInteraction(AIEventType.REFRAME_STARTED, { distortions: distortions.length });
-      const out = await generateReframes({ text, lang: 'tr' });
+      const out = await generateReframes({ text, lang: language === 'tr' ? 'tr' : 'en' });
       setReframes(out.map(o => o.text));
       setShowReframe(true);
       await trackAIInteraction(AIEventType.REFRAME_COMPLETED, { suggestions: out.length });
-      AccessibilityInfo.announceForAccessibility('Yeni bakış açıları hazır');
+      AccessibilityInfo.announceForAccessibility(t('cbt.reframesReady') || 'Yeni bakış açıları hazır');
     } finally {
       setReframeLoading(false);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user?.id) return;
     if (!automaticThought.trim()) {
-      Alert.alert('Uyarı', 'Otomatik düşünce boş olamaz.');
+      Alert.alert(t('general.error'), t('cbt.autoThoughtRequired') || 'Otomatik düşünce boş olamaz.');
       return;
     }
-    if ((!evidenceFor.trim() || !evidenceAgainst.trim()) && distortions.length > 0) {
-      Alert.alert('Taslak Kaydedildi', 'Kanıt alanlarından biri boş. Taslak olarak kaydettik.');
-      return;
-    }
-    Alert.alert('Kaydedildi', 'Kayıt alındı.');
+
+    const record = {
+      id: `tr_${Date.now()}`,
+      automaticThought,
+      evidenceFor,
+      evidenceAgainst,
+      distortions,
+      newView,
+      language,
+      createdAt: new Date().toISOString()
+    };
+
+    // Append to local list
+    const key = StorageKeys.THOUGHT_RECORDS(user.id);
+    const prev = await loadUserData<any[]>(key) || [];
+    await saveUserData(key, [...prev, record]);
+
+    Alert.alert(t('general.success'), t('cbt.saved') || 'Kayıt alındı.');
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} accessibilityLabel="CBT düşünce kaydı formu">
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} accessibilityLabel={t('cbt.formLabel') || 'CBT düşünce kaydı formu'}>
       <View style={styles.header}>
-        <Text style={styles.title}>Nazikçe Düşünce Kaydı</Text>
-        <Text style={styles.subtitle}>Adım adım ilerleyelim. Dilediğin an durabilirsin.</Text>
-        <View style={styles.stepper}><Text style={styles.stepText}>Adım {step}/3</Text></View>
+        <Text style={styles.title}>{t('cbt.title') || 'Nazikçe Düşünce Kaydı'}</Text>
+        <Text style={styles.subtitle}>{t('cbt.subtitle') || 'Adım adım ilerleyelim. Dilediğin an durabilirsin.'}</Text>
+        <View style={styles.stepper}><Text style={styles.stepText}>{t('cbt.step', 'Adım')} {step}/3</Text></View>
       </View>
 
       {step === 1 && (
-        <View accessible accessibilityLabel="Adım 1: Otomatik düşünce">
-          <Text style={styles.label}>Otomatik Düşünce</Text>
-          <TextInput style={styles.input} value={automaticThought} onChangeText={setAutomaticThought} placeholder="Aklımdan geçen düşünce..." multiline maxLength={300} />
-          <Text style={styles.hint}>İpucu: Kısa ve net yazmak işini kolaylaştırır.</Text>
+        <View accessible accessibilityLabel={t('cbt.step1') || 'Adım 1: Otomatik düşünce'}>
+          <Text style={styles.label}>{t('cbt.autoThought') || 'Otomatik Düşünce'}</Text>
+          <TextInput style={styles.input} value={automaticThought} onChangeText={setAutomaticThought} placeholder={t('cbt.autoThoughtPh') || 'Aklımdan geçen düşünce...'} multiline maxLength={300} />
+          <Text style={styles.hint}>{t('cbt.hintShort') || 'İpucu: Kısa ve net yazmak işini kolaylaştırır.'}</Text>
         </View>
       )}
 
       {step === 2 && (
-        <View accessible accessibilityLabel="Adım 2: Çarpıtmalar ve kanıtlar">
-          <Text style={styles.label}>Bilişsel Çarpıtmalar (en fazla 3)</Text>
+        <View accessible accessibilityLabel={t('cbt.step2') || 'Adım 2: Çarpıtmalar ve kanıtlar'}>
+          <Text style={styles.label}>{t('cbt.distortions') || 'Bilişsel Çarpıtmalar (en fazla 3)'}</Text>
           <View style={styles.chips}>
             {ALL_DISTORTIONS.map(d => (
               <Pressable key={d} style={[styles.chip, distortions.includes(d) && styles.chipActive]} onPress={() => toggleDistortion(d)} accessibilityRole="button" accessibilityLabel={`Çarpıtma ${d.replace(/_/g,' ')}`}>
@@ -106,24 +152,24 @@ export default function ThoughtRecordForm() {
               </Pressable>
             ))}
           </View>
-          <Text style={styles.label}>Kanıtlar</Text>
-          <TextInput style={styles.input} value={evidenceFor} onChangeText={setEvidenceFor} placeholder="Bu düşünceyi destekleyen kanıtlar..." multiline maxLength={500} />
-          <Text style={styles.label}>Karşı Kanıtlar</Text>
-          <TextInput style={styles.input} value={evidenceAgainst} onChangeText={setEvidenceAgainst} placeholder="Bu düşünceye karşı kanıtlar..." multiline maxLength={500} />
+          <Text style={styles.label}>{t('cbt.evidenceFor') || 'Kanıtlar'}</Text>
+          <TextInput style={styles.input} value={evidenceFor} onChangeText={setEvidenceFor} placeholder={t('cbt.evidenceForPh') || 'Bu düşünceyi destekleyen kanıtlar...'} multiline maxLength={500} />
+          <Text style={styles.label}>{t('cbt.evidenceAgainst') || 'Karşı Kanıtlar'}</Text>
+          <TextInput style={styles.input} value={evidenceAgainst} onChangeText={setEvidenceAgainst} placeholder={t('cbt.evidenceAgainstPh') || 'Bu düşünceye karşı kanıtlar...'} multiline maxLength={500} />
         </View>
       )}
 
       {step === 3 && (
-        <View accessible accessibilityLabel="Adım 3: Yeni bakış açısı">
-          <Text style={styles.label}>Yeni Bakış Açım (≤140)</Text>
-          <TextInput style={styles.input} value={newView} onChangeText={(t)=> setNewView(t.slice(0,140))} placeholder="Nazik, gerçekçi ve kısa bir alternatif..." multiline maxLength={140} />
+        <View accessible accessibilityLabel={t('cbt.step3') || 'Adım 3: Yeni bakış açısı'}>
+          <Text style={styles.label}>{t('cbt.newView') || 'Yeni Bakış Açım (≤140)'}</Text>
+          <TextInput style={styles.input} value={newView} onChangeText={(tVal)=> setNewView(tVal.slice(0,140))} placeholder={t('cbt.newViewPh') || 'Nazik, gerçekçi ve kısa bir alternatif...'} multiline maxLength={140} />
           <Text style={styles.counter}>{newView.length}/140</Text>
           <View style={styles.reframeRow}>
-            <Pressable style={[styles.button, styles.secondary, reframeLoading && styles.disabled]} onPress={handleReframe} accessibilityRole="button" accessibilityLabel="Reframe önerisi al" disabled={reframeLoading}>
-              <Text style={styles.buttonText}>{reframeLoading ? 'Yükleniyor...' : 'Öneri Al'}</Text>
+            <Pressable style={[styles.button, styles.secondary, reframeLoading && styles.disabled]} onPress={handleReframe} accessibilityRole="button" accessibilityLabel={t('cbt.getReframe') || 'Reframe önerisi al'} disabled={reframeLoading}>
+              <Text style={styles.buttonText}>{reframeLoading ? (t('general.loading') || 'Yükleniyor...') : (t('cbt.getReframe') || 'Öneri Al')}</Text>
             </Pressable>
-            <Pressable style={[styles.button, styles.save]} onPress={handleSave} accessibilityRole="button" accessibilityLabel="Kaydet">
-              <Text style={styles.buttonText}>Kaydet</Text>
+            <Pressable style={[styles.button, styles.save]} onPress={handleSave} accessibilityRole="button" accessibilityLabel={t('general.save') || 'Kaydet'}>
+              <Text style={styles.buttonText}>{t('general.save') || 'Kaydet'}</Text>
             </Pressable>
           </View>
         </View>
@@ -131,21 +177,21 @@ export default function ThoughtRecordForm() {
 
       <View style={styles.navRow}>
         {step > 1 && (
-          <Pressable style={[styles.button, styles.secondary]} onPress={()=> setStep((s)=> (s-1) as any)} accessibilityRole="button" accessibilityLabel="Geri">
-            <Text style={styles.buttonText}>Geri</Text>
+          <Pressable style={[styles.button, styles.secondary]} onPress={()=> setStep((s)=> (s-1) as any)} accessibilityRole="button" accessibilityLabel={t('general.previous') || 'Geri'}>
+            <Text style={styles.buttonText}>{t('general.previous') || 'Geri'}</Text>
           </Pressable>
         )}
         {step < 3 && (
-          <Pressable style={[styles.button, canNext ? styles.next : styles.disabled]} disabled={!canNext} onPress={()=> setStep((s)=> (s+1) as any)} accessibilityRole="button" accessibilityLabel="İleri">
-            <Text style={styles.buttonText}>İleri</Text>
+          <Pressable style={[styles.button, canNext ? styles.next : styles.disabled]} disabled={!canNext} onPress={()=> setStep((s)=> (s+1) as any)} accessibilityRole="button" accessibilityLabel={t('general.next') || 'İleri'}>
+            <Text style={styles.buttonText}>{t('general.next') || 'İleri'}</Text>
           </Pressable>
         )}
       </View>
 
       <Modal visible={showReframe} onClose={() => setShowReframe(false)}>
-        <Text style={styles.modalTitle}>Kısa Alternatifler</Text>
+        <Text style={styles.modalTitle}>{t('cbt.altShort') || 'Kısa Alternatifler'}</Text>
         {reframes.map((r, i) => (
-          <Pressable key={i} onPress={()=> { setNewView(r); setShowReframe(false); }} accessibilityRole="button" accessibilityLabel={`Öneriyi seç: ${r}`}>
+          <Pressable key={i} onPress={()=> { setNewView(r); setShowReframe(false); }} accessibilityRole="button" accessibilityLabel={`${t('general.apply') || 'Uygula'}: ${r}`}>
             <Text style={styles.modalItem}>• {r}</Text>
           </Pressable>
         ))}

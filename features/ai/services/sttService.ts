@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 export type STTRequest = {
   uri: string;
@@ -22,6 +23,7 @@ class STTService {
       return this.googleTranscribe(req, googleKey);
     }
     // Not configured
+    await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'missing_api_key' });
     return null;
   }
 
@@ -47,11 +49,15 @@ class STTService {
         body: JSON.stringify(body)
       });
       if (!res.ok) {
-        throw new Error(`Google STT HTTP ${res.status}`);
+        await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'http_error', status: res.status });
+        return null;
       }
       const data = await res.json();
       const first = data?.results?.[0]?.alternatives?.[0];
-      if (!first?.transcript) return null;
+      if (!first?.transcript) {
+        await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'no_transcript' });
+        return null;
+      }
       return {
         text: String(first.transcript),
         confidence: typeof first.confidence === 'number' ? first.confidence : 0.7,
@@ -59,8 +65,8 @@ class STTService {
           .slice(1)
           .map((a: any) => ({ text: String(a.transcript || ''), confidence: a.confidence }))
       };
-    } catch (e) {
-      // Fail silently and let caller fallback
+    } catch (e: any) {
+      await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'exception', message: e?.message || 'unknown' });
       return null;
     }
   }
