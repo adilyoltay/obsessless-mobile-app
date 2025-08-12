@@ -13,19 +13,19 @@ create index if not exists breath_sessions_started_idx on public.breath_sessions
 
 alter table public.breath_sessions enable row level security;
 
-create policy if not exists "Users can insert own breath sessions"
+create policy "Users can insert own breath sessions"
   on public.breath_sessions for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists "Users can select own breath sessions"
+create policy "Users can select own breath sessions"
   on public.breath_sessions for select
   using (auth.uid() = user_id);
 
-create policy if not exists "Users can update own breath sessions"
+create policy "Users can update own breath sessions"
   on public.breath_sessions for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy if not exists "Users can delete own breath sessions"
+create policy "Users can delete own breath sessions"
   on public.breath_sessions for delete
   using (auth.uid() = user_id);
