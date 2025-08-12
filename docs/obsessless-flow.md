@@ -672,7 +672,7 @@ interface ERPSessionLog {
   exerciseName: string;
   category: string;
   categoryName: string;
-  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   durationSeconds: number;
   anxietyDataPoints: Array<{timestamp: number; level: number}>;
   anxietyInitial: number;
@@ -752,7 +752,7 @@ await checkAchievements('erp', {
 ```typescript
 interface ERPExerciseConfig {
   exerciseId: string;
-  exerciseType: 'real_life';
+  exerciseType: 'in_vivo';
   duration: number; // minutes
   targetAnxiety: number; // 1-10
   personalGoal: string;

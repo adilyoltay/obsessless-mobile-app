@@ -1107,10 +1107,10 @@ const ExerciseTypeStyles = {
 
 ```typescript
 const EXERCISE_TYPE_COLORS = {
-  real_life: '#10B981',      // Emerald green
-  imagination: '#8B5CF6',    // Purple
-  interoceptive: '#F59E0B',  // Amber
-  response_prevention: '#EF4444', // Red
+  in_vivo: '#10B981',            // Emerald green
+  imaginal: '#8B5CF6',           // Purple
+  interoceptive: '#F59E0B',      // Amber
+  response_prevention: '#EF4444' // Red
 };
 ```
 
@@ -1542,10 +1542,10 @@ const WizardColorPalette = {
   backgroundSecondary: '#F9FAFB', // Subtle off-white
   border: '#E5E7EB',        // Soft borders, non-intrusive
   
-  // Exercise Type Colors
-  realLife: '#10B981',       // Emerald - grounding, realistic
-  imagination: '#8B5CF6',    // Purple - creativity, mind
-  interoceptive: '#F59E0B',  // Amber - warmth, body awareness
+  // Exercise Type Colors (canonical)
+  inVivo: '#10B981',             // Emerald - grounding, realistic
+  imaginal: '#8B5CF6',           // Purple - creativity, mind
+  interoceptive: '#F59E0B',      // Amber - warmth, body awareness
   responsePrevention: '#EF4444', // Red - stopping, boundaries
 };
 ```
