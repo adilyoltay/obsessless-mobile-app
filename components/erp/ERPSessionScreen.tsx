@@ -70,7 +70,7 @@ interface ERPSessionScreenProps {
   exerciseId: string;
   exerciseName: string;
   targetDuration: number; // seconds
-  exerciseType?: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType?: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   initialAnxiety?: number;
   personalGoal?: string;
   category?: string;

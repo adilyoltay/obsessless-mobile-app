@@ -251,7 +251,8 @@ export default function TrackingScreen() {
         allResistances.push(entry.resistanceLevel || 0);
         
         if (entry.type) {
-          typeDistribution[entry.type] = (typeDistribution[entry.type] || 0) + 1;
+          const canonical = mapToCanonicalCategory(entry.type);
+          typeDistribution[canonical] = (typeDistribution[canonical] || 0) + 1;
         }
       });
       

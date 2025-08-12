@@ -191,7 +191,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       exerciseName: exerciseName || 'Unknown Exercise',
       category: category || 'general',
       categoryName: categoryName || 'Genel',
-      exerciseType: exerciseType || 'real_life',
+      exerciseType: exerciseType || 'in_vivo',
       durationSeconds: elapsedTime,
       anxietyDataPoints,
       anxietyInitial: initialAnxiety,

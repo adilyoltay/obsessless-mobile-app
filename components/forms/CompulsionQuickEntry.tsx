@@ -115,6 +115,7 @@ export function CompulsionQuickEntry({
       const compulsionData: Omit<CompulsionRecord, 'id' | 'timestamp'> = {
         user_id: user.id,
         category: selectedType,
+        subcategory: selectedType, // koru: orijinal etiket
         resistance_level: resistanceLevel,
         notes: notes.trim() || undefined,
       };

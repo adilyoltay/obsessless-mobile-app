@@ -30,7 +30,7 @@ interface ERPQuickStartProps {
 
 interface ERPExerciseConfig {
   exerciseId: string;
-  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   duration: number; // minutes
   targetAnxiety: number; // 1-10
   personalGoal: string;
@@ -103,7 +103,7 @@ export function ERPQuickStart({
 
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
-      exerciseType: 'real_life',
+      exerciseType: 'in_vivo',
       duration: duration,
       targetAnxiety: targetAnxiety,
       personalGoal: `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`,

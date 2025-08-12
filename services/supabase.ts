@@ -520,10 +520,10 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
-      // Map category to database-compatible format and store original as subcategory
+      // Map category to canonical and preserve original label in subcategory if provided
       const mappedCompulsion = {
         ...compulsion,
-        subcategory: compulsion.category, // Store original category as subcategory
+        subcategory: compulsion.subcategory ?? compulsion.category, // keep caller-provided subcategory if exists
         category: this.mapCategoryForDatabase(compulsion.category),
         timestamp: new Date().toISOString(),
       };
@@ -803,27 +803,10 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
-      // Map category to database-compatible format and store original as subcategory
-      const mappedCompulsion = {
-        ...compulsion,
-        subcategory: compulsion.category, // Store original category as subcategory
-        category: this.mapCategoryForDatabase(compulsion.category),
-        timestamp: new Date().toISOString(),
-      };
-      
-      const { data, error } = await this.client
-        .from('compulsions')
-        .insert([mappedCompulsion])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ Error creating compulsion:', error);
-        throw error;
-      }
-      
-      console.log('✅ Compulsion created:', data);
-      return data;
+      // Reuse saveCompulsion to avoid duplication
+      const saved = await this.saveCompulsion(compulsion);
+      console.log('✅ Compulsion created via saveCompulsion:', saved?.id);
+      return saved;
     } catch (error) {
       console.error('❌ Failed to create compulsion:', error);
       return null;
