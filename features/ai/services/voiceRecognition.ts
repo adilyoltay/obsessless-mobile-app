@@ -258,6 +258,9 @@ class VoiceRecognitionService {
         this.currentSession.transcriptions.push(mock);
         this.currentSession.state = VoiceRecognitionState.COMPLETED;
         await this.checkForCommands(mock.text);
+      } else {
+        // STT failed path
+        await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'no_result' });
       }
 
       // Oturumu bitir
@@ -267,6 +270,7 @@ class VoiceRecognitionService {
       // Remote summary (best-effort)
       try {
         const { supabaseService } = await import('@/services/supabase');
+        const { sanitizePII } = await import('@/utils/privacy');
         const user = supabaseService.getCurrentUser?.();
         if (user?.id) {
           await supabaseService.saveVoiceSessionSummary({

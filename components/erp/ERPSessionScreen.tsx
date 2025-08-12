@@ -28,6 +28,7 @@ import { router } from 'expo-router';
 import { Slider } from '@/components/ui/Slider';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import Button from '@/components/ui/Button';
+import BreathworkPlayer from '@/components/breathwork/BreathworkPlayer';
 
 // Stores
 import { useERPSessionStore } from '@/store/erpSessionStore';
@@ -107,6 +108,9 @@ export default function ERPSessionScreen({
   const [showUrgeBottomSheet, setShowUrgeBottomSheet] = useState(false);
   const [urgeStrength, setUrgeStrength] = useState(5);
   const [compulsionUrges, setCompulsionUrges] = useState<CompulsionUrge[]>([]);
+
+  // Breathwork Inline Modal State
+  const [showBreath, setShowBreath] = useState(false);
 
   // Animation values
   const pulseScale = useSharedValue(1);
@@ -520,7 +524,7 @@ export default function ERPSessionScreen({
 
       {/* Breathwork Shortcut */}
       <View style={{ paddingHorizontal: 32, marginBottom: 12 }}>
-        <Pressable onPress={() => router.push('/(tabs)/breathwork')} style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, padding: 12, alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Nefes egzersizi aç">
+        <Pressable onPress={() => setShowBreath(true)} style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, padding: 12, alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Nefes egzersizi aç">
           <Text style={{ color: '#047857', fontWeight: '600' }}>Nefes Egzersizi</Text>
         </Pressable>
       </View>
@@ -584,6 +588,14 @@ export default function ERPSessionScreen({
               <Text style={styles.urgeResponseButtonText}>🤲 Kendime şefkat gösteriyorum</Text>
             </Pressable>
           </View>
+        </View>
+      </BottomSheet>
+
+      {/* 🆕 Breathwork Inline Modal */}
+      <BottomSheet isVisible={showBreath} onClose={() => setShowBreath(false)}>
+        <View style={{ padding: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Nefes Egzersizi</Text>
+          <BreathworkPlayer />
         </View>
       </BottomSheet>
     </View>

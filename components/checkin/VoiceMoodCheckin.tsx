@@ -58,9 +58,10 @@ export default function VoiceMoodCheckin() {
       // Supabase sync (best-effort, privacy-first)
       try {
         const { supabaseService } = await import('@/services/supabase');
+        const { sanitizePII } = await import('@/utils/privacy');
         await supabaseService.saveVoiceCheckin({
           user_id: user.id,
-          text,
+          text: sanitizePII(text),
           mood: n.mood,
           trigger: n.trigger,
           confidence: n.confidence,
