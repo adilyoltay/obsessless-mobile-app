@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
@@ -15,7 +15,15 @@ const PROTOCOLS: Record<Protocol, ProtocolDef> = {
   paced: { pattern: [6, 6], promptTR: ['Nefes al (6)', 'Nefes ver (6)'], promptEN: ['Inhale (6)', 'Exhale (6)'] },
 };
 
-export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = true }: { protocol?: Protocol; tts?: boolean }) {
+export type BreathingPhase = 'inhale' | 'hold' | 'exhale';
+
+function mapPhase(protocol: Protocol, index: number): BreathingPhase {
+  if (protocol === 'box') return [ 'inhale','hold','exhale','hold' ][index % 4] as BreathingPhase;
+  if (protocol === '478') return [ 'inhale','hold','exhale' ][index % 3] as BreathingPhase;
+  return [ 'inhale','exhale' ][index % 2] as BreathingPhase;
+}
+
+export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = true, onPhaseChange, onRunningChange }: { protocol?: Protocol; tts?: boolean; onPhaseChange?: (p: BreathingPhase, ms: number) => void; onRunningChange?: (running: boolean) => void }) {
   const [step, setStep] = useState(0);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -29,10 +37,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     };
   }, []);
 
-  const prompts = useMemo(() => {
-    const conf = PROTOCOLS[protocol];
-    return language === 'tr' ? conf.promptTR : conf.promptEN;
-  }, [protocol, language]);
+  const prompts = language === 'tr' ? PROTOCOLS[protocol].promptTR : PROTOCOLS[protocol].promptEN;
 
   const speak = async (text: string) => {
     if (!tts) return;
@@ -41,9 +46,15 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
 
   const tick = async () => {
     const pIndex = step % prompts.length;
+    const phase = mapPhase(protocol, pIndex);
+    const durSec = PROTOCOLS[protocol].pattern[pIndex] || PROTOCOLS[protocol].pattern[PROTOCOLS[protocol].pattern.length - 1];
+
+    // notify phase change for UI animations
+    try { onPhaseChange?.(phase, durSec * 1000); } catch {}
+
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await speak(prompts[pIndex]);
-    const durSec = PROTOCOLS[protocol].pattern[pIndex] || PROTOCOLS[protocol].pattern[PROTOCOLS[protocol].pattern.length - 1];
+
     timerRef.current = setTimeout(() => setStep(s => s + 1), durSec * 1000);
   };
 
@@ -51,6 +62,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     setRunning(true);
     setPaused(false);
     setStep(0);
+    try { onRunningChange?.(true); } catch {}
     await trackAIInteraction(AIEventType.BREATH_STARTED, { protocol });
     await tick();
   };
@@ -71,6 +83,7 @@ export default function BreathworkPlayer({ protocol = 'box' as Protocol, tts = t
     setRunning(false);
     setPaused(false);
     if (timerRef.current) clearTimeout(timerRef.current);
+    try { onRunningChange?.(false); } catch {}
     Speech.stop();
     trackAIInteraction(AIEventType.BREATH_COMPLETED, { protocol }).catch(() => {});
   };
