@@ -234,24 +234,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }
   };
 
-  const playSound = async (type: 'start' | 'stop') => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        type === 'start' 
-          ? require('@/assets/sounds/voice-start.mp3')
-          : require('@/assets/sounds/voice-stop.mp3'),
-        { shouldPlay: true }
-      );
-      
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
-    } catch (error) {
-      // Ses dosyası yoksa sessizce devam et
-      console.log('Sound playback skipped:', error);
-    }
+  const playSound = async (_type: 'start' | 'stop') => {
+    // Ses dosyaları projeye eklenmediği için sessiz geç
+    return;
   };
 
   const getStateIcon = () => {
