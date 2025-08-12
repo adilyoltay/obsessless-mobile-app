@@ -210,6 +210,11 @@ export enum AIEventType {
   REFRAME_STARTED = 'reframe_started',
   REFRAME_COMPLETED = 'reframe_completed',
   DISTORTION_SELECTED = 'distortion_selected'
+  // Missing events added for stability
+  ,
+  INSIGHTS_FEEDBACK = 'insights_feedback',
+  INTERVENTION_RECOMMENDED = 'intervention_recommended',
+  YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed'
 }
 
 /**
