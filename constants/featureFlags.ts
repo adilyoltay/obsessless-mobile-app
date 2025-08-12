@@ -102,6 +102,16 @@ const featureFlagState: Record<string, boolean> = {
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
   AI_CRISIS_DETECTION: false, // Removed from system
   
+  // 🔀 LLM Flags (aliases → AI master)
+  LLM_ROUTER: AI_MASTER_ENABLED,
+  LLM_REFRAME: AI_MASTER_ENABLED,
+  LLM_COACH_ADAPT: AI_MASTER_ENABLED,
+  LLM_PDF_SUMMARY: AI_MASTER_ENABLED,
+  
+  // ⏰ JITAI granular flags
+  JITAI_TIME: AI_MASTER_ENABLED,
+  JITAI_GEOFENCE: false,
+  
   // 📝 Prompt Logging (sanitized) – geçici debugging toggle
   AI_PROMPT_LOGGING: !!AI_PROMPT_LOGGING_ENV,
   

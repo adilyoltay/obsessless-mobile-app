@@ -169,6 +169,34 @@ export enum AIEventType {
   ,
   // Insights data insufficiency
   INSIGHTS_DATA_INSUFFICIENT = 'insights_data_insufficient'
+  ,
+  // Sprint 1: Voice mood check-in
+  CHECKIN_STARTED = 'checkin_started',
+  CHECKIN_COMPLETED = 'checkin_completed',
+  STT_FAILED = 'stt_failed',
+  ROUTE_SUGGESTED = 'route_suggested',
+  
+  // Sprint 2: JITAI + ERP coach
+  JITAI_TRIGGER_FIRED = 'jitai_trigger_fired',
+  ERP_SESSION_STARTED = 'erp_session_started',
+  ERP_SESSION_FINISHED = 'erp_session_finished',
+  GUARDRAIL_TRIGGERED = 'guardrail_triggered',
+  
+  // Sprint 2: Compulsion quick entry
+  COMPULSION_PROMPTED = 'compulsion_prompted',
+  COMPULSION_LOGGED = 'compulsion_logged',
+  COMPULSION_DISMISSED = 'compulsion_dismissed',
+  COMPULSION_SNOOZED = 'compulsion_snoozed',
+  
+  // Sprint 2: Relapse window
+  RELAPSE_WINDOW_DETECTED = 'relapse_window_detected',
+  PROACTIVE_PROMPT_CLICKED = 'proactive_prompt_clicked',
+  
+  // Sprint 1: PDF export
+  PDF_GENERATED = 'pdf_generated',
+  PDF_SHARED = 'pdf_shared',
+  PDF_CANCELLED = 'pdf_cancelled',
+  PDF_ERROR = 'pdf_error'
 }
 
 /**
