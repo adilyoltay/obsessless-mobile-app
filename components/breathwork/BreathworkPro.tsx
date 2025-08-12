@@ -45,6 +45,8 @@ export default function BreathworkPro() {
     finish: language === 'tr' ? 'Bitir' : 'Finish',
     completed: language === 'tr' ? 'Tamamlandı' : 'Completed',
     progress: language === 'tr' ? 'İlerleme' : 'Progress',
+    breathwork: language === 'tr' ? 'Nefes' : 'Breathwork',
+    protocol: language === 'tr' ? 'Protokol' : 'Protocol',
   }), [language]);
 
   // Visual animation scale
@@ -138,7 +140,7 @@ export default function BreathworkPro() {
   const progress = Math.round((elapsedMs / TOTAL_MS) * 100);
 
   return (
-    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
+    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}> {/* white bg */}
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={styles.header} />
 
@@ -148,10 +150,21 @@ export default function BreathworkPro() {
           <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
           {completed ? <Text style={styles.completed}>✓ {i18n.completed}</Text> : null}
         </View>
+
+        <View style={styles.metaRow}>
+          <View>
+            <Text style={styles.metaTitle}>{i18n.breathwork}</Text>
+            <Text style={styles.metaSubtitle}>{i18n.protocol}: BOX</Text>
+          </View>
+        </View>
+
+        <Pressable onPress={handleStartPause} style={styles.phaseButton} accessibilityRole="button" accessibilityLabel={phaseLabel}>
+          <Text style={styles.phaseButtonText}>{phaseLabel}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.bottom}>
-        <BreathworkPlayer ref={playerRef} hideControls onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
+        <BreathworkPlayer ref={playerRef} protocol="box" hideControls onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
         <View style={styles.controlsRow}>
           <Pressable onPress={handleStartPause} style={[styles.iconBtn, { backgroundColor: '#10B981' }]} accessibilityRole="button" accessibilityLabel={!running ? i18n.start : paused ? i18n.resume : i18n.pause}>
             <Ionicons name={!running ? 'play' : paused ? 'play' : 'pause'} size={28} color="#FFFFFF" />
@@ -181,24 +194,29 @@ export default function BreathworkPro() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { height: Spacing.lg },
-  main: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Sizes.buttonGap },
+  main: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Sizes.buttonGap, paddingHorizontal: Spacing.md },
   bottom: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.lg },
   vizContainer: { width: Sizes.outerRing1, height: Sizes.outerRing1, alignItems: 'center', justifyContent: 'center' },
-  outerRing1: { position: 'absolute', width: Sizes.outerRing1, height: Sizes.outerRing1, borderRadius: Sizes.outerRing1 / 2, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
-  outerRing2: { position: 'absolute', width: Sizes.outerRing2, height: Sizes.outerRing2, borderRadius: Sizes.outerRing2 / 2, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)' },
-  breathingCircle: { width: Sizes.breathingCircle, height: Sizes.breathingCircle, borderRadius: Sizes.breathingCircle / 2, overflow: 'hidden', backgroundColor: '#10B98122', alignItems: 'center', justifyContent: 'center' },
+  outerRing1: { position: 'absolute', width: Sizes.outerRing1, height: Sizes.outerRing1, borderRadius: Sizes.outerRing1 / 2, borderWidth: 8, borderColor: '#99F6E4' },
+  outerRing2: { position: 'absolute', width: Sizes.outerRing2, height: Sizes.outerRing2, borderRadius: Sizes.outerRing2 / 2, borderWidth: 8, borderColor: '#5EEAD4' },
+  breathingCircle: { width: Sizes.breathingCircle, height: Sizes.breathingCircle, borderRadius: Sizes.breathingCircle / 2, overflow: 'hidden', backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' },
   textOverlay: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
-  phaseText: { fontSize: 36, fontWeight: '300', color: '#0F172A', textAlign: 'center', marginBottom: Spacing.xs },
-  instructionText: { fontSize: 15, color: '#334155', textAlign: 'center' },
+  phaseText: { fontSize: 36, fontWeight: '700', color: '#115E59', textAlign: 'center', marginBottom: Spacing.xs },
+  instructionText: { fontSize: 16, color: '#0F766E', textAlign: 'center' },
   timerWrap: { alignItems: 'center', marginTop: Spacing.md },
-  timer: { fontSize: 46, fontWeight: '300', color: '#0F172A' },
+  timer: { fontSize: 48, fontWeight: '300', color: '#0F172A' },
   completed: { marginTop: 6, color: '#10B981', fontWeight: '600' },
-  controlsRow: { flexDirection: 'row', gap: 18, justifyContent: 'center', alignItems: 'center' },
-  iconBtn: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
-  progressCard: { backgroundColor: '#F1F5F9', padding: 14, borderRadius: 16 },
+  metaRow: { width: '100%', alignItems: 'flex-start' },
+  metaTitle: { fontSize: 24, fontWeight: '700', color: '#111827' },
+  metaSubtitle: { fontSize: 14, color: '#6B7280' },
+  phaseButton: { width: '100%', backgroundColor: '#F3F4F6', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: Spacing.sm },
+  phaseButtonText: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  controlsRow: { flexDirection: 'row', gap: 18, justifyContent: 'space-around', alignItems: 'center' },
+  iconBtn: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  progressCard: { backgroundColor: '#F1F5F9', padding: 14, borderRadius: 16, width: '100%' },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   progressLabel: { color: '#334155', fontWeight: '600' },
   progressPct: { color: '#334155', fontWeight: '600' },
-  progressTrack: { height: 8, borderRadius: 8, backgroundColor: '#E2E8F0', overflow: 'hidden' },
-  progressFill: { height: 8, backgroundColor: '#10B981' },
+  progressTrack: { height: 10, borderRadius: 10, backgroundColor: '#E5E7EB', overflow: 'hidden' },
+  progressFill: { height: 10, backgroundColor: '#10B981' },
 });
