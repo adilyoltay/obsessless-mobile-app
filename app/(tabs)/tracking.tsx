@@ -38,6 +38,7 @@ import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
 
 // Map app categories to database categories
 const mapCategoryToDatabase = (appCategory: string): string => {
@@ -559,6 +560,9 @@ export default function TrackingScreen() {
             year: 'numeric' 
           })}
         </Text>
+
+        {/* Voice Mood Check-in */}
+        <VoiceMoodCheckin />
 
         {/* Summary Stats Card */}
         <View style={styles.weekStatsCard}>
