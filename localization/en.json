@@ -269,5 +269,30 @@
     "tip3": "Regular ERP exercises will reduce your anxiety level over time.",
     "tip4": "Tracking compulsions helps you understand your triggers.",
     "tip5": "Be patient - recovery takes time and every small step matters."
+  },
+  "cbt": {
+    "title": "Gentle Thought Record",
+    "subtitle": "Let's proceed step by step. You can pause anytime.",
+    "formLabel": "CBT thought record form",
+    "step": "Step",
+    "step1": "Step 1: Automatic thought",
+    "step2": "Step 2: Distortions and evidence",
+    "step3": "Step 3: New balanced view",
+    "autoThought": "Automatic Thought",
+    "autoThoughtPh": "Thought on my mind...",
+    "hintShort": "Tip: Keeping it short and clear helps.",
+    "distortions": "Cognitive Distortions (max 3)",
+    "evidenceFor": "Evidence",
+    "evidenceForPh": "Evidence that supports this thought...",
+    "evidenceAgainst": "Counter Evidence",
+    "evidenceAgainstPh": "Evidence against this thought...",
+    "newView": "New Balanced View (≤140)",
+    "newViewPh": "Kind, realistic and short alternative...",
+    "getReframe": "Get Suggestion",
+    "altShort": "Short Alternatives",
+    "reframesReady": "New perspectives are ready",
+    "saved": "Saved.",
+    "autoThoughtRequired": "Automatic thought cannot be empty.",
+    "maxDistortions": "You can select at most 3 distortions."
   }
 } 
