@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import { router } from 'expo-router';
 import { generateReframes } from '@/features/ai/services/reframeService';
 import { Modal } from '@/components/ui/Modal';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 type SuggestionCardProps = {
   nlu: NLUResult;
@@ -35,6 +36,7 @@ function SuggestionCard({ nlu, onSelect, lowConfidence }: SuggestionCardProps) {
 }
 
 export default function VoiceMoodCheckin() {
+  const { user } = useAuth();
   const [transcript, setTranscript] = useState<string>('');
   const [nlu, setNlu] = useState<NLUResult | null>(null);
   const [tooShort, setTooShort] = useState<boolean>(false);
@@ -65,13 +67,17 @@ export default function VoiceMoodCheckin() {
       // Kişiselleştirilmiş egzersiz: erpRecommendationService ile almayı dene
       try {
         const { erpRecommendationService } = await import('@/features/ai/services/erpRecommendationService');
-        const { useAuth } = await import('@/contexts/SupabaseAuthContext');
-        // useAuth hook'u komponent düzeyinde; burada doğrudan kullanamıyoruz.
-        // Basit fallback: tematik id seçimi
-        const exerciseId = ['temizlik','kontrol'].includes(nlu?.trigger || '')
-          ? 'exposure_response_prevention'
-          : 'exposure_response_prevention';
-        router.push(`/erp-session?exerciseId=${exerciseId}`);
+        if (user?.id) {
+          const rec = await erpRecommendationService.getPersonalizedRecommendations(user.id);
+          const first = rec?.recommendedExercises?.[0]?.exerciseId;
+          if (first) {
+            router.push(`/erp-session?exerciseId=${encodeURIComponent(first)}`);
+            return;
+          }
+        }
+        // Fallback: tematik id seçimi
+        const fallbackExercise = 'exposure_response_prevention';
+        router.push(`/erp-session?exerciseId=${fallbackExercise}`);
       } catch {
         router.push('/erp-session?exerciseId=exposure_response_prevention');
       }
