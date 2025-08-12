@@ -31,6 +31,7 @@ export default function ThoughtRecordForm() {
   // Reframe modal
   const [reframes, setReframes] = useState<string[]>([]);
   const [showReframe, setShowReframe] = useState(false);
+  const [reframeLoading, setReframeLoading] = useState(false);
 
   const canNext = useMemo(() => {
     if (step === 1) return automaticThought.trim().length >= 1;
@@ -52,13 +53,19 @@ export default function ThoughtRecordForm() {
   };
 
   const handleReframe = async () => {
-    const text = [automaticThought, evidenceFor, evidenceAgainst].filter(Boolean).join(' | ');
-    await trackAIInteraction(AIEventType.REFRAME_STARTED, { distortions: distortions.length });
-    const out = await generateReframes({ text, lang: 'tr' });
-    setReframes(out.map(o => o.text));
-    setShowReframe(true);
-    await trackAIInteraction(AIEventType.REFRAME_COMPLETED, { suggestions: out.length });
-    AccessibilityInfo.announceForAccessibility('Yeni bakış açıları hazır');
+    if (reframeLoading) return;
+    setReframeLoading(true);
+    try {
+      const text = [automaticThought, evidenceFor, evidenceAgainst].filter(Boolean).join(' | ');
+      await trackAIInteraction(AIEventType.REFRAME_STARTED, { distortions: distortions.length });
+      const out = await generateReframes({ text, lang: 'tr' });
+      setReframes(out.map(o => o.text));
+      setShowReframe(true);
+      await trackAIInteraction(AIEventType.REFRAME_COMPLETED, { suggestions: out.length });
+      AccessibilityInfo.announceForAccessibility('Yeni bakış açıları hazır');
+    } finally {
+      setReframeLoading(false);
+    }
   };
 
   const handleSave = () => {
@@ -112,8 +119,8 @@ export default function ThoughtRecordForm() {
           <TextInput style={styles.input} value={newView} onChangeText={(t)=> setNewView(t.slice(0,140))} placeholder="Nazik, gerçekçi ve kısa bir alternatif..." multiline maxLength={140} />
           <Text style={styles.counter}>{newView.length}/140</Text>
           <View style={styles.reframeRow}>
-            <Pressable style={[styles.button, styles.secondary]} onPress={handleReframe} accessibilityRole="button" accessibilityLabel="Reframe önerisi al">
-              <Text style={styles.buttonText}>Öneri Al</Text>
+            <Pressable style={[styles.button, styles.secondary, reframeLoading && styles.disabled]} onPress={handleReframe} accessibilityRole="button" accessibilityLabel="Reframe önerisi al" disabled={reframeLoading}>
+              <Text style={styles.buttonText}>{reframeLoading ? 'Yükleniyor...' : 'Öneri Al'}</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.save]} onPress={handleSave} accessibilityRole="button" accessibilityLabel="Kaydet">
               <Text style={styles.buttonText}>Kaydet</Text>

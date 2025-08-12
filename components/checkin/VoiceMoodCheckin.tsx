@@ -71,20 +71,24 @@ export default function VoiceMoodCheckin() {
           const rec = await erpRecommendationService.getPersonalizedRecommendations(user.id);
           const first = rec?.recommendedExercises?.[0]?.exerciseId;
           if (first) {
+            await trackCheckinLifecycle('complete', { route: 'ERP', mood: nlu?.mood, trigger: nlu?.trigger });
             router.push(`/erp-session?exerciseId=${encodeURIComponent(first)}`);
             return;
           }
         }
         // Fallback: tematik id seçimi
         const fallbackExercise = 'exposure_response_prevention';
+        await trackCheckinLifecycle('complete', { route: 'ERP', mood: nlu?.mood, trigger: nlu?.trigger, fallback: true });
         router.push(`/erp-session?exerciseId=${fallbackExercise}`);
       } catch {
+        await trackCheckinLifecycle('complete', { route: 'ERP', mood: nlu?.mood, trigger: nlu?.trigger, error: 'recommendation_failed' });
         router.push('/erp-session?exerciseId=exposure_response_prevention');
       }
     } else {
       const suggestions = await generateReframes({ text: transcript, lang: (nlu?.lang || 'tr') as any });
       setReframes(suggestions.map(s => s.text));
       setShowReframe(true);
+      await trackCheckinLifecycle('complete', { route: 'REFRAME', mood: nlu?.mood, trigger: nlu?.trigger, suggestions: suggestions.length });
     }
   };
 

@@ -482,7 +482,7 @@ export class ContentFilterService {
    */
   private async logFilterResult(result: ContentFilterResult, message: AIMessage): Promise<void> {
     // Telemetry'ye log
-    await trackAIInteraction(AIEventType.API_ERROR, {
+    await trackAIInteraction(AIEventType.AI_CONTENT_FILTERED, {
       contentFilter: {
         allowed: result.allowed,
         severity: result.severity,
