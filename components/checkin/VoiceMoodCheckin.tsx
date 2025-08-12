@@ -122,7 +122,7 @@ export default function VoiceMoodCheckin() {
     <View style={styles.container}>
       <Text style={styles.title}>Sesli Check-in</Text>
       <VoiceInterface 
-        onTranscription={handleTranscription as any} 
+        onTranscription={handleTranscription} 
         onError={async () => { await trackCheckinLifecycle('stt_failed', { reason: 'interface_error' }); }}
         onStartListening={async () => { await trackCheckinLifecycle('start', { source: 'ui' }); }}
       />
