@@ -13,7 +13,8 @@ import {
   Pressable,
   Animated,
   AccessibilityInfo,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -26,6 +27,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StorageKeys } from '@/utils/storage';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 interface VoiceInterfaceProps {
   onTranscription: (result: TranscriptionResult) => void;
@@ -42,6 +46,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   style,
   onStartListening
 }) => {
+  const { user } = useAuth();
   const [state, setState] = useState<VoiceRecognitionState>(VoiceRecognitionState.IDLE);
   const [isListening, setIsListening] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
@@ -58,6 +63,34 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
     return null;
   }
+
+  const hasSTTConsent = async (): Promise<boolean> => {
+    try {
+      const key = StorageKeys.VOICE_CONSENT_STT(user?.id || 'anon');
+      const saved = await AsyncStorage.getItem(key);
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  const ensureSTTConsent = async (): Promise<boolean> => {
+    const consent = await hasSTTConsent();
+    if (consent) return true;
+    return new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Sesli İzin',
+        'Konuşmaların yazıya dökülmesi için mikrofon kullanımına izin veriyor musun? Bu işlem cihaz üzerinde yapılır.',
+        [
+          { text: 'Hayır', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Evet', style: 'default', onPress: async () => {
+            try { await AsyncStorage.setItem(StorageKeys.VOICE_CONSENT_STT(user?.id || 'anon'), 'true'); } catch {}
+            resolve(true);
+          }}
+        ]
+      );
+    });
+  };
 
   useEffect(() => {
     // Servisi başlat
@@ -165,6 +198,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     if (disabled || isListening) return;
 
     try {
+      const ok = await ensureSTTConsent();
+      if (!ok) return;
+
       setError(null);
       setTranscription('');
       setIsListening(true);
