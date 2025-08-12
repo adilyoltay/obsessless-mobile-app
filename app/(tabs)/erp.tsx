@@ -31,6 +31,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 interface ERPSession {
   id: string;
@@ -294,14 +295,24 @@ export default function ERPScreen() {
     await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
     
     // Store wizard configuration for session
+    const canonical = mapToCanonicalCategory(exerciseConfig.category);
+    const trLabels: Record<string, string> = {
+      contamination: 'Bulaşma/Temizlik',
+      checking: 'Kontrol',
+      symmetry: 'Simetri/Düzen',
+      mental: 'Zihinsel Ritüeller',
+      hoarding: 'Biriktirme',
+      other: 'Diğer',
+    };
+
     const sessionConfig = {
       exerciseId: exerciseConfig.exerciseId,
       exerciseType: exerciseConfig.exerciseType,
       duration: exerciseConfig.duration * 60, // Convert minutes to seconds
       targetAnxiety: exerciseConfig.targetAnxiety,
       personalGoal: exerciseConfig.personalGoal,
-      category: exerciseConfig.category,
-      categoryName: exerciseConfig.categoryName,
+      category: canonical,
+      categoryName: trLabels[canonical] || exerciseConfig.categoryName,
     };
     
     console.log('🚀 Navigating to ERP session with config:', sessionConfig);

@@ -17,6 +17,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys } from '@/utils/storage';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 const { width } = Dimensions.get('window');
 
@@ -90,6 +91,15 @@ export function ERPQuickStart({
     }
 
     const categoryInfo = getCategoriesByPopularity().find(c => c.id === selectedCategory);
+    const canonical = mapToCanonicalCategory(selectedCategory);
+    const trLabels: Record<string, string> = {
+      contamination: 'Bulaşma/Temizlik',
+      checking: 'Kontrol',
+      symmetry: 'Simetri/Düzen',
+      mental: 'Zihinsel Ritüeller',
+      hoarding: 'Biriktirme',
+      other: 'Diğer',
+    };
 
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
@@ -98,8 +108,8 @@ export function ERPQuickStart({
       targetAnxiety: targetAnxiety,
       personalGoal: `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`,
       selectedExercise: selectedExercise,
-      category: selectedCategory,
-      categoryName: categoryInfo?.title || 'Unknown',
+      category: canonical,
+      categoryName: trLabels[canonical] || (categoryInfo?.title ?? 'Unknown'),
     };
 
     console.log('📦 Exercise config:', config);

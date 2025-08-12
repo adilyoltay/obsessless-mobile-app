@@ -29,6 +29,8 @@ import { Slider } from '@/components/ui/Slider';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import Button from '@/components/ui/Button';
 import BreathworkPlayer from '@/components/breathwork/BreathworkPlayer';
+import { Badge } from '@/components/ui/Badge';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 // Stores
 import { useERPSessionStore } from '@/store/erpSessionStore';
@@ -431,7 +433,28 @@ export default function ERPSessionScreen({
         <Pressable onPress={handleAbandon} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={28} color="#6B7280" />
         </Pressable>
-        <Text style={styles.exerciseTitle}>{exerciseName}</Text>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={styles.exerciseTitle}>{exerciseName}</Text>
+          {category ? (
+            <Badge 
+              text={((): string => {
+                const canonical = mapToCanonicalCategory(category!);
+                const trLabels: Record<string, string> = {
+                  contamination: 'Bulaşma/Temizlik',
+                  checking: 'Kontrol',
+                  symmetry: 'Simetri/Düzen',
+                  mental: 'Zihinsel Ritüeller',
+                  hoarding: 'Biriktirme',
+                  other: 'Diğer',
+                };
+                return trLabels[canonical] || 'Kategori';
+              })()}
+              variant="info"
+              size="small"
+              style={{ marginTop: 6 }}
+            />
+          ) : null}
+        </View>
         <View style={{ width: 28 }} />
       </View>
 

@@ -40,21 +40,8 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
 
-// Map app categories to database categories
-const mapCategoryToDatabase = (appCategory: string): string => {
-  const categoryMap: { [key: string]: string } = {
-    'washing': 'contamination',
-    'checking': 'harm',
-    'counting': 'symmetry',
-    'ordering': 'symmetry',
-    'hoarding': 'hoarding',
-    'religious': 'religious',
-    'sexual': 'sexual',
-    'other': 'contamination', // Default fallback
-  };
-  
-  return categoryMap[appCategory] || 'contamination';
-};
+// Kanonik kategori eşlemesi
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 interface CompulsionEntry {
   id: string;
@@ -318,8 +305,8 @@ export default function TrackingScreen() {
       try {
         await supabaseService.saveCompulsion({
           user_id: user.id,
-          category: mapCategoryToDatabase(compulsionData.type), // Use mapping function
-          subcategory: compulsionData.type, // Store original type as subcategory
+          category: mapToCanonicalCategory(compulsionData.type), // kanonik kategori
+          subcategory: compulsionData.type, // orijinal değer etiket olarak
           resistance_level: compulsionData.resistanceLevel,
           trigger: compulsionData.trigger || '',
           notes: compulsionData.notes || '',

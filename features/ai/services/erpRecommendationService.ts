@@ -23,6 +23,7 @@ import {
 
 // ERP Exercise Data
 import { ERP_EXERCISES } from '@/constants/erpExercises';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 // Telemetry
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -488,7 +489,7 @@ class ERPRecommendationService {
                 description: ex.description,
                 difficulty: ex.difficulty,
                 estimatedDuration: ex.duration,
-                category: ex.category,
+                category: ex.category, // exercise type (in_vivo/imaginal...) ayrı eksen
                 targetSymptoms: ex.targetCompulsion,
                 instructions: ex.instructions,
                 safetyNotes: ex.safetyNotes || [],
@@ -518,7 +519,7 @@ class ERPRecommendationService {
       description: exercise.description,
       difficulty: exercise.difficulty,
       estimatedDuration: exercise.duration,
-      category: exercise.category,
+      category: exercise.category, // exercise type
       targetSymptoms: exercise.targetCompulsion,
       instructions: exercise.instructions,
       safetyNotes: exercise.safetyNotes || [],

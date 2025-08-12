@@ -1,4 +1,5 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
@@ -507,33 +508,9 @@ class SupabaseNativeService {
   // ===========================
 
   private mapCategoryForDatabase(category: string): string {
-    // Map frontend categories to database-compatible categories
-    // Database valid categories: 'contamination', 'harm', 'symmetry', 'religious', 'sexual', 'hoarding'
-    const categoryMapping: Record<string, string> = {
-      // Direct mappings
-      'washing': 'contamination',
-      'cleaning': 'contamination',
-      'checking': 'harm',
-      'counting': 'symmetry',
-      'ordering': 'symmetry',
-      'arranging': 'symmetry',
-      'hoarding': 'hoarding',
-      'religious': 'religious',
-      
-      // Mental rituals -> religious (closest match)
-      'mental': 'religious',
-      
-      // Additional mappings
-      'repeating': 'symmetry',
-      'touching': 'contamination',
-      'avoidance': 'harm',
-      'reassurance': 'harm',
-      
-      // Default/Other
-      'other': 'hoarding'
-    };
-    
-    return categoryMapping[category] || 'contamination';
+    // Yeni strateji: Tüm uygulama kategorilerini kanonik OKB kategorilerine indirger
+    // ve DB tarafında bu kanonik değerleri kullanır.
+    return mapToCanonicalCategory(category);
   }
 
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {

@@ -1,8 +1,8 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export type TranslationKey = string;
-
 export function useTranslation() {
   const { t, language } = useLanguage();
-  return { t, language };
+  // Expose relaxed signature for component convenience
+  const tr = ((key: string, fallback?: string) => t(key as any, fallback)) as (k: string, f?: string) => string;
+  return { t: tr, language };
 } 

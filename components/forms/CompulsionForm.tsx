@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Text, Card, Button, TextInput, HelperText } from 'react-native-paper';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 import { Picker, PickerItem } from '@/components/ui/Picker';
 import Slider from '@react-native-community/slider';
 import { useCreateCompulsion } from '@/hooks/useCompulsions';
@@ -95,6 +96,23 @@ export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void })
               />
             ))}
           </Picker>
+
+          {formData.type ? (
+            <HelperText type="info" visible>
+              {(() => {
+                const canonical = mapToCanonicalCategory(formData.type);
+                const trLabels: Record<string, string> = {
+                  contamination: 'Kanonik Kategori: Bulaşma/Temizlik',
+                  checking: 'Kanonik Kategori: Kontrol',
+                  symmetry: 'Kanonik Kategori: Simetri/Düzen',
+                  mental: 'Kanonik Kategori: Zihinsel Ritüeller',
+                  hoarding: 'Kanonik Kategori: Biriktirme',
+                  other: 'Kanonik Kategori: Diğer',
+                };
+                return trLabels[canonical] || 'Kanonik Kategori: Diğer';
+              })()}
+            </HelperText>
+          ) : null}
 
           {/* Frequency */}
           <Text variant="bodyMedium" style={styles.label}>
