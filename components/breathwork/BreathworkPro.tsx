@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import BreathworkPlayer, { BreathingPhase, BreathworkPlayerHandle } from '@/components/breathwork/BreathworkPlayer';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
+import BreathingWave from '@/components/breathing/BreathingWave';
 
 function BreathingVisualization({ label, instruction, scale }: { label: string; instruction: string; scale: Animated.SharedValue<number> }) {
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -62,10 +63,16 @@ export default function BreathworkPro() {
   const TOTAL_MS = 60_000; // 1 minute target session for progress bar
   const [elapsedMs, setElapsedMs] = useState(0);
 
+  // Wave animation inputs
+  const [currentPhase, setCurrentPhase] = useState<BreathingPhase>('inhale');
+  const [phaseDurationMs, setPhaseDurationMs] = useState<number>(4000);
+
   const playerRef = useRef<BreathworkPlayerHandle>(null);
 
   // Drive visual by phase changes
   const onPhaseChange = (p: BreathingPhase, ms: number) => {
+    setCurrentPhase(p);
+    setPhaseDurationMs(ms);
     setPhaseLabel(p === 'inhale' ? i18n.inhale : p === 'hold' ? i18n.hold : i18n.exhale);
     setInstruction(
       p === 'inhale'
@@ -150,6 +157,8 @@ export default function BreathworkPro() {
           <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
           {completed ? <Text style={styles.completed}>✓ {i18n.completed}</Text> : null}
         </View>
+
+        <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} />
 
         <View style={styles.metaRow}>
           <View>
