@@ -854,15 +854,21 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
+      if (!config?.apiKey || !config?.baseURL || !config?.model) {
+        const err = new Error('Gemini configuration missing');
+        (err as any).code = AIErrorCode.NO_PROVIDER_AVAILABLE;
+        throw err;
+      }
       const hasAbort = typeof AbortController !== 'undefined';
       const controller = hasAbort ? new AbortController() : undefined;
       const timeoutId = hasAbort ? setTimeout(() => (controller as any)?.abort(), config.timeout) : undefined;
       // Normalize messages to Gemini format defensively
       const safeMessages = Array.isArray(request?.messages) ? (request.messages as any[]).filter(Boolean) : [];
-      const normalizedContents = safeMessages.map((m: any) => ({
-        role: (m?.role === 'assistant' ? 'model' : 'user') || 'user',
-        parts: [{ text: String(m?.content ?? '') }]
-      }));
+      const normalizedContents = safeMessages.map((m: any) => {
+        const role = (m && m.role) ? (m.role === 'assistant' ? 'model' : 'user') : 'user';
+        const text = (m && m.content != null) ? String(m.content) : '';
+        return { role, parts: [{ text }] };
+      });
       // Ensure at least one message is sent
       const contentsToSend = normalizedContents.length > 0
         ? normalizedContents
@@ -882,10 +888,16 @@ class ExternalAIService {
       if (hasAbort && controller) {
         fetchOptions.signal = (controller as any).signal;
       }
-      const response = await fetch(
-        `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
-        fetchOptions
-      );
+      let response: any;
+      try {
+        response = await fetch(
+          `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
+          fetchOptions
+        );
+      } catch (netErr) {
+        if (__DEV__) console.warn('⚠️ Gemini network error at fetch():', netErr);
+        throw netErr;
+      }
       if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
 
       if (!response.ok) {
@@ -894,7 +906,13 @@ class ExternalAIService {
         throw err;
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        if (__DEV__) console.warn('⚠️ Gemini response.json() parse error:', parseErr);
+        throw parseErr;
+      }
       
       return {
         success: true,
