@@ -863,6 +863,8 @@ class ExternalAIService {
     const startTime = Date.now();
 
     try {
+      // Normalize request object
+      const req: any = request && typeof request === 'object' ? request : {};
       if (!config?.apiKey || !config?.baseURL || !config?.model) {
         const err = new Error('Gemini configuration missing');
         (err as any).code = AIErrorCode.NO_PROVIDER_AVAILABLE;
@@ -872,7 +874,7 @@ class ExternalAIService {
       const controller = hasAbort ? new AbortController() : undefined;
       const timeoutId = hasAbort ? setTimeout(() => (controller as any)?.abort(), config.timeout) : undefined;
       // Normalize messages to Gemini format defensively
-      const safeMessages = Array.isArray(request?.messages) ? (request.messages as any[]).filter(Boolean) : [];
+      const safeMessages = Array.isArray(req.messages) ? (req.messages as any[]).filter(Boolean) : [];
       const normalizedContents = safeMessages.map((m: any) => {
         const role = (m && m.role) ? (m.role === 'assistant' ? 'model' : 'user') : 'user';
         const text = (m && m.content != null) ? String(m.content) : '';
@@ -889,8 +891,8 @@ class ExternalAIService {
         body: JSON.stringify({
           contents: contentsToSend,
           generationConfig: {
-            temperature: (request && request.temperature) != null ? request.temperature : config.temperature,
-            maxOutputTokens: (request && request.maxTokens) != null ? request.maxTokens : config.maxTokens
+            temperature: (req && req.temperature) != null ? req.temperature : config.temperature,
+            maxOutputTokens: (req && req.maxTokens) != null ? req.maxTokens : config.maxTokens
           }
         })
       };
@@ -939,8 +941,8 @@ class ExternalAIService {
       };
 
     } catch (error) {
-      console.error('❌ Gemini API call failed:', error);
-      const err = new Error('Gemini API call failed');
+      if (__DEV__) console.error('❌ Gemini API call failed:', error);
+      const err = new Error(`Gemini API call failed${(error as any)?.message ? `: ${(error as any).message}` : ''}`);
       (err as any).code = AIErrorCode.PROVIDER_ERROR;
       (err as any).severity = ErrorSeverity.HIGH;
       (err as any).recoverable = true;
