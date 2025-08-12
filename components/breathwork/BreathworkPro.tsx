@@ -76,7 +76,7 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
 
-  const TOTAL_MS = totalDurationMs;
+  const TOTAL_MS = Math.max(1, totalDurationMs);
   const [elapsedMs, setElapsedMs] = useState(0);
 
   const [currentPhase, setCurrentPhase] = useState<BreathingPhase>('inhale');
@@ -179,7 +179,7 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const progress = Math.round((elapsedMs / TOTAL_MS) * 100);
+  const progress = Math.max(0, Math.min(100, Math.round((Math.max(0, Math.min(elapsedMs, TOTAL_MS)) / TOTAL_MS) * 100)));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>

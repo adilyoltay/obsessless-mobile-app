@@ -539,6 +539,7 @@ export function AIProvider({ children }: AIProviderProps) {
    */
   // Simple cooldown to avoid rapid re-execution/rate-limit: 60s
   const lastInsightsRef = React.useRef<number>(0);
+  const insightsInFlightRef = React.useRef<boolean>(false);
 
   const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
@@ -585,7 +586,12 @@ export function AIProvider({ children }: AIProviderProps) {
       }];
     }
 
+    if (insightsInFlightRef.current) {
+      if (__DEV__) console.warn('⚠️ Insights workflow already in progress');
+      return [];
+    }
     try {
+      insightsInFlightRef.current = true;
       // Build enriched behavioral data for today if present in storage
       const today = new Date().toDateString();
       const compulsionsKey = `compulsions_${user.id}`;
@@ -667,6 +673,8 @@ export function AIProvider({ children }: AIProviderProps) {
     } catch (error) {
       if (__DEV__) console.error('❌ Error generating insights:', error);
       return [];
+    } finally {
+      insightsInFlightRef.current = false;
     }
   }, [user?.id, userProfile, treatmentPlan, isOnline]);
 

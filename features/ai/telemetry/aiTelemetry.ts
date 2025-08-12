@@ -217,6 +217,9 @@ export enum AIEventType {
   YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed'
 }
 
+// Build a runtime set for event validation (after enum declaration)
+const VALID_EVENT_TYPES: Set<string> = new Set<string>(Object.values(AIEventType));
+
 /**
  * Telemetry event base interface
  */
@@ -350,8 +353,8 @@ class AITelemetryManager {
     userId?: string
   ): Promise<void> {
     // Guard: enforce valid event type
-    if (!eventType || typeof eventType !== 'string') {
-      if (__DEV__) console.warn('⚠️ Telemetry eventType missing/invalid, dropping event');
+    if (!eventType || typeof eventType !== 'string' || (VALID_EVENT_TYPES.size && !VALID_EVENT_TYPES.has(eventType))) {
+      if (__DEV__) console.warn('⚠️ Telemetry eventType missing/invalid, dropping event:', eventType);
       return;
     }
     // Feature flag kontrolü FIRST
