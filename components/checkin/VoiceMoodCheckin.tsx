@@ -43,8 +43,9 @@ export default function VoiceMoodCheckin() {
   useEffect(() => {
     if (nlu) {
       const route = decideRoute(nlu);
-      const eventType: AIEventType = (AIEventType as any).SUGGESTION_SHOWN ?? AIEventType.ROUTE_SUGGESTED;
-      trackAIInteraction(eventType, { feature: 'route_card', route, mood: nlu.mood, trigger: nlu.trigger }).catch(() => {});
+      // Use SUGGESTION_SHOWN when available; else log ROUTE_SUGGESTED only once
+      trackAIInteraction(AIEventType.SUGGESTION_SHOWN, { feature: 'route_card', route, mood: nlu.mood, trigger: nlu.trigger })
+        .catch(() => trackAIInteraction(AIEventType.ROUTE_SUGGESTED, { feature: 'route_card', route, mood: nlu.mood, trigger: nlu.trigger }));
     }
   }, [nlu]);
 
