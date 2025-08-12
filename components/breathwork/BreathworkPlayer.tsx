@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -58,11 +58,23 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
   const prompts = language === 'tr' ? PROTOCOLS[protocol].promptTR : PROTOCOLS[protocol].promptEN;
 
   // Safe TTS helper (Speech.speak is fire-and-forget)
-  const speak = (text: string) => {
+  const speak = async (text: string) => {
     try {
       if (!tts) return;
+      // Avoid iOS Siri voice asset warnings: ensure a voice exists
+      let voiceId: string | undefined;
+      try {
+        const voices = await (Speech as any).getAvailableVoicesAsync?.();
+        const targetLocale = language === 'tr' ? 'tr-TR' : 'en-US';
+        const match = Array.isArray(voices) ? voices.find((v: any) => v?.language === targetLocale) : undefined;
+        voiceId = match?.identifier;
+        if (Platform.OS === 'ios' && !voiceId && Array.isArray(voices) && voices.length === 0) {
+          // No voices installed; skip TTS to avoid SiriTTSService warnings
+          return;
+        }
+      } catch {}
       Speech.stop();
-      Speech.speak(text, { language: language === 'tr' ? 'tr-TR' : 'en-US', rate: 0.9 });
+      Speech.speak(text, { language: language === 'tr' ? 'tr-TR' : 'en-US', rate: 0.9, voice: voiceId });
     } catch (e) {
       console.warn('TTS speak error', e);
     }
