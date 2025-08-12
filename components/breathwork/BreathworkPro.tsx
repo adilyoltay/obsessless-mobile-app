@@ -28,7 +28,7 @@ function BreathingVisualization({ label, instruction, scale, circleSize, ring1, 
 function formatTime(ms: number) {
   const totalSec = Math.floor(ms / 1000);
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-  const ss = String(totalSec % 60)).padStart(2, '0');
+  const ss = String(totalSec % 60).padStart(2, '0');
   return `${mm}:${ss}`;
 }
 
