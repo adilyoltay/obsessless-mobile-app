@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, StatusBar, Text, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, StatusBar, Text, Pressable, useWindowDimensions, ScrollView } from 'react-native';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import { Spacing, Sizes } from '@/constants/DesignSystem';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -33,14 +33,15 @@ function formatTime(ms: number) {
 }
 
 export default function BreathworkPro() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const maxContentWidth = Math.min(width, 500);
-  // dynamic sizes
-  const circleSize = Math.min(maxContentWidth * 0.7, 360);
+  // responsive sizes (cap by height too)
+  const circleSize = Math.min(maxContentWidth * 0.7, height * 0.33, 360);
   const ring1 = circleSize + 24;
   const ring2 = circleSize + 48;
-  const btnSize = Math.max(68, Math.min(96, maxContentWidth * 0.22));
+  const btnSize = Math.max(64, Math.min(92, maxContentWidth * 0.22));
+  const waveHeight = Math.max(56, Math.min(90, height * 0.09));
 
   const { language } = useLanguage();
   const i18n = useMemo(() => ({
@@ -150,16 +151,15 @@ export default function BreathworkPro() {
     <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <View style={[styles.main, { maxWidth: maxContentWidth, alignSelf: 'center' }]}>
+      <ScrollView contentContainerStyle={[styles.main, { maxWidth: maxContentWidth, alignSelf: 'center', alignItems: 'center' }]}>
         <BreathingVisualization label={phaseLabel} instruction={instruction} scale={scale} circleSize={circleSize} ring1={ring1} ring2={ring2} />
         <View style={styles.timerWrap}>
           <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
-          {completed ? <Text style={styles.completed}>✓ {i18n.completed}</Text> : null}
         </View>
         <View style={{ width: '100%' }}>
-          <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} height={70} />
+          <BreathingWave phase={currentPhase} durationMs={phaseDurationMs} height={waveHeight} />
         </View>
-      </View>
+      </ScrollView>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.lg, maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <BreathworkPlayer ref={playerRef} protocol="box" hideControls onPhaseChange={onPhaseChange} onRunningChange={onRunningChange} />
@@ -191,7 +191,7 @@ export default function BreathworkPro() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  main: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Sizes.buttonGap, paddingHorizontal: Spacing.md },
+  main: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
   bottom: { paddingHorizontal: Spacing.md, gap: Spacing.lg },
   vizContainer: { alignItems: 'center', justifyContent: 'center' },
   outerRing1: { position: 'absolute', borderWidth: 8, borderColor: '#99F6E4' },
@@ -200,9 +200,8 @@ const styles = StyleSheet.create({
   textOverlay: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.lg },
   phaseText: { fontSize: 36, fontWeight: '700', color: '#115E59', textAlign: 'center', marginBottom: Spacing.xs },
   instructionText: { fontSize: 16, color: '#0F766E', textAlign: 'center' },
-  timerWrap: { alignItems: 'center', marginTop: Spacing.md },
+  timerWrap: { alignItems: 'center' },
   timer: { fontSize: 48, fontWeight: '300', color: '#0F172A' },
-  completed: { marginTop: 6, color: '#10B981', fontWeight: '600' },
   controlsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   iconBtn: { alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   progressCard: { backgroundColor: '#F1F5F9', padding: 14, borderRadius: 16 },
