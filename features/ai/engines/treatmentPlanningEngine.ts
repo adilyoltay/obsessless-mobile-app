@@ -443,7 +443,7 @@ class AdaptiveTreatmentPlanningEngine {
 
           const aiResp = await externalAIService.getAIResponse([
             { role: 'user', content: prompt }
-          ], { therapeuticProfile: userProfile as any, assessmentMode: false }, { therapeuticMode: true, maxTokens: 500, temperature: 0.3 });
+          ], ({ therapeuticProfile: userProfile as any, assessmentMode: false } as any) || ({} as any), { therapeuticMode: true, maxTokens: 500, temperature: 0.3 });
 
           if (aiResp.success && aiResp.content) {
             await trackAIInteraction(AIEventType.AI_RESPONSE_GENERATED, {

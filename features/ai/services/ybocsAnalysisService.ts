@@ -248,7 +248,7 @@ class YBOCSAnalysisService {
 
       const aiResp = await externalAIService.getAIResponse(
         [{ role: 'user', content: prompt }],
-        { therapeuticProfile: userContext?.profile, assessmentMode: true } as any,
+        ({ therapeuticProfile: userContext?.profile, assessmentMode: true } as any) || ({} as any),
         { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
       );
 

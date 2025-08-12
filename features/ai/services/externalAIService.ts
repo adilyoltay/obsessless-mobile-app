@@ -381,7 +381,7 @@ class ExternalAIService {
   /**
    * PII'yi sanitize et - CRITICAL SECURITY FUNCTION
    */
-  private sanitizeSensitiveData(messages: AIMessage[], context: ConversationContext): {
+  private sanitizeSensitiveData(messages: AIMessage[] = [], context?: ConversationContext): {
     sanitizedMessages: AIMessage[];
     sanitizedContext: any;
     piiDetected: boolean;
@@ -451,11 +451,12 @@ class ExternalAIService {
     });
 
     // Sanitize context (remove sensitive metadata)
+    const baseContext: any = context && typeof context === 'object' ? context : {};
     const sanitizedContext: any = {
-      ...context,
+      ...baseContext,
       // Remove potentially sensitive fields
-      userMetadata: (context as any).userMetadata ? {
-        ...(context as any).userMetadata,
+      userMetadata: (baseContext as any).userMetadata ? {
+        ...(baseContext as any).userMetadata,
         email: undefined,
         phone: undefined,
         fullName: undefined,
@@ -463,8 +464,8 @@ class ExternalAIService {
       } : undefined,
       
       // Keep therapeutic context but sanitize personal details
-      therapeuticProfile: (context as any).therapeuticProfile ? {
-        ...(context as any).therapeuticProfile,
+      therapeuticProfile: (baseContext as any).therapeuticProfile ? {
+        ...(baseContext as any).therapeuticProfile,
         personalDetails: undefined, // Remove personal details
         contactInfo: undefined, // Remove contact info
         emergencyContacts: undefined // Remove emergency contacts
@@ -653,8 +654,8 @@ class ExternalAIService {
    * AI'dan yanıt al - Ana metod (Cache & Rate Limiting ile)
    */
   async getAIResponse(
-    messages: AIMessage[],
-    context: ConversationContext,
+    messages: AIMessage[] = [],
+    context: ConversationContext = {} as any,
     config?: AIRequestConfig,
     userId?: string
   ): Promise<EnhancedAIResponse> {
@@ -671,7 +672,15 @@ class ExternalAIService {
 
     try {
       // 🔒 CRITICAL: PII Sanitization FIRST
-      const { sanitizedMessages, sanitizedContext, piiDetected } = this.sanitizeSensitiveData(messages, context);
+      const hasContext = !!context && typeof context === 'object' && Object.keys(context).length > 0;
+      if (!hasContext) {
+        // Non-blocking telemetry to detect regressions where context is omitted
+        trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'missing_context_for_ai_request'
+        }, userId).catch(() => {});
+      }
+
+      const { sanitizedMessages, sanitizedContext, piiDetected } = this.sanitizeSensitiveData(messages || [], context || ({} as any));
       
       if (piiDetected) {
         if (__DEV__) console.warn('🔒 PII detected and sanitized before AI request');

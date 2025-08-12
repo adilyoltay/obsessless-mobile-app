@@ -451,7 +451,7 @@ class ERPRecommendationService {
 
         const aiResponse = await externalAIService.getAIResponse(
           [ { id: `erp_${Date.now()}`, role: 'user', content: prompt, timestamp: new Date() } ],
-          (context as any),
+          ((context as any) || ({} as any)),
           { therapeuticMode: true, maxTokens: 400, temperature: 0.2 },
           ((context as any)?.userId)
         );

@@ -612,7 +612,7 @@ class InsightsEngineV2 {
       
       const aiResponse = await externalAIService.getAIResponse(
         [{ role: 'user', content: insightPrompt }],
-        this.createMockConversationContext(context),
+        (this.createMockConversationContext(context) || ({} as any)),
         {
           therapeuticMode: true,
           temperature: 0.6,
