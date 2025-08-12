@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
 import { simpleNLU, trackCheckinLifecycle, trackRouteSuggested, NLUResult, decideRoute } from '@/features/ai/services/checkinService';
@@ -15,13 +15,11 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 
 function SuggestionCard({ nlu, onSelect, lowConfidence }: { nlu: NLUResult; onSelect: (route: 'ERP'|'REFRAME') => void; lowConfidence?: boolean; }) {
-  const title = nlu.trigger === 'temizlik' ? 'ERP: Temizlik Tetkik' : nlu.trigger === 'kontrol' ? 'ERP: Kontrol' : 'Bilişsel Çerçeveleme';
-  const description = nlu.trigger === 'temizlik'
-    ? 'Kademeli maruz bırakma ile rahatlamayı erteleme pratiği'
-    : nlu.trigger === 'kontrol'
-      ? 'Kontrol davranışını azaltma ve belirsizliğe tolerans'
-      : 'Düşünceyi yeniden çerçeveleme ile hızlı rahatlama önerisi';
-  const route = nlu.mood <= 50 || ['temizlik','kontrol'].includes(nlu.trigger) ? 'ERP' : 'REFRAME';
+  const route = decideRoute(nlu);
+  const title = route === 'ERP' ? (nlu.trigger === 'temizlik' ? 'ERP: Temizlik Tetkik' : 'ERP: Kontrol') : 'Bilişsel Çerçeveleme';
+  const description = route === 'ERP'
+    ? (nlu.trigger === 'temizlik' ? 'Kademeli maruz bırakma ile rahatlamayı erteleme pratiği' : 'Kontrol davranışını azaltma ve belirsizliğe tolerans')
+    : 'Düşünceyi yeniden çerçeveleme ile hızlı rahatlama önerisi';
   return (
     <Card style={styles.card}>
       <Text style={styles.cardTitle}>{title} {lowConfidence && <Text style={styles.badge}>Düşük Güven</Text>}</Text>
@@ -57,6 +55,7 @@ export default function VoiceMoodCheckin() {
       const prev = (await loadUserData<CheckinPersist[]>(key)) || [];
       const next = [...prev, item].slice(-50);
       await saveUserData(key, next);
+      // TODO: Supabase sync (privacy-first with user consent)
     } catch { /* ignore */ }
   };
 
@@ -71,7 +70,6 @@ export default function VoiceMoodCheckin() {
     const n = simpleNLU(res.text);
     setNlu(n);
     if ((res.confidence ?? 0) < 0.6) setLowConfidence(true);
-    // Kalıcılaştır
     await persistCheckin(res.text, n);
   };
 

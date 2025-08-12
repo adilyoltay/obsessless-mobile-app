@@ -123,6 +123,16 @@ export default function ThoughtRecordForm() {
     const prev = await loadUserData<any[]>(key) || [];
     await saveUserData(key, [...prev, record]);
 
+    // TODO: Supabase sync (privacy-first; send minimal fields)
+
+    // Clear draft and reset form
+    await saveUserData(StorageKeys.THOUGHT_RECORD_DRAFT(user.id), null as any);
+    setAutomaticThought('');
+    setEvidenceFor('');
+    setEvidenceAgainst('');
+    setDistortions([]);
+    setNewView('');
+
     Alert.alert(t('general.success'), t('cbt.saved') || 'Kayıt alındı.');
   };
 

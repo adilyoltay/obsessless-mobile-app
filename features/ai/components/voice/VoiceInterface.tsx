@@ -220,6 +220,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       } else {
         setError('Ses tanınamadı');
         setState(VoiceRecognitionState.ERROR);
+        try { onError?.(new Error('stt_no_result')); } catch {}
       }
     } catch (err) {
       console.error('Stop listening error:', err);
