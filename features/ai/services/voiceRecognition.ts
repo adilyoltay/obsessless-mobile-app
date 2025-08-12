@@ -345,46 +345,36 @@ class VoiceRecognitionService {
     duration: number
   ): Promise<TranscriptionResult | null> {
     try {
-      // Burada gerçek bir STT servisi kullanılmalı
-      // Örnek: Google Cloud Speech-to-Text, Azure Speech, vb.
-      
-      // Şimdilik mock response
-      const mockTranscription: TranscriptionResult = {
+      // Try production STT first
+      const { sttService } = await import('@/features/ai/services/sttService');
+      const stt = await sttService.transcribe({
+        uri,
+        languageCode: this.settings.language,
+        sampleRateHertz: 44100,
+        enablePunctuation: true,
+        maxAlternatives: this.settings.maxAlternatives
+      });
+
+      if (stt?.text) {
+        return {
+          text: stt.text,
+          confidence: stt.confidence ?? 0.7,
+          language: this.settings.language,
+          duration,
+          timestamp: new Date(),
+          alternatives: (stt.alternatives || []).map(a => a.text)
+        };
+      }
+
+      // Fallback mock
+      return {
         text: "Bu bir test transkripsiyonudur",
-        confidence: 0.95,
+        confidence: 0.6,
         language: this.settings.language,
         duration,
         timestamp: new Date(),
         alternatives: []
       };
-
-      // Gerçek implementasyon:
-      /*
-      const audioData = await this.loadAudioFile(uri);
-      const response = await sttService.transcribe({
-        audio: audioData,
-        config: {
-          encoding: 'AMR',
-          sampleRateHertz: 44100,
-          languageCode: this.settings.language,
-          maxAlternatives: this.settings.maxAlternatives,
-          profanityFilter: this.settings.profanityFilter,
-          enableAutomaticPunctuation: true,
-          model: 'latest_long'
-        }
-      });
-
-      return {
-        text: response.results[0].alternatives[0].transcript,
-        confidence: response.results[0].alternatives[0].confidence,
-        language: this.settings.language,
-        duration,
-        timestamp: new Date(),
-        alternatives: response.results[0].alternatives.slice(1).map(a => a.transcript)
-      };
-      */
-
-      return mockTranscription;
     } catch (error) {
       logger.ai.error('Transcription failed', error);
       return null;

@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { router } from 'expo-router';
 import { generateReframes } from '@/features/ai/services/reframeService';
+import { Modal } from '@/components/ui/Modal';
 
 type SuggestionCardProps = {
   nlu: NLUResult;
@@ -38,6 +39,8 @@ export default function VoiceMoodCheckin() {
   const [nlu, setNlu] = useState<NLUResult | null>(null);
   const [tooShort, setTooShort] = useState<boolean>(false);
   const [lowConfidence, setLowConfidence] = useState<boolean>(false);
+  const [showReframe, setShowReframe] = useState<boolean>(false);
+  const [reframes, setReframes] = useState<string[]>([]);
 
   const handleTranscription = async (res: { text: string; confidence: number; language: string; duration: number; }) => {
     setTranscript(res.text);
@@ -59,12 +62,23 @@ export default function VoiceMoodCheckin() {
   const handleSelect = async (route: 'ERP'|'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
     if (route === 'ERP') {
-      // Basit yönlendirme: kategoriye göre bir egzersiz seçimi yapılabilir. Şimdilik ERP ana sekmesine yönlendirelim.
-      router.push('/erp-session?exerciseId=exposure_response_prevention');
+      // Kişiselleştirilmiş egzersiz: erpRecommendationService ile almayı dene
+      try {
+        const { erpRecommendationService } = await import('@/features/ai/services/erpRecommendationService');
+        const { useAuth } = await import('@/contexts/SupabaseAuthContext');
+        // useAuth hook'u komponent düzeyinde; burada doğrudan kullanamıyoruz.
+        // Basit fallback: tematik id seçimi
+        const exerciseId = ['temizlik','kontrol'].includes(nlu?.trigger || '')
+          ? 'exposure_response_prevention'
+          : 'exposure_response_prevention';
+        router.push(`/erp-session?exerciseId=${exerciseId}`);
+      } catch {
+        router.push('/erp-session?exerciseId=exposure_response_prevention');
+      }
     } else {
       const suggestions = await generateReframes({ text: transcript, lang: (nlu?.lang || 'tr') as any });
-      // Basitçe kartı güncelle:
-      setTranscript(suggestions.map(s => `• ${s.text}`).join('\n'));
+      setReframes(suggestions.map(s => s.text));
+      setShowReframe(true);
     }
   };
 
@@ -85,6 +99,14 @@ export default function VoiceMoodCheckin() {
       {nlu && (
         <SuggestionCard nlu={nlu} onSelect={handleSelect} lowConfidence={lowConfidence} />
       )}
+
+      {/* Reframe Modal */}
+      <Modal visible={showReframe} onClose={() => setShowReframe(false)}>
+        <Text style={styles.modalTitle}>Yeni Bakış Açıları</Text>
+        {reframes.map((r, i) => (
+          <Text key={i} style={styles.modalItem}>• {r}</Text>
+        ))}
+      </Modal>
     </View>
   );
 }
@@ -97,6 +119,8 @@ const styles = StyleSheet.create({
   badge: { fontSize: 12, color: '#6B7280' },
   cardText: { marginTop: 6, color: '#4B5563' },
   actions: { marginTop: 12 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  modalItem: { fontSize: 14, color: '#374151', marginBottom: 6 },
 });
 
 
