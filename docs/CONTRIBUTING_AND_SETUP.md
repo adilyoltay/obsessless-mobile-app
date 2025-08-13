@@ -2,13 +2,15 @@
 
 ## Kurulum
 1. Node 20 / PNPM veya NPM
-2. `cp .env.example .env` ve gerekli env değerlerini doldurun:
+2. `.env.example` → `.env.local` kopyalayın ve gerekli env değerlerini doldurun (commit ETMEYİN):
    - EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
    - EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
+   - EXPO_PUBLIC_GOOGLE_STT_API_KEY, EXPO_PUBLIC_ELEVENLABS_API_KEY
+   - EXPO_PUBLIC_SENTRY_DSN
    - EXPO_PUBLIC_ENABLE_AI=true (master switch)
    - EXPO_PUBLIC_ENABLE_AI_CHAT=false (opsiyonel; şu an dormant)
 3. Bağımlılıklar: `npm i`
-4. Geliştirme: `npm run start`
+4. Geliştirme: `npm run start` (app.config.ts ortam değişkenlerini okur)
 
 ## Feature Flags (Kısa Kılavuz)
 - Kontrol: `FEATURE_FLAGS.isEnabled('AI_INSIGHTS')`

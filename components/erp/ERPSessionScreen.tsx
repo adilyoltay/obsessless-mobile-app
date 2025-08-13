@@ -31,6 +31,7 @@ import Button from '@/components/ui/Button';
 import BreathworkPlayer from '@/components/breathwork/BreathworkPlayer';
 import { Badge } from '@/components/ui/Badge';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Stores
 import { useERPSessionStore } from '@/store/erpSessionStore';
@@ -92,6 +93,7 @@ export default function ERPSessionScreen({
   onAbandon,
 }: ERPSessionScreenProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const {
     isActive,
     elapsedTime,
@@ -439,15 +441,7 @@ export default function ERPSessionScreen({
             <Badge 
               text={((): string => {
                 const canonical = mapToCanonicalCategory(category!);
-                const trLabels: Record<string, string> = {
-                  contamination: 'Bulaşma/Temizlik',
-                  checking: 'Kontrol',
-                  symmetry: 'Simetri/Düzen',
-                  mental: 'Zihinsel Ritüeller',
-                  hoarding: 'Biriktirme',
-                  other: 'Diğer',
-                };
-                return trLabels[canonical] || 'Kategori';
+                return t('categoriesCanonical.' + canonical, 'Kategori');
               })()}
               variant="info"
               size="small"

@@ -3,6 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Card, Chip, IconButton, Surface } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COMPULSION_TYPES, getResistanceLevel } from '@/constants/compulsions';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface CompulsionEntry {
   id: string;
@@ -21,6 +23,7 @@ interface Props {
 }
 
 export function CompulsionCard({ entry, onEdit, onDelete, showActions = true }: Props) {
+  const { t } = useTranslation();
   const compulsionType = COMPULSION_TYPES.find(type => type.id === entry.type);
   const resistanceInfo = getResistanceLevel(entry.resistanceLevel);
 
@@ -83,7 +86,9 @@ export function CompulsionCard({ entry, onEdit, onDelete, showActions = true }: 
                 />
             </Surface>
             <View style={styles.typeInfo}>
-              <Text style={styles.typeName}>{compulsionType?.title || 'Bilinmeyen'}</Text>
+              <Text style={styles.typeName}>
+                {t('categoriesCanonical.' + mapToCanonicalCategory(entry.type), compulsionType?.title || 'Bilinmeyen')}
+              </Text>
               <Text style={styles.timestamp}>{formatTimestamp(entry.timestamp)}</Text>
             </View>
           </View>

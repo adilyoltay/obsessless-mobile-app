@@ -11,11 +11,14 @@
 
 2. **Environment Variables Kullanın**
    ```bash
-   # .env.local dosyası oluşturun
+   # .env.local dosyası oluşturun (commit etmeyin)
    EXPO_PUBLIC_SUPABASE_URL=your_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key
    EXPO_PUBLIC_GEMINI_API_KEY=your_key
    EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
+   EXPO_PUBLIC_GOOGLE_STT_API_KEY=your_key
+   EXPO_PUBLIC_ELEVENLABS_API_KEY=your_key
+   EXPO_PUBLIC_SENTRY_DSN=your_dsn
    ```
 
 3. **Git'e Eklemeyin**
@@ -83,6 +86,7 @@ const apiKey = Deno.env.get('GEMINI_API_KEY')
 3. **Obfuscation**
    - Production build'lerde kod obfuscation
    - API endpoint'lerini gizleyin
+   - app.json yerine app.config.ts + env kullanın
 
 ### 🔍 Security Monitoring
 

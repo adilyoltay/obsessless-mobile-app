@@ -77,6 +77,14 @@
       "progress": "İlerleme"
     }
   },
+  "categoriesCanonical": {
+    "contamination": "Bulaşma/Temizlik",
+    "checking": "Kontrol Etme",
+    "symmetry": "Simetri/Düzen",
+    "mental": "Zihinsel Ritüeller",
+    "hoarding": "Biriktirme",
+    "other": "Diğer"
+  },
   "compulsions": {
     "compulsion": "Kompülsiyon",
     "compulsions": "Kompülsiyonlar",

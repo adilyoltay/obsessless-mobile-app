@@ -71,7 +71,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'other',
-    title: 'Diğer (Zarar Korkuları vb.)',
+    title: 'Diğer',
     icon: 'help-circle',
     color: '#6B7280',
     exercises: [

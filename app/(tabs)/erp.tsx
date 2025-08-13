@@ -296,14 +296,6 @@ export default function ERPScreen() {
     
     // Store wizard configuration for session
     const canonical = mapToCanonicalCategory(exerciseConfig.category);
-    const trLabels: Record<string, string> = {
-      contamination: 'Bulaşma/Temizlik',
-      checking: 'Kontrol',
-      symmetry: 'Simetri/Düzen',
-      mental: 'Zihinsel Ritüeller',
-      hoarding: 'Biriktirme',
-      other: 'Diğer',
-    };
 
     const sessionConfig = {
       exerciseId: exerciseConfig.exerciseId,
@@ -312,7 +304,7 @@ export default function ERPScreen() {
       targetAnxiety: exerciseConfig.targetAnxiety,
       personalGoal: exerciseConfig.personalGoal,
       category: canonical,
-      categoryName: trLabels[canonical] || exerciseConfig.categoryName,
+      categoryName: t('categoriesCanonical.' + canonical, exerciseConfig.categoryName),
     };
     
     console.log('🚀 Navigating to ERP session with config:', sessionConfig);
@@ -625,7 +617,7 @@ export default function ERPScreen() {
                         ⏱️ {recommendation.estimatedDuration || 30} dk
                       </Text>
                       <Text style={styles.aiRecommendationCategory}>
-                        🧩 Tür: {recommendation.category} • 📋 Kategori: {mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other')}
+                        🧩 Tür: {recommendation.category} • 📋 Kategori: {t('categoriesCanonical.' + mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'), 'Kategori')}
                       </Text>
                     </View>
                 </Pressable>

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from '@/hooks/useTranslation';
 import Button from '@/components/ui/Button';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -16,20 +17,19 @@ interface OCDProfileFormProps {
   onComplete?: () => void;
 }
 
-// Master Prompt: Simplified mobile-first symptom selection  
+// KANONIK OKB/ERP kategori seti ile hizalı seçim listesi (6 kategori)
 const SYMPTOM_TYPES = [
-  { id: 'contamination', label: 'Kirlenme', icon: 'water' },
-  { id: 'checking', label: 'Kontrol', icon: 'magnify' },
-  { id: 'symmetry', label: 'Simetri', icon: 'scale-balance' },
-  { id: 'counting', label: 'Sayma', icon: 'numeric' },
-  { id: 'ordering', label: 'Düzen', icon: 'chart-bar' },
-  { id: 'harm', label: 'Zarar', icon: 'alert-circle-outline' },
-  { id: 'religious', label: 'Dini', icon: 'church' },
-  { id: 'washing', label: 'Yıkama', icon: 'shower' },
+  { id: 'contamination', label: 'Bulaşma/Temizlik', icon: 'hand-wash' },
+  { id: 'checking', label: 'Kontrol Etme', icon: 'lock-check' },
+  { id: 'symmetry', label: 'Simetri/Düzen', icon: 'shape-outline' },
+  { id: 'mental', label: 'Zihinsel Ritüeller', icon: 'head-cog' },
+  { id: 'hoarding', label: 'Biriktirme', icon: 'package-variant' },
+  { id: 'other', label: 'Diğer', icon: 'help-circle' },
 ];
 
 export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
 
@@ -127,7 +127,7 @@ export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
                   styles.symptomLabel,
                   isSelected && styles.symptomLabelSelected
                 ]}>
-                  {symptom.label}
+                  {t('categoriesCanonical.' + symptom.id, symptom.label)}
                 </Text>
               </Pressable>
             );

@@ -691,7 +691,7 @@ export default function TrackingScreen() {
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true
-                          }).toUpperCase()} - {category?.name || 'Other'}
+                          }).toUpperCase()} - {t('categoriesCanonical.' + mapToCanonicalCategory(compulsion.type), category?.name || 'Other')}
                         </Text>
                         <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
                           {compulsion.resistanceLevel}/10

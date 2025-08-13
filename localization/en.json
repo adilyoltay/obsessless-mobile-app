@@ -77,6 +77,14 @@
       "progress": "Progress"
     }
   },
+  "categoriesCanonical": {
+    "contamination": "Contamination/Cleaning",
+    "checking": "Checking",
+    "symmetry": "Symmetry/Ordering",
+    "mental": "Mental Rituals",
+    "hoarding": "Hoarding",
+    "other": "Other"
+  },
   "compulsions": {
     "compulsion": "Compulsion",
     "compulsions": "Compulsions",
