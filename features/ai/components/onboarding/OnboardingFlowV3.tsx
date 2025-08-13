@@ -47,7 +47,6 @@ import { Colors } from '@/constants/Colors';
 
 // Types
 import {
-  YBOCSAnswer,
   UserProfile,
   TreatmentPlan,
   CulturalContext,
@@ -73,6 +72,7 @@ enum OnboardingStep {
   CONSENT = 'consent',
   YBOCS_INTRO = 'ybocs_intro',
   YBOCS_QUESTIONS = 'ybocs_questions',
+  QUICK_DECISION = 'quick_decision',
   PROFILE_NAME = 'profile_name',
   PROFILE_DEMOGRAPHICS = 'profile_demographics',
   PROFILE_HISTORY = 'profile_history',
@@ -245,7 +245,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // State
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(OnboardingStep.WELCOME);
-  const [ybocsAnswers, setYbocsAnswers] = useState<YBOCSAnswer[]>([]);
+  const [quickMode, setQuickMode] = useState<boolean>(true);
+  const [ybocsAnswers, setYbocsAnswers] = useState<Record<string, number>>({});
   const [currentYbocsIndex, setCurrentYbocsIndex] = useState(0);
   const [sliderValue, setSliderValue] = useState(0);
   const [userName, setUserName] = useState('');
@@ -287,6 +288,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     try {
       const sessionData = {
         currentStep,
+        quickMode,
         ybocsAnswers,
         currentYbocsIndex,
         userName,
@@ -314,7 +316,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       if (saved) {
         const sessionData = JSON.parse(saved);
         setCurrentStep(sessionData.currentStep);
-        setYbocsAnswers(sessionData.ybocsAnswers || []);
+        setQuickMode(typeof sessionData.quickMode === 'boolean' ? sessionData.quickMode : true);
+        setYbocsAnswers(sessionData.ybocsAnswers || {});
         setCurrentYbocsIndex(sessionData.currentYbocsIndex || 0);
         setUserName(sessionData.userName || '');
         setCulturalContext(sessionData.culturalContext || {
@@ -392,23 +395,21 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         case OnboardingStep.YBOCS_QUESTIONS:
           if (currentYbocsIndex < YBOCS_QUESTIONS.length - 1) {
             // Y-BOCS cevabını kaydet
-            const answer: YBOCSAnswer = {
-              questionId: YBOCS_QUESTIONS[currentYbocsIndex].id,
-              score: Math.round(sliderValue),
-              category: YBOCS_QUESTIONS[currentYbocsIndex].category as 'obsessions' | 'compulsions',
-            };
-            setYbocsAnswers([...ybocsAnswers, answer]);
+            const qid = YBOCS_QUESTIONS[currentYbocsIndex].id;
+            setYbocsAnswers({ ...ybocsAnswers, [qid]: Math.round(sliderValue) });
             setCurrentYbocsIndex(currentYbocsIndex + 1);
             setSliderValue(0);
           } else {
             // Son Y-BOCS cevabını kaydet ve profile geç
-            const answer: YBOCSAnswer = {
-              questionId: YBOCS_QUESTIONS[currentYbocsIndex].id,
-              score: Math.round(sliderValue),
-              category: YBOCS_QUESTIONS[currentYbocsIndex].category as 'obsessions' | 'compulsions',
-            };
-            setYbocsAnswers([...ybocsAnswers, answer]);
-            setCurrentStep(OnboardingStep.PROFILE_NAME);
+            const qid = YBOCS_QUESTIONS[currentYbocsIndex].id;
+            const nextMap = { ...ybocsAnswers, [qid]: Math.round(sliderValue) };
+            setYbocsAnswers(nextMap);
+            // Hızlı başlangıç modunda isteğe bağlı adımları atla
+            if (quickMode) {
+              setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+            } else {
+              setCurrentStep(OnboardingStep.PROFILE_NAME);
+            }
             setSliderValue(0);
           }
           break;
@@ -461,10 +462,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           break;
         case OnboardingStep.YBOCS_QUESTIONS:
           if (currentYbocsIndex > 0) {
-            setCurrentYbocsIndex(currentYbocsIndex - 1);
-            const prevAnswers = [...ybocsAnswers];
-            prevAnswers.pop();
-            setYbocsAnswers(prevAnswers);
+            const prevIndex = currentYbocsIndex - 1;
+            setCurrentYbocsIndex(prevIndex);
+            const prevQid = YBOCS_QUESTIONS[prevIndex].id;
+            setSliderValue(ybocsAnswers[prevQid] ?? 0);
           } else {
             setCurrentStep(OnboardingStep.YBOCS_INTRO);
           }
@@ -511,7 +512,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // Y-BOCS skoru hesapla
   const calculateYBOCSScore = () => {
-    return ybocsAnswers.reduce((sum, answer) => sum + answer.score, 0);
+    return Object.values(ybocsAnswers).reduce((sum, score) => sum + (score || 0), 0);
   };
 
 
@@ -551,10 +552,11 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         const { adaptiveTreatmentPlanningEngine } = await import('@/features/ai/engines/treatmentPlanningEngine');
         
         // Y-BOCS responses'ları doğru formata çevir
-        const ybocsResponses = ybocsAnswers.map(answer => ({
-          questionId: answer.questionId,
-          response: answer.score,
-          category: answer.category
+        const ybocsResponses = Object.entries(ybocsAnswers).map(([questionId, score]) => ({
+          questionId,
+          response: score,
+          // Kategori bilgisi YBOCS_QUESTIONS listesinden türetilebilir
+          category: (YBOCS_QUESTIONS.find(q => q.id === questionId)?.category || 'obsessions') as 'obsessions' | 'compulsions',
         }));
         
         // Comprehensive user therapeutic profile
@@ -760,6 +762,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               Size özel bir destek planı oluşturmak için birkaç kısa adımda 
               sizi tanımak istiyoruz. Bu süreç yaklaşık 10 dakika sürecek.
             </Text>
+            <View style={{ marginTop: 16 }}>
+              <Button title={quickMode ? 'Hızlı Başlangıç Modu: Açık' : 'Hızlı Başlangıç Modu: Kapalı'} onPress={() => setQuickMode(!quickMode)} />
+              <Text style={styles.hint}>Hızlı başlangıç modunda yalnızca Y‑BOCS kısa değerlendirmesi tamamlanır; profil adımları daha sonra Ayarlar’dan doldurulabilir.</Text>
+            </View>
             </ScrollView>
           </View>
         );

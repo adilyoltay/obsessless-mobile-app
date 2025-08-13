@@ -86,7 +86,7 @@ export default function OnboardingScreen() {
 
   const handleOnboardingExit = () => {
     console.log('❌ Onboarding exited');
-    router.back();
+    router.replace('/(tabs)');
   };
 
   const handleSimpleStart = async () => {
@@ -178,7 +178,7 @@ export default function OnboardingScreen() {
         
         <TouchableOpacity 
           style={styles.skipButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)')}
         >
           <Text style={styles.skipButtonText}>Şimdi değil</Text>
         </TouchableOpacity>
