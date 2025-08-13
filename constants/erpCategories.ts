@@ -15,12 +15,14 @@ export interface ERPCategory {
   exercises: ERPExercise[];
 }
 
+import { getCanonicalCategoryColor, getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
+
 export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'contamination',
     title: 'Bulaşma/Temizlik',
-    icon: 'hand-wash',
-    color: '#3B82F6',
+    icon: getCanonicalCategoryIconName('contamination'),
+    color: getCanonicalCategoryColor('contamination'),
     exercises: [
       { id: 'cont-1', name: 'Kapı kollarına dokunma', duration: 5, difficulty: 3, category: 'contamination' },
       { id: 'cont-2', name: 'El Yıkama Direnci', duration: 10, difficulty: 3, category: 'contamination' },
@@ -33,8 +35,8 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'checking',
     title: 'Kontrol Etme',
-    icon: 'lock-check',
-    color: '#10B981',
+    icon: getCanonicalCategoryIconName('checking'),
+    color: getCanonicalCategoryColor('checking'),
     exercises: [
       { id: 'check-1', name: 'Kapı kilidi kontrolü yapmama', duration: 10, difficulty: 4, category: 'checking' },
       { id: 'check-2', name: 'Elektrik/gaz kontrolü yapmama', duration: 8, difficulty: 5, category: 'checking' },
@@ -46,8 +48,8 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'symmetry',
     title: 'Simetri/Düzen',
-    icon: 'shape-outline',
-    color: '#8B5CF6',
+    icon: getCanonicalCategoryIconName('symmetry'),
+    color: getCanonicalCategoryColor('symmetry'),
     exercises: [
       { id: 'sym-1', name: 'Eşyaları düzensiz bırakma', duration: 5, difficulty: 2, category: 'symmetry' },
       { id: 'sym-2', name: 'Asimetrik düzenleme', duration: 10, difficulty: 4, category: 'symmetry' },
@@ -59,8 +61,8 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'mental',
     title: 'Zihinsel Ritüeller',
-    icon: 'head-cog',
-    color: '#EC4899',
+    icon: getCanonicalCategoryIconName('mental'),
+    color: getCanonicalCategoryColor('mental'),
     exercises: [
       { id: 'mental-1', name: 'Düşünce durdurma', duration: 10, difficulty: 4, category: 'mental' },
       { id: 'mental-2', name: 'Zihinsel tekrarları engelleme', duration: 8, difficulty: 5, category: 'mental' },
@@ -72,8 +74,8 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'other',
     title: 'Diğer',
-    icon: 'help-circle',
-    color: '#6B7280',
+    icon: getCanonicalCategoryIconName('other'),
+    color: getCanonicalCategoryColor('other'),
     exercises: [
       { id: 'other-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'other' },
       { id: 'other-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'other' },
@@ -83,8 +85,8 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'hoarding',
     title: 'Biriktirme',
-    icon: 'package-variant',
-    color: '#F59E0B',
+    icon: getCanonicalCategoryIconName('hoarding'),
+    color: getCanonicalCategoryColor('hoarding'),
     exercises: [
       { id: 'hoard-1', name: 'Gazete/dergi biriktirmemek', duration: 10, difficulty: 3, category: 'hoarding' },
       { id: 'hoard-2', name: 'Eski eşyaları eleme', duration: 20, difficulty: 4, category: 'hoarding' },

@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys } from '@/utils/storage';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
@@ -222,12 +223,12 @@ export function ERPQuickStart({
                 >
                   <View style={[
                     styles.categoryIcon,
-                    { backgroundColor: `${category.color}15` }
+                    { backgroundColor: `${getCanonicalCategoryColor(category.id)}15` }
                   ]}>
                     <MaterialCommunityIcons
-                      name={category.icon as any}
+                      name={getCanonicalCategoryIconName(category.id) as any}
                       size={20}
-                      color={category.color}
+                      color={getCanonicalCategoryColor(category.id)}
                     />
                   </View>
                   <Text style={styles.categoryName}>{t('categoriesCanonical.' + category.id, category.title)}</Text>

@@ -8,16 +8,25 @@ import Slider from '@react-native-community/slider';
 import { useCreateCompulsion } from '@/hooks/useCompulsions';
 import Toast from 'react-native-toast-message';
 
-const COMPULSION_TYPES = [
-  { value: 'checking', label: 'Kontrol Etme' },
-  { value: 'washing', label: 'Yıkama/Temizlik' },
-  { value: 'counting', label: 'Sayma' },
-  { value: 'ordering', label: 'Düzenleme' },
-  { value: 'mental', label: 'Zihinsel Ritüeller' },
-  { value: 'reassurance', label: 'Güvence Arama' },
-  { value: 'avoidance', label: 'Kaçınma' },
-  { value: 'other', label: 'Diğer' }
-];
+import { useTranslation } from '@/hooks/useTranslation';
+const legacyTypes = ['checking','washing','counting','ordering','mental','reassurance','avoidance','other'] as const;
+const COMPULSION_TYPES = legacyTypes.map((value) => ({
+  value,
+  label: (() => {
+    const map: Record<string,string> = {
+      checking: 'checking',
+      washing: 'contamination',
+      counting: 'symmetry',
+      ordering: 'symmetry',
+      mental: 'mental',
+      reassurance: 'other',
+      avoidance: 'other',
+      other: 'other',
+    };
+    const canonical = map[value] || 'other';
+    return (require('@/hooks/useTranslation') as any).useTranslation().t('categoriesCanonical.' + canonical, value);
+  })(),
+}));
 
 export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
   const { t } = useTranslation();
