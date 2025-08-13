@@ -230,7 +230,7 @@ export function ERPQuickStart({
                       color={category.color}
                     />
                   </View>
-                  <Text style={styles.categoryName}>{category.title}</Text>
+                  <Text style={styles.categoryName}>{t('categoriesCanonical.' + category.id, category.title)}</Text>
                   <Text style={styles.categoryCount}>{category.exercises.length} egzersiz</Text>
                 </Pressable>
               ))}

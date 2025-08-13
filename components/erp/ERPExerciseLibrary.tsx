@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ERP_EXERCISES, getERPExercisesByCompulsion, EXPOSURE_CATEGORIES } from '@/constants/erpExercises';
 import { ERPExercise } from '@/types/erp';
 import { CANONICAL_CATEGORIES, mapToCanonicalCategory } from '@/utils/categoryMapping';
-import { getCategoryColor } from '@/constants/erpCategories';
+import { getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface ERPExerciseLibraryProps {
@@ -117,7 +117,7 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
               selected={selectedCategory === catId}
               onPress={() => setSelectedCategory(catId)}
               style={styles.chip}
-              icon={() => <MaterialCommunityIcons name="shape" size={16} color={getCategoryColor(catId)} />}
+              icon={() => <MaterialCommunityIcons name="shape" size={16} color={getCanonicalCategoryColor(catId)} />}
             >
               {t('categoriesCanonical.' + catId, catId)}
             </Chip>
@@ -164,7 +164,7 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
                       {EXPOSURE_CATEGORIES[exercise.category]?.name || exercise.category}
                     </Badge>
                     <Badge 
-                      style={[styles.categoryBadge, { backgroundColor: getCategoryColor(mapToCanonicalCategory((exercise.targetCompulsion || [])[0] || 'other')) }]}
+                      style={[styles.categoryBadge, { backgroundColor: getCanonicalCategoryColor(mapToCanonicalCategory((exercise.targetCompulsion || [])[0] || 'other')) }]}
                     >
                       {t('categoriesCanonical.' + mapToCanonicalCategory((exercise.targetCompulsion || [])[0] || 'other'), 'Kategori')}
                     </Badge>
