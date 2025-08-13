@@ -70,14 +70,14 @@ export const ERP_CATEGORIES: ERPCategory[] = [
     ]
   },
   {
-    id: 'mental',
-    title: 'Zihinsel/Dini Kaygılar',
-    icon: 'heart-outline',
-    color: '#EF4444',
+    id: 'other',
+    title: 'Diğer (Zarar Korkuları vb.)',
+    icon: 'help-circle',
+    color: '#6B7280',
     exercises: [
-      { id: 'ment-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'mental' },
-      { id: 'ment-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'mental' },
-      { id: 'ment-3', name: 'Ahlaki şüpheleri kabul etme', duration: 12, difficulty: 4, category: 'mental' }
+      { id: 'other-1', name: 'Kutsal kitap yanında olumsuz düşünce', duration: 10, difficulty: 4, category: 'other' },
+      { id: 'other-2', name: 'İbadet sırasında dikkati dağıtma', duration: 15, difficulty: 5, category: 'other' },
+      { id: 'other-3', name: 'Ahlaki şüpheleri kabul etme', duration: 12, difficulty: 4, category: 'other' }
     ]
   },
   {

@@ -179,11 +179,8 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Treatment Planning:** AI-generated 4 haftalık tedavi planı
 - **Safety Protocols:** Risk değerlendirmesi ve acil durum planları
 
-#### **2. 💬 Therapeutic AI Chat Assistant**
-- **CBT Techniques:** Bilişsel davranışçı terapi teknikleri
-- **Crisis Detection:** Gerçek zamanlı kriz algılama
-- **24/7 Availability:** Sürekli erişilebilir destek
-- **Voice Support:** Sesli mesaj desteği (yakında)
+#### **2. 💬 Therapeutic AI Chat (Planned / Dormant)**
+- Şu an devre dışıdır; `EXPO_PUBLIC_ENABLE_AI_CHAT=false` varsayılanı ile dormant.
 
 #### **3. 🎯 Adaptive Interventions**
 - **Location-Based:** Konum bazlı öneriler (ev/iş/dışarı)
@@ -197,11 +194,8 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Predictions:** ML-powered risk tahminleri
 - **Goal Adjustment:** Otomatik hedef ayarlama
 
-#### **5. 🚨 Crisis Detection System**
-- **Background Monitoring:** 15 dakikalık periyodik analiz
-- **Emergency Contacts:** Acil durum kişi yönetimi
-- **Risk Scoring:** 6 gösterge üzerinden risk puanlama
-- **Auto-Interventions:** Otomatik müdahale sistemi
+#### **5. 🚨 Crisis Detection (Removed)**
+- Mimariden kaldırıldı; arka plan izleme yok.
 
 #### **6. 🎨 Art Therapy Engine**
 - **Therapeutic Guidance:** AI rehberliğinde sanat aktiviteleri
@@ -232,7 +226,7 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Animations:** React Native Reanimated + Lottie
 - **Haptics:** Expo Haptics
 - **AI Services (Analiz & Öneriler):** 
-  - External AI Service (Gemini/OpenAI/Claude) - Sadece analiz için
+  - External AI Service (Gemini) - Sadece analiz için
   - AI Context Provider - Veri işleme ve öneri üretimi
   - Feature Flag System - AI özellik kontrolü
   - Telemetry & Analytics - AI kullanım metrikleri

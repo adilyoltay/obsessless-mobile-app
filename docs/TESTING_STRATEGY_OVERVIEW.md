@@ -15,8 +15,8 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 - Crisis Detection (kaldırıldı)
 
 ## Referans Kontrol Listeleri
-- AI_TEST_CHECKLIST.md (güncel)
-- AI_PRODUCTION_TEST_REPORT.md (güncel)
+- archive/AI_TEST_CHECKLIST.md
+- archive/AI_PRODUCTION_TEST_REPORT.md
 
 ## Temel İlkeler
 - Flag tabanlı test (sadece aktif özellikler)
@@ -27,7 +27,7 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 ## Telemetry Doğrulama (QA için kısa liste)
 - Sistem: SYSTEM_INITIALIZED, SYSTEM_STARTED, SYSTEM_STATUS, SYSTEM_STOPPED
 - Sağlayıcı/Performans: AI_PROVIDER_HEALTH_CHECK, AI_PROVIDER_FAILED, AI_RESPONSE_GENERATED, AI_CONTENT_FILTERED, SLOW_RESPONSE, API_ERROR
-- Voice: CHECKIN_STARTED, STT_FAILED, ROUTE_SUGGESTED, CHECKIN_COMPLETED
+- Voice: CHECKIN_STARTED, ROUTE_SUGGESTED, CHECKIN_COMPLETED, STT_FAILED
 - ERP/JITAI: ERP_SESSION_STARTED, ERP_SESSION_FINISHED, JITAI_TRIGGER_FIRED
 - Compulsion: COMPULSION_PROMPTED, COMPULSION_LOGGED, COMPULSION_DISMISSED
 - Breathwork: BREATH_STARTED, BREATH_COMPLETED

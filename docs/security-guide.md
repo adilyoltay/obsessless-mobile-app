@@ -14,6 +14,8 @@
    # .env.local dosyası oluşturun
    EXPO_PUBLIC_SUPABASE_URL=your_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key
+   EXPO_PUBLIC_GEMINI_API_KEY=your_key
+   EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
    ```
 
 3. **Git'e Eklemeyin**
@@ -35,7 +37,7 @@
 ### 🚨 API Key Sızdırması Durumunda
 
 1. **Hemen iptal edin**
-   - OpenAI Dashboard → API Keys → Revoke
+   - Gemini / Google AI Studio → API Keys → Revoke
    - Supabase Dashboard → Settings → API
 
 2. **Yeni key oluşturun**
@@ -58,17 +60,17 @@ FOR SELECT USING (auth.uid() = user_id);
 
 ```bash
 # Supabase CLI ile secret ekleyin
-supabase secrets set OPENAI_API_KEY=your_key
+supabase secrets set GEMINI_API_KEY=your_key
 
 # ASLA Edge Function kodunda hardcode etmeyin
-const apiKey = Deno.env.get('OPENAI_API_KEY')
+const apiKey = Deno.env.get('GEMINI_API_KEY')
 ```
 
 ### 📱 Mobile App Security
 
 1. **Secure Storage**
    ```typescript
-   // Hassas verileri AsyncStorage'da şifreleyin
+   // Hassas verileri SecureStore'da saklayın
    import * as SecureStore from 'expo-secure-store';
    
    await SecureStore.setItemAsync('api_key', value);

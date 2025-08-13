@@ -3,11 +3,11 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT/AI/Progress kaynaklı içgörüler; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSUFFICIENT
-- Progress Analytics: İstatistik, eğilim, tahmin; telemetry: PROGRESS_ANALYTICS_INITIALIZED/COMPLETED
+- Insights v2: CBT/AI/Progress kaynaklı içgörüler; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_DATA_INSUFFICIENT
+- Progress Analytics: İstatistik, eğilim, tahmin; telemetry: PROGRESS_ANALYTICS_INITIALIZED/PROGRESS_ANALYSIS_COMPLETED
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
-- Voice Mood Check‑in: STT, PII maskeleme, rota önerisi; telemetry: CHECKIN_STARTED/COMPLETED, STT_FAILED
+- Voice Mood Check‑in: STT, PII maskeleme, rota önerisi; telemetry: CHECKIN_STARTED/ROUTE_SUGGESTED/COMPLETED, STT_FAILED
 - ERP Önerileri: in_vivo/imaginal/interoceptive/response_prevention; telemetry: INTERVENTION_RECOMMENDED
 - Content Filtering: AI yanıt güvenliği; telemetry: AI_CONTENT_FILTERED
 
@@ -25,7 +25,7 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 - Sistem: SYSTEM_INITIALIZED/STARTED/STATUS/STOPPED
 - Insights: INSIGHTS_REQUESTED/DELIVERED, INSIGHTS_DATA_INSUFFICIENT
 - JITAI: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
-- Voice: CHECKIN_STARTED/COMPLETED, STT_FAILED
+- Voice: CHECKIN_STARTED, ROUTE_SUGGESTED, CHECKIN_COMPLETED, STT_FAILED
 - ERP: ERP_SESSION_STARTED/FINISHED, INTERVENTION_RECOMMENDED
 - Güvenlik: AI_CONTENT_FILTERED; Hatalar: API_ERROR, SLOW_RESPONSE
 

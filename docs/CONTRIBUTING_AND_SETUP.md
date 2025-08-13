@@ -6,12 +6,14 @@
    - EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
    - EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
    - EXPO_PUBLIC_ENABLE_AI=true (master switch)
+   - EXPO_PUBLIC_ENABLE_AI_CHAT=false (opsiyonel; şu an dormant)
 3. Bağımlılıklar: `npm i`
 4. Geliştirme: `npm run start`
 
 ## Feature Flags (Kısa Kılavuz)
 - Kontrol: `FEATURE_FLAGS.isEnabled('AI_INSIGHTS')`
 - Master switch: `EXPO_PUBLIC_ENABLE_AI=true`
+- Opsiyonel: `EXPO_PUBLIC_ENABLE_AI_CHAT` (varsayılan kapalı, şu an devre dışı/dormant)
 - Kritikleri: `AI_TELEMETRY`, `CONTENT_FILTERING`, `SAFETY_CHECKS` (varsayılan açık)
 - Kriz: `AI_CRISIS_DETECTION=false` (kaldırıldı)
 - Development’ta toggle: `FEATURE_FLAGS.setFlag(name, true)` (sadece __DEV__)
