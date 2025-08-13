@@ -35,6 +35,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -1097,14 +1098,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         );
 
       case OnboardingStep.PROFILE_SYMPTOMS:
-        const emojiMap: Record<string, string> = {
-          contamination: '🧼',
-          checking: '🔍',
-          symmetry: '⚖️',
-          mental: '🧠',
-          hoarding: '📦',
-          other: '❓',
-        };
+        // Kanonik ikonlar - tüm gridlerde standart
+        const iconName = (id: string) => getCanonicalCategoryIconName(id as any);
         const fallbackLabelMap: Record<string, string> = {
           contamination: 'Bulaşma/Temizlik',
           checking: 'Kontrol Etme',
@@ -1116,7 +1111,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         const SYMPTOM_TYPES = CANONICAL_CATEGORIES.map((id) => ({
           id,
           label: t('categoriesCanonical.' + id, fallbackLabelMap[id] || id),
-          emoji: emojiMap[id] || '❓',
+          icon: iconName(id),
         }));
         
         return (
@@ -1148,7 +1143,12 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                     }
                   }}
                 >
-                  <Text style={styles.symptomEmoji}>{symptom.emoji}</Text>
+                  <MaterialCommunityIcons 
+                    name={symptom.icon as any} 
+                    size={20} 
+                    color={Colors.primary.green} 
+                    style={{ marginRight: 8 }}
+                  />
                   <Text style={[
                     styles.symptomText,
                     symptomTypes.includes(symptom.id) && styles.symptomTextSelected
