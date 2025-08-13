@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
+import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
+import { getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,15 +19,8 @@ interface OCDProfileFormProps {
   onComplete?: () => void;
 }
 
-// KANONIK OKB/ERP kategori seti ile hizalı seçim listesi (6 kategori)
-const SYMPTOM_TYPES = [
-  { id: 'contamination', label: 'Bulaşma/Temizlik', icon: 'hand-wash' },
-  { id: 'checking', label: 'Kontrol Etme', icon: 'lock-check' },
-  { id: 'symmetry', label: 'Simetri/Düzen', icon: 'shape-outline' },
-  { id: 'mental', label: 'Zihinsel Ritüeller', icon: 'head-cog' },
-  { id: 'hoarding', label: 'Biriktirme', icon: 'package-variant' },
-  { id: 'other', label: 'Diğer', icon: 'help-circle' },
-];
+// Kategori seçenekleri kanonik tek kaynaktan üretilir
+const SYMPTOM_IDS = CANONICAL_CATEGORIES;
 
 export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
   const { user } = useAuth();
@@ -106,19 +101,19 @@ export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
       {/* Symptom Grid - Mobile Optimized */}
       <View style={styles.symptomsContainer}>
         <View style={styles.symptomsGrid}>
-          {SYMPTOM_TYPES.map((symptom) => {
-            const isSelected = selectedSymptoms.includes(symptom.id);
+          {SYMPTOM_IDS.map((symptomId) => {
+            const isSelected = selectedSymptoms.includes(symptomId);
             return (
               <Pressable
-                key={symptom.id}
+                key={symptomId}
                 style={[
                   styles.symptomChip,
                   isSelected && styles.symptomChipSelected
                 ]}
-                onPress={() => handleSymptomToggle(symptom.id)}
+                onPress={() => handleSymptomToggle(symptomId)}
               >
                 <MaterialCommunityIcons
-                  name={symptom.icon as any}
+                  name={getCanonicalCategoryIconName(symptomId) as any}
                   size={20}
                   color={isSelected ? '#FFFFFF' : '#6B7280'}
                   style={styles.symptomIcon}
@@ -127,7 +122,7 @@ export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
                   styles.symptomLabel,
                   isSelected && styles.symptomLabelSelected
                 ]}>
-                  {t('categoriesCanonical.' + symptom.id, symptom.label)}
+                  {t('categoriesCanonical.' + symptomId, symptomId)}
                 </Text>
               </Pressable>
             );
