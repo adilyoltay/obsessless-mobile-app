@@ -74,24 +74,11 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
     3.  **Hedef Optimizasyonu:** Otomatik zorluk ayarlama
     4.  **Motivasyon Mesajları:** Kişiselleştirilmiş teşvik
 
-### **PİLLAR 5: 24/7 AI Therapeutic Chat Assistant**
-*Bu, uygulamanın arkadaşıdır. Her an yanında olan, anlayan ve destekleyen AI terapist.*
+### **PİLLAR 5: Therapeutic AI Chat (Dormant)**
+Kısa not: Bu sütun şu an devre dışıdır. Gelecekte yeniden değerlendirilecektir.
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı gece yarısı panik yaşadığında, AI asistanın onu sakinleştirmesini ve CBT teknikleri önermesini bekliyor."
-*   **AI Chat Özellikleri:**
-    1.  **CBT Teknikleri:** Bilişsel yeniden yapılandırma
-    3.  **Kültürel Duyarlılık:** Türkçe ve kültürel hassasiyet
-    4.  **Sesli Destek:** Voice-to-text (yakında)
-
-### **PİLLAR 6: AI Crisis Detection & Emergency Response**
-*Bu, uygulamanın koruyucusudur. Kullanıcıyı risk durumlarında proaktif olarak korur.*
-
-*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın davranış pattern'lerini izleyip risk durumlarını önceden tespit etmesini ve gerekirse acil kişileri bilgilendirmesini istiyor."
-*   **Crisis System:**
-    1.  **Background Monitoring:** 15 dakikalık periyodik analiz
-    2.  **Risk Skorlama:** 6 gösterge üzerinden değerlendirme
-    3.  **Emergency Contacts:** Otomatik bildirim sistemi
-    4.  **Intervention Levels:** Kritik/Yüksek/Orta/Düşük
+### **PİLLAR 6: Crisis Detection (Removed)**
+Kısa not: Bu sütun mimariden kaldırılmıştır; background izleme ve kriz protokolleri bulunmaz.
 
 ### **PİLLAR 7: AI Art Therapy & Creative Expression**
 *Bu, uygulamanın sanatsal yönüdür. AI rehberliğinde duygusal ifade ve iyileşme.*

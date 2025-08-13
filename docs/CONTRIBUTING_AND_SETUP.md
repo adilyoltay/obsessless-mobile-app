@@ -17,7 +17,7 @@
 - Master switch: `EXPO_PUBLIC_ENABLE_AI=true`
 - Opsiyonel: `EXPO_PUBLIC_ENABLE_AI_CHAT` (varsayılan kapalı, şu an devre dışı/dormant)
 - Kritikleri: `AI_TELEMETRY`, `CONTENT_FILTERING`, `SAFETY_CHECKS` (varsayılan açık)
-- Kriz: `AI_CRISIS_DETECTION=false` (kaldırıldı)
+  
 - Development’ta toggle: `FEATURE_FLAGS.setFlag(name, true)` (sadece __DEV__)
 
 ## Kod Standartları

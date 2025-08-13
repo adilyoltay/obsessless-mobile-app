@@ -45,6 +45,7 @@ import Card from '@/components/ui/Card';
 
 // Design Tokens
 import { Colors } from '@/constants/Colors';
+import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
 
 // Types
 import {
@@ -1096,14 +1097,27 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         );
 
       case OnboardingStep.PROFILE_SYMPTOMS:
-        const SYMPTOM_TYPES = [
-          { id: 'contamination', label: 'Bulaşma/Temizlik', emoji: '🧼' },
-          { id: 'checking', label: 'Kontrol Etme', emoji: '🔍' },
-          { id: 'symmetry', label: 'Simetri/Düzen', emoji: '⚖️' },
-          { id: 'mental', label: 'Zihinsel Ritüeller', emoji: '🧠' },
-          { id: 'hoarding', label: 'Biriktirme', emoji: '📦' },
-          { id: 'other', label: 'Diğer', emoji: '❓' },
-        ];
+        const emojiMap: Record<string, string> = {
+          contamination: '🧼',
+          checking: '🔍',
+          symmetry: '⚖️',
+          mental: '🧠',
+          hoarding: '📦',
+          other: '❓',
+        };
+        const fallbackLabelMap: Record<string, string> = {
+          contamination: 'Bulaşma/Temizlik',
+          checking: 'Kontrol Etme',
+          symmetry: 'Simetri/Düzen',
+          mental: 'Zihinsel Ritüeller',
+          hoarding: 'Biriktirme',
+          other: 'Diğer',
+        };
+        const SYMPTOM_TYPES = CANONICAL_CATEGORIES.map((id) => ({
+          id,
+          label: t('categoriesCanonical.' + id, fallbackLabelMap[id] || id),
+          emoji: emojiMap[id] || '❓',
+        }));
         
         return (
           <View style={styles.contentContainer}>

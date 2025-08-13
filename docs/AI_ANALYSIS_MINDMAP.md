@@ -99,22 +99,8 @@
 - **Timing**: Immediate > Today > This Week
 - **Category**: Progress > Educational > Therapeutic
 
-## ❌ Crisis Detection System - **REMOVED FROM RUNTIME**
-
-**Status**: Runtime’dan kaldırıldı (flag daima false)
-- Feature flag: `AI_CRISIS_DETECTION: false` (kalıcı)
-- Kod tabanında referans dosyaları kalabilir; entegrasyonlar devre dışıdır.
-- Emergency protocols devre dışı
-- Early warning systems devre dışı
-- Crisis-related risk assessment devre dışı
-
-**Previously Removed Features**:
-- Keyword-Based Detection
-- Contextual Analysis  
-- Risk Assessment
-- Emergency Protocol
-- Early Warning System
-- Crisis Response
+## ❌ Crisis Detection System (Removed)
+Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokoller bulunmuyor.
 
 ## 🔄 Adaptive Interventions (Uyarlanabilir Müdahaleler)
 
