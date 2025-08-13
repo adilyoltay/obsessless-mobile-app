@@ -23,3 +23,12 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 - Offline-first senaryolar
 - Supabase senkron doğrulamaları
 - Telemetry event doğrulaması (enum’a karşı)
+
+## Telemetry Doğrulama (QA için kısa liste)
+- Sistem: SYSTEM_INITIALIZED, SYSTEM_STARTED, SYSTEM_STATUS, SYSTEM_STOPPED
+- Sağlayıcı/Performans: AI_PROVIDER_HEALTH_CHECK, AI_PROVIDER_FAILED, AI_RESPONSE_GENERATED, AI_CONTENT_FILTERED, SLOW_RESPONSE, API_ERROR
+- Voice: CHECKIN_STARTED, STT_FAILED, ROUTE_SUGGESTED, CHECKIN_COMPLETED
+- ERP/JITAI: ERP_SESSION_STARTED, ERP_SESSION_FINISHED, JITAI_TRIGGER_FIRED
+- Compulsion: COMPULSION_PROMPTED, COMPULSION_LOGGED, COMPULSION_DISMISSED
+- Breathwork: BREATH_STARTED, BREATH_COMPLETED
+- Not: Nihai kaynak `features/ai/telemetry/aiTelemetry.ts` içindeki `AIEventType` enum’dur; QA doğrulamasında enum’a uyum aranır.
