@@ -37,6 +37,7 @@ import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // UI Components
 import Button from '@/components/ui/Button';
@@ -237,6 +238,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   resumeSession = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const bottomPad = Math.max(100, insets.bottom + 80);
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -1095,14 +1097,12 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       case OnboardingStep.PROFILE_SYMPTOMS:
         const SYMPTOM_TYPES = [
-          { id: 'contamination', label: 'Kirlenme/Bulaşma', emoji: '🧼' },
-          { id: 'symmetry', label: 'Simetri/Düzen', emoji: '⚖️' },
+          { id: 'contamination', label: 'Bulaşma/Temizlik', emoji: '🧼' },
           { id: 'checking', label: 'Kontrol Etme', emoji: '🔍' },
-          { id: 'counting', label: 'Sayma', emoji: '🔢' },
-          { id: 'religious', label: 'Dini Takıntılar', emoji: '🙏' },
-          { id: 'harm', label: 'Zarar Verme Korkusu', emoji: '⚠️' },
-          { id: 'sexual', label: 'Cinsel Düşünceler', emoji: '🤔' },
+          { id: 'symmetry', label: 'Simetri/Düzen', emoji: '⚖️' },
+          { id: 'mental', label: 'Zihinsel Ritüeller', emoji: '🧠' },
           { id: 'hoarding', label: 'Biriktirme', emoji: '📦' },
+          { id: 'other', label: 'Diğer', emoji: '❓' },
         ];
         
         return (
@@ -1139,7 +1139,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                     styles.symptomText,
                     symptomTypes.includes(symptom.id) && styles.symptomTextSelected
                   ]}>
-                    {symptom.label}
+                    {t('categoriesCanonical.' + symptom.id, symptom.label)}
                   </Text>
                   {symptomTypes.includes(symptom.id) && (
                     <MaterialCommunityIcons 
