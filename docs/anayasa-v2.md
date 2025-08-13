@@ -64,15 +64,13 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
     3.  **Kültürel Egzersizler:** Çay meditasyonu, dua/zikir
     4.  **Progress Tracking:** AI başarı analizi
 
-### **PİLLAR 4: AI-Powered Progress Analytics & Motivasyon**
-*Bu, uygulamanın vizyonudur. AI, kullanıcının ilerlemesini analiz eder ve geleceği tahmin eder.*
+### **PİLLAR 4: Progress Analytics & Motivasyon**
+Kısa not: Bu sütun trend göstergeleri ve özetleyici metrikler sağlar; kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an yoktur.
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın verilerini analiz edip gelecek hafta için risk tahminleri yapmasını ve kişiselleştirilmiş hedefler belirlemesini istiyor."
-*   **AI Analytics:**
-    1.  **Trend Analizi:** 7/30/90 günlük AI analizleri
-    2.  **Risk Tahminleri:** ML-powered öngörüler
-    3.  **Hedef Optimizasyonu:** Otomatik zorluk ayarlama
-    4.  **Motivasyon Mesajları:** Kişiselleştirilmiş teşvik
+*   **Kullanıcı Hikayesi:** "Kullanıcı, verilerinin analiz edilip trendlerin ve ilerleme göstergelerinin nazikçe sunulmasını istiyor."
+*   **Analytics:**
+    1.  7/30/90 günlük trend göstergeleri
+    2.  Özet metrikler ve motivasyon mesajları
 
 ### **PİLLAR 5: Therapeutic AI Chat (Dormant)**
 Kısa not: Bu sütun şu an devre dışıdır. Gelecekte yeniden değerlendirilecektir.
