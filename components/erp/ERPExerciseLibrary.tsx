@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ERP_EXERCISES, getERPExercisesByCompulsion, EXPOSURE_CATEGORIES } from '@/constants/erpExercises';
 import { ERPExercise } from '@/types/erp';
 import { CANONICAL_CATEGORIES, mapToCanonicalCategory } from '@/utils/categoryMapping';
-import { getCanonicalCategoryColor } from '@/constants/canonicalCategories';
+import { getCanonicalCategoryColor, getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface ERPExerciseLibraryProps {
@@ -117,7 +117,13 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
               selected={selectedCategory === catId}
               onPress={() => setSelectedCategory(catId)}
               style={styles.chip}
-              icon={() => <MaterialCommunityIcons name="shape" size={16} color={getCanonicalCategoryColor(catId)} />}
+              icon={() => (
+                <MaterialCommunityIcons
+                  name={getCanonicalCategoryIconName(catId) as any}
+                  size={16}
+                  color={getCanonicalCategoryColor(catId)}
+                />
+              )}
             >
               {t('categoriesCanonical.' + catId, catId)}
             </Chip>

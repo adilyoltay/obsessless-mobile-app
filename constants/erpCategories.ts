@@ -20,7 +20,7 @@ import { getCanonicalCategoryColor, getCanonicalCategoryIconName } from '@/const
 export const ERP_CATEGORIES: ERPCategory[] = [
   {
     id: 'contamination',
-    title: 'Bulaşma/Temizlik',
+    title: 'categoriesCanonical.contamination',
     icon: getCanonicalCategoryIconName('contamination'),
     color: getCanonicalCategoryColor('contamination'),
     exercises: [
@@ -34,7 +34,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'checking',
-    title: 'Kontrol Etme',
+    title: 'categoriesCanonical.checking',
     icon: getCanonicalCategoryIconName('checking'),
     color: getCanonicalCategoryColor('checking'),
     exercises: [
@@ -47,7 +47,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'symmetry',
-    title: 'Simetri/Düzen',
+    title: 'categoriesCanonical.symmetry',
     icon: getCanonicalCategoryIconName('symmetry'),
     color: getCanonicalCategoryColor('symmetry'),
     exercises: [
@@ -60,7 +60,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'mental',
-    title: 'Zihinsel Ritüeller',
+    title: 'categoriesCanonical.mental',
     icon: getCanonicalCategoryIconName('mental'),
     color: getCanonicalCategoryColor('mental'),
     exercises: [
@@ -73,7 +73,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'other',
-    title: 'Diğer',
+    title: 'categoriesCanonical.other',
     icon: getCanonicalCategoryIconName('other'),
     color: getCanonicalCategoryColor('other'),
     exercises: [
@@ -84,7 +84,7 @@ export const ERP_CATEGORIES: ERPCategory[] = [
   },
   {
     id: 'hoarding',
-    title: 'Biriktirme',
+    title: 'categoriesCanonical.hoarding',
     icon: getCanonicalCategoryIconName('hoarding'),
     color: getCanonicalCategoryColor('hoarding'),
     exercises: [

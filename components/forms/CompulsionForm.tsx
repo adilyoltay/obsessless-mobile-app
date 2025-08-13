@@ -10,10 +10,11 @@ import Toast from 'react-native-toast-message';
 
 import { useTranslation } from '@/hooks/useTranslation';
 const legacyTypes = ['checking','washing','counting','ordering','mental','reassurance','avoidance','other'] as const;
-const COMPULSION_TYPES = legacyTypes.map((value) => ({
-  value,
-  label: (() => {
-    const map: Record<string,string> = {
+
+export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
+  const { t } = useTranslation();
+  const COMPULSION_TYPES = legacyTypes.map((value) => {
+    const legacyToCanonical: Record<string,string> = {
       checking: 'checking',
       washing: 'contamination',
       counting: 'symmetry',
@@ -23,13 +24,12 @@ const COMPULSION_TYPES = legacyTypes.map((value) => ({
       avoidance: 'other',
       other: 'other',
     };
-    const canonical = map[value] || 'other';
-    return (require('@/hooks/useTranslation') as any).useTranslation().t('categoriesCanonical.' + canonical, value);
-  })(),
-}));
-
-export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
-  const { t } = useTranslation();
+    const canonical = legacyToCanonical[value] || 'other';
+    return {
+      value,
+      label: t('categoriesCanonical.' + canonical, value),
+    };
+  });
   const [formData, setFormData] = useState({
     type: '',
     frequency: 1,
