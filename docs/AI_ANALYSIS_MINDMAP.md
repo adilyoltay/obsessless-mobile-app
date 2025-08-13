@@ -56,10 +56,10 @@
    - Normalize edilmiş skorlar
    - Trend analizi
 
-4. **Predictive Analytics**
-   - Gelecek tahminleri
-   - Risk escalation prediction
-   - Başarı olasılığı hesaplama
+4. **Predictive Indicators (Limited)**
+   - Trend tabanlı göstergeler
+   - Risk artışı için sezgisel sinyaller (geniş kapsamlı tahminleme yok)
+   - Başarı olasılığı: yalnızca özetleyici metrikler (plansız ileri tahminleme)
 
 5. **Achievements & Milestones**
    - Başarı rozetleri

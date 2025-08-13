@@ -19,7 +19,7 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Card radius: 12, Button radius: 8, Input radius: 16
 
 ## 🧭 Ana Kullanıcı Akışları
-- Uygulama Açılışı → Auth Check → Onboarding (5 adım) → Today
+- Uygulama Açılışı → Auth Check → Onboarding (Hızlı Başlangıç + opsiyonel profil adımları) → Today
 - Quick Entry (Kompulsiyon) → AsyncStorage yaz → Supabase senkron → Gamification
 - ERP Sihirbazı: Kategori (6 ana kategori) → Egzersiz seçimi + Ayarlar → Oturum
 
@@ -28,8 +28,8 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Signup: Ad/Soyad, e‑posta, şifre, “Kayıt Ol”
 - Google OAuth: native browser; geri dönüş URL scheme
 
-### 🧩 Onboarding (5 Adım)
-1) Karşılama (90s info)  2) Semptom Seçimi (3x2 grid)  3) Y‑BOCS Lite  4) Hedef Belirleme  5) Gamification Intro
+### 🧩 Onboarding (Hızlı Başlangıç + Opsiyonel Adımlar)
+1) Karşılama  2) Y‑BOCS Kısa Değerlendirme  3) (Opsiyonel) İsim/Demografi/Geçmiş  4) (Opsiyonel) Belirtiler  5) (Opsiyonel) Hedefler  → Tedavi Planı Önizlemesi
 
 ### 🏠 Today
 - Healing Points ana kartı, Quick Stats (Today/Streak/ERP), Öneriler kartları, Başarımlar bölümü
@@ -94,7 +94,7 @@ flowchart TD
     Auth -->|Hayır| Login[Login/Signup]
     Auth -->|Evet| Onb{Onboarding Completed?}
     Login --> Onboarding
-    Onb -->|Hayır| Onboarding[5-Step Onboarding]
+    Onb -->|Hayır| Onboarding[Quick Start + Optional Profile]
     Onb -->|Evet| Today[Today Screen]
     Today --> QuickEntry[Quick Compulsion Entry]
     QuickEntry --> SaveLocal[AsyncStorage]

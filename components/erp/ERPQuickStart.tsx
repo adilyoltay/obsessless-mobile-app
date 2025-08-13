@@ -145,7 +145,7 @@ export function ERPQuickStart({
       'hoarding',
       'other',
     ];
-    return ERP_CATEGORIES.sort((a, b) => {
+    return [...ERP_CATEGORIES].sort((a, b) => {
       const aIndex = popularityOrder.indexOf(a.id);
       const bIndex = popularityOrder.indexOf(b.id);
       return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
