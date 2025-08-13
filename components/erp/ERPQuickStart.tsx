@@ -136,16 +136,15 @@ export function ERPQuickStart({
 
   // Get categories sorted by popularity (most used first)
   const getCategoriesByPopularity = (): ERPCategory[] => {
-    // Define popularity order (can be enhanced with real usage data later)
+    // Canonical order only
     const popularityOrder = [
-      'contamination',   // En sık kullanılan
-      'checking',        // 2. sık kullanılan
-      'ordering',        // 3. sık kullanılan
-      'harm',           // 4. sık kullanılan  
-      'morality',       // 5. sık kullanılan
-      'sexual',         // 6. sık kullanılan
+      'contamination',
+      'checking',
+      'symmetry',
+      'mental',
+      'hoarding',
+      'other',
     ];
-    
     return ERP_CATEGORIES.sort((a, b) => {
       const aIndex = popularityOrder.indexOf(a.id);
       const bIndex = popularityOrder.indexOf(b.id);
