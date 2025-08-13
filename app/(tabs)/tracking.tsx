@@ -556,9 +556,6 @@ export default function TrackingScreen() {
           })}
         </Text>
 
-        {/* Voice Mood Check-in */}
-        <VoiceMoodCheckin />
-
         {/* Summary Stats Card */}
         <View style={styles.weekStatsCard}>
           <View style={styles.weekStatsHeader}>
@@ -598,6 +595,9 @@ export default function TrackingScreen() {
             </View>
           </View>
         </View>
+
+        {/* Voice Mood Check-in (moved below Today's Stats) */}
+        <VoiceMoodCheckin />
 
         {/* AI Pattern Recognition & Insights */}
         {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
