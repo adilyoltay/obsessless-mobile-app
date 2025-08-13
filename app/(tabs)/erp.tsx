@@ -433,7 +433,7 @@ export default function ERPScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
-          <Text style={styles.headerTitle}>ERP Tracking</Text>
+          <Text style={styles.headerTitle}>ERP Takibi</Text>
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
@@ -455,7 +455,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
-              Today
+              Bugün
             </Text>
             {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -467,7 +467,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
-              Week
+              Hafta
             </Text>
             {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -479,7 +479,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
-              Month
+              Ay
             </Text>
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -499,7 +499,7 @@ export default function ERPScreen() {
       >
         {/* Date Display */}
         <Text style={styles.dateText}>
-          {new Date().toLocaleDateString('en-US', { 
+          {new Date().toLocaleDateString('tr-TR', { 
             month: 'long', 
             day: 'numeric', 
             year: 'numeric' 
@@ -511,14 +511,14 @@ export default function ERPScreen() {
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? "Today's Stats" : 
-                 selectedTimeRange === 'week' ? "This Week's Stats" : 
-                 "This Month's Stats"}
+                {selectedTimeRange === 'today' ? 'Bugünün Özeti' : 
+                 selectedTimeRange === 'week' ? 'Bu Haftanın Özeti' : 
+                 'Bu Ayın Özeti'}
               </Text>
               <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Your daily summary' : 
-                 selectedTimeRange === 'week' ? 'Your weekly summary' : 
-                 'Your monthly summary'}
+                {selectedTimeRange === 'today' ? 'Günlük özetiniz' : 
+                 selectedTimeRange === 'week' ? 'Haftalık özetiniz' : 
+                 'Aylık özetiniz'}
               </Text>
             </View>
             {stats.streak > 0 && (
@@ -531,17 +531,17 @@ export default function ERPScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.count}</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
+              <Text style={styles.statLabel}>Oturum</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.time}</Text>
-              <Text style={styles.statLabel}>Total Time</Text>
+              <Text style={styles.statLabel}>Toplam Süre</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
                 {stats.avgAnxietyReduction > 0 ? `-${stats.avgAnxietyReduction}` : '0'}
               </Text>
-              <Text style={styles.statLabel}>Avg. Reduction</Text>
+              <Text style={styles.statLabel}>Ort. Azalma</Text>
             </View>
           </View>
         </View>
@@ -645,17 +645,17 @@ export default function ERPScreen() {
         {/* Today's Sessions - New Design */}
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? "Today's Sessions" : 
-             selectedTimeRange === 'week' ? "This Week's Sessions" : 
-             "This Month's Sessions"}
+            {selectedTimeRange === 'today' ? 'Bugünün Oturumları' : 
+             selectedTimeRange === 'week' ? 'Bu Haftanın Oturumları' : 
+             'Bu Ayın Oturumları'}
           </Text>
 
           {filteredSessions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="heart-outline" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>Your journey starts here</Text>
+              <Text style={styles.emptyText}>Yolculuğun burada başlıyor</Text>
               <Text style={styles.emptySubtext}>
-                Tap the + button below to begin your first exposure exercise
+                İlk maruz kalma egzersizine başlamak için alttaki + butonuna dokun
               </Text>
             </View>
           ) : (
@@ -741,7 +741,7 @@ export default function ERPScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Text style={styles.showMoreText}>Show More</Text>
+                <Text style={styles.showMoreText}>Daha Fazla Göster</Text>
               </Pressable>
             </View>
           )}
