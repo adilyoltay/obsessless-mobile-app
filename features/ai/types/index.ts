@@ -30,7 +30,7 @@ export interface AIMessage {
  */
 export interface AIMessageMetadata {
   sessionId: string;
-  contextType: 'onboarding' | 'chat' | 'erp' | 'crisis' | 'insights' | 'art_therapy';
+  contextType: 'onboarding' | 'chat' | 'erp' | 'insights' | 'art_therapy';
   
   // Therapeutic context
   therapeuticIntent?: string[];
@@ -41,7 +41,6 @@ export interface AIMessageMetadata {
   sentiment?: SentimentScore;
   confidence?: number; // 0-1
   safetyScore?: number; // 0-1
-  crisisRisk?: CrisisRiskLevel;
   
   // Performance
   responseTime?: number;

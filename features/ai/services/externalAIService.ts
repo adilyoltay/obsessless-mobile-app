@@ -657,7 +657,8 @@ class ExternalAIService {
     messages: AIMessage[] = [],
     context: ConversationContext = {} as any,
     config?: AIRequestConfig,
-    userId?: string
+    userId?: string,
+    options?: { abortSignal?: AbortSignal; softTimeoutMs?: number; hardTimeoutMs?: number }
   ): Promise<EnhancedAIResponse> {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!this.isEnabled) {
@@ -746,8 +747,52 @@ class ExternalAIService {
         } catch {}
       }
       
-      // API çağrısı yap
-      let response = await this.makeProviderRequest(provider, preparedRequest);
+      // API çağrısı yap (aşamalı timeout ve abort desteği)
+      const softTimeout = Math.max(2000, Math.min((options?.softTimeoutMs ?? 5000), (options?.hardTimeoutMs ?? 30000) - 1000));
+      const hardTimeout = options?.hardTimeoutMs ?? 30000;
+
+      const softTimeoutPromise = new Promise<EnhancedAIResponse>((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: false,
+            content: 'Yanıt beklenenden uzun sürüyor, güvenli yerel öneriler gösteriliyor...',
+            provider: AIProvider.LOCAL,
+            model: 'heuristic-soft-timeout',
+            tokens: { prompt: 0, completion: 0, total: 0 },
+            latency: Date.now() - startTime,
+            timestamp: new Date(),
+            requestId,
+            fallbackUsed: true
+          });
+        }, softTimeout);
+      });
+
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+      const hardTimer = typeof setTimeout !== 'undefined' ? setTimeout(() => controller?.abort(), hardTimeout) : undefined as any;
+      const composedSignal = options?.abortSignal && controller?.signal
+        ? ((): AbortSignal => { 
+            // Merge: when either aborts, abort fetch
+            options!.abortSignal!.addEventListener('abort', () => controller?.abort());
+            return controller!.signal;
+          })()
+        : (options?.abortSignal || (controller?.signal as any));
+
+      // Provider request promise
+      const networkPromise = this.makeProviderRequest(provider, { ...preparedRequest, signal: composedSignal });
+
+      // Yarış: önce hangisi gelirse
+      let response = await Promise.race([networkPromise, softTimeoutPromise]);
+      if ((response as any).model === 'heuristic-soft-timeout') {
+        // Ağ yanıtı tamamlanırsa soft fallback'i override et
+        try {
+          const netResp = await networkPromise;
+          response = netResp;
+        } catch {
+          // ağ yine başarısız ise, soft fallback kalır; hard timeout zaten abort edecek
+        }
+      }
+
+      if (hardTimer) clearTimeout(hardTimer as any);
       
       // Fallback mekanizması
       if (!response.success && provider !== this.getBackupProvider(provider)) {
