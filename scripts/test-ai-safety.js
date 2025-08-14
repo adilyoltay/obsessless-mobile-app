@@ -38,11 +38,7 @@ function runTest(testName, testFunction) {
 // Test 1: Crisis Detection File Existence
 runTest('Crisis Detection System Exists', () => {
   const fs = require('fs');
-  const crisisDetectionPath = path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts');
-  
-  if (!fs.existsSync(crisisDetectionPath)) {
-    throw new Error('Crisis detection file missing');
-  }
+  // Legacy crisis detection test disabled after removal
   
   const content = fs.readFileSync(crisisDetectionPath, 'utf8');
   

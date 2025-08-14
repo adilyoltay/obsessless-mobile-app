@@ -64,7 +64,6 @@ export interface ERPAdaptationParams {
   };
   safetyLimits: {
     maxAnxietySpike: number;
-    crisisDetectionLevel: number;
     emergencyExitConditions: string[];
   };
   personalization: {
@@ -283,9 +282,9 @@ class AdaptiveERPService {
         await this.decreaseDifficulty(session, 'Anxiety seviyesi güvenlik sınırını aştı');
       }
       
-      // Crisis intervention gerekebilir
-      if (currentAnxiety >= params.safetyLimits.crisisDetectionLevel) {
-        await this.triggerCrisisIntervention(session);
+      // Safety intervention logic (legacy crisis removal)
+      if (currentAnxiety >= params.anxietyThreshold.max + 1) {
+        await this.triggerSafetyIntervention(session);
       }
     }
 
@@ -335,9 +334,9 @@ class AdaptiveERPService {
       );
     }
 
-    // Crisis level anxiety
-    if (currentAnxiety >= safetyLimits.crisisDetectionLevel) {
-      await this.triggerCrisisIntervention(session);
+    // Safety threshold intervention
+    if (currentAnxiety >= session.adaptationParams.anxietyThreshold.max + 1) {
+      await this.triggerSafetyIntervention(session);
     }
 
     // Biometric alerts
@@ -363,7 +362,7 @@ class AdaptiveERPService {
   /**
    * Kriz müdahalesi tetikle
    */
-  private async triggerCrisisIntervention(session: AdaptiveERPSession): Promise<void> {
+  private async triggerSafetyIntervention(session: AdaptiveERPSession): Promise<void> {
     session.safetyEvents.push({
       timestamp: new Date(),
       type: 'panic_symptoms',
@@ -371,7 +370,7 @@ class AdaptiveERPService {
       resolved: false
     });
 
-    session.currentState = ERPSessionState.CRISIS_EXIT;
+    session.currentState = ERPSessionState.COMPLETION;
 
     await this.provideAIGuidance(
       session,
