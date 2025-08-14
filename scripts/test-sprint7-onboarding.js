@@ -330,7 +330,7 @@ async function testBackendInfrastructure() {
       throw new Error('Predictive risk modeling not implemented');
     }
 
-    testPassed('Risk Assessment Service', `Predictive modeling with crisis integration`);
+    testPassed('Risk Assessment Service', `Predictive modeling validated`);
   } catch (error) {
     testFailed('Risk Assessment Service', error);
   }
@@ -523,9 +523,9 @@ async function testUIComponents() {
       }
     });
 
-    // Check crisis intervention
+    // Check safety intervention resources
     if (!riskIndicatorContent.includes('SAFETY_RESOURCES') || !riskIndicatorContent.includes('emergencyContact')) {
-      throw new Error('Crisis intervention resources missing');
+      throw new Error('Safety intervention resources missing');
     }
 
     // Check animations for high risk
@@ -533,7 +533,7 @@ async function testUIComponents() {
       throw new Error('Risk level animations missing');
     }
 
-    testPassed('RiskAssessmentIndicator Component', `Risk visualization with crisis intervention and safety resources`);
+    testPassed('RiskAssessmentIndicator Component', `Risk visualization with safety intervention and resources`);
   } catch (error) {
     testFailed('RiskAssessmentIndicator Component', error);
   }

@@ -7,7 +7,7 @@
  * Features:
  * ✅ Visual risk level indicators
  * ✅ Safety plan integration
- * ✅ Crisis intervention triggers
+ * ✅ Safety intervention triggers
  * ✅ Cultural sensitivity for Turkish users
  * ✅ Real-time risk monitoring
  * ✅ Predictive risk insights
@@ -146,11 +146,11 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
   const riskConfig = RISK_CONFIGS[riskAssessment.overallRiskLevel];
 
   /**
-   * 🚨 Handle Crisis Detection
+   * 🚨 Handle Safety Intervention
    */
   const handleCrisisDetection = useCallback(async () => {
     if (riskAssessment.overallRiskLevel === RiskLevel.CRITICAL) {
-      // Track crisis situation
+      // Track safety escalation
       await trackAIInteraction(AIEventType.RISK_ESCALATION_PREDICTED, {
         userId,
         riskLevel: riskAssessment.overallRiskLevel,
@@ -158,7 +158,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
         timestamp: new Date().toISOString()
       });
 
-      // Trigger crisis intervention
+      // Trigger safety intervention
       Alert.alert(
         'Acil Durum Tespit Edildi',
         'Risk değerlendirmeniz yüksek düzeyde. Profesyonel destek almanızı şiddetle öneriyoruz.',
@@ -168,7 +168,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
             style: 'default',
             onPress: () => {
               // This would trigger phone call in real app
-              console.log('🚨 Crisis hotline call initiated');
+              console.log('🚨 Safety hotline call initiated');
               onCrisisIntervention?.();
             }
           },
@@ -184,7 +184,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
         ]
       );
 
-      // Intense haptic feedback for crisis
+      // Intense haptic feedback for safety escalation
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [riskAssessment.overallRiskLevel, riskAssessment.riskFactors, userId, onCrisisIntervention]);
@@ -442,7 +442,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
     );
   };
 
-  // Trigger crisis detection on mount if critical
+  // Trigger safety intervention on mount if critical
   useEffect(() => {
     if (riskAssessment.overallRiskLevel === RiskLevel.CRITICAL) {
       handleCrisisDetection();
