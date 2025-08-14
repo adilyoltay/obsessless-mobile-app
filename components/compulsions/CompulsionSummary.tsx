@@ -121,6 +121,28 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
     // Find longest duration
     const longestDuration = Math.max(...filteredEntries.map(entry => entry.duration || 0));
 
+    // Improvement percentage vs previous same-sized window
+    const windowMillis = selectedPeriod === 'today' ? 24*60*60*1000 : selectedPeriod === 'week' ? 7*24*60*60*1000 : 30*24*60*60*1000;
+    const end = new Date();
+    const start = new Date(end.getTime() - windowMillis);
+    const prevStart = new Date(start.getTime() - windowMillis);
+    const prevEnd = new Date(start.getTime());
+    const prevEntries = entries.filter(e => e.timestamp >= prevStart && e.timestamp < prevEnd);
+    const currCount = filteredEntries.length;
+    const prevCount = prevEntries.length;
+    const improvementPercentage = prevCount > 0 ? Number((((prevCount - currCount) / prevCount) * 100).toFixed(1)) : 0;
+
+    // Streak days: consecutive days with zero compulsions (improvement streak)
+    let streakDays = 0;
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      const startDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endDay = new Date(startDay.getTime() + 24*60*60*1000);
+      const dayCount = entries.filter(e => e.timestamp >= startDay && e.timestamp < endDay).length;
+      if (dayCount === 0) streakDays++; else break;
+    }
+
     return {
       totalEntries: filteredEntries.length,
       todayEntries: filteredEntries.length,
@@ -130,8 +152,8 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
       averageResistance: Number(avgResistance.toFixed(1)),
       mostCommonType,
       longestDuration,
-      improvementPercentage: 0, // TODO: Calculate vs previous period
-      streakDays: 0 // TODO: Calculate consecutive days with improvement
+      improvementPercentage,
+      streakDays
     };
   }, [filteredEntries]);
 

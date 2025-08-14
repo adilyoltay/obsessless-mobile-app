@@ -11,9 +11,8 @@ export default function SafeModeBanner() {
   if (!show) return null;
   return (
     <View accessibilityRole="status" accessibilityLabel="Güvenli mod bildirimi" style={styles.container}>
-      <Text style={styles.text}>
-        Güvenli mod aktif. AI özelliklerinin bir kısmı geçici olarak devre dışı. Temel özellikler kullanılabilir.
-      </Text>
+      <Text style={styles.text}>Güvenli mod aktif. AI özelliklerinin bir kısmı geçici olarak devre dışı. Temel özellikler kullanılabilir.</Text>
+      <Text style={styles.subtext}>Geliştiriciler bilgilendirildi. Çoğu işlem çevrimdışı/yerel modda çalışır.</Text>
     </View>
   );
 }
@@ -29,6 +28,12 @@ const styles = StyleSheet.create({
   text: {
     color: '#7F1D1D',
     fontSize: 12,
+  },
+  subtext: {
+    color: '#7F1D1D',
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.9,
   },
 });
 
