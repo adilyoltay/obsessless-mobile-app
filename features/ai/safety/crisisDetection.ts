@@ -10,7 +10,7 @@ import {
   AIMessage,
   ConversationContext
 } from '@/features/ai/types';
-import { trackCrisisDetection, AIEventType, trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
+import { AIEventType, trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
 
 interface CrisisDetectionConfig {
   enabled: boolean;
@@ -222,12 +222,15 @@ export class CrisisDetectionService {
   }
 
   private async handleRiskLevel(result: CrisisDetectionResult, context: ConversationContext): Promise<void> {
-    await trackCrisisDetection(result.riskLevel, result.triggers, context.userId);
+    await trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
+      riskLevel: result.riskLevel,
+      triggerCount: result.triggers.length
+    }, context.userId);
 
     switch (result.riskLevel) {
       case CrisisRiskLevel.CRITICAL:
         console.warn('🚨 CRITICAL CRISIS DETECTED');
-        await trackAIInteraction(AIEventType.CRISIS_DETECTED, {
+        await trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
           severity: 'CRITICAL',
           userId: context.userId
         });

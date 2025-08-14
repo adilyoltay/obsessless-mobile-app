@@ -44,7 +44,9 @@ export class OfflineSyncService {
 
   private async loadSyncQueue(): Promise<void> {
     try {
-      const queueData = await AsyncStorage.getItem('syncQueue');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const queueKey = currentUserId ? `syncQueue_${currentUserId}` : 'syncQueue_anon';
+      const queueData = await AsyncStorage.getItem(queueKey);
       if (queueData) {
         this.syncQueue = JSON.parse(queueData);
       }
@@ -55,7 +57,9 @@ export class OfflineSyncService {
 
   private async saveSyncQueue(): Promise<void> {
     try {
-      await AsyncStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const queueKey = currentUserId ? `syncQueue_${currentUserId}` : 'syncQueue_anon';
+      await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
     } catch (error) {
       console.error('Error saving sync queue:', error);
     }
@@ -104,8 +108,12 @@ export class OfflineSyncService {
           if (queueItem) {
             queueItem.retryCount++;
             
-            // Remove from queue if max retries reached
-            if (queueItem.retryCount >= 3) {
+            // Exponential backoff with jitter
+            const base = 2000; // 2s
+            const delay = Math.min(base * Math.pow(2, queueItem.retryCount), 60000) + Math.floor(Math.random() * 500);
+            await new Promise(res => setTimeout(res, delay));
+            // Remove to dead-letter if max retries reached
+            if (queueItem.retryCount >= 8) {
               this.syncQueue = this.syncQueue.filter(q => q.id !== item.id);
               await this.handleFailedSync(queueItem);
             }
@@ -180,16 +188,20 @@ export class OfflineSyncService {
     console.error('Failed to sync item after max retries:', item);
     
     // Could store in a separate failed items queue for manual retry
-    const failedItems = await AsyncStorage.getItem('failedSyncItems');
+    const currentUserId = await AsyncStorage.getItem('currentUserId');
+    const failedKey = currentUserId ? `failedSyncItems_${currentUserId}` : 'failedSyncItems_anon';
+    const failedItems = await AsyncStorage.getItem(failedKey);
     const failed = failedItems ? JSON.parse(failedItems) : [];
     failed.push(item);
-    await AsyncStorage.setItem('failedSyncItems', JSON.stringify(failed));
+    await AsyncStorage.setItem(failedKey, JSON.stringify(failed));
   }
 
   // Local storage methods for offline operations
   async storeCompulsionLocally(compulsion: any): Promise<void> {
     try {
-      const stored = await AsyncStorage.getItem('localCompulsions');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const localKey = currentUserId ? `localCompulsions_${currentUserId}` : 'localCompulsions_anon';
+      const stored = await AsyncStorage.getItem(localKey);
       const compulsions = stored ? JSON.parse(stored) : [];
       
       compulsions.push({
@@ -199,7 +211,7 @@ export class OfflineSyncService {
         createdAt: new Date().toISOString(),
       });
       
-      await AsyncStorage.setItem('localCompulsions', JSON.stringify(compulsions));
+      await AsyncStorage.setItem(localKey, JSON.stringify(compulsions));
       
       // Add to sync queue
       await this.addToSyncQueue({
@@ -214,7 +226,9 @@ export class OfflineSyncService {
 
   async getLocalCompulsions(): Promise<any[]> {
     try {
-      const stored = await AsyncStorage.getItem('localCompulsions');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const localKey = currentUserId ? `localCompulsions_${currentUserId}` : 'localCompulsions_anon';
+      const stored = await AsyncStorage.getItem(localKey);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('Error getting local compulsions:', error);
@@ -224,7 +238,9 @@ export class OfflineSyncService {
 
   async storeERPSessionLocally(session: any): Promise<void> {
     try {
-      const stored = await AsyncStorage.getItem('localERPSessions');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const localKey = currentUserId ? `localERPSessions_${currentUserId}` : 'localERPSessions_anon';
+      const stored = await AsyncStorage.getItem(localKey);
       const sessions = stored ? JSON.parse(stored) : [];
       
       sessions.push({
@@ -234,7 +250,7 @@ export class OfflineSyncService {
         createdAt: new Date().toISOString(),
       });
       
-      await AsyncStorage.setItem('localERPSessions', JSON.stringify(sessions));
+      await AsyncStorage.setItem(localKey, JSON.stringify(sessions));
       
       // Add to sync queue
       await this.addToSyncQueue({
@@ -249,7 +265,9 @@ export class OfflineSyncService {
 
   async getLocalERPSessions(): Promise<any[]> {
     try {
-      const stored = await AsyncStorage.getItem('localERPSessions');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const localKey = currentUserId ? `localERPSessions_${currentUserId}` : 'localERPSessions_anon';
+      const stored = await AsyncStorage.getItem(localKey);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('Error getting local ERP sessions:', error);

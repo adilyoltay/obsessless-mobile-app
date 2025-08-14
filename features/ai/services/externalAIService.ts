@@ -18,7 +18,8 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  isAIError
+  isAIError,
+  AIProvider
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
@@ -30,12 +31,7 @@ import { AI_CONFIG } from '@/constants/featureFlags';
 // 🎯 AI PROVIDER DEFINITIONS
 // =============================================================================
 
-/**
- * Supported AI Providers
- */
-export enum AIProvider {
-  GEMINI = 'gemini'
-}
+// AIProvider enum is imported from '@/features/ai/types'
 
 /**
  * Provider Configuration
@@ -935,6 +931,23 @@ class ExternalAIService {
             lastError = detail || { status: response.status };
             continue;
           }
+          if (response.status === 429 || response.status >= 500) {
+            // Track rate limit/server error and backoff with jitter
+            try {
+              await trackAIInteraction(
+                response.status === 429 ? AIEventType.AI_RATE_LIMIT_HIT : AIEventType.API_ERROR,
+                { provider: 'gemini', status: response.status, model: modelName }
+              );
+            } catch {}
+
+            const attempt = (this as any)._retryAttempt ? (this as any)._retryAttempt + 1 : 1;
+            (this as any)._retryAttempt = attempt;
+            const base = 500;
+            const delay = Math.min(base * Math.pow(2, attempt), 8000) + Math.floor(Math.random() * 300);
+            await new Promise(res => setTimeout(res, delay));
+            lastError = detail || { status: response.status };
+            continue;
+          }
           const err = new Error(`Gemini API error: ${response.status}`);
           (err as any).code = AIErrorCode.PROVIDER_ERROR;
           (err as any).detail = detail;
@@ -1094,8 +1107,8 @@ class ExternalAIService {
     return {
       success: false,
       content: 'Üzgünüm, şu anda AI sistemi kullanılamıyor. Lütfen daha sonra tekrar deneyin. Bu arada nefes alma egzersizi yapmayı deneyebilirsiniz: 4 saniye nefes alın, 4 saniye tutun, 6 saniye bırakın.',
-      provider: AIProvider.GEMINI,
-      model: 'fallback',
+      provider: AIProvider.LOCAL,
+      model: 'heuristic-fallback',
       tokens: { prompt: 0, completion: 0, total: 0 },
       latency,
       timestamp: new Date(),

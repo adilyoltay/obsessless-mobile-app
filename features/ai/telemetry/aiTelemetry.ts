@@ -48,10 +48,7 @@ export enum AIEventType {
   INSIGHT_VIEWED = 'insight_viewed',
   INSIGHT_SHARED = 'insight_shared',
   
-  // Crisis events
-  CRISIS_DETECTED = 'crisis_detected',
-  CRISIS_RESOLVED = 'crisis_resolved',
-  EMERGENCY_CONTACT_INITIATED = 'emergency_contact_initiated',
+  // Legacy crisis events removed (use preventive/general events instead)
   CRISIS_MONITORING_STARTED = 'crisis_monitoring_started',
   
   // Performance events
@@ -77,7 +74,7 @@ export enum AIEventType {
   INTERVENTION_TRIGGERED = 'intervention_triggered',
   INTERVENTION_DELIVERED = 'intervention_delivered',
   INTERVENTION_FEEDBACK = 'intervention_feedback',
-  CRISIS_INTERVENTION_TRIGGERED = 'crisis_intervention_triggered',
+  // Use PREVENTIVE_INTERVENTION_TRIGGERED for risk-based support
   ADAPTIVE_INTERVENTIONS_SHUTDOWN = 'adaptive_interventions_shutdown',
   
   // Sprint 6: JITAI events
@@ -472,18 +469,7 @@ class AITelemetryManager {
   /**
    * Crisis detection event'ini track et
    */
-  async trackCrisisDetection(
-    riskLevel: string,
-    triggers: string[],
-    userId?: string
-  ): Promise<void> {
-    await this.trackAIInteraction(AIEventType.CRISIS_DETECTED, {
-      riskLevel,
-      triggerCount: triggers.length,
-      // Trigger'ları sanitize et - specific content'i loglamıyoruz
-      triggerTypes: triggers.map(t => this.classifyTrigger(t))
-    }, userId);
-  }
+  // Legacy crisis tracking removed in favor of preventive/general events
 
   /**
    * Track suggestion usage and feedback
@@ -920,12 +906,17 @@ export const trackAIFeedback = async (
 /**
  * Crisis detection'ı track et
  */
+// Deprecated: use trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, ...) instead
 export const trackCrisisDetection = async (
   riskLevel: string,
   triggers: string[],
   userId?: string
 ): Promise<void> => {
-  return telemetryManager.trackCrisisDetection(riskLevel, triggers, userId);
+  return telemetryManager.trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
+    riskLevel,
+    triggerCount: triggers.length,
+    triggerTypes: triggers.map(t => telemetryManager['classifyTrigger']?.(t) || 'general')
+  }, userId);
 };
 
 /**

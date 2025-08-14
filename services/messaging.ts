@@ -59,10 +59,12 @@ export class MessagingService {
         const token = await Notifications.getExpoPushTokenAsync({
           projectId: projectId
         });
-        console.log('Push token obtained successfully:', token.data?.substring(0, 20) + '...');
+        if (__DEV__) console.log('Push token obtained successfully:', token.data?.substring(0, 8) + '…');
 
         // Token'ı sakla
-        await AsyncStorage.setItem('pushToken', token.data);
+        const userId = await AsyncStorage.getItem('currentUserId');
+        const key = userId ? `pushToken_${userId}` : 'pushToken_anon';
+        await AsyncStorage.setItem(key, token.data);
       } catch (error: any) {
         console.log('Push token error (normal in Expo Go):', error.message);
         // Expo Go'da push token alamama normal, devam et

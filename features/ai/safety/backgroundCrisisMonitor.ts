@@ -11,8 +11,7 @@ import {
   CrisisRiskLevel,
   AIEventType 
 } from '@/features/ai/types';
-import { trackAIInteraction, trackCrisisDetection } from '@/features/ai/telemetry/aiTelemetry';
-import { getCrisisDetectionService } from '@/features/ai/safety/crisisDetection';
+import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
 import * as Notifications from 'expo-notifications';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
@@ -170,10 +169,9 @@ class BackgroundCrisisMonitor {
   private async triggerIntervention(pattern: CrisisPattern): Promise<void> {
     console.log('🚨 Crisis intervention triggered:', pattern.riskLevel);
     
-    // Track event
-    await trackCrisisDetection({
+    // Track generic preventive intervention instead of crisis-specific event
+    await trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
       riskLevel: pattern.riskLevel,
-      interventionTriggered: true,
       indicators: pattern.indicators
     });
     

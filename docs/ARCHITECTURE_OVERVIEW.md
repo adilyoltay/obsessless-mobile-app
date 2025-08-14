@@ -26,7 +26,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
   
 Notlar:
 - Progress Analytics (bağımsız servis) runtime’dan kaldırıldı; `features/ai/analytics/progressAnalyticsCore.ts` yalnızca tipleri içerir.
-- Smart Notifications kategorilerinde `PATTERN_ALERT` ve `CRISIS_INTERVENTION` hâlen kodda tanımlı, kaldırılmaları planlanıyor (legacy).
+- Smart Notifications kategorilerinde legacy `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kaldırıldı; konsolide kategoriler: `INSIGHT_DELIVERY`, `THERAPEUTIC_REMINDER`, `PROGRESS_CELEBRATION`, `SKILL_PRACTICE`, `CHECK_IN`, `EDUCATIONAL`.
 
 ## Bağımlılıklar ve Konfigürasyon
 - Expo SDK 53, React Native 0.79.x, TypeScript strict

@@ -22,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { backgroundCrisisMonitor, EmergencyContact } from '@/features/ai/safety/backgroundCrisisMonitor';
+import { EmergencyContact } from '@/features/ai/safety/backgroundCrisisMonitor';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
@@ -97,8 +97,7 @@ export default function EmergencyContactsManager() {
         JSON.stringify(updatedContacts)
       );
 
-      // Update background monitor
-      await backgroundCrisisMonitor.saveEmergencyContacts(user.id, updatedContacts);
+      // Background crisis monitor kaldırıldığı için yalnızca lokal saklama yapılır
 
       setContacts(updatedContacts);
       resetForm();
@@ -137,7 +136,7 @@ export default function EmergencyContactsManager() {
                 JSON.stringify(updatedContacts)
               );
               
-              await backgroundCrisisMonitor.saveEmergencyContacts(user.id, updatedContacts);
+              // Background crisis monitor kaldırıldığı için yalnızca lokal saklama yapılır
               
               setContacts(updatedContacts);
             } catch (error) {

@@ -34,8 +34,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const initializeNotifications = async () => {
     try {
-      // Check if notifications were previously enabled
-      const savedPreference = await AsyncStorage.getItem('notificationsEnabled');
+      // Check if notifications were previously enabled (user-scoped)
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const prefKey = currentUserId ? `notificationsEnabled_${currentUserId}` : 'notificationsEnabled_anon';
+      const savedPreference = await AsyncStorage.getItem(prefKey);
       if (savedPreference === 'true') {
         await enableNotifications();
       }
@@ -80,7 +82,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const token = await messagingService.getFCMToken();
         setFcmToken(token);
         setIsEnabled(true);
-        await AsyncStorage.setItem('notificationsEnabled', 'true');
+        const currentUserId = await AsyncStorage.getItem('currentUserId');
+        const prefKey = currentUserId ? `notificationsEnabled_${currentUserId}` : 'notificationsEnabled_anon';
+        await AsyncStorage.setItem(prefKey, 'true');
 
         // Schedule default daily reminder
         await scheduleDailyReminder();
@@ -100,7 +104,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       await Notifications.cancelAllScheduledNotificationsAsync();
       setIsEnabled(false);
       setFcmToken(null);
-      await AsyncStorage.setItem('notificationsEnabled', 'false');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const prefKey = currentUserId ? `notificationsEnabled_${currentUserId}` : 'notificationsEnabled_anon';
+      await AsyncStorage.setItem(prefKey, 'false');
     } catch (error) {
       console.error('Failed to disable notifications:', error);
     }
@@ -150,7 +156,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const loadNotificationSettings = async () => {
     try {
-      const settings = await AsyncStorage.getItem('notificationSettings');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const settingsKey = currentUserId ? `notificationSettings_${currentUserId}` : 'notificationSettings_anon';
+      const settings = await AsyncStorage.getItem(settingsKey);
       if (settings) {
         const parsed = JSON.parse(settings);
         setDailyReminders(parsed.dailyReminders || []);
@@ -191,7 +199,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const updatedReminders = [...dailyReminders.filter(r => r.id !== newReminder.id), newReminder];
       setDailyReminders(updatedReminders);
 
-      await AsyncStorage.setItem('notificationSettings', JSON.stringify({
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const settingsKey = currentUserId ? `notificationSettings_${currentUserId}` : 'notificationSettings_anon';
+      await AsyncStorage.setItem(settingsKey, JSON.stringify({
         dailyReminders: updatedReminders
       }));
 
@@ -259,7 +269,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
       setDailyReminders([]);
-      await AsyncStorage.removeItem('notificationSettings');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const settingsKey = currentUserId ? `notificationSettings_${currentUserId}` : 'notificationSettings_anon';
+      await AsyncStorage.removeItem(settingsKey);
     } catch (error) {
       console.error('Cancel all reminders error:', error);
     }

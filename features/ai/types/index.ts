@@ -170,7 +170,8 @@ export interface AIConfig {
  * Desteklenen AI sağlayıcıları
  */
 export enum AIProvider {
-  GEMINI = 'gemini'
+  GEMINI = 'gemini',
+  LOCAL = 'local'
 }
 
 /**
@@ -297,7 +298,7 @@ export interface AIInteractionAnalytics {
 export enum AIInteractionType {
   CHAT_MESSAGE = 'chat_message',
   INSIGHT_GENERATED = 'insight_generated',
-  CRISIS_DETECTED = 'crisis_detected',
+  // Legacy crisis event removed
   ONBOARDING_STEP = 'onboarding_step',
   ART_THERAPY_SESSION = 'art_therapy_session',
   CBT_EXERCISE = 'cbt_exercise'

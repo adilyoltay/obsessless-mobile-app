@@ -178,8 +178,9 @@ WARN 🎯 JITAI timing optimization failed: {"code": "feature_disabled", "messag
 ### 1. **High Priority - API Keys**
 ```bash
 # Replace in app.json:
-"EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyB_REAL_GOOGLE_GEMINI_KEY"
-"EXPO_PUBLIC_OPENAI_API_KEY": "sk-proj-REAL_OPENAI_PROJECT_KEY"
+# (Redacted in archives; use environment variables and secure secret storage)
+"EXPO_PUBLIC_GEMINI_API_KEY": "<REDACTED>"
+"EXPO_PUBLIC_OPENAI_API_KEY": "<REDACTED>"
 ```
 
 ### 2. **Medium Priority - Telemetry Cleanup** ✅ COMPLETED

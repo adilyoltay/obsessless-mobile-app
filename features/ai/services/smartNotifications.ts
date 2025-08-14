@@ -36,10 +36,8 @@ import { ErrorSeverity, AIError, AIErrorCode } from '@/features/ai/types';
  */
 export enum NotificationCategory {
   INSIGHT_DELIVERY = 'insight_delivery',         // İçgörü sunma
-  PATTERN_ALERT = 'pattern_alert',              // Pattern uyarısı
   PROGRESS_CELEBRATION = 'progress_celebration', // İlerleme kutlaması
   THERAPEUTIC_REMINDER = 'therapeutic_reminder', // Terapötik hatırlatma
-  CRISIS_INTERVENTION = 'crisis_intervention',   // Kriz müdahalesi
   SKILL_PRACTICE = 'skill_practice',            // Beceri pratiği
   CHECK_IN = 'check_in',                        // Durum sorgusu
   EDUCATIONAL = 'educational'                   // Eğitici içerik
@@ -379,7 +377,7 @@ class SmartNotificationService {
       const notification: SmartNotification = {
         id: `pattern_${pattern.id}_${Date.now()}`,
         userId: deliveryContext.userId,
-        category: NotificationCategory.PATTERN_ALERT,
+        category: NotificationCategory.INSIGHT_DELIVERY,
         priority: isUrgent ? 'critical' : 'medium',
         
         title: this.createPatternAlertTitle(pattern),
@@ -729,16 +727,16 @@ class SmartNotificationService {
   // Mapping functions
   private mapInsightCategoryToNotificationCategory(category: InsightCategory): NotificationCategory {
     const mapping = {
-      [InsightCategory.PATTERN_RECOGNITION]: NotificationCategory.PATTERN_ALERT,
+      [InsightCategory.PATTERN_RECOGNITION]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.PROGRESS_TRACKING]: NotificationCategory.PROGRESS_CELEBRATION,
       [InsightCategory.THERAPEUTIC_GUIDANCE]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.BEHAVIORAL_ANALYSIS]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.EMOTIONAL_STATE]: NotificationCategory.CHECK_IN,
-      [InsightCategory.CRISIS_PREVENTION]: NotificationCategory.CRISIS_INTERVENTION,
+      [InsightCategory.CRISIS_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.SKILL_DEVELOPMENT]: NotificationCategory.SKILL_PRACTICE,
       [InsightCategory.RELAPSE_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER
-    };
-    return mapping[category] || NotificationCategory.INSIGHT_DELIVERY;
+    } as const;
+    return (mapping as any)[category] || NotificationCategory.INSIGHT_DELIVERY;
   }
 
   private mapInsightPriorityToNotificationPriority(priority: InsightPriority): SmartNotification['priority'] {

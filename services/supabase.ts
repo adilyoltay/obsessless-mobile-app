@@ -356,7 +356,7 @@ class SupabaseNativeService {
 
   async setSession(tokens: { access_token: string; refresh_token: string }): Promise<void> {
     try {
-      console.log('🔐 Setting session with tokens...');
+      if (__DEV__) console.log('🔐 Setting session with tokens (masked)...');
       
       const { data, error } = await this.client.auth.setSession({
         access_token: tokens.access_token,
@@ -595,7 +595,7 @@ class SupabaseNativeService {
       
       const { data, error } = await this.client
         .from('compulsions')
-        .insert(mappedCompulsion)
+        .upsert(mappedCompulsion, { onConflict: 'id' })
         .select()
         .single();
 
@@ -903,15 +903,18 @@ class SupabaseNativeService {
   async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
-      await this.client.from('voice_checkins').insert({
+      const payload = {
         user_id: record.user_id,
         text: record.text,
         mood: record.mood,
         trigger: record.trigger,
         confidence: record.confidence,
         lang: record.lang,
-        created_at: new Date().toISOString(),
-      });
+        created_at: record.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('voice_checkins')
+        .upsert(payload, { onConflict: 'user_id,created_at,text' });
     } catch (error) {
       console.warn('⚠️ saveVoiceCheckin skipped (table may not exist):', (error as any)?.message);
     }
@@ -920,7 +923,7 @@ class SupabaseNativeService {
   async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
-      await this.client.from('thought_records').insert({
+      const payload = {
         user_id: record.user_id,
         automatic_thought: record.automatic_thought,
         evidence_for: record.evidence_for,
@@ -928,8 +931,11 @@ class SupabaseNativeService {
         distortions: record.distortions,
         new_view: record.new_view,
         lang: record.lang,
-        created_at: new Date().toISOString(),
-      });
+        created_at: record.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('thought_records')
+        .upsert(payload, { onConflict: 'user_id,created_at,automatic_thought' });
     } catch (error) {
       console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
     }
@@ -938,15 +944,18 @@ class SupabaseNativeService {
   async saveVoiceSessionSummary(session: VoiceSessionDB): Promise<void> {
     try {
       await this.ensureUserProfileExists(session.user_id);
-      await this.client.from('voice_sessions').insert({
+      const payload = {
         user_id: session.user_id,
         started_at: session.started_at,
         ended_at: session.ended_at,
         duration_ms: session.duration_ms,
         transcription_count: session.transcription_count,
         error_count: session.error_count,
-        created_at: new Date().toISOString(),
-      });
+        created_at: session.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('voice_sessions')
+        .upsert(payload, { onConflict: 'user_id,started_at' });
     } catch (error) {
       console.warn('⚠️ saveVoiceSessionSummary skipped (table may not exist):', (error as any)?.message);
     }

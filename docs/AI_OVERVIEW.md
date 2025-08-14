@@ -36,4 +36,4 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 ## Notlar
 - AI Chat ve Crisis Detection devre dışıdır
 - Art Therapy flag kapalı
- - Smart Notifications: `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kategorileri kodda mevcut (legacy), ileride temizlenecek
+- Smart Notifications: Legacy `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kategorileri koddan kaldırıldı; yerine `INSIGHT_DELIVERY` ve `THERAPEUTIC_REMINDER` kullanılıyor.

@@ -12,7 +12,12 @@
     "test-ai": "node scripts/test-ai-integration.js",
     "flag-audit": "node scripts/flag-audit.js",
     "validate:docs": "node scripts/validate-docs.js",
-    "pre-commit": "npm run import-guard && npm run validate:docs"
+    "pre-commit": "npm run import-guard && npm run validate:docs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest --ci",
+    "validate:expo": "expo-doctor",
+    "scan:secrets": "gitleaks detect --redact"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",

@@ -185,10 +185,11 @@ runTest('Smart Notifications Service Implementation', () => {
   // Notification categories
   const notificationCategories = [
     'INSIGHT_DELIVERY',
-    'PATTERN_ALERT',
     'PROGRESS_CELEBRATION',
     'THERAPEUTIC_REMINDER',
-    'CRISIS_INTERVENTION'
+    'SKILL_PRACTICE',
+    'CHECK_IN',
+    'EDUCATIONAL'
   ];
   
   notificationCategories.forEach(category => {
