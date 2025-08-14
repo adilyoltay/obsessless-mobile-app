@@ -49,7 +49,6 @@ export enum AIEventType {
   INSIGHT_SHARED = 'insight_shared',
   
   // Legacy crisis events removed (use preventive/general events instead)
-  CRISIS_MONITORING_STARTED = 'crisis_monitoring_started',
   
   // Performance events
   SLOW_RESPONSE = 'slow_response',

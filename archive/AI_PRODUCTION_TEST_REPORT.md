@@ -125,8 +125,8 @@ LOG 📊 Generated 0 daily insights for user
 **Current Status:** Demo API keys kullanılıyor
 ```
 API Keys Status:
-- EXPO_PUBLIC_GEMINI_API_KEY: "AIzaSyB7O8S_example_demo_key..." (DEMO)
-- EXPO_PUBLIC_OPENAI_API_KEY: "sk-example_demo_key..." (DEMO)
+- EXPO_PUBLIC_GEMINI_API_KEY: "<REDACTED>" (DEMO)
+- EXPO_PUBLIC_OPENAI_API_KEY: "<REDACTED>" (DEMO)
 ```
 
 **Required Action:** Gerçek API keys gerekli

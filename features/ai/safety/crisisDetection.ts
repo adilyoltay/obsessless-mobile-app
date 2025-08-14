@@ -287,9 +287,6 @@ export class CrisisDetectionService {
 }
 
 // Prefer explicit creation to avoid side effects at module import time
-export function getCrisisDetectionService(): CrisisDetectionService | null {
-  if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) return null;
-  return new CrisisDetectionService();
-}
+export const getCrisisDetectionService = () => null; // fully removed
 
 export { CrisisDetectionConfig, DEFAULT_CONFIG as DEFAULT_CRISIS_CONFIG };

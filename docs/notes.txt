@@ -1,0 +1,9 @@
+Tüm AI tabanlı  analizlerinin, içgörülerin gerçek veri ile beslendiğinden emin olalım
+
+Ekteki dokümanları olabildiği kadar derinlemesine incele. Dokümanları incelediğinde  anlayacağın 
+üzere önemli bir mobil uygulama geliştiriyorum.Uygulamada login aşamasından  
+başlayarak tüm akışın (veri kaydetme gerçek veri kullanarak analiz ve bunların kullanıcıya sunulması vb. tüm iş akışları) kapsamlı kontol edilmesi eksik ve hatalı yerlerin tespit edilmesi
+kurguda ve entegrasyon pipelineında yapılmış hataları özetle mobil yazılımın şu an ne durumda olduğunu bilmek istiyoum.
+
+Şimdi bana  AI tabanlı kod ajanına yaptıracağım inceleme için bana öyle bir prompt hazırlaki ajan bana gerekli  bulduğu problemleri ve çözüm 
+yollarını içeren bir aksiyon planı hazırlasın.

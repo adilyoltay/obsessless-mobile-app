@@ -709,7 +709,7 @@ class SupabaseNativeService {
       
       const { data, error } = await this.client
         .from('erp_sessions')
-        .insert(sessionData)
+        .upsert(sessionData, { onConflict: 'id' })
         .select()
         .single();
 
@@ -965,7 +965,7 @@ class SupabaseNativeService {
     try {
       const { data, error } = await this.client
         .from('breath_sessions')
-        .insert(session);
+        .upsert(session, { onConflict: 'id' });
       if (error) throw error;
     } catch (error) {
       console.warn('⚠️ saveBreathSession skipped (table may not exist):', (error as any)?.message);

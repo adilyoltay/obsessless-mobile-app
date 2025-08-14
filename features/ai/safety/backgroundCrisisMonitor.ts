@@ -85,10 +85,7 @@ class BackgroundCrisisMonitor {
       
       if (__DEV__) console.log('🚨 Background crisis monitoring started');
       
-      await trackAIInteraction(AIEventType.CRISIS_MONITORING_STARTED, {
-        userId,
-        interval: MONITORING_INTERVAL
-      });
+      // Legacy crisis monitoring event removed
       
     } catch (error) {
       if (__DEV__) console.error('❌ Failed to start background monitoring:', error);
