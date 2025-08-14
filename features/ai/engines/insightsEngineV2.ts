@@ -10,6 +10,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   AIMessage, 
   ConversationContext, 
@@ -206,6 +207,31 @@ class InsightsEngineV2 {
       }
 
       this.isEnabled = true;
+
+      // Load persisted caches (offline-first)
+      try {
+        const indexRaw = await AsyncStorage.getItem('insights_cache_users');
+        const userIds: string[] = indexRaw ? JSON.parse(indexRaw) : [];
+        if (Array.isArray(userIds) && userIds.length > 0) {
+          for (const uid of userIds) {
+            if (typeof uid !== 'string' || uid.length === 0) continue;
+            try {
+              const cacheKey = `insights_cache_${uid}`;
+              const lastKey = `insights_last_gen_${uid}`;
+              const cachedRaw = await AsyncStorage.getItem(cacheKey);
+              const lastRaw = await AsyncStorage.getItem(lastKey);
+              if (cachedRaw) {
+                const parsed: IntelligentInsight[] = JSON.parse(cachedRaw);
+                this.insightCache.set(uid, parsed);
+              }
+              if (lastRaw) {
+                const ts = Number(lastRaw);
+                if (!Number.isNaN(ts)) this.lastGenerationTime.set(uid, new Date(ts));
+              }
+            } catch {}
+          }
+        }
+      } catch {}
       
       // Telemetry
       await trackAIInteraction(AIEventType.INSIGHTS_ENGINE_INITIALIZED, {
@@ -254,6 +280,23 @@ class InsightsEngineV2 {
     const startTime = Date.now();
 
     try {
+      // Guard: Validate minimal context
+      const hasRecentMessages = Array.isArray((context as any)?.recentMessages);
+      const hasBehavioral = (context as any)?.behavioralData && typeof (context as any).behavioralData === 'object';
+      const hasTimeframe = !!((context as any)?.timeframe && (context as any).timeframe.start && (context as any).timeframe.end && (context as any).timeframe.period);
+      if (!hasRecentMessages || !hasBehavioral || !hasTimeframe) {
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+            userId,
+            reason: 'missing_required_fields',
+            hasRecentMessages,
+            hasBehavioral,
+            hasTimeframe
+          });
+        } catch {}
+        const cached = this.getCachedInsights(userId);
+        return cached;
+      }
       // Rate limiting - Aynı kullanıcı için çok sık generation engelle
       const lastGeneration = this.lastGenerationTime.get(userId);
       if (lastGeneration && Date.now() - lastGeneration.getTime() < 60000) { // 60 saniye
@@ -284,9 +327,25 @@ class InsightsEngineV2 {
       try {
         const insights = await generationPromise;
         
-        // Cache results
+        // Cache results (memory)
         this.insightCache.set(userId, insights);
-        this.lastGenerationTime.set(userId, new Date());
+        const now = new Date();
+        this.lastGenerationTime.set(userId, now);
+
+        // Persist results (AsyncStorage)
+        try {
+          const cacheKey = `insights_cache_${userId}`;
+          const lastKey = `insights_last_gen_${userId}`;
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(insights));
+          await AsyncStorage.setItem(lastKey, String(now.getTime()));
+          // Maintain user index
+          const indexRaw = await AsyncStorage.getItem('insights_cache_users');
+          const indexList: string[] = indexRaw ? JSON.parse(indexRaw) : [];
+          if (!indexList.includes(userId)) {
+            indexList.push(userId);
+            await AsyncStorage.setItem('insights_cache_users', JSON.stringify(indexList));
+          }
+        } catch {}
         
         // Telemetry
         await trackAIInteraction(AIEventType.INSIGHTS_GENERATED, {
@@ -629,6 +688,52 @@ class InsightsEngineV2 {
 
     } catch (error) {
       console.warn('⚠️ AI insights generation failed:', error);
+      try {
+        await trackAIError({
+          code: AIErrorCode.PROCESSING_FAILED,
+          message: (error as any)?.message || 'AI insights generation failed',
+          severity: ErrorSeverity.LOW,
+          context: {
+            component: 'InsightsEngineV2',
+            method: 'generateAIInsights',
+            provider: externalAIService.currentProvider || 'unknown'
+          }
+        });
+      } catch {}
+
+      // Friendly fallback to avoid empty insights stream
+      try {
+        const fallback: IntelligentInsight = {
+          id: `ai_fallback_${Date.now()}`,
+          userId: context.userId,
+          category: InsightCategory.THERAPEUTIC_GUIDANCE,
+          priority: InsightPriority.LOW,
+          timing: InsightTiming.DAILY_SUMMARY,
+          title: 'Nazik Bir Hatırlatma',
+          message: 'Bugün küçük bir adım atmak bile çok değerli. Nefes al, kendine şefkat göster ve ilerlemene güven.',
+          actionableAdvice: [
+            '2 dakika nefes farkındalığı yap',
+            'Kendine destekleyici bir cümle yaz',
+            'Bugün tek bir küçük hedef belirle'
+          ],
+          confidence: 0.5,
+          aiProvider: externalAIService.currentProvider || undefined,
+          detectedPatterns: ['fallback'],
+          basedOnData: {
+            messageCount: context.recentMessages?.length || 0,
+            timeframe: context.timeframe?.period || 'week',
+            keyEvents: ['fallback_used']
+          },
+          generatedAt: new Date(),
+          validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          shown: false,
+          therapeuticGoals: ['Self-compassion'],
+          expectedOutcome: 'Short-term relief and gentle motivation',
+          followUpRequired: false,
+          relatedInsightIds: []
+        };
+        insights.push(fallback);
+      } catch {}
     }
 
     return insights;

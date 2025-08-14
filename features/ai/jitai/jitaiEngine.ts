@@ -323,14 +323,15 @@ class JITAIEngine {
       throw error;
     }
 
-    const predictionId = `timing_${Date.now()}_${context?.userId || 'unknown'}`;
+    const safeContext: any = context || {} as any;
+    const predictionId = `timing_${Date.now()}_${safeContext?.userId || 'unknown'}`;
     const startTime = Date.now();
 
     try {
-      console.log(`🎯 Predicting optimal timing for user ${context.userId}`);
+      console.log(`🎯 Predicting optimal timing for user ${safeContext.userId || 'unknown'}`);
 
       // Guard: Context validation and normalization
-      const normalized = this.normalizeContext(context);
+      const normalized = this.normalizeContext(safeContext);
       if ((normalized as any).__incomplete) {
         // Telemetry for missing context
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
@@ -384,7 +385,7 @@ class JITAIEngine {
         context: { 
           component: 'JITAIEngine', 
           method: 'predictOptimalTiming',
-          userId: context?.userId,
+          userId: safeContext?.userId,
           latency: Date.now() - startTime
         }
       });
@@ -397,19 +398,20 @@ class JITAIEngine {
    * Normalize/guard JITAI context to avoid runtime errors
    */
   private normalizeContext(context: JITAIContext): JITAIContext & { __incomplete?: boolean; __missing?: string[] } {
+    const source: any = context ?? {} as any;
     const missing: string[] = [];
-    const safeUserId = typeof context?.userId === 'string' && context.userId.length > 0 ? context.userId : 'unknown_user';
+    const safeUserId = typeof source?.userId === 'string' && source.userId.length > 0 ? source.userId : 'unknown_user';
     const defaultState = {
       stressLevel: (ContextAnalysisResult as any)?.StressLevel?.MODERATE ?? (StressLevel.MODERATE as any),
       activityState: (ContextAnalysisResult as any)?.UserActivityState?.UNKNOWN ?? (UserActivityState.UNKNOWN as any),
       energyLevel: 50,
     } as any;
-    const baseCurrent = (context as any)?.currentContext || {};
+    const baseCurrent = source?.currentContext || {};
     const baseUserState = baseCurrent.userState || {};
-    if (!context || !context.currentContext) missing.push('currentContext');
+    if (!source || !source.currentContext) missing.push('currentContext');
     if (!baseCurrent.userState) missing.push('currentContext.userState');
     const normalized: any = {
-      ...context,
+      ...source,
       userId: safeUserId,
       currentContext: {
         ...baseCurrent,
@@ -422,20 +424,20 @@ class JITAIEngine {
         },
       },
       currentUserState: {
-        isAppActive: context?.currentUserState?.isAppActive ?? false,
-        lastInteraction: context?.currentUserState?.lastInteraction ?? new Date(Date.now() - 10 * 60 * 1000),
-        recentMood: context?.currentUserState?.recentMood ?? 'neutral',
-        energyLevel: context?.currentUserState?.energyLevel ?? 50,
-        stressPattern: context?.currentUserState?.stressPattern ?? [StressLevel.MODERATE],
+        isAppActive: source?.currentUserState?.isAppActive ?? false,
+        lastInteraction: source?.currentUserState?.lastInteraction ?? new Date(Date.now() - 10 * 60 * 1000),
+        recentMood: source?.currentUserState?.recentMood ?? 'neutral',
+        energyLevel: source?.currentUserState?.energyLevel ?? 50,
+        stressPattern: source?.currentUserState?.stressPattern ?? [StressLevel.MODERATE],
       },
       personalizationProfile: {
-        preferredTimes: context?.personalizationProfile?.preferredTimes ?? [],
-        responsiveStates: context?.personalizationProfile?.responsiveStates ?? [],
-        effectiveCategories: context?.personalizationProfile?.effectiveCategories ?? [],
-        culturalPreferences: context?.personalizationProfile?.culturalPreferences ?? {},
-        communicationStyle: context?.personalizationProfile?.communicationStyle ?? 'gentle',
+        preferredTimes: source?.personalizationProfile?.preferredTimes ?? [],
+        responsiveStates: source?.personalizationProfile?.responsiveStates ?? [],
+        effectiveCategories: source?.personalizationProfile?.effectiveCategories ?? [],
+        culturalPreferences: source?.personalizationProfile?.culturalPreferences ?? {},
+        communicationStyle: source?.personalizationProfile?.communicationStyle ?? 'gentle',
       },
-      interventionHistory: context?.interventionHistory ?? [],
+      interventionHistory: source?.interventionHistory ?? [],
     };
     if (missing.length) {
       normalized.__incomplete = true;
