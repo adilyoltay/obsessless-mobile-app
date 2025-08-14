@@ -17,7 +17,7 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  CrisisRiskLevel
+  RiskLevel as CrisisRiskLevel
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion, cbtEngine } from '@/features/ai/engines/cbtEngine';
 import { externalAIService, AIProvider } from '@/features/ai/services/externalAIService';

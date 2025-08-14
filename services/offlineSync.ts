@@ -10,9 +10,8 @@ export interface SyncQueueItem {
   data: any;
   timestamp: number;
   retryCount: number;
-  // Optional vector clock fields for future multi-device resolution
-  // version?: number;
-  // deviceId?: string;
+  deviceId?: string;
+  lastModified?: number;
 }
 
 export class OfflineSyncService {
@@ -74,6 +73,8 @@ export class OfflineSyncService {
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: Date.now(),
       retryCount: 0,
+      deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device',
+      lastModified: Date.now()
     };
 
     this.syncQueue.push(syncItem);
@@ -149,10 +150,10 @@ export class OfflineSyncService {
   private async syncCompulsion(item: SyncQueueItem): Promise<void> {
     switch (item.type) {
       case 'CREATE':
-        await apiService.compulsions.create(item.data);
+        await apiService.compulsions.create({ ...item.data, last_modified: item.lastModified, device_id: item.deviceId });
         break;
       case 'UPDATE':
-        await apiService.compulsions.update(item.data.id, item.data);
+        await apiService.compulsions.update(item.data.id, { ...item.data, last_modified: item.lastModified, device_id: item.deviceId });
         break;
       case 'DELETE':
         await apiService.compulsions.delete(item.data.id);
@@ -201,16 +202,12 @@ export class OfflineSyncService {
       const stored = await AsyncStorage.getItem(localKey);
       const compulsions = stored ? JSON.parse(stored) : [];
       
-      const nowIso = new Date().toISOString();
-      const normalized = {
+      compulsions.push({
         ...compulsion,
-        localId: compulsion.localId || `local_${Date.now()}`,
+        localId: `local_${Date.now()}`,
         synced: false,
-        createdAt: compulsion.createdAt || nowIso,
-        updatedAt: nowIso,
-      };
-      
-      compulsions.push(normalized);
+        createdAt: new Date().toISOString(),
+      });
       
       await AsyncStorage.setItem(localKey, JSON.stringify(compulsions));
       
@@ -218,7 +215,7 @@ export class OfflineSyncService {
       await this.addToSyncQueue({
         type: 'CREATE',
         entity: 'compulsion',
-        data: normalized,
+        data: compulsion,
       });
     } catch (error) {
       console.error('Error storing compulsion locally:', error);

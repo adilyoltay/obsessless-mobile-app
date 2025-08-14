@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, Platform, Text, useColorScheme } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,7 @@ function ScreenLayout({
 
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
+      <OfflineBanner />
       {showStatusBar && (
         <StatusBar 
           style={statusBarStyle} 

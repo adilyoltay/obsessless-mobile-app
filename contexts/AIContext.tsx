@@ -121,6 +121,7 @@ export function AIProvider({ children }: AIProviderProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
   const [networkType, setNetworkType] = useState<string | null>(null);
+  const [safeMode, setSafeMode] = useState<boolean>(false);
   
   // User AI Data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -155,6 +156,10 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // Core manager initialization (must be first)
       await aiManager.initialize();
+      // Environment doğrulaması: eğer AIManager prerequisites fail ise güvenli mod
+      if (!aiManager.isEnabled) {
+        setSafeMode(true);
+      }
 
       // Prepare parallel service initialization tasks
       const initializationTasks: Array<{ name: string; task: () => Promise<void>; enabled: boolean }> = [
@@ -903,6 +908,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isOnline,
     isConnected,
     networkType,
+    // safeMode dışa vurulmuyor; ileride UI için eklenebilir
     
     // User AI Data
     userProfile,
@@ -927,6 +933,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isOnline,
     isConnected,
     networkType,
+    safeMode,
     userProfile,
     treatmentPlan,
     currentRiskAssessment,

@@ -57,6 +57,11 @@ const compulsionService = {
     }
   },
 
+  /**
+   * Çakışma güvenli birleştirme (Last-Write-Wins + çatışma günlüğü)
+   * - ID bazında eşleşen kayıtlar için daha yeni `timestamp` kazanır
+   * - Farklı alanlar varsa bir çatışma kaydı oluşturulur (AsyncStorage anahtarı: `sync_conflicts`)
+   */
   mergeCompulsions(local: Compulsion[], remote: any[]): Compulsion[] {
     // Convert Supabase format to local format
     const remoteConverted: Compulsion[] = remote.map(r => ({
@@ -72,75 +77,54 @@ const compulsionService = {
       userId: r.user_id
     }));
 
-    // Build index by ID
-    const byId: Record<string, Compulsion> = {};
-    const conflicts: Array<{ id: string; local: Compulsion; remote: Compulsion }> = [];
+    // Map'ler
+    const localMap = new Map(local.map(item => [item.id, item]));
+    const remoteMap = new Map(remoteConverted.map(item => [item.id, item]));
 
-    // Add remote first
-    for (const rc of remoteConverted) {
-      byId[rc.id] = rc;
-    }
+    const allIds = new Set<string>([...localMap.keys(), ...remoteMap.keys()]);
+    const merged: Compulsion[] = [];
+    const conflicts: Array<{ id: string; local: any; remote: any }> = [];
 
-    // Merge with local, resolve conflicts with Last-Write-Wins by timestamp
-    for (const lc of local) {
-      const existing = byId[lc.id];
-      if (!existing) {
-        byId[lc.id] = lc;
-        continue;
-      }
+    allIds.forEach(id => {
+      const l = localMap.get(id);
+      const r = remoteMap.get(id);
+      if (l && r) {
+        const lt = new Date(l.timestamp).getTime();
+        const rt = new Date(r.timestamp).getTime();
+        const winner = lt >= rt ? l : r; // LWW
 
-      const localTs = new Date(lc.timestamp).getTime();
-      const remoteTs = new Date(existing.timestamp).getTime();
-
-      // Detect field-level differences (simple shallow compare)
-      const differs = (
-        lc.type !== existing.type ||
-        lc.severity !== existing.severity ||
-        lc.resistanceLevel !== existing.resistanceLevel ||
-        (lc.trigger || '') !== (existing.trigger || '') ||
-        (lc.notes || '') !== (existing.notes || '')
-      );
-
-      if (differs && Math.abs(localTs - remoteTs) > 0) {
-        // Conflict detected, pick newer and record conflict for optional user review
-        if (localTs >= remoteTs) {
-          byId[lc.id] = lc;
-        } else {
-          byId[lc.id] = existing;
+        // Alan farkı var mı? (timestamp hariç)
+        const comparableLocal = { ...l, timestamp: undefined } as any;
+        const comparableRemote = { ...r, timestamp: undefined } as any;
+        if (JSON.stringify(comparableLocal) !== JSON.stringify(comparableRemote)) {
+          conflicts.push({ id, local: l, remote: r });
         }
-        conflicts.push({ id: lc.id, local: lc, remote: existing });
-      } else {
-        // No meaningful difference or same timestamp → prefer local to preserve offline edits
-        byId[lc.id] = lc;
+        merged.push(winner);
+      } else if (l) {
+        merged.push(l);
+      } else if (r) {
+        merged.push(r);
       }
+    });
+
+    // Çatışmaları arka planda kaydet (best-effort)
+    if (conflicts.length > 0) {
+      try {
+        (async () => {
+          const existing = await AsyncStorage.getItem('sync_conflicts');
+          const arr = existing ? JSON.parse(existing) : [];
+          arr.push({
+            entity: 'compulsion',
+            count: conflicts.length,
+            at: new Date().toISOString(),
+            conflicts: conflicts.slice(0, 20) // limit
+          });
+          await AsyncStorage.setItem('sync_conflicts', JSON.stringify(arr));
+        })();
+      } catch {}
     }
 
-    // Persist conflicts for UX surface (non-blocking)
-    try {
-      // userId is identical across entries; pick from any side if present
-      const any = local[0] || remoteConverted[0];
-      const userId = any?.userId;
-      if (userId && conflicts.length > 0) {
-        // Lazy import to avoid circular deps
-        import('@react-native-async-storage/async-storage').then(async ({ default: AsyncStorage }) => {
-          const key = `compulsion_conflicts_${userId}`;
-          const existingRaw = await AsyncStorage.getItem(key);
-          const existingList = existingRaw ? JSON.parse(existingRaw) : [];
-          const merged = [...existingList, ...conflicts].slice(-100);
-          await AsyncStorage.setItem(key, JSON.stringify(merged));
-        }).catch(() => {});
-        // Telemetry (best-effort)
-        import('@/features/ai/telemetry/aiTelemetry').then(({ trackAIInteraction, AIEventType }) => {
-          trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-            event: 'sync_conflict_detected',
-            entity: 'compulsion',
-            count: conflicts.length
-          }).catch(() => {});
-        }).catch(() => {});
-      }
-    } catch {}
-
-    return Object.values(byId).sort(
+    return merged.sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   },
@@ -238,9 +222,9 @@ export function useCompulsions() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['compulsions', user?.uid],
-    queryFn: () => compulsionService.getAll(user!.uid),
-    enabled: !!user?.uid,
+    queryKey: ['compulsions', user?.id],
+    queryFn: () => compulsionService.getAll(user!.id),
+    enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -251,10 +235,10 @@ export function useCreateCompulsion() {
 
   return useMutation({
     mutationFn: (data: CreateCompulsionData) =>
-      compulsionService.create(user!.uid, data),
+      compulsionService.create(user!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.uid] });
-      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.id] });
     },
   });
 }
@@ -264,10 +248,10 @@ export function useDeleteCompulsion() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (id: string) => compulsionService.delete(user!.uid, id),
+    mutationFn: (id: string) => compulsionService.delete(user!.id, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.uid] });
-      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.id] });
     },
   });
 }
@@ -276,9 +260,9 @@ export function useCompulsionStats() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['compulsion-stats', user?.uid],
-    queryFn: () => compulsionService.getStats(user!.uid),
-    enabled: !!user?.uid,
+    queryKey: ['compulsion-stats', user?.id],
+    queryFn: () => compulsionService.getStats(user!.id),
+    enabled: !!user?.id,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

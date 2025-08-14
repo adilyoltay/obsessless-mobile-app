@@ -15,7 +15,7 @@ import {
   ConversationContext, 
   UserTherapeuticProfile,
   ConversationState,
-  CrisisRiskLevel
+  RiskLevel as CrisisRiskLevel
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion, CBTIntervention } from '@/features/ai/engines/cbtEngine';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';

@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest --ci",
+    "test:unit": "jest --ci --passWithNoTests",
     "validate:expo": "expo-doctor",
     "scan:secrets": "gitleaks detect --redact"
   },

@@ -21,7 +21,7 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  CrisisRiskLevel,
+  RiskLevel as CrisisRiskLevel,
   isAIError
 } from '@/features/ai/types';
 

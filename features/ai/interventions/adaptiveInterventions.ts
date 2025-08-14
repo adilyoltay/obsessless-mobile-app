@@ -11,7 +11,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
-  CrisisRiskLevel,
+  RiskLevel as CrisisRiskLevel,
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,

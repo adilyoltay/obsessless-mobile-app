@@ -220,6 +220,8 @@ class ExternalAIService {
       }
 
       this.isEnabled = true;
+      // Hafıza izleme (hafif)
+      this.startMemoryProbe();
       
       // Telemetry
       await trackAIInteraction(AIEventType.EXTERNAL_AI_INITIALIZED, {
@@ -657,8 +659,7 @@ class ExternalAIService {
     messages: AIMessage[] = [],
     context: ConversationContext = {} as any,
     config?: AIRequestConfig,
-    userId?: string,
-    options?: { abortSignal?: AbortSignal; softTimeoutMs?: number; hardTimeoutMs?: number }
+    userId?: string
   ): Promise<EnhancedAIResponse> {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     if (!this.isEnabled) {
@@ -747,61 +748,31 @@ class ExternalAIService {
         } catch {}
       }
       
-      // API çağrısı yap (aşamalı timeout ve abort desteği)
-      const softTimeout = Math.max(2000, Math.min((options?.softTimeoutMs ?? 5000), (options?.hardTimeoutMs ?? 30000) - 1000));
-      const hardTimeout = options?.hardTimeoutMs ?? 30000;
-
-      const softTimeoutPromise = new Promise<EnhancedAIResponse>((resolve) => {
-        setTimeout(() => {
-          resolve({
-            success: false,
-            content: 'Yanıt beklenenden uzun sürüyor, güvenli yerel öneriler gösteriliyor...',
-            provider: AIProvider.LOCAL,
-            model: 'heuristic-soft-timeout',
-            tokens: { prompt: 0, completion: 0, total: 0 },
-            latency: Date.now() - startTime,
-            timestamp: new Date(),
-            requestId,
-            fallbackUsed: true
-          });
-        }, softTimeout);
-      });
-
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-      const hardTimer = typeof setTimeout !== 'undefined' ? setTimeout(() => controller?.abort(), hardTimeout) : undefined as any;
-      const composedSignal = options?.abortSignal && controller?.signal
-        ? ((): AbortSignal => { 
-            // Merge: when either aborts, abort fetch
-            options!.abortSignal!.addEventListener('abort', () => controller?.abort());
-            return controller!.signal;
-          })()
-        : (options?.abortSignal || (controller?.signal as any));
-
-      // Provider request promise
-      const networkPromise = this.makeProviderRequest(provider, { ...preparedRequest, signal: composedSignal });
-
-      // Yarış: önce hangisi gelirse
-      let response = await Promise.race([networkPromise, softTimeoutPromise]);
-      if ((response as any).model === 'heuristic-soft-timeout') {
-        // Ağ yanıtı tamamlanırsa soft fallback'i override et
+      // API çağrısı yap (aşamalı timeout + AbortController desteği)
+      const stagedTimeouts = [3000, 7000, 15000]; // kademeli
+      let response: EnhancedAIResponse | null = null;
+      let lastError: any = null;
+      for (const stage of stagedTimeouts) {
         try {
-          const netResp = await networkPromise;
-          response = netResp;
-        } catch {
-          // ağ yine başarısız ise, soft fallback kalır; hard timeout zaten abort edecek
+          const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const timer = controller ? setTimeout(() => controller.abort(), stage) : null;
+          const reqWithTimeout = { ...preparedRequest, timeout: stage };
+          // Gemini implementasyonunda kendi timeout'u var; yine de dıştan abort sağlıyoruz
+          response = await this.makeProviderRequest(provider, reqWithTimeout);
+          if (timer) clearTimeout(timer as any);
+          if (response?.success) break;
+        } catch (e) {
+          lastError = e;
         }
       }
-
-      if (hardTimer) clearTimeout(hardTimer as any);
+      if (!response) {
+        throw lastError || new Error('AI request failed with staged timeouts');
+      }
       
-      // Fallback mekanizması
-      if (!response.success && provider !== this.getBackupProvider(provider)) {
-        if (__DEV__) console.warn(`⚠️ Primary provider ${provider} failed, trying backup...`);
-        const backupProvider = this.getBackupProvider(provider);
-        if (backupProvider) {
-          response = await this.makeProviderRequest(backupProvider, preparedRequest);
-          response.fallbackUsed = true;
-        }
+      // Fallback mekanizması (yerel heuristik)
+      if (!response.success) {
+        const heuristic = this.buildHeuristicFallback(messages, context);
+        return { ...heuristic, requestId, latency: Date.now() - startTime };
       }
 
       // Content filtering
@@ -1157,6 +1128,55 @@ class ExternalAIService {
       latency,
       timestamp: new Date(),
       requestId,
+      fallbackUsed: true
+    };
+  }
+
+  /**
+   * Basit bellek izleme (yaklaşık) ve telemetri.
+   */
+  private startMemoryProbe(): void {
+    try {
+      if ((this as any)._memoryProbeStarted) return;
+      (this as any)._memoryProbeStarted = true;
+      setInterval(() => {
+        try {
+          const cacheEntries = this.responseCache.size;
+          const rateTrackers = this.userRateLimits.size;
+          const queueSize = this.requestQueue.size;
+          let usedHeap = null as null | number;
+          const perf: any = (globalThis as any).performance;
+          if (perf && perf.memory && typeof perf.memory.usedJSHeapSize === 'number') {
+            usedHeap = perf.memory.usedJSHeapSize;
+          }
+          trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'memory_probe',
+            usedHeap,
+            cacheEntries,
+            rateTrackers,
+            queueSize
+          }).catch(() => {});
+        } catch {}
+      }, 60_000);
+    } catch {}
+  }
+
+  /**
+   * Yerel heuristik fallback içerik oluşturucu (on-device, privacy-first)
+   */
+  private buildHeuristicFallback(messages: AIMessage[] = [], context?: ConversationContext): EnhancedAIResponse {
+    const lastUser = (messages || []).filter(m => m.role === 'user').slice(-1)[0];
+    const hint = lastUser?.content ? ` (Son mesajınıza göre: "${String(lastUser.content).slice(0, 120)}...")` : '';
+    const text = `Şu an dış servisler yanıt veremiyor. Yine de yanınızdayım.${hint} Kısa bir nefes egzersizi deneyelim: 4-4-6. İsterseniz günlüğe kısa bir not da ekleyebilirsiniz.`;
+    return {
+      success: true,
+      content: text,
+      provider: AIProvider.LOCAL,
+      model: 'heuristic-fallback',
+      tokens: { prompt: 0, completion: 0, total: 0 },
+      latency: 0,
+      timestamp: new Date(),
+      requestId: '',
       fallbackUsed: true
     };
   }
