@@ -157,7 +157,6 @@ class SupabaseNativeService {
     // Tek supabase client kullanımı (lib/supabase.ts)
     // Ortak istemci, storage/refresh ayarlarını zaten içerir
     // Ortam değişkenleri lib içinde doğrulanır
-    // @ts-expect-error - shared client type is SupabaseClient
     this.client = sharedClient as unknown as SupabaseClient;
     console.log('✅ Supabase Native Service initialized (shared client)');
   }
@@ -302,7 +301,7 @@ class SupabaseNativeService {
       // Use proxy redirect in Expo Go to avoid IP-based deep links and loops
       const isExpoGo = Constants.appOwnership === 'expo';
       const redirectUrl = isExpoGo
-        ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
+        ? makeRedirectUri({ path: 'auth/callback' })
         : Linking.createURL('auth/callback');
       console.log('🔐 Redirect URL will be:', redirectUrl);
       
@@ -499,6 +498,72 @@ class SupabaseNativeService {
       return data;
     } catch (error) {
       console.error('❌ Save user profile failed:', error);
+      throw error;
+    }
+  }
+
+  // ===========================
+  // AI PROFILES & TREATMENT PLANS
+  // ===========================
+  /**
+   * AI profili upsert eder. Onboarding tamamlandıysa completed_at set edilir.
+   */
+  async upsertAIProfile(
+    userId: string,
+    profileData: any,
+    onboardingCompleted: boolean = true
+  ): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(userId);
+
+      const payload: any = {
+        user_id: userId,
+        profile_data: profileData,
+        onboarding_completed: onboardingCompleted,
+        updated_at: new Date().toISOString(),
+      };
+      if (onboardingCompleted) {
+        payload.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await this.client
+        .from('ai_profiles')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      console.log('✅ AI profile upserted:', userId);
+    } catch (error) {
+      console.error('❌ upsertAIProfile failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * AI tedavi planını upsert eder.
+   */
+  async upsertAITreatmentPlan(
+    userId: string,
+    planData: any,
+    status: string = 'active'
+  ): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(userId);
+
+      const payload = {
+        user_id: userId,
+        plan_data: planData,
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await this.client
+        .from('ai_treatment_plans')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      console.log('✅ AI treatment plan upserted:', userId);
+    } catch (error) {
+      console.error('❌ upsertAITreatmentPlan failed:', error);
       throw error;
     }
   }

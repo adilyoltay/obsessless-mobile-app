@@ -411,10 +411,46 @@ export function AIProvider({ children }: AIProviderProps) {
           try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
         }
       }
+
+      // Profile fallbacks (ai_* → legacy)
+      if (!profileRow?.profile_data) {
+        let loadedProfile: any | null = null;
+
+        // 1) ai_* local
+        try {
+          const aiLocal = await AsyncStorage.getItem(`ai_user_profile_${userId}`);
+          if (aiLocal) loadedProfile = JSON.parse(aiLocal);
+        } catch {}
+
+        // 2) legacy local
+        if (!loadedProfile) {
+          try {
+            const legacy = await AsyncStorage.getItem(`user_profile_${userId}`);
+            if (legacy) loadedProfile = JSON.parse(legacy);
+          } catch {}
+        }
+
+        if (loadedProfile) {
+          setUserProfile(loadedProfile);
+          // normalize to ai_* keys
+          try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(loadedProfile)); } catch {}
+
+          // background upsert (best-effort)
+          try {
+            const { supabaseService: svc } = await import('@/services/supabase');
+            await svc.upsertAIProfile(userId, loadedProfile, completed);
+          } catch {}
+        }
+      }
+
+      // Onboarding flag fallbacks
       if (!completed) {
-        const onboardingKey = `ai_onboarding_completed_${userId}`;
-        const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
-        completed = onboardingCompleted === 'true';
+        const aiCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${userId}`);
+        if (aiCompleted === 'true') completed = true;
+        if (!completed) {
+          const legacyCompleted = await AsyncStorage.getItem(`onboarding_completed_${userId}`);
+          if (legacyCompleted === 'true') completed = true;
+        }
       }
       setHasCompletedOnboarding(completed);
 
@@ -423,10 +459,31 @@ export function AIProvider({ children }: AIProviderProps) {
       if (planRow?.plan_data) {
         setTreatmentPlan(planRow.plan_data);
         try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
-      } else if (!treatmentPlan) {
-        const treatmentKey = `ai_treatment_plan_${userId}`;
-        const treatmentData = await AsyncStorage.getItem(treatmentKey);
-        if (treatmentData) setTreatmentPlan(JSON.parse(treatmentData));
+      } else {
+        // ai_* local
+        let localPlan: any | null = null;
+        try {
+          const aiPlan = await AsyncStorage.getItem(`ai_treatment_plan_${userId}`);
+          if (aiPlan) localPlan = JSON.parse(aiPlan);
+        } catch {}
+
+        // legacy local
+        if (!localPlan) {
+          try {
+            const legacyPlan = await AsyncStorage.getItem(`treatment_plan_${userId}`);
+            if (legacyPlan) localPlan = JSON.parse(legacyPlan);
+          } catch {}
+        }
+
+        if (localPlan) {
+          setTreatmentPlan(localPlan);
+          try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(localPlan)); } catch {}
+          // background upsert
+          try {
+            const { supabaseService: svc } = await import('@/services/supabase');
+            await svc.upsertAITreatmentPlan(userId, localPlan, 'active');
+          } catch {}
+        }
       }
 
       // Load latest risk assessment
@@ -439,8 +496,8 @@ export function AIProvider({ children }: AIProviderProps) {
       // Telemetry: cross-device sync verification
       await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
         event: 'ai_context_sync_check',
-        profilePresent: !!profileRow?.profile_data,
-        planPresent: !!planRow?.plan_data,
+        profilePresent: !!(profileRow?.profile_data || userProfile),
+        planPresent: !!(planRow?.plan_data || treatmentPlan),
         completed,
         source: 'supabase_pull',
       }, userId);
@@ -592,7 +649,27 @@ export function AIProvider({ children }: AIProviderProps) {
     }
     try {
       insightsInFlightRef.current = true;
-      // Build enriched behavioral data for today if present in storage
+      // 24 saatlik zaman penceresi
+      const end = new Date();
+      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      const startISO = start.toISOString();
+      const endISO = end.toISOString();
+
+      // DB'den davranışsal veriler (paralel)
+      let dbCompulsions: any[] = [];
+      let dbErpSessions: any[] = [];
+      try {
+        const [compList, erpList] = await Promise.all([
+          (async () => await (await import('@/services/supabase')).supabaseService.getCompulsions(user.id, startISO, endISO))(),
+          (async () => await (await import('@/services/supabase')).supabaseService.getERPSessions(user.id, startISO, endISO))()
+        ]);
+        dbCompulsions = compList || [];
+        dbErpSessions = erpList || [];
+      } catch (e) {
+        if (__DEV__) console.warn('⚠️ DB behavioral fetch failed, will use local fallbacks');
+      }
+
+      // Local fallbacks
       const today = new Date().toDateString();
       const compulsionsKey = `compulsions_${user.id}`;
       const compulsionsRaw = await AsyncStorage.getItem(compulsionsKey);
@@ -603,13 +680,37 @@ export function AIProvider({ children }: AIProviderProps) {
       const erpRaw = await AsyncStorage.getItem(erpKey);
       const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
 
+      const compulsions = dbCompulsions.length ? dbCompulsions : todayCompulsions;
+      const erpSessions = dbErpSessions.length ? dbErpSessions : todayErpSessions;
+
       const behavioralData = {
-        compulsions: todayCompulsions,
+        compulsions,
         moods: [],
-        exercises: todayErpSessions,
+        exercises: erpSessions,
         achievements: [],
         assessments: []
       };
+
+      // Veri yeterlilik guard'ı
+      const hasProfile = !!userProfile;
+      const interactionsCount = (compulsions?.length || 0) + (erpSessions?.length || 0);
+      if (!hasProfile || interactionsCount === 0) {
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+            userId: user.id,
+            hasProfile,
+            interactionsCount
+          }, user.id);
+        } catch {}
+        // Kullanıcıya sade uyarı içeriği döndür
+        return [{
+          id: 'data_insufficient_notice',
+          type: 'system',
+          content: 'Daha anlamlı içgörüler için bugün en az bir kayıt ekleyin (kompulsiyon veya ERP).',
+          timestamp: new Date(),
+          priority: 'low'
+        }];
+      }
 
       // Prefer enriched insights if method exists
       if (insightsCoordinator && typeof (insightsCoordinator as any).generateDailyInsightsWithData === "function") {
