@@ -35,7 +35,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -1146,7 +1146,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                   <MaterialCommunityIcons 
                     name={symptom.icon as any} 
                     size={20} 
-                    color={Colors.primary.green} 
+                    color={getCanonicalCategoryColor(symptom.id)} 
                     style={{ marginRight: 8 }}
                   />
                   <Text style={[

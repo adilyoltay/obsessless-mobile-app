@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useTranslation } from '@/hooks/useTranslation';
 import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
-import { getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import { Compulsion } from '@/types/compulsion';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -253,7 +253,7 @@ export function CompulsionQuickEntry({
                     <MaterialCommunityIcons
                       name={getCanonicalCategoryIconName(id) as any}
                       size={24}
-                      color={isSelected ? '#10B981' : '#10B981'}
+                      color={getCanonicalCategoryColor(id)}
                     />
                   </View>
                   <Text style={[

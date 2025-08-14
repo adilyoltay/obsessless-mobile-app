@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
-import { getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 
 const { width, height } = Dimensions.get('window');
 
@@ -115,7 +115,7 @@ export function OCDProfileForm({ onComplete }: OCDProfileFormProps) {
                 <MaterialCommunityIcons
                   name={getCanonicalCategoryIconName(symptomId) as any}
                   size={20}
-                  color={isSelected ? '#FFFFFF' : '#6B7280'}
+                  color={isSelected ? '#FFFFFF' : getCanonicalCategoryColor(symptomId)}
                   style={styles.symptomIcon}
                 />
                 <Text style={[
