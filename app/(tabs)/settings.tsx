@@ -98,7 +98,7 @@ export default function SettingsScreen() {
   const handleContinueAIOnboarding = async () => {
     if (!user?.id) return;
     router.push({
-      pathname: '/(auth)/ai-onboarding',
+      pathname: '/(auth)/onboarding',
       params: { fromSettings: 'true', resume: aiOnboardingHasProgress ? 'true' : 'false' }
     });
   };

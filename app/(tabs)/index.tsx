@@ -423,7 +423,7 @@ export default function TodayScreen() {
           <Pressable 
             style={styles.aiOnboardingCTA}
             onPress={() => router.push({
-              pathname: '/(auth)/ai-onboarding',
+              pathname: '/(auth)/onboarding',
               params: { fromSettings: 'false', resume: 'true' }
             })}
           >

@@ -156,7 +156,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                       console.error('❌ AI Onboarding navigation error:', error);
                       console.log('🔄 Trying fallback navigation...');
                       hasNavigatedRef.current = true;
-                      router.push('/ai-onboarding');
+                      router.push('/(auth)/onboarding');
                     }
                   }, 200);
                   return;

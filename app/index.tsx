@@ -79,7 +79,7 @@ export default function Index() {
 
           if (!isCompleted) {
             if (__DEV__) console.log('🏠 AI Onboarding not completed, redirecting...');
-            router.replace('/(auth)/ai-onboarding');
+            router.replace('/(auth)/onboarding');
             return;
           }
         }
