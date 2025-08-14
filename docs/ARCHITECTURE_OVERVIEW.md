@@ -24,6 +24,10 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - Aktif: Onboarding (AI destekli), Insights v2 (Progress Tracking Insights dahil), JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
 - Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
   
+Güncel yönlendirme:
+- Onboarding giriş rotası: `/(auth)/onboarding` (eski `/(auth)/ai-onboarding` kaldırıldı)
+- NavigationGuard ve `app/index.tsx` onboarding kontrolleri bu rotaya yönlendirir.
+  
 Notlar:
 - Progress Analytics (bağımsız servis) runtime’dan kaldırıldı; `features/ai/analytics/progressAnalyticsCore.ts` yalnızca tipleri içerir.
 - Smart Notifications kategorilerinde legacy `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kaldırıldı; konsolide kategoriler: `INSIGHT_DELIVERY`, `THERAPEUTIC_REMINDER`, `PROGRESS_CELEBRATION`, `SKILL_PRACTICE`, `CHECK_IN`, `EDUCATIONAL`.

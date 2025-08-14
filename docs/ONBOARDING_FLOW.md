@@ -1,5 +1,7 @@
 # 🧭 Onboarding Akışı (Güncel)
 
+Giriş rotası: `/(auth)/onboarding` (Eski `/(auth)/ai-onboarding` kaldırıldı)
+
 ```mermaid
 flowchart TD
     A[Uygulama Açılışı] --> B{Authenticated?}

@@ -3,6 +3,7 @@
 | Özellik | Durum | Not |
 |---|---|---|
 | AI Onboarding | Aktif | Y-BOCS analizi, profil, tedavi planı, telemetry |
+| Onboarding Rota | Aktif | Giriş rotası `/(auth)/onboarding`; eski `/(auth)/ai-onboarding` kaldırıldı |
 | Insights v2 | Aktif | CBT/AI/Progress kaynaklı basit içgörüler, 60s cooldown |
 | Progress Analytics | Kaldırıldı | Bağımsız servis yok; tipler korunuyor, Insights v2 içinde sınırlı Progress Tracking |
 | JITAI (temel) | Aktif | Zaman/bağlam tetikleyicileri, krizsiz |

@@ -976,8 +976,8 @@ class AdaptiveTreatmentPlanningEngine {
             }
           };
 
-          const optimalTiming = await jitaiEngine.predictOptimalTiming(jitaiContext);
-          console.log('🎯 JITAI treatment timing optimized:', optimalTiming.recommendedActionTime);
+          const optimalTiming = await jitaiEngine.predictOptimalTiming(jitaiContext as any);
+          console.log('🎯 JITAI treatment timing optimized:', optimalTiming.optimalTiming?.recommendedTime);
         } catch (jitaiError) {
           console.warn('🎯 JITAI timing optimization failed:', jitaiError);
         }

@@ -14,6 +14,8 @@ Onboarding her zaman aktiftir ve en kapsamlı akış olan `OnboardingFlowV3` kul
 Notlar:
 - `AI_ONBOARDING_V2` her zaman true’dur. Onboarding hiçbir flag ile kapatılmaz.
 - Eski `/(auth)/ai-onboarding` rotası kaldırıldı; tek giriş `/(auth)/onboarding`.
+  - Today ekranındaki AI CTA, Settings → AI Onboarding devam butonu ve NavigationGuard/app giriş yönlendirmeleri güncellenmiştir.
+  - Onboarding tamamlanmadıysa otomatik yönlendirme `/(auth)/onboarding`'edir; tamamlandıysa CTA gizlenir.
 
 # 🌟 ObsessLess Mobile App
 
