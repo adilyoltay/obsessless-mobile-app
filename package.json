@@ -18,7 +18,9 @@
     "test": "jest --ci",
     "test:unit": "jest --ci --passWithNoTests",
     "validate:expo": "expo-doctor",
-    "scan:secrets": "gitleaks detect --redact"
+    "scan:secrets": "gitleaks detect --redact",
+    "scan:deprecated": "bash scripts/find-deprecated-features.sh",
+    "docs:deprecate": "ts-node scripts/update-documentation.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
