@@ -7,7 +7,7 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 - CBT Thought Record
 - Breathwork
 - ERP Önerileri / ERP Oturum Akışı
-- Insights v2 / Progress Analytics
+- Insights v2 (Progress Tracking Insights; bağımsız Progress Analytics servisi yok)
 - Telemetry (privacy-first)
 
 ## Hariç

@@ -12,18 +12,21 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - Veri Katmanı
   - Supabase (Auth, PostgreSQL, RLS, Triggers)
   - Offline-first: AsyncStorage (önce yerel yazım, online iken senkron)
-- AI Katmanı (features/ai)
-  - aiManager (özellik başlatma/flag/sağlık kontrol)
-  - Telemetry (gizlilik-öncelikli izleme)
-  - Insights v2 (CBT, AI-Deep, Progress kaynaklı basit akış)
-  - Progress Analytics (istatistik ve eğilimler)
-  - JITAI (temel zaman/bağlam tetikleyicileri)
-  - Pattern Recognition v2 (yalnızca AI-assisted basitleştirilmiş)
-  - Safety: contentFilter (kriz tespiti devre dışı)
+ - AI Katmanı (features/ai)
+   - aiManager (özellik başlatma/flag/sağlık kontrol)
+   - Telemetry (gizlilik-öncelikli izleme)
+   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; bağımsız Progress Analytics servisi yok)
+   - JITAI (temel zaman/bağlam tetikleyicileri)
+   - Pattern Recognition v2 (yalnızca AI-assisted basitleştirilmiş)
+   - Safety: contentFilter (kriz tespiti devre dışı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2, Progress Analytics, JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
+- Aktif: Onboarding (AI destekli), Insights v2 (Progress Tracking Insights dahil), JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
 - Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
+  
+Notlar:
+- Progress Analytics (bağımsız servis) runtime’dan kaldırıldı; `features/ai/analytics/progressAnalyticsCore.ts` yalnızca tipleri içerir.
+- Smart Notifications kategorilerinde `PATTERN_ALERT` ve `CRISIS_INTERVENTION` hâlen kodda tanımlı, kaldırılmaları planlanıyor (legacy).
 
 ## Bağımlılıklar ve Konfigürasyon
 - Expo SDK 53, React Native 0.79.x, TypeScript strict

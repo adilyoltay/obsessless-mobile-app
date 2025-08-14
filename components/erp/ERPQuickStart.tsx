@@ -231,7 +231,7 @@ export function ERPQuickStart({
                       color={getCanonicalCategoryColor(category.id)}
                     />
                   </View>
-                  <Text style={styles.categoryName}>{t(String(category.title), t('categoriesCanonical.' + category.id, category.id))}</Text>
+                  <Text style={styles.categoryName}>{t('categoriesCanonical.' + category.id, category.id)}</Text>
                   <Text style={styles.categoryCount}>{category.exercises.length} egzersiz</Text>
                 </Pressable>
               ))}

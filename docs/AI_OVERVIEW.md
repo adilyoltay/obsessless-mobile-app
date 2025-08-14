@@ -3,8 +3,8 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT/AI/Progress kaynaklı içgörüler; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_DATA_INSUFFICIENT
-- Progress Analytics: İstatistik, eğilim, tahmin; telemetry: PROGRESS_ANALYTICS_INITIALIZED/PROGRESS_ANALYSIS_COMPLETED
+- Insights v2: CBT/AI + Progress Tracking Insights; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_DATA_INSUFFICIENT
+- Progress Analytics: runtime’dan kaldırıldı (yalnızca tipler mevcut)
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
 - Voice Mood Check‑in: STT, PII maskeleme, rota önerisi; telemetry: CHECKIN_STARTED/ROUTE_SUGGESTED/COMPLETED, STT_FAILED
@@ -36,3 +36,4 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 ## Notlar
 - AI Chat ve Crisis Detection devre dışıdır
 - Art Therapy flag kapalı
+ - Smart Notifications: `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kategorileri kodda mevcut (legacy), ileride temizlenecek
