@@ -35,30 +35,17 @@ function runTest(testName, testFunction) {
   }
 }
 
-// Test 1: Crisis Detection File Existence
-runTest('Crisis Detection System Exists', () => {
+// Test 1: Crisis Detection (Removed)
+runTest('Crisis Detection Removed', () => {
   const fs = require('fs');
-  // Legacy crisis detection test disabled after removal
-  
-  const content = fs.readFileSync(crisisDetectionPath, 'utf8');
-  
-  // Check critical components
-  const requiredComponents = [
-    'CrisisDetectionService',
-    'TURKISH_CRISIS_KEYWORDS',
-    'ENGLISH_CRISIS_KEYWORDS',
-    'detectCrisis',
-    'keywordBasedDetection',
-    'contextualAnalysis'
-  ];
-  
-  for (const component of requiredComponents) {
-    if (!content.includes(component)) {
-      throw new Error(`Missing component: ${component}`);
+  const crisisDetectionPath = path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts');
+  if (fs.existsSync(crisisDetectionPath)) {
+    const content = fs.readFileSync(crisisDetectionPath, 'utf8');
+    if (content.includes('CrisisDetectionService') || content.includes('TURKISH_CRISIS_KEYWORDS')) {
+      throw new Error('Legacy crisis detection implementation should not be present');
     }
   }
-  
-  console.log('   ✓ All required crisis detection components present');
+  console.log('   ✓ Crisis detection legacy code removed or inert');
 });
 
 // Test 2: Content Filter System
@@ -127,26 +114,20 @@ runTest('AI Safety TypeScript Compilation', () => {
 });
 
 // Test 5: Safety Keywords Coverage
-runTest('Crisis Keywords Coverage', () => {
+// Test 5: Crisis Keywords Coverage (Removed)
+runTest('Crisis Keywords Removed', () => {
   const fs = require('fs');
   const crisisDetectionPath = path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts');
-  const content = fs.readFileSync(crisisDetectionPath, 'utf8');
-  
-  // Check for critical safety categories
-  const requiredCategories = ['suicide', 'selfHarm', 'hopelessness', 'panic'];
-  
-  for (const category of requiredCategories) {
-    if (!content.includes(category)) {
-      throw new Error(`Missing crisis category: ${category}`);
+  if (fs.existsSync(crisisDetectionPath)) {
+    const content = fs.readFileSync(crisisDetectionPath, 'utf8');
+    const removedTokens = ['TURKISH_CRISIS_KEYWORDS', 'ENGLISH_CRISIS_KEYWORDS'];
+    for (const token of removedTokens) {
+      if (content.includes(token)) {
+        throw new Error(`Legacy crisis keywords should be removed: ${token}`);
+      }
     }
   }
-  
-  // Check for both Turkish and English support
-  if (!content.includes('TURKISH_CRISIS_KEYWORDS') || !content.includes('ENGLISH_CRISIS_KEYWORDS')) {
-    throw new Error('Missing multilingual support');
-  }
-  
-  console.log('   ✓ Critical safety categories and multilingual support present');
+  console.log('   ✓ Crisis keywords not present');
 });
 
 // Test 6: Content Filter Categories
@@ -199,7 +180,6 @@ runTest('Error Classification System', () => {
 runTest('Feature Flag Integration', () => {
   const fs = require('fs');
   const aiSafetyFiles = [
-    path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts'),
     path.join(__dirname, '..', 'features', 'ai', 'safety', 'contentFilter.ts')
   ];
   
@@ -222,7 +202,6 @@ runTest('Feature Flag Integration', () => {
 runTest('Telemetry Integration', () => {
   const fs = require('fs');
   const aiSafetyFiles = [
-    path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts'),
     path.join(__dirname, '..', 'features', 'ai', 'safety', 'contentFilter.ts'),
     path.join(__dirname, '..', 'features', 'ai', 'components', 'ErrorBoundary.tsx')
   ];
@@ -242,13 +221,8 @@ runTest('Telemetry Integration', () => {
 runTest('Safety Configuration Validation', () => {
   const fs = require('fs');
   
-  // Crisis Detection Config
-  const crisisPath = path.join(__dirname, '..', 'features', 'ai', 'safety', 'crisisDetection.ts');
-  const crisisContent = fs.readFileSync(crisisPath, 'utf8');
-  
-  if (!crisisContent.includes('DEFAULT_CONFIG') || !crisisContent.includes('CrisisDetectionConfig')) {
-    throw new Error('Missing crisis detection configuration');
-  }
+  // Crisis Detection Config (Removed)
+  // No validation required since module is removed
   
   // Content Filter Config
   const filterPath = path.join(__dirname, '..', 'features', 'ai', 'safety', 'contentFilter.ts');
