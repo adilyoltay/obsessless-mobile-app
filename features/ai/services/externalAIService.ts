@@ -749,7 +749,7 @@ class ExternalAIService {
       }
       
       // API çağrısı yap (aşamalı timeout + AbortController desteği)
-      const stagedTimeouts = [3000, 7000, 15000]; // kademeli
+      const stagedTimeouts = [3000, 10000, 30000]; // 3/10/30s
       let response: EnhancedAIResponse | null = null;
       let lastError: any = null;
       for (const stage of stagedTimeouts) {
@@ -772,6 +772,8 @@ class ExternalAIService {
       // Fallback mekanizması (yerel heuristik)
       if (!response.success) {
         const heuristic = this.buildHeuristicFallback(messages, context);
+        // Telemetry: fallback tetiklendi
+        try { await trackAIInteraction(AIEventType.FALLBACK_TRIGGERED, { provider, reason: 'primary_failed' }, userId); } catch {}
         return { ...heuristic, requestId, latency: Date.now() - startTime };
       }
 

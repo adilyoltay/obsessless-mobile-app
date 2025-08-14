@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenLayout, { ScreenHeader } from '@/components/layout/ScreenLayout';
+import { conflictResolver } from '@/services/conflictResolver';
 
 interface ConflictItem {
   entity: string;
@@ -30,6 +31,11 @@ export default function SyncConflictsScreen() {
     setItems([]);
   };
 
+  const resolve = async (id: string, pick: 'local' | 'remote') => {
+    await conflictResolver.resolveCompulsion(items[0]?.conflicts?.[0]?.local?.userId || 'user', id, pick);
+    load();
+  };
+
   return (
     <ScreenLayout>
       <ScreenHeader title="Senkron Çatışmaları" subtitle="Son eşleşmeyen değişiklikler" />
@@ -47,6 +53,14 @@ export default function SyncConflictsScreen() {
               <View key={c.id} style={styles.row}>
                 <Text style={styles.id}>#{c.id}</Text>
                 <Text style={styles.diff}>Yerel ve uzak veriler farklı. LWW uygulandı.</Text>
+                <View style={styles.choice}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'local')} style={[styles.btn, styles.btnSmall]}>
+                    <Text style={styles.btnSmallText}>Yerel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'remote')} style={[styles.btn, styles.btnSmall]}>
+                    <Text style={styles.btnSmallText}>Sunucu</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
             {item.conflicts.length > 3 ? <Text style={styles.more}>+{item.conflicts.length - 3} daha...</Text> : null}
