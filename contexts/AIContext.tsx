@@ -66,6 +66,7 @@ interface AIContextType {
   isInitialized: boolean;
   isInitializing: boolean;
   initializationError: string | null;
+  safeMode: boolean;
   
   // Network Status
   isOnline: boolean;
@@ -903,6 +904,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    safeMode,
     
     // Network Status
     isOnline,
@@ -930,6 +932,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    safeMode,
     isOnline,
     isConnected,
     networkType,

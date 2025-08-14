@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
 import OfflineBanner from '@/components/ui/OfflineBanner';
+import SafeModeBanner from '@/components/ui/SafeModeBanner';
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -29,6 +30,7 @@ function ScreenLayout({
 
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
+      <SafeModeBanner />
       <OfflineBanner />
       {showStatusBar && (
         <StatusBar 
