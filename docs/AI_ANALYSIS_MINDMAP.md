@@ -13,7 +13,6 @@
 - **Çalışma Mantığı**:
   - **Paralel Execution** (Performans için):
     - Pattern Recognition v2 (simplified)
-    - Progress Analytics
   - **Sıralı Execution** (Bağımlılıklar için):
     - Insights Engine (simplified)
     - Smart Notifications
@@ -37,40 +36,12 @@
 - **Pattern Correlations**: Desenler arası ilişkiler (sadece AI-assisted)
 - **Pattern Insights**: Desen bazlı içgörüler (minimal)
 
-## 📈 Progress Analytics (İlerleme Analizi)
+## 📈 Progress Analytics (Removed from runtime; stubs only)
 
-### Analiz Aşamaları
-1. **Progress Data Points Generation**
-   - Kompulsiyon verileri
-   - ERP oturum verileri
-   - Direnç kazanımları
-   - Mood skorları
-
-2. **Category-Specific Progress**
-   - OCD kategorileri bazında ilerleme
-   - Tedavi hedeflerine göre değerlendirme
-   - Zaman bazlı karşılaştırma
-
-3. **Overall Progress Score**
-   - Ağırlıklı ortalama hesaplama
-   - Normalize edilmiş skorlar
-   - Trend analizi
-
-4. **Predictive Indicators (Limited)**
-   - Trend tabanlı göstergeler
-   - Risk artışı için sezgisel sinyaller (geniş kapsamlı tahminleme yok)
-   - Başarı olasılığı: yalnızca özetleyici metrikler (plansız ileri tahminleme)
-
-5. **Achievements & Milestones**
-   - Başarı rozetleri
-   - Milestone takibi
-   - Motivasyon metrikleri
-
-### Çıktılar
-- Progress charts (grafikler)
-- Trend indicators
-- Achievement badges
-- Predictive insights
+Kısa not:
+- `features/ai/analytics/progressAnalyticsCore.ts` yalnızca arayüz tipleri içerir; çalışır bir servis bulunmuyor.
+- `features/ai/coordinators/insightsCoordinator.ts` içinde `progressAnalytics: false` sabitlenmiş ve yürütme blokları kaldırılmıştır.
+- İlerleme bazlı geri bildirimler, bağımsız bir servis yerine `InsightsEngineV2` içindeki "Progress Tracking Insights" ile sınırlı şekilde sağlanır.
 
 ## 💡 Insights Engine v2 (İçgörü Üretimi) - **SIMPLIFIED**
 
@@ -222,9 +193,9 @@ Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokolle
 - **Check-in**: Engagement maintenance
 - **Educational**: Learning content
 
-### **Removed Categories**:
-- ❌ **Crisis Intervention**: Removed with crisis detection
-- ❌ **Pattern Alert**: Removed due to simplified pattern recognition
+### Legacy Categories (still in code, planned removal):
+- ⚠️ **Crisis Intervention**: Category mevcut; kriz sistemi kaldırıldığı için kaldırılması planlanıyor
+- ⚠️ **Pattern Alert**: Category mevcut; pattern simplification sonrası kaldırılması planlanıyor
 
 ## 📊 Data Flow Architecture - **UPDATED**
 
@@ -255,8 +226,8 @@ Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokolle
 
 2. **Batch Processing**
    - Daily insights
-   - Progress calculation
-   - Trend analysis
+   - Progress-related calculations (limited, no standalone Progress Analytics service)
+   - Trend analysis (limited)
 
 3. **Background Tasks**
    - Telemetry collection
@@ -303,18 +274,18 @@ Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokolle
 
 1. **AI Context** → Merkezi yönetim katmanı
 2. **Insights Coordinator** → Tüm AI bileşenlerini orchestrate eder
-   - **Paralel Çalışanlar**: Pattern Recognition (simplified), Progress Analytics
+   - **Paralel Çalışanlar**: Pattern Recognition (simplified)
    - **Sıralı Çalışanlar**: Insights Engine (simplified), Smart Notifications
 
 3. **Active AI Components**:
    - 🔍 **Pattern Recognition v2**: Only AI-assisted discovery
-   - 📈 **Progress Analytics**: İlerleme metrikleri ve tahminler
    - 💡 **Insights Engine v2**: 3 kaynak (CBT, AI-powered, Progress)
    - 🔄 **Adaptive Interventions**: Bağlam-duyarlı müdahaleler
    - 📚 **ERP Recommendations**: Kişiselleştirilmiş egzersiz önerileri
 
 4. **Removed/Disabled Components**:
    - ❌ **Crisis Detection**: Runtime’dan kaldırıldı (flag daima false)
+   - ❌ **Progress Analytics**: Runtime’dan kaldırıldı (arayüz tipleri korunuyor)
    - 🔒 **Art Therapy**: Feature flag ile koşullu (varsayılan: off)
 
 ## 🔐 Güvenlik ve Gizlilik

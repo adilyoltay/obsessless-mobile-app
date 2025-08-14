@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import * as Haptics from 'expo-haptics';
 import { Card } from 'react-native-paper';
 import Animated, { 
@@ -438,15 +439,22 @@ export default function ERPSessionScreen({
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Text style={styles.exerciseTitle}>{exerciseName}</Text>
           {category ? (
-            <Badge 
-              text={((): string => {
-                const canonical = mapToCanonicalCategory(category!);
-                return t('categoriesCanonical.' + canonical, 'Kategori');
-              })()}
-              variant="info"
-              size="small"
-              style={{ marginTop: 6 }}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <MaterialCommunityIcons 
+                name={getCanonicalCategoryIconName(mapToCanonicalCategory(category!)) as any}
+                size={16}
+                color={getCanonicalCategoryColor(mapToCanonicalCategory(category!))}
+                style={{ marginRight: 6 }}
+              />
+              <Badge 
+                text={((): string => {
+                  const canonical = mapToCanonicalCategory(category!);
+                  return t('categoriesCanonical.' + canonical, 'Kategori');
+                })()}
+                variant="info"
+                size="small"
+              />
+            </View>
           ) : null}
         </View>
         <View style={{ width: 28 }} />
