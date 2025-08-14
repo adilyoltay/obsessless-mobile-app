@@ -67,6 +67,7 @@ interface AIContextType {
   isInitializing: boolean;
   initializationError: string | null;
   safeMode: boolean;
+  safeModeReason?: 'env' | 'memory' | 'errors';
   
   // Network Status
   isOnline: boolean;
@@ -123,6 +124,7 @@ export function AIProvider({ children }: AIProviderProps) {
   const [isConnected, setIsConnected] = useState(true);
   const [networkType, setNetworkType] = useState<string | null>(null);
   const [safeMode, setSafeMode] = useState<boolean>(false);
+  const [safeModeReason, setSafeModeReason] = useState<'env' | 'memory' | 'errors' | undefined>(undefined);
   
   // User AI Data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -160,6 +162,7 @@ export function AIProvider({ children }: AIProviderProps) {
       // Environment doğrulaması: eğer AIManager prerequisites fail ise güvenli mod
       if (!aiManager.isEnabled) {
         setSafeMode(true);
+        setSafeModeReason('env');
       }
 
       // Prepare parallel service initialization tasks
@@ -858,6 +861,31 @@ export function AIProvider({ children }: AIProviderProps) {
     };
   }, [user?.id]);
 
+  // Bellek eşiği kontrolü (UI tarafı): 150MB üzeri → Safe Mode
+  useEffect(() => {
+    const perf: any = (globalThis as any).performance;
+    if (!perf || !perf.memory) return;
+    const threshold = 150 * 1024 * 1024;
+    const timer = setInterval(() => {
+      try {
+        const used = perf.memory?.usedJSHeapSize as number | undefined;
+        if (typeof used === 'number' && used > threshold) {
+          if (!safeMode) {
+            setSafeMode(true);
+            setSafeModeReason('memory');
+            try {
+              trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+                event: 'memory_threshold_safe_mode',
+                usedHeap: used
+              });
+            } catch {}
+          }
+        }
+      } catch {}
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [safeMode]);
+
   /**
    * 🔄 Auto-initialize when user changes
    */
@@ -905,6 +933,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitializing,
     initializationError,
     safeMode,
+    safeModeReason,
     
     // Network Status
     isOnline,
@@ -933,6 +962,7 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitializing,
     initializationError,
     safeMode,
+    safeModeReason,
     isOnline,
     isConnected,
     networkType,
