@@ -628,12 +628,6 @@ class SmartNotificationService {
           preferredMethod: DeliveryMethod.PUSH_NOTIFICATION,
           allowQuietHours: false
         },
-        [NotificationCategory.PATTERN_ALERT]: {
-          enabled: true,
-          maxPerDay: 2,
-          preferredMethod: DeliveryMethod.IN_APP_BANNER,
-          allowQuietHours: false
-        },
         [NotificationCategory.PROGRESS_CELEBRATION]: {
           enabled: true,
           maxPerDay: 5,
@@ -645,12 +639,6 @@ class SmartNotificationService {
           maxPerDay: 2,
           preferredMethod: DeliveryMethod.GENTLE_POPUP,
           allowQuietHours: false
-        },
-        [NotificationCategory.CRISIS_INTERVENTION]: {
-          enabled: true,
-          maxPerDay: 10,
-          preferredMethod: DeliveryMethod.PUSH_NOTIFICATION,
-          allowQuietHours: true
         },
         [NotificationCategory.SKILL_PRACTICE]: {
           enabled: true,

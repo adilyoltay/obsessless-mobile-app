@@ -77,142 +77,19 @@ const ENGLISH_CRISIS_KEYWORDS = {
 };
 
 export class CrisisDetectionService {
-  private config: CrisisDetectionConfig;
+  // Deprecated implementation removed; left as minimal no-op to avoid side-effects
+  private config: CrisisDetectionConfig = DEFAULT_CONFIG;
   private isInitialized: boolean = false;
-  
-  constructor(config: CrisisDetectionConfig = DEFAULT_CONFIG) {
-    this.config = config;
-    // Koşullu init: Flag kapalıysa init etme, gereksiz log/kaynak tüketimini engelle
-    if (FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) {
-      this.initialize();
-    } else {
-      this.config.enabled = false;
-      this.isInitialized = false;
-    }
-  }
+  constructor(_: CrisisDetectionConfig = DEFAULT_CONFIG) {}
+  private async initialize(): Promise<void> { return; }
 
-  private async initialize(): Promise<void> {
-    if (!FEATURE_FLAGS.isEnabled('AI_CRISIS_DETECTION')) {
-      this.config.enabled = false;
-      return;
-    }
-    
-    this.isInitialized = true;
-    console.log('🚨 Crisis Detection Service initialized');
-  }
+  async detectCrisis(_: AIMessage, __: ConversationContext): Promise<CrisisDetectionResult> { return this.createSafeResult(); }
 
-  async detectCrisis(
-    message: AIMessage,
-    context: ConversationContext
-  ): Promise<CrisisDetectionResult> {
-    if (!this.isInitialized || !this.config.enabled) {
-      return this.createSafeResult();
-    }
+  private async keywordBasedDetection(_: AIMessage): Promise<Partial<CrisisDetectionResult>> { return {}; }
 
-    try {
-      const keywordResult = await this.keywordBasedDetection(message);
-      const contextResult = await this.contextualAnalysis(message, context);
-      
-      const combinedResult = this.combineResults([keywordResult, contextResult], message, context);
-      
-      await this.handleRiskLevel(combinedResult, context);
-      
-      return combinedResult;
-    } catch (error) {
-      console.error('Crisis detection error:', error);
-      return this.createErrorResult(message);
-    }
-  }
+  private async contextualAnalysis(_: AIMessage, __: ConversationContext): Promise<Partial<CrisisDetectionResult>> { return {}; }
 
-  private async keywordBasedDetection(message: AIMessage): Promise<Partial<CrisisDetectionResult>> {
-    const content = message.content.toLowerCase();
-    let maxRiskScore = 0;
-    let detectedTriggers: string[] = [];
-
-    for (const [category, categoryData] of Object.entries(TURKISH_CRISIS_KEYWORDS)) {
-      for (const keyword of categoryData.direct) {
-        if (content.includes(keyword.toLowerCase())) {
-          const score = categoryData.weight * 1.0;
-          if (score > maxRiskScore) maxRiskScore = score;
-          detectedTriggers.push(`direct:${category}:${keyword}`);
-        }
-      }
-      
-      for (const keyword of categoryData.indirect) {
-        if (content.includes(keyword.toLowerCase())) {
-          const score = categoryData.weight * 0.6;
-          if (score > maxRiskScore) maxRiskScore = score;
-          detectedTriggers.push(`indirect:${category}:${keyword}`);
-        }
-      }
-    }
-
-    return {
-      riskLevel: this.scoreToRiskLevel(maxRiskScore),
-      confidence: Math.min(maxRiskScore, 0.9),
-      triggers: detectedTriggers.slice(0, 5)
-    };
-  }
-
-  private async contextualAnalysis(
-    message: AIMessage,
-    context: ConversationContext
-  ): Promise<Partial<CrisisDetectionResult>> {
-    let riskScore = 0;
-    let triggers: string[] = [];
-
-    if (context.currentState === 'crisis') {
-      riskScore += 0.6;
-      triggers.push('already_in_crisis_state');
-    } else if (context.currentState === 'elevated') {
-      riskScore += 0.3;
-      triggers.push('elevated_state_risk');
-    }
-
-    const hour = new Date().getHours();
-    if (hour >= 23 || hour <= 5) {
-      riskScore += 0.2;
-      triggers.push('late_night_communication');
-    }
-
-    return {
-      riskLevel: this.scoreToRiskLevel(riskScore),
-      confidence: Math.min(riskScore * 0.9, 0.8),
-      triggers
-    };
-  }
-
-  private combineResults(
-    results: Partial<CrisisDetectionResult>[],
-    message: AIMessage,
-    context: ConversationContext
-  ): CrisisDetectionResult {
-    let maxRiskLevel = CrisisRiskLevel.NONE;
-    let totalConfidence = 0;
-    let allTriggers: string[] = [];
-
-    for (const result of results) {
-      if (result.riskLevel && this.riskLevelToScore(result.riskLevel) > this.riskLevelToScore(maxRiskLevel)) {
-        maxRiskLevel = result.riskLevel;
-      }
-      if (result.confidence) totalConfidence += result.confidence;
-      if (result.triggers) allTriggers.push(...result.triggers);
-    }
-
-    const avgConfidence = totalConfidence / results.length;
-    const recommendedAction = this.determineRecommendedAction(maxRiskLevel, avgConfidence);
-
-    return {
-      riskLevel: maxRiskLevel,
-      confidence: Math.min(avgConfidence, 0.95),
-      triggers: [...new Set(allTriggers)],
-      recommendedAction,
-      humanReviewRequired: avgConfidence >= this.config.humanReviewThreshold || 
-                          maxRiskLevel === CrisisRiskLevel.HIGH ||
-                          maxRiskLevel === CrisisRiskLevel.CRITICAL,
-      timestamp: new Date()
-    };
-  }
+  private combineResults(_: Partial<CrisisDetectionResult>[], __: AIMessage, ___: ConversationContext): CrisisDetectionResult { return this.createSafeResult(); }
 
   private determineRecommendedAction(riskLevel: CrisisRiskLevel, confidence: number): CrisisAction {
     if (riskLevel === CrisisRiskLevel.CRITICAL) return CrisisAction.IMMEDIATE_INTERVENTION;
