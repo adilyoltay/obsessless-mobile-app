@@ -157,7 +157,6 @@ export interface AIConfig {
   
   // Safety settings
   safetyThreshold: number; // 0-1
-  crisisDetectionEnabled: boolean;
   contentFilteringEnabled: boolean;
   
   // Performance settings
