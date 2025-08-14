@@ -195,7 +195,7 @@ class ExternalAIService {
       this.activeProvider = this.selectBestProvider();
       
       if (!this.activeProvider) {
-        // NO_PROVIDER_AVAILABLE telemetry
+        // NO_PROVIDER_AVAILABLE telemetry (graceful degrade)
         await trackAIError({
           code: AIErrorCode.NO_PROVIDER_AVAILABLE,
           message: 'No AI provider available after health checks',
@@ -212,8 +212,11 @@ class ExternalAIService {
             }))
           }
         });
-        
-        throw Object.assign(new Error('No AI provider available'), { code: AIErrorCode.NO_PROVIDER_AVAILABLE, severity: ErrorSeverity.HIGH, recoverable: false });
+
+        // Disable service but allow local heuristic fallback at call site
+        this.isEnabled = false;
+        if (__DEV__) console.warn('⚠️ External AI disabled (no provider). System will use local fallback responses.');
+        return;
       }
 
       this.isEnabled = true;
@@ -656,15 +659,11 @@ class ExternalAIService {
     config?: AIRequestConfig,
     userId?: string
   ): Promise<EnhancedAIResponse> {
-    if (!this.isEnabled) {
-      const error = new Error('External AI Service is not enabled');
-      (error as any).code = AIErrorCode.FEATURE_DISABLED;
-      (error as any).severity = ErrorSeverity.MEDIUM;
-      (error as any).recoverable = true;
-      throw error;
-    }
-
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!this.isEnabled) {
+      // Graceful local fallback when external AI is disabled/unavailable
+      return this.getFallbackResponse(requestId, 0);
+    }
     const startTime = Date.now();
 
     try {

@@ -6,7 +6,7 @@ import { apiService } from './api';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'user_progress' | 'achievement';
+  entity: 'compulsion' | 'erp_session' | 'achievement';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -135,9 +135,6 @@ export class OfflineSyncService {
       case 'erp_session':
         await this.syncERPSession(item);
         break;
-      case 'user_progress':
-        await this.syncUserProgress(item);
-        break;
       case 'achievement':
         await this.syncAchievement(item);
         break;
@@ -172,10 +169,7 @@ export class OfflineSyncService {
     }
   }
 
-  private async syncUserProgress(item: SyncQueueItem): Promise<void> {
-    // Sync user progress data
-    await apiService.user.updateProfile(item.data);
-  }
+  // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)
 
   private async syncAchievement(item: SyncQueueItem): Promise<void> {
     // Sync achievement unlocks

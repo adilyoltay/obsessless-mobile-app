@@ -72,16 +72,75 @@ const compulsionService = {
       userId: r.user_id
     }));
 
-    // Create a map of all compulsions by ID
-    const compulsionMap = new Map();
-    
-    // Add remote compulsions first
-    remoteConverted.forEach(comp => compulsionMap.set(comp.id, comp));
-    
-    // Override with local compulsions (they might have offline changes)
-    local.forEach(comp => compulsionMap.set(comp.id, comp));
-    
-    return Array.from(compulsionMap.values()).sort(
+    // Build index by ID
+    const byId: Record<string, Compulsion> = {};
+    const conflicts: Array<{ id: string; local: Compulsion; remote: Compulsion }> = [];
+
+    // Add remote first
+    for (const rc of remoteConverted) {
+      byId[rc.id] = rc;
+    }
+
+    // Merge with local, resolve conflicts with Last-Write-Wins by timestamp
+    for (const lc of local) {
+      const existing = byId[lc.id];
+      if (!existing) {
+        byId[lc.id] = lc;
+        continue;
+      }
+
+      const localTs = new Date(lc.timestamp).getTime();
+      const remoteTs = new Date(existing.timestamp).getTime();
+
+      // Detect field-level differences (simple shallow compare)
+      const differs = (
+        lc.type !== existing.type ||
+        lc.severity !== existing.severity ||
+        lc.resistanceLevel !== existing.resistanceLevel ||
+        (lc.trigger || '') !== (existing.trigger || '') ||
+        (lc.notes || '') !== (existing.notes || '')
+      );
+
+      if (differs && Math.abs(localTs - remoteTs) > 0) {
+        // Conflict detected, pick newer and record conflict for optional user review
+        if (localTs >= remoteTs) {
+          byId[lc.id] = lc;
+        } else {
+          byId[lc.id] = existing;
+        }
+        conflicts.push({ id: lc.id, local: lc, remote: existing });
+      } else {
+        // No meaningful difference or same timestamp → prefer local to preserve offline edits
+        byId[lc.id] = lc;
+      }
+    }
+
+    // Persist conflicts for UX surface (non-blocking)
+    try {
+      // userId is identical across entries; pick from any side if present
+      const any = local[0] || remoteConverted[0];
+      const userId = any?.userId;
+      if (userId && conflicts.length > 0) {
+        // Lazy import to avoid circular deps
+        import('@react-native-async-storage/async-storage').then(async ({ default: AsyncStorage }) => {
+          const key = `compulsion_conflicts_${userId}`;
+          const existingRaw = await AsyncStorage.getItem(key);
+          const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+          const merged = [...existingList, ...conflicts].slice(-100);
+          await AsyncStorage.setItem(key, JSON.stringify(merged));
+        }).catch(() => {});
+        // Telemetry (best-effort)
+        import('@/features/ai/telemetry/aiTelemetry').then(({ trackAIInteraction, AIEventType }) => {
+          trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'sync_conflict_detected',
+            entity: 'compulsion',
+            count: conflicts.length
+          }).catch(() => {});
+        }).catch(() => {});
+      }
+    } catch {}
+
+    return Object.values(byId).sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   },

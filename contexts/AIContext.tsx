@@ -147,8 +147,8 @@ export function AIProvider({ children }: AIProviderProps) {
     try {
       if (__DEV__) console.log('🚀 Initializing AI services for user:', user.id);
 
-      // Track initialization start
-      await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+      // Track initialization start (system-level event)
+      await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
         userId: user.id,
         context: 'ai_context_initialization'
       });

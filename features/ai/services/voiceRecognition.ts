@@ -175,8 +175,8 @@ class VoiceRecognitionService {
       
       aiLogger.ai?.info?.('Voice recording started', { sessionId: this.currentSession.id });
 
-      // Telemetri
-      await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+      // Telemetri: voice session started
+      await trackAIInteraction(AIEventType.CHECKIN_STARTED, {
         type: 'voice',
         sessionId: this.currentSession.id
       });
@@ -251,8 +251,8 @@ class VoiceRecognitionService {
       await this.saveSession();
 
       
-      // Telemetri
-      await trackAIInteraction(AIEventType.CHAT_SESSION_ENDED, {
+      // Telemetri: voice session ended
+      await trackAIInteraction(AIEventType.CHECKIN_COMPLETED, {
         type: 'voice',
         sessionId: this.currentSession.id,
         duration: durationMillis,

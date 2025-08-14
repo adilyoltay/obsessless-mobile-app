@@ -22,7 +22,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { EmergencyContact } from '@/features/ai/safety/backgroundCrisisMonitor';
+// Background crisis monitor kaldırıldı; tip yerel olarak tanımlanır
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: 'therapist' | 'family' | 'friend' | 'emergency';
+  autoAlert: boolean;
+  priority: number;
+}
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 

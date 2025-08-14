@@ -195,8 +195,8 @@ class AdaptiveERPService {
     // Initial AI guidance
     await this.provideAIGuidance(session, 'Hoş geldiniz! Bu ERP seansında size özel olarak rehberlik edeceğim. Hazır olduğunuzda başlayalım.', 'encouragement');
     
-    // Track ERP session start (using generic session event type)
-    await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+      // Track ERP session start (use ERP-specific event)
+      await trackAIInteraction(AIEventType.ERP_SESSION_STARTED, {
       sessionId: session.id,
       exerciseId,
       initialDifficulty,
