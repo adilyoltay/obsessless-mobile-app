@@ -63,8 +63,11 @@ export class MessagingService {
 
         // Token'ı sakla
         const userId = await AsyncStorage.getItem('currentUserId');
-        const key = userId ? `pushToken_${userId}` : 'pushToken_anon';
-        await AsyncStorage.setItem(key, token.data);
+        const safeUserId = (typeof userId === 'string' && userId.length > 0) ? userId : 'anon';
+        const key = `pushToken_${safeUserId}`;
+        if (typeof token.data === 'string' && token.data.length > 0) {
+          await AsyncStorage.setItem(key, token.data);
+        }
       } catch (error: any) {
         console.log('Push token error (normal in Expo Go):', error.message);
         // Expo Go'da push token alamama normal, devam et

@@ -323,37 +323,47 @@ class JITAIEngine {
       throw error;
     }
 
-    const predictionId = `timing_${Date.now()}_${context.userId}`;
+    const predictionId = `timing_${Date.now()}_${context?.userId || 'unknown'}`;
     const startTime = Date.now();
 
     try {
       console.log(`🎯 Predicting optimal timing for user ${context.userId}`);
 
+      // Guard: Context validation and normalization
+      const normalized = this.normalizeContext(context);
+      if ((normalized as any).__incomplete) {
+        // Telemetry for missing context
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'jitai_context_incomplete',
+          missing: (normalized as any).__missing,
+        });
+      }
+
       // Check cache first
-      const cached = this.predictionCache.get(context.userId);
+      const cached = this.predictionCache.get(normalized.userId);
       if (cached && this.isCacheValid(cached)) {
         console.log('📦 Using cached timing prediction');
         return cached;
       }
 
       // Select optimal timing model
-      const model = this.selectOptimalTimingModel(context);
+      const model = this.selectOptimalTimingModel(normalized);
       
       // Generate timing prediction
-      const prediction = await this.generateTimingPrediction(context, model, predictionId);
+      const prediction = await this.generateTimingPrediction(normalized, model, predictionId);
       
       // Apply A/B testing variations if applicable
-      const finalPrediction = await this.applyABTestVariations(prediction, context);
+      const finalPrediction = await this.applyABTestVariations(prediction, normalized);
       
       // Cache the result
-      this.predictionCache.set(context.userId, finalPrediction);
+      this.predictionCache.set(normalized.userId, finalPrediction);
       setTimeout(() => {
-        this.predictionCache.delete(context.userId);
+        this.predictionCache.delete(normalized.userId);
       }, 30 * 60 * 1000); // 30 minutes cache
       
       // Telemetry
       await trackAIInteraction(AIEventType.TIMING_PREDICTION_GENERATED, {
-        userId: context.userId,
+        userId: normalized.userId,
         predictionId,
         modelUsed: model,
         confidence: finalPrediction.optimalTiming.confidence,
@@ -374,13 +384,64 @@ class JITAIEngine {
         context: { 
           component: 'JITAIEngine', 
           method: 'predictOptimalTiming',
-          userId: context.userId,
+          userId: context?.userId,
           latency: Date.now() - startTime
         }
       });
 
       throw error;
     }
+  }
+
+  /**
+   * Normalize/guard JITAI context to avoid runtime errors
+   */
+  private normalizeContext(context: JITAIContext): JITAIContext & { __incomplete?: boolean; __missing?: string[] } {
+    const missing: string[] = [];
+    const safeUserId = typeof context?.userId === 'string' && context.userId.length > 0 ? context.userId : 'unknown_user';
+    const defaultState = {
+      stressLevel: (ContextAnalysisResult as any)?.StressLevel?.MODERATE ?? (StressLevel.MODERATE as any),
+      activityState: (ContextAnalysisResult as any)?.UserActivityState?.UNKNOWN ?? (UserActivityState.UNKNOWN as any),
+      energyLevel: 50,
+    } as any;
+    const baseCurrent = (context as any)?.currentContext || {};
+    const baseUserState = baseCurrent.userState || {};
+    if (!context || !context.currentContext) missing.push('currentContext');
+    if (!baseCurrent.userState) missing.push('currentContext.userState');
+    const normalized: any = {
+      ...context,
+      userId: safeUserId,
+      currentContext: {
+        ...baseCurrent,
+        userState: {
+          ...defaultState,
+          ...baseUserState,
+          stressLevel: baseUserState.stressLevel ?? StressLevel.MODERATE,
+          activityState: baseUserState.activityState ?? UserActivityState.UNKNOWN,
+          energyLevel: typeof baseUserState.energyLevel === 'number' ? baseUserState.energyLevel : 50,
+        },
+      },
+      currentUserState: {
+        isAppActive: context?.currentUserState?.isAppActive ?? false,
+        lastInteraction: context?.currentUserState?.lastInteraction ?? new Date(Date.now() - 10 * 60 * 1000),
+        recentMood: context?.currentUserState?.recentMood ?? 'neutral',
+        energyLevel: context?.currentUserState?.energyLevel ?? 50,
+        stressPattern: context?.currentUserState?.stressPattern ?? [StressLevel.MODERATE],
+      },
+      personalizationProfile: {
+        preferredTimes: context?.personalizationProfile?.preferredTimes ?? [],
+        responsiveStates: context?.personalizationProfile?.responsiveStates ?? [],
+        effectiveCategories: context?.personalizationProfile?.effectiveCategories ?? [],
+        culturalPreferences: context?.personalizationProfile?.culturalPreferences ?? {},
+        communicationStyle: context?.personalizationProfile?.communicationStyle ?? 'gentle',
+      },
+      interventionHistory: context?.interventionHistory ?? [],
+    };
+    if (missing.length) {
+      normalized.__incomplete = true;
+      normalized.__missing = missing;
+    }
+    return normalized;
   }
 
   /**
