@@ -1158,6 +1158,16 @@ class ExternalAIService {
             rateTrackers,
             queueSize
           }).catch(() => {});
+          // 150MB eşiği aşıldıysa Safe Mode uyarısı/temizliği
+          const threshold = 150 * 1024 * 1024;
+          if (typeof usedHeap === 'number' && usedHeap > threshold) {
+            // Basit önlem: cache temizle ve uyarı telemetrisi
+            this.responseCache.clear();
+            trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+              event: 'memory_threshold_exceeded',
+              usedHeap
+            }).catch(() => {});
+          }
         } catch {}
       }, 60_000);
     } catch {}
@@ -1167,31 +1177,8 @@ class ExternalAIService {
    * Yerel heuristik fallback içerik oluşturucu (on-device, privacy-first)
    */
   private buildHeuristicFallback(messages: AIMessage[] = [], context?: ConversationContext): EnhancedAIResponse {
-    const lastUser = (messages || []).filter(m => m.role === 'user').slice(-1)[0];
-    const raw = (lastUser?.content || '').toLowerCase();
-    const lang: 'tr' | 'en' = (context as any)?.therapeuticProfile?.preferredLanguage?.toLowerCase?.() === 'en' ? 'en' : 'tr';
-    // Basit senaryo tespiti
-    const scenario: 'anxiety' | 'sleep' | 'erp' | 'generic' =
-      /panik|kayg|endişe|anx/i.test(raw) ? 'anxiety' :
-      /uyku|gece|sleep/i.test(raw) ? 'sleep' :
-      /erp|maruz|exposure/i.test(raw) ? 'erp' : 'generic';
-
-    const templates = {
-      tr: {
-        anxiety: 'Şu an zor bir an olabilir. Beraber kısa bir nefes çalışması yapalım: 4 saniye al, 4 saniye tut, 6 saniye ver. Hazır olduğunda düşünceni günlüğe not edebilirsin.',
-        sleep: 'Dinlenmekte zorlanıyorsan, ekran parlaklığını azalt ve 4-7-8 nefes tekniğini dene. Kısa bir gevşeme ile uykuya hazırlanabiliriz.',
-        erp: 'ERP hedefin için küçük bir adım seç: 1) Tetikleyiciyi tanımla, 2) 2-3 dakika maruz kal, 3) Ritüeli ertele. Hazır olduğunda deneyimini not et.',
-        generic: 'Şu an dış servisler yanıt veremiyor ama beraberiz. Kısa bir nefes egzersizi deneyelim: 4-4-6. İstersen günlüğe kısa bir not ekleyebilirsin.'
-      },
-      en: {
-        anxiety: "This might be a hard moment. Let's try a short breathing: inhale 4s, hold 4s, exhale 6s. When ready, jot a quick note in your journal.",
-        sleep: 'If sleep is difficult, dim your screen and try 4-7-8 breathing. A short relaxation can help prepare for rest.',
-        erp: 'For ERP, pick a tiny step: 1) define the trigger, 2) expose for 2–3 minutes, 3) delay rituals. When ready, note your experience.',
-        generic: "External AI is unavailable for now, but I'm here. Try 4-4-6 breathing. You can also add a short journal note."
-      }
-    } as const;
-
-    const text = templates[lang][scenario];
+    const { getHeuristicText } = require('@/features/ai/services/heuristicFallback');
+    const text = getHeuristicText(messages, context);
     return {
       success: true,
       content: text,

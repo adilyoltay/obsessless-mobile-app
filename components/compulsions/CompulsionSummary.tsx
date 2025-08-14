@@ -206,6 +206,11 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
         compulsionsByType[cat.id] = dayEntries.filter(e => e.type === cat.id).length;
       });
 
+      // Ortalama mood: var ise girişlerin mood ortalaması, yoksa neutral
+      const moodAvg = dayEntries.length > 0 && (dayEntries as any[]).every(e => typeof e.mood === 'number')
+        ? Number(((dayEntries as any[]).reduce((s, e) => s + (e.mood || 0), 0) / dayEntries.length).toFixed(1))
+        : 0;
+
       days.push({
         date: dayStart,
         totalCompulsions: dayEntries.length,
@@ -216,7 +221,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
           ? Number((dayEntries.reduce((sum, e) => sum + e.resistanceLevel, 0) / dayEntries.length).toFixed(1))
           : 0,
         totalDuration: dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0),
-        mood: 'neutral', // TODO: Calculate average mood
+        mood: moodAvg >= 0.7 ? 'positive' : moodAvg <= 0.3 ? 'negative' : 'neutral',
         compulsionsByType: compulsionsByType as any
       });
     }
