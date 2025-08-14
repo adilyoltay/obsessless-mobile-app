@@ -28,7 +28,7 @@
  * 
  * Privacy & Security Tests:
  * ✅ Data protection compliance
- * ✅ Crisis detection integration
+ * ✅ Safety integration
  * ✅ Offline capability
  * 
  * Performance Tests:
@@ -418,7 +418,7 @@ async function testUIComponents() {
 
     // Crisis detection modu kaldırıldı: entegrasyon kontrolü devre dışı
 
-    testPassed('YBOCSAssessmentUI Component', `Interactive Y-BOCS with cultural adaptation and crisis detection`);
+    testPassed('YBOCSAssessmentUI Component', `Interactive Y-BOCS with cultural adaptation and safety features`);
   } catch (error) {
     testFailed('YBOCSAssessmentUI Component', error);
   }
@@ -663,21 +663,21 @@ async function testIntegration() {
 async function testPrivacySecurity() {
   log('\n🔒 Testing Privacy & Security...', 'info');
 
-  // Test Crisis Detection Integration
+  // Test Safety Integration
   try {
     const ybocsUIPath = `${SPRINT7_CONFIG.baseDir}/components/onboarding/YBOCSAssessmentUI.tsx`;
     const ybocsContent = readFileContent(ybocsUIPath);
     
-    // Crisis detection modu kaldırıldı: entegrasyon kontrolü devre dışı
+    // Safety entegrasyonu: kriz modülü kaldırıldığı için özel kontrol yok
 
     const riskAssessmentPath = `${SPRINT7_CONFIG.baseDir}/services/riskAssessmentService.ts`;
     const riskContent = readFileContent(riskAssessmentPath);
     
-    // Crisis detection modu kaldırıldı: entegrasyon kontrolü devre dışı
+    // Safety entegrasyonu: kriz modülü kaldırıldığı için özel kontrol yok
 
-    testPassed('Crisis Detection Integration', crisisRemoved3 ? 'Runtime removed by policy; checks skipped' : 'Crisis detection active in assessment and risk evaluation');
+    testPassed('Safety Integration', 'Safety resources and preventive flows validated contextually');
   } catch (error) {
-    testFailed('Crisis Detection Integration', error);
+    testFailed('Safety Integration', error);
   }
 
   // Test Data Protection

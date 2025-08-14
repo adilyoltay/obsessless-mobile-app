@@ -31,8 +31,7 @@ export enum ERPSessionState {
   EXPOSURE = 'exposure',
   PEAK_ANXIETY = 'peak_anxiety',
   HABITUATION = 'habituation',
-  COMPLETION = 'completion',
-  CRISIS_EXIT = 'crisis_exit'
+  COMPLETION = 'completion'
 }
 
 // Biometric Data Types
@@ -360,7 +359,7 @@ class AdaptiveERPService {
   }
 
   /**
-   * Kriz müdahalesi tetikle
+   * Güvenlik müdahalesi tetikle
    */
   private async triggerSafetyIntervention(session: AdaptiveERPSession): Promise<void> {
     session.safetyEvents.push({
@@ -378,12 +377,11 @@ class AdaptiveERPService {
       'safety'
     );
 
-    // Crisis trigger oluştur (fallback if service not available)
-    // Note: conversationTriggerService will be integrated when triggers module is available
-    console.log('Crisis trigger logged locally:', { 
+    // Safety trigger oluştur (fallback until triggers module is available)
+    console.log('Safety trigger logged locally:', { 
       sessionId: session.id, 
       userId: session.userId, 
-      trigger: 'erp_crisis_exit' 
+      trigger: 'erp_safety_exit' 
     });
 
     // Session'ı güvenli şekilde sonlandır
@@ -530,7 +528,6 @@ class AdaptiveERPService {
       },
       safetyLimits: {
         maxAnxietySpike: 3,
-        crisisDetectionLevel: 9,
         emergencyExitConditions: ['user_request', 'biometric_alert', 'time_limit']
       },
       personalization: {
