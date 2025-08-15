@@ -26,7 +26,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+// Audio import avoided in tests; voiceRecognitionService handles audio under the hood
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';

@@ -1,3 +1,4 @@
+/* eslint-env jest */
 // Basic Jest setup for React Native + Expo environment
 
 // Mock AsyncStorage to avoid native module errors in Jest
@@ -54,6 +55,13 @@ jest.mock('expo-haptics', () => ({
 jest.mock('expo-linking', () => ({
   __esModule: true,
   openURL: jest.fn(async () => true),
+}));
+
+// Mock expo-location for tests
+jest.mock('expo-location', () => ({
+  __esModule: true,
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  getCurrentPositionAsync: jest.fn(async () => ({ coords: { latitude: 0, longitude: 0 } })),
 }));
 
 // Silence React Native console warnings in tests

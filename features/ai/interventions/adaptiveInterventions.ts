@@ -1066,11 +1066,8 @@ class AdaptiveInterventionsEngine {
 
 export const adaptiveInterventionsEngine = AdaptiveInterventionsEngine.getInstance();
 export default adaptiveInterventionsEngine;
-export { 
-  InterventionCategory,
-  InterventionDelivery,
-  InterventionUrgency,
-  type AdaptiveIntervention,
-  type InterventionConfig,
-  type InterventionContext
+export type { 
+  AdaptiveIntervention,
+  InterventionConfig,
+  InterventionContext
 };

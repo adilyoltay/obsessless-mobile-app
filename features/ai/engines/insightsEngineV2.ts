@@ -1069,11 +1069,8 @@ KULLANICI PROFİLİ:
 
 export const insightsEngineV2 = InsightsEngineV2.getInstance();
 export default insightsEngineV2;
-export { 
-  InsightCategory,
-  InsightPriority, 
-  InsightTiming,
-  type IntelligentInsight, 
-  type InsightGenerationContext,
-  type PatternAnalysisResult 
+export type { 
+  IntelligentInsight, 
+  InsightGenerationContext,
+  PatternAnalysisResult 
 };

@@ -908,11 +908,8 @@ class PatternRecognitionV2 {
 
 export const patternRecognitionV2 = PatternRecognitionV2.getInstance();
 export default patternRecognitionV2;
-export { 
-  PatternType,
-  PatternSeverity,
-  PatternTrend,
-  type DetectedPattern, 
-  type PatternAnalysisContext,
-  type PatternRecognitionResult 
+export type { 
+  DetectedPattern, 
+  PatternAnalysisContext,
+  PatternRecognitionResult 
 };

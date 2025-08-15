@@ -7,8 +7,6 @@ import { Picker, PickerItem } from '@/components/ui/Picker';
 import Slider from '@react-native-community/slider';
 import { useCreateCompulsion } from '@/hooks/useCompulsions';
 import Toast from 'react-native-toast-message';
-
-import { useTranslation } from '@/hooks/useTranslation';
 const legacyTypes = ['checking','washing','counting','ordering','mental','reassurance','avoidance','other'] as const;
 
 export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void }) {

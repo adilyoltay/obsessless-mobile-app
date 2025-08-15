@@ -1,0 +1,9 @@
+backup/**
+backup-*/**
+backups/**
+**/*.md
+scripts/**
+coverage/**
+**/*.backup
+**/*.bak
+**/*.tar.gz
