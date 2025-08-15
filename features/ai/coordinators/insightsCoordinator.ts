@@ -159,6 +159,8 @@ class InsightsCoordinator {
   private activeExecutions: Map<string, Promise<OrchestratedInsightResult>> = new Map();
   private lastExecutionTime: Map<string, Date> = new Map();
   private defaultConfig: WorkflowConfig;
+  // Progress Analytics runtime availability indicator (module removed in this sprint)
+  private readonly progressAnalyticsAvailable: boolean = false;
 
   private constructor() {
     this.defaultConfig = {
@@ -204,7 +206,7 @@ class InsightsCoordinator {
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
         smartNotifications: smartNotificationService.enabled,
-         progressAnalytics: false
+        progressAnalytics: this.defaultConfig.enableProgressTracking && this.progressAnalyticsAvailable
       };
 
       const enabledComponents = Object.values(componentStatus).filter(Boolean).length;
@@ -389,7 +391,11 @@ class InsightsCoordinator {
           }));
         }
 
-        // Progress Analytics removed
+        // Progress Analytics (module removed): keep slot for telemetry but do not execute
+        if (config.enableProgressTracking && this.progressAnalyticsAvailable) {
+          // Placeholder for future reintegration
+          components.push('progressAnalytics');
+        }
 
         // Wait for initial analysis
         await Promise.race([Promise.all(promises), timeoutPromise]);
@@ -418,7 +424,11 @@ class InsightsCoordinator {
           components.push('insightsEngine');
         }
 
-        // Progress Analytics removed
+        // Progress Analytics (module removed): keep slot for telemetry but do not execute
+        if (config.enableProgressTracking && this.progressAnalyticsAvailable) {
+          // Placeholder for future reintegration
+          components.push('progressAnalytics');
+        }
 
         if (config.enableNotificationScheduling && smartNotificationService.enabled && insights.length > 0) {
           scheduledNotifications = await this.executeNotificationScheduling(context, insights);
@@ -647,7 +657,7 @@ class InsightsCoordinator {
     let maxComponents = 0;
     if (config.enablePatternAnalysis) maxComponents++;
     if (config.enableInsightGeneration) maxComponents++;
-    if (config.enableProgressTracking) maxComponents++;
+    if (config.enableProgressTracking && this.progressAnalyticsAvailable) maxComponents++;
     if (config.enableNotificationScheduling) maxComponents++;
     return maxComponents;
   }
