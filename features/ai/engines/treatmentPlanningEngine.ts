@@ -964,9 +964,18 @@ class AdaptiveTreatmentPlanningEngine {
     try {
       if (FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM')) {
         try {
-          const jitaiContext = {
+          const jitaiContext: any = {
             userId: plan.userId,
             timestamp: new Date(),
+            // Minimal JITAIContext scaffolding to satisfy predictOptimalTiming guards
+            currentContext: {
+              userState: {
+                stressLevel: 2,
+                activityState: 'unknown',
+                energyLevel: 50,
+              }
+            },
+            // Legacy fields kept for future use/mapping
             stressLevel: 'moderate',
             userActivity: 'therapy_session',
             environmentalFactors: {
