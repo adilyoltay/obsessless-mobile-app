@@ -323,6 +323,32 @@ class JITAIEngine {
       throw error;
     }
 
+    // Robust context validation - prevent runtime crashes
+    if (!context) {
+      const error: AIError = {
+        code: AIErrorCode.INVALID_INPUT,
+        message: 'Context is required for timing prediction',
+        timestamp: new Date(),
+        severity: ErrorSeverity.HIGH,
+        recoverable: false
+      };
+      await trackAIError(error);
+      throw error;
+    }
+
+    // Check required fields to prevent "Cannot read property 'userState' of undefined"
+    if (!context.currentContext?.userState) {
+      const error: AIError = {
+        code: AIErrorCode.INVALID_INPUT,
+        message: 'Context must include currentContext.userState for timing prediction',
+        timestamp: new Date(),
+        severity: ErrorSeverity.HIGH,
+        recoverable: false
+      };
+      await trackAIError(error);
+      throw error;
+    }
+
     const safeContext: any = context || {} as any;
     const predictionId = `timing_${Date.now()}_${safeContext?.userId || 'unknown'}`;
     const startTime = Date.now();

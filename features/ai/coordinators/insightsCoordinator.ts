@@ -164,7 +164,7 @@ class InsightsCoordinator {
     this.defaultConfig = {
       enablePatternAnalysis: true,
       enableInsightGeneration: true,
-      enableProgressTracking: false,
+      enableProgressTracking: true,
       enableNotificationScheduling: true,
       enableAIEnhancement: true,
       parallelExecution: true,
