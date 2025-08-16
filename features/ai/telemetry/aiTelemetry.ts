@@ -161,6 +161,10 @@ export enum AIEventType {
   INSIGHTS_CACHE_MISS = 'insights_cache_miss',
   INSIGHTS_MISSING_REQUIRED_FIELDS = 'insights_missing_required_fields',
   NO_INSIGHTS_GENERATED = 'no_insights_generated',
+  // Storage reliability
+  STORAGE_RETRY_ATTEMPT = 'storage_retry_attempt',
+  STORAGE_RETRY_SUCCESS = 'storage_retry_success',
+  STORAGE_RETRY_FAILED = 'storage_retry_failed',
   
   // Smart Notifications
   SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',

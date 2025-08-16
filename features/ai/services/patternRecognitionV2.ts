@@ -128,11 +128,11 @@ export interface PatternAnalysisContext {
   };
   dataSource: {
     messages: AIMessage[];
-    compulsions: any[];
-    moods: any[];
-    exercises: any[];
-    achievements: any[];
-    userEvents: any[];
+    compulsions: Array<{ id?: string; timestamp: Date; category?: string; intensity?: number }>;
+    moods: Array<{ timestamp: Date; score: number; note?: string }>;
+    exercises: Array<{ id?: string; type?: string; duration?: number; timestamp: Date }>;
+    achievements: Array<{ name?: string; timestamp: Date }>;
+    userEvents: Array<{ type: string; timestamp: Date; metadata?: Record<string, any> }>;
   };
   focusAreas?: PatternType[];
   minimumConfidence?: number;
@@ -250,7 +250,14 @@ class PatternRecognitionV2 {
    */
   async analyzePatterns(context: PatternAnalysisContext): Promise<PatternRecognitionResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Pattern Recognition v2.0 is not enabled');
+      const err: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'Pattern Recognition v2.0 is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.LOW,
+        recoverable: true
+      };
+      throw err as unknown as Error;
     }
 
     const analysisId = `analysis_${Date.now()}_${context.userId}`;
@@ -864,8 +871,4 @@ class PatternRecognitionV2 {
 
 export const patternRecognitionV2 = PatternRecognitionV2.getInstance();
 export default patternRecognitionV2;
-export type { 
-  DetectedPattern, 
-  PatternAnalysisContext,
-  PatternRecognitionResult 
-};
+// Re-export removed: types already exported above

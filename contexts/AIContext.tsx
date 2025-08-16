@@ -767,14 +767,21 @@ export function AIProvider({ children }: AIProviderProps) {
         // Cache successful insights
         if (insights && insights.length > 0) {
           try {
-            // Safe cache write with 2 retries
+            // Safe cache write with 2 retries + telemetry
             let attempts = 0;
             while (true) {
               try {
+                if (attempts > 0) {
+                  try { await trackAIInteraction(AIEventType.STORAGE_RETRY_ATTEMPT, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
+                }
                 await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
+                try { await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
                 break;
               } catch (e) {
-                if (attempts >= 2) break;
+                if (attempts >= 2) {
+                  try { await trackAIInteraction(AIEventType.STORAGE_RETRY_FAILED, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
+                  break;
+                }
                 attempts++;
                 await new Promise(r => setTimeout(r, 150 * attempts));
               }
