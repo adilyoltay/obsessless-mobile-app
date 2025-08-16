@@ -30,7 +30,7 @@ export interface AIMessage {
  */
 export interface AIMessageMetadata {
   sessionId: string;
-  contextType: 'onboarding' | 'chat' | 'erp' | 'crisis' | 'insights' | 'art_therapy';
+  contextType: 'onboarding' | 'chat' | 'erp' | 'insights' | 'art_therapy' | 'assessment';
   
   // Therapeutic context
   therapeuticIntent?: string[];

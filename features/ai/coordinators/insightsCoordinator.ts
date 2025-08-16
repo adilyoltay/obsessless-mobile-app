@@ -383,7 +383,7 @@ class InsightsCoordinator {
     const components: string[] = [];
     let patterns: DetectedPattern[] = [];
     let insights: IntelligentInsight[] = [];
-      let progressAnalysis: any | null = null;
+    let progressAnalysis: ProgressAnalyticsResult | null = null;
     let scheduledNotifications: SmartNotification[] = [];
 
     // Timeout protection

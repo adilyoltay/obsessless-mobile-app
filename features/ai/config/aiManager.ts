@@ -70,6 +70,9 @@ export class AIManager {
       // Health check
       await this.performHealthCheck();
       
+      // AI Servislerini başlat - YENİ
+      await this.initializeAIServices();
+      
       // Gradual initialization
       this.enabled = true;
       this.initialized = true;
@@ -558,6 +561,118 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
       } catch {}
     } catch (error) {
       console.warn('⚠️ Cache clearing encountered an issue:', error);
+    }
+  }
+
+  private async initializeAIServices(): Promise<void> {
+    console.log('🚀 Initializing AI services with parallel execution...');
+    
+    const services = [
+      { 
+        name: 'externalAI', 
+        init: async () => {
+          const { externalAIService } = await import('@/features/ai/services/externalAIService');
+          if (externalAIService?.initialize) {
+            return await externalAIService.initialize();
+          }
+        },
+        critical: true 
+      },
+      { 
+        name: 'cbtEngine', 
+        init: async () => {
+          const { cbtEngine } = await import('@/features/ai/engines/cbtEngine');
+          if (cbtEngine?.initialize) {
+            return await cbtEngine.initialize();
+          }
+        },
+        critical: false 
+      },
+      { 
+        name: 'insightsV2', 
+        init: async () => {
+          const { insightsEngineV2 } = await import('@/features/ai/engines/insightsEngineV2');
+          if (insightsEngineV2?.initialize) {
+            return await insightsEngineV2.initialize();
+          }
+        },
+        critical: true 
+      },
+      { 
+        name: 'patternV2', 
+        init: async () => {
+          const { patternRecognitionV2 } = await import('@/features/ai/services/patternRecognitionV2');
+          if (patternRecognitionV2?.initialize) {
+            return await patternRecognitionV2.initialize();
+          }
+        },
+        critical: false 
+      },
+      { 
+        name: 'smartNotifications', 
+        init: async () => {
+          const { smartNotificationService } = await import('@/features/ai/services/smartNotifications');
+          if (smartNotificationService?.initialize) {
+            return await smartNotificationService.initialize();
+          }
+        },
+        critical: false 
+      },
+      { 
+        name: 'therapeuticPrompts', 
+        init: async () => {
+          const { therapeuticPromptEngine } = await import('@/features/ai/prompts/therapeuticPrompts');
+          if (therapeuticPromptEngine?.initialize) {
+            return await therapeuticPromptEngine.initialize();
+          }
+        },
+        critical: false 
+      }
+    ];
+
+    // Paralel başlatma - Promise.allSettled kullan
+    const results = await Promise.allSettled(
+      services.map(async (service) => {
+        try {
+          const result = await service.init();
+          return { name: service.name, critical: service.critical, success: true, result };
+        } catch (error) {
+          return { name: service.name, critical: service.critical, success: false, error };
+        }
+      })
+    );
+
+    // Sonuçları değerlendir
+    let criticalFailure = false;
+    let successCount = 0;
+    let failureCount = 0;
+
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        const serviceResult = result.value;
+        if (serviceResult.success) {
+          console.log(`✅ ${serviceResult.name} initialized successfully`);
+          this.healthStatus.set(serviceResult.name, true);
+          successCount++;
+        } else {
+          console.error(`❌ ${serviceResult.name} initialization failed:`, serviceResult.error);
+          this.healthStatus.set(serviceResult.name, false);
+          failureCount++;
+          
+          if (serviceResult.critical) {
+            criticalFailure = true;
+          }
+        }
+      } else {
+        console.error(`❌ Service initialization rejected:`, result.reason);
+        failureCount++;
+      }
+    });
+
+    console.log(`📊 Service initialization complete: ${successCount} success, ${failureCount} failed`);
+
+    if (criticalFailure) {
+      throw new Error('Critical AI services failed to initialize');
     }
   }
 

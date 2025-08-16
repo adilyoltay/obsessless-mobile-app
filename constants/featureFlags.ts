@@ -187,8 +187,29 @@ export const FEATURE_FLAGS = {
     
     // Telemetri gönder
     if (featureFlagState.AI_TELEMETRY) {
-      // TODO: Send emergency shutdown telemetry
-      console.log('📊 Emergency shutdown telemetry sent');
+      try {
+        // Dynamic import to avoid circular dependency
+        import('@/features/ai/telemetry/aiTelemetry').then(({ trackAIInteraction, AIEventType }) => {
+          trackAIInteraction(AIEventType.EMERGENCY_SHUTDOWN, {
+            timestamp: new Date().toISOString(),
+            reason: 'all_ai_features_disabled',
+            previousFlags: Object.fromEntries(
+              Object.entries(featureFlagState)
+                .filter(([key]) => key.startsWith('AI_'))
+                .map(([key, value]) => [key, value])
+            )
+          });
+        });
+        
+        // AsyncStorage'a emergency timestamp kaydet
+        import('@react-native-async-storage/async-storage').then((AsyncStorage) => {
+          AsyncStorage.default.setItem('emergency_shutdown_timestamp', new Date().toISOString());
+        });
+        
+        console.log('📊 Emergency shutdown telemetry sent');
+      } catch (error) {
+        console.error('Failed to send emergency telemetry:', error);
+      }
     }
   },
   
