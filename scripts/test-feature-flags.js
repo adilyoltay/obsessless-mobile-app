@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* global __dirname */
 
 /**
  * 🧪 Feature Flags Test Script

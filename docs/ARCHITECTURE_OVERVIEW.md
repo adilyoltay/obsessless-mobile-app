@@ -37,15 +37,17 @@ Notlar:
   - generateInsights başında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_DATA_INSUFFICIENT` telemetrisi ve erken çıkış.
   - Kalıcı önbellek: AsyncStorage ile kullanıcıya özel anahtarlar (örn. `insights_cache_{userId}`, `insights_last_gen_{userId}`) ve index listesi.
   - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
+  - Aynı kullanıcıdan eşzamanlı talepler: orchestrator’da kuyruklama (chained promise) ile deterministik işleyiş.
 - JITAI
   - `predictOptimalTiming` ve `normalizeContext` undefined‑güvenli; eksik bağlamlarda soft‑fail.
+  - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.
   - `treatmentPlanningEngine` öneri zamanı: `optimalTiming.recommendedTime` kullanımı; `optimizeTreatmentTiming` gerekli `currentContext.userState`’i sağlar.
 - Voice
   - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
 - Storage
-  - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar, geçersiz anahtarlarda stack trace loglar.
+  - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar.
 - Progress Analytics
-  - `enableProgressTracking` config düzeyinde açık; ancak modül runtime’da devre dışı (coordinator, `progressAnalyticsAvailable=false` ile senkron çalışır).
+  - Modül runtime’da devre dışı. Varsayılan konfigürasyon `enableProgressTracking=false`; coordinator modül uygun olduğunda durumu dinamik senkronlar.
 - Test Altyapısı
   - Jest setup: AsyncStorage, `expo/virtual/env`, router, haptics, vector‑icons ve `expo-location` için mocklar eklendi. Stabilizasyon sürecinde coverage eşiği devre dışı.
 

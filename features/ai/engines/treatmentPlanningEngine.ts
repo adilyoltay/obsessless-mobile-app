@@ -1152,73 +1152,8 @@ class AdaptiveTreatmentPlanningEngine {
     }
   }
 
-  /**
-   * 📊 Generate treatment phases based on analysis (PRIVATE)
-   */
-  private generateTreatmentPhases(ybocsAnalysis: any): TreatmentPhase[] {
-    console.log('📊 Generating treatment phases based on Y-BOCS analysis');
-
-    const phases: TreatmentPhase[] = [
-      {
-        id: 'assessment_phase',
-        name: 'Kapsamlı Değerlendirme',
-        description: 'Detaylı semptom analizi ve tedavi planlaması',
-        duration: 2,
-        order: 1,
-        objectives: [
-          'Semptom şiddetini belirleme',
-          'Tetikleyici faktörleri tanımlama',
-          'Tedavi hedeflerini belirleme'
-        ],
-        interventions: []
-      }
-    ];
-
-    // Severity-based phase planning
-    if (ybocsAnalysis.severityLevel === 'severe' || ybocsAnalysis.severityLevel === 'extreme') {
-      phases.push({
-        id: 'intensive_erp_phase',
-        name: 'Yoğun ERP Tedavisi',
-        description: 'Maruz kalma ve tepki önleme tekniklerinin yoğun uygulanması',
-        duration: 10,
-        order: 2,
-        objectives: [
-          'Kompülsiyonları önemli ölçüde azaltma',
-          'Kaygı toleransını artırma',
-          'Günlük işlevselliği iyileştirme'
-        ],
-        interventions: []
-      });
-    } else {
-      phases.push({
-        id: 'standard_erp_phase',
-        name: 'Standart ERP Tedavisi',
-        description: 'Kademeli maruz kalma ve tepki önleme',
-        duration: 8,
-        order: 2,
-        objectives: [
-          'Kompülsiyonları azaltma',
-          'Kaygı yönetimi geliştirme'
-        ],
-        interventions: []
-      });
-    }
-
-    phases.push({
-      id: 'maintenance_phase',
-      name: 'İyileşmeyi Sürdürme',
-      description: 'Kazanımları koruma ve relaps önleme',
-      duration: 4,
-      order: 3,
-      objectives: [
-        'Tedavi kazanımlarını sürdürme',
-        'Bağımsız başa çıkma becerileri geliştirme'
-      ],
-      interventions: []
-    });
-
-    return phases;
-  }
+  // Duplicate generateTreatmentPhases (analysis-based) removed to avoid name clash; 
+  // keep the protocols+profile+y-bocs variant earlier in the class.
 
   /**
    * Engine'i temizle

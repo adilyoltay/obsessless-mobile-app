@@ -1,5 +1,5 @@
 /* eslint-env node */
-#!/usr/bin/env node
+// #!/usr/bin/env node
 
 /**
  * 🔎 Feature Flag Audit Script
@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
+/* global __dirname */
 const ROOT = path.join(__dirname, '..');
 const FLAGS_FILE = path.join(ROOT, 'constants', 'featureFlags.ts');
 

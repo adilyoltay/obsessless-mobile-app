@@ -1,8 +1,9 @@
 /* eslint-env node */
-#!/usr/bin/env node
+// #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
 
+/* global __dirname */
 const outDir = process.argv[2] || path.join(__dirname, '.deprecations');
 
 function readLines(p) {

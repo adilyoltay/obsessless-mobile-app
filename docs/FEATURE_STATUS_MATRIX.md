@@ -5,7 +5,7 @@
 | AI Onboarding | Aktif | Y-BOCS analizi, profil, tedavi planı, telemetry |
 | Onboarding Rota | Aktif | Giriş rotası `/(auth)/onboarding`; eski `/(auth)/ai-onboarding` kaldırıldı |
 | Insights v2 | Aktif | CBT/AI/Progress kaynaklı basit içgörüler, 60s cooldown |
-| Progress Analytics | Kaldırıldı | Bağımsız servis yok; tipler korunuyor, Insights v2 içinde sınırlı Progress Tracking |
+| Progress Analytics | Kaldırıldı | Bağımsız servis yok; tipler korunuyor. Varsayılan konfig: `enableProgressTracking=false` |
 | JITAI (temel) | Aktif | Zaman/bağlam tetikleyicileri, krizsiz |
 | Voice Mood Check‑in | Aktif | STT, rota önerisi, PII maskeleme |
 | ERP Önerileri | Aktif | AI öneri + heuristik fallback |
@@ -14,5 +14,9 @@
 | Art Therapy | Pasif | Flag kapalı |
 | AI Chat | Pasif | UI/servis yok |
 | Crisis Detection | Kaldırıldı | runtime’da devre dışı |
+
+Ek Notlar:
+- Insights orchestrator aynı kullanıcıdan gelen eşzamanlı talepleri kuyruklar.
+- AsyncStorage wrapper geçersiz anahtarlarda development modunda hata fırlatır.
 
 Not: Flag kontrolü `FEATURE_FLAGS.isEnabled(name)` üzerinden yapılır; dokümanlar bu tabloya göre güncellenir.

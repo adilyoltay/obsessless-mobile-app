@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* global __dirname */
 
 /**
  * 🧪 Sprint 5 Test Suite - Intelligent Insights Engine Recreation

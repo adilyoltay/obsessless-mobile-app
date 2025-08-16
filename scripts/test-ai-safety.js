@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* global __dirname */
 
 /**
  * 🧪 AI Safety Test Suite - Sprint 2 Validation
