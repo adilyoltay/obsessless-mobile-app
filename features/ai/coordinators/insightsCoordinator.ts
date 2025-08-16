@@ -114,7 +114,7 @@ export interface OrchestratedInsightResult {
   // Analysis results
   patterns: DetectedPattern[];
   insights: IntelligentInsight[];
-  progressAnalysis: ProgressAnalyticsResult;
+  progressAnalysis?: ProgressAnalyticsResult | null;
   
   // Delivery results
   scheduledNotifications: SmartNotification[];
@@ -299,7 +299,7 @@ class InsightsCoordinator {
           timestamp: new Date(),
           patterns: [],
           insights: [],
-          progressAnalysis: this.getDefaultProgressAnalysis(context),
+          progressAnalysis: null,
           scheduledNotifications: [],
           immediateInsights: [],
           executionMetrics: {
@@ -483,7 +483,7 @@ class InsightsCoordinator {
         timestamp: new Date(),
         patterns,
         insights,
-        progressAnalysis: progressAnalysis || this.getDefaultProgressAnalysis(context),
+        progressAnalysis: progressAnalysis ?? null,
         scheduledNotifications,
         immediateInsights,
         executionMetrics,
