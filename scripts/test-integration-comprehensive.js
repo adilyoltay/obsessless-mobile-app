@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 COMPREHENSIVE AI INTEGRATION TEST SUITE

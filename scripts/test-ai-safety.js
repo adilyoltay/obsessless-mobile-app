@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 AI Safety Test Suite - Sprint 2 Validation

@@ -652,8 +652,5 @@ ACİL DURUM PROTOKOLLERİ:
 
 export const therapeuticPromptEngine = TherapeuticPromptEngine.getInstance();
 export default therapeuticPromptEngine;
-export { 
-  PromptCategory, 
-  type PromptContext, 
-  type TherapeuticPrompt 
-};
+// Types ve enum'lar yalnızca bu dosyanın default export'uyla birlikte kullanılacak; 
+// çoklu re-export uyarılarını önlemek için tekrar dışa aktarmıyoruz.

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 Sprint 7: AI Onboarding Recreation - Comprehensive Test Suite
@@ -321,7 +321,7 @@ async function testBackendInfrastructure() {
       }
     });
 
-    // Crisis detection entegrasyonu politikası: runtime'dan kaldırıldı
+    // Crisis detection entegrasyonu politikası: runtime'dan kaldırıldığı için özel kontrol yok
     // Eğer kodda yoksa ve feature flag false ise bu kontrolü geç
     // Crisis detection modu kaldırıldı: entegrasyon kontrolü devre dışı
 

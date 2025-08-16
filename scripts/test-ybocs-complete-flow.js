@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 Y-BOCS Assessment Complete Flow Test

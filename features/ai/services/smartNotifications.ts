@@ -846,11 +846,4 @@ class SmartNotificationService {
 
 export const smartNotificationService = SmartNotificationService.getInstance();
 export default smartNotificationService;
-export { 
-  NotificationCategory,
-  DeliveryMethod,
-  type SmartNotification,
-  type NotificationPreferences,
-  type DeliveryContext,
-  type SchedulingResult
-};
+// Types ve enum tekrar export edilmiyor; merkezi `features/ai/types/index.ts` üzerinden kullanılmalı.

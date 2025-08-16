@@ -669,7 +669,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
    */
   const handleBackPress = useCallback(() => {
     Alert.alert(
-      'Onboarding\'den Çık',
+      'Onboarding\u2019den Çık',
       'Kaydedilmemiş ilerlemeniz kaybolacak. Emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
@@ -726,7 +726,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       case OnboardingStep.WELCOME:
         return (
           <Card style={styles.stepCard}>
-            <Text style={styles.stepTitle}>ObsessLess'e Hoş Geldiniz 🌟</Text>
+            <Text style={styles.stepTitle}>ObsessLess’e Hoş Geldiniz 🌟</Text>
             <Text style={styles.stepDescription}>
               OKB ile mücadelenizde size özel, AI destekli bir deneyim oluşturacağız. 
               Bu süreç yaklaşık 10-15 dakika sürecek.

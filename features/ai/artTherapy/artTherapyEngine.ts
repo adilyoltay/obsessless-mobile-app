@@ -1,3 +1,4 @@
+/* eslint-disable import/export */
 /**
  * 🎨 Art Therapy Engine - AI-Enhanced Creative Expression System
  * 

@@ -439,9 +439,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         <View style={styles.hintsContainer}>
           <Text style={styles.hintTitle}>Sesli komutlar:</Text>
           <View style={styles.hintsList}>
-            <Text style={styles.hintItem}>• "Kayıt başlat"</Text>
-            <Text style={styles.hintItem}>• "İçgörü ver"</Text>
-            <Text style={styles.hintItem}>• "Oturumu bitir"</Text>
+            <Text style={styles.hintItem}>• &quot;Kayıt başlat&quot;</Text>
+            <Text style={styles.hintItem}>• &quot;İçgörü ver&quot;</Text>
+            <Text style={styles.hintItem}>• &quot;Oturumu bitir&quot;</Text>
           </View>
         </View>
       )}

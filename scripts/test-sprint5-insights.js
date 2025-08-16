@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 Sprint 5 Test Suite - Intelligent Insights Engine Recreation

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-native';
 import { Card, Title, Paragraph, Button, Chip, Avatar, Searchbar, List, Badge } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ERP_EXERCISES, getERPExercisesByCompulsion, EXPOSURE_CATEGORIES } from '@/constants/erpExercises';
