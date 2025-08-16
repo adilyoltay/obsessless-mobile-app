@@ -59,7 +59,7 @@ export class AIManager {
     
     try {
       // Prerequisites kontrolü
-      if (!this.checkPrerequisites()) {
+      if (!(await this.checkPrerequisites())) {
         console.log('🚫 AI features disabled: prerequisites not met');
         return;
       }
@@ -151,7 +151,7 @@ export class AIManager {
   /**
    * Prerequisites kontrolü - AI özelliklerinin çalışması için gerekli koşullar
    */
-  private checkPrerequisites(): boolean {
+  private async checkPrerequisites(): Promise<boolean> {
     // Feature flag kontrolü - AI master switch (AI_ENABLED)
     if (!FEATURE_FLAGS.isEnabled('AI_ENABLED')) {
       console.log('🚫 AI master (AI_ENABLED) feature flag disabled');
@@ -159,7 +159,7 @@ export class AIManager {
     }
 
     // Environment kontrolü
-    if (!this.checkEnvironment()) {
+    if (!(await this.checkEnvironment())) {
       console.log('🚫 Environment not suitable for AI features');
       return false;
     }
@@ -182,7 +182,7 @@ export class AIManager {
   /**
    * Environment uygunluk kontrolü
    */
-  private checkEnvironment(): boolean {
+  private async checkEnvironment(): Promise<boolean> {
     // Production'da Gemini anahtar kontrolü (Gemini-only)
     if (!__DEV__) {
       const extra: any = Constants.expoConfig?.extra || {};
@@ -194,14 +194,20 @@ export class AIManager {
     }
 
     // Network bağlantısı zorunlu (temel kontrol)
+    // RN ortamında NetInfo ile güvenilir kontrol
     try {
       const NetInfo = require('@react-native-community/netinfo');
-      const state = NetInfo.getConnectionInfo ? null : null; // legacy guard
-    } catch {}
-    // Basit çevrimdışı engelleme: env üzerinden mock
-    if (typeof navigator !== 'undefined' && 'onLine' in navigator && (navigator as any).onLine === false) {
-      console.warn('Network offline - AI features disabled');
-      return false;
+      const state = await NetInfo.fetch();
+      if (!state.isConnected || state.isInternetReachable === false) {
+        console.warn('Network offline/unreachable - AI features disabled');
+        return false;
+      }
+    } catch {
+      // Web fallback
+      if (typeof navigator !== 'undefined' && 'onLine' in navigator && (navigator as any).onLine === false) {
+        console.warn('Network offline - AI features disabled');
+        return false;
+      }
     }
     return true;
   }

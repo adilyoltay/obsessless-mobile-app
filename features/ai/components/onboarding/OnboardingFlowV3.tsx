@@ -70,6 +70,9 @@ interface OnboardingFlowV3Props {
   userId: string;
   resumeSession?: boolean;
 }
+  // AI sonuçlarının yerel state'te tutulması
+  const [generatedPlan, setGeneratedPlan] = useState<TreatmentPlan | null>(null);
+  const [generatedAnalysis, setGeneratedAnalysis] = useState<any | null>(null);
 
 // Adım tipleri - Master Prompt'a uygun sıralama
 enum OnboardingStep {

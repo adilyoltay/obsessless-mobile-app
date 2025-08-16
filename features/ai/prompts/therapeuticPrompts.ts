@@ -359,9 +359,7 @@ Bu tekniği kullanıcının hızına ve ihtiyaçlarına göre uyarla.`
     let enhancements = '';
 
     // Conversation state
-    if (context.conversationState === ConversationState.CRISIS) {
-      enhancements += '\n⚠️ KULLANICI KRİZ DURUMUNDA - Güvenlik öncelikli yaklaş';
-    } else if (context.conversationState === ConversationState.THERAPEUTIC) {
+    if (context.conversationState === ConversationState.THERAPEUTIC) {
       enhancements += '\n🎯 TERAPÖTİK SÜREÇ AKTIF - CBT tekniklerini uygula';
     }
 
@@ -415,9 +413,8 @@ KULLANICI PROFİLİ:
     const instructions = {
       [ConversationState.STABLE]: 'Normal terapötik yaklaşım kullan',
       [ConversationState.THERAPEUTIC]: 'Aktif CBT teknikleri uygula',
-      [ConversationState.CRISIS]: 'KRİZ PROTOKOLÜ - Güvenlik öncelikli yaklaş',
       [ConversationState.EXPLORATORY]: 'Keşfedici sorular sor, durumu anlamaya odaklan'
-    };
+    } as const;
 
     return instructions[state] || instructions[ConversationState.STABLE];
   }
@@ -451,9 +448,7 @@ KÜLTÜREL UYARLAMALAR:
   }
 
   private determineOptimalTone(context: PromptContext): 'supportive' | 'challenging' | 'validating' | 'educational' {
-    if (context.crisisLevel && context.crisisLevel !== CrisisRiskLevel.NONE) {
-      return 'supportive';
-    }
+    // crisis logic removed
 
     if (context.conversationState === ConversationState.THERAPEUTIC) {
       return 'challenging';

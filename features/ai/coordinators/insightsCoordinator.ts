@@ -474,7 +474,6 @@ class InsightsCoordinator {
       const recommendations = this.generateRecommendations(
         patterns, 
         insights, 
-        progressAnalysis, 
         context
       );
 
@@ -697,7 +696,6 @@ class InsightsCoordinator {
   private generateRecommendations(
     patterns: DetectedPattern[],
     insights: IntelligentInsight[],
-    progressAnalysis: ProgressAnalyticsResult | null,
     context: ComprehensiveInsightContext
   ) {
     // Determine next analysis timing
@@ -730,43 +728,7 @@ class InsightsCoordinator {
     };
   }
 
-  private getDefaultProgressAnalysis(context: ComprehensiveInsightContext): ProgressAnalyticsResult {
-    return {
-      userId: context.userId,
-      analysisId: `default_${Date.now()}`,
-      generatedAt: new Date(),
-      timeframe: {
-        start: context.timeframe.start,
-        end: context.timeframe.end,
-        period: 'weekly' as any
-      },
-      overallProgress: {
-        score: 50,
-        trend: 'stable' as any,
-        changePercent: 0,
-        clinicalSignificance: 'none'
-      },
-      categoryProgress: [],
-      predictions: {
-        nextMonthTrend: 'stable' as any,
-        riskFactors: [],
-        protectiveFactors: [],
-        recommendedInterventions: [],
-        confidenceLevel: 0.5
-      },
-      achievements: {
-        recentAchievements: [],
-        upcomingMilestones: [],
-        streaks: []
-      },
-      dataQuality: {
-        completeness: this.calculateDataQuality(context),
-        reliability: 0.5,
-        recency: 0.8,
-        consistency: 0.6
-      }
-    };
-  }
+  // Progress analytics removed
 
   // =============================================================================
   // 🔄 PUBLIC API

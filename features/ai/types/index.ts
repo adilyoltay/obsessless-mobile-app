@@ -213,7 +213,6 @@ export interface UserTherapeuticProfile {
 export enum ConversationState {
   STABLE = 'stable',
   ELEVATED = 'elevated', // Stress/anxiety elevated
-  CRISIS = 'crisis', // Crisis situation
   THERAPEUTIC = 'therapeutic', // Active therapy session
   EDUCATIONAL = 'educational', // Learning mode
   CELEBRATION = 'celebration' // Progress celebration
