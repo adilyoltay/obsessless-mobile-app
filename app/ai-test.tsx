@@ -105,42 +105,7 @@ export default function AITestScreen() {
     }
   };
 
-  const runCrisisTest = async () => {
-    setIsLoading(true);
-    setTestResults([]);
-    
-    try {
-      const testMessages = [
-        {
-          content: 'Normal bir gün geçiriyorum',
-          expected: 'none'
-        },
-        {
-          content: 'Çok endişeliyim ve panik oluyorum',
-          expected: 'moderate'
-        },
-        {
-          content: 'Kendime zarar vermek istiyorum',
-          expected: 'high/critical'
-        }
-      ];
-      
-      addTestResult('✅ Crisis detection test başlatıldı');
-      
-      for (const test of testMessages) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        addTestResult(`📝 "${test.content}"`);
-        addTestResult(`   → Expected level: ${test.expected}`);
-        addTestResult(`   → Mock analysis completed`);
-      }
-      
-      addTestResult('✅ Crisis detection test tamamlandı');
-    } catch (error) {
-      addTestResult(`❌ Error: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // runCrisisTest kaldırıldı (crisis modülü devre dışı)
 
   const renderTestSection = () => {
     switch (activeSection) {

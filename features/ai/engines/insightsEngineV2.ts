@@ -38,7 +38,6 @@ export enum InsightCategory {
   THERAPEUTIC_GUIDANCE = 'therapeutic_guidance',
   BEHAVIORAL_ANALYSIS = 'behavioral_analysis',
   EMOTIONAL_STATE = 'emotional_state',
-  CRISIS_PREVENTION = 'crisis_prevention',
   SKILL_DEVELOPMENT = 'skill_development',
   RELAPSE_PREVENTION = 'relapse_prevention'
 }
@@ -62,8 +61,7 @@ export enum InsightTiming {
   NEXT_SESSION = 'next_session', // Sonraki seansta
   DAILY_SUMMARY = 'daily_summary', // Günlük özette
   WEEKLY_REVIEW = 'weekly_review', // Haftalık incelemede
-  MILESTONE = 'milestone',     // Önemli başarılarda
-  CRISIS_MOMENT = 'crisis_moment' // Kriz anında
+  MILESTONE = 'milestone'     // Önemli başarılarda
 }
 
 /**
@@ -867,50 +865,7 @@ KULLANICI PROFİLİ:
   // 🚨 CRISIS PREVENTION INSIGHTS
   // =============================================================================
 
-  /**
-   * Crisis prevention insights
-   */
-  private async generateCrisisPreventionInsights(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
-    const insights: IntelligentInsight[] = [];
-
-    if (context.currentCrisisLevel === CrisisRiskLevel.NONE) return insights;
-
-    insights.push({
-      id: `crisis_prevention_${Date.now()}`,
-      userId: context.userId,
-      category: InsightCategory.CRISIS_PREVENTION,
-      priority: InsightPriority.HIGH,
-      timing: InsightTiming.IMMEDIATE,
-      
-      title: '🛡️ Destek Sistemi Aktif',
-      message: 'Zor bir dönemde olduğunuzu fark ediyorum. Bu geçici bir durum ve sizin için buradayım. Birlikte bu zorlukla başa çıkabiliriz.',
-      actionableAdvice: [
-        'Derin nefes alın: 4 saniye içeri, 6 saniye dışarı',
-        'Güvenilir birisini arayın',
-        'Profesyonel destek almayı düşünün',
-        'Bu anın geçici olduğunu hatırlayın'
-      ],
-      
-      confidence: 0.95,
-      detectedPatterns: ['crisis_risk_detected'],
-      
-      basedOnData: {
-        messageCount: context.recentMessages.length,
-        timeframe: 'immediate',
-        keyEvents: [`Crisis level: ${context.currentCrisisLevel}`]
-      },
-      
-      generatedAt: new Date(),
-      validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      shown: false,
-      therapeuticGoals: ['Crisis stabilization', 'Safety planning'],
-      expectedOutcome: 'Reduced crisis symptoms and improved coping',
-      followUpRequired: true,
-      relatedInsightIds: []
-    });
-
-    return insights;
-  }
+  // Crisis prevention removed
 
   // =============================================================================
   // 🔧 HELPER METHODS

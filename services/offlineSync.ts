@@ -1,5 +1,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 import NetInfo from '@react-native-community/netinfo';
 import { apiService } from './api';
 
@@ -47,7 +48,7 @@ export class OfflineSyncService {
   private async loadSyncQueue(): Promise<void> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const queueKey = currentUserId ? `syncQueue_${currentUserId}` : 'syncQueue_anon';
+      const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       const queueData = await AsyncStorage.getItem(queueKey);
       if (queueData) {
         this.syncQueue = JSON.parse(queueData);
@@ -60,7 +61,7 @@ export class OfflineSyncService {
   private async saveSyncQueue(): Promise<void> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const queueKey = currentUserId ? `syncQueue_${currentUserId}` : 'syncQueue_anon';
+      const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
     } catch (error) {
       console.error('Error saving sync queue:', error);
@@ -187,7 +188,7 @@ export class OfflineSyncService {
     
     // Could store in a separate failed items queue for manual retry
     const currentUserId = await AsyncStorage.getItem('currentUserId');
-    const failedKey = currentUserId ? `failedSyncItems_${currentUserId}` : 'failedSyncItems_anon';
+    const failedKey = `failedSyncItems_${safeStorageKey(currentUserId as any)}`;
     const failedItems = await AsyncStorage.getItem(failedKey);
     const failed = failedItems ? JSON.parse(failedItems) : [];
     failed.push(item);
@@ -198,7 +199,7 @@ export class OfflineSyncService {
   async storeCompulsionLocally(compulsion: any): Promise<void> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = currentUserId ? `localCompulsions_${currentUserId}` : 'localCompulsions_anon';
+      const localKey = `localCompulsions_${safeStorageKey(currentUserId as any)}`;
       const stored = await AsyncStorage.getItem(localKey);
       const compulsions = stored ? JSON.parse(stored) : [];
       
@@ -225,7 +226,7 @@ export class OfflineSyncService {
   async getLocalCompulsions(): Promise<any[]> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = currentUserId ? `localCompulsions_${currentUserId}` : 'localCompulsions_anon';
+      const localKey = `localCompulsions_${safeStorageKey(currentUserId as any)}`;
       const stored = await AsyncStorage.getItem(localKey);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
@@ -237,7 +238,7 @@ export class OfflineSyncService {
   async storeERPSessionLocally(session: any): Promise<void> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = currentUserId ? `localERPSessions_${currentUserId}` : 'localERPSessions_anon';
+      const localKey = `localERPSessions_${safeStorageKey(currentUserId as any)}`;
       const stored = await AsyncStorage.getItem(localKey);
       const sessions = stored ? JSON.parse(stored) : [];
       
@@ -264,7 +265,7 @@ export class OfflineSyncService {
   async getLocalERPSessions(): Promise<any[]> {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = currentUserId ? `localERPSessions_${currentUserId}` : 'localERPSessions_anon';
+      const localKey = `localERPSessions_${safeStorageKey(currentUserId as any)}`;
       const stored = await AsyncStorage.getItem(localKey);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
