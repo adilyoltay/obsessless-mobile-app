@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 export interface Compulsion {
   id: string;
@@ -151,11 +152,12 @@ const compulsionService = {
       try {
         await supabaseService.saveCompulsion({
           user_id: userId,
-          category: data.type,
+          category: mapToCanonicalCategory(data.type),
+          subcategory: data.type,
           resistance_level: data.resistanceLevel,
           trigger: data.trigger,
           notes: data.notes
-        });
+        } as any);
         if (__DEV__) console.log('✅ Compulsion saved to Supabase');
       } catch (supabaseError) {
         if (__DEV__) console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
