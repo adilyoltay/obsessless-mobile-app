@@ -422,6 +422,47 @@ class InsightsEngineV2 {
 
     // Crisis Prevention Insights removed
 
+    // Fallback: no insights -> create aggregation-based behavioral suggestion
+    if (insights.length === 0) {
+      const now = new Date();
+      const priority = (aggregate?.performance?.erpCompletionRate ?? 100) < 50 ? InsightPriority.HIGH : InsightPriority.MEDIUM;
+      const timing = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) && aggregate.patterns.peakAnxietyTimes.length > 0
+        ? InsightTiming.DAILY_SUMMARY
+        : InsightTiming.NEXT_SESSION;
+      const triggers = (aggregate?.patterns?.commonTriggers as string[] | undefined) || [];
+      insights.push({
+        id: `insight_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
+        userId: context.userId,
+        category: InsightCategory.BEHAVIORAL_ANALYSIS,
+        priority,
+        timing,
+        title: 'Güncel davranış örüntüleri',
+        message: triggers.length > 0 ? `Sık tetikleyiciler: ${triggers.slice(0, 3).join(', ')}` : 'Son dönemde belirgin tetikleyici bulunamadı.',
+        actionableAdvice: [
+          'Kısa bir nefes egzersizi planla',
+          'Zorlayıcı tetikleyici için 2 dakikalık mini maruziyet dene',
+        ],
+        confidence: 0.6,
+        aiProvider: undefined,
+        detectedPatterns: triggers.slice(0, 5),
+        emotionalState: undefined,
+        basedOnData: {
+          messageCount: Array.isArray(context.recentMessages) ? context.recentMessages.length : 0,
+          timeframe: context.timeframe?.period || 'week',
+          keyEvents: [],
+          compulsionFrequency: undefined,
+          moodTrend: undefined,
+        },
+        generatedAt: now,
+        validUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+        shown: false,
+        therapeuticGoals: [],
+        expectedOutcome: 'Tetikleyici farkındalığı ve öz düzenleme',
+        followUpRequired: false,
+        relatedInsightIds: [],
+      });
+    }
+
     // Sort by priority and timing
     return this.prioritizeAndFilterInsights(insights, context);
   }
