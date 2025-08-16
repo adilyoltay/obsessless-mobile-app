@@ -4,14 +4,14 @@
 |---|---|---|
 | AI Onboarding | Aktif | Y-BOCS analizi, profil, tedavi planı, telemetry |
 | Onboarding Rota | Aktif | Giriş rotası `/(auth)/onboarding`; eski `/(auth)/ai-onboarding` kaldırıldı |
-| Insights v2 | Aktif | CBT/AI/Progress kaynaklı basit içgörüler, 60s cooldown |
+| Insights v2 | Aktif | CBT/AI/Progress kaynaklı basit içgörüler, 60s cooldown, spesifik telemetry (rate limit/cache/insufficient) |
 | Progress Analytics | Kaldırıldı | Bağımsız servis yok; tipler korunuyor. Varsayılan konfig: `enableProgressTracking=false` |
 | JITAI (temel) | Aktif | Zaman/bağlam tetikleyicileri, krizsiz |
 | Voice Mood Check‑in | Aktif | STT, rota önerisi, PII maskeleme |
 | ERP Önerileri | Aktif | AI öneri + heuristik fallback |
 | Telemetry | Aktif | Gizlilik‑öncelikli, enum doğrulamalı |
 | Content Filtering | Aktif | AI yanıt filtresi |
-| Art Therapy | Pasif | Flag kapalı |
+| Art Therapy | Pasif | Flag kapalı (modül arşiv adayı; UI’da nazik bilgilendirme) |
 | AI Chat | Pasif | UI/servis yok |
 | Crisis Detection | Kaldırıldı | runtime’da devre dışı |
 

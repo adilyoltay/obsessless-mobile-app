@@ -34,10 +34,11 @@ Notlar:
  
 ### Son Stabilizasyon Notları (2025‑08)
 - Insights v2
-  - generateInsights başında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_DATA_INSUFFICIENT` telemetrisi ve erken çıkış.
+  - generateInsights başında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_MISSING_REQUIRED_FIELDS` telemetrisi ve erken çıkış.
   - Kalıcı önbellek: AsyncStorage ile kullanıcıya özel anahtarlar (örn. `insights_cache_{userId}`, `insights_last_gen_{userId}`) ve index listesi.
   - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
   - Aynı kullanıcıdan eşzamanlı talepler: orchestrator’da kuyruklama (chained promise) ile deterministik işleyiş.
+  - Cooldown/Rate limit telemetrisi: `INSIGHTS_RATE_LIMITED`; cache akışları: `INSIGHTS_CACHE_HIT` / `INSIGHTS_CACHE_MISS`; sıfır içgörü: `NO_INSIGHTS_GENERATED`.
 - JITAI
   - `predictOptimalTiming` ve `normalizeContext` undefined‑güvenli; eksik bağlamlarda soft‑fail.
   - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.

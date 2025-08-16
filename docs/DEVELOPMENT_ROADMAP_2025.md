@@ -4,9 +4,9 @@ Bu yol haritası, 2025 için yakın ve orta vadeli hedefleri konsolide eder (Q4 
 
 ## Q4 2025 (Canlıdaki Odaklar)
 - Stabilizasyon: Offline-first senkron ve hata toparlama
-- Telemetry: Enum uyumluluğu, örnek dashboard export
+- Telemetry: Enum uyumluluğu, özel Insights event ayrışması (missing_required_fields / rate_limited / cache_hit | miss / no_insights_generated), örnek dashboard export
 - ERP: Quick Start UX iyileştirmeleri, imaginal/interoceptive ek akış gardiyanları
-- Insights v2: Veri yetersizliği fallback’leri ve cooldown görünürlüğü
+- Insights v2: Veri yetersizliği fallback’leri, cooldown görünürlüğü ve heuristik fallback telemetrisi
 - Gamification: İnce ayar (puan/rozet balansları)
 
 ## Q1 2026 (Ön-Plan)

@@ -3,7 +3,7 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT/AI + Progress Tracking Insights; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_DATA_INSUFFICIENT
+- Insights v2: CBT/AI + Progress Tracking Insights; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED
 - Progress Analytics: runtime’dan kaldırıldı (yalnızca tipler mevcut); varsayılan konfig: `enableProgressTracking=false`
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
@@ -24,7 +24,7 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 
 ## Telemetry Olayları (Seçki)
 - Sistem: SYSTEM_INITIALIZED/STARTED/STATUS/STOPPED
-- Insights: INSIGHTS_REQUESTED/DELIVERED, INSIGHTS_DATA_INSUFFICIENT
+- Insights: INSIGHTS_REQUESTED/DELIVERED, INSIGHTS_MISSING_REQUIRED_FIELDS, INSIGHTS_RATE_LIMITED, INSIGHTS_CACHE_HIT, INSIGHTS_CACHE_MISS, NO_INSIGHTS_GENERATED
   - Hata: AI_PROVIDER_API_ERROR (trackAIError ile yakalanır)
 - JITAI: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Voice: CHECKIN_STARTED, ROUTE_SUGGESTED, CHECKIN_COMPLETED, STT_FAILED
