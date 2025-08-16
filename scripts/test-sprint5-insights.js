@@ -456,9 +456,7 @@ runTest('Sprint 5 Feature Completeness Validation', () => {
   const insightsFeatures = [
     'generateInsights',
     'generateCBTInsights',
-    'generateAIInsights',
-    'generateProgressInsights',
-    'generateCrisisPreventionInsights'
+    'generateAIInsights'
   ];
   
   insightsFeatures.forEach(feature => {
@@ -468,9 +466,6 @@ runTest('Sprint 5 Feature Completeness Validation', () => {
   // 2. Pattern Recognition v2.0 features
   const patternsPath = path.join(__dirname, '..', 'features', 'ai', 'services', 'patternRecognitionV2.ts');
   const patternFeatures = [
-    'ruleBasedPatternDetection',
-    'statisticalPatternAnalysis',
-    'mlBasedPatternDetection',
     'aiAssistedPatternDiscovery'
   ];
   

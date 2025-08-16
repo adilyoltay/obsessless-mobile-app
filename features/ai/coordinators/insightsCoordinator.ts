@@ -1,13 +1,12 @@
 /**
  * 🔗 Insights Coordinator - Sprint 5 Integration Hub
  * 
- * Bu coordinator, Sprint 5'teki tüm AI bileşenlerini orchestrate eder:
+ * Bu coordinator, sistemdeki AI bileşenlerini orchestrate eder:
  * - Insights Engine v2.0
- * - Pattern Recognition v2.0  
+ * - Pattern Recognition v2.0
  * - Smart Notifications
- * - Progress Analytics
- * - CBT Engine (Sprint 4)
- * - External AI Service (Sprint 4)
+ * - CBT Engine
+ * - External AI Service
  * 
  * ⚠️ CRITICAL: End-to-end insight delivery workflow'u yönetir
  * ⚠️ Feature flag kontrolü: AI_INSIGHTS_ENGINE_V2
