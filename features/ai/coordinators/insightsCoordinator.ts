@@ -223,11 +223,21 @@ class InsightsCoordinator {
 
       this.isEnabled = true;
       
-      // Telemetry
+      // Telemetry: kısa gecikme sonra componentStatus gönder
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const delayedStatus = {
+        cbtEngine: cbtEngine.enabled,
+        externalAI: externalAIService.enabled,
+        insightsEngine: insightsEngineV2.enabled,
+        patternRecognition: patternRecognitionV2.enabled,
+        smartNotifications: smartNotificationService.enabled,
+        progressAnalytics: this.progressAnalyticsAvailable && this.defaultConfig.enableProgressTracking
+      };
+      const delayedEnabled = Object.values(delayedStatus).filter(Boolean).length;
       await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
         version: '2.0',
-        componentStatus,
-        enabledComponents,
+        componentStatus: delayedStatus,
+        enabledComponents: delayedEnabled,
         totalComponents
       });
 

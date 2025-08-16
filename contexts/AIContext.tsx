@@ -606,6 +606,7 @@ export function AIProvider({ children }: AIProviderProps) {
   // Simple cooldown to avoid rapid re-execution/rate-limit: 60s
   const lastInsightsRef = React.useRef<number>(0);
   const insightsInFlightRef = React.useRef<boolean>(false);
+  const insightsQueueRef = React.useRef<Promise<any[]> | null>(null);
 
   const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
@@ -653,11 +654,15 @@ export function AIProvider({ children }: AIProviderProps) {
     }
 
     if (insightsInFlightRef.current) {
-      if (__DEV__) console.warn('⚠️ Insights workflow already in progress');
-      return [];
+      if (insightsQueueRef.current) {
+        if (__DEV__) console.warn('⏳ Insights in progress – returning queued promise');
+        return insightsQueueRef.current;
+      }
+      if (__DEV__) console.warn('⏳ Insights in progress – waiting for completion');
     }
     try {
       insightsInFlightRef.current = true;
+      const queued = (async () => {
       // 24 saatlik zaman penceresi
       const end = new Date();
       const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
@@ -780,11 +785,16 @@ export function AIProvider({ children }: AIProviderProps) {
         }
         return [];
       }
+      })();
+      insightsQueueRef.current = queued;
+      const awaited = await queued;
+      return awaited;
     } catch (error) {
       if (__DEV__) console.error('❌ Error generating insights:', error);
       return [];
     } finally {
       insightsInFlightRef.current = false;
+      insightsQueueRef.current = null;
     }
   }, [user?.id, userProfile, treatmentPlan, isOnline]);
 
