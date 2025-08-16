@@ -73,11 +73,34 @@ export interface ComprehensiveInsightContext {
   recentMessages: AIMessage[];
   conversationHistory: ConversationContext[];
   behavioralData: {
-    compulsions: any[];
-    moods: any[];
-    exercises: any[];
-    achievements: any[];
-    assessments: any[];
+    compulsions: {
+      id: string;
+      category: string;
+      resistance_level?: number;
+      timestamp?: string | Date;
+    }[];
+    moods: {
+      score: number;
+      timestamp: string | Date;
+    }[];
+    exercises: {
+      id: string;
+      name?: string;
+      duration_minutes?: number;
+      completed?: boolean;
+      timestamp?: string | Date;
+    }[];
+    achievements: {
+      id: string;
+      type: string;
+      timestamp: string | Date;
+    }[];
+    assessments: {
+      id?: string;
+      type: string;
+      score?: number;
+      timestamp?: string | Date;
+    }[];
   };
   
   // Analysis parameters
@@ -585,9 +608,9 @@ class InsightsCoordinator {
   /**
    * Progress analysis yürüt
    */
-  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<any> {
+  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<ProgressAnalyticsResult> {
     try {
-      const progressContext: any = {
+      const progressContext = {
         userId: context.userId,
         userProfile: context.userProfile,
         timeframe: {
@@ -607,12 +630,42 @@ class InsightsCoordinator {
         includePredicitive: context.timeframe.analysisDepth === 'comprehensive'
       };
 
-      return this.getDefaultProgressAnalysis(context);
+      return this.getDefaultProgressAnalysis();
 
     } catch (error) {
       console.warn('⚠️ Progress analysis failed:', error);
-      return this.getDefaultProgressAnalysis(context);
+      return this.getDefaultProgressAnalysis();
     }
+  }
+
+  /**
+   * Progress Analytics modülü kaldırıldığı için tipli, güvenli bir varsayılan değer döndür.
+   */
+  private getDefaultProgressAnalysis(): ProgressAnalyticsResult {
+    return {
+      metrics: {
+        compulsionFrequency: [],
+        resistanceRate: [],
+        moodScores: [],
+        exerciseCompletion: [],
+        sleepQuality: [],
+        socialInteraction: [],
+        medicationAdherence: [],
+        timestamps: []
+      },
+      trends: new Map<string, any>(),
+      patterns: [],
+      predictions: [],
+      outcomes: [],
+      goals: [],
+      overallProgress: 0,
+      therapyPhase: 'initial',
+      nextMilestone: {
+        description: 'Başlangıç değerlendirmesi',
+        estimatedDate: new Date(),
+        requirements: []
+      }
+    } as ProgressAnalyticsResult;
   }
 
   /**

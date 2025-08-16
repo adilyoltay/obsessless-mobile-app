@@ -16,8 +16,7 @@ import {
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,
-  ErrorSeverity,
-  CrisisRiskLevel
+  ErrorSeverity
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion } from '@/features/ai/engines/cbtEngine';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -356,6 +355,50 @@ class PatternRecognitionV2 {
 
     } catch (error) {
       console.warn('⚠️ AI-assisted pattern discovery failed:', error);
+      // Telemetry: fallback kullanıldığını işaretle
+      try {
+        await trackAIInteraction(AIEventType.FALLBACK_TRIGGERED, {
+          feature: 'pattern_recognition_v2',
+          reason: 'external_ai_failure'
+        });
+      } catch {}
+      // Heuristik fallback: temel mesaj ve kompulsiyon sayımına göre hafif bir pattern üret
+      try {
+        const totalMessages = context.dataSource.messages.length;
+        const totalCompulsions = context.dataSource.compulsions.length;
+        if (totalMessages + totalCompulsions > 0) {
+          patterns.push({
+            id: `heuristic_${Date.now()}`,
+            userId: context.userId,
+            type: PatternType.BEHAVIORAL,
+            severity: totalCompulsions > 5 ? PatternSeverity.MODERATE : PatternSeverity.MILD,
+            trend: PatternTrend.STABLE,
+            name: 'Basit Davranış Örüntüsü',
+            description: 'Son dönemde gözlenen aktiviteye dayalı basit örüntü',
+            confidence: 0.5,
+            frequency: Math.max(1, Math.round((totalMessages + totalCompulsions) / 7)),
+            duration: 'recent_week',
+            detectedAt: new Date(),
+            firstObserved: context.timeframe.start,
+            lastObserved: context.timeframe.end,
+            timeframe: { start: context.timeframe.start, end: context.timeframe.end, period: 'week' },
+            basedOn: {
+              messageCount: totalMessages,
+              compulsionCount: totalCompulsions,
+              moodEntries: (context.dataSource.moods || []).length,
+              exerciseData: (context.dataSource.exercises || []).length,
+              otherSources: []
+            },
+            correlations: [],
+            triggers: [],
+            consequences: [],
+            interventionOpportunities: [CBTTechnique.MINDFULNESS_INTEGRATION],
+            algorithmUsed: 'ai_assisted',
+            dataQuality: 'medium',
+            needsValidation: true
+          });
+        }
+      } catch {}
     }
 
     return patterns;

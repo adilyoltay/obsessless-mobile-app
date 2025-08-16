@@ -18,10 +18,10 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  RiskLevel as CrisisRiskLevel
+  RiskLevel
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion, cbtEngine } from '@/features/ai/engines/cbtEngine';
-import { externalAIService, AIProvider } from '@/features/ai/services/externalAIService';
+import { externalAIService } from '@/features/ai/services/externalAIService';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -82,7 +82,7 @@ export interface IntelligentInsight {
   
   // AI Analysis
   confidence: number; // 0-1 arası güven skoru
-  aiProvider?: AIProvider;
+  aiProvider?: string;
   detectedPatterns: string[];
   cognitiveDistortions?: CognitiveDistortion[];
   emotionalState?: string;
@@ -129,7 +129,7 @@ export interface InsightGenerationContext {
     end: Date;
     period: 'day' | 'week' | 'month';
   };
-  currentCrisisLevel: CrisisRiskLevel;
+  currentCrisisLevel: RiskLevel;
   lastInsightGenerated: Date | null;
 }
 
@@ -151,7 +151,7 @@ export interface PatternAnalysisResult {
     urgency: InsightPriority;
   }[];
   riskAssessment: {
-    level: CrisisRiskLevel;
+    level: RiskLevel;
     indicators: string[];
     preventiveActions: string[];
   };
@@ -561,8 +561,12 @@ class InsightsEngineV2 {
           currentState: 'therapeutic' as any,
           conversationHistory: context.recentMessages,
           userProfile: context.userProfile,
-          crisisLevel: context.currentCrisisLevel
-        };
+          startTime: new Date(),
+          lastActivity: new Date(),
+          messageCount: context.recentMessages.length,
+          topicHistory: [],
+          appContext: { screen: 'insights', route: 'engine_v2' }
+        } as any;
 
         const cbtAnalysis = await cbtEngine.detectCognitiveDistortions(lastMessage, mockConversationContext);
         
@@ -611,7 +615,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTInsightTitle(distortion: CognitiveDistortion): string {
-    const titles = {
+    const titles: Record<string, string> = {
       'all_or_nothing': '🌈 Esneklik Fırsatı',
       'catastrophizing': '🧘 Sakinlik Zamanı',
       'overgeneralization': '🔍 Detayları Keşfet',
@@ -622,7 +626,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTInsightMessage(distortion: CognitiveDistortion, technique: CBTTechnique): string {
-    const messages = {
+    const messages: Record<string, string> = {
       'all_or_nothing': `Son mesajlarınızda 'ya hep ya hiç' düşünce kalıbı fark ettim. Bu normal ve değiştirilebilir! ${technique} tekniği ile birlikte daha esnek düşünmeyi keşfedelim.`,
       'catastrophizing': `Endişelerinizin büyüdüğünü gözlemliyorum. ${technique} ile bu durumu daha dengeli bir perspektiften değerlendirmeyi deneyebiliriz.`,
       'overgeneralization': `Genelleme kalıpları tespit ettim. ${technique} kullanarak bu durumun özel yanlarını keşfetmeye ne dersiniz?`
@@ -631,7 +635,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTActionableAdvice(technique: CBTTechnique): string[] {
-    const advice = {
+    const advice: Record<string, string[]> = {
       'socratic_questioning': [
         'Bu düşüncenin doğru olduğuna dair kanıtları listeleyin',
         'Karşı kanıtları da araştırın',
@@ -668,7 +672,7 @@ class InsightsEngineV2 {
       const insightPrompt = await this.createInsightGenerationPrompt(context);
       
       const aiResponse = await externalAIService.getAIResponse(
-        [{ role: 'user', content: insightPrompt }],
+        [{ id: `m_${Date.now()}`, role: 'user', content: insightPrompt, timestamp: new Date() } as any],
         (this.createMockConversationContext(context) || ({} as any)),
         {
           therapeuticMode: true,
@@ -737,7 +741,7 @@ class InsightsEngineV2 {
     return insights;
   }
 
-  private async createInsightGenerationPrompt(context: InsightGenerationContext): string {
+  private async createInsightGenerationPrompt(context: InsightGenerationContext): Promise<string> {
     const recentActivity = context.recentMessages.slice(-3).map(msg => 
       `"${msg.content}"`
     ).join(', ');
@@ -898,7 +902,7 @@ KULLANICI PROFİLİ:
   }
 
   private recommendTechniqueForPattern(patternType: string): CBTTechnique | null {
-    const recommendations = {
+    const recommendations: Record<string, CBTTechnique> = {
       'high_frequency_messages': CBTTechnique.MINDFULNESS_INTEGRATION,
       'negative_sentiment_trend': CBTTechnique.COGNITIVE_RESTRUCTURING,
       'high_compulsion_frequency': CBTTechnique.BEHAVIORAL_EXPERIMENT,
@@ -925,10 +929,10 @@ KULLANICI PROFİLİ:
       p.confidence > 0.8
     );
 
-    let riskLevel = CrisisRiskLevel.NONE;
-    if (highRiskPatterns.length >= 3) riskLevel = CrisisRiskLevel.HIGH;
-    else if (highRiskPatterns.length >= 2) riskLevel = CrisisRiskLevel.MEDIUM;
-    else if (highRiskPatterns.length >= 1) riskLevel = CrisisRiskLevel.LOW;
+    let riskLevel: RiskLevel = RiskLevel.LOW;
+    if (highRiskPatterns.length >= 3) riskLevel = RiskLevel.VERY_HIGH;
+    else if (highRiskPatterns.length >= 2) riskLevel = RiskLevel.HIGH;
+    else if (highRiskPatterns.length >= 1) riskLevel = RiskLevel.MODERATE;
 
     return {
       level: riskLevel,
@@ -948,8 +952,12 @@ KULLANICI PROFİLİ:
       currentState: 'therapeutic' as any,
       conversationHistory: context.recentMessages,
       userProfile: context.userProfile,
-      crisisLevel: context.currentCrisisLevel
-    };
+      startTime: new Date(),
+      lastActivity: new Date(),
+      messageCount: context.recentMessages.length,
+      topicHistory: [],
+      appContext: { screen: 'insights', route: 'engine_v2' }
+    } as any;
   }
 
   // =============================================================================
@@ -1024,8 +1032,4 @@ KULLANICI PROFİLİ:
 
 export const insightsEngineV2 = InsightsEngineV2.getInstance();
 export default insightsEngineV2;
-export type { 
-  IntelligentInsight, 
-  InsightGenerationContext,
-  PatternAnalysisResult 
-};
+// Re-exports removed to avoid conflicts (types are declared in-file)

@@ -49,30 +49,30 @@ import { Colors } from '@/constants/Colors';
 import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
 
 // Types
-import {
-  UserProfile,
-  TreatmentPlan,
-  CulturalContext,
-} from '@/features/ai/types';
+import { OCDAnalysis } from '@/features/ai/types';
 
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 
 // Using global design tokens
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+type OnboardingCulturalContext = {
+  language: string;
+  religiousConsiderations: boolean;
+  familyInvolvement: 'none' | 'supportive';
+  culturalFactors: string[];
+};
+
 interface OnboardingFlowV3Props {
-  onComplete: (userProfile: UserProfile, treatmentPlan: TreatmentPlan) => void;
+  onComplete: (userProfile: any, treatmentPlan: any) => void;
   onExit: () => void;
   userId: string;
   resumeSession?: boolean;
 }
-  // AI sonuçlarının yerel state'te tutulması
-  const [generatedPlan, setGeneratedPlan] = useState<TreatmentPlan | null>(null);
-  const [generatedAnalysis, setGeneratedAnalysis] = useState<any | null>(null);
+
 
 // Adım tipleri - Master Prompt'a uygun sıralama
 enum OnboardingStep {
@@ -270,7 +270,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     familyHistory: false,
   });
   const [symptomTypes, setSymptomTypes] = useState<string[]>([]);
-  const [culturalContext, setCulturalContext] = useState<CulturalContext>({
+  const [culturalContext, setCulturalContext] = useState<OnboardingCulturalContext>({
     language: 'tr',
     religiousConsiderations: false,
     familyInvolvement: 'none',
@@ -278,6 +278,9 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   });
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // AI sonuçlarının yerel state'te tutulması
+  const [generatedPlan, setGeneratedPlan] = useState<any | null>(null);
+  const [generatedAnalysis, setGeneratedAnalysis] = useState<OCDAnalysis | null>(null);
 
   // Session kaydetme
   useEffect(() => {
@@ -519,28 +522,48 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       // AI destekli analiz (fallback manuel)
       let analysis;
       try {
-        analysis = await ybocsAnalysisService.analyzeYBOCS({ answers: ybocsResponses as any, userId });
+        analysis = await ybocsAnalysisService.analyzeYBOCS(ybocsResponses as any, { enhanceWithAI: true });
       } catch {
-        analysis = { totalScore: calculateYBOCSScore(), subscores: { obsessions: 0, compulsions: 0 }, severityLevel: 'moderate', dominantSymptoms: [], riskFactors: [], confidence: 0.5, culturalConsiderations: [], recommendedInterventions: [] } as any;
+        analysis = { totalScore: calculateYBOCSScore(), subscores: { obsessions: 0, compulsions: 0 }, severityLevel: 'moderate', dominantSymptoms: [], riskFactors: [], confidence: 0.5, culturalConsiderations: [], recommendedInterventions: [] } as OCDAnalysis;
       }
 
-      // AI treatment plan (fallback default)
+      // AI treatment plan preview (basit yerel plan)
       try {
-        await onboardingEngine.initialize();
-        // Varsayılan sade profil
-        const minimalProfile: any = { userId, therapeuticGoals: selectedGoals, culturalContext };
-        const plan = await onboardingEngine.generatePersonalizedTreatmentPlan({ userProfile: minimalProfile, ybocsAnalysis: analysis });
-        // Plan ve analiz sonuçlarını kalıcı/state’e yaz
+        const ybocsScorePreview = calculateYBOCSScore();
+        const baseInterventions = ybocsScorePreview >= 20
+          ? [{ type: 'erp', title: 'İleri Düzey ERP', description: 'Yoğun maruz bırakma ve tepki önleme egzersizleri', frequency: 'daily', duration: 45 }]
+          : [{ type: 'erp', title: 'Temel ERP', description: 'Aşamalı maruz bırakma egzersizleri', frequency: 'daily', duration: 30 }];
+        const plan = {
+          id: `plan_preview_${userId}_${Date.now()}`,
+          userId,
+          ybocsScore: ybocsScorePreview,
+          primaryGoals: selectedGoals.slice(0, 3),
+          interventions: baseInterventions,
+          weeklySchedule: {
+            monday: baseInterventions,
+            tuesday: baseInterventions,
+            wednesday: baseInterventions,
+            thursday: baseInterventions,
+            friday: baseInterventions,
+            saturday: baseInterventions.slice(0, 1),
+            sunday: [{ type: 'rest', title: 'Dinlenme Günü', description: 'Haftalık değerlendirme' }]
+          },
+          progressMetrics: {
+            ybocsTargetReduction: Math.max(5, Math.floor(ybocsScorePreview * 0.3)),
+            anxietyReductionTarget: 40,
+            functionalImprovementTarget: 50
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
         try {
           await AsyncStorage.setItem(`ai_onboarding_ybocs_${userId}`, JSON.stringify(analysis));
           await AsyncStorage.setItem(`ai_onboarding_treatment_plan_${userId}`, JSON.stringify(plan));
         } catch {}
-        // Ekran render’ı için local state güncelle (basit tut)
-        (setGeneratedPlan as any)?.(plan);
-        (setGeneratedAnalysis as any)?.(analysis);
+        setGeneratedPlan(plan);
+        setGeneratedAnalysis(analysis as OCDAnalysis);
         setCurrentStep(OnboardingStep.TREATMENT_PLAN);
       } catch (e) {
-        // Fallback: mock benzeri akış
         setCurrentStep(OnboardingStep.TREATMENT_PLAN);
       }
 
@@ -565,7 +588,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       const ybocsScore = calculateYBOCSScore();
       
       // User profile oluştur
-      const userProfile: UserProfile = {
+      const userProfile: any = {
         id: userId,
         name: userName,
         demographics: {
@@ -586,7 +609,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       // ✅ PRODUCTION: Gerçek AI treatment plan oluştur
       console.log('🤖 Generating real AI treatment plan...');
-      let treatmentPlan: TreatmentPlan;
+      let treatmentPlan: any;
       
       try {
         // Import AI engine
@@ -657,7 +680,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           therapeuticProfile as any,
           { totalScore: ybocsScore, severityLevel: ybocsScore > 25 ? 'severe' : ybocsScore > 15 ? 'moderate' : 'mild' } as any,
           riskAssessment as any,
-          culturalContext
+          culturalContext as any
         );
         
         console.log('✅ Real AI treatment plan generated:', treatmentPlan.id);
@@ -763,7 +786,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     } catch (error) {
       console.error('❌ OnboardingFlowV3: Completion error:', error);
       // Hata durumunda da callback'i çağır
-      onComplete({} as UserProfile, {} as TreatmentPlan);
+      onComplete({} as any, {} as any);
     }
   };
 
@@ -905,11 +928,6 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 onValueChange={setSliderValue}
                 minimumTrackTintColor={getSliderColor(sliderValue)}
                 maximumTrackTintColor={Colors.ui.border}
-                thumbStyle={{
-                  backgroundColor: getSliderColor(sliderValue),
-                  width: 20,
-                  height: 20,
-                }}
               />
               
             <View style={styles.sliderLabels}>

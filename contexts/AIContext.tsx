@@ -344,9 +344,20 @@ export function AIProvider({ children }: AIProviderProps) {
 
       setAvailableFeatures(features);
 
-      // Load user data in background after UI updates
+      // Load user data in background after UI updates (with basic retry)
       InteractionManager.runAfterInteractions(() => {
-        loadUserAIData();
+        let attempts = 0;
+        const tryLoad = async () => {
+          try {
+            await loadUserAIData();
+          } catch (e) {
+            if (attempts < 2) {
+              attempts++;
+              setTimeout(tryLoad, 300 * attempts);
+            }
+          }
+        };
+        tryLoad();
       });
 
       setIsInitialized(true);
@@ -590,7 +601,21 @@ export function AIProvider({ children }: AIProviderProps) {
       
       // Persist to storage with safe key
       const profileKey = `ai_user_profile_${userId}`;
-      await AsyncStorage.setItem(profileKey, JSON.stringify(updatedProfile));
+      // Safe write with small retry/backoff
+      {
+        let attempts = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try {
+            await AsyncStorage.setItem(profileKey, JSON.stringify(updatedProfile));
+            break;
+          } catch (e) {
+            if (attempts >= 2) break;
+            attempts++;
+            await new Promise(r => setTimeout(r, 200 * attempts));
+          }
+        }
+      }
 
       // Update via service if available
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
@@ -621,9 +646,11 @@ export function AIProvider({ children }: AIProviderProps) {
         const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
         if (cached) {
           const parsed = JSON.parse(cached);
+          try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'cooldown_cache' }, user.id); } catch {}
           return parsed.insights || [];
         }
       } catch {}
+      try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_MISS, { userId: user.id, reason: 'cooldown_cache_empty' }, user.id); } catch {}
       return [];
     }
 
@@ -637,6 +664,7 @@ export function AIProvider({ children }: AIProviderProps) {
           const parsed = JSON.parse(cachedInsights);
           // Return cached insights if less than 24 hours old
           if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+            try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'offline_cache' }, user.id); } catch {}
             return parsed.insights || [];
           }
         }
@@ -739,10 +767,18 @@ export function AIProvider({ children }: AIProviderProps) {
         // Cache successful insights
         if (insights && insights.length > 0) {
           try {
-            await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({
-              insights,
-              timestamp: Date.now()
-            }));
+            // Safe cache write with 2 retries
+            let attempts = 0;
+            while (true) {
+              try {
+                await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
+                break;
+              } catch (e) {
+                if (attempts >= 2) break;
+                attempts++;
+                await new Promise(r => setTimeout(r, 150 * attempts));
+              }
+            }
             // Persist to Supabase (non-blocking)
             try {
               const { default: supabaseService } = await import('@/services/supabase');
@@ -764,6 +800,7 @@ export function AIProvider({ children }: AIProviderProps) {
             const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
             if (cached) {
               const parsed = JSON.parse(cached);
+              try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'post_generation_cache' }, user.id); } catch {}
               return parsed.insights || [];
             }
           } catch {}

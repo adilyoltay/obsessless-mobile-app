@@ -155,6 +155,10 @@ export enum AIEventType {
   INSIGHTS_ENGINE_INITIALIZED = 'insights_engine_initialized',
   INSIGHTS_GENERATED = 'insights_generated',
   INSIGHTS_ENGINE_SHUTDOWN = 'insights_engine_shutdown',
+  // Insights specialization
+  INSIGHTS_RATE_LIMITED = 'insights_rate_limited',
+  INSIGHTS_CACHE_HIT = 'insights_cache_hit',
+  INSIGHTS_CACHE_MISS = 'insights_cache_miss',
   
   // Smart Notifications
   SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',
