@@ -181,7 +181,6 @@ export const useAISettingsStore = create<AISettingsState>()(
           return {
             ...persistedState,
             preferences: {
-              aiChatPersonality: 'empatik',
               aiInsightsFrequency: 'haftalık',
               aiVoiceGender: 'kadın',
               aiLanguage: 'tr',

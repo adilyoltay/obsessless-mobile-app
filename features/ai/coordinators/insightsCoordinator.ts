@@ -21,7 +21,6 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  RiskLevel,
   isAIError
 } from '@/features/ai/types';
 
@@ -117,8 +116,6 @@ export interface ComprehensiveInsightContext {
     preferredMethod?: string;
   };
   
-  // Current state (crisis level removed from delivery decisions)
-  currentCrisisLevel: RiskLevel;
   appUsageContext: {
     isActive: boolean;
     currentScreen?: string;
@@ -767,7 +764,6 @@ class InsightsCoordinator {
         allowNotifications: false,
         respectQuietHours: false
       },
-      currentCrisisLevel: RiskLevel.LOW,
       appUsageContext: {
         isActive: true,
         lastActivity: new Date()
@@ -833,7 +829,6 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: RiskLevel.LOW,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',
@@ -902,7 +897,6 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: RiskLevel.LOW,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',

@@ -83,7 +83,6 @@ export interface NotificationPreferences {
   // Context awareness
   respectAppUsage: boolean;  // Don't notify during active usage
   adaptToMood: boolean;      // Consider user mood
-  crisisOverride: boolean;   // Allow crisis notifications anytime
   
   // Personalization
   tone: 'formal' | 'casual' | 'warm';
@@ -649,7 +648,6 @@ class SmartNotificationService {
       timezone: "Europe/Istanbul",
       respectAppUsage: true,
       adaptToMood: true,
-      crisisOverride: true,
       tone: 'warm',
       language: 'tr',
       culturalContext: 'turkish'
