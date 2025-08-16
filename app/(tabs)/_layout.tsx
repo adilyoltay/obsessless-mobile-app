@@ -90,6 +90,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="moods"
+        options={{
+          title: 'Duygu',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'happy' : 'happy-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Ayarlar',
