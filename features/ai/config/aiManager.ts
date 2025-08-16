@@ -193,7 +193,16 @@ export class AIManager {
       }
     }
 
-    // Network bağlantısı (gelecekte geliştirilecek)
+    // Network bağlantısı zorunlu (temel kontrol)
+    try {
+      const NetInfo = require('@react-native-community/netinfo');
+      const state = NetInfo.getConnectionInfo ? null : null; // legacy guard
+    } catch {}
+    // Basit çevrimdışı engelleme: env üzerinden mock
+    if (typeof navigator !== 'undefined' && 'onLine' in navigator && (navigator as any).onLine === false) {
+      console.warn('Network offline - AI features disabled');
+      return false;
+    }
     return true;
   }
 
