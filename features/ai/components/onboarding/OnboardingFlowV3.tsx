@@ -57,6 +57,8 @@ import {
 
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 
 // Using global design tokens
 
@@ -500,18 +502,43 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   // Tedavi planı oluştur
   const generateTreatmentPlan = async () => {
     setIsLoading(true);
-    
-    // Telemetry
-    trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
-      ybocsScore: calculateYBOCSScore(),
-      goals: selectedGoals,
-    }, userId);
 
-    // Mock tedavi planı (gerçekte AI'dan gelecek)
-    setTimeout(() => {
+    try {
+      // Telemetry (request)
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'treatment_plan_request' }, userId);
+
+      // Y-BOCS cevapları
+      const ybocsResponses = Object.entries(ybocsAnswers).map(([questionId, score]) => ({
+        questionId,
+        response: score,
+      }));
+
+      // AI destekli analiz (fallback manuel)
+      let analysis;
+      try {
+        analysis = await ybocsAnalysisService.analyzeYBOCS({ answers: ybocsResponses as any, userId });
+      } catch {
+        analysis = { totalScore: calculateYBOCSScore(), subscores: { obsessions: 0, compulsions: 0 }, severityLevel: 'moderate', dominantSymptoms: [], riskFactors: [], confidence: 0.5, culturalConsiderations: [], recommendedInterventions: [] } as any;
+      }
+
+      // AI treatment plan (fallback default)
+      try {
+        await onboardingEngine.initialize();
+        // Varsayılan sade profil
+        const minimalProfile: any = { userId, therapeuticGoals: selectedGoals, culturalContext };
+        const plan = await onboardingEngine.generatePersonalizedTreatmentPlan({ userProfile: minimalProfile, ybocsAnalysis: analysis });
+        // state’e yansıtma sadece akış ilerletme için (plan render’i sonraki adımda)
+        setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+      } catch (e) {
+        // Fallback: mock benzeri akış
+        setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+      }
+
+      // Telemetry (generated)
+      await trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, { ybocsScore: calculateYBOCSScore(), goals: selectedGoals }, userId);
+    } finally {
       setIsLoading(false);
-      setCurrentStep(OnboardingStep.TREATMENT_PLAN);
-    }, 1500);
+    }
   };
 
   // Y-BOCS skoru hesapla
