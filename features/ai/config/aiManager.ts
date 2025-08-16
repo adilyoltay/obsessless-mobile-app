@@ -69,6 +69,9 @@ export class AIManager {
       
       // Health check
       await this.performHealthCheck();
+
+      // Initialize AI services in parallel (critical-first validation via results)
+      await this.initializeAIServices();
       
       // Gradual initialization
       this.enabled = true;
@@ -85,6 +88,63 @@ export class AIManager {
     } catch (error) {
       console.error('❌ AIManager: Initialization failed:', error);
       await this.handleInitializationError(error as Error);
+    }
+  }
+
+  /**
+   * Parallel AI services initialization
+   */
+  private async initializeAIServices(): Promise<void> {
+    console.log('🚀 AIManager: Initializing AI services...');
+    const services: Array<{ name: string; critical: boolean; init: () => Promise<any> }> = [
+      {
+        name: 'externalAI',
+        critical: true,
+        init: async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize()
+      },
+      {
+        name: 'insightsV2',
+        critical: true,
+        init: async () => (await import('@/features/ai/engines/insightsEngineV2')).insightsEngineV2.initialize()
+      },
+      {
+        name: 'cbtEngine',
+        critical: false,
+        init: async () => (await import('@/features/ai/engines/cbtEngine')).cbtEngine.initialize()
+      },
+      {
+        name: 'patternV2',
+        critical: false,
+        init: async () => (await import('@/features/ai/services/patternRecognitionV2')).patternRecognitionV2.initialize()
+      },
+      {
+        name: 'smartNotifications',
+        critical: false,
+        init: async () => (await import('@/features/ai/services/smartNotifications')).smartNotificationService.initialize()
+      },
+      {
+        name: 'therapeuticPrompts',
+        critical: false,
+        init: async () => (await import('@/features/ai/prompts/therapeuticPrompts')).therapeuticPromptEngine.initialize()
+      },
+    ];
+
+    const results = await Promise.allSettled(services.map(s => s.init()));
+    let criticalFailure = false;
+    results.forEach((r, idx) => {
+      const s = services[idx];
+      if (r.status === 'rejected') {
+        console.error(`❌ Service init failed: ${s.name}`, r.reason);
+        this.healthStatus.set(s.name, false);
+        if (s.critical) criticalFailure = true;
+      } else {
+        console.log(`✅ Service initialized: ${s.name}`);
+        this.healthStatus.set(s.name, true);
+      }
+    });
+
+    if (criticalFailure) {
+      throw new Error('Critical AI services failed to initialize');
     }
   }
 
@@ -477,11 +537,16 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
    * Private helper methods
    */
   private setupEmergencyListeners(): void {
-    // Global kill switch listener
-    if (typeof window !== 'undefined') {
-      (window as any).obslesslessEmergencyShutdown = () => {
-        this.shutdown();
+    // Global kill switch listener (React Native safe)
+    if (typeof global !== 'undefined') {
+      (global as any).obsessLessEmergencyShutdown = async () => {
+        console.warn('🚨 Emergency shutdown triggered');
+        try { await this.shutdown(); } catch (e) { console.error('Emergency shutdown error:', e); }
       };
+      if (__DEV__) {
+        (global as any).console = (global as any).console || {};
+        (global as any).console.emergencyShutdown = (global as any).obsessLessEmergencyShutdown;
+      }
     }
   }
 
