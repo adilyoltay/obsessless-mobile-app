@@ -280,8 +280,16 @@ export class AIErrorBoundary extends Component<AIErrorBoundaryProps, AIErrorBoun
 
     // Feature flag'i disable et (emergency case)
     if (this.state.error?.severity === ErrorSeverity.CRITICAL) {
-      console.warn('Critical error - considering feature disable');
-      // TODO: Implement automatic feature disable for critical errors
+      console.warn('Critical error - disabling feature flag');
+      try {
+        FEATURE_FLAGS.setFlag(this.props.featureName as any, false);
+        await trackAIInteraction(AIEventType.FEATURE_DISABLED, {
+          feature: this.props.featureName,
+          reason: 'critical_error_auto_disable'
+        });
+      } catch (e) {
+        console.warn('Failed to disable feature flag automatically:', e);
+      }
     }
   }
 

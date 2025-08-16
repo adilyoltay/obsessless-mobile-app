@@ -238,9 +238,7 @@ class PatternRecognitionV2 {
   }
 
   private initializeAlgorithmMetrics(): void {
-    this.algorithmMetrics.set('rule_based', { accuracy: 0.85, usage: 0 });
-    this.algorithmMetrics.set('statistical', { accuracy: 0.78, usage: 0 });
-    this.algorithmMetrics.set('ml_model', { accuracy: 0.82, usage: 0 });
+    // Legacy algorithm metrics removed; only ai_assisted is tracked
     this.algorithmMetrics.set('ai_assisted', { accuracy: 0.88, usage: 0 });
   }
 
@@ -262,7 +260,7 @@ class PatternRecognitionV2 {
     try {
       console.log(`🔍 Starting pattern analysis for user ${context.userId}`);
 
-      // Simplified to only AI-assisted analysis
+      // Simplified to only AI-assisted analysis (legacy rule/stat/ML removed)
       const detectedPatterns: DetectedPattern[] = [];
 
       // AI-assisted pattern discovery (only remaining method)
@@ -276,7 +274,7 @@ class PatternRecognitionV2 {
       // Remove duplicates and merge similar patterns
       const consolidatedPatterns = this.consolidatePatterns(detectedPatterns);
 
-      // Correlation analysis
+      // Correlation analysis (lightweight)
       const correlations = this.analyzePatternCorrelations(consolidatedPatterns);
 
       // Generate insights
@@ -336,92 +334,7 @@ class PatternRecognitionV2 {
   // 🤖 ALGORITHM IMPLEMENTATIONS
   // =============================================================================
 
-  /**
-   * Rule-based pattern detection
-   */
-  private async ruleBasedPatternDetection(context: PatternAnalysisContext): Promise<DetectedPattern[]> {
-    const patterns: DetectedPattern[] = [];
-    this.algorithmMetrics.get('rule_based')!.usage++;
-
-    try {
-      // Message frequency patterns
-      const messageFrequencyPattern = this.detectMessageFrequencyPattern(context);
-      if (messageFrequencyPattern) patterns.push(messageFrequencyPattern);
-
-      // Compulsion frequency patterns
-      const compulsionPattern = this.detectCompulsionFrequencyPattern(context);
-      if (compulsionPattern) patterns.push(compulsionPattern);
-
-      // Time-based patterns
-      const timeBasedPatterns = this.detectTimeBasedPatterns(context);
-      patterns.push(...timeBasedPatterns);
-
-      // Trigger patterns
-      const triggerPatterns = this.detectTriggerPatterns(context);
-      patterns.push(...triggerPatterns);
-
-      console.log(`🔧 Rule-based detection: ${patterns.length} patterns found`);
-
-    } catch (error) {
-      console.warn('⚠️ Rule-based pattern detection failed:', error);
-    }
-
-    return patterns;
-  }
-
-  /**
-   * Statistical pattern analysis
-   */
-  private async statisticalPatternAnalysis(context: PatternAnalysisContext): Promise<DetectedPattern[]> {
-    const patterns: DetectedPattern[] = [];
-    this.algorithmMetrics.get('statistical')!.usage++;
-
-    try {
-      // Trend analysis
-      const trendPatterns = this.detectStatisticalTrends(context);
-      patterns.push(...trendPatterns);
-
-      // Variance analysis
-      const variancePatterns = this.detectVariancePatterns(context);
-      patterns.push(...variancePatterns);
-
-      // Cyclical patterns
-      const cyclicalPatterns = this.detectCyclicalPatterns(context);
-      patterns.push(...cyclicalPatterns);
-
-      console.log(`📊 Statistical analysis: ${patterns.length} patterns found`);
-
-    } catch (error) {
-      console.warn('⚠️ Statistical pattern analysis failed:', error);
-    }
-
-    return patterns;
-  }
-
-  /**
-   * ML-based pattern detection (simulated)
-   */
-  private async mlBasedPatternDetection(context: PatternAnalysisContext): Promise<DetectedPattern[]> {
-    const patterns: DetectedPattern[] = [];
-    this.algorithmMetrics.get('ml_model')!.usage++;
-
-    try {
-      // Simulated ML clustering for behavioral patterns
-      const behavioralClusters = this.simulateMLClustering(context);
-      patterns.push(...behavioralClusters);
-
-      // Simulated anomaly detection
-      const anomalies = this.simulateAnomalyDetection(context);
-      patterns.push(...anomalies);
-
-      console.log(`🤖 ML-based detection: ${patterns.length} patterns found`);
-
-    } catch (error) {
-      console.warn('⚠️ ML-based pattern detection failed:', error);
-    }
-
-    return patterns;
-  }
+  // Legacy rule-based/statistical/ML implementations removed per architecture docs.
 
   /**
    * AI-assisted pattern discovery

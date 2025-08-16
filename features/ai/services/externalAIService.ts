@@ -1141,7 +1141,7 @@ class ExternalAIService {
     try {
       if ((this as any)._memoryProbeStarted) return;
       (this as any)._memoryProbeStarted = true;
-      setInterval(() => {
+      (this as any)._memoryProbeTimer = setInterval(() => {
         try {
           const cacheEntries = this.responseCache.size;
           const rateTrackers = this.userRateLimits.size;
@@ -1234,6 +1234,13 @@ class ExternalAIService {
     this.isEnabled = false;
     this.requestQueue.clear();
     this.rateLimiter.clear();
+    try {
+      if ((this as any)._memoryProbeTimer) {
+        clearInterval((this as any)._memoryProbeTimer);
+        (this as any)._memoryProbeTimer = undefined;
+        (this as any)._memoryProbeStarted = false;
+      }
+    } catch {}
     
     await trackAIInteraction(AIEventType.EXTERNAL_AI_SHUTDOWN, {
       providersShutdown: this.providers.size

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 
 // Notification konfigürasyonu
 Notifications.setNotificationHandler({
@@ -63,8 +64,7 @@ export class MessagingService {
 
         // Token'ı sakla
         const userId = await AsyncStorage.getItem('currentUserId');
-        const safeUserId = (typeof userId === 'string' && userId.length > 0) ? userId : 'anon';
-        const key = `pushToken_${safeUserId}`;
+        const key = `pushToken_${safeStorageKey(userId as any)}`;
         if (typeof token.data === 'string' && token.data.length > 0) {
           await AsyncStorage.setItem(key, token.data);
         }

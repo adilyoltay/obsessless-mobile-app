@@ -486,13 +486,79 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
   }
 
   private async closeActiveConnections(): Promise<void> {
-    // TODO: Implement active connection closing
     console.log('🔌 Closing active AI connections...');
+    try {
+      // External AI Service
+      try {
+        const mod = await import('@/features/ai/services/externalAIService');
+        await mod.externalAIService?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('externalAIService shutdown skipped:', e); }
+
+      // Insights Engine V2
+      try {
+        const mod = await import('@/features/ai/engines/insightsEngineV2');
+        await mod.insightsEngineV2?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('insightsEngineV2 shutdown skipped:', e); }
+
+      // JITAI Engine
+      try {
+        const mod = await import('@/features/ai/jitai/jitaiEngine');
+        await mod.jitaiEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('jitaiEngine shutdown skipped:', e); }
+
+      // Treatment Planning Engine
+      try {
+        const mod = await import('@/features/ai/engines/treatmentPlanningEngine');
+        await mod.treatmentPlanningEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('treatmentPlanningEngine shutdown skipped:', e); }
+
+      // Onboarding Engine
+      try {
+        const mod = await import('@/features/ai/engines/onboardingEngine');
+        await mod.onboardingEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('onboardingEngine shutdown skipped:', e); }
+
+      // Pattern Recognition V2
+      try {
+        const mod = await import('@/features/ai/services/patternRecognitionV2');
+        await mod.patternRecognitionV2?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('patternRecognitionV2 shutdown skipped:', e); }
+
+      // Context Intelligence
+      try {
+        const mod = await import('@/features/ai/context/contextIntelligence');
+        await mod.contextIntelligence?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('contextIntelligence shutdown skipped:', e); }
+
+      // Adaptive Interventions
+      try {
+        const mod = await import('@/features/ai/interventions/adaptiveInterventions');
+        await mod.adaptiveInterventions?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('adaptiveInterventions shutdown skipped:', e); }
+
+    } catch (error) {
+      console.warn('⚠️ Some AI connections could not be closed:', error);
+    }
   }
 
   private async clearCaches(): Promise<void> {
-    // TODO: Implement cache clearing
     console.log('🧹 Clearing AI caches...');
+    try {
+      // Clear known AsyncStorage buckets used by AI/telemetry (best-effort)
+      try {
+        const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+        await AsyncStorage.removeItem('ai_telemetry_offline');
+      } catch (e) { if (__DEV__) console.warn('AsyncStorage cache clear skipped:', e); }
+
+      // Ask services to clear their internal caches via shutdown or dedicated methods
+      try {
+        const mod = await import('@/features/ai/services/externalAIService');
+        // shutdown already clears internal maps; call again to ensure
+        await mod.externalAIService?.shutdown?.();
+      } catch {}
+    } catch (error) {
+      console.warn('⚠️ Cache clearing encountered an issue:', error);
+    }
   }
 
   private getHealthyServicesCount(): number {
@@ -500,13 +566,26 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
   }
 
   private async initiateEmergencyProtocol(context: ConversationContext): Promise<void> {
-    // TODO: Implement emergency protocol
     console.log('🚨 Initiating emergency protocol for user:', context.userId);
+    try {
+      // Minimal protocol: disable risky AI features and log
+      FEATURE_FLAGS.disableAll();
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        event: 'emergency_protocol_initiated',
+        userId: context.userId
+      });
+    } catch {}
   }
 
   private async provideSupportResources(context: ConversationContext): Promise<void> {
-    // TODO: Implement support resources
     console.log('📞 Providing support resources for user:', context.userId);
+    try {
+      // Surface minimal, non-PII support metadata to telemetry; UI layer can react
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        event: 'support_resources_provided',
+        resources: ['help_center', 'emergency_lines', 'self_help_library']
+      }, context.userId);
+    } catch {}
   }
 
   /**

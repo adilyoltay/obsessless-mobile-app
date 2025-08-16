@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Alert, Platform } from 'react-native';
 import { messagingService } from '@/services/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 
 interface NotificationContextType {
   isEnabled: boolean;
@@ -36,8 +37,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       // Check if notifications were previously enabled (user-scoped)
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
-      const prefKey = `notificationsEnabled_${safeUserId}`;
+      const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
       const savedPreference = await AsyncStorage.getItem(prefKey);
       if (savedPreference === 'true') {
         await enableNotifications();
@@ -84,8 +84,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setFcmToken(token);
         setIsEnabled(true);
         const currentUserId = await AsyncStorage.getItem('currentUserId');
-        const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
-        const prefKey = `notificationsEnabled_${safeUserId}`;
+        const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
         await AsyncStorage.setItem(prefKey, 'true');
 
         // Schedule default daily reminder
@@ -107,8 +106,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setIsEnabled(false);
       setFcmToken(null);
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
-      const prefKey = `notificationsEnabled_${safeUserId}`;
+      const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
       await AsyncStorage.setItem(prefKey, 'false');
     } catch (error) {
       console.error('Failed to disable notifications:', error);
@@ -160,8 +158,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const loadNotificationSettings = async () => {
     try {
       const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
-      const settingsKey = `notificationSettings_${safeUserId}`;
+      const settingsKey = `notificationSettings_${safeStorageKey(currentUserId as any)}`;
       const settings = await AsyncStorage.getItem(settingsKey);
       if (settings) {
         const parsed = JSON.parse(settings);

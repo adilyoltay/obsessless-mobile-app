@@ -62,6 +62,7 @@ export default function TodayScreen() {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
+  const insightsPromiseRef = useRef<Promise<any[]> | null>(null);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -169,8 +170,10 @@ export default function TodayScreen() {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
-    if (isInsightsRunning) {
-      if (__DEV__) console.log('ℹ️ Insights workflow already in progress, skipping');
+    if (isInsightsRunning && insightsPromiseRef.current) {
+      if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
+      const existing = await insightsPromiseRef.current;
+      setAiInsights(existing || []);
       return;
     }
 
@@ -186,7 +189,9 @@ export default function TodayScreen() {
       });
 
       // Generate insights using AI context
-      const insights = await generateInsights();
+      const running = generateInsights();
+      insightsPromiseRef.current = running;
+      const insights = await running;
       setAiInsights(insights || []);
 
       // Track insights delivered
@@ -202,6 +207,7 @@ export default function TodayScreen() {
     } finally {
       setAiInsightsLoading(false);
       setIsInsightsRunning(false);
+      insightsPromiseRef.current = null;
     }
   };
 

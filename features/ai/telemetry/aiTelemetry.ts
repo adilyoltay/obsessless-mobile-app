@@ -668,10 +668,29 @@ class AITelemetryManager {
         await this.saveEventsToStorage(this.eventBuffer);
       }
 
-      // TODO: Production'da analytics service'e gönder
-      if (__DEV__) {
-        console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
+      // Production'da analytics (Supabase) toplu gönderim
+      try {
+        if (FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
+          const { default: supabaseService } = await import('@/services/supabase');
+          const payload = this.eventBuffer.map(evt => ({
+            event_type: evt.eventType,
+            metadata: evt.metadata,
+            session_id: evt.sessionId,
+            user_id: evt.userId || null,
+            consent_level: evt.consentLevel,
+            anonymized: evt.anonymized,
+            occurred_at: evt.timestamp
+          }));
+          // Non-blocking, error-safe insert
+          await supabaseService.supabaseClient
+            .from('ai_telemetry')
+            .insert(payload, { defaultToNull: true });
+        }
+      } catch (persistErr) {
+        if (__DEV__) console.warn('📊 Telemetry bulk persist failed (will remain in offline storage):', persistErr);
       }
+
+      if (__DEV__) console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
 
       // Buffer'ı temizle
       this.eventBuffer = [];
