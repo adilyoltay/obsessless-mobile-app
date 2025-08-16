@@ -315,7 +315,14 @@ class InsightsCoordinator {
       
       if (timeSinceLastExecution < minInterval) {
         console.log(`⏱️ Workflow rate limited for user (${Math.round(timeSinceLastExecution/1000)}s ago, min ${minInterval/1000}s):`, context.userId);
-        
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_RATE_LIMITED, {
+            userId: context.userId,
+            sinceLastMs: timeSinceLastExecution,
+            minIntervalMs: minInterval
+          }, context.userId);
+        } catch {}
+
         // Return empty result instead of throwing error
         return {
           executionId: `cached_${Date.now()}_${context.userId}`,
@@ -407,7 +414,7 @@ class InsightsCoordinator {
     const components: string[] = [];
     let patterns: DetectedPattern[] = [];
     let insights: IntelligentInsight[] = [];
-      let progressAnalysis: any | null = null;
+    let progressAnalysis: ProgressAnalyticsResult | null = null;
     let scheduledNotifications: SmartNotification[] = [];
 
     // Timeout protection

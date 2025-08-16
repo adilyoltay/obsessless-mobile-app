@@ -561,7 +561,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           await AsyncStorage.setItem(`ai_onboarding_treatment_plan_${userId}`, JSON.stringify(plan));
         } catch {}
         setGeneratedPlan(plan);
-        setGeneratedAnalysis(analysis as OCDAnalysis);
+        setGeneratedAnalysis(analysis);
         setCurrentStep(OnboardingStep.TREATMENT_PLAN);
       } catch (e) {
         setCurrentStep(OnboardingStep.TREATMENT_PLAN);
