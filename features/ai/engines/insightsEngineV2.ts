@@ -314,7 +314,7 @@ class InsightsEngineV2 {
         return cached;
       }
 
-      // Existing generation check
+      // Existing generation check (dedupe concurrent calls)
       if (this.generationQueue.has(userId)) {
         console.log('⏳ Insight generation already in progress for user:', userId);
         return await this.generationQueue.get(userId)!;

@@ -206,14 +206,19 @@ class InsightsCoordinator {
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
         smartNotifications: smartNotificationService.enabled,
-        progressAnalytics: this.defaultConfig.enableProgressTracking && this.progressAnalyticsAvailable
+        // Progress Analytics modülü runtime'da devre dışı. enableProgressTracking true olsa bile
+        // burada gerçeği yansıtacak şekilde false raporlarız ve telemetriyi yanıltmayız.
+        progressAnalytics: this.progressAnalyticsAvailable && this.defaultConfig.enableProgressTracking
       };
 
       const enabledComponents = Object.values(componentStatus).filter(Boolean).length;
       const totalComponents = Object.keys(componentStatus).length;
 
-      if (enabledComponents < 3) {
-        console.warn('⚠️ Less than 50% of components available, limited functionality');
+      // Uyarıyı oran yerine çekirdek bileşenlerin (insightsEngine, patternRecognition, smartNotifications)
+      // kullanılabilirliğine göre yap.
+      const coreAvailable = Number(componentStatus.insightsEngine) + Number(componentStatus.patternRecognition) + Number(componentStatus.smartNotifications);
+      if (coreAvailable < 2) {
+        console.warn('⚠️ Core insight pipeline partially available, functionality may be limited');
       }
 
       this.isEnabled = true;

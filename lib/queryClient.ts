@@ -37,3 +37,10 @@ export const storage = {
     await AsyncStorage.removeItem(key);
   },
 };
+
+// Güvenli anahtar üretimi: tanımsız/boş anahtarları kullanıcı-id veya sabit prefix ile güvene alır
+export function safeStorageKey(base: string | undefined | null, suffix?: string, fallback: string = 'anon'): string {
+  const baseStr = typeof base === 'string' && base.trim().length > 0 ? base : fallback;
+  const suf = typeof suffix === 'string' && suffix.trim().length > 0 ? `_${suffix}` : '';
+  return `${baseStr}${suf}`;
+}

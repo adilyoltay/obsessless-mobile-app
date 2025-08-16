@@ -343,10 +343,36 @@ class JITAIEngine {
         message: 'Context must include currentContext.userState for timing prediction',
         timestamp: new Date(),
         severity: ErrorSeverity.HIGH,
-        recoverable: false
+        recoverable: true
       };
       await trackAIError(error);
-      throw error;
+      // Soft-fallback: normalize minimal context and return default prediction instead of throwing
+      const minimal = this.normalizeContext((context as any) ?? ({} as any));
+      const predictionId = `timing_${Date.now()}_${minimal.userId}`;
+      const { recommendedTime, confidence, rationale } = this.defaultTimingPrediction(minimal);
+      const result: TimingPredictionResult = {
+        userId: minimal.userId,
+        predictionId,
+        timestamp: new Date(),
+        optimalTiming: {
+          recommendedTime,
+          confidence,
+          rationale,
+          alternativeTimes: this.generateAlternativeTimes(minimal, recommendedTime)
+        },
+        effectivenessPrediction: this.predictInterventionEffectiveness(minimal, recommendedTime),
+        contextualFactors: {
+          currentStressLevel: minimal.currentContext.userState.stressLevel,
+          activityState: minimal.currentContext.userState.activityState,
+          timeOfDay: new Date().getHours(),
+          recentInterventionCount: 0,
+          historicalSuccessRate: this.calculateHistoricalSuccessRate(minimal)
+        },
+        modelUsed: this.config.primaryTimingModel,
+        modelVersion: '1.0',
+        predictionQuality: this.calculatePredictionQuality(minimal, confidence)
+      };
+      return result;
     }
 
     const safeContext: any = context || {} as any;

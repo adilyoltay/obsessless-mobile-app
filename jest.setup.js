@@ -1,4 +1,5 @@
 /* eslint-env jest */
+/* global jest, beforeAll */
 // Basic Jest setup for React Native + Expo environment
 
 // Mock AsyncStorage to avoid native module errors in Jest
