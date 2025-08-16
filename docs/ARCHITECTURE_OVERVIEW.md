@@ -15,7 +15,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
  - AI Katmanı (features/ai)
    - aiManager (özellik başlatma/flag/sağlık kontrol; 3 aşamalı başlatma: 1) kritik bağımsız servisler, 2) bağımlı servisler, 3) koordinatörler)
    - Telemetry (gizlilik-öncelikli izleme; standartlaştırılmış `AIEventType`)
-   - Insights v2 (CBT ve AI-Deep kaynakları; Progress Analytics kaldırıldı; kriz önleme içgörüleri kaldırıldı)
+   - Insights v2 (CBT ve AI-Deep; Data Aggregation ile öncelik/zamanlama ayarı; Progress Analytics kaldırıldı; kriz önleme içgörüleri kaldırıldı)
    - JITAI (temel zaman/bağlam tetikleyicileri)
    - Pattern Recognition v2 (yalnızca AI-assisted)
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
@@ -40,6 +40,7 @@ Notlar:
   - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
   - Aynı kullanıcıdan eşzamanlı talepler: orchestrator’da kuyruklama (chained promise) ile deterministik işleyiş.
   - Cooldown/Rate limit telemetrisi: `INSIGHTS_RATE_LIMITED`; cache akışları: `INSIGHTS_CACHE_HIT` / `INSIGHTS_CACHE_MISS`; sıfır içgörü: `NO_INSIGHTS_GENERATED`.
+  - Data Aggregation: peakAnxietyTimes/commonTriggers/erpCompletionRate ile öncelik ve zamanlama ayarı; sıfır içgörüde aggregation‑tabanlı davranışsal fallback içgörü.
 - JITAI
   - `predictOptimalTiming` ve `normalizeContext` undefined‑güvenli; eksik bağlamlarda soft‑fail.
   - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.
@@ -48,6 +49,8 @@ Notlar:
   - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
+  - Mood Tracking: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`; history ekranı son 14 günü okur
+  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`
  - Progress Analytics
   - Tamamen kaldırıldı; coordinator ve servislerde referans yok.
 - Test Altyapısı
@@ -63,6 +66,7 @@ Notlar:
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Telemetry
 - ERP Oturumu: UI → Zustand (timer/anxiety) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca) → Gamification → Telemetry
+- Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → AI Data Aggregation → Insights v2
 
 ## Kategori ve Tür Standartları
 - OCD Kategorileri (kanonik): contamination, checking, symmetry, mental, hoarding, other
@@ -71,6 +75,7 @@ Notlar:
 ## Gizlilik ve Güvenlik
 - PII loglanmaz; telemetry metaveriyi sanitize eder
 - RLS aktif, kullanıcıya özel veri erişimi
+- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları
 - Offline buffer şifreli saklama (platform yetenekleri dahilinde)
 
 ## Bilinen Kısıtlar
@@ -78,4 +83,4 @@ Notlar:
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu)
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet, Mood History)

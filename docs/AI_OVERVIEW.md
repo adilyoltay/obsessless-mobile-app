@@ -3,7 +3,7 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT + AI; Progress Analytics kaldırıldı; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED (kriz kategorileri kaldırıldı)
+- Insights v2: CBT + AI; Data Aggregation çıktıları (peakAnxietyTimes, commonTriggers, erpCompletionRate) ile öncelik/zamanlama ayarı yapar; Progress Analytics kaldırıldı; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED (kriz kategorileri kaldırıldı)
 - Progress Analytics: kaldırıldı (bağımsız servis ve entegrasyon yok)
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
@@ -16,6 +16,7 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 - Telemetry: enum doğrulamalı, privacy-first
 - Storage: AsyncStorage (offline-first) + Supabase (sync)
   - Storage wrapper: Geçersiz anahtar development modunda hata fırlatır; production’da uyarı + stack trace loglar
+  - Mood: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`, history ekranı son 14 günü okur; best‑effort Supabase `mood_tracking` upsert
 
 ## Gemini Entegrasyonu
 - Env: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
