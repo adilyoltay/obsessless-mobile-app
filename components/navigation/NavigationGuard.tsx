@@ -86,7 +86,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             
             // First, check AsyncStorage for faster response (offline-first)
             const profileCompleted = await AsyncStorage.getItem('profileCompleted');
-            const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id}`);
+            const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id || 'anon'}`);
             
             console.log('🧭 AsyncStorage check:', {
               profileCompleted,

@@ -60,7 +60,7 @@ export default function EmergencyContactsManager() {
     if (!user?.id) return;
     
     try {
-      const stored = await AsyncStorage.getItem(`emergency_contacts_${user.id}`);
+      const stored = await AsyncStorage.getItem(`emergency_contacts_${user?.id || 'anon'}`);
       if (stored) {
         setContacts(JSON.parse(stored));
       }
@@ -101,7 +101,7 @@ export default function EmergencyContactsManager() {
 
       // Save to storage
       await AsyncStorage.setItem(
-        `emergency_contacts_${user.id}`,
+        `emergency_contacts_${user?.id || 'anon'}`,
         JSON.stringify(updatedContacts)
       );
 
@@ -140,7 +140,7 @@ export default function EmergencyContactsManager() {
               const updatedContacts = contacts.filter(c => c.id !== contactId);
               
               await AsyncStorage.setItem(
-                `emergency_contacts_${user.id}`,
+                `emergency_contacts_${user?.id || 'anon'}`,
                 JSON.stringify(updatedContacts)
               );
               

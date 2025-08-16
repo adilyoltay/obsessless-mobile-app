@@ -84,9 +84,10 @@ export default function SettingsScreen() {
   const loadAIOnboardingStatus = async () => {
     try {
       if (!user?.id) return;
+      const safeId = user?.id || 'anon';
       const [completed, session] = await Promise.all([
-        AsyncStorage.getItem(`ai_onboarding_completed_${user.id}`),
-        AsyncStorage.getItem(`onboarding_session_${user.id}`)
+        AsyncStorage.getItem(`ai_onboarding_completed_${safeId}`),
+        AsyncStorage.getItem(`onboarding_session_${safeId}`)
       ]);
       setAiOnboardingCompleted(completed === 'true');
       setAiOnboardingHasProgress(!!session);

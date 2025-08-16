@@ -25,7 +25,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
 
     try {
       setLoading(true);
-      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.id}`);
+      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.id || 'anon'}`);
       if (!compulsionListStr) {
         setEntries([]);
         return;

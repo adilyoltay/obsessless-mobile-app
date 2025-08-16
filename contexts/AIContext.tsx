@@ -14,6 +14,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 import supabaseService from '@/services/supabase';
 import { InteractionManager } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -617,7 +618,7 @@ export function AIProvider({ children }: AIProviderProps) {
     const now = Date.now();
     if (now - (lastInsightsRef.current || 0) < 60_000) {
       try {
-        const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
         if (cached) {
           const parsed = JSON.parse(cached);
           return parsed.insights || [];
@@ -631,7 +632,7 @@ export function AIProvider({ children }: AIProviderProps) {
       if (__DEV__) console.warn('📱 Offline mode: Using cached insights');
       
       try {
-        const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
         if (cachedInsights) {
           const parsed = JSON.parse(cachedInsights);
           // Return cached insights if less than 24 hours old
@@ -685,12 +686,12 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // Local fallbacks
       const today = new Date().toDateString();
-      const compulsionsKey = `compulsions_${user.id}`;
+      const compulsionsKey = `compulsions_${safeStorageKey(user.id)}`;
       const compulsionsRaw = await AsyncStorage.getItem(compulsionsKey);
       const allCompulsions = compulsionsRaw ? JSON.parse(compulsionsRaw) : [];
       const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
 
-      const erpKey = `erp_sessions_${user.id}_${today}`;
+      const erpKey = `erp_sessions_${safeStorageKey(user.id)}_${today}`;
       const erpRaw = await AsyncStorage.getItem(erpKey);
       const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
 
@@ -738,7 +739,7 @@ export function AIProvider({ children }: AIProviderProps) {
         // Cache successful insights
         if (insights && insights.length > 0) {
           try {
-            await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({
+            await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({
               insights,
               timestamp: Date.now()
             }));
@@ -760,7 +761,7 @@ export function AIProvider({ children }: AIProviderProps) {
         // Fallback to cached if none generated
         if (!insights || insights.length === 0) {
           try {
-            const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+            const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
             if (cached) {
               const parsed = JSON.parse(cached);
               return parsed.insights || [];
@@ -775,7 +776,7 @@ export function AIProvider({ children }: AIProviderProps) {
           const insights = await insightsCoordinator.generateDailyInsights(user.id, userProfile as any);
           if (insights && insights.length > 0) {
             try {
-              await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({ insights, timestamp: Date.now() }));
+              await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
             } catch (cacheError) {
               if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
             }
