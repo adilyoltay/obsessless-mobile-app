@@ -173,7 +173,7 @@ export const FEATURE_FLAGS = {
   /**
    * 🚨 Acil durum fonksiyonu - Tüm AI özelliklerini kapatır
    */
-  disableAll: (): void => {
+  disableAll: async (): Promise<void> => {
     console.warn('🚨 EMERGENCY: Disabling all AI features');
     
     Object.keys(featureFlagState).forEach(key => {
@@ -185,11 +185,19 @@ export const FEATURE_FLAGS = {
     // Global kill switch aktive et
     (global as any).__OBSESSLESS_KILL_SWITCH = true;
     
-    // Telemetri gönder
-    if (featureFlagState.AI_TELEMETRY) {
-      // TODO: Send emergency shutdown telemetry
-      console.log('📊 Emergency shutdown telemetry sent');
-    }
+    // Telemetry + persist
+    try {
+      const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+      await trackAIInteraction(AIEventType.EMERGENCY_SHUTDOWN, {
+        timestamp: new Date().toISOString(),
+        reason: 'feature_flags_disabled',
+        previousFlags: { ...featureFlagState }
+      });
+    } catch {}
+    try {
+      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      await AsyncStorage.setItem('emergency_shutdown_timestamp', new Date().toISOString());
+    } catch {}
   },
   
   /**
