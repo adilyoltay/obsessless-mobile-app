@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeStorageKey } from '@/lib/queryClient';
 import NetInfo from '@react-native-community/netinfo';
 import { apiService } from './api';
+import conflictResolver, { DataConflict } from './conflictResolution';
 
 export interface SyncQueueItem {
   id: string;
@@ -149,12 +150,24 @@ export class OfflineSyncService {
   }
 
   private async syncCompulsion(item: SyncQueueItem): Promise<void> {
+    // Fetch server state if applicable (best-effort)
+    let remote: any = null;
+    try {
+      if (item.type !== 'CREATE' && item.data?.id) {
+        const list = await apiService.compulsions.list({ id: item.data.id });
+        remote = Array.isArray(list) ? list[0] : null;
+      }
+    } catch {}
+
+    // Resolve conflicts
+    const resolved = await conflictResolver.resolveConflict('compulsion', item.data, remote);
+
     switch (item.type) {
       case 'CREATE':
-        await apiService.compulsions.create({ ...item.data, last_modified: item.lastModified, device_id: item.deviceId });
+        await apiService.compulsions.create({ ...resolved, last_modified: item.lastModified, device_id: item.deviceId });
         break;
       case 'UPDATE':
-        await apiService.compulsions.update(item.data.id, { ...item.data, last_modified: item.lastModified, device_id: item.deviceId });
+        await apiService.compulsions.update(resolved.id, { ...resolved, last_modified: item.lastModified, device_id: item.deviceId });
         break;
       case 'DELETE':
         await apiService.compulsions.delete(item.data.id);
