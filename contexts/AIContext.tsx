@@ -739,7 +739,7 @@ export function AIProvider({ children }: AIProviderProps) {
       const interactionsCount = (compulsions?.length || 0) + (erpSessions?.length || 0);
       if (!hasProfile || interactionsCount === 0) {
         try {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
             userId: user.id,
             hasProfile,
             interactionsCount

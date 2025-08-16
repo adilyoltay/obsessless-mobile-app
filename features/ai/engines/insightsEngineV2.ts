@@ -284,7 +284,7 @@ class InsightsEngineV2 {
       const hasTimeframe = !!((context as any)?.timeframe && (context as any).timeframe.start && (context as any).timeframe.end && (context as any).timeframe.period);
       if (!hasRecentMessages || !hasBehavioral || !hasTimeframe) {
         try {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
             userId,
             reason: 'missing_required_fields',
             hasRecentMessages,
@@ -301,7 +301,7 @@ class InsightsEngineV2 {
         console.log('🚫 Insight generation rate limited for user:', userId);
         const cached = this.getCachedInsights(userId);
         if (cached.length === 0) {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.INSIGHTS_RATE_LIMITED, {
             userId,
             reason: 'rate_limited_no_cache',
             messageCount: context.recentMessages.length,
@@ -356,7 +356,7 @@ class InsightsEngineV2 {
         });
 
         if (insights.length === 0) {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.NO_INSIGHTS_GENERATED, {
             userId,
             reason: 'no_insights_generated',
             messageCount: context.recentMessages.length,

@@ -159,6 +159,8 @@ export enum AIEventType {
   INSIGHTS_RATE_LIMITED = 'insights_rate_limited',
   INSIGHTS_CACHE_HIT = 'insights_cache_hit',
   INSIGHTS_CACHE_MISS = 'insights_cache_miss',
+  INSIGHTS_MISSING_REQUIRED_FIELDS = 'insights_missing_required_fields',
+  NO_INSIGHTS_GENERATED = 'no_insights_generated',
   
   // Smart Notifications
   SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',

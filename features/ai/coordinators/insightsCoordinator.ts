@@ -14,14 +14,14 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  AIMessage, 
-  ConversationContext, 
+import {
+  AIMessage,
+  ConversationContext,
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  RiskLevel as CrisisRiskLevel,
+  RiskLevel,
   isAIError
 } from '@/features/ai/types';
 
@@ -119,7 +119,7 @@ export interface ComprehensiveInsightContext {
   };
   
   // Current state
-  currentCrisisLevel: CrisisRiskLevel;
+  currentCrisisLevel: RiskLevel;
   appUsageContext: {
     isActive: boolean;
     currentScreen?: string;
@@ -489,7 +489,7 @@ class InsightsCoordinator {
       const immediateInsights = insights.filter(insight => 
         insight.timing === InsightTiming.IMMEDIATE || 
         insight.priority === InsightPriority.CRITICAL ||
-        context.currentCrisisLevel !== CrisisRiskLevel.NONE
+        context.currentCrisisLevel !== RiskLevel.NONE
       );
 
       // Calculate execution metrics
@@ -759,7 +759,7 @@ class InsightsCoordinator {
     context: ComprehensiveInsightContext
   ) {
     // Determine next analysis timing
-    const nextAnalysisIn = context.currentCrisisLevel !== CrisisRiskLevel.NONE ? 
+    const nextAnalysisIn = context.currentCrisisLevel !== RiskLevel.NONE ? 
       60 * 60 * 1000 : // 1 hour for crisis
       24 * 60 * 60 * 1000; // 24 hours for normal
 
@@ -774,7 +774,7 @@ class InsightsCoordinator {
 
     // Priority actions
     const priorityActions: string[] = [];
-    if (context.currentCrisisLevel !== CrisisRiskLevel.NONE) {
+    if (context.currentCrisisLevel !== RiskLevel.NONE) {
       priorityActions.push('Crisis stabilization');
     }
     if (insights.filter(i => !i.shown).length > 3) {
@@ -824,7 +824,7 @@ class InsightsCoordinator {
         allowNotifications: false,
         respectQuietHours: false
       },
-      currentCrisisLevel: CrisisRiskLevel.NONE,
+      currentCrisisLevel: RiskLevel.NONE,
       appUsageContext: {
         isActive: true,
         lastActivity: new Date()
@@ -890,7 +890,7 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: CrisisRiskLevel.NONE,
+        currentCrisisLevel: RiskLevel.NONE,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',
@@ -959,7 +959,7 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: CrisisRiskLevel.NONE,
+        currentCrisisLevel: RiskLevel.NONE,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',
