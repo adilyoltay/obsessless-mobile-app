@@ -14,38 +14,30 @@ export const queryClient = new QueryClient({
 });
 
 // Storage utilities for React Query persistence
+function ensureValidKey(key: string): void {
+  if (!key || typeof key !== 'string' || key.trim().length === 0) {
+    const err = new Error('AsyncStorage: Invalid key provided');
+    // Best-effort telemetry
+    import('@/features/ai/telemetry/aiTelemetry')
+      .then(({ trackAIError, AIErrorCode, ErrorSeverity }) =>
+        trackAIError({ code: AIErrorCode.STORAGE_ERROR, message: 'Invalid storage key', severity: ErrorSeverity.MEDIUM, timestamp: new Date(), recoverable: false, context: { key } })
+      )
+      .catch(() => {});
+    throw err;
+  }
+}
+
 export const storage = {
   setItem: async (key: string, value: string) => {
-    if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      const err = new Error('AsyncStorage: Invalid key provided');
-      try {
-        const { trackAIError, AIErrorCode, ErrorSeverity } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIError({ code: AIErrorCode.STORAGE_ERROR, message: 'Invalid storage key', severity: ErrorSeverity.HIGH, timestamp: new Date(), recoverable: false, context: { key } });
-      } catch {}
-      throw err;
-    }
+    ensureValidKey(key);
     await AsyncStorage.setItem(key, value);
   },
   getItem: async (key: string) => {
-    if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      const err = new Error('AsyncStorage: Invalid key provided');
-      try {
-        const { trackAIError, AIErrorCode, ErrorSeverity } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIError({ code: AIErrorCode.STORAGE_ERROR, message: 'Invalid storage key', severity: ErrorSeverity.MEDIUM, timestamp: new Date(), recoverable: true, context: { key } });
-      } catch {}
-      throw err;
-    }
+    ensureValidKey(key);
     return await AsyncStorage.getItem(key);
   },
   removeItem: async (key: string) => {
-    if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      const err = new Error('AsyncStorage: Invalid key provided');
-      try {
-        const { trackAIError, AIErrorCode, ErrorSeverity } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIError({ code: AIErrorCode.STORAGE_ERROR, message: 'Invalid storage key', severity: ErrorSeverity.MEDIUM, timestamp: new Date(), recoverable: true, context: { key } });
-      } catch {}
-      throw err;
-    }
+    ensureValidKey(key);
     await AsyncStorage.removeItem(key);
   },
 };

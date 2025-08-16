@@ -52,6 +52,7 @@ import {
   type DeliveryContext,
   type SmartNotification
 } from '@/features/ai/services/smartNotifications';
+import type { ProgressAnalyticsResult } from '@/features/ai/analytics/progressAnalyticsCore';
 
 // Progress Analytics removed
 

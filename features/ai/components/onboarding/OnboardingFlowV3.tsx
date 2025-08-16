@@ -527,7 +527,14 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         // Varsayılan sade profil
         const minimalProfile: any = { userId, therapeuticGoals: selectedGoals, culturalContext };
         const plan = await onboardingEngine.generatePersonalizedTreatmentPlan({ userProfile: minimalProfile, ybocsAnalysis: analysis });
-        // state’e yansıtma sadece akış ilerletme için (plan render’i sonraki adımda)
+        // Plan ve analiz sonuçlarını kalıcı/state’e yaz
+        try {
+          await AsyncStorage.setItem(`ai_onboarding_ybocs_${userId}`, JSON.stringify(analysis));
+          await AsyncStorage.setItem(`ai_onboarding_treatment_plan_${userId}`, JSON.stringify(plan));
+        } catch {}
+        // Ekran render’ı için local state güncelle (basit tut)
+        (setGeneratedPlan as any)?.(plan);
+        (setGeneratedAnalysis as any)?.(analysis);
         setCurrentStep(OnboardingStep.TREATMENT_PLAN);
       } catch (e) {
         // Fallback: mock benzeri akış

@@ -25,7 +25,7 @@ import Button from '@/components/ui/Button';
 // Constants
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
-type TestSection = 'chat' | 'onboarding' | 'insights' | 'voice' | 'crisis';
+type TestSection = 'chat' | 'onboarding' | 'insights' | 'voice';
 
 export default function AITestScreen() {
   const router = useRouter();
@@ -203,22 +203,7 @@ export default function AITestScreen() {
           </View>
         );
         
-      case 'crisis':
-        return (
-          <View>
-            <Button onPress={runCrisisTest} disabled={isLoading}>
-              Crisis Detection Testini Başlat
-            </Button>
-            
-            <Card style={styles.warningCard}>
-              <MaterialCommunityIcons name="alert" size={24} color="#EF4444" />
-              <Text style={styles.warningText}>
-                Bu test kritik kelimeler içerir. Gerçek kullanımda bu kelimeler
-                acil müdahale protokollerini tetikleyecektir.
-              </Text>
-            </Card>
-          </View>
-        );
+      // crisis sekmesi kaldırıldı
     }
   };
 
@@ -283,7 +268,7 @@ export default function AITestScreen() {
           {/* Test Sections */}
           <Card style={styles.sectionsCard}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {(['chat', 'onboarding', 'insights', 'voice', 'crisis'] as TestSection[]).map(section => (
+              {(['chat', 'onboarding', 'insights', 'voice'] as TestSection[]).map(section => (
                 <Button
                   key={section}
                   onPress={() => setActiveSection(section)}
