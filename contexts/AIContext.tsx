@@ -337,10 +337,9 @@ export function AIProvider({ children }: AIProviderProps) {
       if (FEATURE_FLAGS.isEnabled('AI_CHAT')) {
         features.push('AI_CHAT');
       }
-      if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        features.push('AI_ONBOARDING_V2');
-        if (__DEV__) console.log('🎯 OnboardingFlowV3 enabled with direct state management');
-      }
+      // OnboardingFlow varsayılan olarak aktiftir (flag kaldırıldı)
+      features.push('AI_ONBOARDING');
+      if (__DEV__) console.log('🎯 OnboardingFlow enabled (default)');
 
       setAvailableFeatures(features);
 
@@ -474,6 +473,13 @@ export function AIProvider({ children }: AIProviderProps) {
         }
       }
       setHasCompletedOnboarding(completed);
+      // Migrate legacy/local keys to unified ai_* keys (best-effort)
+      try {
+        if (completed) {
+          await AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true');
+          // Optionally keep legacy for a short period; do not delete here to avoid race
+        }
+      } catch {}
 
       // Treatment plan
       const planRow = planRowRes?.data as any;
@@ -541,7 +547,7 @@ export function AIProvider({ children }: AIProviderProps) {
    * 🧭 Start Onboarding
    */
   const startOnboarding = useCallback(async (): Promise<OnboardingSession | null> => {
-    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+    if (!user?.id) {
       return null;
     }
 

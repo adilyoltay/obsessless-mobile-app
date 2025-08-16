@@ -248,7 +248,6 @@ runTest('Insights Coordinator Integration Hub', () => {
   assertContains(coordinatorPath, 'insightsEngineV2', 'Insights Engine v2.0 integration');
   assertContains(coordinatorPath, 'patternRecognitionV2', 'Pattern Recognition v2.0 integration');
   assertContains(coordinatorPath, 'smartNotificationService', 'Smart Notifications integration');
-  assertContains(coordinatorPath, 'progressAnalytics', 'Progress Analytics integration');
   
   // Sprint 4 integrations
   assertContains(coordinatorPath, 'cbtEngine', 'CBT Engine integration');
@@ -257,7 +256,6 @@ runTest('Insights Coordinator Integration Hub', () => {
   // Workflow features
   assertContains(coordinatorPath, 'executePatternAnalysis', 'Pattern analysis execution');
   assertContains(coordinatorPath, 'executeInsightGeneration', 'Insight generation execution');
-  assertContains(coordinatorPath, 'executeProgressAnalysis', 'Progress analysis execution');
   assertContains(coordinatorPath, 'executeNotificationScheduling', 'Notification scheduling execution');
   
   // Performance features
@@ -342,8 +340,7 @@ runTest('Component Dependencies & Integration Validation', () => {
   const coordinatorImports = [
     'insightsEngineV2',
     'patternRecognitionV2', 
-    'smartNotificationService',
-    'progressAnalytics'
+    'smartNotificationService'
   ];
   
   coordinatorImports.forEach(importName => {

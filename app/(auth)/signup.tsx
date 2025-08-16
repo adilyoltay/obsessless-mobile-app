@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GoogleSignInButton } from '@/components/ui/GoogleSignInButton';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -21,7 +22,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { signUpWithEmail, isLoading, error, clearError } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, isLoading, error, clearError } = useAuth();
 
   const handleEmailSignup = async () => {
     if (!name || !email || !password) {
@@ -54,6 +55,13 @@ export default function SignupScreen() {
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
+  };
+
+  const handleGoogleSignup = async () => {
+    try {
+      clearError();
+      await signInWithGoogle();
+    } catch {}
   };
 
   const navigateToLogin = () => {
@@ -161,6 +169,10 @@ export default function SignupScreen() {
                 {isLoading ? 'Kayıt Olunuyor...' : 'Kayıt Ol'}
               </Text>
             </Pressable>
+
+            {/* Google Signup */}
+            <View style={{ height: 12 }} />
+            <GoogleSignInButton onPress={handleGoogleSignup} disabled={isLoading} loading={isLoading} mode="signup" />
           </Animated.View>
         </View>
 

@@ -25,7 +25,6 @@ export interface AISettingsState {
   
   // User preferences
   preferences: {
-    aiChatPersonality: 'empatik' | 'profesyonel' | 'samimi';
     aiInsightsFrequency: 'günlük' | 'haftalık' | 'ihtiyaç_halinde';
     aiVoiceGender: 'kadın' | 'erkek' | 'nötr';
     aiLanguage: 'tr' | 'en';
@@ -58,7 +57,6 @@ export const useAISettingsStore = create<AISettingsState>()(
       // Default state
       consents: {},
       preferences: {
-        aiChatPersonality: 'empatik',
         aiInsightsFrequency: 'haftalık',
         aiVoiceGender: 'kadın',
         aiLanguage: 'tr',
@@ -152,7 +150,6 @@ export const useAISettingsStore = create<AISettingsState>()(
         set({
           consents: {},
           preferences: {
-            aiChatPersonality: 'empatik',
             aiInsightsFrequency: 'haftalık',
             aiVoiceGender: 'kadın',
             aiLanguage: 'tr',

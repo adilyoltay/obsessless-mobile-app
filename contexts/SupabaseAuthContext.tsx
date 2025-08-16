@@ -127,6 +127,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       } catch (err) {
         console.error('❌ OAuth callback processing failed:', err);
         setError('Giriş tamamlanamadı.');
+      } finally {
+        // Clear transient OAuth state to avoid leaking across attempts
+        oauthAppStateRef.current = null;
+        try { await WebBrowser.dismissBrowser(); } catch {}
       }
     };
 
@@ -402,6 +406,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setError(error.message || 'Google ile giriş başarısız');
       throw error;
     } finally {
+      // Clear transient OAuth state regardless of outcome
+      oauthAppStateRef.current = null;
+      try { await WebBrowser.dismissBrowser(); } catch {}
       setLoading(false);
     }
   }, []);

@@ -10,9 +10,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  RiskLevel as CrisisRiskLevel
-} from '@/features/ai/types';
+// Crisis types removed from notifications context
 import { 
   IntelligentInsight, 
   InsightCategory, 
@@ -116,7 +114,7 @@ export interface SmartNotification {
   
   // Context
   triggeredBy: {
-    type: 'insight' | 'pattern' | 'schedule' | 'user_action' | 'crisis';
+    type: 'insight' | 'pattern' | 'schedule' | 'user_action';
     sourceId: string;
     confidence: number;
   };
@@ -126,7 +124,7 @@ export interface SmartNotification {
     userMood?: string;
     appUsageState: 'active' | 'background' | 'closed';
     lastActivity: Date;
-    currentCrisisLevel: CrisisRiskLevel;
+    // crisis level removed
   };
   
   // Metadata
@@ -156,7 +154,7 @@ export interface DeliveryContext {
     lastActivity: Date;
     currentScreen?: string;
     userMood?: string;
-    crisisLevel: CrisisRiskLevel;
+    // crisis level removed
   };
   recentNotifications: SmartNotification[];
   timeOfDay: Date;
@@ -304,8 +302,7 @@ class SmartNotificationService {
         targetContext: {
           userMood: deliveryContext.currentContext.userMood,
           appUsageState: deliveryContext.currentContext.isAppActive ? 'active' : 'background',
-          lastActivity: deliveryContext.currentContext.lastActivity,
-          currentCrisisLevel: deliveryContext.currentContext.crisisLevel
+          lastActivity: deliveryContext.currentContext.lastActivity
         },
         
         createdAt: new Date(),
@@ -399,8 +396,7 @@ class SmartNotificationService {
         targetContext: {
           userMood: deliveryContext.currentContext.userMood,
           appUsageState: deliveryContext.currentContext.isAppActive ? 'active' : 'background',
-          lastActivity: deliveryContext.currentContext.lastActivity,
-          currentCrisisLevel: deliveryContext.currentContext.crisisLevel
+          lastActivity: deliveryContext.currentContext.lastActivity
         },
         
         createdAt: new Date(),
@@ -445,11 +441,6 @@ class SmartNotificationService {
   ): Date {
     const now = new Date();
     const prefs = this.getUserPreferences(context.userId);
-
-    // Crisis situations - immediate delivery
-    if (context.currentContext.crisisLevel !== CrisisRiskLevel.NONE) {
-      return now;
-    }
 
     // Check quiet hours
     const currentHour = now.getHours();
@@ -503,11 +494,6 @@ class SmartNotificationService {
     context: DeliveryContext
   ): DeliveryMethod {
     const prefs = this.getUserPreferences(context.userId);
-    
-    // Crisis situations - push notification
-    if (context.currentContext.crisisLevel !== CrisisRiskLevel.NONE) {
-      return DeliveryMethod.PUSH_NOTIFICATION;
-    }
 
     // High priority insights
     if (insight.priority === InsightPriority.CRITICAL || insight.priority === InsightPriority.HIGH) {

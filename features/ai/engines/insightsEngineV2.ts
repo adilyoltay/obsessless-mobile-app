@@ -129,7 +129,6 @@ export interface InsightGenerationContext {
     end: Date;
     period: 'day' | 'week' | 'month';
   };
-  currentCrisisLevel: RiskLevel;
   lastInsightGenerated: Date | null;
 }
 

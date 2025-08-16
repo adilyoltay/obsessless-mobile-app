@@ -140,10 +140,7 @@ export enum AIEventType {
   ,
   // Prompts (sanitized) logging
   AI_PROMPT_LOGGED = 'ai_prompt_logged',
-  // Progress Analytics
-  PROGRESS_ANALYTICS_INITIALIZED = 'progress_analytics_initialized',
-  PROGRESS_ANALYSIS_COMPLETED = 'progress_analysis_completed',
-  PROGRESS_ANALYTICS_SHUTDOWN = 'progress_analytics_shutdown',
+  // Progress Analytics removed
   
   // Pattern Recognition V2
   PATTERN_RECOGNITION_INITIALIZED = 'pattern_recognition_initialized',

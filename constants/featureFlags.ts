@@ -79,8 +79,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_INSIGHTS_ENGINE_V2: AI_MASTER_ENABLED,
   AI_PATTERN_RECOGNITION_V2: AI_MASTER_ENABLED,
   AI_SMART_NOTIFICATIONS: AI_MASTER_ENABLED,
-  // Deprecated – runtime'dan kaldırıldı
-  AI_PROGRESS_ANALYTICS: false,
+  // Removed deprecated flags
   AI_ADAPTIVE_INTERVENTIONS: AI_MASTER_ENABLED,
   AI_CONTEXT_INTELLIGENCE: AI_MASTER_ENABLED,
   AI_JITAI_SYSTEM: AI_MASTER_ENABLED,
@@ -89,8 +88,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
   AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
   AI_DASHBOARD: AI_MASTER_ENABLED,
-  // Onboarding Flow her zaman kullanılabilir, AI flag sadece ek modülleri etkiler
-  AI_ONBOARDING_V2: true,
+  // Onboarding Flow varsayılan olarak aktif; ayrı V2 flag kaldırıldı
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,
   AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,

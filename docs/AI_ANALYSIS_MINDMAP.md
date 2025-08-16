@@ -1,12 +1,11 @@
 # 🧠 AI Tabanlı Analizlerin Mantıksal Akış Mind Map'i - Updated
 
 ## 🎯 AI Context (Merkezi Yönetim Katmanı)
-- **Görev**: Tüm AI servislerinin merkezi yönetimi ve koordinasyonu
-- **Başlatma Sırası**:
-  - `aiManager.initialize()` - Core manager
-  - Paralel servis başlatma (`Promise.allSettled`)
-  - Network durumu takibi
-  - User profil yükleme
+ - **Görev**: Tüm AI servislerinin merkezi yönetimi ve koordinasyonu
+ - **Başlatma Sırası (Phased)**:
+   1) Kritik ve bağımsız servisler: External AI, CBT Engine, Therapeutic Prompts
+   2) Bağımlı servisler: Insights Engine v2, Pattern Recognition v2
+   3) Koordinatörler: Smart Notifications
 
 ### 📊 Insights Coordinator (Orchestration Hub)
 - **Görev**: Tüm AI bileşenlerini orchestrate eder
@@ -36,12 +35,9 @@
 - **Pattern Correlations**: Desenler arası ilişkiler (sadece AI-assisted)
 - **Pattern Insights**: Desen bazlı içgörüler (minimal)
 
-## 📈 Progress Analytics (Removed from runtime; stubs only)
+## 📈 Progress Analytics (Removed)
 
-Kısa not:
-- `features/ai/analytics/progressAnalyticsCore.ts` yalnızca arayüz tipleri içerir; çalışır bir servis bulunmuyor.
-- `features/ai/coordinators/insightsCoordinator.ts` içinde `progressAnalytics: false` sabitlenmiş ve yürütme blokları kaldırılmıştır.
-- İlerleme bazlı geri bildirimler, bağımsız bir servis yerine `InsightsEngineV2` içindeki "Progress Tracking Insights" ile sınırlı şekilde sağlanır.
+Tamamen kaldırıldı; coordinator ve runtime işlem yok.
 
 ## 💡 Insights Engine v2 (İçgörü Üretimi) - **SIMPLIFIED**
 
@@ -62,8 +58,8 @@ Kısa not:
    - Başarı vurguları
 
 ### **Removed Sources**:
-- ❌ **Pattern Analysis Insights**: Removed due to simplified pattern recognition
-- ❌ **Crisis Prevention Insights**: Removed with crisis detection system
+ - ❌ Pattern Analysis Insights (kaldırıldı)
+ - ❌ Crisis Prevention Insights (kaldırıldı)
 
 ### İçgörü Önceliklendirme
 - **Priority Levels**: High > Medium > Low
@@ -71,7 +67,7 @@ Kısa not:
 - **Category**: Progress > Educational > Therapeutic
 
 ## ❌ Crisis Detection System (Removed)
-Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokoller bulunmuyor.
+Sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokoller bulunmuyor.
 
 ## 🔄 Adaptive Interventions (Uyarlanabilir Müdahaleler)
 

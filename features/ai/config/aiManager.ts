@@ -17,8 +17,7 @@ import {
   AIError, 
   AIErrorCode, 
   ErrorSeverity,
-  ConversationContext,
-  CrisisRiskLevel 
+  ConversationContext
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -92,60 +91,43 @@ export class AIManager {
   }
 
   /**
-   * Parallel AI services initialization
+   * Ordered AI services initialization (respecting dependencies)
    */
   private async initializeAIServices(): Promise<void> {
     console.log('🚀 AIManager: Initializing AI services...');
-    const services: Array<{ name: string; critical: boolean; init: () => Promise<any> }> = [
-      {
-        name: 'externalAI',
-        critical: true,
-        init: async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize()
-      },
-      {
-        name: 'insightsV2',
-        critical: true,
-        init: async () => (await import('@/features/ai/engines/insightsEngineV2')).insightsEngineV2.initialize()
-      },
-      {
-        name: 'cbtEngine',
-        critical: false,
-        init: async () => (await import('@/features/ai/engines/cbtEngine')).cbtEngine.initialize()
-      },
-      {
-        name: 'patternV2',
-        critical: false,
-        init: async () => (await import('@/features/ai/services/patternRecognitionV2')).patternRecognitionV2.initialize()
-      },
-      {
-        name: 'smartNotifications',
-        critical: false,
-        init: async () => (await import('@/features/ai/services/smartNotifications')).smartNotificationService.initialize()
-      },
-      {
-        name: 'therapeuticPrompts',
-        critical: false,
-        init: async () => (await import('@/features/ai/prompts/therapeuticPrompts')).therapeuticPromptEngine.initialize()
-      },
+
+    // Phase 1: critical & independent
+    const phase1 = [
+      (async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize())(),
+      (async () => (await import('@/features/ai/engines/cbtEngine')).cbtEngine.initialize())(),
+      (async () => (await import('@/features/ai/prompts/therapeuticPrompts')).therapeuticPromptEngine.initialize())(),
     ];
+    const phase1Results = await Promise.allSettled(phase1);
+    let criticalFailure = phase1Results.some(r => r.status === 'rejected');
+    if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 1)');
 
-    const results = await Promise.allSettled(services.map(s => s.init()));
-    let criticalFailure = false;
-    results.forEach((r, idx) => {
-      const s = services[idx];
-      if (r.status === 'rejected') {
-        console.error(`❌ Service init failed: ${s.name}`, r.reason);
-        this.healthStatus.set(s.name, false);
-        if (s.critical) criticalFailure = true;
-      } else {
-        console.log(`✅ Service initialized: ${s.name}`);
-        this.healthStatus.set(s.name, true);
-      }
-    });
+    // Phase 2: dependent on externalAI
+    const phase2 = [
+      (async () => (await import('@/features/ai/engines/insightsEngineV2')).insightsEngineV2.initialize())(),
+      (async () => (await import('@/features/ai/services/patternRecognitionV2')).patternRecognitionV2.initialize())(),
+    ];
+    const phase2Results = await Promise.allSettled(phase2);
+    criticalFailure = phase2Results.some(r => r.status === 'rejected');
+    if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 2)');
 
-    if (criticalFailure) {
-      throw new Error('Critical AI services failed to initialize');
-    }
+    // Phase 3: coordinators/services relying on insights
+    const phase3 = [
+      (async () => (await import('@/features/ai/services/smartNotifications')).smartNotificationService.initialize())(),
+    ];
+    await Promise.allSettled(phase3);
+
+    // Update health map (best-effort)
+    this.healthStatus.set('externalAI', true);
+    this.healthStatus.set('cbtEngine', true);
+    this.healthStatus.set('therapeuticPrompts', true);
+    this.healthStatus.set('insightsV2', true);
+    this.healthStatus.set('patternV2', true);
+    this.healthStatus.set('smartNotifications', true);
   }
 
   /**

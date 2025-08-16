@@ -24,7 +24,7 @@ export default function Index() {
         }
 
         // Check AI onboarding status (Supabase first, then local fallback)
-        if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+        {
           let isCompleted = false;
 
           try {

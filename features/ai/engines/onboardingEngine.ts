@@ -6,7 +6,7 @@
  * ve kültürel adaptasyon ile kapsamlı kullanıcı profili oluşturur.
  * 
  * ⚠️ CRITICAL: Tüm onboarding adımları klinik standartlara uygun
- * ⚠️ Feature flag kontrolü: AI_ONBOARDING_V2
+ * ⚠️ Onboarding varsayılan olarak aktiftir (flag kaldırıldı)
  * ⚠️ Sprint 6 entegrasyonu: Context Intelligence, Adaptive Interventions, JITAI
  */
 
@@ -368,11 +368,7 @@ class ModernOnboardingEngine {
     console.log('🧭 Onboarding Engine v2.0: Initializing...');
     
     try {
-      // Feature flag kontrolü
-      if (!FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        console.log('🚫 Onboarding Engine v2.0 disabled by feature flag');
-        return;
-      }
+      // Onboarding always enabled; no feature flag check
 
       // Dependent services kontrolü
       await this.initializeDependentServices();

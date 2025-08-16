@@ -52,7 +52,6 @@ import {
   type DeliveryContext,
   type SmartNotification
 } from '@/features/ai/services/smartNotifications';
-import type { ProgressAnalyticsResult } from '@/features/ai/analytics/progressAnalyticsCore';
 
 // Progress Analytics removed
 
@@ -118,7 +117,7 @@ export interface ComprehensiveInsightContext {
     preferredMethod?: string;
   };
   
-  // Current state
+  // Current state (crisis level removed from delivery decisions)
   currentCrisisLevel: RiskLevel;
   appUsageContext: {
     isActive: boolean;
@@ -138,7 +137,6 @@ export interface OrchestratedInsightResult {
   // Analysis results
   patterns: DetectedPattern[];
   insights: IntelligentInsight[];
-  progressAnalysis?: ProgressAnalyticsResult | null;
   
   // Delivery results
   scheduledNotifications: SmartNotification[];
@@ -166,7 +164,6 @@ export interface OrchestratedInsightResult {
 export interface WorkflowConfig {
   enablePatternAnalysis: boolean;
   enableInsightGeneration: boolean;
-  enableProgressTracking: boolean;
   enableNotificationScheduling: boolean;
   enableAIEnhancement: boolean;
   parallelExecution: boolean;
@@ -183,14 +180,11 @@ class InsightsCoordinator {
   private activeExecutions: Map<string, Promise<OrchestratedInsightResult>> = new Map();
   private lastExecutionTime: Map<string, Date> = new Map();
   private defaultConfig: WorkflowConfig;
-  // Progress Analytics runtime availability indicator (module removed in this sprint)
-  private readonly progressAnalyticsAvailable: boolean = false;
 
   private constructor() {
     this.defaultConfig = {
       enablePatternAnalysis: true,
       enableInsightGeneration: true,
-      enableProgressTracking: false,
       enableNotificationScheduling: true,
       enableAIEnhancement: true,
       parallelExecution: true,
@@ -229,10 +223,7 @@ class InsightsCoordinator {
         externalAI: externalAIService.enabled,
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
-        smartNotifications: smartNotificationService.enabled,
-        // Progress Analytics modülü runtime'da devre dışı. enableProgressTracking true olsa bile
-        // burada gerçeği yansıtacak şekilde false raporlarız ve telemetriyi yanıltmayız.
-        progressAnalytics: this.progressAnalyticsAvailable && this.defaultConfig.enableProgressTracking
+        smartNotifications: smartNotificationService.enabled
       };
 
       const enabledComponents = Object.values(componentStatus).filter(Boolean).length;
@@ -254,8 +245,7 @@ class InsightsCoordinator {
         externalAI: externalAIService.enabled,
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
-        smartNotifications: smartNotificationService.enabled,
-        progressAnalytics: this.progressAnalyticsAvailable && this.defaultConfig.enableProgressTracking
+        smartNotifications: smartNotificationService.enabled
       };
       const delayedEnabled = Object.values(delayedStatus).filter(Boolean).length;
       await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
@@ -306,6 +296,20 @@ class InsightsCoordinator {
     const workflowConfig = { ...this.defaultConfig, ...config };
 
     try {
+      // Validate required fields early and fail with meaningful error
+      if (!context.recentMessages || !context.behavioralData || !context.timeframe) {
+        const missingFields: string[] = [];
+        if (!context.recentMessages) missingFields.push('recentMessages');
+        if (!context.behavioralData) missingFields.push('behavioralData');
+        if (!context.timeframe) missingFields.push('timeframe');
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, { missingFields }, context.userId);
+        } catch {}
+        const err = new Error(`Gerekli alanlar eksik: ${missingFields.join(', ')}`);
+        (err as any).code = AIErrorCode.DATA_VALIDATION_FAILED;
+        (err as any).severity = ErrorSeverity.MEDIUM;
+        throw err;
+      }
       console.log(`🔗 Starting comprehensive insight workflow for user ${context.userId}`);
 
       // ✅ PRODUCTION: Rate limiting - daha akıllı ve esnek
@@ -330,7 +334,6 @@ class InsightsCoordinator {
           timestamp: new Date(),
           patterns: [],
           insights: [],
-          progressAnalysis: null,
           scheduledNotifications: [],
           immediateInsights: [],
           executionMetrics: {
@@ -371,15 +374,15 @@ class InsightsCoordinator {
     } catch (error) {
       // Rate limit durumunda error değil info log
       if (error && typeof error === 'object' && 'code' in error && error.code === AIErrorCode.RATE_LIMIT) {
-        console.log('ℹ️ Insight workflow rate limited (expected behavior):', error.message);
+        console.log('ℹ️ Insight workflow rate limited (expected behavior)');
       } else {
         console.error('❌ Insight workflow orchestration failed:', error);
       }
       
       // Only track non-rate-limit errors as HIGH severity
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorCode = (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') 
-                        ? error.code : AIErrorCode.UNKNOWN;
+      const errorCode = (error && typeof error === 'object' && 'code' in (error as any)) 
+                        ? (error as any).code as AIErrorCode : AIErrorCode.UNKNOWN;
       const isRateLimit = errorCode === AIErrorCode.RATE_LIMIT;
       
       await trackAIError({
@@ -392,7 +395,7 @@ class InsightsCoordinator {
           executionId,
           userId: context.userId,
           latency: Date.now() - startTime,
-          errorType: error?.constructor?.name || 'Unknown',
+          errorType: (error as any)?.constructor?.name || 'Unknown',
           isExpectedBehavior: isRateLimit,
           originalMessage: errorMessage
         }
@@ -414,7 +417,6 @@ class InsightsCoordinator {
     const components: string[] = [];
     let patterns: DetectedPattern[] = [];
     let insights: IntelligentInsight[] = [];
-    let progressAnalysis: ProgressAnalyticsResult | null = null;
     let scheduledNotifications: SmartNotification[] = [];
 
     // Timeout protection
@@ -440,11 +442,7 @@ class InsightsCoordinator {
           }));
         }
 
-        // Progress Analytics (module removed): keep slot for telemetry but do not execute
-        if (config.enableProgressTracking && this.progressAnalyticsAvailable) {
-          // Placeholder for future reintegration
-          components.push('progressAnalytics');
-        }
+        // Progress Analytics removed
 
         // Wait for initial analysis
         await Promise.race([Promise.all(promises), timeoutPromise]);
@@ -473,11 +471,7 @@ class InsightsCoordinator {
           components.push('insightsEngine');
         }
 
-        // Progress Analytics (module removed): keep slot for telemetry but do not execute
-        if (config.enableProgressTracking && this.progressAnalyticsAvailable) {
-          // Placeholder for future reintegration
-          components.push('progressAnalytics');
-        }
+        // Progress Analytics removed
 
         if (config.enableNotificationScheduling && smartNotificationService.enabled && insights.length > 0) {
           scheduledNotifications = await this.executeNotificationScheduling(context, insights);
@@ -488,8 +482,7 @@ class InsightsCoordinator {
       // Separate immediate insights from scheduled ones
       const immediateInsights = insights.filter(insight => 
         insight.timing === InsightTiming.IMMEDIATE || 
-        insight.priority === InsightPriority.CRITICAL ||
-        context.currentCrisisLevel !== RiskLevel.NONE
+        insight.priority === InsightPriority.CRITICAL
       );
 
       // Calculate execution metrics
@@ -513,7 +506,6 @@ class InsightsCoordinator {
         timestamp: new Date(),
         patterns,
         insights,
-        progressAnalysis: progressAnalysis ?? null,
         scheduledNotifications,
         immediateInsights,
         executionMetrics,
@@ -562,10 +554,25 @@ class InsightsCoordinator {
         },
         dataSource: {
           messages: context.recentMessages,
-          compulsions: context.behavioralData.compulsions,
-          moods: context.behavioralData.moods,
-          exercises: context.behavioralData.exercises,
-          achievements: context.behavioralData.achievements,
+          compulsions: context.behavioralData.compulsions.map(c => ({
+            id: c.id,
+            timestamp: new Date(c.timestamp || new Date()),
+            category: c.category
+          })),
+          moods: context.behavioralData.moods.map(m => ({
+            timestamp: new Date(m.timestamp),
+            score: m.score
+          })),
+          exercises: context.behavioralData.exercises.map(e => ({
+            id: e.id,
+            type: e.name,
+            duration: e.duration_minutes,
+            timestamp: new Date(e.timestamp || new Date())
+          })),
+          achievements: context.behavioralData.achievements.map(a => ({
+            name: a.type,
+            timestamp: new Date(a.timestamp)
+          })),
           userEvents: []
         },
         minimumConfidence: 0.6,
@@ -600,7 +607,6 @@ class InsightsCoordinator {
           end: context.timeframe.end,
           period: 'week'
         },
-        currentCrisisLevel: context.currentCrisisLevel,
         lastInsightGenerated: null
       };
 
@@ -615,65 +621,7 @@ class InsightsCoordinator {
   /**
    * Progress analysis yürüt
    */
-  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<ProgressAnalyticsResult> {
-    try {
-      const progressContext = {
-        userId: context.userId,
-        userProfile: context.userProfile,
-        timeframe: {
-          start: context.timeframe.start,
-          end: context.timeframe.end,
-          analysisDepth: context.timeframe.analysisDepth
-        },
-        dataSource: {
-          messages: context.recentMessages,
-          compulsions: context.behavioralData.compulsions,
-          assessments: context.behavioralData.assessments,
-          achievements: context.behavioralData.achievements,
-          insights: [],
-          patterns: [],
-          userEvents: []
-        },
-        includePredicitive: context.timeframe.analysisDepth === 'comprehensive'
-      };
-
-      return this.getDefaultProgressAnalysis();
-
-    } catch (error) {
-      console.warn('⚠️ Progress analysis failed:', error);
-      return this.getDefaultProgressAnalysis();
-    }
-  }
-
-  /**
-   * Progress Analytics modülü kaldırıldığı için tipli, güvenli bir varsayılan değer döndür.
-   */
-  private getDefaultProgressAnalysis(): ProgressAnalyticsResult {
-    return {
-      metrics: {
-        compulsionFrequency: [],
-        resistanceRate: [],
-        moodScores: [],
-        exerciseCompletion: [],
-        sleepQuality: [],
-        socialInteraction: [],
-        medicationAdherence: [],
-        timestamps: []
-      },
-      trends: new Map<string, any>(),
-      patterns: [],
-      predictions: [],
-      outcomes: [],
-      goals: [],
-      overallProgress: 0,
-      therapyPhase: 'initial',
-      nextMilestone: {
-        description: 'Başlangıç değerlendirmesi',
-        estimatedDate: new Date(),
-        requirements: []
-      }
-    } as ProgressAnalyticsResult;
-  }
+  // Progress Analytics removed
 
   /**
    * Notification scheduling yürüt
@@ -694,7 +642,6 @@ class InsightsCoordinator {
           isAppActive: context.appUsageContext.isActive,
           lastActivity: context.appUsageContext.lastActivity,
           currentScreen: context.appUsageContext.currentScreen,
-          crisisLevel: context.currentCrisisLevel
         },
         recentNotifications: [],
         timeOfDay: new Date()
@@ -735,7 +682,7 @@ class InsightsCoordinator {
     let maxComponents = 0;
     if (config.enablePatternAnalysis) maxComponents++;
     if (config.enableInsightGeneration) maxComponents++;
-    if (config.enableProgressTracking && this.progressAnalyticsAvailable) maxComponents++;
+    // Progress Analytics removed
     if (config.enableNotificationScheduling) maxComponents++;
     return maxComponents;
   }
@@ -759,9 +706,7 @@ class InsightsCoordinator {
     context: ComprehensiveInsightContext
   ) {
     // Determine next analysis timing
-    const nextAnalysisIn = context.currentCrisisLevel !== RiskLevel.NONE ? 
-      60 * 60 * 1000 : // 1 hour for crisis
-      24 * 60 * 60 * 1000; // 24 hours for normal
+    const nextAnalysisIn = 24 * 60 * 60 * 1000; // 24 hours default
 
     // Suggested interventions
     const suggestedInterventions: string[] = [];
@@ -774,9 +719,7 @@ class InsightsCoordinator {
 
     // Priority actions
     const priorityActions: string[] = [];
-    if (context.currentCrisisLevel !== RiskLevel.NONE) {
-      priorityActions.push('Crisis stabilization');
-    }
+    // Crisis actions removed
     if (insights.filter(i => !i.shown).length > 3) {
       priorityActions.push('Review pending insights');
     }
@@ -824,7 +767,7 @@ class InsightsCoordinator {
         allowNotifications: false,
         respectQuietHours: false
       },
-      currentCrisisLevel: RiskLevel.NONE,
+      currentCrisisLevel: RiskLevel.LOW,
       appUsageContext: {
         isActive: true,
         lastActivity: new Date()
@@ -833,7 +776,7 @@ class InsightsCoordinator {
 
     const result = await this.orchestrateInsightWorkflow(context, {
       enablePatternAnalysis: false,
-      enableProgressTracking: false,
+      
       enableNotificationScheduling: false,
       enableAIEnhancement: true,
       parallelExecution: false,
@@ -890,7 +833,7 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: RiskLevel.NONE,
+        currentCrisisLevel: RiskLevel.LOW,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',
@@ -959,7 +902,7 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: RiskLevel.NONE,
+        currentCrisisLevel: RiskLevel.LOW,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',

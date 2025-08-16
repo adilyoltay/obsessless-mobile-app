@@ -13,15 +13,15 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
   - Supabase (Auth, PostgreSQL, RLS, Triggers)
   - Offline-first: AsyncStorage (önce yerel yazım, online iken senkron)
  - AI Katmanı (features/ai)
-   - aiManager (özellik başlatma/flag/sağlık kontrol; Promise.allSettled ile paralel servis başlatma)
-   - Telemetry (gizlilik-öncelikli izleme)
-   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; kriz kategorileri/zamanlaması kaldırıldı; bağımsız Progress Analytics servisi yok, runtime kullanılabilirlik: false)
+   - aiManager (özellik başlatma/flag/sağlık kontrol; 3 aşamalı başlatma: 1) kritik bağımsız servisler, 2) bağımlı servisler, 3) koordinatörler)
+   - Telemetry (gizlilik-öncelikli izleme; standartlaştırılmış `AIEventType`)
+   - Insights v2 (CBT ve AI-Deep kaynakları; Progress Analytics kaldırıldı; kriz önleme içgörüleri kaldırıldı)
    - JITAI (temel zaman/bağlam tetikleyicileri)
-   - Pattern Recognition v2 (yalnızca AI-assisted basitleştirilmiş)
-   - Safety: contentFilter (kriz tespiti ve kriz uyarıları devre dışı)
+   - Pattern Recognition v2 (yalnızca AI-assisted)
+   - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2 (Progress Tracking Insights dahil), JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
+- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
 - Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
   
 Güncel yönlendirme:
@@ -29,12 +29,13 @@ Güncel yönlendirme:
 - NavigationGuard ve `app/index.tsx` onboarding kontrolleri bu rotaya yönlendirir.
   
 Notlar:
-- Progress Analytics (bağımsız servis) runtime’dan kaldırıldı; `features/ai/analytics/progressAnalyticsCore.ts` yalnızca tipleri içerir.
-- Smart Notifications kategorilerinde legacy `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kaldırıldı; konsolide kategoriler: `INSIGHT_DELIVERY`, `THERAPEUTIC_REMINDER`, `PROGRESS_CELEBRATION`, `SKILL_PRACTICE`, `CHECK_IN`, `EDUCATIONAL`.
+ - Progress Analytics tamamen kaldırıldı; bağımsız servis ve entegrasyon yok.
+ - Smart Notifications kategorilerinde legacy `CRISIS_INTERVENTION` kaldırıldı; güncel kategoriler sadeleştirildi.
+ - Onboarding feature flag (`AI_ONBOARDING_V2`) kaldırıldı; onboarding varsayılan olarak etkin. Legacy storage anahtarları normalize edildi.
  
 ### Son Stabilizasyon Notları (2025‑08)
-- Insights v2
-  - generateInsights başında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_MISSING_REQUIRED_FIELDS` telemetrisi ve erken çıkış.
+ - Insights v2
+  - generateInsights/orchestrator başlangıcında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_MISSING_REQUIRED_FIELDS` telemetrisi ve `VALIDATION_ERROR` ile anlamlı hata.
   - Kalıcı önbellek: AsyncStorage ile kullanıcıya özel anahtarlar (örn. `insights_cache_{userId}`, `insights_last_gen_{userId}`) ve index listesi.
   - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
   - Aynı kullanıcıdan eşzamanlı talepler: orchestrator’da kuyruklama (chained promise) ile deterministik işleyiş.
@@ -47,8 +48,8 @@ Notlar:
   - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
-- Progress Analytics
-  - Modül runtime’da devre dışı. Varsayılan konfigürasyon `enableProgressTracking=false`; coordinator `progressAnalysis` alanını `null` olarak raporlar.
+ - Progress Analytics
+  - Tamamen kaldırıldı; coordinator ve servislerde referans yok.
 - Test Altyapısı
   - Jest setup: AsyncStorage, `expo/virtual/env`, router, haptics, vector‑icons ve `expo-location` için mocklar eklendi. Stabilizasyon sürecinde coverage eşiği devre dışı.
 
@@ -56,7 +57,7 @@ Notlar:
 - Expo SDK 53, React Native 0.79.x, TypeScript strict
 - Supabase: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
 - AI Sağlayıcı: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
-- Feature Flags: FEATURE_FLAGS.isEnabled(name) üzerinden kontrol
+- Feature Flags: `FEATURE_FLAGS.isEnabled(name)` üzerinden kontrol; `AI_ONBOARDING_V2` kaldırıldı
 
 ## Veri Akışı (Örnekler)
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
@@ -74,7 +75,7 @@ Notlar:
 
 ## Bilinen Kısıtlar
 - Gerçek AI cevapları için geçerli API anahtarı gerekir
-- AI Chat ve Crisis Detection tasarımsal olarak kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
+- AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
 ---
-Son güncelleme: 2025-08
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu)

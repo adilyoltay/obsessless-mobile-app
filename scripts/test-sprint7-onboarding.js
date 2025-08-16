@@ -642,7 +642,7 @@ async function testIntegration() {
     }
 
     // Check Sprint 5 integration (Insights, Analytics)
-    if (!engineContent.includes('insightsCoordinator') && !engineContent.includes('progressAnalytics')) {
+    if (!engineContent.includes('insightsCoordinator')) {
       log('  ⚠️ Sprint 5 insights integration could be enhanced', 'warning');
     }
 

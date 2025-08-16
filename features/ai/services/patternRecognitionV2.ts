@@ -109,7 +109,7 @@ export interface DetectedPattern {
   interventionOpportunities: CBTTechnique[];
   
   // Metadata
-  algorithmUsed: 'rule_based' | 'statistical' | 'ml_model' | 'ai_assisted';
+  algorithmUsed: 'ai_assisted';
   dataQuality: 'high' | 'medium' | 'low';
   needsValidation: boolean;
   validatedBy?: 'user' | 'clinician' | 'ai';
@@ -457,7 +457,7 @@ class PatternRecognitionV2 {
         consequences: ['Potential overwhelm', 'Dependency on AI support'],
         interventionOpportunities: [CBTTechnique.MINDFULNESS_INTEGRATION, CBTTechnique.BEHAVIORAL_EXPERIMENT],
         
-        algorithmUsed: 'rule_based',
+        algorithmUsed: 'ai_assisted',
         dataQuality: 'high',
         needsValidation: false
       };
@@ -508,7 +508,7 @@ class PatternRecognitionV2 {
         consequences: ['Increased anxiety', 'Time consumption', 'Functional impairment'],
         interventionOpportunities: [CBTTechnique.EXPOSURE_HIERARCHY, CBTTechnique.BEHAVIORAL_EXPERIMENT],
         
-        algorithmUsed: 'rule_based',
+        algorithmUsed: 'ai_assisted',
         dataQuality: 'high',
         needsValidation: false
       };
@@ -562,7 +562,7 @@ class PatternRecognitionV2 {
           consequences: ['Sleep disruption', 'Fatigue'],
           interventionOpportunities: [CBTTechnique.MINDFULNESS_INTEGRATION],
           
-          algorithmUsed: 'rule_based',
+          algorithmUsed: 'ai_assisted',
           dataQuality: 'medium',
           needsValidation: true
         });
@@ -623,7 +623,7 @@ class PatternRecognitionV2 {
         consequences: ['Increased emotional distress'],
         interventionOpportunities: [CBTTechnique.COGNITIVE_RESTRUCTURING, CBTTechnique.MINDFULNESS_INTEGRATION],
         
-        algorithmUsed: 'rule_based',
+        algorithmUsed: 'ai_assisted',
         dataQuality: 'medium',
         needsValidation: true
       });
