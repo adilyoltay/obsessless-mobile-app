@@ -121,6 +121,14 @@ export class AIManager {
     ];
     await Promise.allSettled(phase3);
 
+    // Phase 4: optional enhancements (non-critical)
+    try {
+      await Promise.allSettled([
+        (async () => (await import('@/features/ai/services/dataAggregationService')).default)(),
+        (async () => (await import('@/features/ai/engines/enhancedTreatmentPlanning')).default)(),
+      ]);
+    } catch {}
+
     // Update health map (best-effort)
     this.healthStatus.set('externalAI', true);
     this.healthStatus.set('cbtEngine', true);
