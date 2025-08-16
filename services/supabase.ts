@@ -615,7 +615,7 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
-      // Map category to canonical and preserve original label in subcategory if provided
+      // Map category to canonical/DB-safe and preserve original label in subcategory if provided
       const mappedCompulsion = {
         ...compulsion,
         subcategory: compulsion.subcategory ?? compulsion.category, // keep caller-provided subcategory if exists
@@ -623,9 +623,12 @@ class SupabaseNativeService {
         timestamp: new Date().toISOString(),
       };
       
+      // Standardize payload (date/category/limits)
+      const standardized = require('@/utils/dataStandardization').dataStandardizer.standardizeCompulsionData(mappedCompulsion);
+      
       const { data, error } = await this.client
         .from('compulsions')
-        .upsert(mappedCompulsion, { onConflict: 'id' })
+        .upsert(standardized, { onConflict: 'id' })
         .select()
         .single();
 

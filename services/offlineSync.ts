@@ -177,12 +177,21 @@ export class OfflineSyncService {
 
   private async syncERPSession(item: SyncQueueItem): Promise<void> {
     switch (item.type) {
-      case 'CREATE':
+      case 'CREATE': {
         await apiService.erp.createExercise(item.data);
         break;
-      case 'UPDATE':
-        await apiService.erp.completeSession(item.data.id, item.data);
+      }
+      case 'UPDATE': {
+        // best-effort fetch + resolve
+        let remote: any = null;
+        try {
+          const list = await apiService.erp.getExercises();
+          remote = Array.isArray(list) ? list.find((x: any) => x.id === item.data.id) : null;
+        } catch {}
+        const resolved = await conflictResolver.resolveConflict('erp_session', item.data, remote);
+        await apiService.erp.completeSession(resolved.id, resolved);
         break;
+      }
       // ERP sessions typically aren't deleted
     }
   }
@@ -190,9 +199,13 @@ export class OfflineSyncService {
   // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)
 
   private async syncAchievement(item: SyncQueueItem): Promise<void> {
-    // Sync achievement unlocks
-    // This would typically be a separate endpoint
-    console.log('Syncing achievement:', item.data);
+    // Sync achievement unlocks (best-effort)
+    try {
+      // no dedicated API in apiService; log for now
+      console.log('Syncing achievement:', item.data);
+    } catch (e) {
+      console.warn('Achievement sync failed:', e);
+    }
   }
 
   private async handleFailedSync(item: SyncQueueItem): Promise<void> {
