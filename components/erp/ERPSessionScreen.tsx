@@ -40,6 +40,8 @@ import { useGamificationStore } from '@/store/gamificationStore';
 
 // Auth
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { awardMicroReward } from '@/services/achievementService';
+import enhancedAchievements from '@/services/enhancedAchievementService';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
@@ -254,6 +256,9 @@ export default function ERPSessionScreen({
     
     // Award micro-reward for ERP completion
     await awardMicroReward('erp_completed');
+    try {
+      await enhancedAchievements.unlockAchievement(user!.id, 'erp_completed', 'erp_completed', { sessionId: sessionLog.id });
+    } catch {}
     
     // Calculate anxiety reduction percentage
     const anxietyReduction = safeDivide((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety, (anxietyDataPoints[0]?.level || initialAnxiety)) * 100;
@@ -261,6 +266,9 @@ export default function ERPSessionScreen({
     // Extra reward for significant anxiety reduction
     if (anxietyReduction >= 30) {
       await awardMicroReward('anxiety_reduced');
+      try {
+        await enhancedAchievements.unlockAchievement(user!.id, 'anxiety_reduced', 'erp_completed', { sessionId: sessionLog.id });
+      } catch {}
     }
     
     // Bonus for successful urge resistance

@@ -42,6 +42,8 @@ import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
 
 // Kanonik kategori eşlemesi
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import dataStandardizer from '@/utils/dataStandardization';
+import enhancedAchievements from '@/services/enhancedAchievementService';
 
 interface CompulsionEntry {
   id: string;
@@ -304,15 +306,17 @@ export default function TrackingScreen() {
 
       // Save to Supabase database
       try {
-        await supabaseService.saveCompulsion({
+        const standardized = dataStandardizer.standardizeCompulsionData({
           user_id: user.id,
-          category: mapToCanonicalCategory(compulsionData.type), // kanonik kategori
-          subcategory: compulsionData.type, // orijinal değer etiket olarak
+          category: mapToCanonicalCategory(compulsionData.type),
+          subcategory: compulsionData.type,
           resistance_level: compulsionData.resistanceLevel,
           trigger: compulsionData.trigger || '',
           notes: compulsionData.notes || '',
+          timestamp: new Date(),
         });
-        console.log('✅ Compulsion saved to database');
+        await supabaseService.saveCompulsion(standardized);
+        try { await enhancedAchievements.unlockAchievement(user.id, 'compulsion_recorded', 'compulsion_created', standardized); } catch {}
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);
         // Continue with offline mode - data is already in AsyncStorage
