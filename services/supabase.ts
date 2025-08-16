@@ -1,4 +1,6 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
+import NetInfo from '@react-native-community/netinfo';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
@@ -341,15 +343,44 @@ class SupabaseNativeService {
 
   async signOut(): Promise<void> {
     try {
-      console.log('�� Signing out...');
-      
-      const { error } = await this.client.auth.signOut();
-      if (error) throw error;
+      console.log('🔐 Signing out...');
+      const net = await NetInfo.fetch();
+      const isOnline = !!net.isConnected && net.isInternetReachable !== false;
+
+      const tryGlobal = async () => {
+        let attempt = 0;
+        const max = 3;
+        while (attempt < max) {
+          try {
+            attempt++;
+            if (attempt > 1) {
+              try { await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'auth_signout_retry', attempt }); } catch {}
+            }
+            const { error } = await this.client.auth.signOut({ scope: 'global' } as any);
+            if (error) throw error;
+            return true;
+          } catch (e) {
+            if (attempt >= max) return false;
+            await new Promise(r => setTimeout(r, 300 * attempt));
+          }
+        }
+        return false;
+      };
+
+      let globalOk = false;
+      if (isOnline) globalOk = await tryGlobal();
+
+      if (!globalOk) {
+        try { await this.client.auth.signOut({ scope: 'local' } as any); } catch {}
+      }
 
       this.currentUser = null;
-      console.log('✅ Sign out successful');
+      console.log(`✅ Sign out successful (${globalOk ? 'global' : 'local'})`);
     } catch (error) {
       console.error('❌ Sign out failed:', error);
+      // Ensure local state cleared even if error thrown
+      this.currentUser = null;
+      try { await this.client.auth.signOut({ scope: 'local' } as any); } catch {}
       throw error;
     }
   }
