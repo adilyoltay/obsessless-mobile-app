@@ -13,7 +13,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
   - Supabase (Auth, PostgreSQL, RLS, Triggers)
   - Offline-first: AsyncStorage (önce yerel yazım, online iken senkron)
  - AI Katmanı (features/ai)
-   - aiManager (özellik başlatma/flag/sağlık kontrol)
+   - aiManager (özellik başlatma/flag/sağlık kontrol; Promise.allSettled ile paralel servis başlatma)
    - Telemetry (gizlilik-öncelikli izleme)
    - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; bağımsız Progress Analytics servisi yok, runtime kullanılabilirlik: false)
    - JITAI (temel zaman/bağlam tetikleyicileri)
@@ -47,7 +47,7 @@ Notlar:
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar.
 - Progress Analytics
-  - Modül runtime’da devre dışı. Varsayılan konfigürasyon `enableProgressTracking=false`; coordinator modül uygun olduğunda durumu dinamik senkronlar.
+  - Modül runtime’da devre dışı. Varsayılan konfigürasyon `enableProgressTracking=false`; coordinator `progressAnalysis` alanını `null` olarak raporlar.
 - Test Altyapısı
   - Jest setup: AsyncStorage, `expo/virtual/env`, router, haptics, vector‑icons ve `expo-location` için mocklar eklendi. Stabilizasyon sürecinde coverage eşiği devre dışı.
 

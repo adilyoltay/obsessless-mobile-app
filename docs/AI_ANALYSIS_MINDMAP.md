@@ -187,15 +187,15 @@ Kısa not: Bu sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokolle
    - Cultural sensitivity
    - Motivational style
 
-### Updated Notification Categories
+### Updated Notification Categories (final)
 - **Progress Celebration**: Positive reinforcement
 - **Therapeutic Reminder**: Skill practice
 - **Check-in**: Engagement maintenance
 - **Educational**: Learning content
 
-### Legacy Categories (still in code, planned removal):
-- ⚠️ **Crisis Intervention**: Category mevcut; kriz sistemi kaldırıldığı için kaldırılması planlanıyor
-- ⚠️ **Pattern Alert**: Category mevcut; pattern simplification sonrası kaldırılması planlanıyor
+Legacy categories removed from runtime and codebase:
+- ❌ Crisis Intervention
+- ❌ Pattern Alert
 
 ## 📊 Data Flow Architecture - **UPDATED**
 
