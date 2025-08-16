@@ -69,4 +69,64 @@ export function isCanonicalCategory(value: string): value is CanonicalCategory {
   return (CANONICAL_CATEGORIES as string[]).includes((value || '').toLowerCase());
 }
 
+// ===============
+// DB Kategorileri
+// ===============
+
+// Supabase şemasındaki CHECK constraint'e göre izin verilen kategoriler
+export type DatabaseCategory = 'contamination' | 'harm' | 'symmetry' | 'religious' | 'sexual' | 'hoarding';
+
+const DB_ALLOWED_CATEGORIES: DatabaseCategory[] = [
+  'contamination', 'harm', 'symmetry', 'religious', 'sexual', 'hoarding'
+];
+
+/**
+ * Uygulama/legacy etiketleri DB'nin kabul ettiği kategorilere eşler.
+ * Amaç: CHECK constraint ihlallerini önlemek.
+ */
+export function mapToDatabaseCategory(input: string): DatabaseCategory {
+  const key = (input || '').toLowerCase().trim();
+
+  // Doğrudan eşitlik (zaten DB kategorilerinden biri ise)
+  if ((DB_ALLOWED_CATEGORIES as string[]).includes(key)) {
+    return key as DatabaseCategory;
+  }
+
+  // Legacy → DB mapping
+  const legacyToDbMap: Record<string, DatabaseCategory> = {
+    // Temizlik/bulaşma
+    washing: 'contamination',
+    cleaning: 'contamination',
+    contamination: 'contamination',
+
+    // Kontrol/Simetri/Düzen/Sayma → symmetry
+    checking: 'symmetry',
+    ordering: 'symmetry',
+    arranging: 'symmetry',
+    symmetry: 'symmetry',
+    counting: 'symmetry',
+    repeating: 'symmetry',
+    touching: 'symmetry',
+
+    // Zihinsel/ahlaki/dini temalar → religious
+    mental: 'religious',
+    religious: 'religious',
+    morality: 'religious',
+
+    // Biriktirme
+    hoarding: 'hoarding',
+
+    // Diğer geniş temalar
+    harm: 'harm',
+    sexual: 'sexual',
+
+    // Yakın eşlemeler
+    reassurance: 'harm',
+    avoidance: 'harm',
+    other: 'harm'
+  };
+
+  return legacyToDbMap[key] ?? 'harm';
+}
+
 

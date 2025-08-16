@@ -1,7 +1,7 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
@@ -604,9 +604,8 @@ class SupabaseNativeService {
   // ===========================
 
   private mapCategoryForDatabase(category: string): string {
-    // Yeni strateji: Tüm uygulama kategorilerini kanonik OKB kategorilerine indirger
-    // ve DB tarafında bu kanonik değerleri kullanır.
-    return mapToCanonicalCategory(category);
+    // DB CHECK constraint ile uyumlu kategoriye indirger
+    return mapToDatabaseCategory(category);
   }
 
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
