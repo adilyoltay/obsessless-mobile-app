@@ -1,4 +1,5 @@
 import supabaseService from '@/services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface UserDataAggregate {
   profile: any;
@@ -17,17 +18,21 @@ class AIDataAggregationService {
   }
 
   async aggregateUserData(userId: string): Promise<UserDataAggregate> {
-    // skeleton implementation; replace with real pulls as needed
-    const [compulsions, erpSessions] = await Promise.all([
+    // Pull core sources
+    const [compulsions, erpSessions, moodEntries] = await Promise.all([
       supabaseService.getCompulsions(userId),
       supabaseService.getERPSessions(userId),
+      this.readRecentMoodEntries(userId, 14),
     ]);
+
+    const performance = this.calculatePerformanceMetrics(erpSessions, compulsions, moodEntries);
+    const patterns = this.extractPatterns(compulsions, moodEntries);
 
     return {
       profile: {},
       symptoms: {},
-      performance: { erpCount: erpSessions.length, compulsionCount: compulsions.length },
-      patterns: {},
+      performance,
+      patterns,
     };
   }
 
@@ -36,8 +41,75 @@ class AIDataAggregationService {
       behavioral_data: {
         erp_count: aggregate.performance?.erpCount ?? 0,
         compulsion_count: aggregate.performance?.compulsionCount ?? 0,
+        erp_completion_rate: aggregate.performance?.erpCompletionRate ?? 100,
       },
     };
+  }
+
+  private async readRecentMoodEntries(userId: string, days: number): Promise<any[]> {
+    const entries: any[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(Date.now() - i * 86400000);
+      const key = `mood_entries_${userId}_${d.toISOString().split('T')[0]}`;
+      try {
+        const raw = await AsyncStorage.getItem(key);
+        if (raw) entries.push(...JSON.parse(raw));
+      } catch {}
+    }
+    return entries;
+  }
+
+  private extractPatterns(compulsions: any[], moods: any[]): any {
+    // Common triggers from moods
+    const triggerCounts: Record<string, number> = {};
+    for (const m of moods) {
+      const list: string[] = Array.isArray(m?.triggers) ? m.triggers : [];
+      list.forEach((t) => {
+        const k = String(t || '').trim().toLowerCase();
+        if (!k) return;
+        triggerCounts[k] = (triggerCounts[k] || 0) + 1;
+      });
+    }
+    const commonTriggers = Object.entries(triggerCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([t]) => t);
+
+    // Peak anxiety times by hour buckets
+    const hourSums: number[] = new Array(24).fill(0);
+    const hourCounts: number[] = new Array(24).fill(0);
+    for (const m of moods) {
+      const ts = m?.timestamp ? new Date(m.timestamp) : null;
+      const hour = ts && !isNaN(ts.getTime()) ? ts.getHours() : null;
+      const anxiety = Number(m?.anxiety_level);
+      if (hour !== null && !Number.isNaN(anxiety)) {
+        hourSums[hour] += anxiety;
+        hourCounts[hour] += 1;
+      }
+    }
+    const hourAvg = hourSums.map((s, i) => (hourCounts[i] ? s / hourCounts[i] : 0));
+    const topHours = hourAvg
+      .map((avg, hour) => ({ hour, avg }))
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 3)
+      .map((x) => `${x.hour}:00`);
+
+    return {
+      commonTriggers,
+      peakAnxietyTimes: topHours,
+    };
+  }
+
+  private calculatePerformanceMetrics(erpSessions: any[], compulsions: any[], moods: any[]) {
+    const erpCount = Array.isArray(erpSessions) ? erpSessions.length : 0;
+    const compulsionCount = Array.isArray(compulsions) ? compulsions.length : 0;
+    let erpCompletionRate = 100;
+    try {
+      const total = erpCount;
+      const completed = erpSessions.filter((s: any) => s?.completed === true).length;
+      erpCompletionRate = total > 0 ? Math.round((completed / total) * 100) : 100;
+    } catch {}
+    return { erpCount, compulsionCount, erpCompletionRate };
   }
 }
 
