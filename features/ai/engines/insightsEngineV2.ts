@@ -25,7 +25,7 @@ import { externalAIService } from '@/features/ai/services/externalAIService';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import aiDataAggregator from '@/features/ai/services/dataAggregationService';
-import aiDataAggregator from '@/features/ai/services/dataAggregationService';
+ 
 
 // =============================================================================
 // 🎯 INSIGHT TYPES & DEFINITIONS
