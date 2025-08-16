@@ -886,7 +886,7 @@ class AdaptiveTreatmentPlanningEngine {
       const phase: TreatmentPhase = {
         id: `phase_${index + 1}_${phaseType}`,
         name: template.name,
-        description: template.description || `${template.name} phase`,
+        description: `${template.name} phase`,
         estimatedDuration: template.duration,
         objectives: template.objectives,
         interventions: this.selectPhaseInterventions(phaseType, protocols, ybocsAnalysis),
@@ -1084,43 +1084,87 @@ class AdaptiveTreatmentPlanningEngine {
         emergencyProtocols: []
       } as TreatmentPlan;
 
-      // Add phases based on Y-BOCS analysis
-      if (data.ybocsAnalysis) {
-        treatmentPlan.phases = this.generateTreatmentPhases(data.ybocsAnalysis);
-      } else {
-        // Default phases for OCD treatment
-        treatmentPlan.phases = [
-          {
-            id: 'phase_1',
-            name: 'Değerlendirme ve Psikoeğitim',
-            description: 'OKB hakkında bilgilendirme ve başlangıç değerlendirmesi',
-            estimatedDuration: 2,
-            objectives: ['OKB anlayışı geliştirme', 'Semptom farkındalığı'],
-            interventions: [],
-            milestones: [],
-            successCriteria: ['OKB hakkında temel anlayış', 'Hazır olma']
-          },
-          {
-            id: 'phase_2',
-            name: 'Maruz Kalma ve Tepki Önleme',
-            description: 'ERP tekniklerinin uygulanması',
-            estimatedDuration: 8,
-            objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
-            interventions: [],
-            milestones: [],
-            successCriteria: ['Belirti azalması']
-          },
-          {
-            id: 'phase_3',
-            name: 'İyileşmeyi Sürdürme',
-            description: 'Relaps önleme ve uzun vadeli stratejiler',
-            estimatedDuration: 2,
-            objectives: ['Kazanımları sürdürme', 'Bağımsızlık geliştirme'],
-            interventions: [],
-            milestones: [],
-            successCriteria: ['İdame planı']
-          }
-        ];
+      // Behavior-informed phases via AI Data Aggregation
+      try {
+        const { aiDataAggregator } = await import('@/features/ai/services/dataAggregationService');
+        const aggregate = await aiDataAggregator.aggregateUserData(userId);
+        const lowCompliance = (aggregate.performance?.erpCompletionRate ?? 100) < 50;
+        const easierStart = lowCompliance ? 1 : 2;
+
+        if (data.ybocsAnalysis) {
+          treatmentPlan.phases = await this.generateTreatmentPhases([], data.userProfile, data.ybocsAnalysis as any);
+        } else {
+          treatmentPlan.phases = [
+            {
+              id: 'phase_1',
+              name: 'Değerlendirme ve Psikoeğitim',
+              description: 'OKB hakkında bilgilendirme ve başlangıç değerlendirmesi',
+              estimatedDuration: easierStart,
+              objectives: ['OKB anlayışı geliştirme', 'Semptom farkındalığı'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['OKB hakkında temel anlayış', 'Hazır olma']
+            },
+            {
+              id: 'phase_2',
+              name: 'Maruz Kalma ve Tepki Önleme',
+              description: 'ERP tekniklerinin uygulanması',
+              estimatedDuration: lowCompliance ? 6 : 8,
+              objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['Belirti azalması']
+            },
+            {
+              id: 'phase_3',
+              name: 'İyileşmeyi Sürdürme',
+              description: 'Relaps önleme ve uzun vadeli stratejiler',
+              estimatedDuration: 2,
+              objectives: ['Kazanımları sürdürme', 'Bağımsızlık geliştirme'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['İdame planı']
+            }
+          ];
+        }
+      } catch {
+        // Fallback
+        if (data.ybocsAnalysis) {
+          treatmentPlan.phases = await this.generateTreatmentPhases([], data.userProfile, data.ybocsAnalysis as any);
+        } else {
+          treatmentPlan.phases = [
+            {
+              id: 'phase_1',
+              name: 'Değerlendirme ve Psikoeğitim',
+              description: 'OKB hakkında bilgilendirme ve başlangıç değerlendirmesi',
+              estimatedDuration: 2,
+              objectives: ['OKB anlayışı geliştirme', 'Semptom farkındalığı'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['OKB hakkında temel anlayış', 'Hazır olma']
+            },
+            {
+              id: 'phase_2',
+              name: 'Maruz Kalma ve Tepki Önleme',
+              description: 'ERP tekniklerinin uygulanması',
+              estimatedDuration: 8,
+              objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['Belirti azalması']
+            },
+            {
+              id: 'phase_3',
+              name: 'İyileşmeyi Sürdürme',
+              description: 'Relaps önleme ve uzun vadeli stratejiler',
+              estimatedDuration: 2,
+              objectives: ['Kazanımları sürdürme', 'Bağımsızlık geliştirme'],
+              interventions: [],
+              milestones: [],
+              successCriteria: ['İdame planı']
+            }
+          ];
+        }
       }
 
       // Add cultural adaptations for Turkish users
