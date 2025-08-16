@@ -24,6 +24,8 @@ import { CBTTechnique, CognitiveDistortion, cbtEngine } from '@/features/ai/engi
 import { externalAIService } from '@/features/ai/services/externalAIService';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import aiDataAggregator from '@/features/ai/services/dataAggregationService';
+import aiDataAggregator from '@/features/ai/services/dataAggregationService';
 
 // =============================================================================
 // 🎯 INSIGHT TYPES & DEFINITIONS
@@ -396,29 +398,54 @@ class InsightsEngineV2 {
    */
   private async performInsightGeneration(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
     const insights: IntelligentInsight[] = [];
+    // Aggregation (best-effort)
+    let aggregate: any = null;
+    try { aggregate = await aiDataAggregator.aggregateUserData(context.userId); } catch {}
 
     // Pattern Analysis removed - keeping AI-powered insights only
 
     // 1. CBT Analysis - Cognitive distortions and techniques
     if (cbtEngine.enabled && context.recentMessages.length > 0) {
       const cbtInsights = await this.generateCBTInsights(context);
-      insights.push(...cbtInsights);
+      insights.push(...cbtInsights.map(i => this.applyAggregationContext(i, aggregate)));
     }
 
     // 2. AI-Powered Deep Analysis
     if (externalAIService.enabled && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
       const aiInsights = await this.generateAIInsights(context);
-      insights.push(...aiInsights);
+      insights.push(...aiInsights.map(i => this.applyAggregationContext(i, aggregate)));
     }
 
     // 3. Progress Tracking Insights
     const progressInsights = await this.generateProgressInsights(context);
-    insights.push(...progressInsights);
+    insights.push(...progressInsights.map(i => this.applyAggregationContext(i, aggregate)));
 
     // Crisis Prevention Insights removed
 
     // Sort by priority and timing
     return this.prioritizeAndFilterInsights(insights, context);
+  }
+
+  private applyAggregationContext(insight: IntelligentInsight, aggregate: any | null): IntelligentInsight {
+    if (!aggregate) return insight;
+    const cloned: IntelligentInsight = { ...insight };
+    // Avoid peak anxiety times for non-immediate timing
+    const peak = aggregate.patterns?.peakAnxietyTimes as string[] | undefined;
+    if (peak && peak.length > 0 && cloned.timing === InsightTiming.NEXT_SESSION) {
+      cloned.timing = InsightTiming.DAILY_SUMMARY;
+    }
+    // Priority boost if common triggers present in content
+    const triggers = (aggregate.patterns?.commonTriggers as string[] | undefined) || [];
+    if (triggers.some(t => (cloned.message || '').toLowerCase().includes(String(t).toLowerCase()))) {
+      cloned.priority = cloned.priority === InsightPriority.LOW ? InsightPriority.MEDIUM : InsightPriority.HIGH;
+    }
+    // Low compliance -> fewer, immediate actionable items
+    const compliance = aggregate.performance?.erpCompletionRate ?? 100;
+    if (compliance < 50) {
+      cloned.timing = InsightTiming.IMMEDIATE;
+      cloned.actionableAdvice = (cloned.actionableAdvice || []).slice(0, 2);
+    }
+    return cloned;
   }
 
   // =============================================================================

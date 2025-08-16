@@ -96,6 +96,7 @@ export class OfflineSyncService {
     this.isSyncing = true;
 
     try {
+      const summary = { successful: 0, failed: 0, conflicts: 0 };
       const itemsToSync = [...this.syncQueue];
       
       for (let i = 0; i < itemsToSync.length; i++) {
@@ -103,6 +104,7 @@ export class OfflineSyncService {
         
         try {
           await this.syncItem(item);
+          summary.successful++;
           
           // Remove from queue if successful
           this.syncQueue = this.syncQueue.filter(queueItem => queueItem.id !== item.id);
@@ -122,12 +124,17 @@ export class OfflineSyncService {
             if (queueItem.retryCount >= 8) {
               this.syncQueue = this.syncQueue.filter(q => q.id !== item.id);
               await this.handleFailedSync(queueItem);
+              summary.failed++;
             }
           }
         }
       }
 
       await this.saveSyncQueue();
+      try {
+        console.log('🧾 Sync summary:', summary);
+        await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...summary, at: new Date().toISOString() }));
+      } catch {}
     } finally {
       this.isSyncing = false;
     }
@@ -320,6 +327,30 @@ export class OfflineSyncService {
   async clearSyncQueue(): Promise<void> {
     this.syncQueue = [];
     await this.saveSyncQueue();
+  }
+
+  /**
+   * Batch conflict-aware sync entrypoint
+   */
+  async syncWithConflictResolution(batchSize: number = 10): Promise<{ successful: number; failed: number; conflicts: number; }>{
+    const result = { successful: 0, failed: 0, conflicts: 0 };
+    if (!this.isOnline || this.syncQueue.length === 0) return result;
+    const items = [...this.syncQueue];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const settled = await Promise.allSettled(batch.map((it) => this.syncItem(it)));
+      settled.forEach((r, idx) => {
+        if (r.status === 'fulfilled') {
+          result.successful++;
+          this.syncQueue = this.syncQueue.filter(q => q.id !== batch[idx].id);
+        } else {
+          result.failed++;
+        }
+      });
+      await this.saveSyncQueue();
+    }
+    try { await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...result, at: new Date().toISOString() })); } catch {}
+    return result;
   }
 }
 
