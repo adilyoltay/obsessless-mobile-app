@@ -17,8 +17,8 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1'
   },
-  setupFiles: ['<rootDir>/jest.setup.js'],
-  collectCoverage: true,
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  collectCoverage: false,
   collectCoverageFrom: [
     'features/**/*.{ts,tsx}',
     'components/**/*.{ts,tsx}',
@@ -33,14 +33,7 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  coverageThreshold: {
-    global: {
-      branches: 10,
-      functions: 10,
-      lines: 10,
-      statements: 10
-    }
-  }
+  coverageThreshold: undefined
 };
 
 

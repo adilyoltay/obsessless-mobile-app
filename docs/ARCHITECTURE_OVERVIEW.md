@@ -15,7 +15,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
  - AI Katmanı (features/ai)
    - aiManager (özellik başlatma/flag/sağlık kontrol)
    - Telemetry (gizlilik-öncelikli izleme)
-   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; bağımsız Progress Analytics servisi yok)
+   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; bağımsız Progress Analytics servisi yok, runtime kullanılabilirlik: false)
    - JITAI (temel zaman/bağlam tetikleyicileri)
    - Pattern Recognition v2 (yalnızca AI-assisted basitleştirilmiş)
    - Safety: contentFilter (kriz tespiti devre dışı)
@@ -31,6 +31,23 @@ Güncel yönlendirme:
 Notlar:
 - Progress Analytics (bağımsız servis) runtime’dan kaldırıldı; `features/ai/analytics/progressAnalyticsCore.ts` yalnızca tipleri içerir.
 - Smart Notifications kategorilerinde legacy `PATTERN_ALERT` ve `CRISIS_INTERVENTION` kaldırıldı; konsolide kategoriler: `INSIGHT_DELIVERY`, `THERAPEUTIC_REMINDER`, `PROGRESS_CELEBRATION`, `SKILL_PRACTICE`, `CHECK_IN`, `EDUCATIONAL`.
+ 
+### Son Stabilizasyon Notları (2025‑08)
+- Insights v2
+  - generateInsights başında bağlam doğrulaması: `recentMessages`, `behavioralData`, `timeframe` eksikse `INSIGHTS_DATA_INSUFFICIENT` telemetrisi ve erken çıkış.
+  - Kalıcı önbellek: AsyncStorage ile kullanıcıya özel anahtarlar (örn. `insights_cache_{userId}`, `insights_last_gen_{userId}`) ve index listesi.
+  - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
+- JITAI
+  - `predictOptimalTiming` ve `normalizeContext` undefined‑güvenli; eksik bağlamlarda soft‑fail.
+  - `treatmentPlanningEngine` öneri zamanı: `optimalTiming.recommendedTime` kullanımı; `optimizeTreatmentTiming` gerekli `currentContext.userState`’i sağlar.
+- Voice
+  - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
+- Storage
+  - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar, geçersiz anahtarlarda stack trace loglar.
+- Progress Analytics
+  - `enableProgressTracking` config düzeyinde açık; ancak modül runtime’da devre dışı (coordinator, `progressAnalyticsAvailable=false` ile senkron çalışır).
+- Test Altyapısı
+  - Jest setup: AsyncStorage, `expo/virtual/env`, router, haptics, vector‑icons ve `expo-location` için mocklar eklendi. Stabilizasyon sürecinde coverage eşiği devre dışı.
 
 ## Bağımlılıklar ve Konfigürasyon
 - Expo SDK 53, React Native 0.79.x, TypeScript strict

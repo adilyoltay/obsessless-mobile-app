@@ -14,7 +14,7 @@ jest.mock('@/contexts/AIContext', () => {
 describe('SafeModeBanner', () => {
   it('renders when safeMode or init error', async () => {
     const tree = renderer.create(<SafeModeBanner />).toJSON();
-    expect(tree).toBeTruthy();
+    expect(tree).not.toBeNull();
   });
 });
 

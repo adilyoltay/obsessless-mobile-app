@@ -1,16 +1,16 @@
 import React from 'react';
-import renderer from 'react-test-renderer';
+import renderer, { act } from 'react-test-renderer';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 
-jest.mock('@react-native-community/netinfo', () => ({
-  addEventListener: (cb: any) => ({ remove: () => {} }),
-  fetch: async () => ({ isConnected: false, isInternetReachable: false }),
-}));
+// Using global setup mock from jest.setup.js. No per-file NetInfo mock to avoid divergence.
 
 describe('OfflineBanner', () => {
   it('renders when offline', async () => {
-    const tree = renderer.create(<OfflineBanner />).toJSON();
-    expect(tree).toBeTruthy();
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(<OfflineBanner />).toJSON();
+    });
+    expect(tree).not.toBeNull();
   });
 });
 

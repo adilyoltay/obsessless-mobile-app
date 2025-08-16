@@ -59,10 +59,8 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const waveAnim3 = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Feature flag kontrolü
-  if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
-    return null;
-  }
+  // Feature flag kontrolü (hooks her zaman çağrılır; render safhasında koşullandırılır)
+  const isVoiceEnabled = FEATURE_FLAGS.isEnabled('AI_VOICE');
 
   const hasSTTConsent = async (): Promise<boolean> => {
     try {
@@ -93,6 +91,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   };
 
   useEffect(() => {
+    if (!isVoiceEnabled) return;
     // Servisi başlat
     voiceRecognitionService.initialize().catch(err => {
       setError('Ses tanıma başlatılamadı');
@@ -110,7 +109,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         handleStopListening();
       }
     };
-  }, []);
+  }, [isVoiceEnabled]);
 
   useEffect(() => {
     // Listening animasyonları
@@ -329,6 +328,8 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         return 'Konuşmak için dokun';
     }
   };
+
+  if (!isVoiceEnabled) return null;
 
   return (
     <View style={[styles.container, style]}>
