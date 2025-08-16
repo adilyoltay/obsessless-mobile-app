@@ -15,10 +15,10 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
  - AI Katmanı (features/ai)
    - aiManager (özellik başlatma/flag/sağlık kontrol; Promise.allSettled ile paralel servis başlatma)
    - Telemetry (gizlilik-öncelikli izleme)
-   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; bağımsız Progress Analytics servisi yok, runtime kullanılabilirlik: false)
+   - Insights v2 (CBT, AI-Deep ve Progress Tracking Insights; kriz kategorileri/zamanlaması kaldırıldı; bağımsız Progress Analytics servisi yok, runtime kullanılabilirlik: false)
    - JITAI (temel zaman/bağlam tetikleyicileri)
    - Pattern Recognition v2 (yalnızca AI-assisted basitleştirilmiş)
-   - Safety: contentFilter (kriz tespiti devre dışı)
+   - Safety: contentFilter (kriz tespiti ve kriz uyarıları devre dışı)
 
 ## Aktif/Pasif Modüller (Özet)
 - Aktif: Onboarding (AI destekli), Insights v2 (Progress Tracking Insights dahil), JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
@@ -46,7 +46,7 @@ Notlar:
 - Voice
   - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
 - Storage
-  - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar.
+  - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
 - Progress Analytics
   - Modül runtime’da devre dışı. Varsayılan konfigürasyon `enableProgressTracking=false`; coordinator `progressAnalysis` alanını `null` olarak raporlar.
 - Test Altyapısı

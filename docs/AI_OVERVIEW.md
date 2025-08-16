@@ -3,7 +3,7 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT/AI + Progress Tracking Insights; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED
+- Insights v2: CBT/AI + Progress Tracking Insights; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED (kriz kategorileri kaldırıldı)
 - Progress Analytics: runtime’dan kaldırıldı (yalnızca tipler mevcut); varsayılan konfig: `enableProgressTracking=false`
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
