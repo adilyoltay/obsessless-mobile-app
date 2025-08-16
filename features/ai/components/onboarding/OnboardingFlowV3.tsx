@@ -58,6 +58,11 @@ import {
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
+// AI Engine Imports - YENİ
+import { onboardingEngine } from '@/features/ai/engines/onboardingEngine';
+import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+
 // Using global design tokens
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');

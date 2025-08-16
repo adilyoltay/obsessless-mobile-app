@@ -2,6 +2,15 @@
 import { QueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Telemetry için lazy import
+let telemetryModule: any = null;
+const getTelemetry = async () => {
+  if (!telemetryModule) {
+    telemetryModule = await import('@/features/ai/telemetry/aiTelemetry');
+  }
+  return telemetryModule;
+};
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -18,6 +27,23 @@ export const storage = {
   setItem: async (key: string, value: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
       const err = new Error('AsyncStorage: Invalid key provided');
+      
+      // Telemetry gönder
+      try {
+        const { trackAIError, AIErrorCode, ErrorSeverity } = await getTelemetry();
+        await trackAIError({
+          code: AIErrorCode.INVALID_STORAGE_KEY || 'INVALID_STORAGE_KEY',
+          message: `Invalid storage key in setItem: ${key}`,
+          severity: ErrorSeverity.HIGH || 'HIGH',
+          context: { operation: 'setItem', key, stack: err.stack },
+          timestamp: new Date(),
+          recoverable: false,
+          userMessage: 'Veri saklama hatası'
+        });
+      } catch (telemetryError) {
+        console.warn('Failed to send telemetry:', telemetryError);
+      }
+      
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         throw err;
       }
@@ -29,6 +55,23 @@ export const storage = {
   getItem: async (key: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
       const err = new Error('AsyncStorage: Invalid key provided');
+      
+      // Telemetry gönder
+      try {
+        const { trackAIError, AIErrorCode, ErrorSeverity } = await getTelemetry();
+        await trackAIError({
+          code: AIErrorCode.INVALID_STORAGE_KEY || 'INVALID_STORAGE_KEY',
+          message: `Invalid storage key in getItem: ${key}`,
+          severity: ErrorSeverity.HIGH || 'HIGH',
+          context: { operation: 'getItem', key, stack: err.stack },
+          timestamp: new Date(),
+          recoverable: false,
+          userMessage: 'Veri okuma hatası'
+        });
+      } catch (telemetryError) {
+        console.warn('Failed to send telemetry:', telemetryError);
+      }
+      
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         throw err;
       }
@@ -40,6 +83,23 @@ export const storage = {
   removeItem: async (key: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
       const err = new Error('AsyncStorage: Invalid key provided');
+      
+      // Telemetry gönder
+      try {
+        const { trackAIError, AIErrorCode, ErrorSeverity } = await getTelemetry();
+        await trackAIError({
+          code: AIErrorCode.INVALID_STORAGE_KEY || 'INVALID_STORAGE_KEY',
+          message: `Invalid storage key in removeItem: ${key}`,
+          severity: ErrorSeverity.HIGH || 'HIGH',
+          context: { operation: 'removeItem', key, stack: err.stack },
+          timestamp: new Date(),
+          recoverable: false,
+          userMessage: 'Veri silme hatası'
+        });
+      } catch (telemetryError) {
+        console.warn('Failed to send telemetry:', telemetryError);
+      }
+      
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         throw err;
       }
