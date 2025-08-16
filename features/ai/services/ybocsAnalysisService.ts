@@ -429,9 +429,7 @@ class YBOCSAnalysisService {
   /**
    * ⚠️ Identify risk factors
    */
-  async identifyRiskFactors(analysis: OCDAnalysis): Promise<RiskFactor[]> {
-    return this.identifyAndAnalyzeRiskFactors(analysis);
-  }
+  // Public API already covered by other methods; duplicate removed
 
   /**
    * 🌍 Adapt for Turkish culture

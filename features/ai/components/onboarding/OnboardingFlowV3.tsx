@@ -758,7 +758,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 color={Colors.primary.green} 
               />
             </View>
-            <Text style={styles.title}>ObsessLess'e Hoş Geldiniz</Text>
+            <Text style={styles.title}>ObsessLess’e Hoş Geldiniz</Text>
             <Text style={styles.subtitle}>
               OKB yolculuğunuzda yanınızdayız
             </Text>

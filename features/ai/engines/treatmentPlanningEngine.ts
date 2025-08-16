@@ -314,20 +314,9 @@ class AdaptiveTreatmentPlanningEngine {
   getClinicalGuidelines(): any {
     return this.clinicalGuidelines || {};
   }
-  private static instance: AdaptiveTreatmentPlanningEngine;
-  private isInitialized: boolean = false;
   private activePlans: Map<string, TreatmentPlan> = new Map();
   private planTemplates: Map<string, any> = new Map();
   private progressTracking: Map<string, any> = new Map();
-  
-  private constructor() {}
-
-  static getInstance(): AdaptiveTreatmentPlanningEngine {
-    if (!AdaptiveTreatmentPlanningEngine.instance) {
-      AdaptiveTreatmentPlanningEngine.instance = new AdaptiveTreatmentPlanningEngine();
-    }
-    return AdaptiveTreatmentPlanningEngine.instance;
-  }
 
   // =============================================================================
   // 🚀 INITIALIZATION & SETUP

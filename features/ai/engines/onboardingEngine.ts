@@ -175,33 +175,7 @@ class ModernOnboardingEngine {
   // 🚀 MAIN PUBLIC INTERFACE METHODS
   // =============================================================================
 
-  /**
-   * 🚀 Initialize the Onboarding Engine
-   */
-  async initialize(): Promise<void> {
-    if (this.isInitialized) {
-      console.log('🧭 Onboarding Engine already initialized');
-      return;
-    }
-
-    console.log('🧭 Onboarding Engine v2.0: Initializing...');
-    
-    try {
-      // Initialize AI services
-      await this.initializeAIServices();
-      
-      this.isInitialized = true;
-      console.log('✅ Onboarding Engine v2.0 initialized successfully');
-      
-      await trackAIInteraction(AIEventType.ONBOARDING_ENGINE_INITIALIZED, {
-        timestamp: Date.now(),
-        version: '2.0'
-      });
-    } catch (error) {
-      console.error('❌ Onboarding Engine v2.0 initialization failed:', error);
-      throw error;
-    }
-  }
+  // initialize() aşağıda tekil olarak tanımlıdır (duplicate kaldırıldı)
 
   /**
    * 🎯 Initialize new onboarding session
