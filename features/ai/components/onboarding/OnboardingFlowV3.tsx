@@ -639,18 +639,18 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           accessibilityNeeds: [],
           treatmentHistory: ocdHistory.previousTreatment ? {
             previousTreatments: [{
-              type: 'therapy' as any,
+              type: 'therapy',
               startDate: new Date(),
               endDate: new Date(),
-              outcome: 'partial_improvement' as any,
+              outcome: 'partial_improvement',
               notes: 'User indicated previous treatment experience'
             }],
             currentMedications: ocdHistory.medication ? ['ssri'] : [],
-            treatmentResponse: 'moderate' as any
+            treatmentResponse: 'moderate'
           } : {
             previousTreatments: [],
             currentMedications: ocdHistory.medication ? ['ssri'] : [],
-            treatmentResponse: 'unknown' as any
+            treatmentResponse: 'unknown'
           }
         };
         
@@ -676,9 +676,19 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         };
         
         // Generate real AI treatment plan
+        const minimalYbocs: any = {
+          totalScore: ybocsScore,
+          subscores: { obsessions: Math.floor(ybocsScore / 2), compulsions: Math.ceil(ybocsScore / 2) },
+          severityLevel: ybocsScore > 31 ? 'extreme' : ybocsScore > 23 ? 'severe' : ybocsScore > 15 ? 'moderate' : ybocsScore > 7 ? 'mild' : 'minimal',
+          dominantSymptoms: symptomTypes,
+          riskFactors: [],
+          confidence: 0.6,
+          culturalConsiderations: [],
+          recommendedInterventions: []
+        };
         treatmentPlan = await adaptiveTreatmentPlanningEngine.generateInitialPlan(
           therapeuticProfile as any,
-          { totalScore: ybocsScore, severityLevel: ybocsScore > 25 ? 'severe' : ybocsScore > 15 ? 'moderate' : 'mild' } as any,
+          minimalYbocs,
           riskAssessment as any,
           culturalContext as any
         );
@@ -1154,7 +1164,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       case OnboardingStep.PROFILE_SYMPTOMS:
         // Kanonik ikonlar - tüm gridlerde standart
-        const iconName = (id: string) => getCanonicalCategoryIconName(id as any);
+        const iconName = (id: string) => getCanonicalCategoryIconName(id);
         const fallbackLabelMap: Record<string, string> = {
           contamination: 'Bulaşma/Temizlik',
           checking: 'Kontrol Etme',
@@ -1199,7 +1209,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                   }}
                 >
                   <MaterialCommunityIcons 
-                    name={symptom.icon as any} 
+                    name={symptom.icon as React.ComponentProps<typeof MaterialCommunityIcons>['name']} 
                     size={20} 
                     color={getCanonicalCategoryColor(symptom.id)} 
                     style={{ marginRight: 8 }}
