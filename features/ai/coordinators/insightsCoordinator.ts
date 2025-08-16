@@ -166,7 +166,7 @@ class InsightsCoordinator {
     this.defaultConfig = {
       enablePatternAnalysis: true,
       enableInsightGeneration: true,
-      enableProgressTracking: true,
+      enableProgressTracking: false,
       enableNotificationScheduling: true,
       enableAIEnhancement: true,
       parallelExecution: true,
@@ -306,10 +306,13 @@ class InsightsCoordinator {
         };
       }
 
-      // Check for existing execution
+      // Check for existing execution - queue new requests for the same user
       if (this.activeExecutions.has(context.userId)) {
-        console.log('⏳ Workflow already in progress for user:', context.userId);
-        return await this.activeExecutions.get(context.userId)!;
+        console.log('⏳ Workflow already in progress for user, queuing request:', context.userId);
+        const previous = this.activeExecutions.get(context.userId)!;
+        const chained = previous.finally(() => this.executeWorkflow(context, workflowConfig, executionId, startTime));
+        this.activeExecutions.set(context.userId, chained);
+        return await chained;
       }
 
       // Start workflow execution

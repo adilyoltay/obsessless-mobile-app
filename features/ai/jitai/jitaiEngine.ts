@@ -639,7 +639,9 @@ class JITAIEngine {
     model: TimingModel,
     predictionId: string
   ): Promise<TimingPredictionResult> {
-    
+    // Guard: normalize context to ensure currentContext.userState exists
+    const normalizedContext = this.normalizeContext((context as any) ?? ({} as any));
+
     const baseTime = new Date();
     let recommendedTime: Date;
     let confidence: number;
@@ -647,35 +649,35 @@ class JITAIEngine {
 
     switch (model) {
       case TimingModel.CIRCADIAN:
-        ({ recommendedTime, confidence, rationale } = this.circadianTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.circadianTimingPrediction(normalizedContext));
         break;
       case TimingModel.BEHAVIORAL:
-        ({ recommendedTime, confidence, rationale } = this.behavioralTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.behavioralTimingPrediction(normalizedContext));
         break;
       case TimingModel.CONTEXTUAL:
-        ({ recommendedTime, confidence, rationale } = this.contextualTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.contextualTimingPrediction(normalizedContext));
         break;
       case TimingModel.STRESS_BASED:
-        ({ recommendedTime, confidence, rationale } = this.stressBasedTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.stressBasedTimingPrediction(normalizedContext));
         break;
       case TimingModel.HYBRID:
-        ({ recommendedTime, confidence, rationale } = this.hybridTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.hybridTimingPrediction(normalizedContext));
         break;
       case TimingModel.MACHINE_LEARNING:
-        ({ recommendedTime, confidence, rationale } = await this.mlTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = await this.mlTimingPrediction(normalizedContext));
         break;
       default:
-        ({ recommendedTime, confidence, rationale } = this.defaultTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.defaultTimingPrediction(normalizedContext));
     }
 
     // Generate effectiveness prediction
-    const effectivenessPrediction = this.predictInterventionEffectiveness(context, recommendedTime);
+    const effectivenessPrediction = this.predictInterventionEffectiveness(normalizedContext, recommendedTime);
     
     // Generate alternative times
-    const alternativeTimes = this.generateAlternativeTimes(context, recommendedTime);
+    const alternativeTimes = this.generateAlternativeTimes(normalizedContext, recommendedTime);
 
     const result: TimingPredictionResult = {
-      userId: context.userId,
+      userId: normalizedContext.userId,
       predictionId,
       timestamp: new Date(),
       
@@ -689,16 +691,16 @@ class JITAIEngine {
       effectivenessPrediction,
       
       contextualFactors: {
-        currentStressLevel: context.currentContext.userState.stressLevel,
-        activityState: context.currentContext.userState.activityState,
+        currentStressLevel: normalizedContext.currentContext.userState.stressLevel,
+        activityState: normalizedContext.currentContext.userState.activityState,
         timeOfDay: new Date().getHours(),
-        recentInterventionCount: this.getRecentInterventionCount(context),
-        historicalSuccessRate: this.calculateHistoricalSuccessRate(context)
+        recentInterventionCount: this.getRecentInterventionCount(normalizedContext),
+        historicalSuccessRate: this.calculateHistoricalSuccessRate(normalizedContext)
       },
       
       modelUsed: model,
       modelVersion: '1.0',
-      predictionQuality: this.calculatePredictionQuality(context, confidence)
+      predictionQuality: this.calculatePredictionQuality(normalizedContext, confidence)
     };
 
     return result;

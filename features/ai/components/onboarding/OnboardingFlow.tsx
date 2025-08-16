@@ -159,7 +159,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       let session: OnboardingSession;
       
       if (resumeSession) {
-        const savedSession = await AsyncStorage.getItem(`onboarding_session_${userId}`);
+        const savedSession = await AsyncStorage.getItem(`onboarding_session_${userId || 'anon'}`);
         if (savedSession) {
           session = JSON.parse(savedSession);
           console.log('📱 Onboarding session resumed:', session.sessionId);

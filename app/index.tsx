@@ -64,7 +64,7 @@ export default function Index() {
 
            if (!isCompleted) {
             // Local fallback
-            const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+            const aiOnboardingKey = `ai_onboarding_completed_${user.id || 'anon'}`;
             const localCompleted = await AsyncStorage.getItem(aiOnboardingKey);
             isCompleted = localCompleted === 'true';
             if (__DEV__) {

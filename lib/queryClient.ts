@@ -17,21 +17,33 @@ export const queryClient = new QueryClient({
 export const storage = {
   setItem: async (key: string, value: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      console.warn('AsyncStorage: Invalid key provided:', key, new Error('stack').stack);
+      const err = new Error('AsyncStorage: Invalid key provided');
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        throw err;
+      }
+      console.warn('AsyncStorage: Invalid key provided:', key, err.stack);
       return;
     }
     await AsyncStorage.setItem(key, value);
   },
   getItem: async (key: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      console.warn('AsyncStorage: Invalid key provided:', key, new Error('stack').stack);
+      const err = new Error('AsyncStorage: Invalid key provided');
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        throw err;
+      }
+      console.warn('AsyncStorage: Invalid key provided:', key, err.stack);
       return null;
     }
     return await AsyncStorage.getItem(key);
   },
   removeItem: async (key: string) => {
     if (!key || typeof key !== 'string' || key.trim().length === 0) {
-      console.warn('AsyncStorage: Invalid key provided:', key, new Error('stack').stack);
+      const err = new Error('AsyncStorage: Invalid key provided');
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        throw err;
+      }
+      console.warn('AsyncStorage: Invalid key provided:', key, err.stack);
       return;
     }
     await AsyncStorage.removeItem(key);

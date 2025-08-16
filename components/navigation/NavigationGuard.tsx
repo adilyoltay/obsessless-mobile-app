@@ -103,7 +103,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             // AI Onboarding v2 status (Sprint 7)
             try {
-              const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+              const aiOnboardingKey = `ai_onboarding_completed_${user.id || 'anon'}`;
               const aiOnboarding = await AsyncStorage.getItem(aiOnboardingKey);
               aiOnboardingCompleted = aiOnboarding === 'true';
               if (aiOnboardingCompleted) {
