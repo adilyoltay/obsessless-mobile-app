@@ -28,6 +28,12 @@ function ScreenLayout({
     { backgroundColor }
   ];
 
+  // RN sıkı metin kuralı: View/ScrollView içinde düz string çocuklar hata verir.
+  // Özellikle JSX'teki boşluk/newline'lar string node olarak gelebilir; filtreleyelim.
+  const normalizedChildren = React.Children.toArray(children).filter(
+    (node) => typeof node !== 'string' && typeof node !== 'number'
+  );
+
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
       <SafeModeBanner />
@@ -47,11 +53,11 @@ function ScreenLayout({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {children}
+          {normalizedChildren}
         </ScrollView>
       ) : (
         <View style={styles.content}>
-          {children}
+          {normalizedChildren}
         </View>
       )}
     </SafeAreaView>

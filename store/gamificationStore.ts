@@ -157,6 +157,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+15 ✨ Dürtüye direndi!',
     trigger: 'urge_resistance'
   },
+  voice_mood_checkin: {
+    points: 1,
+    message: '+1 ✨ Mood Check‑in',
+    trigger: 'voice_mood_checkin'
+  },
 };
 
 interface GamificationState {

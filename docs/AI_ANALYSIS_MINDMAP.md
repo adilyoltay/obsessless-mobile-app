@@ -35,9 +35,9 @@
 - **Pattern Correlations**: Desenler arası ilişkiler (sadece AI-assisted)
 - **Pattern Insights**: Desen bazlı içgörüler (minimal)
 
-## 📈 Progress Analytics (Removed)
+## 📈 Progress Analytics (Sınırlı)
 
-Tamamen kaldırıldı; coordinator ve runtime işlem yok.
+Bağımsız bir servis olarak bulunmuyor; Insights Engine v2 kapsamında 7/30/90 günlük trend göstergeleri ve temel pattern özetleri üretilir. Kapsamlı ML tahminleme ve otomatik hedef optimizasyonu yok.
 
 ## 💡 Insights Engine v2 (İçgörü Üretimi) - **SIMPLIFIED**
 
@@ -280,9 +280,9 @@ Legacy categories removed from runtime and codebase:
    - 📚 **ERP Recommendations**: Kişiselleştirilmiş egzersiz önerileri
 
 4. **Removed/Disabled Components**:
-   - ❌ **Crisis Detection**: Runtime’dan kaldırıldı (flag daima false)
-   - ❌ **Progress Analytics**: Runtime’dan kaldırıldı (arayüz tipleri korunuyor)
-   - 🔒 **Art Therapy**: Feature flag ile koşullu (varsayılan: off)
+    - ❌ **Crisis Detection**: Runtime’dan kaldırıldı (flag daima false)
+    - ⚠️ **Progress Analytics**: Bağımsız servis yok; sınırlı kapsam Insights v2 içinde
+    - 🔒 **Art Therapy**: Feature flag ile koşullu (varsayılan: off)
 
 ## 🔐 Güvenlik ve Gizlilik
 

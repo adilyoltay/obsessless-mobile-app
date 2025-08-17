@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button, TextInput } from 'react-native-paper';
-import Slider from '@react-native-community/slider';
+import { View, StyleSheet, Text, TextInput } from 'react-native';
+import ScreenLayout, { ScreenHeader } from '@/components/layout/ScreenLayout';
+import { Card } from '@/components/ui/Card';
+import { Slider } from '@/components/ui/Slider';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import moodTracker from '@/services/moodTrackingService';
 
@@ -30,27 +32,106 @@ export default function MoodsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Card>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.title}>Duygu Takibi</Text>
-          <Text>Mod: {mood}</Text>
-          <Slider minimumValue={1} maximumValue={10} step={1} value={mood} onValueChange={setMood} />
-          <Text>Enerji: {energy}</Text>
-          <Slider minimumValue={1} maximumValue={10} step={1} value={energy} onValueChange={setEnergy} />
-          <Text>Anksiyete: {anxiety}</Text>
-          <Slider minimumValue={1} maximumValue={10} step={1} value={anxiety} onValueChange={setAnxiety} />
-          <TextInput label="Notlar" value={notes} onChangeText={setNotes} style={{ marginTop: 8 }} />
-          <Button mode="contained" onPress={onSave} loading={saving} style={{ marginTop: 12 }}>Kaydet</Button>
-        </Card.Content>
-      </Card>
-    </View>
+    <ScreenLayout>
+      <View style={styles.container}>
+        <ScreenHeader title="Duygu Takibi" subtitle="Nazik, hızlı ve sezgisel kayıt" />
+
+        <Card variant="outlined" style={styles.card}>
+          <View accessible accessibilityLabel="Mod seviyesi" style={styles.section}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Mod</Text>
+              <Text style={styles.value}>{mood}</Text>
+            </View>
+            <Slider
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              value={mood}
+              onValueChange={setMood}
+              style={styles.slider}
+              minimumTrackTintColor="#10B981"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#10B981"
+            />
+          </View>
+
+          <View accessible accessibilityLabel="Enerji seviyesi" style={styles.section}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Enerji</Text>
+              <Text style={styles.value}>{energy}</Text>
+            </View>
+            <Slider
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              value={energy}
+              onValueChange={setEnergy}
+              style={styles.slider}
+              minimumTrackTintColor="#10B981"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#10B981"
+            />
+          </View>
+
+          <View accessible accessibilityLabel="Anksiyete seviyesi" style={styles.section}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Anksiyete</Text>
+              <Text style={styles.value}>{anxiety}</Text>
+            </View>
+            <Slider
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              value={anxiety}
+              onValueChange={setAnxiety}
+              style={styles.slider}
+              minimumTrackTintColor="#10B981"
+              maximumTrackTintColor="#E5E7EB"
+              thumbTintColor="#10B981"
+            />
+            <Text style={styles.hint}>İpucu: Değerler 1 (düşük) → 10 (yüksek) arasındadır.</Text>
+          </View>
+
+          <View style={styles.notesBox} accessibilityLabel="Notlar alanı">
+            <Text style={styles.notesLabel}>Notlar</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Bugünün kısa notu..."
+              placeholderTextColor="#9CA3AF"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+            />
+          </View>
+
+          <Button
+            variant="primary"
+            onPress={onSave}
+            loading={saving}
+            accessibilityLabel="Kaydet"
+            style={styles.saveButton}
+          >
+            Kaydet
+          </Button>
+        </Card>
+      </View>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#F9FAFB' },
-  title: { marginBottom: 12 },
+  container: { flex: 1 },
+  card: { marginTop: 8 },
+  section: { marginTop: 12 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  value: { fontSize: 18, fontWeight: '700', color: '#10B981' },
+  slider: { marginTop: 4 },
+  hint: { fontSize: 12, color: '#94A3B8', marginTop: 6 },
+  notesBox: { marginTop: 16 },
+  notesLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  input: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, minHeight: 70, textAlignVertical: 'top', backgroundColor: '#FFFFFF' },
+  saveButton: { marginTop: 16 },
 });
 
 

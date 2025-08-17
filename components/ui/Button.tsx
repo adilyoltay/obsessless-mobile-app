@@ -53,15 +53,19 @@ export function Button({
     }
   };
 
-  const buttonContent = (
-    <View style={styles.contentRow}>
-      {!loading && leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
-      {loading ? (
+  const renderChildrenContent = (): React.ReactNode => {
+    if (loading) {
+      return (
         <ActivityIndicator
           color={variant === 'primary' ? '#FFFFFF' : '#10B981'}
           size="small"
         />
-      ) : typeof children === 'string' || typeof title === 'string' ? (
+      );
+    }
+
+    // Title overrides
+    if (typeof title === 'string' && title.length > 0) {
+      return (
         <Text
           style={[
             styles.buttonText,
@@ -69,12 +73,58 @@ export function Button({
             textStyle,
           ]}
         >
-          {title || (children as string)}
+          {title}
         </Text>
-      ) : (
-        // children doğrudan render edilir (mixed content)
-        <View style={styles.childrenWrapper}>{children}</View>
-      )}
+      );
+    }
+
+    // Pure string/number children
+    if (typeof children === 'string' || typeof children === 'number') {
+      return (
+        <Text
+          style={[
+            styles.buttonText,
+            variant === 'primary' ? styles.primaryText : variant === 'outline' ? styles.outlineText : styles.secondaryText,
+            textStyle,
+          ]}
+        >
+          {children as any}
+        </Text>
+      );
+    }
+
+    // Array / Fragment children: wrap stray text nodes into <Text>
+    if (Array.isArray(children)) {
+      return (
+        <View style={styles.childrenWrapper}>
+          {children.map((child, idx) =>
+            typeof child === 'string' || typeof child === 'number' ? (
+              <Text
+                key={`btn-txt-${idx}`}
+                style={[
+                  styles.buttonText,
+                  variant === 'primary' ? styles.primaryText : variant === 'outline' ? styles.outlineText : styles.secondaryText,
+                  textStyle,
+                ]}
+              >
+                {child as any}
+              </Text>
+            ) : (
+              child
+            )
+          )}
+        </View>
+      );
+    }
+
+    // Fallback render (custom node)
+    return <View style={styles.childrenWrapper}>{children}</View>;
+  };
+
+  const buttonContent = (
+    <View style={styles.contentRow}>
+      {!loading && leftIcon ? <View style={styles.iconLeft}>{leftIcon}</View> : null}
+      {renderChildrenContent()}
       {!loading && rightIcon ? <View style={styles.iconRight}>{rightIcon}</View> : null}
     </View>
   );

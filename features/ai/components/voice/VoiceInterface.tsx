@@ -37,6 +37,10 @@ interface VoiceInterfaceProps {
   disabled?: boolean;
   style?: any;
   onStartListening?: () => void;
+  autoStart?: boolean; // Yeni: render edilince otomatik başlat
+  enableCountdown?: boolean; // Opsiyonel: başlatmadan önce 3-1 geri sayım
+  showStopButton?: boolean; // Opsiyonel: ayrı durdur butonu göster
+  showHints?: boolean; // Opsiyonel: alt ipucu metinleri
 }
 
 export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
@@ -44,7 +48,11 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   onError,
   disabled = false,
   style,
-  onStartListening
+  onStartListening,
+  autoStart = false,
+  enableCountdown = false,
+  showStopButton = false,
+  showHints = true,
 }) => {
   const { user } = useAuth();
   const [state, setState] = useState<VoiceRecognitionState>(VoiceRecognitionState.IDLE);
@@ -58,6 +66,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const waveAnim2 = useRef(new Animated.Value(0)).current;
   const waveAnim3 = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Geri sayım ve kalp atışı animasyonu
+  const countdownAnim = useRef(new Animated.Value(1)).current;
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   // Feature flag kontrolü (hooks her zaman çağrılır; render safhasında koşullandırılır)
   const isVoiceEnabled = FEATURE_FLAGS.isEnabled('AI_VOICE');
@@ -98,10 +109,12 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       onError?.(err);
     });
 
-    // Accessibility announcement
-    AccessibilityInfo.announceForAccessibility(
-      'Sesli asistan hazır. Konuşmak için mikrofon butonuna basın.'
-    );
+    // Accessibility announcement (autoStart ise göstermeyelim)
+    if (!autoStart) {
+      AccessibilityInfo.announceForAccessibility(
+        'Sesli asistan hazır. Konuşmak için mikrofon butonuna basın.'
+      );
+    }
 
     return () => {
       // Cleanup
@@ -110,6 +123,17 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       }
     };
   }, [isVoiceEnabled]);
+
+  // Auto-start dinleme
+  useEffect(() => {
+    if (!isVoiceEnabled) return;
+    if (autoStart && !isListening) {
+      const id = setTimeout(() => {
+        handleStartListening();
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [autoStart, isVoiceEnabled]);
 
   useEffect(() => {
     // Listening animasyonları
@@ -199,6 +223,23 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     try {
       const ok = await ensureSTTConsent();
       if (!ok) return;
+
+      if (enableCountdown) {
+        // 3→1 geri sayım (kalp atışı)
+        setCountdown(3);
+        for (let i = 3; i >= 1; i--) {
+          setCountdown(i);
+          await new Promise((r) => setTimeout(r, 250));
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await new Promise<void>((resolve) => {
+            Animated.sequence([
+              Animated.timing(countdownAnim, { toValue: 1.2, duration: 120, useNativeDriver: true }),
+              Animated.timing(countdownAnim, { toValue: 1.0, duration: 120, useNativeDriver: true })
+            ]).start(() => resolve());
+          });
+        }
+        setCountdown(null);
+      }
 
       setError(null);
       setTranscription('');
@@ -417,12 +458,24 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             />
           </Animated.View>
         </Pressable>
+
+        {/* Geri sayım overlay */}
+        {enableCountdown && countdown !== null && (
+          <Animated.View style={[styles.countdownOverlay, { transform: [{ scale: countdownAnim }] }]}> 
+            <Text style={styles.countdownText}>{countdown}</Text>
+          </Animated.View>
+        )}
       </View>
 
-      {/* Durum metni */}
+      {/* Durum metni ve Durdur butonu */}
       <Text style={[styles.stateText, { color: getStateColor() }]}>
         {getStateText()}
       </Text>
+      {showStopButton && isListening && (
+        <Button variant="secondary" onPress={handleStopListening} accessibilityLabel="Durdur" style={styles.stopButton}>
+          Durdur
+        </Button>
+      )}
 
       {/* Transkripsiyon sonucu */}
       {transcription && (
@@ -434,8 +487,8 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         </Animated.View>
       )}
 
-      {/* İpuçları */}
-      {state === VoiceRecognitionState.IDLE && !transcription && (
+      {/* İpuçları (opsiyonel) */}
+      {showHints && state === VoiceRecognitionState.IDLE && !transcription && (
         <View style={styles.hintsContainer}>
           <Text style={styles.hintTitle}>Sesli komutlar:</Text>
           <View style={styles.hintsList}>
@@ -519,6 +572,21 @@ const styles = StyleSheet.create({
   transcriptionContainer: {
     width: '100%',
     marginTop: 20,
+  },
+  countdownOverlay: {
+    position: 'absolute',
+    top: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownText: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
+  stopButton: {
+    marginTop: -8,
+    marginBottom: 8,
   },
   transcriptionCard: {
     padding: 16,

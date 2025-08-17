@@ -7,12 +7,13 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 - CBT Thought Record
 - Breathwork
 - ERP Önerileri / ERP Oturum Akışı
-- Insights v2 (Progress Tracking Insights; bağımsız Progress Analytics servisi yok)
+- Insights v2 (Progress Tracking Insights; Progress Analytics sınırlı kapsam)
+- Progress Analytics (sınırlı): 7/30/90 trend + temel pattern
 - Telemetry (privacy-first)
 
 ## Hariç
 - AI Chat (yok)
-- Crisis Detection (kaldırıldı)
+- Crisis Detection (kaldırıldı; arka plan izleme yok)
 
 ## Referans Kontrol Listeleri
 - archive/AI_TEST_CHECKLIST.md

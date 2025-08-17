@@ -7,7 +7,7 @@ import ThoughtRecordForm from '@/components/forms/ThoughtRecordForm';
 export default function ThoughtRecordPage() {
   return (
     <ScreenLayout>
-      <Stack.Screen options={{ title: 'CBT Thought Record' }} />
+      <Stack.Screen options={{ title: 'Düşünce Kaydı' }} />
       <View style={styles.container}>
         <ThoughtRecordForm />
       </View>

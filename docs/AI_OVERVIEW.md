@@ -3,8 +3,8 @@
 Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
 ## Modül Özeti
-- Insights v2: CBT + AI; Data Aggregation çıktıları (peakAnxietyTimes, commonTriggers, erpCompletionRate) ile öncelik/zamanlama ayarı yapar; Progress Analytics kaldırıldı; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED (kriz kategorileri kaldırıldı)
-- Progress Analytics: kaldırıldı (bağımsız servis ve entegrasyon yok)
+- Insights v2: CBT + AI; Data Aggregation çıktıları (peakAnxietyTimes, commonTriggers, erpCompletionRate) ile öncelik/zamanlama ayarı yapar; 60 sn cooldown; telemetry: INSIGHTS_REQUESTED/DELIVERED/INSIGHTS_MISSING_REQUIRED_FIELDS/INSIGHTS_RATE_LIMITED/INSIGHTS_CACHE_HIT/INSIGHTS_CACHE_MISS/NO_INSIGHTS_GENERATED (kriz kategorileri kaldırıldı)
+- Progress Analytics: Aktif (sınırlı kapsam) — 7/30/90 günlük trend göstergeleri ve temel pattern özetleri; kapsamlı ML tahminleme ve otomatik hedef optimizasyonu yok
 - JITAI (temel): Zaman/bağlam tetikleyicileri (kriz yok); telemetry: JITAI_INITIALIZED, JITAI_TRIGGER_FIRED
 - Pattern Recognition v2: AI-assisted basitleştirilmiş akış
 - Voice Mood Check‑in: STT, PII maskeleme, rota önerisi; telemetry: CHECKIN_STARTED/ROUTE_SUGGESTED/COMPLETED, STT_FAILED
@@ -20,7 +20,7 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 
 ## Gemini Entegrasyonu
 - Env: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
-- Sağlayıcı: Gemini-only (fallback: local/heuristic)
+- Sağlayıcı: Gemini-only
 - Performans ölçümü: AI_RESPONSE_GENERATED, AI_PROVIDER_HEALTH_CHECK/FAILED
 
 ## Telemetry Olayları (Seçki)

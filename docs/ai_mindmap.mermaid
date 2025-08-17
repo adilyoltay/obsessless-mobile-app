@@ -26,12 +26,12 @@ graph TB
         subgraph "Insights Engine - 3 Sources"
             INSIGHTS_ENGINE --> CBT_INSIGHTS["CBT<br/>Analysis"]
             INSIGHTS_ENGINE --> AI_DEEP["AI Deep<br/>Analysis"]
-            INSIGHTS_ENGINE --> PROGRESS_INSIGHTS["Progress<br/>Insights"]
+            INSIGHTS_ENGINE --> PROGRESS_INSIGHTS["Progress<br/>Insights (Limited)"]
         end
         
         subgraph "✅ Removed/Adjusted Components"
             CRISIS_REMOVED["❌ Crisis Detection<br/>Removed from Runtime"]
-            PROGRESS_REMOVED["❌ Progress Analytics<br/>Removed from Runtime"]
+            PROGRESS_LIMITED["⚠️ Progress Analytics<br/>Limited Scope (No standalone service)"]
         end
         
         subgraph "🔄 Active Components"
@@ -88,7 +88,7 @@ graph TB
         end
         
         subgraph "🚀 Status Summary"
-            STATUS["❌ AI Chat: DISABLED<br/>✅ Services: All Initialize<br/>❌ Crisis: REMOVED<br/>❌ Progress Analytics: REMOVED<br/>✅ Feature Flags: Corrected<br/>🔒 Art Therapy: Disabled<br/>⚠️ API Keys: Need Real Values"]
+            STATUS["❌ AI Chat: DISABLED<br/>✅ Services: All Initialize<br/>❌ Crisis: REMOVED<br/>⚠️ Progress Analytics: LIMITED<br/>✅ Feature Flags: Corrected<br/>🔒 Art Therapy: Disabled<br/>⚠️ API Keys: Need Real Values"]
         end
     end
     
@@ -99,4 +99,4 @@ graph TB
     style CRISIS_REMOVED fill:#EF4444,stroke:#B91C1C,color:#fff
     style ART_THERAPY fill:#EC4899,stroke:#DB2777,color:#fff,stroke-dasharray: 5 5
     style STATUS fill:#3B82F6,stroke:#1D4ED8,color:#fff
-    style PROGRESS_REMOVED fill:#EF4444,stroke:#B91C1C,color:#fff
+    style PROGRESS_LIMITED fill:#F59E0B,stroke:#D97706,color:#fff

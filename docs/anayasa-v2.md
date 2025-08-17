@@ -140,10 +140,10 @@ Kısa not: Bu sütun mimariden kaldırılmıştır; background izleme ve kriz pr
 >
 > **Görev:** Yukarıdaki **"ObsessLess AI-Enhanced Anayasa 2.0"** belgesini ve bağlı dokümanları referans alarak;
 >
-> 1.  **AI Entegrasyonu:** Belirtilen **7 AI Yeteneğinin** her birini, Gemini 2.5 Pro ve fallback sistemleriyle entegre et. Feature flags, telemetry ve cultural adaptation sistemlerini kur.
+> 1.  **AI Entegrasyonu:** Belirtilen **7 AI Yeteneğinin** her birini, Gemini 2.5 Pro (Gemini-only) ile entegre et. Feature flags, telemetry ve cultural adaptation sistemlerini kur.
 > 2.  **Tasarla (UI/UX):** AI özelliklerinin kullanıcı arayüzlerini, sakinlik ve zahmetsizlik ilkelerine sadık kalarak tasarla. AI yanıtları için loading states, error handling ve graceful degradation ekle.
 > 3.  **Geliştir (Kod):** React Native/Expo, Zustand, TanStack Query ve AI Context Provider kullanarak tüm özellikleri implement et. Offline-first yaklaşımı benimse, AsyncStorage ile Supabase senkronizasyonunu kur.
-> 4.  **Optimize Et:** AI yanıt sürelerini < 3 saniye, memory kullanımını < 150MB, battery impact'i < %5 tut. Background monitoring ve emergency response sistemlerini test et.
+> 4.  **Optimize Et:** AI yanıt sürelerini < 3 saniye, memory kullanımını < 150MB, battery impact'i < %5 tut. Crisis Detection kaldırıldığı için arka plan izleme yoktur; kritik akışları test et.
 
 ---
 
@@ -176,11 +176,8 @@ Kısa not: Bu sütun mimariden kaldırılmıştır; background izleme ve kriz pr
 #### **4. 📊 Progress Analytics**
 - **Trend Analysis:** 7/30/90 günlük trend analizleri
 - **Pattern Recognition:** Tetikleyici pattern tespiti
-- **Predictions:** ML-powered risk tahminleri
-- **Goal Adjustment:** Otomatik hedef ayarlama
+Not: Kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an mevcut değildir.
 
-#### **5. 🚨 Crisis Detection (Removed)**
-- Mimariden kaldırıldı; arka plan izleme yok.
 
 #### **6. 🎨 Art Therapy Engine**
 - **Therapeutic Guidance:** AI rehberliğinde sanat aktiviteleri
@@ -199,7 +196,7 @@ Kısa not: Bu sütun mimariden kaldırılmıştır; background izleme ve kriz pr
 ## 📊 **Teknik Mimari (Güncel - Ocak 2025)**
 
 ### **Teknoloji Yığını:**
-- **Frontend:** React Native 0.74.5 + Expo SDK 53.0.0
+- **Frontend:** React Native 0.74+ + Expo SDK 51
 - **State Management:** Zustand (Global) + React Query (Server State)
 - **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions)
 - **Primary Data Storage:** 
@@ -248,7 +245,7 @@ Bu dokümanda veritabanı şeması tutulmaz; şema ve migration’lar `database/
 ### **Güncel AI Entegrasyonları (✅ Tamamlandı):**
 1. **AI Onboarding V2:** Y-BOCS + Profil + Tedavi Planı (safety plan bilgilendirici)
 2. **Adaptive Interventions:** Location/Time/Activity aware
-3. **Progress Analytics:** ML predictions + Pattern recognition
+3. **Progress Analytics:** Trend analizleri + Pattern recognition (ML predictions yok)
 4. **Art Therapy:** Therapeutic guidance + Cultural motifs (flag ile kontrol)
 5. **Feature Flags:** Master toggle + Granular controls
 6. **Telemetry:** Event tracking + Performance metrics (privacy-first)

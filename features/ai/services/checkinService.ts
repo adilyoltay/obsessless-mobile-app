@@ -57,11 +57,12 @@ export function simpleNLU(text: string): NLUResult {
     }
   });
   // Rough mood heuristic based on valence words
-  const negWords = ['korku','kaygı','endişe','zor','kötü','panic','anxious','worse','bad'];
-  const posWords = ['iyi','rahat','sakin','başardım','good','calm','ok'];
+  // Kelime haznesi genişletildi (TR/EN karışık, düşük etkili bağlaçlar hariç)
+  const negWords = ['korku','kaygı','anksiyete','endişe','gergin','zor','kötü','berbat','panik','bunalmış','yorgun','üzgün','mutsuz','boğucu','anxious','anxiety','panic','worse','bad','tired','sad','overwhelmed'];
+  const posWords = ['iyi','rahat','sakin','başardım','ferah','umutlu','mutlu','huzurlu','güçlü','denge','toparladım','iyi hissediyorum','good','calm','ok','better','fine','relaxed','hopeful','grateful','proud'];
   const neg = negWords.filter(w => lower.includes(w)).length;
   const pos = posWords.filter(w => lower.includes(w)).length;
-  let mood = Math.max(0, Math.min(100, 60 + (pos - neg) * 15));
+  let mood = Math.max(0, Math.min(100, 60 + (pos - neg) * 12));
   const confidence = Math.max(0.3, Math.min(1, 0.4 + triggerHits * 0.2));
   return { mood, trigger, confidence, lang };
 }

@@ -8,7 +8,7 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Zahmetsizlik: Minimum tıklama, sezgisel akışlar, akıllı varsayılanlar, büyük dokunma alanları
 
 ## 🎨 Tasarım Sistemi
-- Renkler: Primary #10B981, Light #F0FDF4, Text #1F2937, Secondary #6B7280, Border #E5E7EB, Error #EF4444, Warning #F59E0B, Success #059669, Google #4285F4
+- Renkler: Primary #10B981, Light #F0FDF4, Text #374151, Secondary #6B7280, Border #E5E7EB, Error #EF4444, Warning #F59E0B, Success #059669, Google #4285F4
 - Tipografi: Inter (Heading XL 32/700, L 28/700, M 24/600, S 20/600, Body 18/16/14, Caption 12)
 - Tema: Light (default), Dark (gelecek)
 
@@ -104,4 +104,4 @@ flowchart TD
 ## 📚 Notlar
 - Kanonik kategori/egzersiz tipleri uygulama genelinde tek kaynak olarak kullanılır
 - UI metinleri Türkçe ve empatik; erişilebilirlik propları zorunlu
-- AI Chat ve Crisis Detection bu kılavuz kapsamı dışında
+

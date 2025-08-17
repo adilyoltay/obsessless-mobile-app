@@ -15,7 +15,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
  - AI Katmanı (features/ai)
    - aiManager (özellik başlatma/flag/sağlık kontrol; 3 aşamalı başlatma: 1) kritik bağımsız servisler, 2) bağımlı servisler, 3) koordinatörler)
    - Telemetry (gizlilik-öncelikli izleme; standartlaştırılmış `AIEventType`)
-   - Insights v2 (CBT ve AI-Deep; Data Aggregation ile öncelik/zamanlama ayarı; Progress Analytics kaldırıldı; kriz önleme içgörüleri kaldırıldı)
+   - Insights v2 (CBT ve AI-Deep; Data Aggregation ile öncelik/zamanlama ayarı; Progress Analytics bağımsız servis olarak yok, sınırlı kapsamda trend + pattern özetleri; kriz önleme içgörüleri kaldırıldı)
    - JITAI (temel zaman/bağlam tetikleyicileri)
    - Pattern Recognition v2 (yalnızca AI-assisted)
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
@@ -29,7 +29,7 @@ Güncel yönlendirme:
 - NavigationGuard ve `app/index.tsx` onboarding kontrolleri bu rotaya yönlendirir.
   
 Notlar:
- - Progress Analytics tamamen kaldırıldı; bağımsız servis ve entegrasyon yok.
+ - Progress Analytics bağımsız servis olarak bulunmuyor; sınırlı kapsamda (7/30/90 trend + temel pattern) Insights v2 içinde üretilir.
  - Smart Notifications kategorilerinde legacy `CRISIS_INTERVENTION` kaldırıldı; güncel kategoriler sadeleştirildi.
  - Onboarding feature flag (`AI_ONBOARDING_V2`) kaldırıldı; onboarding varsayılan olarak etkin. Legacy storage anahtarları normalize edildi.
  
@@ -51,15 +51,15 @@ Notlar:
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
   - Mood Tracking: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`; history ekranı son 14 günü okur
   - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`
- - Progress Analytics
-  - Tamamen kaldırıldı; coordinator ve servislerde referans yok.
+ - Progress Analytics (sınırlı)
+  - Bağımsız servis yok; coordinator doğrudan çağırmaz. Trend + temel pattern özetleri Insights v2 tarafından üretilir.
 - Test Altyapısı
   - Jest setup: AsyncStorage, `expo/virtual/env`, router, haptics, vector‑icons ve `expo-location` için mocklar eklendi. Stabilizasyon sürecinde coverage eşiği devre dışı.
 
 ## Bağımlılıklar ve Konfigürasyon
-- Expo SDK 53, React Native 0.79.x, TypeScript strict
+- Expo SDK 51, React Native 0.74.x, TypeScript strict
 - Supabase: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY
-- AI Sağlayıcı: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL
+- AI Sağlayıcı: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL (Gemini-only)
 - Feature Flags: `FEATURE_FLAGS.isEnabled(name)` üzerinden kontrol; `AI_ONBOARDING_V2` kaldırıldı
 
 ## Veri Akışı (Örnekler)

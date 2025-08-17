@@ -11,7 +11,7 @@ Bu yol haritası, 2025 için yakın ve orta vadeli hedefleri konsolide eder (Q4 
 
 ## Q1 2026 (Ön-Plan)
 - Voice Check‑in: Daha zengin yönlendirmeler, kısa özetler
-- Progress: Haftalık/aylık raporlar (yerelde üretim, export opsiyonel)
+- Progress: Haftalık/aylık raporlar (sınırlı kapsam — yerelde üretim, export opsiyonel)
 - JITAI: Zaman/pattern tabanlı tetikleyicilerin genişletilmesi
 - ERP: Oturum sonrası mini yansıma (self‑reflection) opsiyonel
 
