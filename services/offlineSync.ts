@@ -52,7 +52,12 @@ export class OfflineSyncService {
 
   private async loadSyncQueue(): Promise<void> {
     try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      let currentUserId = await AsyncStorage.getItem('currentUserId');
+      try {
+        const { default: supabase } = await import('@/services/supabase');
+        const uid = (supabase as any)?.getCurrentUser?.() || (supabase as any)?.currentUser || null;
+        if (uid && typeof uid === 'object' && uid.id) currentUserId = uid.id;
+      } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       const queueData = await AsyncStorage.getItem(queueKey);
       if (queueData) {
@@ -65,7 +70,12 @@ export class OfflineSyncService {
 
   private async saveSyncQueue(): Promise<void> {
     try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      let currentUserId = await AsyncStorage.getItem('currentUserId');
+      try {
+        const { default: supabase } = await import('@/services/supabase');
+        const uid = (supabase as any)?.getCurrentUser?.() || (supabase as any)?.currentUser || null;
+        if (uid && typeof uid === 'object' && uid.id) currentUserId = uid.id;
+      } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
     } catch (error) {

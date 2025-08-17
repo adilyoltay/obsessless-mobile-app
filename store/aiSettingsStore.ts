@@ -140,9 +140,9 @@ export const useAISettingsStore = create<AISettingsState>()(
       },
 
       exportData: () => {
-        const state = get();
+        const { consents, preferences, usage } = get();
         console.log('📤 Exporting AI settings data');
-        return state;
+        return { consents, preferences, usage } as Pick<AISettingsState, 'consents' | 'preferences' | 'usage'>;
       },
 
       clearAllData: () => {

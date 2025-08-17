@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabaseService, UserProfile, SignUpResult, AuthResult } from '@/services/supabase';
+import { registerAuthBridge } from '@/contexts/authBridge';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { migrateToUserSpecificStorage } from '@/utils/storage';
@@ -71,6 +72,14 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     let isMounted = true;
     console.log('🚀 SupabaseAuthProvider initialized');
+
+    // Register bridge so other modules (e.g., onboarding) can update profile in AuthContext safely
+    try {
+      registerAuthBridge({
+        setProfile: (p: UserProfile | null) => setProfile(p),
+        getUserId: () => user?.id ?? null,
+      });
+    } catch {}
 
     const handleUrl = async (url: string) => {
       try {
@@ -233,8 +242,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         console.warn('⚠️ Gamification profile initialization failed, but app can continue');
       }
       
-      // Profile will be set properly during onboarding completion
-      setProfile(null);
+      // Set profile state so dependent screens render correctly
+      setProfile(userProfile ?? null);
       lastProfileLoadRef.current = { userId: user.id, ts: now };
     } catch (error) {
       console.error('❌ Load user profile failed:', error);

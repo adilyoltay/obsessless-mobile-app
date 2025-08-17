@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as Haptics from 'expo-haptics';
+import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import dataStandardizer from '@/utils/dataStandardization';
 import { StorageKeys } from '@/utils/storage';
@@ -187,7 +188,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
     const finalAnxiety = anxietyLevels[anxietyLevels.length - 1] || 5;
     
     const sessionLog = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       exerciseId: exerciseId || 'unknown',
       exerciseName: exerciseName || 'Unknown Exercise',
       category: category || 'general',

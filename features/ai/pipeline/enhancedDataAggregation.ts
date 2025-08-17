@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
+import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
 
 export interface EnhancedUserDataAggregate {
   profile: any;
@@ -38,34 +39,24 @@ class EnhancedAIDataAggregationService {
 
   private async fetchCompulsions(userId: string, days: number): Promise<any[]> {
     try {
-      const maybe = (supabaseService as any)?.getCompulsions;
-      if (typeof maybe === 'function') {
-        return await maybe(userId);
+      const svc: any = supabaseService as any;
+      if (svc && typeof svc.getCompulsions === 'function') {
+        return await svc.getCompulsions.call(svc, userId);
       }
-      // Fallback to module named export
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require('@/services/supabase');
-      const fn = mod.getCompulsions || (mod.default && mod.default.getCompulsions);
-      if (typeof fn === 'function') {
-        return await fn(userId);
-      }
-    } catch {}
+    } catch (e) {
+      try { trackAIInteraction('AI_AGGREGATION_ERROR', { scope: 'fetchCompulsions', error: String(e) } as any); } catch {}
+    }
     return [];
   }
   private async fetchERPSessions(userId: string, days: number): Promise<any[]> {
     try {
-      const maybe = (supabaseService as any)?.getERPSessions;
-      if (typeof maybe === 'function') {
-        return await maybe(userId);
+      const svc: any = supabaseService as any;
+      if (svc && typeof svc.getERPSessions === 'function') {
+        return await svc.getERPSessions.call(svc, userId);
       }
-      // Fallback to module named export
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require('@/services/supabase');
-      const fn = mod.getERPSessions || (mod.default && mod.default.getERPSessions);
-      if (typeof fn === 'function') {
-        return await fn(userId);
-      }
-    } catch {}
+    } catch (e) {
+      try { trackAIInteraction('AI_AGGREGATION_ERROR', { scope: 'fetchERPSessions', error: String(e) } as any); } catch {}
+    }
     return [];
   }
   private async fetchMoodEntries(userId: string, days: number): Promise<any[]> {
@@ -79,14 +70,12 @@ class EnhancedAIDataAggregationService {
   }
   private async fetchUserProfile(userId: string): Promise<any> {
     try {
-      // Try CJS require to avoid Jest dynamic import flags
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { useSecureStorage } = require('@/hooks/useSecureStorage');
-      const { getItem } = useSecureStorage();
-      const enc = await getItem<any>(`ai_user_profile_${userId}`, true);
-      if (enc) return enc;
-    } catch {}
-    try { const raw = await AsyncStorage.getItem(`ai_user_profile_${userId}`); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+      const raw = await AsyncStorage.getItem(`ai_user_profile_${userId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      try { trackAIInteraction('AI_AGGREGATION_ERROR', { scope: 'fetchUserProfile', error: String(e) } as any); } catch {}
+      return {};
+    }
   }
 
   private async analyzeSymptoms(compulsions: any[], moods: any[]): Promise<any> {
