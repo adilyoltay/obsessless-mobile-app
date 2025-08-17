@@ -33,7 +33,7 @@ class PerformanceMetricsService {
     return d.toISOString().slice(0, 10);
   }
 
-  async recordToday(partial: Partial<DailyMetrics>): Promise<void> {
+  async recordToday(partial: { date?: string; sync?: Partial<DailyMetrics['sync']>; ai?: Partial<DailyMetrics['ai']> }): Promise<void> {
     const raw = await AsyncStorage.getItem(this.STORAGE_KEY);
     const list: DailyMetrics[] = raw ? JSON.parse(raw) : [];
     const todayKey = this.toDateKey(new Date());

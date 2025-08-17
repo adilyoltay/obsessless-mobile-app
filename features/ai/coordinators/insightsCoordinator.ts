@@ -525,12 +525,9 @@ class InsightsCoordinator {
       // Persist daily dataQuality metric (non-blocking)
       try {
         const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
-        await performanceMetricsService.recordToday({ ai: { /* reserved for future ai metrics aggregation */ } });
-        // Store dataQuality at sync bucket for now (simple visibility in chart models later)
-        const last = await performanceMetricsService.getLastNDays(1);
         const dq = typeof executionMetrics.dataQuality === 'number' ? executionMetrics.dataQuality : undefined;
         if (typeof dq === 'number') {
-          // reuse sync.avgResponseMs channel is wrong; instead no-op until UI supports dataQuality; placeholder left intentionally minimal
+          await performanceMetricsService.recordToday({ ai: { dataQuality: dq } });
         }
       } catch {}
 

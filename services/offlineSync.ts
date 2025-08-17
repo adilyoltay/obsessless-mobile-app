@@ -141,6 +141,13 @@ export class OfflineSyncService {
       try {
         console.log('🧾 Sync summary:', summary);
         await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...summary, at: new Date().toISOString() }));
+        // Persist daily conflictRate for tracking charts
+        try {
+          const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
+          const total = summary.successful + summary.failed + summary.conflicts;
+          const conflictRate = total > 0 ? summary.conflicts / total : 0;
+          await performanceMetricsService.recordToday({ sync: { conflictRate } });
+        } catch {}
       } catch {}
     } finally {
       this.isSyncing = false;
@@ -171,8 +178,8 @@ export class OfflineSyncService {
     let remote: any = null;
     try {
       if (item.type !== 'CREATE' && item.data?.id) {
-        const list = await apiService.compulsions.list({ id: item.data.id });
-        remote = Array.isArray(list) ? list[0] : null;
+        const all = await apiService.compulsions.getAll();
+        remote = Array.isArray(all) ? all.find((x: any) => x.id === item.data.id) : null;
       }
     } catch {}
 
@@ -239,7 +246,9 @@ export class OfflineSyncService {
       activities: e.activities,
       created_at: e.timestamp,
     };
-    const { error } = await supabaseService.client
+    const { default: supabaseService } = await import('@/services/supabase');
+    const client = (supabaseService as any).client || (supabaseService as any).supabaseClient || (supabaseService as any);
+    const { error } = await client
       .from('mood_tracking')
       .upsert(payload);
     if (error) throw error;

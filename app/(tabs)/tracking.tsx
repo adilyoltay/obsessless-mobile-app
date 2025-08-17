@@ -520,12 +520,12 @@ export default function TrackingScreen() {
   const filteredCompulsions = getFilteredCompulsions();
 
   function SevenDaySyncMiniChart() {
-    const [series, setSeries] = useState<{ date: string; success: number; latency: number }[]>([]);
+    const [series, setSeries] = useState<{ date: string; success: number; latency: number; dq?: number }[]>([]);
     useEffect(() => {
       (async () => {
         try {
           const last = await performanceMetricsService.getLastNDays(7);
-          setSeries(last.map(d => ({ date: d.date, success: Math.round((d.sync.successRate || 0) * 100), latency: Math.round(d.sync.avgResponseMs || 0) })));
+          setSeries(last.map(d => ({ date: d.date, success: Math.round((d.sync.successRate || 0) * 100), latency: Math.round(d.sync.avgResponseMs || 0), dq: typeof d.ai?.dataQuality === 'number' ? d.ai?.dataQuality : undefined })));
         } catch {}
       })();
     }, []);
@@ -543,6 +543,11 @@ export default function TrackingScreen() {
             <View style={{ width: 80, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
               <View style={{ width: `${Math.min(100, (s.latency / maxLatency) * 100)}%`, height: 6, backgroundColor: '#3B82F6', borderRadius: 4 }} />
             </View>
+            {typeof s.dq === 'number' && (
+              <View style={{ width: 60, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
+                <View style={{ width: `${Math.round((s.dq || 0) * 100)}%`, height: 6, backgroundColor: '#8B5CF6', borderRadius: 4 }} />
+              </View>
+            )}
           </View>
         ))}
       </View>
