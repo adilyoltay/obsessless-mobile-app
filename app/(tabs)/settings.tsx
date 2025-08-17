@@ -9,6 +9,8 @@ import {
   Share,
   Linking
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -194,6 +196,40 @@ export default function SettingsScreen() {
               });
             } catch (e) {
               Alert.alert('Hata', 'Veri dışa aktarma başarısız.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDataExportToFile = async () => {
+    Alert.alert(
+      'Verilerinizi Dosyaya Kaydedin',
+      'Tüm verileriniz JSON dosyası olarak cihazınıza kaydedilecek.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { 
+          text: 'Kaydet', 
+          onPress: async () => {
+            try {
+              if (!user?.id) return;
+              const json = await gdprService.exportUserData(user.id);
+              const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+              const fileName = `obsessless_export_${dateStr}.json`;
+              const fileUri = FileSystem.documentDirectory + fileName;
+              await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+              try {
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'ObsessLess Veri Dışa Aktarım' });
+                } else {
+                  Alert.alert('Kaydedildi', `Dosya kaydedildi: ${fileUri}`);
+                }
+              } catch {
+                Alert.alert('Kaydedildi', `Dosya kaydedildi: ${fileUri}`);
+              }
+            } catch (e) {
+              Alert.alert('Hata', 'Dosyaya kaydetme başarısız.');
             }
           }
         }
@@ -511,6 +547,11 @@ export default function SettingsScreen() {
               'Verilerini İndir',
               'download',
               handleDataExport
+            )}
+            {renderActionItem(
+              'Verilerini Dosyaya Kaydet',
+              'content-save',
+              handleDataExportToFile
             )}
             {renderActionItem(
               'Audit Loglarını Görüntüle',
