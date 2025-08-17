@@ -21,6 +21,7 @@ import { Compulsion } from '@/types/compulsion';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
+import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
@@ -47,6 +48,7 @@ export function CompulsionQuickEntry({
   
   const { awardMicroReward } = useGamificationStore();
   const { user } = useAuth();
+  const { submitCompulsion } = useStandardizedCompulsion(user?.id);
 
   useEffect(() => {
     if (visible) {
@@ -130,8 +132,20 @@ export function CompulsionQuickEntry({
         notes: notes.trim(),
       };
 
-      // Save to Supabase first
-      const savedCompulsion = await supabaseService.createCompulsion(compulsionData);
+      // Save to Supabase first (standardized)
+      const savedCompulsion = await (async () => {
+        try {
+          await submitCompulsion({
+            type: selectedType,
+            resistanceLevel,
+            trigger: undefined,
+            notes: notes.trim() || undefined,
+          });
+          return true;
+        } catch (e) {
+          return false;
+        }
+      })();
       
       if (savedCompulsion) {
         console.log('✅ Compulsion saved to Supabase:', savedCompulsion);

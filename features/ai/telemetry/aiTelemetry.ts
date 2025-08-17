@@ -408,6 +408,31 @@ class AITelemetryManager {
         });
       } catch {}
 
+      // Update daily performance metrics for key events (non-blocking)
+      try {
+        const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
+        if (eventType === AIEventType.AI_RESPONSE_GENERATED) {
+          const latency = Number((metadata as any)?.latency || 0);
+          await performanceMetricsService.recordToday({ ai: { requests: ((await performanceMetricsService.getLastNDays(1))[0]?.ai?.requests || 0) + 1 } });
+          if (latency > 0) {
+            const last = await performanceMetricsService.getLastNDays(1);
+            const prev = last[0]?.ai?.avgLatencyMs || 0;
+            const prevReq = last[0]?.ai?.requests || 0;
+            const newAvg = prevReq > 0 ? Math.round(((prev * prevReq) + latency) / (prevReq + 1)) : latency;
+            await performanceMetricsService.recordToday({ ai: { avgLatencyMs: newAvg } });
+          }
+          if ((metadata as any)?.cached === true) {
+            const last = await performanceMetricsService.getLastNDays(1);
+            const prevHits = last[0]?.ai?.cacheHits || 0;
+            await performanceMetricsService.recordToday({ ai: { cacheHits: prevHits + 1 } });
+          }
+        } else if (eventType === AIEventType.API_ERROR || eventType === AIEventType.AI_PROVIDER_FAILED) {
+          const last = await performanceMetricsService.getLastNDays(1);
+          const prevFailures = last[0]?.ai?.failures || 0;
+          await performanceMetricsService.recordToday({ ai: { failures: prevFailures + 1 } });
+        }
+      } catch {}
+
       // Debug log (sadece development)
       if (__DEV__) console.log(`📊 AI Telemetry: ${eventType}`, JSON.stringify(metadata));
 

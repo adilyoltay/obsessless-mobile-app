@@ -398,9 +398,14 @@ class InsightsEngineV2 {
    */
   private async performInsightGeneration(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
     const insights: IntelligentInsight[] = [];
-    // Aggregation (best-effort)
+    // Aggregation (best-effort) - prefer enhanced aggregator
     let aggregate: any = null;
-    try { aggregate = await aiDataAggregator.aggregateUserData(context.userId); } catch {}
+    try {
+      const { enhancedAIDataAggregator } = await import('@/features/ai/pipeline/enhancedDataAggregation');
+      aggregate = await enhancedAIDataAggregator.aggregateComprehensiveData(context.userId);
+    } catch {
+      try { aggregate = await aiDataAggregator.aggregateUserData(context.userId); } catch {}
+    }
 
     // Pattern Analysis removed - keeping AI-powered insights only
 
@@ -416,9 +421,69 @@ class InsightsEngineV2 {
       insights.push(...aiInsights.map(i => this.applyAggregationContext(i, aggregate)));
     }
 
-    // 3. Progress Tracking Insights
+    // 3. Progress Tracking Insights (enhanced with aggregate.performance)
     const progressInsights = await this.generateProgressInsights(context);
     insights.push(...progressInsights.map(i => this.applyAggregationContext(i, aggregate)));
+
+    // 4. Enhanced contextual insights using aggregate fields directly
+    try {
+      if (aggregate) {
+        const now = new Date();
+        // Peak anxiety timing suggestion
+        const peakTimes = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) ? aggregate.patterns.peakAnxietyTimes.slice(0, 2) : [];
+        if (peakTimes.length > 0) {
+          insights.push(this.applyAggregationContext({
+            id: `insight_peak_${now.getTime()}`,
+            userId: context.userId,
+            category: InsightCategory.THERAPEUTIC_GUIDANCE,
+            priority: InsightPriority.HIGH,
+            timing: InsightTiming.DAILY_SUMMARY,
+            title: 'Zirve anksiyete saatleri için plan',
+            message: `Bu saatlerde kısa nefes/ERP mini egzersizi planlayın: ${peakTimes.join(', ')}`,
+            actionableAdvice: ['2 dk nefes egzersizi', '1 küçük maruziyet denemesi'],
+            confidence: 0.7,
+            aiProvider: undefined,
+            detectedPatterns: peakTimes,
+            emotionalState: undefined,
+            basedOnData: { messageCount: context.recentMessages.length, timeframe: context.timeframe.period, keyEvents: [] },
+            generatedAt: now,
+            validUntil: new Date(now.getTime() + 24*60*60*1000),
+            shown: false,
+            therapeuticGoals: [],
+            expectedOutcome: 'Zorlayıcı saatlerde baş etme',
+            followUpRequired: false,
+            relatedInsightIds: [],
+          } as any, aggregate));
+        }
+
+        // Compliance-based nudge
+        const completionRate = Number(aggregate?.performance?.erpCompletionRate ?? 100);
+        if (!Number.isNaN(completionRate) && completionRate < 50) {
+          insights.push(this.applyAggregationContext({
+            id: `insight_compliance_${now.getTime()}`,
+            userId: context.userId,
+            category: InsightCategory.PROGRESS_TRACKING,
+            priority: InsightPriority.HIGH,
+            timing: InsightTiming.NEXT_SESSION,
+            title: 'ERP sürekliliğini güçlendirelim',
+            message: 'Son günlerde ERP tamamlama oranı düşük. Daha kısa ama istikrarlı denemeler öneriyoruz.',
+            actionableAdvice: ['5 dk kısa deneme', 'Kolay tetikleyiciyle başlayın'],
+            confidence: 0.65,
+            aiProvider: undefined,
+            detectedPatterns: [],
+            emotionalState: undefined,
+            basedOnData: { messageCount: context.recentMessages.length, timeframe: context.timeframe.period, keyEvents: [] },
+            generatedAt: now,
+            validUntil: new Date(now.getTime() + 24*60*60*1000),
+            shown: false,
+            therapeuticGoals: [],
+            expectedOutcome: 'Adherence artışı',
+            followUpRequired: false,
+            relatedInsightIds: [],
+          } as any, aggregate));
+        }
+      }
+    } catch {}
 
     // Crisis Prevention Insights removed
 
@@ -470,22 +535,62 @@ class InsightsEngineV2 {
   private applyAggregationContext(insight: IntelligentInsight, aggregate: any | null): IntelligentInsight {
     if (!aggregate) return insight;
     const cloned: IntelligentInsight = { ...insight };
-    // Avoid peak anxiety times for non-immediate timing
     const peak = aggregate.patterns?.peakAnxietyTimes as string[] | undefined;
     if (peak && peak.length > 0 && cloned.timing === InsightTiming.NEXT_SESSION) {
       cloned.timing = InsightTiming.DAILY_SUMMARY;
     }
-    // Priority boost if common triggers present in content
     const triggers = (aggregate.patterns?.commonTriggers as string[] | undefined) || [];
     if (triggers.some(t => (cloned.message || '').toLowerCase().includes(String(t).toLowerCase()))) {
       cloned.priority = cloned.priority === InsightPriority.LOW ? InsightPriority.MEDIUM : InsightPriority.HIGH;
     }
-    // Low compliance -> fewer, immediate actionable items
     const compliance = aggregate.performance?.erpCompletionRate ?? 100;
     if (compliance < 50) {
       cloned.timing = InsightTiming.IMMEDIATE;
       cloned.actionableAdvice = (cloned.actionableAdvice || []).slice(0, 2);
     }
+
+    const categories = (aggregate.symptoms?.primaryCategories as string[] | undefined) || [];
+    const topCategory = categories[0];
+    const categoryMap: Record<string, string> = {
+      checking: 'kontrol',
+      contamination: 'kirlilik',
+      symmetry: 'simetri',
+      ordering: 'düzen',
+      counting: 'sayma',
+      religious: 'dini',
+      sexual: 'cinsel',
+      harm: 'zarar',
+      hoarding: 'biriktirme',
+      other: 'diğer'
+    };
+
+    const categoryLabel = topCategory ? (categoryMap[topCategory] || topCategory) : undefined;
+    const firstTrigger = triggers.length > 0 ? String(triggers[0]) : undefined;
+    const peakLabel = peak && peak.length > 0 ? String(peak[0]) : undefined;
+
+    const personalizedAdvice: string[] = [];
+    if (firstTrigger) personalizedAdvice.push(`"${firstTrigger}" tetikleyicisi için 2 dakikalık mini ERP denemesi`);
+    if (peakLabel) personalizedAdvice.push(`${peakLabel} saatinde kısa nefes egzersizi`);
+    if (typeof compliance === 'number' && compliance < 50) personalizedAdvice.push('Kısa ama istikrarlı denemeler planla');
+
+    if (personalizedAdvice.length > 0) {
+      const existing = cloned.actionableAdvice || [];
+      const merged = [...existing];
+      personalizedAdvice.forEach(item => {
+        if (!merged.some(a => a.toLowerCase() === item.toLowerCase())) merged.push(item);
+      });
+      cloned.actionableAdvice = merged.slice(0, 5);
+    }
+
+    if (categoryLabel && !(cloned.title || '').toLowerCase().includes(categoryLabel.toLowerCase())) {
+      cloned.title = `${cloned.title} • Odak: ${categoryLabel}`.trim();
+    }
+
+    if (firstTrigger && !(cloned.message || '').toLowerCase().includes(firstTrigger.toLowerCase())) {
+      const suffix = ` Sık tetikleyiciniz: ${firstTrigger}. Hazır olduğunuzda bununla küçük bir pratik deneyin.`;
+      cloned.message = `${cloned.message || ''}${suffix}`.trim();
+    }
+
     return cloned;
   }
 

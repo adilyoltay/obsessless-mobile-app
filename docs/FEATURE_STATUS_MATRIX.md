@@ -9,9 +9,10 @@
 | Mood Tracking (UI) | Aktif | Kayıt + Geçmiş (14 gün) |
 | AI Data Aggregation | Aktif | performance (ERP/compulsion), patterns (triggers/peak) |
 | Offline Sync (batch/summary) | Aktif | `syncWithConflictResolution`, `last_sync_summary` |
-| Data Standardization | Aktif | Zod tabanlı şemalar (compulsion/erp/mood) |
-| Data Encryption | Aktif | SHA256 digest, PII maskeleme |
-| Data Compliance | Aktif (temel) | Export + soft delete işaretleme + hard delete planlama |
+| Data Standardization | Aktif | Zod tabanlı şemalar (compulsion/erp/mood/thoughtRecord), PII maskeleme |
+| Data Encryption | Aktif | AES‑256‑GCM (encrypt/decrypt), SecureStore key yönetimi |
+| Data Compliance | Aktif (temel) | Export + soft delete işaretleme + hard delete planlama + Ayarlar’da silme durumu & consent geçmişi |
+| Telemetry (AI/Sync) | Aktif | Günlük metrik kalıcılığı + Tracking mini grafik |
 | Progress Analytics | Aktif (sınırlı) | 7/30/90 trend + temel pattern; ML predictions yok |
 | AI Chat | Devre dışı | UI/servis kaldırıldı |
 | Crisis Detection | Kaldırıldı |  |

@@ -14,7 +14,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
   - Offline-first: AsyncStorage (önce yerel yazım, online iken senkron)
  - AI Katmanı (features/ai)
    - aiManager (özellik başlatma/flag/sağlık kontrol; 3 aşamalı başlatma: 1) kritik bağımsız servisler, 2) bağımlı servisler, 3) koordinatörler)
-   - Telemetry (gizlilik-öncelikli izleme; standartlaştırılmış `AIEventType`)
+   - Telemetry (gizlilik-öncelikli izleme; standartlaştırılmış `AIEventType`; günlük AI/sync metrik kalıcılığı)
    - Insights v2 (CBT ve AI-Deep; Data Aggregation ile öncelik/zamanlama ayarı; Progress Analytics bağımsız servis olarak yok, sınırlı kapsamda trend + pattern özetleri; kriz önleme içgörüleri kaldırıldı)
    - JITAI (temel zaman/bağlam tetikleyicileri)
    - Pattern Recognition v2 (yalnızca AI-assisted)
@@ -64,8 +64,8 @@ Notlar:
 
 ## Veri Akışı (Örnekler)
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
-- Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Telemetry
-- ERP Oturumu: UI → Zustand (timer/anxiety) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca) → Gamification → Telemetry
+- Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
+- ERP Oturumu: UI → Zustand (timer/anxiety) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
 - Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → AI Data Aggregation → Insights v2
 
 ## Kategori ve Tür Standartları
@@ -75,7 +75,7 @@ Notlar:
 ## Gizlilik ve Güvenlik
 - PII loglanmaz; telemetry metaveriyi sanitize eder
 - RLS aktif, kullanıcıya özel veri erişimi
-- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları
+- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları; Ayarlar’da silme talebi durumu/sayaç ve consent geçmişi görünümü
 - Offline buffer şifreli saklama (platform yetenekleri dahilinde)
 
 ## Bilinen Kısıtlar
@@ -83,4 +83,4 @@ Notlar:
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet, Mood History)
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet, Mood History, PII mask + Zod standardizasyon, DLQ scheduler, günlük metrik kalıcılığı)

@@ -777,13 +777,25 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         };
       }
 
-      // AsyncStorage'a kaydet
-      await AsyncStorage.multiSet([
-        [`ai_onboarding_completed_${userId}`, 'true'],
-        [`ai_user_profile_${userId}`, JSON.stringify(userProfile)],
-        [`ai_treatment_plan_${userId}`, JSON.stringify(treatmentPlan)],
-        [`ai_onboarding_date_${userId}`, new Date().toISOString()]
-      ]);
+      // AsyncStorage + Encrypted kaydet
+      try {
+        const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+        const { setItem } = useSecureStorage();
+        await Promise.all([
+          AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true'),
+          setItem(`ai_user_profile_${userId}`, userProfile, true),
+          setItem(`ai_treatment_plan_${userId}`, treatmentPlan, true),
+          AsyncStorage.setItem(`ai_onboarding_date_${userId}`, new Date().toISOString()),
+        ]);
+      } catch {
+        // Fallback to plain if secure fails
+        await AsyncStorage.multiSet([
+          [`ai_onboarding_completed_${userId}`, 'true'],
+          [`ai_user_profile_${userId}`, JSON.stringify(userProfile)],
+          [`ai_treatment_plan_${userId}`, JSON.stringify(treatmentPlan)],
+          [`ai_onboarding_date_${userId}`, new Date().toISOString()],
+        ]);
+      }
 
       // Session temizle
       await AsyncStorage.removeItem(`onboarding_session_${userId}`);

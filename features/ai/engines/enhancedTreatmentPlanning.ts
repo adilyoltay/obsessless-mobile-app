@@ -11,11 +11,28 @@ class EnhancedTreatmentPlanningEngine {
 
   async generateDataDrivenTreatmentPlan(userId: string): Promise<any> {
     try {
-      const aggregate = await aiDataAggregator.aggregateUserData(userId);
+      let aggregate: any = null;
+      try {
+        const { enhancedAIDataAggregator } = await import('@/features/ai/pipeline/enhancedDataAggregation');
+        aggregate = await enhancedAIDataAggregator.aggregateComprehensiveData(userId);
+      } catch {
+        aggregate = await aiDataAggregator.aggregateUserData(userId);
+      }
       const aiReady = await aiDataAggregator.prepareForAI(aggregate);
-      // placeholder model call
-      const modelResult = { interventions: [], schedule: [] };
-      return { ...modelResult, meta: aiReady };
+      // Heuristic personalization using enhanced aggregate
+      const triggers: string[] = Array.isArray(aggregate?.patterns?.commonTriggers) ? aggregate.patterns.commonTriggers : [];
+      const peakTimes: string[] = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) ? aggregate.patterns.peakAnxietyTimes : [];
+      const completionRate: number = Number(aggregate?.performance?.erpCompletionRate ?? 100);
+      const priorityCategory: string | undefined = Array.isArray(aggregate?.symptoms?.primaryCategories) ? aggregate.symptoms.primaryCategories[0] : undefined;
+      const personalized = {
+        interventions: [
+          completionRate < 50 ? { type: 'erp_micro', rationale: 'Düşük ERP sürekliliği - kısa ama sık pratik', priority: 'high' } : { type: 'erp_standard', priority: 'medium' },
+          triggers[0] ? { type: 'trigger_exposure', trigger: triggers[0], priority: 'high' } : null,
+        ].filter(Boolean),
+        schedule: peakTimes.slice(0, 2).map(t => ({ time: t, suggestion: 'nefes + mini ERP', durationMin: 5 })),
+        focus: priorityCategory,
+      };
+      return { ...personalized, meta: aiReady };
     } catch (e) {
       return { interventions: [], schedule: [], fallback: true };
     }

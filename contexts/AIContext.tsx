@@ -428,7 +428,13 @@ export function AIProvider({ children }: AIProviderProps) {
         completed = !!profileRow.onboarding_completed;
         if (profileRow.profile_data) {
           setUserProfile(profileRow.profile_data);
-          try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_user_profile_${userId}`, profileRow.profile_data, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
+          }
         }
       }
 
@@ -436,11 +442,20 @@ export function AIProvider({ children }: AIProviderProps) {
       if (!profileRow?.profile_data) {
         let loadedProfile: any | null = null;
 
-        // 1) ai_* local
+        // 1) encrypted ai_* local
         try {
-          const aiLocal = await AsyncStorage.getItem(`ai_user_profile_${userId}`);
-          if (aiLocal) loadedProfile = JSON.parse(aiLocal);
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { getItem } = useSecureStorage();
+          const encLocal = await getItem<any>(`ai_user_profile_${userId}`, true);
+          if (encLocal) loadedProfile = encLocal;
         } catch {}
+        // 1b) plain ai_* local
+        if (!loadedProfile) {
+          try {
+            const aiLocal = await AsyncStorage.getItem(`ai_user_profile_${userId}`);
+            if (aiLocal) loadedProfile = JSON.parse(aiLocal);
+          } catch {}
+        }
 
         // 2) legacy local
         if (!loadedProfile) {
@@ -452,8 +467,14 @@ export function AIProvider({ children }: AIProviderProps) {
 
         if (loadedProfile) {
           setUserProfile(loadedProfile);
-          // normalize to ai_* keys
-          try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(loadedProfile)); } catch {}
+          // normalize to ai_* keys (encrypted first)
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_user_profile_${userId}`, loadedProfile, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(loadedProfile)); } catch {}
+          }
 
           // background upsert (best-effort)
           try {
@@ -485,14 +506,28 @@ export function AIProvider({ children }: AIProviderProps) {
       const planRow = planRowRes?.data as any;
       if (planRow?.plan_data) {
         setTreatmentPlan(planRow.plan_data);
-        try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
+        try {
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { setItem } = useSecureStorage();
+          await setItem(`ai_treatment_plan_${userId}`, planRow.plan_data, true);
+        } catch {
+          try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
+        }
       } else {
-        // ai_* local
+        // ai_* local (encrypted first)
         let localPlan: any | null = null;
         try {
-          const aiPlan = await AsyncStorage.getItem(`ai_treatment_plan_${userId}`);
-          if (aiPlan) localPlan = JSON.parse(aiPlan);
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { getItem } = useSecureStorage();
+          const enc = await getItem<any>(`ai_treatment_plan_${userId}`, true);
+          if (enc) localPlan = enc;
         } catch {}
+        if (!localPlan) {
+          try {
+            const aiPlan = await AsyncStorage.getItem(`ai_treatment_plan_${userId}`);
+            if (aiPlan) localPlan = JSON.parse(aiPlan);
+          } catch {}
+        }
 
         // legacy local
         if (!localPlan) {
@@ -504,7 +539,13 @@ export function AIProvider({ children }: AIProviderProps) {
 
         if (localPlan) {
           setTreatmentPlan(localPlan);
-          try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(localPlan)); } catch {}
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_treatment_plan_${userId}`, localPlan, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(localPlan)); } catch {}
+          }
           // background upsert
           try {
             const { supabaseService: svc } = await import('@/services/supabase');

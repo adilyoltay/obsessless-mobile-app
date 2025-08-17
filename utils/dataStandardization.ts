@@ -69,14 +69,31 @@ class DataStandardizationService {
     return s;
   }
 
+  /**
+   * Mask common PII patterns (email, phone, Turkish ID, credit card) in free text.
+   */
+  maskPII(input: string): string {
+    if (!input || typeof input !== 'string') return '';
+    let s = input;
+    // Email addresses
+    s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]');
+    // Phone numbers (basic)
+    s = s.replace(/(?:(?:\+?90|0)?\s*)?(\d[\s-]?){10,}/g, '[phone]');
+    // Turkish ID (11 digits, first non-zero)
+    s = s.replace(/(?<!\d)[1-9]\d{10}(?!\d)/g, '[tc_kimlik]');
+    // Credit cards (simple 13-19 digits)
+    s = s.replace(/(?<!\d)(?:\d[ -]?){13,19}(?!\d)/g, '[card]');
+    return s;
+  }
+
   standardizeCompulsionData(data: any): any {
     const schema = z.object({
       user_id: z.string(),
       category: z.string().transform((v) => this.standardizeCategory(v)),
       subcategory: z.string().optional(),
       resistance_level: z.number().min(1).max(10),
-      trigger: z.string().optional(),
-      notes: z.string().max(500).optional(),
+      trigger: z.string().optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 200))),
+      notes: z.string().max(500).optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 500))),
       timestamp: z.any().transform((v) => this.standardizeDate(v)).optional(),
     });
     return schema.parse(data);
@@ -100,7 +117,7 @@ class DataStandardizationService {
         )
         .optional(),
       completed: z.boolean().optional(),
-      notes: z.string().max(1000).optional(),
+      notes: z.string().max(1000).optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 1000))),
       timestamp: z.any().transform((v) => this.standardizeDate(v)).optional(),
     });
     return schema.parse(data);
@@ -141,6 +158,20 @@ class DataStandardizationService {
     const standardizer = (map as any)[entityType];
     if (!standardizer) throw new Error(`Unknown entity type: ${entityType}`);
     return this.standardizeBatch(oldData, standardizer);
+  }
+
+  standardizeThoughtRecordData(data: any): any {
+    const schema = z.object({
+      user_id: z.string(),
+      automatic_thought: z.string().transform((v) => this.maskPII(this.sanitizeString(v || '', 1000))),
+      evidence_for: z.string().optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 1500))),
+      evidence_against: z.string().optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 1500))),
+      distortions: z.array(z.string()).optional().default([]),
+      new_view: z.string().optional().transform((v) => this.maskPII(this.sanitizeString(v || '', 1000))),
+      lang: z.string().optional().default('tr'),
+      created_at: z.any().optional().transform((v) => this.standardizeDate(v || new Date())),
+    });
+    return schema.parse(data);
   }
 }
 

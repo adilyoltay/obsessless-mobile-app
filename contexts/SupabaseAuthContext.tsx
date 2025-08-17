@@ -4,6 +4,7 @@ import { supabaseService, UserProfile, SignUpResult, AuthResult } from '@/servic
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { migrateToUserSpecificStorage } from '@/utils/storage';
+import SecureStorageMigration from '@/utils/secureStorageMigration';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -209,6 +210,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
       // Initialize user-specific data migration
       await migrateToUserSpecificStorage(user.id);
+      // Migrate sensitive plain-text keys to encrypted storage
+      try { await SecureStorageMigration.migrate(user.id); } catch (e) { console.warn('Secure storage migration skipped:', e); }
       
       // Initialize gamification for this user (idempotent at store level)
       await initializeGamification(user.id);

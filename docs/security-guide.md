@@ -79,11 +79,16 @@ const apiKey = Deno.env.get('GEMINI_API_KEY')
    await SecureStore.setItemAsync('api_key', value);
    ```
 
-2. **Certificate Pinning**
+2. **Field‑level Encryption & Migration**
+   - AES‑256‑GCM ile hassas alanların şifrelenmesi (`secureDataService`)
+   - Plaintext → encrypted migrasyon yardımcıları (`SecureStorageMigration`)
+   - Ayarlar ekranında migrasyon versiyonu ve yeniden şifreleme tetikleme
+
+3. **Certificate Pinning**
    - Production'da SSL certificate pinning kullanın
    - Man-in-the-middle saldırılarını önleyin
 
-3. **Obfuscation**
+4. **Obfuscation**
    - Production build'lerde kod obfuscation
    - API endpoint'lerini gizleyin
    - app.json yerine app.config.ts + env kullanın
@@ -98,10 +103,11 @@ const apiKey = Deno.env.get('GEMINI_API_KEY')
    });
    ```
 
-2. **API Usage Monitoring**
+2. **API Usage Monitoring & Telemetry**
    - Anormal trafik pattern'leri
    - Rate limit aşımları
    - Başarısız authentication denemeleri
+   - Privacy‑First telemetry: PII maskeleme, olay tipleri `AIEventType`, günlük performans metrikleri (AI/sync)
 
 ### 📋 Best Practices
 

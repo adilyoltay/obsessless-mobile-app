@@ -33,7 +33,10 @@ import { StorageKeys } from '@/utils/storage';
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useRouter } from 'expo-router';
-
+import { Modal } from 'react-native';
+import gdprService from '@/services/compliance/gdprService';
+import SecureStorageMigration from '@/utils/secureStorageMigration';
+import performanceMetricsService from '@/services/telemetry/performanceMetricsService';
 // Settings data structure
 interface SettingsData {
   notifications: boolean;
@@ -53,6 +56,18 @@ export default function SettingsScreen() {
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile } = useAuth();
   const { aiConsents, setConsent } = useAISettingsStore();
+  const [consents, setConsents] = useState<Record<string, boolean>>({
+    data_processing: false,
+    analytics: false,
+    ai_processing: false,
+    marketing: false,
+  });
+  const [auditVisible, setAuditVisible] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [migrationVersion, setMigrationVersion] = useState<number>(0);
+  const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
+  const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending'; requestedAt?: string; scheduledAt?: string; remainingDays?: number }>({ status: 'none' });
+  const [consentHistory, setConsentHistory] = useState<any[]>([]);
   
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
@@ -68,6 +83,8 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadSettings();
     loadAIOnboardingStatus();
+    loadConsents();
+    loadMigrationAndMetrics();
   }, []);
 
   const loadSettings = async () => {
@@ -79,6 +96,18 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  const loadConsents = async () => {
+    try {
+      if (!user?.id) return;
+      const c = await gdprService.getConsents(user.id);
+      setConsents(c);
+      const ds = await gdprService.getDeletionStatus(user.id);
+      setDeletionStatus(ds);
+      const ch = await gdprService.getConsentHistory(user.id, 180);
+      setConsentHistory(ch);
+    } catch {}
   };
 
   const loadAIOnboardingStatus = async () => {
@@ -94,6 +123,15 @@ export default function SettingsScreen() {
     } catch (e) {
       // noop
     }
+  };
+
+  const loadMigrationAndMetrics = async () => {
+    try {
+      const vRaw = await AsyncStorage.getItem('secure_storage_migration_version');
+      setMigrationVersion(vRaw ? parseInt(vRaw, 10) : 0);
+      const last = await performanceMetricsService.getLastNDays(7);
+      setDailyMetrics(last);
+    } catch {}
   };
 
   const handleContinueAIOnboarding = async () => {
@@ -147,12 +185,60 @@ export default function SettingsScreen() {
         { 
           text: 'İndir',
           onPress: async () => {
-            // Data export logic here
-            Alert.alert('Başarılı', 'Verileriniz başarıyla indirildi.');
+            try {
+              if (!user?.id) return;
+              const json = await gdprService.exportUserData(user.id);
+              await Share.share({
+                title: 'ObsessLess Veri İndirimi',
+                message: json,
+              });
+            } catch (e) {
+              Alert.alert('Hata', 'Veri dışa aktarma başarısız.');
+            }
           }
         }
       ]
     );
+  };
+
+  const toggleConsent = async (type: 'data_processing' | 'analytics' | 'ai_processing' | 'marketing', value: boolean) => {
+    try {
+      if (!user?.id) return;
+      await gdprService.recordConsent(user.id, type, value);
+      setConsents(prev => ({ ...prev, [type]: value }));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
+  const handleDeletionRequest = async () => {
+    Alert.alert(
+      'Veri Silme Talebi',
+      'Hesabınızdaki tüm veriler 30 gün sonra kalıcı olarak silinecek şekilde işaretlenecek. Devam edilsin mi?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        { text: 'Onayla', style: 'destructive', onPress: async () => {
+          try {
+            if (!user?.id) return;
+            await gdprService.deleteAllUserData(user.id);
+            Alert.alert('Talep Alındı', 'Silme talebiniz alındı. 30 gün sonra kalıcı silme planlandı.');
+          } catch {
+            Alert.alert('Hata', 'İşlem tamamlanamadı.');
+          }
+        }}
+      ]
+    );
+  };
+
+  const openAuditLogs = async () => {
+    try {
+      if (!user?.id) return;
+      const logs = await gdprService.getAuditLogs(user.id, 14);
+      setAuditLogs(logs);
+      setAuditVisible(true);
+    } catch {
+      setAuditLogs([]);
+      setAuditVisible(true);
+    }
   };
 
   const handleShareApp = async () => {
@@ -306,6 +392,60 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Gizlilik ve İzinler */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gizlilik ve İzinler</Text>
+          <View style={styles.sectionContent}>
+            {renderSettingItem(
+              'Veri İşleme İzni',
+              'shield-lock',
+              consents.data_processing,
+              (value) => toggleConsent('data_processing', value)
+            )}
+            {renderSettingItem(
+              'Analitik İzni',
+              'chart-line',
+              consents.analytics,
+              (value) => toggleConsent('analytics', value)
+            )}
+            {renderSettingItem(
+              'AI İşleme İzni',
+              'robot',
+              consents.ai_processing,
+              (value) => toggleConsent('ai_processing', value)
+            )}
+            {renderSettingItem(
+              'Pazarlama İzni',
+              'bullhorn',
+              consents.marketing,
+              (value) => toggleConsent('marketing', value)
+            )}
+          </View>
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="lock-check" size={24} color="#10B981" />
+                <Text style={styles.settingTitle}>Güvenli Depolama Migrasyonu</Text>
+              </View>
+              <Text style={{ color: '#6B7280' }}>v{migrationVersion}</Text>
+            </View>
+            <Button 
+              title="Yeniden Tara ve Şifrele"
+              onPress={async () => {
+                if (!user?.id) return;
+                try {
+                  await SecureStorageMigration.migrate(user.id);
+                  await loadMigrationAndMetrics();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Alert.alert('Tamamlandı', 'Duyarlı veriler yeniden şifrelendi.');
+                } catch (e) {
+                  Alert.alert('Hata', 'Migrasyon sırasında hata oluştu.');
+                }
+              }}
+            />
+          </View>
+        </View>
+
         {/* Dil seçimi kaldırıldı */}
 
         {/* AI Özellikleri - MASTER SWITCH */}
@@ -373,6 +513,17 @@ export default function SettingsScreen() {
               handleDataExport
             )}
             {renderActionItem(
+              'Audit Loglarını Görüntüle',
+              'file-search',
+              openAuditLogs
+            )}
+            {renderActionItem(
+              'Veri Silme Talebi',
+              'trash-can-outline',
+              handleDeletionRequest,
+              true
+            )}
+            {renderActionItem(
               'Gizlilik Politikası',
               'shield-check',
               handlePrivacyPolicy
@@ -383,6 +534,19 @@ export default function SettingsScreen() {
               handleTermsOfService
             )}
           </View>
+          {dailyMetrics.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Performans Özeti (7 Gün)</Text>
+              {dailyMetrics.map((d: any) => (
+                <View key={d.date} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+                  <Text style={{ color: '#6B7280', width: 88 }}>{d.date}</Text>
+                  <Text style={{ color: '#10B981', width: 64, textAlign: 'right' }}>{Math.round((d.sync?.successRate || 0) * 100)}%</Text>
+                  <Text style={{ color: '#3B82F6', width: 64, textAlign: 'right' }}>{Math.round(d.sync?.avgResponseMs || 0)}ms</Text>
+                  <Text style={{ color: '#EF4444', width: 48, textAlign: 'right' }}>{d.sync?.deadLetters || 0}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
 
@@ -400,6 +564,27 @@ export default function SettingsScreen() {
               true
             )}
           </View>
+          {/* Deletion status */}
+          {deletionStatus.status === 'pending' && (
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: '#FFFBEB', borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A' }}>
+              <Text style={{ color: '#92400E', fontWeight: '600' }}>Silme Talebi Beklemede</Text>
+              <Text style={{ color: '#92400E', marginTop: 4 }}>Talep: {new Date(deletionStatus.requestedAt || '').toLocaleString('tr-TR')}</Text>
+              <Text style={{ color: '#92400E' }}>Planlanan Silme: {deletionStatus.scheduledAt ? new Date(deletionStatus.scheduledAt).toLocaleString('tr-TR') : '-'}</Text>
+              <Text style={{ color: '#92400E' }}>Kalan Gün: {deletionStatus.remainingDays ?? '-'}</Text>
+            </View>
+          )}
+          {/* Consent history */}
+          {consentHistory.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Consent Geçmişi</Text>
+              {consentHistory.slice(0, 10).map((c: any) => (
+                <View key={`${c.consentType}_${c.timestamp}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                  <Text style={{ color: '#6B7280' }}>{new Date(c.timestamp).toLocaleString('tr-TR')}</Text>
+                  <Text style={{ color: c.granted ? '#10B981' : '#EF4444' }}>{c.consentType}: {c.granted ? 'onay' : 'ret'}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Version Info */}
@@ -408,6 +593,33 @@ export default function SettingsScreen() {
           <Text style={styles.versionSubtext}>Made with ❤️ for OCD warriors</Text>
         </View>
       </ScrollView>
+
+      {/* Audit Logs Modal */}
+      <Modal visible={auditVisible} transparent animationType="slide" onRequestClose={() => setAuditVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Audit Logları (Son 14 gün)</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {auditLogs.length === 0 ? (
+                <Text style={styles.modalEmpty}>Kayıt bulunamadı.</Text>
+              ) : (
+                auditLogs.slice(0, 50).map((log: any) => (
+                  <View key={log.id} style={styles.logItem}>
+                    <Text style={styles.logTitle}>{log.action} • {log.entity}</Text>
+                    <Text style={styles.logMeta}>{new Date(log.timestamp).toLocaleString('tr-TR')}</Text>
+                    {log.metadata ? (
+                      <Text style={styles.logMetaSmall}>{JSON.stringify(log.metadata)}</Text>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+            <View style={{ paddingTop: 12 }}>
+              <Button title="Kapat" onPress={() => setAuditVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenLayout>
   );
 }
@@ -612,5 +824,43 @@ const styles = StyleSheet.create({
   versionSubtext: {
     fontSize: 12,
     color: '#D1D5DB',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCard: {
+    width: '88%',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  modalEmpty: {
+    color: '#6B7280',
+  },
+  logItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  logTitle: {
+    fontSize: 14,
+    color: '#111827',
+  },
+  logMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  logMetaSmall: {
+    fontSize: 11,
+    color: '#9CA3AF',
   },
 });

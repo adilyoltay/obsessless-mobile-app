@@ -128,17 +128,18 @@ export default function ThoughtRecordForm() {
 
     // Supabase sync (best-effort)
     try {
-      const { supabaseService } = await import('@/services/supabase');
-      const { sanitizePII } = await import('@/utils/privacy');
-      await supabaseService.saveThoughtRecord({
+      const { default: supabaseService } = await import('@/services/supabase');
+      const { default: dataStandardizer } = await import('@/utils/dataStandardization');
+      const standardized = dataStandardizer.standardizeThoughtRecordData({
         user_id: user.id,
-        automatic_thought: sanitizePII(automaticThought),
-        evidence_for: sanitizePII(evidenceFor),
-        evidence_against: sanitizePII(evidenceAgainst),
+        automatic_thought: automaticThought,
+        evidence_for: evidenceFor,
+        evidence_against: evidenceAgainst,
         distortions,
-        new_view: sanitizePII(newView),
+        new_view: newView,
         lang: language,
       });
+      await supabaseService.saveThoughtRecord(standardized as any);
     } catch {}
 
     // Clear draft and reset form

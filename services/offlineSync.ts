@@ -3,12 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeStorageKey } from '@/lib/queryClient';
 import NetInfo from '@react-native-community/netinfo';
 import { apiService } from './api';
+import supabaseService from '@/services/supabase';
 import conflictResolver, { DataConflict } from './conflictResolution';
+import deadLetterQueue from '@/services/sync/deadLetterQueue';
+import { syncCircuitBreaker } from '@/utils/circuitBreaker';
+import batchOptimizer from '@/services/sync/batchOptimizer';
 
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'achievement';
+  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -98,12 +102,14 @@ export class OfflineSyncService {
     try {
       const summary = { successful: 0, failed: 0, conflicts: 0 };
       const itemsToSync = [...this.syncQueue];
+      const batchSize = batchOptimizer.calculate(itemsToSync.length);
+      const startBatchAt = Date.now();
       
       for (let i = 0; i < itemsToSync.length; i++) {
         const item = itemsToSync[i];
         
         try {
-          await this.syncItem(item);
+          await syncCircuitBreaker.execute(() => this.syncItem(item));
           summary.successful++;
           
           // Remove from queue if successful
@@ -131,6 +137,7 @@ export class OfflineSyncService {
       }
 
       await this.saveSyncQueue();
+      batchOptimizer.record(batchSize, summary.failed === 0, Date.now() - startBatchAt);
       try {
         console.log('🧾 Sync summary:', summary);
         await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...summary, at: new Date().toISOString() }));
@@ -150,6 +157,9 @@ export class OfflineSyncService {
         break;
       case 'achievement':
         await this.syncAchievement(item);
+        break;
+      case 'mood_entry':
+        await this.syncMoodEntry(item);
         break;
       default:
         throw new Error(`Unknown entity type: ${item.entity}`);
@@ -215,17 +225,53 @@ export class OfflineSyncService {
     }
   }
 
+  private async syncMoodEntry(item: SyncQueueItem): Promise<void> {
+    // Upsert mood entry to Supabase
+    const e = item.data || {};
+    const payload = {
+      id: e.id,
+      user_id: e.user_id,
+      mood_score: e.mood_score,
+      energy_level: e.energy_level,
+      anxiety_level: e.anxiety_level,
+      notes: e.notes,
+      triggers: e.triggers,
+      activities: e.activities,
+      created_at: e.timestamp,
+    };
+    const { error } = await supabaseService.client
+      .from('mood_tracking')
+      .upsert(payload);
+    if (error) throw error;
+    // Mark local as synced (best-effort)
+    try {
+      const { default: moodTracker, moodTracker: named } = await import('@/services/moodTrackingService');
+      const svc = (named || moodTracker);
+      if (svc && typeof (svc as any).markAsSynced === 'function') {
+        await (svc as any).markAsSynced(e.id, e.user_id);
+      }
+    } catch {}
+  }
+
   private async handleFailedSync(item: SyncQueueItem): Promise<void> {
-    // Log failed sync or show user notification
     console.error('Failed to sync item after max retries:', item);
-    
-    // Could store in a separate failed items queue for manual retry
-    const currentUserId = await AsyncStorage.getItem('currentUserId');
-    const failedKey = `failedSyncItems_${safeStorageKey(currentUserId as any)}`;
-    const failedItems = await AsyncStorage.getItem(failedKey);
-    const failed = failedItems ? JSON.parse(failedItems) : [];
-    failed.push(item);
-    await AsyncStorage.setItem(failedKey, JSON.stringify(failed));
+    try {
+      await deadLetterQueue.addToDeadLetter({
+        id: item.id,
+        type: item.type,
+        entity: item.entity,
+        data: item.data,
+        errorMessage: 'Max retries exceeded',
+      });
+    } catch (e) {
+      // Fallback: persist minimal info
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const failedKey = `failedSyncItems_${safeStorageKey(currentUserId as any)}`;
+      const failedItems = await AsyncStorage.getItem(failedKey);
+      const failed = failedItems ? JSON.parse(failedItems) : [];
+      failed.push(item);
+      await AsyncStorage.setItem(failedKey, JSON.stringify(failed));
+    }
   }
 
   // Local storage methods for offline operations
