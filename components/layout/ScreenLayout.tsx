@@ -30,7 +30,13 @@ function ScreenLayout({
 
   // RN kuralı: Düz string/number children bir <Text> içinde olmalı.
   // Her bir string/number düğümü güvenli şekilde <Text> içine saralım.
-  const normalizedChildren = React.Children.toArray(children).map((node, idx) => {
+  const childArray = React.Children.toArray(children);
+  const hasVirtualizedList = childArray.some((node: any) => {
+    const typeName = node?.type?.displayName || node?.type?.name || '';
+    return ['FlatList', 'SectionList', 'VirtualizedList'].includes(typeName);
+  });
+
+  const normalizedChildren = childArray.map((node, idx) => {
     if (typeof node === 'string' || typeof node === 'number') {
       return (
         <Text key={`txt_${idx}`}>
@@ -53,7 +59,7 @@ function ScreenLayout({
         />
       )}
 
-      {scrollable ? (
+      {scrollable && !hasVirtualizedList ? (
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}

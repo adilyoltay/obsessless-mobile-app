@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import dataStandardizer from '@/utils/dataStandardization';
+import { offlineSyncService } from '@/services/offlineSync';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
 
@@ -243,7 +244,25 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
         console.log('✅ ERP session saved to database');
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);
-        // Continue with offline mode - data is already in AsyncStorage
+        // Offline-first: kuyruğa ekle, bağlantı gelince sunucuya gönderilsin
+        try {
+          await offlineSyncService.storeERPSessionLocally({
+            id: sessionLog.id,
+            user_id: userId,
+            exercise_id: exerciseId || 'unknown',
+            exercise_name: exerciseName || 'Unknown Exercise',
+            category: category || 'general',
+            duration_seconds: elapsedTime,
+            anxiety_initial: initialAnxiety,
+            anxiety_final: finalAnxiety,
+            anxiety_readings: anxietyDataPoints,
+            completed: true,
+            timestamp: new Date().toISOString(),
+          });
+          console.log('🗂️ ERP session enqueued for offline sync');
+        } catch (qErr) {
+          console.warn('⚠️ Failed to enqueue ERP session:', qErr);
+        }
       }
     } catch (error) {
       console.error('❌ Error saving session:', error);
