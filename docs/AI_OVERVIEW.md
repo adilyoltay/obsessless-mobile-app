@@ -17,6 +17,7 @@ Bu belge, aktif AI modüllerini, mimariyi, Gemini entegrasyonunu ve telemetri ya
 - Storage: AsyncStorage (offline-first) + Supabase (sync)
   - Storage wrapper: Geçersiz anahtar development modunda hata fırlatır; production’da uyarı + stack trace loglar
   - Mood: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`, history ekranı son 14 günü okur; best‑effort Supabase `mood_tracking` upsert
+  - Aggregation: `features/ai/pipeline/enhancedDataAggregation.ts` hata durumlarını telemetriye işler (`AI_AGGREGATION_ERROR`); Supabase servis çağrıları instance bağlamıyla yapılır
 
 ## Gemini Entegrasyonu
 - Env: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GEMINI_MODEL

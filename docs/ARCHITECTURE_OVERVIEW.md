@@ -50,7 +50,7 @@ Notlar:
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
   - Mood Tracking: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`; history ekranı son 14 günü okur
-  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`
+  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`; DLQ (`services/sync/deadLetterQueue.ts`) ve dinamik batch optimizer; `services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback)
  - Progress Analytics (sınırlı)
   - Bağımsız servis yok; coordinator doğrudan çağırmaz. Trend + temel pattern özetleri Insights v2 tarafından üretilir.
 - Test Altyapısı
@@ -65,8 +65,8 @@ Notlar:
 ## Veri Akışı (Örnekler)
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
-- ERP Oturumu: UI → Zustand (timer/anxiety) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
-- Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → AI Data Aggregation → Insights v2
+- ERP Oturumu: UI → Zustand (timer/anxiety, UUID id) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca; başarısızsa OfflineSync kuyruğu) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
+- Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
 
 ## Kategori ve Tür Standartları
 - OCD Kategorileri (kanonik): contamination, checking, symmetry, mental, hoarding, other
@@ -75,7 +75,7 @@ Notlar:
 ## Gizlilik ve Güvenlik
 - PII loglanmaz; telemetry metaveriyi sanitize eder
 - RLS aktif, kullanıcıya özel veri erişimi
-- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları; Ayarlar’da silme talebi durumu/sayaç ve consent geçmişi görünümü
+- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları; Ayarlar’da silme talebi durumu/sayaç ve consent geçmişi görünümü; Senkronizasyon tanılama ekranı (Ayarlar > Tanılama) ve Tracking ekranında yalnızca anomali rozeti
 - Offline buffer şifreli saklama (platform yetenekleri dahilinde)
 
 ## Bilinen Kısıtlar
@@ -83,4 +83,4 @@ Notlar:
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet, Mood History, PII mask + Zod standardizasyon, DLQ scheduler, günlük metrik kalıcılığı)
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX)
