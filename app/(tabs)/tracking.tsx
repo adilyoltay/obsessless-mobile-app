@@ -736,75 +736,15 @@ export default function TrackingScreen() {
           </View>
         )}
 
-        {/* Sync Performance Panel */}
-        <View style={styles.weekStatsCard}>
-          <View style={styles.weekStatsHeader}>
-            <View>
-              <Text style={styles.weekStatsTitle}>Sync Performansı</Text>
-              <Text style={styles.weekStatsSubtitle}>Çevrimdışı senkronizasyon sağlığı</Text>
-            </View>
-            <Pressable onPress={() => setDlExpanded(v => !v)}>
-              <MaterialCommunityIcons name={dlExpanded ? 'chevron-up' : 'chevron-down'} size={20} color="#6B7280" />
-            </Pressable>
+        {/* Sync performans kartını son kullanıcıda gizle; yalnızca anomali varsa kısa uyarı göster */}
+        {(syncMetrics.deadLetterCount > 0 || syncMetrics.successRate < 0.95) && (
+          <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FEE2E2', borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="sync-alert" size={18} color="#DC2626" />
+            <Text style={{ marginLeft: 8, color: '#991B1B' }}>
+              Senkron uyarısı: Kuyruk {syncMetrics.deadLetterCount} • Başarı {Math.round(syncMetrics.successRate*100)}% — Ayrıntılar Ayarlar > Tanılama içinde.
+            </Text>
           </View>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{syncMetrics.recommendedBatch}</Text>
-              <Text style={styles.statLabel}>Önerilen Batch</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{Math.round(syncMetrics.successRate * 100)}%</Text>
-              <Text style={styles.statLabel}>Başarı Oranı</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{Math.round(syncMetrics.avgResponseTime)}ms</Text>
-              <Text style={styles.statLabel}>Ortalama Gecikme</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{syncMetrics.deadLetterCount}</Text>
-              <Text style={styles.statLabel}>Dead-letter</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{Math.round((syncMetrics.conflictRate || 0) * 100)}%</Text>
-              <Text style={styles.statLabel}>Çakışma Oranı</Text>
-            </View>
-          </View>
-          {/* Simple 7-day trend visualization */}
-          <View style={{ marginTop: 12 }}>
-            <SevenDaySyncMiniChart />
-          </View>
-          {dlExpanded && (
-            <View style={{ marginTop: 12 }}>
-              {deadLetters.length === 0 ? (
-                <Text style={{ color: '#6B7280' }}>Kuyruk boş</Text>
-              ) : (
-                deadLetters.map((item: any) => (
-                  <View key={item.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#111827', fontWeight: '600' }}>{item.entity} • {item.type}</Text>
-                      <Text style={{ color: '#6B7280', fontSize: 12 }}>{new Date(item.failedAt).toLocaleString('tr-TR')}</Text>
-                    </View>
-                    <Pressable
-                      onPress={async () => {
-                        try {
-                          await deadLetterQueue.retryDeadLetterItem(item.id, async (data: any) => {
-                            const { offlineSyncService } = await import('@/services/offlineSync');
-                            await offlineSyncService.addToSyncQueue({ type: item.type, entity: item.entity, data });
-                          });
-                          await loadSyncMetrics();
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        } catch {}
-                      }}
-                      style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#10B981', borderRadius: 8 }}
-                    >
-                      <Text style={{ color: 'white', fontWeight: '700' }}>Tekrar Dene</Text>
-                    </Pressable>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
-        </View>
+        )}
 
         {/* Today's Recordings - New Design */}
         <View style={styles.listSection}>

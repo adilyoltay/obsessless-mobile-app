@@ -415,6 +415,12 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Tanılama ve Gelişmiş */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tanılama</Text>
+          {renderActionItem('Senkronizasyon Tanılama', 'sync-alert', () => router.push('/dead-letter'))}
+        </View>
+
         {/* Security */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Güvenlik</Text>
