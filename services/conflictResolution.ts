@@ -72,6 +72,10 @@ class ConflictResolutionService {
     const merged: any = {
       ...remote,
       ...local,
+      // Prefer highest severity/anxiety when present (domain-aware merge)
+      anxiety_final: Math.max(Number(remote?.anxiety_final || 0), Number(local?.anxiety_final || 0)) || local?.anxiety_final || remote?.anxiety_final,
+      anxiety_initial: Math.max(Number(remote?.anxiety_initial || 0), Number(local?.anxiety_initial || 0)) || local?.anxiety_initial || remote?.anxiety_initial,
+      resistance_level: Math.max(Number(remote?.resistance_level || 0), Number(local?.resistance_level || 0)) || local?.resistance_level || remote?.resistance_level,
       conflict_resolved: true,
       merged_at: new Date().toISOString(),
       conflict_history: [

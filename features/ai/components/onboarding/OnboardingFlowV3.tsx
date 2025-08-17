@@ -797,6 +797,18 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         ]);
       }
 
+      // Supabase AI tablolarına senkronize et (best-effort, privacy-first)
+      try {
+        const { supabaseService } = await import('@/services/supabase');
+        await Promise.all([
+          supabaseService.upsertAIProfile(userId, userProfile, true),
+          supabaseService.upsertAITreatmentPlan(userId, treatmentPlan, 'active'),
+        ]);
+        console.log('✅ AI onboarding data synced to Supabase');
+      } catch (dbErr) {
+        console.warn('⚠️ AI onboarding Supabase sync failed, will rely on local data:', (dbErr as any)?.message || dbErr);
+      }
+
       // Session temizle
       await AsyncStorage.removeItem(`onboarding_session_${userId}`);
 

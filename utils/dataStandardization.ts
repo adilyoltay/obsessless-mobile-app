@@ -105,14 +105,15 @@ class DataStandardizationService {
       exercise_id: z.string().optional(),
       exercise_name: z.string().optional(),
       category: z.string().transform((v) => this.standardizeCategory(v)),
-      duration_seconds: z.number().min(0).max(7200),
-      anxiety_initial: z.number().min(0).max(10),
-      anxiety_final: z.number().min(0).max(10),
+      // Align with DB constraints: duration_seconds > 0, anxiety 1..10
+      duration_seconds: z.number().min(1).max(7200),
+      anxiety_initial: z.number().min(1).max(10),
+      anxiety_final: z.number().min(1).max(10),
       anxiety_readings: z
         .array(
           z.object({
             timestamp: z.any().transform((v) => this.standardizeDate(v)),
-            level: z.number().min(0).max(10),
+            level: z.number().min(1).max(10),
           })
         )
         .optional(),

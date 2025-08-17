@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Session } from '@supabase/supabase-js';
 import { supabaseService, UserProfile, SignUpResult, AuthResult } from '@/services/supabase';
 import { registerAuthBridge } from '@/contexts/authBridge';
@@ -179,6 +180,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setProfile(null);
         setUserId('');
         console.log('🔐 User signed out, state cleared');
+        // Clear persisted user id
+        try { await AsyncStorage.removeItem('currentUserId'); } catch {}
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         setUser(session.user);
       }
@@ -216,6 +219,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
       // Set user ID for all stores
       setUserId(user.id);
+      // Persist current user id for offline-first services (e.g., OfflineSync)
+      try { await AsyncStorage.setItem('currentUserId', user.id); } catch {}
       
       // Initialize user-specific data migration
       await migrateToUserSpecificStorage(user.id);

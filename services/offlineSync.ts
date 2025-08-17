@@ -184,46 +184,48 @@ export class OfflineSyncService {
   }
 
   private async syncCompulsion(item: SyncQueueItem): Promise<void> {
-    // Fetch server state if applicable (best-effort)
+    // Fetch server state if applicable (best-effort) via Supabase
     let remote: any = null;
     try {
       if (item.type !== 'CREATE' && item.data?.id) {
-        const all = await apiService.compulsions.getAll();
-        remote = Array.isArray(all) ? all.find((x: any) => x.id === item.data.id) : null;
+        const { default: svc } = await import('@/services/supabase');
+        const list = await (svc as any).getCompulsions(item.data.user_id);
+        remote = Array.isArray(list) ? list.find((x: any) => x.id === item.data.id) : null;
       }
     } catch {}
 
     // Resolve conflicts
     const resolved = await conflictResolver.resolveConflict('compulsion', item.data, remote);
 
+    const { default: svc } = await import('@/services/supabase');
     switch (item.type) {
       case 'CREATE':
-        await apiService.compulsions.create({ ...resolved, last_modified: item.lastModified, device_id: item.deviceId });
+        await (svc as any).saveCompulsion(resolved);
         break;
       case 'UPDATE':
-        await apiService.compulsions.update(resolved.id, { ...resolved, last_modified: item.lastModified, device_id: item.deviceId });
+        await (svc as any).saveCompulsion(resolved);
         break;
       case 'DELETE':
-        await apiService.compulsions.delete(item.data.id);
+        await (svc as any).deleteCompulsion(item.data.id);
         break;
     }
   }
 
   private async syncERPSession(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
     switch (item.type) {
       case 'CREATE': {
-        await apiService.erp.createExercise(item.data);
+        await (svc as any).saveERPSession(item.data);
         break;
       }
       case 'UPDATE': {
-        // best-effort fetch + resolve
+        // Fetch + resolve
         let remote: any = null;
         try {
-          const list = await apiService.erp.getExercises();
-          remote = Array.isArray(list) ? list.find((x: any) => x.id === item.data.id) : null;
+          remote = await (svc as any).getERPSession(item.data.id);
         } catch {}
         const resolved = await conflictResolver.resolveConflict('erp_session', item.data, remote);
-        await apiService.erp.completeSession(resolved.id, resolved);
+        await (svc as any).saveERPSession(resolved);
         break;
       }
       // ERP sessions typically aren't deleted
@@ -256,18 +258,17 @@ export class OfflineSyncService {
       activities: e.activities,
       created_at: e.timestamp,
     };
-    const { default: supabaseService } = await import('@/services/supabase');
-    const client = (supabaseService as any).client || (supabaseService as any).supabaseClient || (supabaseService as any);
-    const { error } = await client
+    const { default: svc } = await import('@/services/supabase');
+    const { data, error } = await (svc as any).supabaseClient
       .from('mood_tracking')
       .upsert(payload);
     if (error) throw error;
     // Mark local as synced (best-effort)
     try {
       const { default: moodTracker, moodTracker: named } = await import('@/services/moodTrackingService');
-      const svc = (named || moodTracker);
-      if (svc && typeof (svc as any).markAsSynced === 'function') {
-        await (svc as any).markAsSynced(e.id, e.user_id);
+      const tracker = (named || moodTracker);
+      if (tracker && typeof (tracker as any).markAsSynced === 'function') {
+        await (tracker as any).markAsSynced(e.id, e.user_id);
       }
     } catch {}
   }

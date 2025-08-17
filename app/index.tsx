@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import supabaseService from '@/services/supabase';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import crossDeviceSync from '@/services/crossDeviceSync';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -85,6 +86,10 @@ export default function Index() {
         }
 
         // Default: go to main app (authenticated)
+        try {
+          // Run a background cross-device sync (non-blocking)
+          crossDeviceSync.runInitialCrossDeviceSync(user.id);
+        } catch {}
         console.log('🏠 User authenticated, redirecting to main app');
         router.replace('/(tabs)');
 

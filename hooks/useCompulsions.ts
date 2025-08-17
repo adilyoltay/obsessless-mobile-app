@@ -160,7 +160,25 @@ const compulsionService = {
         } as any);
         if (__DEV__) console.log('✅ Compulsion saved to Supabase');
       } catch (supabaseError) {
-        if (__DEV__) console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
+        if (__DEV__) console.warn('⚠️ Supabase save failed, queuing compulsion for offline sync:', supabaseError);
+        // Queue for offline sync
+        try {
+          const { offlineSyncService } = await import('@/services/offlineSync');
+          await offlineSyncService.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'compulsion',
+            data: {
+              id: compulsion.id,
+              user_id: userId,
+              category: mapToCanonicalCategory(data.type),
+              subcategory: data.type,
+              resistance_level: data.resistanceLevel,
+              trigger: data.trigger,
+              notes: data.notes,
+              timestamp: compulsion.timestamp.toISOString(),
+            }
+          });
+        } catch {}
         // Continue with offline mode - data is already in AsyncStorage
       }
       

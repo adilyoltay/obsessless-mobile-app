@@ -741,7 +741,7 @@ export default function TrackingScreen() {
           <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FEE2E2', borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center' }}>
             <MaterialCommunityIcons name="sync-alert" size={18} color="#DC2626" />
             <Text style={{ marginLeft: 8, color: '#991B1B' }}>
-              Senkron uyarısı: Kuyruk {syncMetrics.deadLetterCount} • Başarı {Math.round(syncMetrics.successRate*100)}% — Ayrıntılar Ayarlar > Tanılama içinde.
+              Senkron uyarısı: Kuyruk {syncMetrics.deadLetterCount} • Başarı {Math.round(syncMetrics.successRate*100)}% — Ayrıntılar Ayarlar {'>'} Tanılama içinde.
             </Text>
           </View>
         )}

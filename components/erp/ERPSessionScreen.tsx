@@ -113,6 +113,7 @@ export default function ERPSessionScreen({
   const [isPaused, setIsPaused] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [currentMessage, setCurrentMessage] = useState(0);
+  const isCompletingRef = useRef(false);
   
   // Compulsion Urge Tracking State
   const [showUrgeBottomSheet, setShowUrgeBottomSheet] = useState(false);
@@ -170,13 +171,13 @@ export default function ERPSessionScreen({
     };
   }, []);
 
-  // Check for session completion
+  // Check for session completion (single watcher)
   useEffect(() => {
-    if (elapsedTime >= targetDuration && !showCompletion && user?.id) {
+    if (isActive && elapsedTime >= targetDuration && !showCompletion && user?.id && !isCompletingRef.current) {
       console.log('⏰ Session duration reached, auto-completing...');
       handleComplete();
     }
-  }, [elapsedTime, targetDuration, showCompletion, user?.id]);
+  }, [isActive, elapsedTime, targetDuration, showCompletion, user?.id]);
 
   useEffect(() => {
     // Rotate calming messages
@@ -217,6 +218,10 @@ export default function ERPSessionScreen({
   };
 
   const handleComplete = async () => {
+    if (isCompletingRef.current) {
+      return;
+    }
+    isCompletingRef.current = true;
     if (!user?.id) {
       console.error('❌ No user logged in');
       Alert.alert(
@@ -224,6 +229,7 @@ export default function ERPSessionScreen({
         'Oturum tamamlanamadı. Lütfen giriş yapın.',
         [{ text: 'Tamam' }]
       );
+      isCompletingRef.current = false;
       return;
     }
     
@@ -234,6 +240,7 @@ export default function ERPSessionScreen({
     
     if (!sessionLog) {
       console.error('❌ Session log is null');
+      isCompletingRef.current = false;
       return;
     }
     
@@ -292,6 +299,7 @@ export default function ERPSessionScreen({
     if (onComplete) {
       setTimeout(() => onComplete(enhancedSessionLog), 3000);
     }
+    // Keep ref true after a successful completion to avoid re-entry
   };
 
   const handleAbandon = () => {
