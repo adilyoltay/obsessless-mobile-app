@@ -323,37 +323,100 @@ class JITAIEngine {
       throw error;
     }
 
-    const predictionId = `timing_${Date.now()}_${context.userId}`;
+    // Robust context validation - prevent runtime crashes
+    if (!context) {
+      const error: AIError = {
+        code: AIErrorCode.INVALID_INPUT,
+        message: 'Context is required for timing prediction',
+        timestamp: new Date(),
+        severity: ErrorSeverity.HIGH,
+        recoverable: false
+      };
+      await trackAIError(error);
+      throw error;
+    }
+
+    // Check required fields to prevent "Cannot read property 'userState' of undefined"
+    if (!context.currentContext?.userState) {
+      const error: AIError = {
+        code: AIErrorCode.INVALID_INPUT,
+        message: 'Context must include currentContext.userState for timing prediction',
+        timestamp: new Date(),
+        severity: ErrorSeverity.HIGH,
+        recoverable: true
+      };
+      await trackAIError(error);
+      // Soft-fallback: normalize minimal context and return default prediction instead of throwing
+      const minimal = this.normalizeContext((context as any) ?? ({} as any));
+      const predictionId = `timing_${Date.now()}_${minimal.userId}`;
+      const { recommendedTime, confidence, rationale } = this.defaultTimingPrediction(minimal);
+      const result: TimingPredictionResult = {
+        userId: minimal.userId,
+        predictionId,
+        timestamp: new Date(),
+        optimalTiming: {
+          recommendedTime,
+          confidence,
+          rationale,
+          alternativeTimes: this.generateAlternativeTimes(minimal, recommendedTime)
+        },
+        effectivenessPrediction: this.predictInterventionEffectiveness(minimal, recommendedTime),
+        contextualFactors: {
+          currentStressLevel: minimal.currentContext.userState.stressLevel,
+          activityState: minimal.currentContext.userState.activityState,
+          timeOfDay: new Date().getHours(),
+          recentInterventionCount: 0,
+          historicalSuccessRate: this.calculateHistoricalSuccessRate(minimal)
+        },
+        modelUsed: this.config.primaryTimingModel,
+        modelVersion: '1.0',
+        predictionQuality: this.calculatePredictionQuality(minimal, confidence)
+      };
+      return result;
+    }
+
+    const safeContext: any = context || {} as any;
+    const predictionId = `timing_${Date.now()}_${safeContext?.userId || 'unknown'}`;
     const startTime = Date.now();
 
     try {
-      console.log(`🎯 Predicting optimal timing for user ${context.userId}`);
+      console.log(`🎯 Predicting optimal timing for user ${safeContext.userId || 'unknown'}`);
+
+      // Guard: Context validation and normalization
+      const normalized = this.normalizeContext(safeContext);
+      if ((normalized as any).__incomplete) {
+        // Telemetry for missing context
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'jitai_context_incomplete',
+          missing: (normalized as any).__missing,
+        });
+      }
 
       // Check cache first
-      const cached = this.predictionCache.get(context.userId);
+      const cached = this.predictionCache.get(normalized.userId);
       if (cached && this.isCacheValid(cached)) {
         console.log('📦 Using cached timing prediction');
         return cached;
       }
 
       // Select optimal timing model
-      const model = this.selectOptimalTimingModel(context);
+      const model = this.selectOptimalTimingModel(normalized);
       
       // Generate timing prediction
-      const prediction = await this.generateTimingPrediction(context, model, predictionId);
+      const prediction = await this.generateTimingPrediction(normalized, model, predictionId);
       
       // Apply A/B testing variations if applicable
-      const finalPrediction = await this.applyABTestVariations(prediction, context);
+      const finalPrediction = await this.applyABTestVariations(prediction, normalized);
       
       // Cache the result
-      this.predictionCache.set(context.userId, finalPrediction);
+      this.predictionCache.set(normalized.userId, finalPrediction);
       setTimeout(() => {
-        this.predictionCache.delete(context.userId);
+        this.predictionCache.delete(normalized.userId);
       }, 30 * 60 * 1000); // 30 minutes cache
       
       // Telemetry
       await trackAIInteraction(AIEventType.TIMING_PREDICTION_GENERATED, {
-        userId: context.userId,
+        userId: normalized.userId,
         predictionId,
         modelUsed: model,
         confidence: finalPrediction.optimalTiming.confidence,
@@ -374,13 +437,65 @@ class JITAIEngine {
         context: { 
           component: 'JITAIEngine', 
           method: 'predictOptimalTiming',
-          userId: context.userId,
+          userId: safeContext?.userId,
           latency: Date.now() - startTime
         }
       });
 
       throw error;
     }
+  }
+
+  /**
+   * Normalize/guard JITAI context to avoid runtime errors
+   */
+  private normalizeContext(context: JITAIContext): JITAIContext & { __incomplete?: boolean; __missing?: string[] } {
+    const source: any = context ?? {} as any;
+    const missing: string[] = [];
+    const safeUserId = typeof source?.userId === 'string' && source.userId.length > 0 ? source.userId : 'unknown_user';
+    const defaultState = {
+      stressLevel: (ContextAnalysisResult as any)?.StressLevel?.MODERATE ?? (StressLevel.MODERATE as any),
+      activityState: (ContextAnalysisResult as any)?.UserActivityState?.UNKNOWN ?? (UserActivityState.UNKNOWN as any),
+      energyLevel: 50,
+    } as any;
+    const baseCurrent = source?.currentContext || {};
+    const baseUserState = baseCurrent.userState || {};
+    if (!source || !source.currentContext) missing.push('currentContext');
+    if (!baseCurrent.userState) missing.push('currentContext.userState');
+    const normalized: any = {
+      ...source,
+      userId: safeUserId,
+      currentContext: {
+        ...baseCurrent,
+        userState: {
+          ...defaultState,
+          ...baseUserState,
+          stressLevel: baseUserState.stressLevel ?? StressLevel.MODERATE,
+          activityState: baseUserState.activityState ?? UserActivityState.UNKNOWN,
+          energyLevel: typeof baseUserState.energyLevel === 'number' ? baseUserState.energyLevel : 50,
+        },
+      },
+      currentUserState: {
+        isAppActive: source?.currentUserState?.isAppActive ?? false,
+        lastInteraction: source?.currentUserState?.lastInteraction ?? new Date(Date.now() - 10 * 60 * 1000),
+        recentMood: source?.currentUserState?.recentMood ?? 'neutral',
+        energyLevel: source?.currentUserState?.energyLevel ?? 50,
+        stressPattern: source?.currentUserState?.stressPattern ?? [StressLevel.MODERATE],
+      },
+      personalizationProfile: {
+        preferredTimes: source?.personalizationProfile?.preferredTimes ?? [],
+        responsiveStates: source?.personalizationProfile?.responsiveStates ?? [],
+        effectiveCategories: source?.personalizationProfile?.effectiveCategories ?? [],
+        culturalPreferences: source?.personalizationProfile?.culturalPreferences ?? {},
+        communicationStyle: source?.personalizationProfile?.communicationStyle ?? 'gentle',
+      },
+      interventionHistory: source?.interventionHistory ?? [],
+    };
+    if (missing.length) {
+      normalized.__incomplete = true;
+      normalized.__missing = missing;
+    }
+    return normalized;
   }
 
   /**
@@ -524,7 +639,9 @@ class JITAIEngine {
     model: TimingModel,
     predictionId: string
   ): Promise<TimingPredictionResult> {
-    
+    // Guard: normalize context to ensure currentContext.userState exists
+    const normalizedContext = this.normalizeContext((context as any) ?? ({} as any));
+
     const baseTime = new Date();
     let recommendedTime: Date;
     let confidence: number;
@@ -532,35 +649,35 @@ class JITAIEngine {
 
     switch (model) {
       case TimingModel.CIRCADIAN:
-        ({ recommendedTime, confidence, rationale } = this.circadianTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.circadianTimingPrediction(normalizedContext));
         break;
       case TimingModel.BEHAVIORAL:
-        ({ recommendedTime, confidence, rationale } = this.behavioralTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.behavioralTimingPrediction(normalizedContext));
         break;
       case TimingModel.CONTEXTUAL:
-        ({ recommendedTime, confidence, rationale } = this.contextualTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.contextualTimingPrediction(normalizedContext));
         break;
       case TimingModel.STRESS_BASED:
-        ({ recommendedTime, confidence, rationale } = this.stressBasedTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.stressBasedTimingPrediction(normalizedContext));
         break;
       case TimingModel.HYBRID:
-        ({ recommendedTime, confidence, rationale } = this.hybridTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.hybridTimingPrediction(normalizedContext));
         break;
       case TimingModel.MACHINE_LEARNING:
-        ({ recommendedTime, confidence, rationale } = await this.mlTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = await this.mlTimingPrediction(normalizedContext));
         break;
       default:
-        ({ recommendedTime, confidence, rationale } = this.defaultTimingPrediction(context));
+        ({ recommendedTime, confidence, rationale } = this.defaultTimingPrediction(normalizedContext));
     }
 
     // Generate effectiveness prediction
-    const effectivenessPrediction = this.predictInterventionEffectiveness(context, recommendedTime);
+    const effectivenessPrediction = this.predictInterventionEffectiveness(normalizedContext, recommendedTime);
     
     // Generate alternative times
-    const alternativeTimes = this.generateAlternativeTimes(context, recommendedTime);
+    const alternativeTimes = this.generateAlternativeTimes(normalizedContext, recommendedTime);
 
     const result: TimingPredictionResult = {
-      userId: context.userId,
+      userId: normalizedContext.userId,
       predictionId,
       timestamp: new Date(),
       
@@ -574,16 +691,16 @@ class JITAIEngine {
       effectivenessPrediction,
       
       contextualFactors: {
-        currentStressLevel: context.currentContext.userState.stressLevel,
-        activityState: context.currentContext.userState.activityState,
+        currentStressLevel: normalizedContext.currentContext.userState.stressLevel,
+        activityState: normalizedContext.currentContext.userState.activityState,
         timeOfDay: new Date().getHours(),
-        recentInterventionCount: this.getRecentInterventionCount(context),
-        historicalSuccessRate: this.calculateHistoricalSuccessRate(context)
+        recentInterventionCount: this.getRecentInterventionCount(normalizedContext),
+        historicalSuccessRate: this.calculateHistoricalSuccessRate(normalizedContext)
       },
       
       modelUsed: model,
       modelVersion: '1.0',
-      predictionQuality: this.calculatePredictionQuality(context, confidence)
+      predictionQuality: this.calculatePredictionQuality(normalizedContext, confidence)
     };
 
     return result;
@@ -597,6 +714,7 @@ class JITAIEngine {
     confidence: number;
     rationale: string;
   } {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     const now = new Date();
     const currentHour = now.getHours();
     
@@ -625,8 +743,9 @@ class JITAIEngine {
     confidence: number;
     rationale: string;
   } {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     // Analyze user's historical app usage patterns
-    const preferredTimes = context.personalizationProfile.preferredTimes;
+    const preferredTimes = ctx.personalizationProfile.preferredTimes;
     const now = new Date();
     
     if ((preferredTimes ?? []).length > 0) {
@@ -663,9 +782,10 @@ class JITAIEngine {
     confidence: number;
     rationale: string;
   } {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     const now = new Date();
-    const currentActivity = context.currentContext.userState.activityState;
-    const stressLevel = context.currentContext.userState.stressLevel;
+    const currentActivity = ctx.currentContext.userState.activityState;
+    const stressLevel = ctx.currentContext.userState.stressLevel;
     
     let delayMinutes = 0;
     let rationale = '';
@@ -719,8 +839,9 @@ class JITAIEngine {
     confidence: number;
     rationale: string;
   } {
-    const stressPattern = context.currentUserState?.stressPattern ?? [];
-    const currentStress = context.currentContext.userState.stressLevel;
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
+    const stressPattern = ctx.currentUserState?.stressPattern ?? [];
+    const currentStress = ctx.currentContext.userState.stressLevel;
     
     // Predict when stress might be lower
     let optimalDelayMinutes = 30; // Default
@@ -772,10 +893,11 @@ class JITAIEngine {
     rationale: string;
   } {
     // Get predictions from multiple models
-    const circadian = this.circadianTimingPrediction(context);
-    const behavioral = this.behavioralTimingPrediction(context);
-    const contextual = this.contextualTimingPrediction(context);
-    const stressBased = this.stressBasedTimingPrediction(context);
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
+    const circadian = this.circadianTimingPrediction(ctx);
+    const behavioral = this.behavioralTimingPrediction(ctx);
+    const contextual = this.contextualTimingPrediction(ctx);
+    const stressBased = this.stressBasedTimingPrediction(ctx);
 
     // Weight the predictions based on confidence and context
     const predictions = [
@@ -813,10 +935,11 @@ class JITAIEngine {
     // In a real implementation, this would use a trained ML model
     // For now, we'll simulate ML prediction based on historical data
     
-    const historicalData = context.interventionHistory;
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
+    const historicalData = ctx.interventionHistory;
     if (historicalData.length < 5) {
       // Not enough data for ML, fallback to hybrid
-      return this.hybridTimingPrediction(context);
+      return this.hybridTimingPrediction(ctx);
     }
 
     // Simulate ML analysis
@@ -843,7 +966,7 @@ class JITAIEngine {
     }
 
     // Fallback if no clear pattern
-    return this.hybridTimingPrediction(context);
+    return this.hybridTimingPrediction(ctx);
   }
 
   /**
@@ -869,20 +992,22 @@ class JITAIEngine {
   // =============================================================================
 
   private selectOptimalTimingModel(context: JITAIContext): TimingModel {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     // Simple model selection logic
-    if ((context.interventionHistory?.length ?? 0) >= 10) {
+    if ((ctx.interventionHistory?.length ?? 0) >= 10) {
       return TimingModel.MACHINE_LEARNING;
     }
-    if (context.currentContext.userState.stressLevel === StressLevel.VERY_HIGH) {
+    if (ctx.currentContext.userState.stressLevel === StressLevel.VERY_HIGH) {
       return TimingModel.STRESS_BASED;
     }
-    if (context.currentUserState?.isAppActive) {
+    if (ctx.currentUserState?.isAppActive) {
       return TimingModel.CONTEXTUAL;
     }
     return this.config.primaryTimingModel;
   }
 
   private predictInterventionEffectiveness(context: JITAIContext, timing: Date): TimingPredictionResult['effectivenessPrediction'] {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     const contributingFactors: TimingPredictionResult['effectivenessPrediction']['contributingFactors'] = [];
     let estimatedEffectiveness = 0.7; // Base effectiveness
 
@@ -902,7 +1027,7 @@ class JITAIEngine {
     estimatedEffectiveness += timeImpact;
 
     // Stress level factor
-    const stressLevel = context.currentContext.userState.stressLevel;
+    const stressLevel = ctx.currentContext.userState.stressLevel;
     let stressImpact = 0;
     switch (stressLevel) {
       case StressLevel.VERY_HIGH:
@@ -928,7 +1053,7 @@ class JITAIEngine {
     estimatedEffectiveness += stressImpact;
 
     // Historical response factor
-    const historicalSuccessRate = this.calculateHistoricalSuccessRate(context);
+    const historicalSuccessRate = this.calculateHistoricalSuccessRate(ctx);
     const historyImpact = (historicalSuccessRate - 0.7) * 0.5; // Adjust based on historical performance
 
     contributingFactors.push({
@@ -944,8 +1069,8 @@ class JITAIEngine {
     return {
       estimatedEffectiveness,
       contributingFactors,
-      riskFactors: this.identifyEffectivenessRiskFactors(context),
-      enhancementFactors: this.identifyEffectivenessEnhancementFactors(context)
+      riskFactors: this.identifyEffectivenessRiskFactors(ctx),
+      enhancementFactors: this.identifyEffectivenessEnhancementFactors(ctx)
     };
   }
 
@@ -1215,17 +1340,18 @@ class JITAIEngine {
   }
 
   private identifyEffectivenessRiskFactors(context: JITAIContext): string[] {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     const riskFactors: string[] = [];
     
-    if (context.currentContext.userState.energyLevel < 30) {
+    if (ctx.currentContext.userState.energyLevel < 30) {
       riskFactors.push('Low energy levels may reduce intervention engagement');
     }
     
-    if (context.currentUserState.recentMood === 'negative') {
+    if (ctx.currentUserState.recentMood === 'negative') {
       riskFactors.push('Negative mood may impact intervention receptivity');
     }
     
-    const recentCount = this.getRecentInterventionCount(context);
+    const recentCount = this.getRecentInterventionCount(ctx);
     if (recentCount > 3) {
       riskFactors.push('High recent intervention frequency may cause fatigue');
     }
@@ -1234,18 +1360,19 @@ class JITAIEngine {
   }
 
   private identifyEffectivenessEnhancementFactors(context: JITAIContext): string[] {
+    const ctx = this.normalizeContext((context as any) ?? ({} as any));
     const enhancementFactors: string[] = [];
     
-    if (context.currentContext.userState.stressLevel === StressLevel.HIGH || 
-        context.currentContext.userState.stressLevel === StressLevel.VERY_HIGH) {
+    if (ctx.currentContext.userState.stressLevel === StressLevel.HIGH || 
+        ctx.currentContext.userState.stressLevel === StressLevel.VERY_HIGH) {
       enhancementFactors.push('High stress increases motivation for support');
     }
     
-    if (context.currentUserState.isAppActive) {
+    if (ctx.currentUserState.isAppActive) {
       enhancementFactors.push('Active app usage indicates engagement readiness');
     }
     
-    const histSuccessRate = this.calculateHistoricalSuccessRate(context);
+    const histSuccessRate = this.calculateHistoricalSuccessRate(ctx);
     if (histSuccessRate > 0.7) {
       enhancementFactors.push('Strong historical response pattern');
     }

@@ -10,9 +10,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  CrisisRiskLevel
-} from '@/features/ai/types';
+// Crisis types removed from notifications context
 import { 
   IntelligentInsight, 
   InsightCategory, 
@@ -36,10 +34,8 @@ import { ErrorSeverity, AIError, AIErrorCode } from '@/features/ai/types';
  */
 export enum NotificationCategory {
   INSIGHT_DELIVERY = 'insight_delivery',         // İçgörü sunma
-  PATTERN_ALERT = 'pattern_alert',              // Pattern uyarısı
   PROGRESS_CELEBRATION = 'progress_celebration', // İlerleme kutlaması
   THERAPEUTIC_REMINDER = 'therapeutic_reminder', // Terapötik hatırlatma
-  CRISIS_INTERVENTION = 'crisis_intervention',   // Kriz müdahalesi
   SKILL_PRACTICE = 'skill_practice',            // Beceri pratiği
   CHECK_IN = 'check_in',                        // Durum sorgusu
   EDUCATIONAL = 'educational'                   // Eğitici içerik
@@ -87,7 +83,6 @@ export interface NotificationPreferences {
   // Context awareness
   respectAppUsage: boolean;  // Don't notify during active usage
   adaptToMood: boolean;      // Consider user mood
-  crisisOverride: boolean;   // Allow crisis notifications anytime
   
   // Personalization
   tone: 'formal' | 'casual' | 'warm';
@@ -118,7 +113,7 @@ export interface SmartNotification {
   
   // Context
   triggeredBy: {
-    type: 'insight' | 'pattern' | 'schedule' | 'user_action' | 'crisis';
+    type: 'insight' | 'pattern' | 'schedule' | 'user_action';
     sourceId: string;
     confidence: number;
   };
@@ -128,7 +123,7 @@ export interface SmartNotification {
     userMood?: string;
     appUsageState: 'active' | 'background' | 'closed';
     lastActivity: Date;
-    currentCrisisLevel: CrisisRiskLevel;
+    // crisis level removed
   };
   
   // Metadata
@@ -158,7 +153,7 @@ export interface DeliveryContext {
     lastActivity: Date;
     currentScreen?: string;
     userMood?: string;
-    crisisLevel: CrisisRiskLevel;
+    // crisis level removed
   };
   recentNotifications: SmartNotification[];
   timeOfDay: Date;
@@ -306,8 +301,7 @@ class SmartNotificationService {
         targetContext: {
           userMood: deliveryContext.currentContext.userMood,
           appUsageState: deliveryContext.currentContext.isAppActive ? 'active' : 'background',
-          lastActivity: deliveryContext.currentContext.lastActivity,
-          currentCrisisLevel: deliveryContext.currentContext.crisisLevel
+          lastActivity: deliveryContext.currentContext.lastActivity
         },
         
         createdAt: new Date(),
@@ -379,7 +373,7 @@ class SmartNotificationService {
       const notification: SmartNotification = {
         id: `pattern_${pattern.id}_${Date.now()}`,
         userId: deliveryContext.userId,
-        category: NotificationCategory.PATTERN_ALERT,
+        category: NotificationCategory.INSIGHT_DELIVERY,
         priority: isUrgent ? 'critical' : 'medium',
         
         title: this.createPatternAlertTitle(pattern),
@@ -401,8 +395,7 @@ class SmartNotificationService {
         targetContext: {
           userMood: deliveryContext.currentContext.userMood,
           appUsageState: deliveryContext.currentContext.isAppActive ? 'active' : 'background',
-          lastActivity: deliveryContext.currentContext.lastActivity,
-          currentCrisisLevel: deliveryContext.currentContext.crisisLevel
+          lastActivity: deliveryContext.currentContext.lastActivity
         },
         
         createdAt: new Date(),
@@ -447,11 +440,6 @@ class SmartNotificationService {
   ): Date {
     const now = new Date();
     const prefs = this.getUserPreferences(context.userId);
-
-    // Crisis situations - immediate delivery
-    if (context.currentContext.crisisLevel !== CrisisRiskLevel.NONE) {
-      return now;
-    }
 
     // Check quiet hours
     const currentHour = now.getHours();
@@ -505,11 +493,6 @@ class SmartNotificationService {
     context: DeliveryContext
   ): DeliveryMethod {
     const prefs = this.getUserPreferences(context.userId);
-    
-    // Crisis situations - push notification
-    if (context.currentContext.crisisLevel !== CrisisRiskLevel.NONE) {
-      return DeliveryMethod.PUSH_NOTIFICATION;
-    }
 
     // High priority insights
     if (insight.priority === InsightPriority.CRITICAL || insight.priority === InsightPriority.HIGH) {
@@ -630,12 +613,6 @@ class SmartNotificationService {
           preferredMethod: DeliveryMethod.PUSH_NOTIFICATION,
           allowQuietHours: false
         },
-        [NotificationCategory.PATTERN_ALERT]: {
-          enabled: true,
-          maxPerDay: 2,
-          preferredMethod: DeliveryMethod.IN_APP_BANNER,
-          allowQuietHours: false
-        },
         [NotificationCategory.PROGRESS_CELEBRATION]: {
           enabled: true,
           maxPerDay: 5,
@@ -647,12 +624,6 @@ class SmartNotificationService {
           maxPerDay: 2,
           preferredMethod: DeliveryMethod.GENTLE_POPUP,
           allowQuietHours: false
-        },
-        [NotificationCategory.CRISIS_INTERVENTION]: {
-          enabled: true,
-          maxPerDay: 10,
-          preferredMethod: DeliveryMethod.PUSH_NOTIFICATION,
-          allowQuietHours: true
         },
         [NotificationCategory.SKILL_PRACTICE]: {
           enabled: true,
@@ -677,7 +648,6 @@ class SmartNotificationService {
       timezone: "Europe/Istanbul",
       respectAppUsage: true,
       adaptToMood: true,
-      crisisOverride: true,
       tone: 'warm',
       language: 'tr',
       culturalContext: 'turkish'
@@ -729,16 +699,16 @@ class SmartNotificationService {
   // Mapping functions
   private mapInsightCategoryToNotificationCategory(category: InsightCategory): NotificationCategory {
     const mapping = {
-      [InsightCategory.PATTERN_RECOGNITION]: NotificationCategory.PATTERN_ALERT,
+      [InsightCategory.PATTERN_RECOGNITION]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.PROGRESS_TRACKING]: NotificationCategory.PROGRESS_CELEBRATION,
       [InsightCategory.THERAPEUTIC_GUIDANCE]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.BEHAVIORAL_ANALYSIS]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.EMOTIONAL_STATE]: NotificationCategory.CHECK_IN,
-      [InsightCategory.CRISIS_PREVENTION]: NotificationCategory.CRISIS_INTERVENTION,
+      [InsightCategory.CRISIS_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.SKILL_DEVELOPMENT]: NotificationCategory.SKILL_PRACTICE,
       [InsightCategory.RELAPSE_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER
-    };
-    return mapping[category] || NotificationCategory.INSIGHT_DELIVERY;
+    } as const;
+    return (mapping as any)[category] || NotificationCategory.INSIGHT_DELIVERY;
   }
 
   private mapInsightPriorityToNotificationPriority(priority: InsightPriority): SmartNotification['priority'] {
@@ -860,11 +830,4 @@ class SmartNotificationService {
 
 export const smartNotificationService = SmartNotificationService.getInstance();
 export default smartNotificationService;
-export { 
-  NotificationCategory,
-  DeliveryMethod,
-  type SmartNotification,
-  type NotificationPreferences,
-  type DeliveryContext,
-  type SchedulingResult
-};
+// Types ve enum tekrar export edilmiyor; merkezi `features/ai/types/index.ts` üzerinden kullanılmalı.

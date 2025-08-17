@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+/* eslint-env node */
+/* global __dirname */
 
 /**
  * 🧪 AI Integration Performance Test Script

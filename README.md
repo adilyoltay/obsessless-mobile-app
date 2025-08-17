@@ -14,6 +14,8 @@ Onboarding her zaman aktiftir ve en kapsamlı akış olan `OnboardingFlowV3` kul
 Notlar:
 - `AI_ONBOARDING_V2` her zaman true’dur. Onboarding hiçbir flag ile kapatılmaz.
 - Eski `/(auth)/ai-onboarding` rotası kaldırıldı; tek giriş `/(auth)/onboarding`.
+  - Today ekranındaki AI CTA, Settings → AI Onboarding devam butonu ve NavigationGuard/app giriş yönlendirmeleri güncellenmiştir.
+  - Onboarding tamamlanmadıysa otomatik yönlendirme `/(auth)/onboarding`'edir; tamamlandıysa CTA gizlenir.
 
 # 🌟 ObsessLess Mobile App
 
@@ -47,13 +49,14 @@ ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarla
 
 ## 🛠️ Teknoloji Stack
 
-- **Framework:** React Native with Expo (~51.0.0)
-- **Language:** TypeScript 5.1.3
-- **State Management:** Zustand
-- **Storage:** AsyncStorage (User-specific)
+- **Framework:** React Native with Expo (SDK 51)
+- **Language:** TypeScript 5.x
+- **State Management:** Zustand + React Query
+- **Storage:** AsyncStorage (User-specific) + Supabase (sync)
 - **Navigation:** Expo Router (File-based)
-- **Animations:** React Native Reanimated
+- **Animations:** React Native Reanimated + Lottie
 - **UI Components:** Custom components following Master Prompt principles
+- **AI Provider:** Gemini-only (AI Chat devre dışı, Crisis Detection kaldırıldı)
 
 ## 🎨 Tasarım İlkeleri
 
@@ -85,7 +88,7 @@ ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarla
 ```bash
 # Repository'yi klonla
 git clone https://github.com/adilyoltay/obsessless-mobile-app.git
-cd obslessless-mobile-app
+cd obsessless-mobile-app
 
 # Bağımlılıkları yükle
 npm install

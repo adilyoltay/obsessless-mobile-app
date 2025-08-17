@@ -41,6 +41,25 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  // Foreground DLQ scheduler: process periodically when app is active
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    (async () => {
+      try {
+        const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+        // Run once shortly after startup
+        setTimeout(() => { deadLetterQueue.processDeadLetterQueue().catch(() => {}); }, 3000);
+        // Then run periodically
+        interval = setInterval(() => {
+          deadLetterQueue.processDeadLetterQueue().catch(() => {});
+        }, 60000);
+      } catch {}
+    })();
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
   if (!loaded) {
     return null;
   }

@@ -3,6 +3,8 @@ import { View, ScrollView, StyleSheet, Platform, Text, useColorScheme } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
+import OfflineBanner from '@/components/ui/OfflineBanner';
+import SafeModeBanner from '@/components/ui/SafeModeBanner';
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -26,8 +28,16 @@ function ScreenLayout({
     { backgroundColor }
   ];
 
+  // RN sıkı metin kuralı: View/ScrollView içinde düz string çocuklar hata verir.
+  // Özellikle JSX'teki boşluk/newline'lar string node olarak gelebilir; filtreleyelim.
+  const normalizedChildren = React.Children.toArray(children).filter(
+    (node) => typeof node !== 'string' && typeof node !== 'number'
+  );
+
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
+      <SafeModeBanner />
+      <OfflineBanner />
       {showStatusBar && (
         <StatusBar 
           style={statusBarStyle} 
@@ -43,11 +53,11 @@ function ScreenLayout({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {children}
+          {normalizedChildren}
         </ScrollView>
       ) : (
         <View style={styles.content}>
-          {children}
+          {normalizedChildren}
         </View>
       )}
     </SafeAreaView>

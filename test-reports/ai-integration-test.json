@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-11T11:17:19.418Z",
+  "timestamp": "2025-08-12T18:35:35.301Z",
   "tests": [
     {
       "name": "Production AI enabled",
@@ -65,13 +65,23 @@
       "name": "File: features/ai/engines/treatmentPlanningEngine.ts",
       "passed": true,
       "details": ""
+    },
+    {
+      "name": "ExternalAIService exists",
+      "passed": true,
+      "details": ""
+    },
+    {
+      "name": "getAIResponse default params present",
+      "passed": true,
+      "details": ""
     }
   ],
   "summary": {
-    "totalTests": 13,
-    "passed": 12,
+    "totalTests": 15,
+    "passed": 14,
     "failed": 1,
-    "passRate": "92.3%",
+    "passRate": "93.3%",
     "recommendation": "READY FOR PRODUCTION"
   }
 }

@@ -30,7 +30,7 @@ export interface AIMessage {
  */
 export interface AIMessageMetadata {
   sessionId: string;
-  contextType: 'onboarding' | 'chat' | 'erp' | 'crisis' | 'insights' | 'art_therapy';
+  contextType: 'onboarding' | 'chat' | 'erp' | 'insights' | 'art_therapy';
   
   // Therapeutic context
   therapeuticIntent?: string[];
@@ -101,42 +101,14 @@ export interface EmotionScore {
   confidence: number; // 0-1
 }
 
-// =============================================================================
-// 🚨 CRISIS & SAFETY TYPES
-// =============================================================================
-
-/**
- * Kriz risk seviyeleri
- */
+// Crisis-related tipler kaldırıldı; Risk değerlendirmesi için `RiskLevel` kullanın
+// Uyum için minimal enum (DEPRECATED)
 export enum CrisisRiskLevel {
   NONE = 'none',
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
   CRITICAL = 'critical'
-}
-
-/**
- * Crisis detection sonucu
- */
-export interface CrisisDetectionResult {
-  riskLevel: CrisisRiskLevel;
-  confidence: number;
-  triggers: string[];
-  recommendedAction: CrisisAction;
-  humanReviewRequired: boolean;
-  timestamp: Date;
-}
-
-/**
- * Kriz müdahale aksiyonları
- */
-export enum CrisisAction {
-  CONTINUE_NORMAL = 'continue_normal',
-  PROVIDE_RESOURCES = 'provide_resources',
-  ESCALATE_TO_HUMAN = 'escalate_to_human',
-  EMERGENCY_CONTACTS = 'emergency_contacts',
-  IMMEDIATE_INTERVENTION = 'immediate_intervention'
 }
 
 // =============================================================================
@@ -157,7 +129,6 @@ export interface AIConfig {
   
   // Safety settings
   safetyThreshold: number; // 0-1
-  crisisDetectionEnabled: boolean;
   contentFilteringEnabled: boolean;
   
   // Performance settings
@@ -170,7 +141,8 @@ export interface AIConfig {
  * Desteklenen AI sağlayıcıları
  */
 export enum AIProvider {
-  GEMINI = 'gemini'
+  GEMINI = 'gemini',
+  LOCAL = 'local'
 }
 
 /**
@@ -241,7 +213,6 @@ export interface UserTherapeuticProfile {
 export enum ConversationState {
   STABLE = 'stable',
   ELEVATED = 'elevated', // Stress/anxiety elevated
-  CRISIS = 'crisis', // Crisis situation
   THERAPEUTIC = 'therapeutic', // Active therapy session
   EDUCATIONAL = 'educational', // Learning mode
   CELEBRATION = 'celebration' // Progress celebration
@@ -297,7 +268,7 @@ export interface AIInteractionAnalytics {
 export enum AIInteractionType {
   CHAT_MESSAGE = 'chat_message',
   INSIGHT_GENERATED = 'insight_generated',
-  CRISIS_DETECTED = 'crisis_detected',
+  // Legacy crisis event removed
   ONBOARDING_STEP = 'onboarding_step',
   ART_THERAPY_SESSION = 'art_therapy_session',
   CBT_EXERCISE = 'cbt_exercise'
@@ -578,12 +549,7 @@ export const isAIError = (obj: any): obj is AIError => {
          Object.values(ErrorSeverity).includes(obj.severity);
 };
 
-/**
- * Type guard for crisis detection
- */
-export const isCrisisLevel = (level: string): level is CrisisRiskLevel => {
-  return Object.values(CrisisRiskLevel).includes(level as CrisisRiskLevel);
-};
+// Crisis detection için type guard kaldırıldı
 
 /**
  * Feature flag requirement check
@@ -940,6 +906,78 @@ export interface RiskAssessment {
   confidence: number;
   humanReviewRequired: boolean;
   reassessmentInterval: number; // days
+}
+
+// =============================================================================
+// 📦 PLACEHOLDER TYPE DEFINITIONS (compatibility stubs)
+// =============================================================================
+
+export interface ExpectedOutcome {
+  description: string;
+  metric?: string;
+  target?: number | string;
+}
+
+export interface SuccessMetric {
+  name: string;
+  threshold?: number;
+}
+
+export interface AdaptationTrigger {
+  id: string;
+  condition: string;
+  action: string;
+}
+
+export interface FallbackStrategy {
+  id: string;
+  description: string;
+}
+
+export interface EmergencyProtocol {
+  id: string;
+  description: string;
+  steps?: string[];
+}
+
+export interface Intervention {
+  id: string;
+  name: string;
+  type: InterventionType;
+  description?: string;
+}
+
+export interface Milestone {
+  id: string;
+  description: string;
+  dueInWeeks?: number;
+}
+
+export interface InterventionProtocol {
+  steps: string[];
+  durationWeeks?: number;
+}
+
+export interface ImmediateAction {
+  id: string;
+  priority: 'low' | 'medium' | 'high';
+  description: string;
+  timeframe?: string;
+  assignee?: string;
+}
+
+export interface MonitoringPlan {
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  indicators: string[];
+  triggers: string[];
+}
+
+export interface Safeguard {
+  id: string;
+  type: string;
+  description: string;
+  activationTrigger?: string;
+  contactInfo?: string;
 }
 
 /**

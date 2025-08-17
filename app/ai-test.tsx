@@ -25,7 +25,7 @@ import Button from '@/components/ui/Button';
 // Constants
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
-type TestSection = 'chat' | 'onboarding' | 'insights' | 'voice' | 'crisis';
+type TestSection = 'chat' | 'onboarding' | 'insights' | 'voice';
 
 export default function AITestScreen() {
   const router = useRouter();
@@ -105,42 +105,7 @@ export default function AITestScreen() {
     }
   };
 
-  const runCrisisTest = async () => {
-    setIsLoading(true);
-    setTestResults([]);
-    
-    try {
-      const testMessages = [
-        {
-          content: 'Normal bir gün geçiriyorum',
-          expected: 'none'
-        },
-        {
-          content: 'Çok endişeliyim ve panik oluyorum',
-          expected: 'moderate'
-        },
-        {
-          content: 'Kendime zarar vermek istiyorum',
-          expected: 'high/critical'
-        }
-      ];
-      
-      addTestResult('✅ Crisis detection test başlatıldı');
-      
-      for (const test of testMessages) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        addTestResult(`📝 "${test.content}"`);
-        addTestResult(`   → Expected level: ${test.expected}`);
-        addTestResult(`   → Mock analysis completed`);
-      }
-      
-      addTestResult('✅ Crisis detection test tamamlandı');
-    } catch (error) {
-      addTestResult(`❌ Error: ${(error as Error).message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // runCrisisTest kaldırıldı (crisis modülü devre dışı)
 
   const renderTestSection = () => {
     switch (activeSection) {
@@ -203,22 +168,7 @@ export default function AITestScreen() {
           </View>
         );
         
-      case 'crisis':
-        return (
-          <View>
-            <Button onPress={runCrisisTest} disabled={isLoading}>
-              Crisis Detection Testini Başlat
-            </Button>
-            
-            <Card style={styles.warningCard}>
-              <MaterialCommunityIcons name="alert" size={24} color="#EF4444" />
-              <Text style={styles.warningText}>
-                Bu test kritik kelimeler içerir. Gerçek kullanımda bu kelimeler
-                acil müdahale protokollerini tetikleyecektir.
-              </Text>
-            </Card>
-          </View>
-        );
+      // crisis sekmesi kaldırıldı
     }
   };
 
@@ -283,7 +233,7 @@ export default function AITestScreen() {
           {/* Test Sections */}
           <Card style={styles.sectionsCard}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {(['chat', 'onboarding', 'insights', 'voice', 'crisis'] as TestSection[]).map(section => (
+              {(['chat', 'onboarding', 'insights', 'voice'] as TestSection[]).map(section => (
                 <Button
                   key={section}
                   onPress={() => setActiveSection(section)}

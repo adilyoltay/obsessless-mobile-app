@@ -180,7 +180,7 @@ export const SafetyPlanV2: React.FC<SafetyPlanV2Props> = ({
           </View>
           <View style={styles.safetyStep}>
             <Text style={styles.stepNumber}>4</Text>
-            <Text style={styles.stepText}>Gerekirse 182'yi arayın</Text>
+            <Text style={styles.stepText}>Gerekirse 182&apos;yi arayın</Text>
           </View>
         </View>
 

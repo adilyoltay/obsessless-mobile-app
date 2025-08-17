@@ -31,6 +31,12 @@ rules:
   - rule: "Hataları çözerken kodu derinlemesine ve detaylı incele ve kalıcı çözümler geliştiemeye çalış."
   - rule: "kod fonksiyon class dosya duplikasyonu olmaması için önlem al"
 
+  # 4. Doküman Bakım Politikası
+  - rule: "Aşağıdaki çekirdek doküman seti tek gerçek kaynaktır ve değişiklik gerektiren sprintlerde güncellenmeleri zorunludur: README.md, docs/ARCHITECTURE_OVERVIEW.md, docs/AI_OVERVIEW.md, docs/FEATURE_STATUS_MATRIX.md, docs/DEVELOPMENT_ROADMAP_2025.md, docs/CONTRIBUTING_AND_SETUP.md, docs/TESTING_STRATEGY_OVERVIEW.md, docs/UX_DESIGN_GUIDE.md, docs/security-guide.md."
+  - rule: "Konsolidasyon politikası: Çakışan/tekrarlı içerikler birleştirilir; eski sürümler `archive/` klasörüne taşınır."
+  - rule: "AI özelliklerinde kapsam/isim değişirse ilgili dokümanlarda kanonik isimler eş zamanlı güncellenir (kategori ve egzersiz tipi sözlüğü tek kaynak)."
+  - rule: "Her PR için `npm run validate:docs` çalıştırılır; eksik veya sapma varsa PR'da düzeltme yapılır."
+
 commands:
   # 1. Yeni Bileşen Oluşturma Komutları
   - command: new-component

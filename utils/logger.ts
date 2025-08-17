@@ -66,5 +66,7 @@ class Logger {
   }
 }
 
-export const logger = new Logger();
+export const logger = new Logger() as Logger & { ai?: Logger };
+// Backward-compatible alias: allow calls like logger.ai.info(...)
+(logger as any).ai = logger;
 export default logger; 

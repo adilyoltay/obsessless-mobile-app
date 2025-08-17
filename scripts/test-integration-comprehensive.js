@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 COMPREHENSIVE AI INTEGRATION TEST SUITE
@@ -60,7 +60,7 @@ function fileContains(filePath, searchText) {
 log('\n🧭 PHASE 1: CORE NAVIGATION INTEGRATION', colors.bold + colors.blue);
 
 test('AI Onboarding Screen - Route exists', () => {
-  if (!fileExists('app/(auth)/ai-onboarding.tsx')) {
+  if (!fileExists('app/(auth)/onboarding.tsx')) {
     throw new Error('AI onboarding route not found');
   }
 });

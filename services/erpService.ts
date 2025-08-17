@@ -2,6 +2,7 @@
 import { ERPExercise, ERPSession, CreateERPRequest, AnxietyReading } from '@/types/erp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from './supabase';
+import dataStandardizer from '@/utils/dataStandardization';
 
 // Default exercises
 const DEFAULT_EXERCISES: ERPExercise[] = [
@@ -192,17 +193,24 @@ class ERPService {
           // Check if session already exists in Supabase to prevent duplicates
           const existingSession = await supabaseService.getERPSession(session.id);
           if (!existingSession) {
+            // Fetch real exercise metadata for accurate analytics
+            const allExercises = await this.getExercises();
+            const exerciseMeta = allExercises.find(e => e.id === session.exerciseId);
+
             await supabaseService.saveERPSession({
-              id: session.id, // Include session ID for duplicate prevention
-              user_id: userId,
-              exercise_id: session.exerciseId,
-              exercise_name: `Exercise ${session.exerciseId}`, // TODO: Get real name
-              category: 'general', // TODO: Get real category
-              duration_seconds: session.duration,
-              anxiety_initial: session.initialAnxiety,
-              anxiety_final: session.finalAnxiety,
-              anxiety_readings: session.anxietyReadings,
-              completed: session.completed
+              ...dataStandardizer.standardizeERPSessionData({
+                id: session.id,
+                user_id: userId,
+                exercise_id: session.exerciseId,
+                exercise_name: exerciseMeta?.title || `Exercise ${session.exerciseId}`,
+                category: exerciseMeta?.category || 'general',
+                duration_seconds: session.duration,
+                anxiety_initial: session.initialAnxiety,
+                anxiety_final: session.finalAnxiety,
+                anxiety_readings: session.anxietyReadings.map(r => ({ timestamp: r.timestamp, level: r.level })),
+                completed: session.completed,
+                timestamp: new Date(),
+              })
             });
             console.log('✅ ERP session saved to Supabase');
           } else {

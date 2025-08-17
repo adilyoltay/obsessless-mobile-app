@@ -1,23 +1,33 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Text, Card, Button, TextInput, HelperText } from 'react-native-paper';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Picker, PickerItem } from '@/components/ui/Picker';
 import Slider from '@react-native-community/slider';
 import { useCreateCompulsion } from '@/hooks/useCompulsions';
 import Toast from 'react-native-toast-message';
-
-const COMPULSION_TYPES = [
-  { value: 'checking', label: 'Kontrol Etme' },
-  { value: 'washing', label: 'Yıkama/Temizlik' },
-  { value: 'counting', label: 'Sayma' },
-  { value: 'ordering', label: 'Düzenleme' },
-  { value: 'mental', label: 'Zihinsel Ritüeller' },
-  { value: 'reassurance', label: 'Güvence Arama' },
-  { value: 'avoidance', label: 'Kaçınma' },
-  { value: 'other', label: 'Diğer' }
-];
+const legacyTypes = ['checking','washing','counting','ordering','mental','reassurance','avoidance','other'] as const;
 
 export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void }) {
+  const { t } = useTranslation();
+  const COMPULSION_TYPES = legacyTypes.map((value) => {
+    const legacyToCanonical: Record<string,string> = {
+      checking: 'checking',
+      washing: 'contamination',
+      counting: 'symmetry',
+      ordering: 'symmetry',
+      mental: 'mental',
+      reassurance: 'other',
+      avoidance: 'other',
+      other: 'other',
+    };
+    const canonical = legacyToCanonical[value] || 'other';
+    return {
+      value,
+      label: t('categoriesCanonical.' + canonical, value),
+    };
+  });
   const [formData, setFormData] = useState({
     type: '',
     frequency: 1,
@@ -95,6 +105,15 @@ export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void })
               />
             ))}
           </Picker>
+
+          {formData.type ? (
+            <HelperText type="info" visible>
+              {(() => {
+                const canonical = mapToCanonicalCategory(formData.type);
+                return `Kanonik Kategori: ${t('categoriesCanonical.' + canonical, 'Diğer')}`;
+              })()}
+            </HelperText>
+          ) : null}
 
           {/* Frequency */}
           <Text variant="bodyMedium" style={styles.label}>

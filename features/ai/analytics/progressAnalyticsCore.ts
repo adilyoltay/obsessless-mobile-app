@@ -1,5 +1,6 @@
 /**
  * 📊 Progress Analytics Core - Types and Interfaces
+ * Yalnızca tipler içeren hafifletilmiş modül. Runtime kullanım yok.
  */
 
 export interface ProgressMetrics {
@@ -82,6 +83,8 @@ export interface ProgressAnalyticsResult {
     requirements: string[];
   };
 }
+
+// Not: Bu dosya yalnızca türleri ihrac eder. Fonksiyon/servis implementasyonu sprint planında kaldırıldı.
 
 export interface ProgressTrackingContext {
   userId: string;

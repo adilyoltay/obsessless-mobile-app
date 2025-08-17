@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 interface Props {
   children: ReactNode;
@@ -33,6 +35,9 @@ export class ErrorBoundary extends Component<Props, State> {
     
     // Store error info for user support
     this.logErrorToStorage(error, errorInfo);
+
+    // Basit otomatik feature disable: 3 hata/10dk eşiği
+    this.autoDisableOnRepeatedErrors(error).catch(() => {});
   }
 
   logErrorToStorage = async (error: Error, errorInfo: any) => {
@@ -85,6 +90,36 @@ Teşekkürler
     // In a real app, you'd integrate with a bug reporting service
     console.log('Bug report would be sent:', { subject, body });
   };
+
+  private autoDisableWindowKey = 'error_window_start';
+  private autoDisableCountKey = 'error_window_count';
+
+  private async autoDisableOnRepeatedErrors(err: Error) {
+    try {
+      const now = Date.now();
+      const winRaw = await AsyncStorage.getItem(this.autoDisableWindowKey);
+      const cntRaw = await AsyncStorage.getItem(this.autoDisableCountKey);
+      const win = winRaw ? parseInt(winRaw, 10) : now;
+      let cnt = cntRaw ? parseInt(cntRaw, 10) : 0;
+      const tenMin = 10 * 60 * 1000;
+      if (now - win > tenMin) {
+        await AsyncStorage.setItem(this.autoDisableWindowKey, String(now));
+        cnt = 0;
+      }
+      cnt += 1;
+      await AsyncStorage.setItem(this.autoDisableCountKey, String(cnt));
+
+      if (cnt >= 3) {
+        // Otomatik AI kapatma
+        FEATURE_FLAGS.setFlag('AI_ENABLED' as any, false);
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'auto_feature_disable',
+          reason: 'repeated_errors',
+          count: cnt
+        });
+      }
+    } catch {}
+  }
 
   render() {
     if (this.state.hasError) {

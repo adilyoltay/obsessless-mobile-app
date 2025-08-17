@@ -14,6 +14,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 import supabaseService from '@/services/supabase';
 import { InteractionManager } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -66,6 +67,8 @@ interface AIContextType {
   isInitialized: boolean;
   isInitializing: boolean;
   initializationError: string | null;
+  safeMode: boolean;
+  safeModeReason?: 'env' | 'memory' | 'errors';
   
   // Network Status
   isOnline: boolean;
@@ -121,6 +124,8 @@ export function AIProvider({ children }: AIProviderProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
   const [networkType, setNetworkType] = useState<string | null>(null);
+  const [safeMode, setSafeMode] = useState<boolean>(false);
+  const [safeModeReason, setSafeModeReason] = useState<'env' | 'memory' | 'errors' | undefined>(undefined);
   
   // User AI Data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -147,14 +152,19 @@ export function AIProvider({ children }: AIProviderProps) {
     try {
       if (__DEV__) console.log('🚀 Initializing AI services for user:', user.id);
 
-      // Track initialization start
-      await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+      // Track initialization start (system-level event)
+      await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
         userId: user.id,
         context: 'ai_context_initialization'
       });
 
       // Core manager initialization (must be first)
       await aiManager.initialize();
+      // Environment doğrulaması: eğer AIManager prerequisites fail ise güvenli mod
+      if (!aiManager.isEnabled) {
+        setSafeMode(true);
+        setSafeModeReason('env');
+      }
 
       // Prepare parallel service initialization tasks
       const initializationTasks: Array<{ name: string; task: () => Promise<void>; enabled: boolean }> = [
@@ -327,16 +337,26 @@ export function AIProvider({ children }: AIProviderProps) {
       if (FEATURE_FLAGS.isEnabled('AI_CHAT')) {
         features.push('AI_CHAT');
       }
-      if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
-        features.push('AI_ONBOARDING_V2');
-        if (__DEV__) console.log('🎯 OnboardingFlowV3 enabled with direct state management');
-      }
+      // OnboardingFlow varsayılan olarak aktiftir (flag kaldırıldı)
+      features.push('AI_ONBOARDING');
+      if (__DEV__) console.log('🎯 OnboardingFlow enabled (default)');
 
       setAvailableFeatures(features);
 
-      // Load user data in background after UI updates
+      // Load user data in background after UI updates (with basic retry)
       InteractionManager.runAfterInteractions(() => {
-        loadUserAIData();
+        let attempts = 0;
+        const tryLoad = async () => {
+          try {
+            await loadUserAIData();
+          } catch (e) {
+            if (attempts < 2) {
+              attempts++;
+              setTimeout(tryLoad, 300 * attempts);
+            }
+          }
+        };
+        tryLoad();
       });
 
       setIsInitialized(true);
@@ -408,25 +428,130 @@ export function AIProvider({ children }: AIProviderProps) {
         completed = !!profileRow.onboarding_completed;
         if (profileRow.profile_data) {
           setUserProfile(profileRow.profile_data);
-          try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_user_profile_${userId}`, profileRow.profile_data, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(profileRow.profile_data)); } catch {}
+          }
         }
       }
+
+      // Profile fallbacks (ai_* → legacy)
+      if (!profileRow?.profile_data) {
+        let loadedProfile: any | null = null;
+
+        // 1) encrypted ai_* local
+        try {
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { getItem } = useSecureStorage();
+          const encLocal = await getItem<any>(`ai_user_profile_${userId}`, true);
+          if (encLocal) loadedProfile = encLocal;
+        } catch {}
+        // 1b) plain ai_* local
+        if (!loadedProfile) {
+          try {
+            const aiLocal = await AsyncStorage.getItem(`ai_user_profile_${userId}`);
+            if (aiLocal) loadedProfile = JSON.parse(aiLocal);
+          } catch {}
+        }
+
+        // 2) legacy local
+        if (!loadedProfile) {
+          try {
+            const legacy = await AsyncStorage.getItem(`user_profile_${userId}`);
+            if (legacy) loadedProfile = JSON.parse(legacy);
+          } catch {}
+        }
+
+        if (loadedProfile) {
+          setUserProfile(loadedProfile);
+          // normalize to ai_* keys (encrypted first)
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_user_profile_${userId}`, loadedProfile, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_user_profile_${userId}`, JSON.stringify(loadedProfile)); } catch {}
+          }
+
+          // background upsert (best-effort)
+          try {
+            const { supabaseService: svc } = await import('@/services/supabase');
+            await svc.upsertAIProfile(userId, loadedProfile, completed);
+          } catch {}
+        }
+      }
+
+      // Onboarding flag fallbacks
       if (!completed) {
-        const onboardingKey = `ai_onboarding_completed_${userId}`;
-        const onboardingCompleted = await AsyncStorage.getItem(onboardingKey);
-        completed = onboardingCompleted === 'true';
+        const aiCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${userId}`);
+        if (aiCompleted === 'true') completed = true;
+        if (!completed) {
+          const legacyCompleted = await AsyncStorage.getItem(`onboarding_completed_${userId}`);
+          if (legacyCompleted === 'true') completed = true;
+        }
       }
       setHasCompletedOnboarding(completed);
+      // Migrate legacy/local keys to unified ai_* keys (best-effort)
+      try {
+        if (completed) {
+          await AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true');
+          // Optionally keep legacy for a short period; do not delete here to avoid race
+        }
+      } catch {}
 
       // Treatment plan
       const planRow = planRowRes?.data as any;
       if (planRow?.plan_data) {
         setTreatmentPlan(planRow.plan_data);
-        try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
-      } else if (!treatmentPlan) {
-        const treatmentKey = `ai_treatment_plan_${userId}`;
-        const treatmentData = await AsyncStorage.getItem(treatmentKey);
-        if (treatmentData) setTreatmentPlan(JSON.parse(treatmentData));
+        try {
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { setItem } = useSecureStorage();
+          await setItem(`ai_treatment_plan_${userId}`, planRow.plan_data, true);
+        } catch {
+          try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(planRow.plan_data)); } catch {}
+        }
+      } else {
+        // ai_* local (encrypted first)
+        let localPlan: any | null = null;
+        try {
+          const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+          const { getItem } = useSecureStorage();
+          const enc = await getItem<any>(`ai_treatment_plan_${userId}`, true);
+          if (enc) localPlan = enc;
+        } catch {}
+        if (!localPlan) {
+          try {
+            const aiPlan = await AsyncStorage.getItem(`ai_treatment_plan_${userId}`);
+            if (aiPlan) localPlan = JSON.parse(aiPlan);
+          } catch {}
+        }
+
+        // legacy local
+        if (!localPlan) {
+          try {
+            const legacyPlan = await AsyncStorage.getItem(`treatment_plan_${userId}`);
+            if (legacyPlan) localPlan = JSON.parse(legacyPlan);
+          } catch {}
+        }
+
+        if (localPlan) {
+          setTreatmentPlan(localPlan);
+          try {
+            const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+            const { setItem } = useSecureStorage();
+            await setItem(`ai_treatment_plan_${userId}`, localPlan, true);
+          } catch {
+            try { await AsyncStorage.setItem(`ai_treatment_plan_${userId}`, JSON.stringify(localPlan)); } catch {}
+          }
+          // background upsert
+          try {
+            const { supabaseService: svc } = await import('@/services/supabase');
+            await svc.upsertAITreatmentPlan(userId, localPlan, 'active');
+          } catch {}
+        }
       }
 
       // Load latest risk assessment
@@ -439,8 +564,8 @@ export function AIProvider({ children }: AIProviderProps) {
       // Telemetry: cross-device sync verification
       await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
         event: 'ai_context_sync_check',
-        profilePresent: !!profileRow?.profile_data,
-        planPresent: !!planRow?.plan_data,
+        profilePresent: !!(profileRow?.profile_data || userProfile),
+        planPresent: !!(planRow?.plan_data || treatmentPlan),
         completed,
         source: 'supabase_pull',
       }, userId);
@@ -463,7 +588,7 @@ export function AIProvider({ children }: AIProviderProps) {
    * 🧭 Start Onboarding
    */
   const startOnboarding = useCallback(async (): Promise<OnboardingSession | null> => {
-    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+    if (!user?.id) {
       return null;
     }
 
@@ -523,7 +648,21 @@ export function AIProvider({ children }: AIProviderProps) {
       
       // Persist to storage with safe key
       const profileKey = `ai_user_profile_${userId}`;
-      await AsyncStorage.setItem(profileKey, JSON.stringify(updatedProfile));
+      // Safe write with small retry/backoff
+      {
+        let attempts = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try {
+            await AsyncStorage.setItem(profileKey, JSON.stringify(updatedProfile));
+            break;
+          } catch (e) {
+            if (attempts >= 2) break;
+            attempts++;
+            await new Promise(r => setTimeout(r, 200 * attempts));
+          }
+        }
+      }
 
       // Update via service if available
       if (FEATURE_FLAGS.isEnabled('AI_USER_PROFILING')) {
@@ -539,6 +678,8 @@ export function AIProvider({ children }: AIProviderProps) {
    */
   // Simple cooldown to avoid rapid re-execution/rate-limit: 60s
   const lastInsightsRef = React.useRef<number>(0);
+  const insightsInFlightRef = React.useRef<boolean>(false);
+  const insightsQueueRef = React.useRef<Promise<any[]> | null>(null);
 
   const generateInsights = useCallback(async (): Promise<any[]> => {
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_INSIGHTS')) {
@@ -549,12 +690,14 @@ export function AIProvider({ children }: AIProviderProps) {
     const now = Date.now();
     if (now - (lastInsightsRef.current || 0) < 60_000) {
       try {
-        const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
         if (cached) {
           const parsed = JSON.parse(cached);
+          try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'cooldown_cache' }, user.id); } catch {}
           return parsed.insights || [];
         }
       } catch {}
+      try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_MISS, { userId: user.id, reason: 'cooldown_cache_empty' }, user.id); } catch {}
       return [];
     }
 
@@ -563,11 +706,12 @@ export function AIProvider({ children }: AIProviderProps) {
       if (__DEV__) console.warn('📱 Offline mode: Using cached insights');
       
       try {
-        const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+        const cachedInsights = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
         if (cachedInsights) {
           const parsed = JSON.parse(cachedInsights);
           // Return cached insights if less than 24 hours old
           if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+            try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'offline_cache' }, user.id); } catch {}
             return parsed.insights || [];
           }
         }
@@ -585,25 +729,78 @@ export function AIProvider({ children }: AIProviderProps) {
       }];
     }
 
+    if (insightsInFlightRef.current) {
+      if (insightsQueueRef.current) {
+        if (__DEV__) console.warn('⏳ Insights in progress – returning queued promise');
+        return insightsQueueRef.current;
+      }
+      if (__DEV__) console.warn('⏳ Insights in progress – waiting for completion');
+    }
     try {
-      // Build enriched behavioral data for today if present in storage
+      insightsInFlightRef.current = true;
+      const queued = (async () => {
+      // 24 saatlik zaman penceresi
+      const end = new Date();
+      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      const startISO = start.toISOString();
+      const endISO = end.toISOString();
+
+      // DB'den davranışsal veriler (paralel)
+      let dbCompulsions: any[] = [];
+      let dbErpSessions: any[] = [];
+      try {
+        const [compList, erpList] = await Promise.all([
+          (async () => await (await import('@/services/supabase')).supabaseService.getCompulsions(user.id, startISO, endISO))(),
+          (async () => await (await import('@/services/supabase')).supabaseService.getERPSessions(user.id, startISO, endISO))()
+        ]);
+        dbCompulsions = compList || [];
+        dbErpSessions = erpList || [];
+      } catch (e) {
+        if (__DEV__) console.warn('⚠️ DB behavioral fetch failed, will use local fallbacks');
+      }
+
+      // Local fallbacks
       const today = new Date().toDateString();
-      const compulsionsKey = `compulsions_${user.id}`;
+      const compulsionsKey = `compulsions_${safeStorageKey(user.id)}`;
       const compulsionsRaw = await AsyncStorage.getItem(compulsionsKey);
       const allCompulsions = compulsionsRaw ? JSON.parse(compulsionsRaw) : [];
       const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
 
-      const erpKey = `erp_sessions_${user.id}_${today}`;
+      const erpKey = `erp_sessions_${safeStorageKey(user.id)}_${today}`;
       const erpRaw = await AsyncStorage.getItem(erpKey);
       const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
 
+      const compulsions = dbCompulsions.length ? dbCompulsions : todayCompulsions;
+      const erpSessions = dbErpSessions.length ? dbErpSessions : todayErpSessions;
+
       const behavioralData = {
-        compulsions: todayCompulsions,
+        compulsions,
         moods: [],
-        exercises: todayErpSessions,
+        exercises: erpSessions,
         achievements: [],
         assessments: []
       };
+
+      // Veri yeterlilik guard'ı
+      const hasProfile = !!userProfile;
+      const interactionsCount = (compulsions?.length || 0) + (erpSessions?.length || 0);
+      if (!hasProfile || interactionsCount === 0) {
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
+            userId: user.id,
+            hasProfile,
+            interactionsCount
+          }, user.id);
+        } catch {}
+        // Kullanıcıya sade uyarı içeriği döndür
+        return [{
+          id: 'data_insufficient_notice',
+          type: 'system',
+          content: 'Daha anlamlı içgörüler için bugün en az bir kayıt ekleyin (kompulsiyon veya ERP).',
+          timestamp: new Date(),
+          priority: 'low'
+        }];
+      }
 
       // Prefer enriched insights if method exists
       if (insightsCoordinator && typeof (insightsCoordinator as any).generateDailyInsightsWithData === "function") {
@@ -617,10 +814,25 @@ export function AIProvider({ children }: AIProviderProps) {
         // Cache successful insights
         if (insights && insights.length > 0) {
           try {
-            await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({
-              insights,
-              timestamp: Date.now()
-            }));
+            // Safe cache write with 2 retries + telemetry
+            let attempts = 0;
+            while (true) {
+              try {
+                if (attempts > 0) {
+                  try { await trackAIInteraction(AIEventType.STORAGE_RETRY_ATTEMPT, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
+                }
+                await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
+                try { await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
+                break;
+              } catch (e) {
+                if (attempts >= 2) {
+                  try { await trackAIInteraction(AIEventType.STORAGE_RETRY_FAILED, { key: `ai_cached_insights_${safeStorageKey(user.id)}`, attempts }, user.id); } catch {}
+                  break;
+                }
+                attempts++;
+                await new Promise(r => setTimeout(r, 150 * attempts));
+              }
+            }
             // Persist to Supabase (non-blocking)
             try {
               const { default: supabaseService } = await import('@/services/supabase');
@@ -639,9 +851,10 @@ export function AIProvider({ children }: AIProviderProps) {
         // Fallback to cached if none generated
         if (!insights || insights.length === 0) {
           try {
-            const cached = await AsyncStorage.getItem(`ai_cached_insights_${user.id}`);
+            const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
             if (cached) {
               const parsed = JSON.parse(cached);
+              try { await trackAIInteraction(AIEventType.INSIGHTS_CACHE_HIT, { userId: user.id, source: 'post_generation_cache' }, user.id); } catch {}
               return parsed.insights || [];
             }
           } catch {}
@@ -654,7 +867,7 @@ export function AIProvider({ children }: AIProviderProps) {
           const insights = await insightsCoordinator.generateDailyInsights(user.id, userProfile as any);
           if (insights && insights.length > 0) {
             try {
-              await AsyncStorage.setItem(`ai_cached_insights_${user.id}`, JSON.stringify({ insights, timestamp: Date.now() }));
+              await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
             } catch (cacheError) {
               if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
             }
@@ -664,9 +877,16 @@ export function AIProvider({ children }: AIProviderProps) {
         }
         return [];
       }
+      })();
+      insightsQueueRef.current = queued;
+      const awaited = await queued;
+      return awaited;
     } catch (error) {
       if (__DEV__) console.error('❌ Error generating insights:', error);
       return [];
+    } finally {
+      insightsInFlightRef.current = false;
+      insightsQueueRef.current = null;
     }
   }, [user?.id, userProfile, treatmentPlan, isOnline]);
 
@@ -704,6 +924,9 @@ export function AIProvider({ children }: AIProviderProps) {
     }
   }, [user?.id, userProfile, currentRiskAssessment]);
 
+  // Wrap non-memo callbacks if any were missed
+  // (generateInsights and updateUserProfile are already memoized)
+
   /**
    * 🌐 Network Status Monitoring
    */
@@ -739,6 +962,31 @@ export function AIProvider({ children }: AIProviderProps) {
       unsubscribe();
     };
   }, [user?.id]);
+
+  // Bellek eşiği kontrolü (UI tarafı): 150MB üzeri → Safe Mode
+  useEffect(() => {
+    const perf: any = (globalThis as any).performance;
+    if (!perf || !perf.memory) return;
+    const threshold = 150 * 1024 * 1024;
+    const timer = setInterval(() => {
+      try {
+        const used = perf.memory?.usedJSHeapSize as number | undefined;
+        if (typeof used === 'number' && used > threshold) {
+          if (!safeMode) {
+            setSafeMode(true);
+            setSafeModeReason('memory');
+            try {
+              trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+                event: 'memory_threshold_safe_mode',
+                usedHeap: used
+              });
+            } catch {}
+          }
+        }
+      } catch {}
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [safeMode]);
 
   /**
    * 🔄 Auto-initialize when user changes
@@ -786,11 +1034,14 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    safeMode,
+    safeModeReason,
     
     // Network Status
     isOnline,
     isConnected,
     networkType,
+    // safeMode dışa vurulmuyor; ileride UI için eklenebilir
     
     // User AI Data
     userProfile,
@@ -812,9 +1063,12 @@ export function AIProvider({ children }: AIProviderProps) {
     isInitialized,
     isInitializing,
     initializationError,
+    safeMode,
+    safeModeReason,
     isOnline,
     isConnected,
     networkType,
+    safeMode,
     userProfile,
     treatmentPlan,
     currentRiskAssessment,

@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-native';
 import { Card, Title, Paragraph, Button, Chip, Avatar, Searchbar, List, Badge } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ERP_EXERCISES, ERP_CATEGORIES, getERPExercisesByCategory, getERPExercisesByCompulsion, getDifficultyColor } from '@/constants/erpExercises';
-import { ERPExercise, ERPCategory } from '@/types/erp';
+import { ERP_EXERCISES, getERPExercisesByCompulsion, EXPOSURE_CATEGORIES } from '@/constants/erpExercises';
+import { ERPExercise } from '@/types/erp';
+import { CANONICAL_CATEGORIES, mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { getCanonicalCategoryColor, getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface ERPExerciseLibraryProps {
@@ -15,7 +17,7 @@ interface ERPExerciseLibraryProps {
 export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }: ERPExerciseLibraryProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<ERPCategory | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
   const [filteredExercises, setFilteredExercises] = useState<ERPExercise[]>(ERP_EXERCISES);
 
   useEffect(() => {
@@ -26,9 +28,11 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
       exercises = getERPExercisesByCompulsion(selectedCompulsionType);
     }
 
-    // Filter by category
+    // Filter by canonical OCD category
     if (selectedCategory !== 'all') {
-      exercises = exercises.filter(ex => ex.category === selectedCategory);
+      exercises = exercises.filter(ex =>
+        (ex.targetCompulsion || []).some((tc) => mapToCanonicalCategory(tc) === selectedCategory)
+      );
     }
 
     // Filter by search query
@@ -83,7 +87,7 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
         style={styles.searchBar}
       />
 
-      {/* Category Filters */}
+      {/* Category Filters (Canonical OCD Categories) */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
         <TouchableOpacity
           onPress={() => setSelectedCategory('all')}
@@ -100,23 +104,28 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
             Tümü
           </Chip>
         </TouchableOpacity>
-
-        {ERP_CATEGORIES.map(category => (
+        {CANONICAL_CATEGORIES.map((catId) => (
           <TouchableOpacity
-            key={category.id}
-            onPress={() => setSelectedCategory(category.id)}
+            key={catId}
+            onPress={() => setSelectedCategory(catId)}
             style={[
               styles.categoryChip,
-              selectedCategory === category.id && styles.selectedCategoryChip
+              selectedCategory === catId && styles.selectedCategoryChip
             ]}
           >
             <Chip
-              selected={selectedCategory === category.id}
-              onPress={() => setSelectedCategory(category.id)}
+              selected={selectedCategory === catId}
+              onPress={() => setSelectedCategory(catId)}
               style={styles.chip}
-              icon={() => <MaterialCommunityIcons name="dumbbell" size={16} />}
+              icon={() => (
+                <MaterialCommunityIcons
+                  name={getCanonicalCategoryIconName(catId) as any}
+                  size={16}
+                  color={getCanonicalCategoryColor(catId)}
+                />
+              )}
             >
-              {category.name}
+              {t('categoriesCanonical.' + catId, catId)}
             </Chip>
           </TouchableOpacity>
         ))}
@@ -156,9 +165,14 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
                   <Title style={styles.exerciseTitle}>{exercise.name}</Title>
                   <View style={styles.exerciseMeta}>
                     <Badge 
-                      style={[styles.categoryBadge, { backgroundColor: ERP_CATEGORIES.find(c => c.id === exercise.category)?.color }]}
+                      style={[styles.categoryBadge, { backgroundColor: '#E5E7EB' }]}
                     >
-                      {ERP_CATEGORIES.find(c => c.id === exercise.category)?.name}
+                      {EXPOSURE_CATEGORIES[exercise.category]?.name || exercise.category}
+                    </Badge>
+                    <Badge 
+                      style={[styles.categoryBadge, { backgroundColor: getCanonicalCategoryColor(mapToCanonicalCategory((exercise.targetCompulsion || [])[0] || 'other')) }]}
+                    >
+                      {t('categoriesCanonical.' + mapToCanonicalCategory((exercise.targetCompulsion || [])[0] || 'other'), 'Kategori')}
                     </Badge>
                     <Badge 
                       style={[styles.difficultyBadge, { backgroundColor: getDifficultyColorByLevel(exercise.difficulty) }]}

@@ -1,4 +1,7 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
+import NetInfo from '@react-native-community/netinfo';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
@@ -87,6 +90,48 @@ export interface GamificationProfile {
   updated_at: string;
 }
 
+export interface VoiceCheckinRecord {
+  id?: string;
+  user_id: string;
+  text: string;
+  mood: number;
+  trigger: string;
+  confidence: number;
+  lang: string;
+  created_at?: string;
+}
+
+export interface ThoughtRecordItem {
+  id?: string;
+  user_id: string;
+  automatic_thought: string;
+  evidence_for?: string;
+  evidence_against?: string;
+  distortions: string[];
+  new_view?: string;
+  lang: string;
+  created_at?: string;
+}
+
+export interface VoiceSessionDB {
+  id?: string;
+  user_id: string;
+  started_at: string;
+  ended_at?: string;
+  duration_ms?: number;
+  transcription_count?: number;
+  error_count?: number;
+  created_at?: string;
+}
+
+export type BreathSessionDB = {
+  user_id: string;
+  protocol: 'box' | '478' | 'paced';
+  duration_ms: number;
+  started_at: string;
+  completed_at?: string | null;
+};
+
 // ===========================
 // AUTH RESULT TYPES
 // ===========================
@@ -114,7 +159,6 @@ class SupabaseNativeService {
     // Tek supabase client kullanımı (lib/supabase.ts)
     // Ortak istemci, storage/refresh ayarlarını zaten içerir
     // Ortam değişkenleri lib içinde doğrulanır
-    // @ts-expect-error - shared client type is SupabaseClient
     this.client = sharedClient as unknown as SupabaseClient;
     console.log('✅ Supabase Native Service initialized (shared client)');
   }
@@ -259,7 +303,7 @@ class SupabaseNativeService {
       // Use proxy redirect in Expo Go to avoid IP-based deep links and loops
       const isExpoGo = Constants.appOwnership === 'expo';
       const redirectUrl = isExpoGo
-        ? makeRedirectUri({ useProxy: true, path: 'auth/callback' })
+        ? makeRedirectUri({ path: 'auth/callback' })
         : Linking.createURL('auth/callback');
       console.log('🔐 Redirect URL will be:', redirectUrl);
       
@@ -299,22 +343,51 @@ class SupabaseNativeService {
 
   async signOut(): Promise<void> {
     try {
-      console.log('�� Signing out...');
-      
-      const { error } = await this.client.auth.signOut();
-      if (error) throw error;
+      console.log('🔐 Signing out...');
+      const net = await NetInfo.fetch();
+      const isOnline = !!net.isConnected && net.isInternetReachable !== false;
+
+      const tryGlobal = async () => {
+        let attempt = 0;
+        const max = 3;
+        while (attempt < max) {
+          try {
+            attempt++;
+            if (attempt > 1) {
+              try { await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'auth_signout_retry', attempt }); } catch {}
+            }
+            const { error } = await this.client.auth.signOut({ scope: 'global' } as any);
+            if (error) throw error;
+            return true;
+          } catch (e) {
+            if (attempt >= max) return false;
+            await new Promise(r => setTimeout(r, 300 * attempt));
+          }
+        }
+        return false;
+      };
+
+      let globalOk = false;
+      if (isOnline) globalOk = await tryGlobal();
+
+      if (!globalOk) {
+        try { await this.client.auth.signOut({ scope: 'local' } as any); } catch {}
+      }
 
       this.currentUser = null;
-      console.log('✅ Sign out successful');
+      console.log(`✅ Sign out successful (${globalOk ? 'global' : 'local'})`);
     } catch (error) {
       console.error('❌ Sign out failed:', error);
+      // Ensure local state cleared even if error thrown
+      this.currentUser = null;
+      try { await this.client.auth.signOut({ scope: 'local' } as any); } catch {}
       throw error;
     }
   }
 
   async setSession(tokens: { access_token: string; refresh_token: string }): Promise<void> {
     try {
-      console.log('🔐 Setting session with tokens...');
+      if (__DEV__) console.log('🔐 Setting session with tokens (masked)...');
       
       const { data, error } = await this.client.auth.setSession({
         access_token: tokens.access_token,
@@ -461,37 +534,78 @@ class SupabaseNativeService {
   }
 
   // ===========================
+  // AI PROFILES & TREATMENT PLANS
+  // ===========================
+  /**
+   * AI profili upsert eder. Onboarding tamamlandıysa completed_at set edilir.
+   */
+  async upsertAIProfile(
+    userId: string,
+    profileData: any,
+    onboardingCompleted: boolean = true
+  ): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(userId);
+
+      const payload: any = {
+        user_id: userId,
+        profile_data: profileData,
+        onboarding_completed: onboardingCompleted,
+        updated_at: new Date().toISOString(),
+      };
+      if (onboardingCompleted) {
+        payload.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await this.client
+        .from('ai_profiles')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      console.log('✅ AI profile upserted:', userId);
+    } catch (error) {
+      console.error('❌ upsertAIProfile failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * AI tedavi planını upsert eder.
+   */
+  async upsertAITreatmentPlan(
+    userId: string,
+    planData: any,
+    status: string = 'active'
+  ): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(userId);
+
+      const payload = {
+        user_id: userId,
+        plan_data: planData,
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await this.client
+        .from('ai_treatment_plans')
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      console.log('✅ AI treatment plan upserted:', userId);
+    } catch (error) {
+      console.error('❌ upsertAITreatmentPlan failed:', error);
+      throw error;
+    }
+  }
+
+  // ===========================
   // COMPULSION METHODS
   // ===========================
 
   private mapCategoryForDatabase(category: string): string {
-    // Map frontend categories to database-compatible categories
-    // Database valid categories: 'contamination', 'harm', 'symmetry', 'religious', 'sexual', 'hoarding'
-    const categoryMapping: Record<string, string> = {
-      // Direct mappings
-      'washing': 'contamination',
-      'cleaning': 'contamination',
-      'checking': 'harm',
-      'counting': 'symmetry',
-      'ordering': 'symmetry',
-      'arranging': 'symmetry',
-      'hoarding': 'hoarding',
-      'religious': 'religious',
-      
-      // Mental rituals -> religious (closest match)
-      'mental': 'religious',
-      
-      // Additional mappings
-      'repeating': 'symmetry',
-      'touching': 'contamination',
-      'avoidance': 'harm',
-      'reassurance': 'harm',
-      
-      // Default/Other
-      'other': 'hoarding'
-    };
-    
-    return categoryMapping[category] || 'contamination';
+    // DB CHECK constraint ile uyumlu kategoriye indirger
+    return mapToDatabaseCategory(category);
   }
 
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
@@ -501,17 +615,20 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
-      // Map category to database-compatible format and store original as subcategory
+      // Map category to canonical/DB-safe and preserve original label in subcategory if provided
       const mappedCompulsion = {
         ...compulsion,
-        subcategory: compulsion.category, // Store original category as subcategory
+        subcategory: compulsion.subcategory ?? compulsion.category, // keep caller-provided subcategory if exists
         category: this.mapCategoryForDatabase(compulsion.category),
         timestamp: new Date().toISOString(),
       };
       
+      // Standardize payload (date/category/limits)
+      const standardized = require('@/utils/dataStandardization').dataStandardizer.standardizeCompulsionData(mappedCompulsion);
+      
       const { data, error } = await this.client
         .from('compulsions')
-        .insert(mappedCompulsion)
+        .upsert(standardized, { onConflict: 'id' })
         .select()
         .single();
 
@@ -625,7 +742,7 @@ class SupabaseNativeService {
       
       const { data, error } = await this.client
         .from('erp_sessions')
-        .insert(sessionData)
+        .upsert(sessionData, { onConflict: 'id' })
         .select()
         .single();
 
@@ -780,31 +897,11 @@ class SupabaseNativeService {
   async createCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord | null> {
     try {
       console.log('📝 Creating compulsion:', compulsion);
-      
-      // Ensure user exists in public.users table
-      await this.ensureUserProfileExists(compulsion.user_id);
-      
-      // Map category to database-compatible format and store original as subcategory
-      const mappedCompulsion = {
-        ...compulsion,
-        subcategory: compulsion.category, // Store original category as subcategory
-        category: this.mapCategoryForDatabase(compulsion.category),
-        timestamp: new Date().toISOString(),
-      };
-      
-      const { data, error } = await this.client
-        .from('compulsions')
-        .insert([mappedCompulsion])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ Error creating compulsion:', error);
-        throw error;
-      }
-      
-      console.log('✅ Compulsion created:', data);
-      return data;
+      // User profile existence is ensured inside saveCompulsion; no need to duplicate here
+      // Reuse saveCompulsion to avoid duplication
+      const saved = await this.saveCompulsion(compulsion);
+      console.log('✅ Compulsion created via saveCompulsion:', saved?.id);
+      return saved;
     } catch (error) {
       console.error('❌ Failed to create compulsion:', error);
       return null;
@@ -829,6 +926,82 @@ class SupabaseNativeService {
     } catch (error) {
       console.error('❌ Failed to fetch compulsions:', error);
       return [];
+    }
+  }
+
+  // ===========================
+  // NEW: VOICE CHECK-IN / THOUGHT RECORD / VOICE SESSION
+  // ===========================
+
+  async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      const payload = {
+        user_id: record.user_id,
+        text: record.text,
+        mood: record.mood,
+        trigger: record.trigger,
+        confidence: record.confidence,
+        lang: record.lang,
+        created_at: record.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('voice_checkins')
+        .upsert(payload, { onConflict: 'user_id,created_at,text' });
+    } catch (error) {
+      console.warn('⚠️ saveVoiceCheckin skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      const payload = {
+        user_id: record.user_id,
+        automatic_thought: record.automatic_thought,
+        evidence_for: record.evidence_for,
+        evidence_against: record.evidence_against,
+        distortions: record.distortions,
+        new_view: record.new_view,
+        lang: record.lang,
+        created_at: record.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('thought_records')
+        .upsert(payload, { onConflict: 'user_id,created_at,automatic_thought' });
+    } catch (error) {
+      console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveVoiceSessionSummary(session: VoiceSessionDB): Promise<void> {
+    try {
+      await this.ensureUserProfileExists(session.user_id);
+      const payload = {
+        user_id: session.user_id,
+        started_at: session.started_at,
+        ended_at: session.ended_at,
+        duration_ms: session.duration_ms,
+        transcription_count: session.transcription_count,
+        error_count: session.error_count,
+        created_at: session.created_at || new Date().toISOString(),
+      };
+      await this.client
+        .from('voice_sessions')
+        .upsert(payload, { onConflict: 'user_id,started_at' });
+    } catch (error) {
+      console.warn('⚠️ saveVoiceSessionSummary skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  async saveBreathSession(session: BreathSessionDB): Promise<void> {
+    try {
+      const { data, error } = await this.client
+        .from('breath_sessions')
+        .upsert(session, { onConflict: 'id' });
+      if (error) throw error;
+    } catch (error) {
+      console.warn('⚠️ saveBreathSession skipped (table may not exist):', (error as any)?.message);
     }
   }
 

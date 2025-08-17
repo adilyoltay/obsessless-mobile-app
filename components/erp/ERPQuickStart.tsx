@@ -15,8 +15,11 @@ import * as Haptics from 'expo-haptics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { ERPExercise, ERP_CATEGORIES, ERPCategory } from '@/constants/erpCategories';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys } from '@/utils/storage';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const { width } = Dimensions.get('window');
 
@@ -29,7 +32,7 @@ interface ERPQuickStartProps {
 
 interface ERPExerciseConfig {
   exerciseId: string;
-  exerciseType: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   duration: number; // minutes
   targetAnxiety: number; // 1-10
   personalGoal: string;
@@ -54,6 +57,7 @@ export function ERPQuickStart({
   
   const { awardMicroReward } = useGamificationStore();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (visible) {
@@ -90,16 +94,17 @@ export function ERPQuickStart({
     }
 
     const categoryInfo = getCategoriesByPopularity().find(c => c.id === selectedCategory);
+    const canonical = mapToCanonicalCategory(selectedCategory);
 
     const config: ERPExerciseConfig = {
       exerciseId: selectedExercise.id,
-      exerciseType: 'real_life',
+      exerciseType: 'in_vivo',
       duration: duration,
       targetAnxiety: targetAnxiety,
       personalGoal: `${selectedExercise.name} egzersizi ile kendimi güçlendirmek istiyorum`,
       selectedExercise: selectedExercise,
-      category: selectedCategory,
-      categoryName: categoryInfo?.title || 'Unknown',
+      category: canonical,
+      categoryName: t('categoriesCanonical.' + canonical, categoryInfo?.title ?? 'Kategori'),
     };
 
     console.log('📦 Exercise config:', config);
@@ -132,17 +137,16 @@ export function ERPQuickStart({
 
   // Get categories sorted by popularity (most used first)
   const getCategoriesByPopularity = (): ERPCategory[] => {
-    // Define popularity order (can be enhanced with real usage data later)
+    // Canonical order only
     const popularityOrder = [
-      'contamination',   // En sık kullanılan
-      'checking',        // 2. sık kullanılan
-      'ordering',        // 3. sık kullanılan
-      'harm',           // 4. sık kullanılan  
-      'morality',       // 5. sık kullanılan
-      'sexual',         // 6. sık kullanılan
+      'contamination',
+      'checking',
+      'symmetry',
+      'mental',
+      'hoarding',
+      'other',
     ];
-    
-    return ERP_CATEGORIES.sort((a, b) => {
+    return [...ERP_CATEGORIES].sort((a, b) => {
       const aIndex = popularityOrder.indexOf(a.id);
       const bIndex = popularityOrder.indexOf(b.id);
       return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
@@ -219,15 +223,15 @@ export function ERPQuickStart({
                 >
                   <View style={[
                     styles.categoryIcon,
-                    { backgroundColor: `${category.color}15` }
+                    { backgroundColor: `${getCanonicalCategoryColor(category.id)}15` }
                   ]}>
                     <MaterialCommunityIcons
-                      name={category.icon as any}
+                      name={getCanonicalCategoryIconName(category.id) as any}
                       size={20}
-                      color={category.color}
+                      color={getCanonicalCategoryColor(category.id)}
                     />
                   </View>
-                  <Text style={styles.categoryName}>{category.title}</Text>
+                  <Text style={styles.categoryName}>{t('categoriesCanonical.' + category.id, category.id)}</Text>
                   <Text style={styles.categoryCount}>{category.exercises.length} egzersiz</Text>
                 </Pressable>
               ))}

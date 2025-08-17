@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import * as Haptics from 'expo-haptics';
 import { Card } from 'react-native-paper';
 import Animated, { 
@@ -28,6 +29,10 @@ import { router } from 'expo-router';
 import { Slider } from '@/components/ui/Slider';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import Button from '@/components/ui/Button';
+import BreathworkPlayer from '@/components/breathwork/BreathworkPlayer';
+import { Badge } from '@/components/ui/Badge';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Stores
 import { useERPSessionStore } from '@/store/erpSessionStore';
@@ -35,10 +40,15 @@ import { useGamificationStore } from '@/store/gamificationStore';
 
 // Auth
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { awardMicroReward } from '@/services/achievementService';
+import enhancedAchievements from '@/services/enhancedAchievementService';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
 const STROKE_WIDTH = 12;
+
+// Safe divide to prevent NaN/Infinity
+const safeDivide = (a: number, b: number): number => (b === 0 ? 0 : a / b);
 
 // Sakinleştirici ve şefkatli mikro-kopyalar
 const CALMING_MESSAGES = [
@@ -64,7 +74,7 @@ interface ERPSessionScreenProps {
   exerciseId: string;
   exerciseName: string;
   targetDuration: number; // seconds
-  exerciseType?: 'real_life' | 'imagination' | 'interoceptive' | 'response_prevention';
+  exerciseType?: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
   initialAnxiety?: number;
   personalGoal?: string;
   category?: string;
@@ -86,6 +96,7 @@ export default function ERPSessionScreen({
   onAbandon,
 }: ERPSessionScreenProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const {
     isActive,
     elapsedTime,
@@ -107,6 +118,9 @@ export default function ERPSessionScreen({
   const [showUrgeBottomSheet, setShowUrgeBottomSheet] = useState(false);
   const [urgeStrength, setUrgeStrength] = useState(5);
   const [compulsionUrges, setCompulsionUrges] = useState<CompulsionUrge[]>([]);
+
+  // Breathwork Inline Modal State
+  const [showBreath, setShowBreath] = useState(false);
 
   // Animation values
   const pulseScale = useSharedValue(1);
@@ -242,13 +256,19 @@ export default function ERPSessionScreen({
     
     // Award micro-reward for ERP completion
     await awardMicroReward('erp_completed');
+    try {
+      await enhancedAchievements.unlockAchievement(user!.id, 'erp_completed', 'erp_completed', { sessionId: sessionLog.id });
+    } catch {}
     
     // Calculate anxiety reduction percentage
-    const anxietyReduction = ((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety) / (anxietyDataPoints[0]?.level || initialAnxiety) * 100;
+    const anxietyReduction = safeDivide((anxietyDataPoints[0]?.level || initialAnxiety) - currentAnxiety, (anxietyDataPoints[0]?.level || initialAnxiety)) * 100;
     
     // Extra reward for significant anxiety reduction
     if (anxietyReduction >= 30) {
       await awardMicroReward('anxiety_reduced');
+      try {
+        await enhancedAchievements.unlockAchievement(user!.id, 'anxiety_reduced', 'erp_completed', { sessionId: sessionLog.id });
+      } catch {}
     }
     
     // Bonus for successful urge resistance
@@ -337,7 +357,7 @@ export default function ERPSessionScreen({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = elapsedTime / targetDuration;
+  const progress = safeDivide(elapsedTime, targetDuration);
   const circumference = 2 * Math.PI * ((CIRCLE_SIZE - STROKE_WIDTH) / 2);
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -355,7 +375,7 @@ export default function ERPSessionScreen({
 
   // Calculate anxiety reduction
   const initialAnxietyLevel = anxietyDataPoints[0]?.level || initialAnxiety;
-  const anxietyReduction = ((initialAnxietyLevel - currentAnxiety) / initialAnxietyLevel) * 100;
+  const anxietyReduction = safeDivide((initialAnxietyLevel - currentAnxiety), initialAnxietyLevel) * 100;
 
   if (showCompletion) {
     return (
@@ -424,7 +444,27 @@ export default function ERPSessionScreen({
         <Pressable onPress={handleAbandon} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={28} color="#6B7280" />
         </Pressable>
-        <Text style={styles.exerciseTitle}>{exerciseName}</Text>
+        <View style={{ alignItems: 'center', flex: 1 }}>
+          <Text style={styles.exerciseTitle}>{exerciseName}</Text>
+          {category ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <MaterialCommunityIcons 
+                name={getCanonicalCategoryIconName(mapToCanonicalCategory(category!)) as any}
+                size={16}
+                color={getCanonicalCategoryColor(mapToCanonicalCategory(category!))}
+                style={{ marginRight: 6 }}
+              />
+              <Badge 
+                text={((): string => {
+                  const canonical = mapToCanonicalCategory(category!);
+                  return t('categoriesCanonical.' + canonical, 'Kategori');
+                })()}
+                variant="info"
+                size="small"
+              />
+            </View>
+          ) : null}
+        </View>
         <View style={{ width: 28 }} />
       </View>
 
@@ -518,6 +558,13 @@ export default function ERPSessionScreen({
         </Text>
       </Animated.View>
 
+      {/* Breathwork Shortcut */}
+      <View style={{ paddingHorizontal: 32, marginBottom: 12 }}>
+        <Pressable onPress={() => setShowBreath(true)} style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, padding: 12, alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Nefes egzersizi aç">
+          <Text style={{ color: '#047857', fontWeight: '600' }}>Nefes Egzersizi</Text>
+        </Pressable>
+      </View>
+
       {/* Complete Button (shown when time is up) */}
       {elapsedTime >= targetDuration && (
         <Animated.View 
@@ -577,6 +624,14 @@ export default function ERPSessionScreen({
               <Text style={styles.urgeResponseButtonText}>🤲 Kendime şefkat gösteriyorum</Text>
             </Pressable>
           </View>
+        </View>
+      </BottomSheet>
+
+      {/* 🆕 Breathwork Inline Modal */}
+      <BottomSheet isVisible={showBreath} onClose={() => setShowBreath(false)}>
+        <View style={{ padding: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Nefes Egzersizi</Text>
+          <BreathworkPlayer hideHeader />
         </View>
       </BottomSheet>
     </View>

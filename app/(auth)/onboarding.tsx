@@ -71,9 +71,25 @@ export default function OnboardingScreen() {
     try {
       // Mark onboarding as completed
       if (user?.id) {
-        await AsyncStorage.setItem(`onboarding_completed_${user.id}`, 'true');
-        await AsyncStorage.setItem(`user_profile_${user.id}`, JSON.stringify(userProfile));
-        await AsyncStorage.setItem(`treatment_plan_${user.id}`, JSON.stringify(treatmentPlan));
+        await AsyncStorage.multiSet([
+          [`onboarding_completed_${user.id}`, 'true'], // legacy flag (back-compat)
+          [`ai_onboarding_completed_${user.id}`, 'true'],
+          [`user_profile_${user.id}`, JSON.stringify(userProfile)], // legacy (back-compat)
+          [`ai_user_profile_${user.id}`, JSON.stringify(userProfile)],
+          [`treatment_plan_${user.id}`, JSON.stringify(treatmentPlan)], // legacy (back-compat)
+          [`ai_treatment_plan_${user.id}`, JSON.stringify(treatmentPlan)],
+        ]);
+
+        // Persist to Supabase AI tables (best-effort)
+        try {
+          const { supabaseService: svc } = await import('@/services/supabase');
+          await Promise.all([
+            svc.upsertAIProfile(user.id, userProfile as any, true),
+            svc.upsertAITreatmentPlan(user.id, treatmentPlan as any, 'active'),
+          ]);
+        } catch (dbErr) {
+          console.warn('⚠️ AI tables upsert failed (local data saved, will sync later):', (dbErr as any)?.message);
+        }
       }
       
       // Navigate to main app
@@ -86,7 +102,7 @@ export default function OnboardingScreen() {
 
   const handleOnboardingExit = () => {
     console.log('❌ Onboarding exited');
-    router.back();
+    router.replace('/(tabs)');
   };
 
   const handleSimpleStart = async () => {
@@ -178,7 +194,7 @@ export default function OnboardingScreen() {
         
         <TouchableOpacity 
           style={styles.skipButton}
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)')}
         >
           <Text style={styles.skipButtonText}>Şimdi değil</Text>
         </TouchableOpacity>

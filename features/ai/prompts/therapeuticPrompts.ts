@@ -15,7 +15,7 @@ import {
   ConversationContext, 
   UserTherapeuticProfile,
   ConversationState,
-  CrisisRiskLevel
+  RiskLevel as CrisisRiskLevel
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion, CBTIntervention } from '@/features/ai/engines/cbtEngine';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -31,7 +31,7 @@ export enum PromptCategory {
   SYSTEM = 'system',
   THERAPEUTIC = 'therapeutic',
   CBT_SPECIFIC = 'cbt_specific',
-  CRISIS_INTERVENTION = 'crisis_intervention',
+  // Legacy crisis prompts removed
   PSYCHOEDUCATION = 'psychoeducation',
   MINDFULNESS = 'mindfulness',
   ERP_GUIDANCE = 'erp_guidance',
@@ -194,34 +194,7 @@ class TherapeuticPromptEngine {
     };
   }
 
-  /**
-   * Crisis intervention prompt oluştur
-   */
-  async generateCrisisPrompt(context: PromptContext): Promise<TherapeuticPrompt> {
-    const crisisLevel = context.crisisLevel || CrisisRiskLevel.NONE;
-    const basePrompt = this.getCrisisPrompt(crisisLevel, context.preferredLanguage);
-    const immediateActions = this.getCrisisActions(crisisLevel);
-    const resourceInstructions = this.getCrisisResources(context.culturalContext || 'turkish');
-
-    const systemPrompt = this.combinePromptComponents([
-      basePrompt,
-      immediateActions,
-      resourceInstructions,
-      this.getEmergencyProtocols()
-    ]);
-
-    return {
-      category: PromptCategory.CRISIS_INTERVENTION,
-      systemPrompt,
-      contextInstructions: immediateActions,
-      safeguards: this.getCrisisSafeguards(),
-      expectedTone: 'supportive',
-      techniques: [CBTTechnique.MINDFULNESS_INTEGRATION], // Calming techniques only
-      culturalAdaptations: [resourceInstructions],
-      contraindications: ['challenging techniques', 'exposure exercises'],
-      followUpSuggestions: this.getCrisisFollowUp(crisisLevel)
-    };
-  }
+  // Legacy crisis prompt generator removed
 
   // =============================================================================
   // 📚 PROMPT TEMPLATE LIBRARY
@@ -320,31 +293,7 @@ UYARILARIN:
 Bu tekniği kullanıcının hızına ve ihtiyaçlarına göre uyarla.`
     ]);
 
-    // Crisis Intervention Prompts
-    this.promptTemplates.set(PromptCategory.CRISIS_INTERVENTION, [
-      `🚨 KRİZ MÜDAHALE MODU - ${'{crisisLevel}'} SEVİYE
-
-ÖNCELIK SIRALAGIN:
-1. KULLANICI GÜVENLİĞİ - En yüksek öncelik
-2. DESTEK KAYNAKLARINA YÖNLENDİRME - Acil yardım hatları
-3. SAKİNLEŞTİRİCİ TEKNİKLER - Hemen uygulanabilir
-4. PROFESYONEL YARDIM ÖNERİSİ - Net ve açık
-
-YAKLAŞIMIN:
-- Sakin ve güven verici ol
-- Kullanıcının güvende olduğunu teyit et
-- Derhal ulaşılabilir kaynaklara yönlendir
-- Bu anın geçici olduğunu hatırlat
-- Umut ve destek ver
-
-ACİL DURUM KAYNAKLARI:
-📞 Yaşam Hattı: 183
-📞 AMATEM: 444 0 644  
-📞 112 Acil Servis
-📞 Polis: 155
-
-Kullanıcıyı bu numaraları aramaya teşvik et.`
-    ]);
+    // Crisis Intervention templates removed
 
     console.log('📚 Prompt templates initialized');
   }
@@ -410,9 +359,7 @@ Kullanıcıyı bu numaraları aramaya teşvik et.`
     let enhancements = '';
 
     // Conversation state
-    if (context.conversationState === ConversationState.CRISIS) {
-      enhancements += '\n⚠️ KULLANICI KRİZ DURUMUNDA - Güvenlik öncelikli yaklaş';
-    } else if (context.conversationState === ConversationState.THERAPEUTIC) {
+    if (context.conversationState === ConversationState.THERAPEUTIC) {
       enhancements += '\n🎯 TERAPÖTİK SÜREÇ AKTIF - CBT tekniklerini uygula';
     }
 
@@ -466,9 +413,8 @@ KULLANICI PROFİLİ:
     const instructions = {
       [ConversationState.STABLE]: 'Normal terapötik yaklaşım kullan',
       [ConversationState.THERAPEUTIC]: 'Aktif CBT teknikleri uygula',
-      [ConversationState.CRISIS]: 'KRİZ PROTOKOLÜ - Güvenlik öncelikli yaklaş',
       [ConversationState.EXPLORATORY]: 'Keşfedici sorular sor, durumu anlamaya odaklan'
-    };
+    } as const;
 
     return instructions[state] || instructions[ConversationState.STABLE];
   }
@@ -502,9 +448,7 @@ KÜLTÜREL UYARLAMALAR:
   }
 
   private determineOptimalTone(context: PromptContext): 'supportive' | 'challenging' | 'validating' | 'educational' {
-    if (context.crisisLevel && context.crisisLevel !== CrisisRiskLevel.NONE) {
-      return 'supportive';
-    }
+    // crisis logic removed
 
     if (context.conversationState === ConversationState.THERAPEUTIC) {
       return 'challenging';
@@ -595,11 +539,7 @@ Bu çarpıtmaları ele alırken kullanıcının savunmaya geçmesini önle, mera
     return instructions;
   }
 
-  // Crisis-specific helpers
-  private getCrisisPrompt(level: CrisisRiskLevel, language: 'tr' | 'en'): string {
-    const templates = this.promptTemplates.get(PromptCategory.CRISIS_INTERVENTION) || [];
-    return templates[0]?.replace('${crisisLevel}', level) || '';
-  }
+  // Crisis-specific helpers removed
 
   private getCrisisActions(level: CrisisRiskLevel): string {
     const actions = {
@@ -707,8 +647,5 @@ ACİL DURUM PROTOKOLLERİ:
 
 export const therapeuticPromptEngine = TherapeuticPromptEngine.getInstance();
 export default therapeuticPromptEngine;
-export { 
-  PromptCategory, 
-  type PromptContext, 
-  type TherapeuticPrompt 
-};
+// Types ve enum'lar yalnızca bu dosyanın default export'uyla birlikte kullanılacak; 
+// çoklu re-export uyarılarını önlemek için tekrar dışa aktarmıyoruz.

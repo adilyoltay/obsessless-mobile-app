@@ -56,7 +56,7 @@ import {
   OnboardingSession,
   OnboardingStep,
   YBOCSAnswer,
-  UserProfile,
+  UserTherapeuticProfile as UserProfile,
   TreatmentPlan,
   RiskAssessment,
   AIError,
@@ -125,11 +125,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   });
 
   // Check feature flags
-  const isAIOnboardingEnabled = FEATURE_FLAGS.AI_ONBOARDING_V2;
-  const isYBOCSAnalysisEnabled = FEATURE_FLAGS.AI_YBOCS_ANALYSIS;
-  const isUserProfilingEnabled = FEATURE_FLAGS.AI_USER_PROFILING;
-  const isTreatmentPlanningEnabled = FEATURE_FLAGS.AI_TREATMENT_PLANNING;
-  const isRiskAssessmentEnabled = FEATURE_FLAGS.AI_RISK_ASSESSMENT;
+  const isAIOnboardingEnabled = true;
+  const isYBOCSAnalysisEnabled = FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS');
+  const isUserProfilingEnabled = FEATURE_FLAGS.isEnabled('AI_USER_PROFILING');
+  const isTreatmentPlanningEnabled = FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING');
+  const isRiskAssessmentEnabled = FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT');
 
   /**
    * 🚀 Initialize Onboarding Session
@@ -159,10 +159,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       let session: OnboardingSession;
       
       if (resumeSession) {
-        const savedSession = await AsyncStorage.getItem(`onboarding_session_${userId}`);
+        const savedSession = await AsyncStorage.getItem(`onboarding_session_${userId || 'anon'}`);
         if (savedSession) {
           session = JSON.parse(savedSession);
-          console.log('📱 Onboarding session resumed:', session.sessionId);
+          console.log('📱 Onboarding session resumed:', session.id);
         } else {
           session = await onboardingEngine.initializeSession(userId, {
             culturalContext: 'turkish',
@@ -237,7 +237,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         }
       };
 
-      await trackAIInteraction(AIEventType.AI_ERROR_OCCURRED, { error: aiError });
+      await trackAIInteraction(AIEventType.API_ERROR, { error: aiError });
 
       setState(prev => ({
         ...prev,
@@ -327,7 +327,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       // Update session with Y-BOCS data
       console.log('💾 Updating session with Y-BOCS data...');
       const updatedSession = await onboardingEngine.updateSessionData(
-        state.session.sessionId,
+        state.session.id,
         { ybocsAnalysis: analysis }
       );
       console.log('✅ Session updated successfully');
@@ -345,7 +345,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       // Track Y-BOCS completion
       console.log('📊 Tracking Y-BOCS completion...');
       await trackAIInteraction(AIEventType.YBOCS_ANALYSIS_COMPLETED, {
-        sessionId: state.session.sessionId,
+        sessionId: state.session.id,
         severityLevel: analysis.severityLevel,
         primarySymptoms: analysis.dominantSymptoms || [],
         riskFactors: analysis.riskFactors.length
@@ -387,7 +387,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       // Generate AI-enhanced profile
       const enhancedProfile = await userProfilingService.generateProfile(userId, {
         basicInfo: profileData,
-        ybocsData: state.session.data?.ybocsAnalysis,
+        ybocsData: state.ybocsAnswers,
         culturalContext: 'turkish'
       });
 
@@ -400,7 +400,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       // Track profile generation
       await trackAIInteraction(AIEventType.USER_PROFILE_GENERATED, {
-        sessionId: state.session.sessionId,
+        sessionId: state.session.id,
         profileCompleteness: enhancedProfile.completenessScore,
         primaryGoals: enhancedProfile.therapeuticGoals?.slice(0, 3)
       });
@@ -438,7 +438,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       // Generate treatment plan
       const treatmentPlan = await treatmentPlanningEngine.generateTreatmentPlan(userId, {
         userProfile: state.userProfile,
-        ybocsAnalysis: state.session.data?.ybocsAnalysis,
+        ybocsAnalysis: state.ybocsAnswers,
         culturalAdaptation: 'turkish'
       });
 
@@ -447,7 +447,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       if (isRiskAssessmentEnabled) {
         riskAssessment = await riskAssessmentService.assessRisk(userId, {
           userProfile: state.userProfile,
-          ybocsData: state.session.data?.ybocsAnalysis,
+          ybocsData: state.ybocsAnswers,
           treatmentPlan
         });
       }
@@ -462,10 +462,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       // Track plan generation
       await trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
-        sessionId: state.session.sessionId,
+        sessionId: state.session.id,
         planDuration: treatmentPlan.estimatedDuration,
-        interventionCount: treatmentPlan.interventions?.length || 0,
-        riskLevel: riskAssessment?.overallRiskLevel
+        phases: Array.isArray(treatmentPlan.phases) ? treatmentPlan.phases.length : 0,
       });
 
     } catch (error) {
@@ -490,8 +489,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     try {
       // Generate risk assessment based on treatment plan
       const riskAssessment = await riskAssessmentService.assessRisk(userId, {
-        userProfile: state.userProfile,
-        ybocsData: state.session.data?.ybocsAnalysis,
+        userProfile: state.userProfile || ({} as any),
+        ybocsData: state.ybocsAnswers,
         treatmentPlan: treatmentPlan
       });
 
@@ -504,9 +503,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       // Track treatment plan completion
       await trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
-        sessionId: state.session.sessionId,
+        sessionId: state.session.id,
         planId: treatmentPlan.id,
-        phases: treatmentPlan.phases?.length || 0,
+        phases: Array.isArray(treatmentPlan.phases) ? treatmentPlan.phases.length : 0,
         estimatedDuration: treatmentPlan.estimatedDuration
       });
 
@@ -561,7 +560,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
     try {
       // Finalize onboarding session
-      await onboardingEngine.finalizeSession(state.session.sessionId);
+      await onboardingEngine.finalizeSession(state.session.id);
 
       // Save completed data
       await AsyncStorage.multiSet([
@@ -575,10 +574,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       // Track completion
       await trackAIInteraction(AIEventType.ONBOARDING_SESSION_COMPLETED, {
-        sessionId: state.session.sessionId,
-        totalDuration: Date.now() - state.session.startedAt.getTime(),
-        completedSteps: state.session.completedSteps?.length || 0,
-        finalRiskLevel: state.riskAssessment?.overallRiskLevel
+        sessionId: state.session.id,
+        totalDuration: Date.now() - new Date(state.session.startTime).getTime(),
+        completedSteps: Array.isArray(state.session.completedSteps) ? state.session.completedSteps.length : 0,
       });
 
       // Haptic feedback
@@ -616,7 +614,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       
       // Update session with current step progress
       const updatedSession = await onboardingEngine.updateStep(
-        state.session.sessionId,
+        state.session.id,
         state.currentStep,
         { completed: true, timestamp: new Date() }
       );
@@ -641,7 +639,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
         // Track step progression
         await trackAIInteraction(AIEventType.ONBOARDING_STEP_COMPLETED, {
-          sessionId: state.session.sessionId,
+          sessionId: state.session.id,
           completedStep: state.currentStep,
           nextStep,
           progress: calculateProgress(nextStep)
@@ -669,7 +667,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
    */
   const handleBackPress = useCallback(() => {
     Alert.alert(
-      'Onboarding\'den Çık',
+      'Onboarding\u2019den Çık',
       'Kaydedilmemiş ilerlemeniz kaybolacak. Emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
@@ -726,7 +724,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       case OnboardingStep.WELCOME:
         return (
           <Card style={styles.stepCard}>
-            <Text style={styles.stepTitle}>ObsessLess'e Hoş Geldiniz 🌟</Text>
+            <Text style={styles.stepTitle}>ObsessLess’e Hoş Geldiniz 🌟</Text>
             <Text style={styles.stepDescription}>
               OKB ile mücadelenizde size özel, AI destekli bir deneyim oluşturacağız. 
               Bu süreç yaklaşık 10-15 dakika sürecek.
@@ -784,7 +782,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       case OnboardingStep.SYMPTOM_EXPLORATION:
         return (
           <ProfileBuilderUI
-            ybocsAnalysis={state.session?.data?.ybocsAnalysis}
+            ybocsAnalysis={undefined}
             onComplete={handleProfileCompletion}
             isLoading={state.isLoading}
           />
@@ -884,7 +882,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           <View style={styles.progressContainer}>
             <ProgressBar 
               progress={state.progress} 
-              color="#3b82f6"
               height={4}
             />
             <Text style={styles.progressText}>

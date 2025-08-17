@@ -48,11 +48,7 @@ export enum AIEventType {
   INSIGHT_VIEWED = 'insight_viewed',
   INSIGHT_SHARED = 'insight_shared',
   
-  // Crisis events
-  CRISIS_DETECTED = 'crisis_detected',
-  CRISIS_RESOLVED = 'crisis_resolved',
-  EMERGENCY_CONTACT_INITIATED = 'emergency_contact_initiated',
-  CRISIS_MONITORING_STARTED = 'crisis_monitoring_started',
+  // Legacy crisis events removed (use preventive/general events instead)
   
   // Performance events
   SLOW_RESPONSE = 'slow_response',
@@ -77,7 +73,7 @@ export enum AIEventType {
   INTERVENTION_TRIGGERED = 'intervention_triggered',
   INTERVENTION_DELIVERED = 'intervention_delivered',
   INTERVENTION_FEEDBACK = 'intervention_feedback',
-  CRISIS_INTERVENTION_TRIGGERED = 'crisis_intervention_triggered',
+  // Use PREVENTIVE_INTERVENTION_TRIGGERED for risk-based support
   ADAPTIVE_INTERVENTIONS_SHUTDOWN = 'adaptive_interventions_shutdown',
   
   // Sprint 6: JITAI events
@@ -144,10 +140,7 @@ export enum AIEventType {
   ,
   // Prompts (sanitized) logging
   AI_PROMPT_LOGGED = 'ai_prompt_logged',
-  // Progress Analytics
-  PROGRESS_ANALYTICS_INITIALIZED = 'progress_analytics_initialized',
-  PROGRESS_ANALYSIS_COMPLETED = 'progress_analysis_completed',
-  PROGRESS_ANALYTICS_SHUTDOWN = 'progress_analytics_shutdown',
+  // Progress Analytics removed
   
   // Pattern Recognition V2
   PATTERN_RECOGNITION_INITIALIZED = 'pattern_recognition_initialized',
@@ -159,17 +152,76 @@ export enum AIEventType {
   INSIGHTS_ENGINE_INITIALIZED = 'insights_engine_initialized',
   INSIGHTS_GENERATED = 'insights_generated',
   INSIGHTS_ENGINE_SHUTDOWN = 'insights_engine_shutdown',
+  // Insights specialization
+  INSIGHTS_RATE_LIMITED = 'insights_rate_limited',
+  INSIGHTS_CACHE_HIT = 'insights_cache_hit',
+  INSIGHTS_CACHE_MISS = 'insights_cache_miss',
+  INSIGHTS_MISSING_REQUIRED_FIELDS = 'insights_missing_required_fields',
+  NO_INSIGHTS_GENERATED = 'no_insights_generated',
+  // Storage reliability
+  STORAGE_RETRY_ATTEMPT = 'storage_retry_attempt',
+  STORAGE_RETRY_SUCCESS = 'storage_retry_success',
+  STORAGE_RETRY_FAILED = 'storage_retry_failed',
   
   // Smart Notifications
   SMART_NOTIFICATIONS_INITIALIZED = 'smart_notifications_initialized',
   NOTIFICATION_SCHEDULED = 'notification_scheduled',
+  NOTIFICATION_PREFERENCES_UPDATED = 'notification_preferences_updated',
+  NOTIFICATION_FEEDBACK = 'notification_feedback',
+  SMART_NOTIFICATIONS_SHUTDOWN = 'smart_notifications_shutdown',
   
   // Therapeutic Prompts
   THERAPEUTIC_PROMPTS_INITIALIZED = 'therapeutic_prompts_initialized'
   ,
   // Insights data insufficiency
   INSIGHTS_DATA_INSUFFICIENT = 'insights_data_insufficient'
+  ,
+  // Sprint 1: Voice mood check-in
+  CHECKIN_STARTED = 'checkin_started',
+  CHECKIN_COMPLETED = 'checkin_completed',
+  STT_FAILED = 'stt_failed',
+  ROUTE_SUGGESTED = 'route_suggested',
+  
+  // Sprint 2: JITAI + ERP coach
+  JITAI_TRIGGER_FIRED = 'jitai_trigger_fired',
+  ERP_SESSION_STARTED = 'erp_session_started',
+  ERP_SESSION_FINISHED = 'erp_session_finished',
+  GUARDRAIL_TRIGGERED = 'guardrail_triggered',
+  
+  // Sprint 2: Compulsion quick entry
+  COMPULSION_PROMPTED = 'compulsion_prompted',
+  COMPULSION_LOGGED = 'compulsion_logged',
+  COMPULSION_DISMISSED = 'compulsion_dismissed',
+  COMPULSION_SNOOZED = 'compulsion_snoozed',
+  
+  // Sprint 2: Relapse window
+  RELAPSE_WINDOW_DETECTED = 'relapse_window_detected',
+  PROACTIVE_PROMPT_CLICKED = 'proactive_prompt_clicked',
+  
+  // Sprint 1: PDF export
+  PDF_GENERATED = 'pdf_generated',
+  PDF_SHARED = 'pdf_shared',
+  PDF_CANCELLED = 'pdf_cancelled',
+  PDF_ERROR = 'pdf_error'
+  ,
+  // Sprint 1: Breathwork
+  BREATH_STARTED = 'breath_started',
+  BREATH_PAUSED = 'breath_paused',
+  BREATH_RESUMED = 'breath_resumed',
+  BREATH_COMPLETED = 'breath_completed',
+  // Sprint 1: CBT Thought Record
+  REFRAME_STARTED = 'reframe_started',
+  REFRAME_COMPLETED = 'reframe_completed',
+  DISTORTION_SELECTED = 'distortion_selected'
+  // Missing events added for stability
+  ,
+  INSIGHTS_FEEDBACK = 'insights_feedback',
+  INTERVENTION_RECOMMENDED = 'intervention_recommended',
+  YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed'
 }
+
+// Build a runtime set for event validation (after enum declaration)
+const VALID_EVENT_TYPES: Set<string> = new Set<string>(Object.values(AIEventType));
 
 /**
  * Telemetry event base interface
@@ -304,8 +356,8 @@ class AITelemetryManager {
     userId?: string
   ): Promise<void> {
     // Guard: enforce valid event type
-    if (!eventType || typeof eventType !== 'string') {
-      if (__DEV__) console.warn('⚠️ Telemetry eventType missing/invalid, dropping event');
+    if (!eventType || typeof eventType !== 'string' || (VALID_EVENT_TYPES.size && !VALID_EVENT_TYPES.has(eventType))) {
+      if (__DEV__) console.warn('⚠️ Telemetry eventType missing/invalid, dropping event:', eventType);
       return;
     }
     // Feature flag kontrolü FIRST
@@ -354,6 +406,31 @@ class AITelemetryManager {
             if (__DEV__) console.warn('Telemetry persist failed:', persistErr);
           }
         });
+      } catch {}
+
+      // Update daily performance metrics for key events (non-blocking)
+      try {
+        const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
+        if (eventType === AIEventType.AI_RESPONSE_GENERATED) {
+          const latency = Number((metadata as any)?.latency || 0);
+          await performanceMetricsService.recordToday({ ai: { requests: ((await performanceMetricsService.getLastNDays(1))[0]?.ai?.requests || 0) + 1 } });
+          if (latency > 0) {
+            const last = await performanceMetricsService.getLastNDays(1);
+            const prev = last[0]?.ai?.avgLatencyMs || 0;
+            const prevReq = last[0]?.ai?.requests || 0;
+            const newAvg = prevReq > 0 ? Math.round(((prev * prevReq) + latency) / (prevReq + 1)) : latency;
+            await performanceMetricsService.recordToday({ ai: { avgLatencyMs: newAvg } });
+          }
+          if ((metadata as any)?.cached === true) {
+            const last = await performanceMetricsService.getLastNDays(1);
+            const prevHits = last[0]?.ai?.cacheHits || 0;
+            await performanceMetricsService.recordToday({ ai: { cacheHits: prevHits + 1 } });
+          }
+        } else if (eventType === AIEventType.API_ERROR || eventType === AIEventType.AI_PROVIDER_FAILED) {
+          const last = await performanceMetricsService.getLastNDays(1);
+          const prevFailures = last[0]?.ai?.failures || 0;
+          await performanceMetricsService.recordToday({ ai: { failures: prevFailures + 1 } });
+        }
       } catch {}
 
       // Debug log (sadece development)
@@ -423,18 +500,7 @@ class AITelemetryManager {
   /**
    * Crisis detection event'ini track et
    */
-  async trackCrisisDetection(
-    riskLevel: string,
-    triggers: string[],
-    userId?: string
-  ): Promise<void> {
-    await this.trackAIInteraction(AIEventType.CRISIS_DETECTED, {
-      riskLevel,
-      triggerCount: triggers.length,
-      // Trigger'ları sanitize et - specific content'i loglamıyoruz
-      triggerTypes: triggers.map(t => this.classifyTrigger(t))
-    }, userId);
-  }
+  // Legacy crisis tracking removed in favor of preventive/general events
 
   /**
    * Track suggestion usage and feedback
@@ -634,10 +700,29 @@ class AITelemetryManager {
         await this.saveEventsToStorage(this.eventBuffer);
       }
 
-      // TODO: Production'da analytics service'e gönder
-      if (__DEV__) {
-        console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
+      // Production'da analytics (Supabase) toplu gönderim
+      try {
+        if (FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
+          const { default: supabaseService } = await import('@/services/supabase');
+          const payload = this.eventBuffer.map(evt => ({
+            event_type: evt.eventType,
+            metadata: evt.metadata,
+            session_id: evt.sessionId,
+            user_id: evt.userId || null,
+            consent_level: evt.consentLevel,
+            anonymized: evt.anonymized,
+            occurred_at: evt.timestamp
+          }));
+          // Non-blocking, error-safe insert
+          await supabaseService.supabaseClient
+            .from('ai_telemetry')
+            .insert(payload, { defaultToNull: true });
+        }
+      } catch (persistErr) {
+        if (__DEV__) console.warn('📊 Telemetry bulk persist failed (will remain in offline storage):', persistErr);
       }
+
+      if (__DEV__) console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
 
       // Buffer'ı temizle
       this.eventBuffer = [];
@@ -871,12 +956,17 @@ export const trackAIFeedback = async (
 /**
  * Crisis detection'ı track et
  */
+// Deprecated: use trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, ...) instead
 export const trackCrisisDetection = async (
   riskLevel: string,
   triggers: string[],
   userId?: string
 ): Promise<void> => {
-  return telemetryManager.trackCrisisDetection(riskLevel, triggers, userId);
+  return telemetryManager.trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
+    riskLevel,
+    triggerCount: triggers.length,
+    triggerTypes: triggers.map(t => telemetryManager['classifyTrigger']?.(t) || 'general')
+  }, userId);
 };
 
 /**

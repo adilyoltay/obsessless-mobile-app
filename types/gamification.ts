@@ -58,7 +58,8 @@ export type MicroRewardTrigger =
   | 'consistent_tracking'
   | 'resistance_improvement'
   | 'erp_wizard_start'
-  | 'urge_resistance';
+  | 'urge_resistance'
+  | 'voice_mood_checkin';
 
 export interface MicroReward {
   points: number;

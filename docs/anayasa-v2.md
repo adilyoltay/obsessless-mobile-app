@@ -1,3 +1,5 @@
+Durum Notu\n\n- 7 temel yetenek içinde AI Chat ve Crisis Detection sütunları güncel sürümde devre dışıdır/çıkarılmıştır.\n- Bu başlıklar şimdilik gelecek/planned olarak değerlendirilmelidir.
+
 ## 📜 **ObsessLess Mobil Uygulaması - Anayasa 2.0 (Nihai Sürüm)**
 
 ### **Proje Vizyonu: Dijital Sığınak**
@@ -62,34 +64,19 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
     3.  **Kültürel Egzersizler:** Çay meditasyonu, dua/zikir
     4.  **Progress Tracking:** AI başarı analizi
 
-### **PİLLAR 4: AI-Powered Progress Analytics & Motivasyon**
-*Bu, uygulamanın vizyonudur. AI, kullanıcının ilerlemesini analiz eder ve geleceği tahmin eder.*
+### **PİLLAR 4: Progress Analytics & Motivasyon**
+Kısa not: Bu sütun trend göstergeleri ve özetleyici metrikler sağlar; kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an yoktur.
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın verilerini analiz edip gelecek hafta için risk tahminleri yapmasını ve kişiselleştirilmiş hedefler belirlemesini istiyor."
-*   **AI Analytics:**
-    1.  **Trend Analizi:** 7/30/90 günlük AI analizleri
-    2.  **Risk Tahminleri:** ML-powered öngörüler
-    3.  **Hedef Optimizasyonu:** Otomatik zorluk ayarlama
-    4.  **Motivasyon Mesajları:** Kişiselleştirilmiş teşvik
+*   **Kullanıcı Hikayesi:** "Kullanıcı, verilerinin analiz edilip trendlerin ve ilerleme göstergelerinin nazikçe sunulmasını istiyor."
+*   **Analytics:**
+    1.  7/30/90 günlük trend göstergeleri
+    2.  Özet metrikler ve motivasyon mesajları
 
-### **PİLLAR 5: 24/7 AI Therapeutic Chat Assistant**
-*Bu, uygulamanın arkadaşıdır. Her an yanında olan, anlayan ve destekleyen AI terapist.*
+### **PİLLAR 5: Therapeutic AI Chat (Dormant)**
+Kısa not: Bu sütun şu an devre dışıdır. Gelecekte yeniden değerlendirilecektir.
 
-*   **Kullanıcı Hikayesi:** "Kullanıcı gece yarısı panik yaşadığında, AI asistanın onu sakinleştirmesini ve CBT teknikleri önermesini bekliyor."
-*   **AI Chat Özellikleri:**
-    1.  **CBT Teknikleri:** Bilişsel yeniden yapılandırma
-    3.  **Kültürel Duyarlılık:** Türkçe ve kültürel hassasiyet
-    4.  **Sesli Destek:** Voice-to-text (yakında)
-
-### **PİLLAR 6: AI Crisis Detection & Emergency Response**
-*Bu, uygulamanın koruyucusudur. Kullanıcıyı risk durumlarında proaktif olarak korur.*
-
-*   **Kullanıcı Hikayesi:** "Kullanıcı, AI'nın davranış pattern'lerini izleyip risk durumlarını önceden tespit etmesini ve gerekirse acil kişileri bilgilendirmesini istiyor."
-*   **Crisis System:**
-    1.  **Background Monitoring:** 15 dakikalık periyodik analiz
-    2.  **Risk Skorlama:** 6 gösterge üzerinden değerlendirme
-    3.  **Emergency Contacts:** Otomatik bildirim sistemi
-    4.  **Intervention Levels:** Kritik/Yüksek/Orta/Düşük
+### **PİLLAR 6: Crisis Detection (Removed)**
+Kısa not: Bu sütun mimariden kaldırılmıştır; background izleme ve kriz protokolleri bulunmaz.
 
 ### **PİLLAR 7: AI Art Therapy & Creative Expression**
 *Bu, uygulamanın sanatsal yönüdür. AI rehberliğinde duygusal ifade ve iyileşme.*
@@ -153,10 +140,10 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 >
 > **Görev:** Yukarıdaki **"ObsessLess AI-Enhanced Anayasa 2.0"** belgesini ve bağlı dokümanları referans alarak;
 >
-> 1.  **AI Entegrasyonu:** Belirtilen **7 AI Yeteneğinin** her birini, Gemini 2.5 Pro ve fallback sistemleriyle entegre et. Feature flags, telemetry ve cultural adaptation sistemlerini kur.
+> 1.  **AI Entegrasyonu:** Belirtilen **7 AI Yeteneğinin** her birini, Gemini 2.5 Pro (Gemini-only) ile entegre et. Feature flags, telemetry ve cultural adaptation sistemlerini kur.
 > 2.  **Tasarla (UI/UX):** AI özelliklerinin kullanıcı arayüzlerini, sakinlik ve zahmetsizlik ilkelerine sadık kalarak tasarla. AI yanıtları için loading states, error handling ve graceful degradation ekle.
 > 3.  **Geliştir (Kod):** React Native/Expo, Zustand, TanStack Query ve AI Context Provider kullanarak tüm özellikleri implement et. Offline-first yaklaşımı benimse, AsyncStorage ile Supabase senkronizasyonunu kur.
-> 4.  **Optimize Et:** AI yanıt sürelerini < 3 saniye, memory kullanımını < 150MB, battery impact'i < %5 tut. Background monitoring ve emergency response sistemlerini test et.
+> 4.  **Optimize Et:** AI yanıt sürelerini < 3 saniye, memory kullanımını < 150MB, battery impact'i < %5 tut. Crisis Detection kaldırıldığı için arka plan izleme yoktur; kritik akışları test et.
 
 ---
 
@@ -177,11 +164,8 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Treatment Planning:** AI-generated 4 haftalık tedavi planı
 - **Safety Protocols:** Risk değerlendirmesi ve acil durum planları
 
-#### **2. 💬 Therapeutic AI Chat Assistant**
-- **CBT Techniques:** Bilişsel davranışçı terapi teknikleri
-- **Crisis Detection:** Gerçek zamanlı kriz algılama
-- **24/7 Availability:** Sürekli erişilebilir destek
-- **Voice Support:** Sesli mesaj desteği (yakında)
+#### **2. 💬 Therapeutic AI Chat (Planned / Dormant)**
+- Şu an devre dışıdır; `EXPO_PUBLIC_ENABLE_AI_CHAT=false` varsayılanı ile dormant.
 
 #### **3. 🎯 Adaptive Interventions**
 - **Location-Based:** Konum bazlı öneriler (ev/iş/dışarı)
@@ -192,14 +176,8 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 #### **4. 📊 Progress Analytics**
 - **Trend Analysis:** 7/30/90 günlük trend analizleri
 - **Pattern Recognition:** Tetikleyici pattern tespiti
-- **Predictions:** ML-powered risk tahminleri
-- **Goal Adjustment:** Otomatik hedef ayarlama
+Not: Kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an mevcut değildir.
 
-#### **5. 🚨 Crisis Detection System**
-- **Background Monitoring:** 15 dakikalık periyodik analiz
-- **Emergency Contacts:** Acil durum kişi yönetimi
-- **Risk Scoring:** 6 gösterge üzerinden risk puanlama
-- **Auto-Interventions:** Otomatik müdahale sistemi
 
 #### **6. 🎨 Art Therapy Engine**
 - **Therapeutic Guidance:** AI rehberliğinde sanat aktiviteleri
@@ -218,7 +196,7 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 ## 📊 **Teknik Mimari (Güncel - Ocak 2025)**
 
 ### **Teknoloji Yığını:**
-- **Frontend:** React Native 0.74.5 + Expo SDK 53.0.0
+- **Frontend:** React Native 0.74+ + Expo SDK 51
 - **State Management:** Zustand (Global) + React Query (Server State)
 - **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions)
 - **Primary Data Storage:** 
@@ -230,7 +208,7 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
 - **Animations:** React Native Reanimated + Lottie
 - **Haptics:** Expo Haptics
 - **AI Services (Analiz & Öneriler):** 
-  - External AI Service (Gemini/OpenAI/Claude) - Sadece analiz için
+  - External AI Service (Gemini) - Sadece analiz için
   - AI Context Provider - Veri işleme ve öneri üretimi
   - Feature Flag System - AI özellik kontrolü
   - Telemetry & Analytics - AI kullanım metrikleri
@@ -267,7 +245,7 @@ Bu dokümanda veritabanı şeması tutulmaz; şema ve migration’lar `database/
 ### **Güncel AI Entegrasyonları (✅ Tamamlandı):**
 1. **AI Onboarding V2:** Y-BOCS + Profil + Tedavi Planı (safety plan bilgilendirici)
 2. **Adaptive Interventions:** Location/Time/Activity aware
-3. **Progress Analytics:** ML predictions + Pattern recognition
+3. **Progress Analytics:** Trend analizleri + Pattern recognition (ML predictions yok)
 4. **Art Therapy:** Therapeutic guidance + Cultural motifs (flag ile kontrol)
 5. **Feature Flags:** Master toggle + Granular controls
 6. **Telemetry:** Event tracking + Performance metrics (privacy-first)

@@ -19,6 +19,14 @@ import { useFocusEffect } from '@react-navigation/native';
 // Custom UI Components
 import { Toast } from '@/components/ui/Toast';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import moodTracker from '@/services/moodTrackingService';
+import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
+import { simpleNLU } from '@/features/ai/services/checkinService';
+import { useGamificationStore } from '@/store/gamificationStore';
+import * as Haptics from 'expo-haptics';
 
 // Gamification Components
 import { StreakCounter } from '@/components/gamification/StreakCounter';
@@ -31,7 +39,6 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
-import { useGamificationStore } from '@/store/gamificationStore';
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -52,6 +59,9 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [moodSheetVisible, setMoodSheetVisible] = useState(false);
+  const [quickMoodSaving, setQuickMoodSaving] = useState(false);
+  const [achievementsSheetVisible, setAchievementsSheetVisible] = useState(false);
   
   // AI Integration via Context
   const { isInitialized: aiInitialized, availableFeatures } = useAI();
@@ -61,6 +71,8 @@ export default function TodayScreen() {
   // Local AI State
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
+  const [isInsightsRunning, setIsInsightsRunning] = useState(false);
+  const insightsPromiseRef = useRef<Promise<any[]> | null>(null);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -72,6 +84,7 @@ export default function TodayScreen() {
     lastMicroReward,
     achievements
   } = useGamificationStore();
+  const { awardMicroReward } = useGamificationStore.getState();
 
   // Today's stats
   const [todayStats, setTodayStats] = useState({
@@ -168,8 +181,15 @@ export default function TodayScreen() {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
+    if (isInsightsRunning && insightsPromiseRef.current) {
+      if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
+      const existing = await insightsPromiseRef.current;
+      setAiInsights(existing || []);
+      return;
+    }
 
     try {
+      setIsInsightsRunning(true);
       setAiInsightsLoading(true);
 
       // Track insights request
@@ -180,7 +200,9 @@ export default function TodayScreen() {
       });
 
       // Generate insights using AI context
-      const insights = await generateInsights();
+      const running = generateInsights();
+      insightsPromiseRef.current = running;
+      const insights = await running;
       setAiInsights(insights || []);
 
       // Track insights delivered
@@ -195,6 +217,8 @@ export default function TodayScreen() {
       // Fail silently, don't impact main app functionality
     } finally {
       setAiInsightsLoading(false);
+      setIsInsightsRunning(false);
+      insightsPromiseRef.current = null;
     }
   };
 
@@ -304,6 +328,99 @@ export default function TodayScreen() {
     );
   };
 
+  /**
+   * 🎯 Quick Mood Entry Button + Emoji Bottom Sheet
+   */
+  const QUICK_MOOD_OPTIONS = [
+    { label: 'Harika', emoji: '😄', value: 9 },
+    { label: 'İyi', emoji: '🙂', value: 7 },
+    { label: 'Nötr', emoji: '😐', value: 5 },
+    { label: 'Düşük', emoji: '😔', value: 3 },
+    { label: 'Zor', emoji: '😣', value: 1 },
+  ];
+
+  const handleQuickMoodSelect = async (score: number) => {
+    if (!user?.id || quickMoodSaving) return;
+    setQuickMoodSaving(true);
+    try {
+      Haptics.selectionAsync().catch(() => {});
+      await moodTracker.saveMoodEntry({
+        user_id: user.id,
+        mood_score: score,
+        energy_level: 5,
+        anxiety_level: 5,
+      });
+      setToastMessage('Duygu kaydı alındı');
+      setShowToast(true);
+      setMoodSheetVisible(false);
+      onRefresh();
+    } catch (e) {
+      setToastMessage('Bir hata oluştu');
+      setShowToast(true);
+    } finally {
+      setQuickMoodSaving(false);
+    }
+  };
+
+  const handleVoiceTranscription = async (res: { text: string; confidence?: number; language?: string; duration?: number; }) => {
+    if (!user?.id || quickMoodSaving) return;
+    // Kısa kayıt uyarısı
+    const durationSec = Math.round((res.duration || 0) / 1000);
+    if (durationSec < 5) {
+      setToastMessage('Biraz daha konuş, seni duyuyorum…');
+      setShowToast(true);
+    }
+    setQuickMoodSaving(true);
+    try {
+      const nlu = simpleNLU(res.text || '');
+      const moodScore = Math.max(1, Math.min(10, Math.round(nlu.mood / 10)));
+      await moodTracker.saveMoodEntry({
+        user_id: user.id,
+        mood_score: moodScore,
+        energy_level: 5,
+        anxiety_level: Math.max(1, Math.min(10, 11 - moodScore)),
+      });
+      setToastMessage(`Mood otomatik kaydedildi: ${moodScore}/10`);
+      setShowToast(true);
+      setMoodSheetVisible(false);
+      onRefresh();
+      // Mikro ödül animasyonu
+      try { await awardMicroReward('voice_mood_checkin'); } catch {}
+    } catch (e) {
+      setToastMessage('Sesli mood kaydı başarısız');
+      setShowToast(true);
+    } finally {
+      setQuickMoodSaving(false);
+    }
+  };
+
+  const renderQuickMoodEntry = () => (
+    <View style={styles.quickMoodContainer}>
+      <Button
+        variant="primary"
+        onPress={() => setMoodSheetVisible(true)}
+        accessibilityLabel="Mood Check-in başlat"
+        style={styles.quickMoodButton}
+        leftIcon={<MaterialCommunityIcons name="emoticon-happy-outline" size={20} color="#FFFFFF" />}
+      >
+        Mood Check‑in
+      </Button>
+      <BottomSheet isVisible={moodSheetVisible} onClose={() => setMoodSheetVisible(false)}>
+        <Text style={styles.sheetTitle}>Mood Check‑in</Text>
+        <Text style={styles.sheetSubtitle}>Konuştuğunda sesin güvenle yazıya dökülecek ve duygun otomatik atanacak.</Text>
+        <VoiceInterface
+          autoStart
+          enableCountdown={false}
+          showStopButton={false}
+          showHints={false}
+          onTranscription={handleVoiceTranscription}
+          onError={() => { setToastMessage('Ses tanıma başlatılamadı'); setShowToast(true); }}
+          onStartListening={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{}); }}
+        />
+      </BottomSheet>
+    </View>
+  );
+
   const renderDailyMissions = () => (
     <View style={styles.missionsSection}>
       <View style={styles.sectionHeader}>
@@ -402,21 +519,15 @@ export default function TodayScreen() {
     }
 
     return (
-      <View style={styles.aiInsightsSection}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-          <Text style={styles.sectionTitle}>AI İçgörüleri</Text>
-          {aiInsightsLoading && (
-            <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
-          )}
-        </View>
+      <View style={[styles.aiInsightsSection, { marginTop: 16 }]}> {/* Üstte "Bugün için öneriler" ile boşluk */}
+        {/* Başlık kaldırıldı: kartların içinde zaten "İçgörü" etiketi var */}
 
         {/* AI Onboarding CTA */}
         {!hasCompletedOnboarding && (
           <Pressable 
             style={styles.aiOnboardingCTA}
             onPress={() => router.push({
-              pathname: '/(auth)/ai-onboarding',
+              pathname: '/(auth)/onboarding',
               params: { fromSettings: 'false', resume: 'true' }
             })}
           >
@@ -433,16 +544,23 @@ export default function TodayScreen() {
           </Pressable>
         )}
 
-        {/* AI Insights Cards */}
+        {/* AI Insights Cards - outlined card */}
         {hasCompletedOnboarding && aiInsights.length > 0 && (
           <View style={styles.aiInsightsContainer}>
-            {aiInsights.slice(0, 2).map((insight, index) => (
-              <View key={index} style={styles.aiInsightCard}>
+            {aiInsights.slice(0, 2).map((insight, index) => {
+              const accentColor = insight.type === 'pattern' ? '#3B82F6' : insight.type === 'trend' ? '#F59E0B' : '#10B981';
+              const iconName = insight.type === 'pattern' 
+                ? 'chart-line' 
+                : insight.type === 'trend' 
+                  ? 'chart-timeline-variant' 
+                  : 'lightbulb-on-outline';
+              return (
+              <View key={index} style={[styles.aiInsightCardOutlined, { borderLeftWidth: 6, borderLeftColor: accentColor }] }>
                 <View style={styles.aiInsightHeader}>
                   <MaterialCommunityIcons 
-                    name={insight.type === 'pattern' ? 'chart-line' : 'lightbulb'} 
+                    name={iconName as any} 
                     size={20} 
-                    color="#10b981" 
+                    color={accentColor} 
                   />
                   <Text style={styles.aiInsightType}>{insight.category || 'İçgörü'}</Text>
                 </View>
@@ -455,12 +573,13 @@ export default function TodayScreen() {
                   </View>
                 )}
               </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
         {/* No Insights State */}
-        {FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2') && aiInsights.length === 0 && !aiInsightsLoading && (
+        {aiInsights.length === 0 && !aiInsightsLoading && (
           <View style={styles.noInsightsCard}>
             <MaterialCommunityIcons name="chart-timeline-variant" size={32} color="#9ca3af" />
             <Text style={styles.noInsightsText}>
@@ -508,46 +627,65 @@ export default function TodayScreen() {
       return 0;
     });
 
-    const displayAchievements = sortedAchievements.slice(0, 6); // Show max 6
     const unlockedCount = profile.unlockedAchievements.length;
 
     return (
       <View style={styles.achievementsSection}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons name="trophy" size={24} color="#F59E0B" />
-          <Text style={styles.sectionTitle}>Başarımlarım ({unlockedCount}/{achievements.length})</Text>
-        </View>
-        
-        <View style={styles.achievementGrid}>
-          {displayAchievements.map((achievement) => (
-            <AchievementBadge
-              key={achievement.id}
-              achievement={achievement}
-              isUnlocked={!!achievement.unlockedAt}
-              onPress={() => {
-                setToastMessage(
-                  achievement.unlockedAt 
-                    ? `🏆 ${achievement.title} - ${achievement.description}` 
-                    : `🔒 ${achievement.title} - Henüz açılmadı`
-                );
-                setShowToast(true);
-              }}
-            />
-          ))}
-        </View>
-        
-        {unlockedCount > 6 && (
-          <Pressable 
-            style={styles.seeAllButton}
-            onPress={() => {
-              setToastMessage('Yakında: Tüm başarımları görüntüleme');
-              setShowToast(true);
-            }}
-          >
-            <Text style={styles.seeAllText}>Tümünü Gör</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color="#6B7280" />
-          </Pressable>
-        )}
+
+        <Pressable 
+          onPress={() => setAchievementsSheetVisible(true)} 
+          accessibilityRole="button" 
+          accessibilityLabel="Rozet ve başarı sayılarım"
+          style={({ pressed }) => [styles.achievementsCard, pressed && styles.achievementsCardPressed]}
+        >
+          <View style={styles.achBtnContent}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <MaterialCommunityIcons name="trophy" size={18} color="#374151" />
+              <Text style={styles.achBtnLabel} numberOfLines={1} ellipsizeMode="tail">Başarılarım</Text>
+            </View>
+            <View style={styles.achBtnBadge}>
+              <Text style={styles.achBtnBadgeText}>{unlockedCount}/{achievements.length}</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        <BottomSheet isVisible={achievementsSheetVisible} onClose={() => setAchievementsSheetVisible(false)}>
+          <Text style={styles.sheetTitle}>Başarımlarım ({unlockedCount}/{achievements.length})</Text>
+          {/* Özet satırı */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <MaterialCommunityIcons name="star-outline" size={18} color="#10B981" />
+              <Text style={styles.summaryValue}>{profile.healingPointsTotal}</Text>
+              <Text style={styles.summaryLabel}>Healing Points</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <MaterialCommunityIcons name="trophy-outline" size={18} color="#F59E0B" />
+              <Text style={styles.summaryValue}>{unlockedCount}</Text>
+              <Text style={styles.summaryLabel}>Açılan Rozet</Text>
+            </View>
+          </View>
+          {/* Sade tasarım: filtre/sıralama kaldırıldı */}
+          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
+            <View style={styles.achievementGrid}>
+              {sortedAchievements.map((achievement) => (
+                <AchievementBadge
+                  key={achievement.id}
+                  achievement={achievement}
+                  isUnlocked={!!achievement.unlockedAt}
+                  onPress={() => {
+                    setToastMessage(
+                      achievement.unlockedAt 
+                        ? `🏆 ${achievement.title} - ${achievement.description}` 
+                        : `🔒 ${achievement.title} - Henüz açılmadı`
+                    );
+                    setShowToast(true);
+                  }}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        </BottomSheet>
       </View>
     );
   };
@@ -568,6 +706,7 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderHeroSection()}
+        {renderQuickMoodEntry()}
         {renderQuickStats()}
         {/* Risk section removed */}
         {renderArtTherapyWidget()}
@@ -790,6 +929,85 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 20,
   },
+  achievementsButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  achievementsCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  achievementsCardPressed: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#D1FAE5',
+  },
+  achBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    minWidth: 200,
+  },
+  achBtnLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    flex: 1,
+  },
+  achBtnBadge: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  achBtnBadgeText: {
+    color: '#1F2937',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E5E7EB',
+  },
   achievementGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -852,17 +1070,12 @@ const styles = StyleSheet.create({
   aiInsightsContainer: {
     gap: 12,
   },
-  aiInsightCard: {
-    backgroundColor: '#ffffff',
+  aiInsightCardOutlined: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#10b981',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   aiInsightHeader: {
     flexDirection: 'row',
@@ -946,5 +1159,49 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  // Quick Mood entry styles
+  quickMoodContainer: {
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  quickMoodButton: {
+    alignSelf: 'stretch',
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  emojiItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  emojiLabel: {
+    fontSize: 12,
+    color: '#374151',
+    marginTop: 4,
   },
 });

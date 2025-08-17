@@ -15,7 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.adilyoltay.obslesstest"
+      "bundleIdentifier": "com.adilyoltay.obslesstest",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Sesli check-in ve nefes egzersizleri için mikrofon erişimine ihtiyaç duyuyoruz. Erişim yalnızca sizin başlatmanızla kullanılır.",
+        "NSSpeechRecognitionUsageDescription": "Sesli check-in sırasında konuşmanızı cihaz üzerinde yazıya dönüştürmek için konuşma tanıma iznine ihtiyaç duyuyoruz. Veriler gizlilik odaklı işlenir."
+      }
     },
     "scheme": "obslesstest",
     "android": {
@@ -39,16 +43,8 @@
         "projectId": "1e0473f8-f317-4813-9b20-4dbe892e3153"
       },
       "EXPO_PUBLIC_ENABLE_AI": "true",
-      "EXPO_PUBLIC_ENABLE_AI_CHAT": "true",
-      "EXPO_PUBLIC_AI_PROVIDER": "gemini",
-      
-      "EXPO_PUBLIC_ENABLE_AI_TELEMETRY": "true",
-      "EXPO_PUBLIC_AI_DEBUG_MODE": "true",
-      "EXPO_PUBLIC_AI_VERBOSE_LOGGING": "true",
-      "EXPO_PUBLIC_SUPABASE_URL": "https://ncniotnzoirwuwwxnipw.supabase.co",
-      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jbmlvdG56b2lyd3V3d3huaXB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzODA2MjIsImV4cCI6MjA2ODk1NjYyMn0.Ks0vevUbys_gGMbYSlTjzqfWXXikAQ74VTJbzCRcbhk",
-      "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyD5gZ1Ez0OL1h4Fxmpv1R0eO7BDrmwZ000",
-      "EXPO_PUBLIC_GEMINI_MODEL": "gemini-2.5-pro"
+      "EXPO_PUBLIC_ENABLE_AI_CHAT": "false",
+      "EXPO_PUBLIC_AI_PROVIDER": "gemini"
     }
   }
 }

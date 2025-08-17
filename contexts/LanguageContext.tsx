@@ -55,7 +55,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Detect system language
   const detectSystemLanguage = (): Language => {
-    const locale = Localization.locale || 'en';
+    const locale = (Localization as any)?.locale || (Array.isArray((Localization as any)?.locales) ? (Localization as any).locales[0] : 'en');
     const languageCode = locale.split('-')[0].toLowerCase();
     
     // Map common locale codes to supported languages

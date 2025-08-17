@@ -31,6 +31,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 interface ERPSession {
   id: string;
@@ -51,7 +52,7 @@ export default function ERPScreen() {
   const { treatmentPlan, userProfile } = useAIUserData();
   const [localPlan, setLocalPlan] = useState<any | null>(null);
   const [localProfile, setLocalProfile] = useState<any | null>(null);
-  const { assessRisk } = useAIActions();
+  const { generateInsights } = useAIActions();
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [isQuickStartVisible, setIsQuickStartVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -294,14 +295,16 @@ export default function ERPScreen() {
     await AsyncStorage.setItem(StorageKeys.LAST_ERP_EXERCISE(user.id), exerciseConfig.exerciseId);
     
     // Store wizard configuration for session
+    const canonical = mapToCanonicalCategory(exerciseConfig.category);
+
     const sessionConfig = {
       exerciseId: exerciseConfig.exerciseId,
       exerciseType: exerciseConfig.exerciseType,
       duration: exerciseConfig.duration * 60, // Convert minutes to seconds
       targetAnxiety: exerciseConfig.targetAnxiety,
       personalGoal: exerciseConfig.personalGoal,
-      category: exerciseConfig.category,
-      categoryName: exerciseConfig.categoryName,
+      category: canonical,
+      categoryName: t('categoriesCanonical.' + canonical, exerciseConfig.categoryName),
     };
     
     console.log('🚀 Navigating to ERP session with config:', sessionConfig);
@@ -430,7 +433,7 @@ export default function ERPScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
-          <Text style={styles.headerTitle}>ERP Tracking</Text>
+          <Text style={styles.headerTitle}>ERP Takibi</Text>
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
@@ -452,7 +455,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
-              Today
+              Bugün
             </Text>
             {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -464,7 +467,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
-              Week
+              Hafta
             </Text>
             {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -476,7 +479,7 @@ export default function ERPScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
-              Month
+              Ay
             </Text>
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -496,7 +499,7 @@ export default function ERPScreen() {
       >
         {/* Date Display */}
         <Text style={styles.dateText}>
-          {new Date().toLocaleDateString('en-US', { 
+          {new Date().toLocaleDateString('tr-TR', { 
             month: 'long', 
             day: 'numeric', 
             year: 'numeric' 
@@ -508,14 +511,14 @@ export default function ERPScreen() {
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? "Today's Stats" : 
-                 selectedTimeRange === 'week' ? "This Week's Stats" : 
-                 "This Month's Stats"}
+                {selectedTimeRange === 'today' ? 'Bugünün Özeti' : 
+                 selectedTimeRange === 'week' ? 'Bu Haftanın Özeti' : 
+                 'Bu Ayın Özeti'}
               </Text>
               <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Your daily summary' : 
-                 selectedTimeRange === 'week' ? 'Your weekly summary' : 
-                 'Your monthly summary'}
+                {selectedTimeRange === 'today' ? 'Günlük özetiniz' : 
+                 selectedTimeRange === 'week' ? 'Haftalık özetiniz' : 
+                 'Aylık özetiniz'}
               </Text>
             </View>
             {stats.streak > 0 && (
@@ -528,17 +531,17 @@ export default function ERPScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.count}</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
+              <Text style={styles.statLabel}>Oturum</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.time}</Text>
-              <Text style={styles.statLabel}>Total Time</Text>
+              <Text style={styles.statLabel}>Toplam Süre</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
                 {stats.avgAnxietyReduction > 0 ? `-${stats.avgAnxietyReduction}` : '0'}
               </Text>
-              <Text style={styles.statLabel}>Avg. Reduction</Text>
+              <Text style={styles.statLabel}>Ort. Azalma</Text>
             </View>
           </View>
         </View>
@@ -576,12 +579,14 @@ export default function ERPScreen() {
                     // Auto-select this AI recommended exercise
                     const exerciseConfig = {
                       exerciseId: recommendation.exerciseId,
-                      exerciseType: 'real_life',
+                      // Use exercise type from recommendation (in_vivo/imaginal/interoceptive/response_prevention)
+                      exerciseType: recommendation.category,
                       duration: recommendation.estimatedDuration || 30,
                       targetAnxiety: 5,
                       personalGoal: `AI önerisi: ${recommendation.title}`,
-                      category: recommendation.category || 'in_vivo',
-                      categoryName: recommendation.category || 'AI Önerisi',
+                      // category: domain kategorisi kanonik basamakta tutulmalı; öneriden yoksa "other"
+                      category: mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'),
+                      categoryName: mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'),
                     };
                     handleExerciseSelect(exerciseConfig);
                   }}
@@ -607,14 +612,14 @@ export default function ERPScreen() {
                     {recommendation.description}
                   </Text>
                   
-                  <View style={styles.aiRecommendationFooter}>
-                    <Text style={styles.aiRecommendationDuration}>
-                      ⏱️ {recommendation.estimatedDuration || 30} dk
-                    </Text>
-                    <Text style={styles.aiRecommendationCategory}>
-                      📋 {recommendation.category}
-                    </Text>
-                  </View>
+                    <View style={styles.aiRecommendationFooter}>
+                      <Text style={styles.aiRecommendationDuration}>
+                        ⏱️ {recommendation.estimatedDuration || 30} dk
+                      </Text>
+                      <Text style={styles.aiRecommendationCategory}>
+                        🧩 Tür: {recommendation.category} • 📋 Kategori: {t('categoriesCanonical.' + mapToCanonicalCategory(recommendation.targetSymptoms?.[0] || 'other'), 'Kategori')}
+                      </Text>
+                    </View>
                 </Pressable>
               ))}
             </ScrollView>
@@ -640,17 +645,17 @@ export default function ERPScreen() {
         {/* Today's Sessions - New Design */}
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? "Today's Sessions" : 
-             selectedTimeRange === 'week' ? "This Week's Sessions" : 
-             "This Month's Sessions"}
+            {selectedTimeRange === 'today' ? 'Bugünün Oturumları' : 
+             selectedTimeRange === 'week' ? 'Bu Haftanın Oturumları' : 
+             'Bu Ayın Oturumları'}
           </Text>
 
           {filteredSessions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="heart-outline" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>Your journey starts here</Text>
+              <Text style={styles.emptyText}>Yolculuğun burada başlıyor</Text>
               <Text style={styles.emptySubtext}>
-                Tap the + button below to begin your first exposure exercise
+                İlk maruz kalma egzersizine başlamak için alttaki + butonuna dokun
               </Text>
             </View>
           ) : (
@@ -736,7 +741,7 @@ export default function ERPScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Text style={styles.showMoreText}>Show More</Text>
+                <Text style={styles.showMoreText}>Daha Fazla Göster</Text>
               </Pressable>
             </View>
           )}
@@ -1067,18 +1072,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter',
-  },
-  aiLoadingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   aiLoadingCard: {
     backgroundColor: '#FFFFFF',

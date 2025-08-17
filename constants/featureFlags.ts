@@ -79,7 +79,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_INSIGHTS_ENGINE_V2: AI_MASTER_ENABLED,
   AI_PATTERN_RECOGNITION_V2: AI_MASTER_ENABLED,
   AI_SMART_NOTIFICATIONS: AI_MASTER_ENABLED,
-  AI_PROGRESS_ANALYTICS: AI_MASTER_ENABLED,
+  // Removed deprecated flags
   AI_ADAPTIVE_INTERVENTIONS: AI_MASTER_ENABLED,
   AI_CONTEXT_INTELLIGENCE: AI_MASTER_ENABLED,
   AI_JITAI_SYSTEM: AI_MASTER_ENABLED,
@@ -88,8 +88,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
   AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
   AI_DASHBOARD: AI_MASTER_ENABLED,
-  // Onboarding Flow her zaman kullanılabilir, AI flag sadece ek modülleri etkiler
-  AI_ONBOARDING_V2: true,
+  // Onboarding Flow varsayılan olarak aktif; ayrı V2 flag kaldırıldı
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,
   AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,
@@ -100,7 +99,17 @@ const featureFlagState: Record<string, boolean> = {
   AI_ART_THERAPY: false, // Temporarily disabled
   AI_VOICE_ERP: AI_MASTER_ENABLED,
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
-  AI_CRISIS_DETECTION: false, // Removed from system
+  // KALDIRILDI: AI_CRISIS_DETECTION
+  
+  // 🔀 LLM Flags (aliases → AI master)
+  LLM_ROUTER: AI_MASTER_ENABLED,
+  LLM_REFRAME: AI_MASTER_ENABLED,
+  LLM_COACH_ADAPT: AI_MASTER_ENABLED,
+  LLM_PDF_SUMMARY: AI_MASTER_ENABLED,
+  
+  // ⏰ JITAI granular flags
+  JITAI_TIME: AI_MASTER_ENABLED,
+  JITAI_GEOFENCE: false,
   
   // 📝 Prompt Logging (sanitized) – geçici debugging toggle
   AI_PROMPT_LOGGING: !!AI_PROMPT_LOGGING_ENV,
@@ -162,7 +171,7 @@ export const FEATURE_FLAGS = {
   /**
    * 🚨 Acil durum fonksiyonu - Tüm AI özelliklerini kapatır
    */
-  disableAll: (): void => {
+  disableAll: async (): Promise<void> => {
     console.warn('🚨 EMERGENCY: Disabling all AI features');
     
     Object.keys(featureFlagState).forEach(key => {
@@ -174,11 +183,19 @@ export const FEATURE_FLAGS = {
     // Global kill switch aktive et
     (global as any).__OBSESSLESS_KILL_SWITCH = true;
     
-    // Telemetri gönder
-    if (featureFlagState.AI_TELEMETRY) {
-      // TODO: Send emergency shutdown telemetry
-      console.log('📊 Emergency shutdown telemetry sent');
-    }
+    // Telemetry + persist
+    try {
+      const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+      await trackAIInteraction(AIEventType.EMERGENCY_SHUTDOWN, {
+        timestamp: new Date().toISOString(),
+        reason: 'feature_flags_disabled',
+        previousFlags: { ...featureFlagState }
+      });
+    } catch {}
+    try {
+      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      await AsyncStorage.setItem('emergency_shutdown_timestamp', new Date().toISOString());
+    } catch {}
   },
   
   /**

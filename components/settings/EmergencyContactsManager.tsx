@@ -22,7 +22,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { backgroundCrisisMonitor, EmergencyContact } from '@/features/ai/safety/backgroundCrisisMonitor';
+// Background crisis monitor kaldırıldı; tip yerel olarak tanımlanır
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: 'therapist' | 'family' | 'friend' | 'emergency';
+  autoAlert: boolean;
+  priority: number;
+}
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
@@ -52,7 +60,7 @@ export default function EmergencyContactsManager() {
     if (!user?.id) return;
     
     try {
-      const stored = await AsyncStorage.getItem(`emergency_contacts_${user.id}`);
+      const stored = await AsyncStorage.getItem(`emergency_contacts_${user?.id || 'anon'}`);
       if (stored) {
         setContacts(JSON.parse(stored));
       }
@@ -93,12 +101,11 @@ export default function EmergencyContactsManager() {
 
       // Save to storage
       await AsyncStorage.setItem(
-        `emergency_contacts_${user.id}`,
+        `emergency_contacts_${user?.id || 'anon'}`,
         JSON.stringify(updatedContacts)
       );
 
-      // Update background monitor
-      await backgroundCrisisMonitor.saveEmergencyContacts(user.id, updatedContacts);
+      // Background crisis monitor kaldırıldığı için yalnızca lokal saklama yapılır
 
       setContacts(updatedContacts);
       resetForm();
@@ -133,11 +140,11 @@ export default function EmergencyContactsManager() {
               const updatedContacts = contacts.filter(c => c.id !== contactId);
               
               await AsyncStorage.setItem(
-                `emergency_contacts_${user.id}`,
+                `emergency_contacts_${user?.id || 'anon'}`,
                 JSON.stringify(updatedContacts)
               );
               
-              await backgroundCrisisMonitor.saveEmergencyContacts(user.id, updatedContacts);
+              // Background crisis monitor kaldırıldığı için yalnızca lokal saklama yapılır
               
               setContacts(updatedContacts);
             } catch (error) {

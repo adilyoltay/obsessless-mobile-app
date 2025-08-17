@@ -14,11 +14,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { COMPULSION_CATEGORIES } from '@/constants/compulsions';
+import { useTranslation } from '@/hooks/useTranslation';
+import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import { Compulsion } from '@/types/compulsion';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
+import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
@@ -35,6 +38,7 @@ export function CompulsionQuickEntry({
   onDismiss,
   onSubmit,
 }: CompulsionQuickEntryProps) {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('');
   const [resistanceLevel, setResistanceLevel] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
@@ -44,6 +48,7 @@ export function CompulsionQuickEntry({
   
   const { awardMicroReward } = useGamificationStore();
   const { user } = useAuth();
+  const { submitCompulsion } = useStandardizedCompulsion(user?.id);
 
   useEffect(() => {
     if (visible) {
@@ -115,6 +120,7 @@ export function CompulsionQuickEntry({
       const compulsionData: Omit<CompulsionRecord, 'id' | 'timestamp'> = {
         user_id: user.id,
         category: selectedType,
+        subcategory: selectedType, // koru: orijinal etiket
         resistance_level: resistanceLevel,
         notes: notes.trim() || undefined,
       };
@@ -126,8 +132,20 @@ export function CompulsionQuickEntry({
         notes: notes.trim(),
       };
 
-      // Save to Supabase first
-      const savedCompulsion = await supabaseService.createCompulsion(compulsionData);
+      // Save to Supabase first (standardized)
+      const savedCompulsion = await (async () => {
+        try {
+          await submitCompulsion({
+            type: selectedType,
+            resistanceLevel,
+            trigger: undefined,
+            notes: notes.trim() || undefined,
+          });
+          return true;
+        } catch (e) {
+          return false;
+        }
+      })();
       
       if (savedCompulsion) {
         console.log('✅ Compulsion saved to Supabase:', savedCompulsion);
@@ -228,44 +246,35 @@ export function CompulsionQuickEntry({
             <Text style={styles.headerSubtitle}>Hangi tür kompulsiyon yaşadınız?</Text>
           </View>
 
-          {/* Categories Grid - Optimized Mobile Layout */}
+          {/* Categories Grid - Optimized Mobile Layout (Canonical 6) */}
           <View style={styles.categoriesGrid}>
-            {COMPULSION_CATEGORIES.map((category) => {
-              const isSelected = selectedType === category.id;
+            {CANONICAL_CATEGORIES.map((id) => {
+              const isSelected = selectedType === id;
               
               return (
                 <Pressable
-                  key={category.id}
+                  key={id}
                   style={[
                     styles.categoryCard,
                     isSelected && styles.categoryCardSelected
                   ]}
-                  onPress={() => handleTypeSelect(category.id)}
+                  onPress={() => handleTypeSelect(id)}
                 >
                   <View style={[
                     styles.categoryIcon,
                     isSelected && styles.categoryIconSelected
                   ]}>
-                    {category.id === 'counting' ? (
-                      <Text style={[
-                        styles.categoryNumber,
-                        { color: isSelected ? '#10B981' : '#10B981' }
-                      ]}>
-                        123
-                      </Text>
-                    ) : (
-                      <MaterialCommunityIcons
-                        name={category.icon as any}
-                        size={24}
-                        color={isSelected ? '#10B981' : '#10B981'}
-                      />
-                    )}
+                    <MaterialCommunityIcons
+                      name={getCanonicalCategoryIconName(id) as any}
+                      size={24}
+                      color={getCanonicalCategoryColor(id)}
+                    />
                   </View>
                   <Text style={[
                     styles.categoryName,
                     isSelected && styles.categoryNameSelected
                   ]}>
-                    {category.name}
+                    {t('categoriesCanonical.' + id, id)}
                   </Text>
                 </Pressable>
               );

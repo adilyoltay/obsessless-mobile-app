@@ -11,8 +11,7 @@ import {
   AIError,
   AIErrorCode
 } from '@/features/ai/types';
-import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Art Therapy Styles
 export enum ArtStyle {

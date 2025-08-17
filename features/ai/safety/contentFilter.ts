@@ -167,8 +167,8 @@ export class ContentFilterService {
    */
   private async initialize(): Promise<void> {
     try {
-      // Feature flag kontrolü
-      if (!FEATURE_FLAGS.isEnabled('AI_CHAT')) {
+      // Feature flag kontrolü – içerik filtresi AI_CHAT'ten bağımsız çalışmalı
+      if (!FEATURE_FLAGS.isEnabled('CONTENT_FILTERING') || !FEATURE_FLAGS.isEnabled('SAFETY_CHECKS')) {
         this.config.enabled = false;
         return;
       }
@@ -482,7 +482,7 @@ export class ContentFilterService {
    */
   private async logFilterResult(result: ContentFilterResult, message: AIMessage): Promise<void> {
     // Telemetry'ye log
-    await trackAIInteraction(AIEventType.API_ERROR, {
+    await trackAIInteraction(AIEventType.AI_CONTENT_FILTERED, {
       contentFilter: {
         allowed: result.allowed,
         severity: result.severity,

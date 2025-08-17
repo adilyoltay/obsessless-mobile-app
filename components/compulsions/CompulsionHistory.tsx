@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CompulsionCard } from './CompulsionCard';
 import { COMPULSION_TYPES } from '@/constants/compulsions';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface CompulsionEntry {
   id: string;
@@ -16,6 +18,7 @@ interface CompulsionEntry {
 }
 
 export function CompulsionHistory() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<CompulsionEntry[]>([]);
   const [filter, setFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -130,7 +133,7 @@ export function CompulsionHistory() {
                 style={styles.filterChip}
                 icon={type.icon}
               >
-                {type.title}
+                {t('categoriesCanonical.' + mapToCanonicalCategory(type.id), type.title)}
               </Chip>
             ))}
           </View>
@@ -168,7 +171,7 @@ export function CompulsionHistory() {
               <Text style={styles.emptySubtitle}>
                 {filter === 'all' 
                   ? 'İlk kompülsiyonunuzu kaydetmek için Takip sekmesini kullanın'
-                  : `${COMPULSION_TYPES.find(t => t.id === filter)?.title} türünde henüz kayıt bulunmuyor`
+                  : `${t('categoriesCanonical.' + mapToCanonicalCategory(filter), COMPULSION_TYPES.find(t => t.id === filter)?.title || 'Kategori')} türünde henüz kayıt bulunmuyor`
                 }
               </Text>
             </Card.Content>

@@ -6,16 +6,18 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { Audio } from 'expo-av';
+import { audio } from '@/features/ai/services/audioAdapter';
 import * as Speech from 'expo-speech';
 import { 
   AIError,
   AIErrorCode
 } from '@/features/ai/types';
-import { trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
-import { AIEventType } from '@/features/ai/types';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { logger } from '@/utils/logger';
+const aiLogger: any = logger;
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabaseService from '@/services/supabase';
+import { sanitizePII } from '@/utils/privacy';
 
 // Ses tanıma durumları
 export enum VoiceRecognitionState {
@@ -77,7 +79,7 @@ interface Recording {
 
 class VoiceRecognitionService {
   private static instance: VoiceRecognitionService;
-  private recording: Audio.Recording | null = null;
+  private recording: any | null = null;
   private currentSession: VoiceSession | null = null;
   private commands: Map<string, VoiceCommand> = new Map();
   private settings: VoiceSettings;
@@ -100,7 +102,7 @@ class VoiceRecognitionService {
    */
   async initialize(): Promise<void> {
     if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
-      logger.ai.info('Voice recognition is disabled by feature flag');
+      aiLogger.ai?.info?.('Voice recognition is disabled by feature flag');
       return;
     }
 
@@ -108,13 +110,13 @@ class VoiceRecognitionService {
 
     try {
       // Ses izinlerini kontrol et
-      const { status } = await Audio.requestPermissionsAsync();
+      const { status } = await audio.requestPermissionsAsync();
       if (status !== 'granted') {
         throw this.createError('Microphone permission denied', AIErrorCode.PRIVACY_VIOLATION);
       }
 
       // Audio mode ayarla
-      await Audio.setAudioModeAsync({
+      await audio.setModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
@@ -126,7 +128,7 @@ class VoiceRecognitionService {
       await this.loadSettings();
 
       this.isInitialized = true;
-      logger.ai.info('Voice recognition initialized successfully');
+      aiLogger.ai?.info?.('Voice recognition initialized successfully');
 
       // Telemetri
       await trackAIInteraction(AIEventType.FEATURE_ENABLED, {
@@ -134,7 +136,7 @@ class VoiceRecognitionService {
         language: this.settings.language
       });
     } catch (error) {
-      logger.ai.error('Failed to initialize voice recognition', error);
+      aiLogger.ai?.error?.('Failed to initialize voice recognition', error);
       throw error;
     }
   }
@@ -147,8 +149,8 @@ class VoiceRecognitionService {
       await this.initialize();
     }
 
-    if (this.recording) {
-      logger.ai.warn('Recording already in progress');
+      if (this.recording) {
+      aiLogger.ai?.warn?.('Recording already in progress');
       return;
     }
 
@@ -164,42 +166,22 @@ class VoiceRecognitionService {
       };
 
       // Kayıt başlat
-      this.recording = new Audio.Recording();
+      this.recording = await audio.createRecording();
       
-      await this.recording.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {}
-      });
+      const defaultOptions = await audio.getDefaultRecordingOptions();
+      await this.recording.prepareAsync(defaultOptions);
 
       await this.recording.startAsync();
       
-      logger.ai.info('Voice recording started', { sessionId: this.currentSession.id });
+      aiLogger.ai?.info?.('Voice recording started', { sessionId: this.currentSession.id });
 
-      // Telemetri
-      await trackAIInteraction(AIEventType.CONVERSATION_START, {
+      // Telemetri: voice session started
+      await trackAIInteraction(AIEventType.CHECKIN_STARTED, {
         type: 'voice',
         sessionId: this.currentSession.id
       });
     } catch (error) {
-      logger.ai.error('Failed to start recording', error);
+      aiLogger.ai?.error?.('Failed to start recording', error);
       this.handleRecordingError(error as Error);
       throw error;
     }
@@ -210,7 +192,7 @@ class VoiceRecognitionService {
    */
   async stopListening(): Promise<TranscriptionResult | null> {
     if (!this.recording || !this.currentSession) {
-      logger.ai.warn('No active recording to stop');
+      aiLogger.ai?.warn?.('No active recording to stop');
       return null;
     }
 
@@ -241,19 +223,36 @@ class VoiceRecognitionService {
       const transcription = await this.transcribeAudio(uri, durationMillis || 0);
 
       if (transcription) {
-        this.currentSession.transcriptions.push(transcription);
+        const sanitized = { ...transcription, text: sanitizePII(transcription.text) };
+        this.currentSession.transcriptions.push(sanitized);
         this.currentSession.state = VoiceRecognitionState.COMPLETED;
         
         // Komut kontrolü
-        await this.checkForCommands(transcription.text);
+        await this.checkForCommands(sanitized.text);
+      } else if (FEATURE_FLAGS.isEnabled('MOCK_API_RESPONSES')) {
+        const mock = {
+          text: 'Bu bir test transkripsiyonudur',
+          confidence: 0.6,
+          language: this.settings.language,
+          duration: durationMillis || 0,
+          timestamp: new Date(),
+          alternatives: []
+        } as TranscriptionResult;
+        this.currentSession.transcriptions.push({ ...mock, text: sanitizePII(mock.text) });
+        this.currentSession.state = VoiceRecognitionState.COMPLETED;
+        await this.checkForCommands(sanitizePII(mock.text));
+      } else {
+        // STT failed path
+        await trackAIInteraction(AIEventType.STT_FAILED, { reason: 'no_result' });
       }
 
       // Oturumu bitir
       this.currentSession.endTime = new Date();
       await this.saveSession();
 
-      // Telemetri
-      await trackAIInteraction(AIEventType.CONVERSATION_END, {
+      
+      // Telemetri: voice session ended
+      await trackAIInteraction(AIEventType.CHECKIN_COMPLETED, {
         type: 'voice',
         sessionId: this.currentSession.id,
         duration: durationMillis,
@@ -262,7 +261,7 @@ class VoiceRecognitionService {
 
       return transcription;
     } catch (error) {
-      logger.ai.error('Failed to stop recording', error);
+      aiLogger.ai?.error?.('Failed to stop recording', error);
       this.handleRecordingError(error as Error);
       throw error;
     }
@@ -284,25 +283,21 @@ class VoiceRecognitionService {
         language: this.settings.language,
         pitch: 1.0,
         rate: 0.9,
-        onDone: () => {
-          logger.ai.info('TTS completed');
-        },
-        onError: (error) => {
-          logger.ai.error('TTS error', error);
-        }
+        onDone: () => { aiLogger.ai?.info?.('TTS completed'); },
+        onError: (error) => { aiLogger.ai?.error?.('TTS error', error); }
       };
 
-      await Speech.speak(text, { ...defaultOptions, ...options });
+      // Fire-and-forget
+      await Speech.stop();
+      Speech.speak(text, { ...defaultOptions, ...options });
 
-      // Telemetri
-      await trackAIInteraction(AIEventType.MESSAGE_SENT, {
+      await trackAIInteraction(AIEventType.CHAT_MESSAGE_SENT, {
         type: 'tts',
         length: text.length,
         language: this.settings.language
       });
     } catch (error) {
-      logger.ai.error('TTS failed', error);
-      throw error;
+      aiLogger.ai?.error?.('TTS failed', error);
     }
   }
 
@@ -324,7 +319,7 @@ class VoiceRecognitionService {
       this.commands.set(alias.toLowerCase(), command);
     });
 
-    logger.ai.info(`Voice command registered: ${command.command}`);
+    aiLogger.ai?.info?.(`Voice command registered: ${command.command}`);
   }
 
   /**
@@ -334,7 +329,7 @@ class VoiceRecognitionService {
     this.settings = { ...this.settings, ...settings };
     await this.saveSettings();
 
-    logger.ai.info('Voice settings updated', settings);
+      aiLogger.ai?.info?.('Voice settings updated', settings);
   }
 
   /**
@@ -345,48 +340,38 @@ class VoiceRecognitionService {
     duration: number
   ): Promise<TranscriptionResult | null> {
     try {
-      // Burada gerçek bir STT servisi kullanılmalı
-      // Örnek: Google Cloud Speech-to-Text, Azure Speech, vb.
-      
-      // Şimdilik mock response
-      const mockTranscription: TranscriptionResult = {
+      // Try production STT first
+      const { sttService } = await import('@/features/ai/services/sttService');
+      const stt = await sttService.transcribe({
+        uri,
+        languageCode: this.settings.language,
+        sampleRateHertz: 44100,
+        enablePunctuation: true,
+        maxAlternatives: this.settings.maxAlternatives
+      });
+
+      if (stt?.text) {
+        return {
+          text: stt.text,
+          confidence: stt.confidence ?? 0.7,
+          language: this.settings.language,
+          duration,
+          timestamp: new Date(),
+          alternatives: (stt.alternatives || []).map(a => a.text)
+        };
+      }
+
+      // Fallback mock
+      return {
         text: "Bu bir test transkripsiyonudur",
-        confidence: 0.95,
+        confidence: 0.6,
         language: this.settings.language,
         duration,
         timestamp: new Date(),
         alternatives: []
       };
-
-      // Gerçek implementasyon:
-      /*
-      const audioData = await this.loadAudioFile(uri);
-      const response = await sttService.transcribe({
-        audio: audioData,
-        config: {
-          encoding: 'AMR',
-          sampleRateHertz: 44100,
-          languageCode: this.settings.language,
-          maxAlternatives: this.settings.maxAlternatives,
-          profanityFilter: this.settings.profanityFilter,
-          enableAutomaticPunctuation: true,
-          model: 'latest_long'
-        }
-      });
-
-      return {
-        text: response.results[0].alternatives[0].transcript,
-        confidence: response.results[0].alternatives[0].confidence,
-        language: this.settings.language,
-        duration,
-        timestamp: new Date(),
-        alternatives: response.results[0].alternatives.slice(1).map(a => a.transcript)
-      };
-      */
-
-      return mockTranscription;
     } catch (error) {
-      logger.ai.error('Transcription failed', error);
+      aiLogger.ai?.error?.('Transcription failed', error);
       return null;
     }
   }
@@ -399,7 +384,7 @@ class VoiceRecognitionService {
 
     for (const [trigger, command] of this.commands) {
       if (normalizedText.includes(trigger)) {
-        logger.ai.info(`Voice command detected: ${command.command}`);
+        aiLogger.ai?.info?.(`Voice command detected: ${command.command}`);
 
         if (command.requiresConfirmation) {
           // Onay iste
@@ -411,7 +396,7 @@ class VoiceRecognitionService {
             await command.action();
             await this.speak('Komut başarıyla çalıştırıldı');
           } catch (error) {
-            logger.ai.error(`Command execution failed: ${command.command}`, error);
+            aiLogger.ai?.error?.(`Command execution failed: ${command.command}`, error);
             await this.speak('Komut çalıştırılamadı');
           }
         }
@@ -431,7 +416,7 @@ class VoiceRecognitionService {
       command: 'kayıt başlat',
       aliases: ['kaydı başlat', 'kompulsiyon kaydet'],
       action: async () => {
-        logger.ai.info('Voice command: Start recording');
+        aiLogger.ai?.info?.('Voice command: Start recording');
         // Kompulsiyon kaydı başlat
       }
     });
@@ -441,7 +426,7 @@ class VoiceRecognitionService {
       command: 'oturumu bitir',
       aliases: ['oturumu kapat', 'bitir'],
       action: async () => {
-        logger.ai.info('Voice command: Stop session');
+        aiLogger.ai?.info?.('Voice command: Stop session');
         // ERP oturumunu bitir
       }
     });
@@ -451,7 +436,7 @@ class VoiceRecognitionService {
       command: 'içgörü ver',
       aliases: ['öneri ver', 'tavsiye ver'],
       action: async () => {
-        logger.ai.info('Voice command: Get insight');
+        aiLogger.ai?.info?.('Voice command: Get insight');
         // Anlık içgörü üret
       }
     });
@@ -461,7 +446,7 @@ class VoiceRecognitionService {
       command: 'acil yardım',
       aliases: ['yardım', 'panik'],
       action: async () => {
-        logger.ai.info('Voice command: Emergency help');
+        aiLogger.ai?.info?.('Voice command: Emergency help');
         // Acil yardım protokolü
       },
       requiresConfirmation: false // Acil durumda onay bekleme
@@ -493,7 +478,7 @@ class VoiceRecognitionService {
         JSON.stringify(this.settings)
       );
     } catch (error) {
-      logger.ai.error('Failed to save voice settings', error);
+      aiLogger.ai?.error?.('Failed to save voice settings', error);
     }
   }
 
@@ -507,7 +492,7 @@ class VoiceRecognitionService {
         this.settings = { ...this.settings, ...JSON.parse(saved) };
       }
     } catch (error) {
-      logger.ai.error('Failed to load voice settings', error);
+      aiLogger.ai?.error?.('Failed to load voice settings', error);
     }
   }
 
@@ -520,16 +505,28 @@ class VoiceRecognitionService {
     try {
       const sessions = await this.loadSessions();
       sessions.push(this.currentSession);
-      
-      // Son 50 oturumu tut
       const recentSessions = sessions.slice(-50);
-      
       await AsyncStorage.setItem(
         '@voice_sessions',
         JSON.stringify(recentSessions)
       );
+
+      // Also push a lightweight summary to Supabase (best-effort)
+      try {
+        const currentUser = supabaseService.getCurrentUser?.();
+        if (currentUser?.id) {
+          await supabaseService.saveVoiceSessionSummary({
+            user_id: currentUser.id,
+            started_at: this.currentSession.startTime.toISOString(),
+            ended_at: this.currentSession.endTime?.toISOString(),
+            duration_ms: (this.currentSession.recordings[0]?.duration ?? 0),
+            transcription_count: this.currentSession.transcriptions.length,
+            error_count: this.currentSession.errors.length,
+          });
+        }
+      } catch {}
     } catch (error) {
-      logger.ai.error('Failed to save voice session', error);
+      aiLogger.ai?.error?.('Failed to save voice session', error);
     }
   }
 
@@ -541,7 +538,7 @@ class VoiceRecognitionService {
       const saved = await AsyncStorage.getItem('@voice_sessions');
       return saved ? JSON.parse(saved) : [];
     } catch (error) {
-      logger.ai.error('Failed to load voice sessions', error);
+      aiLogger.ai?.error?.('Failed to load voice sessions', error);
       return [];
     }
   }
@@ -567,10 +564,15 @@ class VoiceRecognitionService {
     message: string, 
     code: AIErrorCode = AIErrorCode.UNKNOWN
   ): AIError {
-    const error = new Error(message) as AIError;
-    error.code = code;
-    error.severity = 'medium';
-    error.userMessage = 'Ses tanıma hatası oluştu';
+    const error: AIError = {
+      code,
+      message,
+      context: {},
+      timestamp: new Date(),
+      severity:  'MEDIUM' as any,
+      recoverable: true,
+      userMessage: 'Ses tanıma hatası oluştu'
+    } as any;
     return error;
   }
 
@@ -582,7 +584,7 @@ class VoiceRecognitionService {
       try {
         await this.recording.stopAndUnloadAsync();
       } catch (error) {
-        logger.ai.error('Failed to cleanup recording', error);
+        aiLogger.ai?.error?.('Failed to cleanup recording', error);
       }
       this.recording = null;
     }
@@ -591,7 +593,7 @@ class VoiceRecognitionService {
     this.currentSession = null;
     this.isInitialized = false;
 
-    logger.ai.info('Voice recognition cleaned up');
+    aiLogger.ai?.info?.('Voice recognition cleaned up');
   }
 }
 

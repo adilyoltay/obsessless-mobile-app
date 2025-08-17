@@ -17,8 +17,7 @@ import {
   AIError, 
   AIErrorCode, 
   ErrorSeverity,
-  ConversationContext,
-  CrisisRiskLevel 
+  ConversationContext
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -59,7 +58,7 @@ export class AIManager {
     
     try {
       // Prerequisites kontrolü
-      if (!this.checkPrerequisites()) {
+      if (!(await this.checkPrerequisites())) {
         console.log('🚫 AI features disabled: prerequisites not met');
         return;
       }
@@ -69,6 +68,9 @@ export class AIManager {
       
       // Health check
       await this.performHealthCheck();
+
+      // Initialize AI services in parallel (critical-first validation via results)
+      await this.initializeAIServices();
       
       // Gradual initialization
       this.enabled = true;
@@ -89,9 +91,57 @@ export class AIManager {
   }
 
   /**
+   * Ordered AI services initialization (respecting dependencies)
+   */
+  private async initializeAIServices(): Promise<void> {
+    console.log('🚀 AIManager: Initializing AI services...');
+
+    // Phase 1: critical & independent
+    const phase1 = [
+      (async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize())(),
+      (async () => (await import('@/features/ai/engines/cbtEngine')).cbtEngine.initialize())(),
+      (async () => (await import('@/features/ai/prompts/therapeuticPrompts')).therapeuticPromptEngine.initialize())(),
+    ];
+    const phase1Results = await Promise.allSettled(phase1);
+    let criticalFailure = phase1Results.some(r => r.status === 'rejected');
+    if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 1)');
+
+    // Phase 2: dependent on externalAI
+    const phase2 = [
+      (async () => (await import('@/features/ai/engines/insightsEngineV2')).insightsEngineV2.initialize())(),
+      (async () => (await import('@/features/ai/services/patternRecognitionV2')).patternRecognitionV2.initialize())(),
+    ];
+    const phase2Results = await Promise.allSettled(phase2);
+    criticalFailure = phase2Results.some(r => r.status === 'rejected');
+    if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 2)');
+
+    // Phase 3: coordinators/services relying on insights
+    const phase3 = [
+      (async () => (await import('@/features/ai/services/smartNotifications')).smartNotificationService.initialize())(),
+    ];
+    await Promise.allSettled(phase3);
+
+    // Phase 4: optional enhancements (non-critical)
+    try {
+      await Promise.allSettled([
+        (async () => (await import('@/features/ai/services/dataAggregationService')).default)(),
+        (async () => (await import('@/features/ai/engines/enhancedTreatmentPlanning')).default)(),
+      ]);
+    } catch {}
+
+    // Update health map (best-effort)
+    this.healthStatus.set('externalAI', true);
+    this.healthStatus.set('cbtEngine', true);
+    this.healthStatus.set('therapeuticPrompts', true);
+    this.healthStatus.set('insightsV2', true);
+    this.healthStatus.set('patternV2', true);
+    this.healthStatus.set('smartNotifications', true);
+  }
+
+  /**
    * Prerequisites kontrolü - AI özelliklerinin çalışması için gerekli koşullar
    */
-  private checkPrerequisites(): boolean {
+  private async checkPrerequisites(): Promise<boolean> {
     // Feature flag kontrolü - AI master switch (AI_ENABLED)
     if (!FEATURE_FLAGS.isEnabled('AI_ENABLED')) {
       console.log('🚫 AI master (AI_ENABLED) feature flag disabled');
@@ -99,7 +149,7 @@ export class AIManager {
     }
 
     // Environment kontrolü
-    if (!this.checkEnvironment()) {
+    if (!(await this.checkEnvironment())) {
       console.log('🚫 Environment not suitable for AI features');
       return false;
     }
@@ -122,7 +172,7 @@ export class AIManager {
   /**
    * Environment uygunluk kontrolü
    */
-  private checkEnvironment(): boolean {
+  private async checkEnvironment(): Promise<boolean> {
     // Production'da Gemini anahtar kontrolü (Gemini-only)
     if (!__DEV__) {
       const extra: any = Constants.expoConfig?.extra || {};
@@ -133,7 +183,22 @@ export class AIManager {
       }
     }
 
-    // Network bağlantısı (gelecekte geliştirilecek)
+    // Network bağlantısı zorunlu (temel kontrol)
+    // RN ortamında NetInfo ile güvenilir kontrol
+    try {
+      const NetInfo = require('@react-native-community/netinfo');
+      const state = await NetInfo.fetch();
+      if (!state.isConnected || state.isInternetReachable === false) {
+        console.warn('Network offline/unreachable - AI features disabled');
+        return false;
+      }
+    } catch {
+      // Web fallback
+      if (typeof navigator !== 'undefined' && 'onLine' in navigator && (navigator as any).onLine === false) {
+        console.warn('Network offline - AI features disabled');
+        return false;
+      }
+    }
     return true;
   }
 
@@ -174,7 +239,6 @@ export class AIManager {
       
       // Safety settings
       safetyThreshold: 0.8,
-      crisisDetectionEnabled: false,
       contentFilteringEnabled: true,
       
       // Performance settings
@@ -212,7 +276,9 @@ export class AIManager {
    * Provider'a göre model seçimi
    */
   private getModelForProvider(provider: AIProvider): string {
-    return 'gemini-2.0-flash-exp';
+    // Prefer stable Gemini model
+    const extra: any = Constants.expoConfig?.extra || {};
+    return extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
   }
 
   /**
@@ -425,7 +491,7 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
    * Kullanıcı dostu error mesajları
    */
   private getUserFriendlyMessage(code: AIErrorCode): string {
-    const messages: Record<AIErrorCode, string> = {
+    const messages: Record<any, string> = {
       [AIErrorCode.FEATURE_DISABLED]: 'AI özellikleri şu anda kullanılamıyor.',
       [AIErrorCode.NETWORK_ERROR]: 'Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.',
       [AIErrorCode.RATE_LIMIT]: 'Çok fazla istek. Lütfen biraz bekleyin.',
@@ -476,22 +542,93 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
    * Private helper methods
    */
   private setupEmergencyListeners(): void {
-    // Global kill switch listener
-    if (typeof window !== 'undefined') {
-      (window as any).obslesslessEmergencyShutdown = () => {
-        this.shutdown();
+    // Global kill switch listener (React Native safe)
+    if (typeof global !== 'undefined') {
+      (global as any).obsessLessEmergencyShutdown = async () => {
+        console.warn('🚨 Emergency shutdown triggered');
+        try { await this.shutdown(); } catch (e) { console.error('Emergency shutdown error:', e); }
       };
+      if (__DEV__) {
+        (global as any).console = (global as any).console || {};
+        (global as any).console.emergencyShutdown = (global as any).obsessLessEmergencyShutdown;
+      }
     }
   }
 
   private async closeActiveConnections(): Promise<void> {
-    // TODO: Implement active connection closing
     console.log('🔌 Closing active AI connections...');
+    try {
+      // External AI Service
+      try {
+        const mod = await import('@/features/ai/services/externalAIService');
+        await mod.externalAIService?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('externalAIService shutdown skipped:', e); }
+
+      // Insights Engine V2
+      try {
+        const mod = await import('@/features/ai/engines/insightsEngineV2');
+        await mod.insightsEngineV2?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('insightsEngineV2 shutdown skipped:', e); }
+
+      // JITAI Engine
+      try {
+        const mod = await import('@/features/ai/jitai/jitaiEngine');
+        await mod.jitaiEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('jitaiEngine shutdown skipped:', e); }
+
+      // Treatment Planning Engine
+      try {
+        const mod = await import('@/features/ai/engines/treatmentPlanningEngine');
+        await mod.treatmentPlanningEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('treatmentPlanningEngine shutdown skipped:', e); }
+
+      // Onboarding Engine
+      try {
+        const mod = await import('@/features/ai/engines/onboardingEngine');
+        await mod.onboardingEngine?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('onboardingEngine shutdown skipped:', e); }
+
+      // Pattern Recognition V2
+      try {
+        const mod = await import('@/features/ai/services/patternRecognitionV2');
+        await mod.patternRecognitionV2?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('patternRecognitionV2 shutdown skipped:', e); }
+
+      // Context Intelligence
+      try {
+        const mod = await import('@/features/ai/context/contextIntelligence');
+        await mod.contextIntelligence?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('contextIntelligence shutdown skipped:', e); }
+
+      // Adaptive Interventions
+      try {
+        const mod = await import('@/features/ai/interventions/adaptiveInterventions');
+        await mod.adaptiveInterventions?.shutdown?.();
+      } catch (e) { if (__DEV__) console.warn('adaptiveInterventions shutdown skipped:', e); }
+
+    } catch (error) {
+      console.warn('⚠️ Some AI connections could not be closed:', error);
+    }
   }
 
   private async clearCaches(): Promise<void> {
-    // TODO: Implement cache clearing
     console.log('🧹 Clearing AI caches...');
+    try {
+      // Clear known AsyncStorage buckets used by AI/telemetry (best-effort)
+      try {
+        const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+        await AsyncStorage.removeItem('ai_telemetry_offline');
+      } catch (e) { if (__DEV__) console.warn('AsyncStorage cache clear skipped:', e); }
+
+      // Ask services to clear their internal caches via shutdown or dedicated methods
+      try {
+        const mod = await import('@/features/ai/services/externalAIService');
+        // shutdown already clears internal maps; call again to ensure
+        await mod.externalAIService?.shutdown?.();
+      } catch {}
+    } catch (error) {
+      console.warn('⚠️ Cache clearing encountered an issue:', error);
+    }
   }
 
   private getHealthyServicesCount(): number {
@@ -499,13 +636,26 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
   }
 
   private async initiateEmergencyProtocol(context: ConversationContext): Promise<void> {
-    // TODO: Implement emergency protocol
     console.log('🚨 Initiating emergency protocol for user:', context.userId);
+    try {
+      // Minimal protocol: disable risky AI features and log
+      FEATURE_FLAGS.disableAll();
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        event: 'emergency_protocol_initiated',
+        userId: context.userId
+      });
+    } catch {}
   }
 
   private async provideSupportResources(context: ConversationContext): Promise<void> {
-    // TODO: Implement support resources
     console.log('📞 Providing support resources for user:', context.userId);
+    try {
+      // Surface minimal, non-PII support metadata to telemetry; UI layer can react
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        event: 'support_resources_provided',
+        resources: ['help_center', 'emergency_lines', 'self_help_library']
+      }, context.userId);
+    } catch {}
   }
 
   /**

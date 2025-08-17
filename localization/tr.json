@@ -77,6 +77,14 @@
       "progress": "İlerleme"
     }
   },
+  "categoriesCanonical": {
+    "contamination": "Bulaşma/Temizlik",
+    "checking": "Kontrol Etme",
+    "symmetry": "Simetri/Düzen",
+    "mental": "Zihinsel Ritüeller",
+    "hoarding": "Biriktirme",
+    "other": "Diğer"
+  },
   "compulsions": {
     "compulsion": "Kompülsiyon",
     "compulsions": "Kompülsiyonlar",
@@ -269,6 +277,43 @@
     "tip3": "ERP egzersizlerini düzenli yapmak, zamanla kaygı seviyenizi azaltacaktır.",
     "tip4": "Kompülsiyonları takip etmek, tetikleyicilerinizi anlamanıza yardımcı olur.",
     "tip5": "Sabır gösterin - iyileşme zaman alır ve her küçük adım önemlidir."
+  },
+  "cbt": {
+    "title": "Nazikçe Düşünce Kaydı",
+    "subtitle": "Adım adım ilerleyelim. Dilediğin an durabilirsin.",
+    "formLabel": "CBT düşünce kaydı formu",
+    "step": "Adım",
+    "step1": "Adım 1: Otomatik düşünce",
+    "step2": "Adım 2: Çarpıtmalar ve kanıtlar",
+    "step3": "Adım 3: Yeni bakış açısı",
+    "autoThought": "Otomatik Düşünce",
+    "autoThoughtPh": "Aklımdan geçen düşünce...",
+    "hintShort": "İpucu: Kısa ve net yazmak işini kolaylaştırır.",
+    "distortions": "Bilişsel Çarpıtmalar",
+    "distortions": {
+      "mind_reading": "Zihin Okuma",
+      "catastrophizing": "Felaketleştirme",
+      "should_statements": "Meli/Malı Düşünceleri",
+      "all_or_nothing": "Ya Hep Ya Hiç",
+      "overgeneralization": "Aşırı Genelleme",
+      "labeling": "Etiketleme",
+      "mental_filter": "Zihinsel Süzgeç",
+      "disqualifying_the_positive": "Olumluyu Geçersiz Kılma",
+      "emotional_reasoning": "Duygusal Akıl Yürütme",
+      "personalization": "Kişiselleştirme"
+    },
+    "evidenceFor": "Kanıtlar",
+    "evidenceForPh": "Bu düşünceyi destekleyen kanıtlar...",
+    "evidenceAgainst": "Karşı Kanıtlar",
+    "evidenceAgainstPh": "Bu düşünceye karşı kanıtlar...",
+    "newView": "Yeni Bakış Açım (≤140)",
+    "newViewPh": "Nazik, gerçekçi ve kısa bir alternatif...",
+    "getReframe": "Öneri Al",
+    "altShort": "Kısa Alternatifler",
+    "reframesReady": "Yeni bakış açıları hazır",
+    "saved": "Kayıt alındı.",
+    "autoThoughtRequired": "Otomatik düşünce boş olamaz.",
+    "maxDistortions": "En fazla 3 bilişsel çarpıtma seçebilirsiniz."
   },
   "assessment": {
       "title": "Y-BOCS Değerlendirme",

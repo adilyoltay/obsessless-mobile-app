@@ -24,7 +24,7 @@ export default function Index() {
         }
 
         // Check AI onboarding status (Supabase first, then local fallback)
-        if (FEATURE_FLAGS.isEnabled('AI_ONBOARDING_V2')) {
+        {
           let isCompleted = false;
 
           try {
@@ -64,7 +64,7 @@ export default function Index() {
 
            if (!isCompleted) {
             // Local fallback
-            const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+            const aiOnboardingKey = `ai_onboarding_completed_${user.id || 'anon'}`;
             const localCompleted = await AsyncStorage.getItem(aiOnboardingKey);
             isCompleted = localCompleted === 'true';
             if (__DEV__) {
@@ -79,7 +79,7 @@ export default function Index() {
 
           if (!isCompleted) {
             if (__DEV__) console.log('🏠 AI Onboarding not completed, redirecting...');
-            router.replace('/(auth)/ai-onboarding');
+            router.replace('/(auth)/onboarding');
             return;
           }
         }

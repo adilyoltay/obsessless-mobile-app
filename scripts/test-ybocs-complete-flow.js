@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * 🧪 Y-BOCS Assessment Complete Flow Test
@@ -190,14 +190,7 @@ function testYBOCSAssessmentUI() {
     }
   });
   
-  runTest('Y-BOCS Crisis Detection Integration', () => {
-    if (!content.includes('crisisDetectionService')) {
-      throw new Error('Crisis detection service not integrated');
-    }
-    if (!content.includes('detectCrisis')) {
-      throw new Error('Crisis detection method not called');
-    }
-  });
+  // Crisis detection modülü kaldırıldığı için bu kontrol devre dışı
   
   runTest('Y-BOCS Progress Tracking', () => {
     if (!content.includes('AsyncStorage')) {

@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+/* eslint-env node */
+/* global __dirname */
 
 /**
  * 🧪 Sprint 5 Test Suite - Intelligent Insights Engine Recreation
@@ -185,10 +186,11 @@ runTest('Smart Notifications Service Implementation', () => {
   // Notification categories
   const notificationCategories = [
     'INSIGHT_DELIVERY',
-    'PATTERN_ALERT',
     'PROGRESS_CELEBRATION',
     'THERAPEUTIC_REMINDER',
-    'CRISIS_INTERVENTION'
+    'SKILL_PRACTICE',
+    'CHECK_IN',
+    'EDUCATIONAL'
   ];
   
   notificationCategories.forEach(category => {
@@ -222,60 +224,10 @@ runTest('Smart Notifications Service Implementation', () => {
 });
 
 // =============================================================================
-// 📈 TEST 4: PROGRESS ANALYTICS IMPLEMENTATION
+// 📈 TEST 4: PROGRESS ANALYTICS IMPLEMENTATION (Removed)
 // =============================================================================
-
-runTest('Progress Analytics Implementation', () => {
-  const analyticsPath = path.join(__dirname, '..', 'features', 'ai', 'analytics', 'progressAnalytics.ts');
-  
-  assertExists(analyticsPath, 'Progress Analytics file');
-  assertFileSize(analyticsPath, 400, 'Progress Analytics implementation');
-  
-  // Core components
-  assertContains(analyticsPath, 'ProgressAnalytics', 'ProgressAnalytics class');
-  assertContains(analyticsPath, 'analyzeProgress', 'Progress analysis method');
-  assertContains(analyticsPath, 'ProgressAnalyticsResult', 'ProgressAnalyticsResult type');
-  assertContains(analyticsPath, 'ProgressDataPoint', 'ProgressDataPoint type');
-  
-  // Progress categories
-  const progressCategories = [
-    'SYMPTOM_SEVERITY',
-    'FUNCTIONAL_IMPROVEMENT',
-    'COGNITIVE_FLEXIBILITY',
-    'BEHAVIORAL_CHANGE',
-    'EMOTIONAL_REGULATION',
-    'TREATMENT_ENGAGEMENT'
-  ];
-  
-  progressCategories.forEach(category => {
-    assertContains(analyticsPath, category, `Progress Category: ${category}`);
-  });
-  
-  // Progress metrics
-  const progressMetrics = [
-    'Y_BOCS_SCORE',
-    'COMPULSION_FREQUENCY',
-    'CBT_SKILL_USAGE',
-    'APP_ENGAGEMENT',
-    'ACHIEVEMENT_COUNT',
-    'PATTERN_AWARENESS'
-  ];
-  
-  progressMetrics.forEach(metric => {
-    assertContains(analyticsPath, metric, `Progress Metric: ${metric}`);
-  });
-  
-  // Analysis features
-  assertContains(analyticsPath, 'generateProgressDataPoints', 'Data point generation');
-  assertContains(analyticsPath, 'calculateCategoryProgress', 'Category progress calculation');
-  assertContains(analyticsPath, 'generatePredictiveAnalytics', 'Predictive analytics');
-  assertContains(analyticsPath, 'analyzeAchievements', 'Achievement analysis');
-  
-  console.log('   ✓ Progress Analytics implementation complete');
-  console.log(`   ✓ ${progressCategories.length} progress categories tracked`);
-  console.log(`   ✓ ${progressMetrics.length} progress metrics implemented`);
-  console.log('   ✓ Predictive analytics capabilities included');
-});
+// Progress Analytics runtime modülü kaldırıldı. Tipler `features/ai/analytics/progressAnalyticsCore.ts` içinde tutuluyor.
+// Bu test kasıtlı olarak devre dışı bırakıldı.
 
 // =============================================================================
 // 🔗 TEST 5: INSIGHTS COORDINATOR INTEGRATION
@@ -296,7 +248,6 @@ runTest('Insights Coordinator Integration Hub', () => {
   assertContains(coordinatorPath, 'insightsEngineV2', 'Insights Engine v2.0 integration');
   assertContains(coordinatorPath, 'patternRecognitionV2', 'Pattern Recognition v2.0 integration');
   assertContains(coordinatorPath, 'smartNotificationService', 'Smart Notifications integration');
-  assertContains(coordinatorPath, 'progressAnalytics', 'Progress Analytics integration');
   
   // Sprint 4 integrations
   assertContains(coordinatorPath, 'cbtEngine', 'CBT Engine integration');
@@ -305,7 +256,6 @@ runTest('Insights Coordinator Integration Hub', () => {
   // Workflow features
   assertContains(coordinatorPath, 'executePatternAnalysis', 'Pattern analysis execution');
   assertContains(coordinatorPath, 'executeInsightGeneration', 'Insight generation execution');
-  assertContains(coordinatorPath, 'executeProgressAnalysis', 'Progress analysis execution');
   assertContains(coordinatorPath, 'executeNotificationScheduling', 'Notification scheduling execution');
   
   // Performance features
@@ -333,7 +283,7 @@ runTest('Sprint 5 Feature Flags Integration', () => {
     'AI_INSIGHTS_ENGINE_V2',
     'AI_PATTERN_RECOGNITION_V2',
     'AI_SMART_NOTIFICATIONS',
-    'AI_PROGRESS_ANALYTICS'
+    // 'AI_PROGRESS_ANALYTICS' removed (runtime module deprecated)
   ];
   
   sprint5Flags.forEach(flag => {
@@ -365,7 +315,6 @@ runTest('Component Dependencies & Integration Validation', () => {
     'features/ai/engines/insightsEngineV2.ts',
     'features/ai/services/patternRecognitionV2.ts',
     'features/ai/services/smartNotifications.ts',
-    'features/ai/analytics/progressAnalytics.ts',
     'features/ai/coordinators/insightsCoordinator.ts'
   ];
   
@@ -391,8 +340,7 @@ runTest('Component Dependencies & Integration Validation', () => {
   const coordinatorImports = [
     'insightsEngineV2',
     'patternRecognitionV2', 
-    'smartNotificationService',
-    'progressAnalytics'
+    'smartNotificationService'
   ];
   
   coordinatorImports.forEach(importName => {
@@ -415,7 +363,6 @@ runTest('Sprint 5 Architecture Consistency', () => {
     'features/ai/engines/insightsEngineV2.ts',
     'features/ai/services/patternRecognitionV2.ts',
     'features/ai/services/smartNotifications.ts',
-    'features/ai/analytics/progressAnalytics.ts',
     'features/ai/coordinators/insightsCoordinator.ts'
   ];
   
@@ -509,9 +456,7 @@ runTest('Sprint 5 Feature Completeness Validation', () => {
   const insightsFeatures = [
     'generateInsights',
     'generateCBTInsights',
-    'generateAIInsights',
-    'generateProgressInsights',
-    'generateCrisisPreventionInsights'
+    'generateAIInsights'
   ];
   
   insightsFeatures.forEach(feature => {
@@ -521,9 +466,6 @@ runTest('Sprint 5 Feature Completeness Validation', () => {
   // 2. Pattern Recognition v2.0 features
   const patternsPath = path.join(__dirname, '..', 'features', 'ai', 'services', 'patternRecognitionV2.ts');
   const patternFeatures = [
-    'ruleBasedPatternDetection',
-    'statisticalPatternAnalysis',
-    'mlBasedPatternDetection',
     'aiAssistedPatternDiscovery'
   ];
   

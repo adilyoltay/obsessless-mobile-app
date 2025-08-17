@@ -429,9 +429,7 @@ class YBOCSAnalysisService {
   /**
    * ⚠️ Identify risk factors
    */
-  async identifyRiskFactors(analysis: OCDAnalysis): Promise<RiskFactor[]> {
-    return this.identifyAndAnalyzeRiskFactors(analysis);
-  }
+  // Public API already covered by other methods; duplicate removed
 
   /**
    * 🌍 Adapt for Turkish culture
@@ -766,38 +764,7 @@ class YBOCSAnalysisService {
     return [...new Set(symptoms)]; // Remove duplicates
   }
 
-  /**
-   * Risk factors identification
-   */
-  private identifyRiskFactors(answers: YBOCSAnswer[]): string[] {
-    const riskFactors: string[] = [];
-    
-    // High interference scores
-    const interferenceAnswers = answers.filter(a => 
-      a.questionId.includes('interference') && (a.severity || 0) >= 3
-    );
-    if (interferenceAnswers.length > 0) {
-      riskFactors.push('Yüksek İşlevsel Bozukluk');
-    }
-
-    // Low control scores
-    const controlAnswers = answers.filter(a => 
-      a.questionId.includes('control') && (a.severity || 0) >= 3
-    );
-    if (controlAnswers.length > 0) {
-      riskFactors.push('Düşük Kontrol Algısı');
-    }
-
-    // High time spent
-    const timeAnswers = answers.filter(a => 
-      a.questionId.includes('time') && (a.severity || 0) >= 3
-    );
-    if (timeAnswers.length > 0) {
-      riskFactors.push('Aşırı Zaman Tüketimi');
-    }
-
-    return riskFactors;
-  }
+  // Duplicate identifyRiskFactors removed
 
   /**
    * Cultural factors analysis

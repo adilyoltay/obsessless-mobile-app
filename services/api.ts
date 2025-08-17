@@ -37,9 +37,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    if (status === 401) {
       // Firebase Auth will handle token refresh automatically
       console.warn('API request unauthorized - Firebase Auth may need refresh');
+    }
+    // Basic backoff for rate limit / server errors
+    if (status === 429 || (status && status >= 500)) {
+      const attempt = (error.config.__retryCount || 0) + 1;
+      if (attempt <= 5) {
+        error.config.__retryCount = attempt;
+        const base = 500; // ms
+        const delay = Math.min(base * Math.pow(2, attempt), 8000) + Math.floor(Math.random() * 300);
+        await new Promise((res) => setTimeout(res, delay));
+        return api.request(error.config);
+      }
     }
     return Promise.reject(error);
   }

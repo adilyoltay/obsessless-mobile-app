@@ -25,7 +25,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
 
     try {
       setLoading(true);
-      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.id}`);
+      const compulsionListStr = await AsyncStorage.getItem(`compulsions_${user.id || 'anon'}`);
       if (!compulsionListStr) {
         setEntries([]);
         return;
@@ -121,6 +121,28 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
     // Find longest duration
     const longestDuration = Math.max(...filteredEntries.map(entry => entry.duration || 0));
 
+    // Improvement percentage vs previous same-sized window
+    const windowMillis = selectedPeriod === 'today' ? 24*60*60*1000 : selectedPeriod === 'week' ? 7*24*60*60*1000 : 30*24*60*60*1000;
+    const end = new Date();
+    const start = new Date(end.getTime() - windowMillis);
+    const prevStart = new Date(start.getTime() - windowMillis);
+    const prevEnd = new Date(start.getTime());
+    const prevEntries = entries.filter(e => e.timestamp >= prevStart && e.timestamp < prevEnd);
+    const currCount = filteredEntries.length;
+    const prevCount = prevEntries.length;
+    const improvementPercentage = prevCount > 0 ? Number((((prevCount - currCount) / prevCount) * 100).toFixed(1)) : 0;
+
+    // Streak days: consecutive days with zero compulsions (improvement streak)
+    let streakDays = 0;
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      const startDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endDay = new Date(startDay.getTime() + 24*60*60*1000);
+      const dayCount = entries.filter(e => e.timestamp >= startDay && e.timestamp < endDay).length;
+      if (dayCount === 0) streakDays++; else break;
+    }
+
     return {
       totalEntries: filteredEntries.length,
       todayEntries: filteredEntries.length,
@@ -130,8 +152,8 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
       averageResistance: Number(avgResistance.toFixed(1)),
       mostCommonType,
       longestDuration,
-      improvementPercentage: 0, // TODO: Calculate vs previous period
-      streakDays: 0 // TODO: Calculate consecutive days with improvement
+      improvementPercentage,
+      streakDays
     };
   }, [filteredEntries]);
 
@@ -184,6 +206,11 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
         compulsionsByType[cat.id] = dayEntries.filter(e => e.type === cat.id).length;
       });
 
+      // Ortalama mood: var ise girişlerin mood ortalaması, yoksa neutral
+      const moodAvg = dayEntries.length > 0 && (dayEntries as any[]).every(e => typeof e.mood === 'number')
+        ? Number(((dayEntries as any[]).reduce((s, e) => s + (e.mood || 0), 0) / dayEntries.length).toFixed(1))
+        : 0;
+
       days.push({
         date: dayStart,
         totalCompulsions: dayEntries.length,
@@ -194,7 +221,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
           ? Number((dayEntries.reduce((sum, e) => sum + e.resistanceLevel, 0) / dayEntries.length).toFixed(1))
           : 0,
         totalDuration: dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0),
-        mood: 'neutral', // TODO: Calculate average mood
+        mood: moodAvg >= 0.7 ? 'positive' : moodAvg <= 0.3 ? 'negative' : 'neutral',
         compulsionsByType: compulsionsByType as any
       });
     }

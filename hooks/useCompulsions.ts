@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
+import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 export interface Compulsion {
   id: string;
@@ -57,11 +58,17 @@ const compulsionService = {
     }
   },
 
+  /**
+   * Çakışma güvenli birleştirme (Last-Write-Wins + çatışma günlüğü)
+   * - ID bazında eşleşen kayıtlar için daha yeni `timestamp` kazanır
+   * - Farklı alanlar varsa bir çatışma kaydı oluşturulur (AsyncStorage anahtarı: `sync_conflicts`)
+   */
   mergeCompulsions(local: Compulsion[], remote: any[]): Compulsion[] {
     // Convert Supabase format to local format
     const remoteConverted: Compulsion[] = remote.map(r => ({
       id: r.id,
-      type: r.category,
+      // Prefer original label from subcategory if present; fallback to category
+      type: r.subcategory || r.category,
       severity: r.resistance_level || 5, // Map resistance to severity
       resistanceLevel: r.resistance_level,
       duration: 0, // Not available in Supabase schema
@@ -71,16 +78,54 @@ const compulsionService = {
       userId: r.user_id
     }));
 
-    // Create a map of all compulsions by ID
-    const compulsionMap = new Map();
-    
-    // Add remote compulsions first
-    remoteConverted.forEach(comp => compulsionMap.set(comp.id, comp));
-    
-    // Override with local compulsions (they might have offline changes)
-    local.forEach(comp => compulsionMap.set(comp.id, comp));
-    
-    return Array.from(compulsionMap.values()).sort(
+    // Map'ler
+    const localMap = new Map(local.map(item => [item.id, item]));
+    const remoteMap = new Map(remoteConverted.map(item => [item.id, item]));
+
+    const allIds = new Set<string>([...localMap.keys(), ...remoteMap.keys()]);
+    const merged: Compulsion[] = [];
+    const conflicts: Array<{ id: string; local: any; remote: any }> = [];
+
+    allIds.forEach(id => {
+      const l = localMap.get(id);
+      const r = remoteMap.get(id);
+      if (l && r) {
+        const lt = new Date(l.timestamp).getTime();
+        const rt = new Date(r.timestamp).getTime();
+        const winner = lt >= rt ? l : r; // LWW
+
+        // Alan farkı var mı? (timestamp hariç)
+        const comparableLocal = { ...l, timestamp: undefined } as any;
+        const comparableRemote = { ...r, timestamp: undefined } as any;
+        if (JSON.stringify(comparableLocal) !== JSON.stringify(comparableRemote)) {
+          conflicts.push({ id, local: l, remote: r });
+        }
+        merged.push(winner);
+      } else if (l) {
+        merged.push(l);
+      } else if (r) {
+        merged.push(r);
+      }
+    });
+
+    // Çatışmaları arka planda kaydet (best-effort)
+    if (conflicts.length > 0) {
+      try {
+        (async () => {
+          const existing = await AsyncStorage.getItem('sync_conflicts');
+          const arr = existing ? JSON.parse(existing) : [];
+          arr.push({
+            entity: 'compulsion',
+            count: conflicts.length,
+            at: new Date().toISOString(),
+            conflicts: conflicts.slice(0, 20) // limit
+          });
+          await AsyncStorage.setItem('sync_conflicts', JSON.stringify(arr));
+        })();
+      } catch {}
+    }
+
+    return merged.sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   },
@@ -107,11 +152,12 @@ const compulsionService = {
       try {
         await supabaseService.saveCompulsion({
           user_id: userId,
-          category: data.type,
+          category: mapToCanonicalCategory(data.type),
+          subcategory: data.type,
           resistance_level: data.resistanceLevel,
           trigger: data.trigger,
           notes: data.notes
-        });
+        } as any);
         if (__DEV__) console.log('✅ Compulsion saved to Supabase');
       } catch (supabaseError) {
         if (__DEV__) console.warn('⚠️ Supabase save failed, compulsion saved offline:', supabaseError);
@@ -178,9 +224,9 @@ export function useCompulsions() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['compulsions', user?.uid],
-    queryFn: () => compulsionService.getAll(user!.uid),
-    enabled: !!user?.uid,
+    queryKey: ['compulsions', user?.id],
+    queryFn: () => compulsionService.getAll(user!.id),
+    enabled: !!user?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -191,10 +237,10 @@ export function useCreateCompulsion() {
 
   return useMutation({
     mutationFn: (data: CreateCompulsionData) =>
-      compulsionService.create(user!.uid, data),
+      compulsionService.create(user!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.uid] });
-      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.id] });
     },
   });
 }
@@ -204,10 +250,10 @@ export function useDeleteCompulsion() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (id: string) => compulsionService.delete(user!.uid, id),
+    mutationFn: (id: string) => compulsionService.delete(user!.id, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.uid] });
-      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['compulsions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['compulsion-stats', user?.id] });
     },
   });
 }
@@ -216,9 +262,9 @@ export function useCompulsionStats() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['compulsion-stats', user?.uid],
-    queryFn: () => compulsionService.getStats(user!.uid),
-    enabled: !!user?.uid,
+    queryKey: ['compulsion-stats', user?.id],
+    queryFn: () => compulsionService.getStats(user!.id),
+    enabled: !!user?.id,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

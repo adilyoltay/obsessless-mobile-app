@@ -11,7 +11,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
-  CrisisRiskLevel,
+  RiskLevel as CrisisRiskLevel,
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,
@@ -398,7 +398,7 @@ class AdaptiveInterventionsEngine {
     // Immediate delivery for crisis
     await this.deliverImmediateIntervention(intervention);
     
-    await trackAIInteraction(AIEventType.CRISIS_INTERVENTION_TRIGGERED, {
+    await trackAIInteraction(AIEventType.PREVENTIVE_INTERVENTION_TRIGGERED, {
       userId,
       interventionId: intervention.id,
       riskLevel,
@@ -609,8 +609,13 @@ class AdaptiveInterventionsEngine {
   /**
    * Start intervention delivery loop
    */
+  private deliveryLoop?: NodeJS.Timer;
+
   private startInterventionDeliveryLoop(): void {
-    setInterval(async () => {
+    if (this.deliveryLoop) {
+      clearInterval(this.deliveryLoop);
+    }
+    this.deliveryLoop = setInterval(async () => {
       if (!this.isEnabled) return;
 
       for (const [userId, queue] of this.interventionQueue.entries()) {
@@ -1044,6 +1049,10 @@ class AdaptiveInterventionsEngine {
     this.activeInterventions.clear();
     this.userConfigs.clear();
     this.effectivenessHistory.clear();
+    if (this.deliveryLoop) {
+      clearInterval(this.deliveryLoop);
+      this.deliveryLoop = undefined;
+    }
     
     await trackAIInteraction(AIEventType.ADAPTIVE_INTERVENTIONS_SHUTDOWN, {
       version: '1.0'
@@ -1057,11 +1066,8 @@ class AdaptiveInterventionsEngine {
 
 export const adaptiveInterventionsEngine = AdaptiveInterventionsEngine.getInstance();
 export default adaptiveInterventionsEngine;
-export { 
-  InterventionCategory,
-  InterventionDelivery,
-  InterventionUrgency,
-  type AdaptiveIntervention,
-  type InterventionConfig,
-  type InterventionContext
+export type { 
+  AdaptiveIntervention,
+  InterventionConfig,
+  InterventionContext
 };

@@ -131,17 +131,28 @@ export default function CompulsionStats() {
   };
 
   const getTypeLabel = (type: string) => {
-    const labels = {
-      'checking': 'Kontrol Etme',
-      'washing': 'Yıkama/Temizlik',
-      'counting': 'Sayma',
-      'ordering': 'Düzenleme',
-      'mental': 'Zihinsel Ritüeller',
-      'reassurance': 'Güvence Arama',
-      'avoidance': 'Kaçınma',
-      'other': 'Diğer'
-    };
-    return labels[type] || type;
+    try {
+      const { useTranslation } = require('@/hooks/useTranslation');
+      const { t } = useTranslation();
+      // Önce kanonik etiketlere bak (washing→contamination gibi map gerekecek)
+      const mapLegacy: Record<string, string> = {
+        washing: 'contamination',
+        cleaning: 'contamination',
+        checking: 'checking',
+        counting: 'symmetry',
+        ordering: 'symmetry',
+        arranging: 'symmetry',
+        touching: 'symmetry',
+        mental: 'mental',
+        reassurance: 'other',
+        avoidance: 'other',
+        other: 'other'
+      };
+      const canonical = mapLegacy[type] || type;
+      return t('categoriesCanonical.' + canonical, canonical);
+    } catch (e) {
+      return type;
+    }
   };
 
   return (

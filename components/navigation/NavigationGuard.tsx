@@ -86,7 +86,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             
             // First, check AsyncStorage for faster response (offline-first)
             const profileCompleted = await AsyncStorage.getItem('profileCompleted');
-            const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id}`);
+            const localProfile = await AsyncStorage.getItem(`ocd_profile_${user.id || 'anon'}`);
             
             console.log('🧭 AsyncStorage check:', {
               profileCompleted,
@@ -103,7 +103,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
             // AI Onboarding v2 status (Sprint 7)
             try {
-              const aiOnboardingKey = `ai_onboarding_completed_${user.id}`;
+              const aiOnboardingKey = `ai_onboarding_completed_${user.id || 'anon'}`;
               const aiOnboarding = await AsyncStorage.getItem(aiOnboardingKey);
               aiOnboardingCompleted = aiOnboarding === 'true';
               if (aiOnboardingCompleted) {
@@ -156,7 +156,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                       console.error('❌ AI Onboarding navigation error:', error);
                       console.log('🔄 Trying fallback navigation...');
                       hasNavigatedRef.current = true;
-                      router.push('/ai-onboarding');
+                      router.push('/(auth)/onboarding');
                     }
                   }, 200);
                   return;

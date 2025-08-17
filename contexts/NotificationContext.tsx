@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Alert, Platform } from 'react-native';
 import { messagingService } from '@/services/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorageKey } from '@/lib/queryClient';
 
 interface NotificationContextType {
   isEnabled: boolean;
@@ -34,8 +35,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const initializeNotifications = async () => {
     try {
-      // Check if notifications were previously enabled
-      const savedPreference = await AsyncStorage.getItem('notificationsEnabled');
+      // Check if notifications were previously enabled (user-scoped)
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
+      const savedPreference = await AsyncStorage.getItem(prefKey);
       if (savedPreference === 'true') {
         await enableNotifications();
       }
@@ -80,7 +83,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const token = await messagingService.getFCMToken();
         setFcmToken(token);
         setIsEnabled(true);
-        await AsyncStorage.setItem('notificationsEnabled', 'true');
+        const currentUserId = await AsyncStorage.getItem('currentUserId');
+        const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
+        await AsyncStorage.setItem(prefKey, 'true');
 
         // Schedule default daily reminder
         await scheduleDailyReminder();
@@ -100,7 +105,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       await Notifications.cancelAllScheduledNotificationsAsync();
       setIsEnabled(false);
       setFcmToken(null);
-      await AsyncStorage.setItem('notificationsEnabled', 'false');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const prefKey = `notificationsEnabled_${safeStorageKey(currentUserId as any)}`;
+      await AsyncStorage.setItem(prefKey, 'false');
     } catch (error) {
       console.error('Failed to disable notifications:', error);
     }
@@ -150,7 +157,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const loadNotificationSettings = async () => {
     try {
-      const settings = await AsyncStorage.getItem('notificationSettings');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const settingsKey = `notificationSettings_${safeStorageKey(currentUserId as any)}`;
+      const settings = await AsyncStorage.getItem(settingsKey);
       if (settings) {
         const parsed = JSON.parse(settings);
         setDailyReminders(parsed.dailyReminders || []);
@@ -191,7 +200,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const updatedReminders = [...dailyReminders.filter(r => r.id !== newReminder.id), newReminder];
       setDailyReminders(updatedReminders);
 
-      await AsyncStorage.setItem('notificationSettings', JSON.stringify({
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
+      const settingsKey = `notificationSettings_${safeUserId}`;
+      await AsyncStorage.setItem(settingsKey, JSON.stringify({
         dailyReminders: updatedReminders
       }));
 
@@ -259,7 +271,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
       setDailyReminders([]);
-      await AsyncStorage.removeItem('notificationSettings');
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
+      const settingsKey = `notificationSettings_${safeUserId}`;
+      await AsyncStorage.removeItem(settingsKey);
     } catch (error) {
       console.error('Cancel all reminders error:', error);
     }

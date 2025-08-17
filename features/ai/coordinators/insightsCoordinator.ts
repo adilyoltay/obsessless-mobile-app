@@ -1,27 +1,25 @@
 /**
  * 🔗 Insights Coordinator - Sprint 5 Integration Hub
  * 
- * Bu coordinator, Sprint 5'teki tüm AI bileşenlerini orchestrate eder:
+ * Bu coordinator, sistemdeki AI bileşenlerini orchestrate eder:
  * - Insights Engine v2.0
- * - Pattern Recognition v2.0  
+ * - Pattern Recognition v2.0
  * - Smart Notifications
- * - Progress Analytics
- * - CBT Engine (Sprint 4)
- * - External AI Service (Sprint 4)
+ * - CBT Engine
+ * - External AI Service
  * 
  * ⚠️ CRITICAL: End-to-end insight delivery workflow'u yönetir
  * ⚠️ Feature flag kontrolü: AI_INSIGHTS_ENGINE_V2
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { 
-  AIMessage, 
-  ConversationContext, 
+import {
+  AIMessage,
+  ConversationContext,
   UserTherapeuticProfile,
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  CrisisRiskLevel,
   isAIError
 } from '@/features/ai/types';
 
@@ -72,11 +70,34 @@ export interface ComprehensiveInsightContext {
   recentMessages: AIMessage[];
   conversationHistory: ConversationContext[];
   behavioralData: {
-    compulsions: any[];
-    moods: any[];
-    exercises: any[];
-    achievements: any[];
-    assessments: any[];
+    compulsions: {
+      id: string;
+      category: string;
+      resistance_level?: number;
+      timestamp?: string | Date;
+    }[];
+    moods: {
+      score: number;
+      timestamp: string | Date;
+    }[];
+    exercises: {
+      id: string;
+      name?: string;
+      duration_minutes?: number;
+      completed?: boolean;
+      timestamp?: string | Date;
+    }[];
+    achievements: {
+      id: string;
+      type: string;
+      timestamp: string | Date;
+    }[];
+    assessments: {
+      id?: string;
+      type: string;
+      score?: number;
+      timestamp?: string | Date;
+    }[];
   };
   
   // Analysis parameters
@@ -94,8 +115,6 @@ export interface ComprehensiveInsightContext {
     preferredMethod?: string;
   };
   
-  // Current state
-  currentCrisisLevel: CrisisRiskLevel;
   appUsageContext: {
     isActive: boolean;
     currentScreen?: string;
@@ -114,7 +133,6 @@ export interface OrchestratedInsightResult {
   // Analysis results
   patterns: DetectedPattern[];
   insights: IntelligentInsight[];
-  progressAnalysis: ProgressAnalyticsResult;
   
   // Delivery results
   scheduledNotifications: SmartNotification[];
@@ -142,7 +160,6 @@ export interface OrchestratedInsightResult {
 export interface WorkflowConfig {
   enablePatternAnalysis: boolean;
   enableInsightGeneration: boolean;
-  enableProgressTracking: boolean;
   enableNotificationScheduling: boolean;
   enableAIEnhancement: boolean;
   parallelExecution: boolean;
@@ -164,7 +181,6 @@ class InsightsCoordinator {
     this.defaultConfig = {
       enablePatternAnalysis: true,
       enableInsightGeneration: true,
-      enableProgressTracking: true,
       enableNotificationScheduling: true,
       enableAIEnhancement: true,
       parallelExecution: true,
@@ -203,24 +219,35 @@ class InsightsCoordinator {
         externalAI: externalAIService.enabled,
         insightsEngine: insightsEngineV2.enabled,
         patternRecognition: patternRecognitionV2.enabled,
-        smartNotifications: smartNotificationService.enabled,
-         progressAnalytics: false
+        smartNotifications: smartNotificationService.enabled
       };
 
       const enabledComponents = Object.values(componentStatus).filter(Boolean).length;
       const totalComponents = Object.keys(componentStatus).length;
 
-      if (enabledComponents < 3) {
-        console.warn('⚠️ Less than 50% of components available, limited functionality');
+      // Uyarıyı oran yerine çekirdek bileşenlerin (insightsEngine, patternRecognition, smartNotifications)
+      // kullanılabilirliğine göre yap.
+      const coreAvailable = Number(componentStatus.insightsEngine) + Number(componentStatus.patternRecognition) + Number(componentStatus.smartNotifications);
+      if (coreAvailable < 2) {
+        console.warn('⚠️ Core insight pipeline partially available, functionality may be limited');
       }
 
       this.isEnabled = true;
       
-      // Telemetry
+      // Telemetry: kısa gecikme sonra componentStatus gönder
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const delayedStatus = {
+        cbtEngine: cbtEngine.enabled,
+        externalAI: externalAIService.enabled,
+        insightsEngine: insightsEngineV2.enabled,
+        patternRecognition: patternRecognitionV2.enabled,
+        smartNotifications: smartNotificationService.enabled
+      };
+      const delayedEnabled = Object.values(delayedStatus).filter(Boolean).length;
       await trackAIInteraction(AIEventType.SYSTEM_STARTED, {
         version: '2.0',
-        componentStatus,
-        enabledComponents,
+        componentStatus: delayedStatus,
+        enabledComponents: delayedEnabled,
         totalComponents
       });
 
@@ -265,6 +292,20 @@ class InsightsCoordinator {
     const workflowConfig = { ...this.defaultConfig, ...config };
 
     try {
+      // Validate required fields early and fail with meaningful error
+      if (!context.recentMessages || !context.behavioralData || !context.timeframe) {
+        const missingFields: string[] = [];
+        if (!context.recentMessages) missingFields.push('recentMessages');
+        if (!context.behavioralData) missingFields.push('behavioralData');
+        if (!context.timeframe) missingFields.push('timeframe');
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, { missingFields }, context.userId);
+        } catch {}
+        const err = new Error(`Gerekli alanlar eksik: ${missingFields.join(', ')}`);
+        (err as any).code = AIErrorCode.DATA_VALIDATION_FAILED;
+        (err as any).severity = ErrorSeverity.MEDIUM;
+        throw err;
+      }
       console.log(`🔗 Starting comprehensive insight workflow for user ${context.userId}`);
 
       // ✅ PRODUCTION: Rate limiting - daha akıllı ve esnek
@@ -274,7 +315,14 @@ class InsightsCoordinator {
       
       if (timeSinceLastExecution < minInterval) {
         console.log(`⏱️ Workflow rate limited for user (${Math.round(timeSinceLastExecution/1000)}s ago, min ${minInterval/1000}s):`, context.userId);
-        
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_RATE_LIMITED, {
+            userId: context.userId,
+            sinceLastMs: timeSinceLastExecution,
+            minIntervalMs: minInterval
+          }, context.userId);
+        } catch {}
+
         // Return empty result instead of throwing error
         return {
           executionId: `cached_${Date.now()}_${context.userId}`,
@@ -282,7 +330,6 @@ class InsightsCoordinator {
           timestamp: new Date(),
           patterns: [],
           insights: [],
-          progressAnalysis: this.getDefaultProgressAnalysis(context),
           scheduledNotifications: [],
           immediateInsights: [],
           executionMetrics: {
@@ -299,10 +346,13 @@ class InsightsCoordinator {
         };
       }
 
-      // Check for existing execution
+      // Check for existing execution - queue new requests for the same user
       if (this.activeExecutions.has(context.userId)) {
-        console.log('⏳ Workflow already in progress for user:', context.userId);
-        return await this.activeExecutions.get(context.userId)!;
+        console.log('⏳ Workflow already in progress for user, queuing request:', context.userId);
+        const previous = this.activeExecutions.get(context.userId)!;
+        const chained = previous.finally(() => this.executeWorkflow(context, workflowConfig, executionId, startTime));
+        this.activeExecutions.set(context.userId, chained);
+        return await chained;
       }
 
       // Start workflow execution
@@ -320,15 +370,15 @@ class InsightsCoordinator {
     } catch (error) {
       // Rate limit durumunda error değil info log
       if (error && typeof error === 'object' && 'code' in error && error.code === AIErrorCode.RATE_LIMIT) {
-        console.log('ℹ️ Insight workflow rate limited (expected behavior):', error.message);
+        console.log('ℹ️ Insight workflow rate limited (expected behavior)');
       } else {
         console.error('❌ Insight workflow orchestration failed:', error);
       }
       
       // Only track non-rate-limit errors as HIGH severity
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorCode = (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') 
-                        ? error.code : AIErrorCode.UNKNOWN;
+      const errorCode = (error && typeof error === 'object' && 'code' in (error as any)) 
+                        ? (error as any).code as AIErrorCode : AIErrorCode.UNKNOWN;
       const isRateLimit = errorCode === AIErrorCode.RATE_LIMIT;
       
       await trackAIError({
@@ -341,7 +391,7 @@ class InsightsCoordinator {
           executionId,
           userId: context.userId,
           latency: Date.now() - startTime,
-          errorType: error?.constructor?.name || 'Unknown',
+          errorType: (error as any)?.constructor?.name || 'Unknown',
           isExpectedBehavior: isRateLimit,
           originalMessage: errorMessage
         }
@@ -363,7 +413,6 @@ class InsightsCoordinator {
     const components: string[] = [];
     let patterns: DetectedPattern[] = [];
     let insights: IntelligentInsight[] = [];
-      let progressAnalysis: any | null = null;
     let scheduledNotifications: SmartNotification[] = [];
 
     // Timeout protection
@@ -429,8 +478,7 @@ class InsightsCoordinator {
       // Separate immediate insights from scheduled ones
       const immediateInsights = insights.filter(insight => 
         insight.timing === InsightTiming.IMMEDIATE || 
-        insight.priority === InsightPriority.CRITICAL ||
-        context.currentCrisisLevel !== CrisisRiskLevel.NONE
+        insight.priority === InsightPriority.CRITICAL
       );
 
       // Calculate execution metrics
@@ -445,7 +493,6 @@ class InsightsCoordinator {
       const recommendations = this.generateRecommendations(
         patterns, 
         insights, 
-        progressAnalysis, 
         context
       );
 
@@ -455,7 +502,6 @@ class InsightsCoordinator {
         timestamp: new Date(),
         patterns,
         insights,
-        progressAnalysis: progressAnalysis || this.getDefaultProgressAnalysis(context),
         scheduledNotifications,
         immediateInsights,
         executionMetrics,
@@ -472,8 +518,18 @@ class InsightsCoordinator {
         notificationsScheduled: scheduledNotifications.length,
         immediateInsights: immediateInsights.length,
         totalLatency: executionMetrics.totalLatency,
-        successRate: executionMetrics.successRate
+        successRate: executionMetrics.successRate,
+        dataQuality: executionMetrics.dataQuality
       });
+
+      // Persist daily dataQuality metric (non-blocking)
+      try {
+        const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
+        const dq = typeof executionMetrics.dataQuality === 'number' ? executionMetrics.dataQuality : undefined;
+        if (typeof dq === 'number') {
+          await performanceMetricsService.recordToday({ ai: { dataQuality: dq } });
+        }
+      } catch {}
 
       console.log(`✅ Insight workflow completed: ${insights.length} insights, ${patterns.length} patterns`);
       return result;
@@ -504,10 +560,25 @@ class InsightsCoordinator {
         },
         dataSource: {
           messages: context.recentMessages,
-          compulsions: context.behavioralData.compulsions,
-          moods: context.behavioralData.moods,
-          exercises: context.behavioralData.exercises,
-          achievements: context.behavioralData.achievements,
+          compulsions: context.behavioralData.compulsions.map(c => ({
+            id: c.id,
+            timestamp: new Date(c.timestamp || new Date()),
+            category: c.category
+          })),
+          moods: context.behavioralData.moods.map(m => ({
+            timestamp: new Date(m.timestamp),
+            score: m.score
+          })),
+          exercises: context.behavioralData.exercises.map(e => ({
+            id: e.id,
+            type: e.name,
+            duration: e.duration_minutes,
+            timestamp: new Date(e.timestamp || new Date())
+          })),
+          achievements: context.behavioralData.achievements.map(a => ({
+            name: a.type,
+            timestamp: new Date(a.timestamp)
+          })),
           userEvents: []
         },
         minimumConfidence: 0.6,
@@ -542,7 +613,6 @@ class InsightsCoordinator {
           end: context.timeframe.end,
           period: 'week'
         },
-        currentCrisisLevel: context.currentCrisisLevel,
         lastInsightGenerated: null
       };
 
@@ -557,35 +627,7 @@ class InsightsCoordinator {
   /**
    * Progress analysis yürüt
    */
-  private async executeProgressAnalysis(context: ComprehensiveInsightContext): Promise<any> {
-    try {
-      const progressContext: any = {
-        userId: context.userId,
-        userProfile: context.userProfile,
-        timeframe: {
-          start: context.timeframe.start,
-          end: context.timeframe.end,
-          analysisDepth: context.timeframe.analysisDepth
-        },
-        dataSource: {
-          messages: context.recentMessages,
-          compulsions: context.behavioralData.compulsions,
-          assessments: context.behavioralData.assessments,
-          achievements: context.behavioralData.achievements,
-          insights: [],
-          patterns: [],
-          userEvents: []
-        },
-        includePredicitive: context.timeframe.analysisDepth === 'comprehensive'
-      };
-
-      return this.getDefaultProgressAnalysis(context);
-
-    } catch (error) {
-      console.warn('⚠️ Progress analysis failed:', error);
-      return this.getDefaultProgressAnalysis(context);
-    }
-  }
+  // Progress Analytics removed
 
   /**
    * Notification scheduling yürüt
@@ -606,7 +648,6 @@ class InsightsCoordinator {
           isAppActive: context.appUsageContext.isActive,
           lastActivity: context.appUsageContext.lastActivity,
           currentScreen: context.appUsageContext.currentScreen,
-          crisisLevel: context.currentCrisisLevel
         },
         recentNotifications: [],
         timeOfDay: new Date()
@@ -647,7 +688,7 @@ class InsightsCoordinator {
     let maxComponents = 0;
     if (config.enablePatternAnalysis) maxComponents++;
     if (config.enableInsightGeneration) maxComponents++;
-    if (config.enableProgressTracking) maxComponents++;
+    // Progress Analytics removed
     if (config.enableNotificationScheduling) maxComponents++;
     return maxComponents;
   }
@@ -668,13 +709,10 @@ class InsightsCoordinator {
   private generateRecommendations(
     patterns: DetectedPattern[],
     insights: IntelligentInsight[],
-    progressAnalysis: ProgressAnalyticsResult | null,
     context: ComprehensiveInsightContext
   ) {
     // Determine next analysis timing
-    const nextAnalysisIn = context.currentCrisisLevel !== CrisisRiskLevel.NONE ? 
-      60 * 60 * 1000 : // 1 hour for crisis
-      24 * 60 * 60 * 1000; // 24 hours for normal
+    const nextAnalysisIn = 24 * 60 * 60 * 1000; // 24 hours default
 
     // Suggested interventions
     const suggestedInterventions: string[] = [];
@@ -687,9 +725,7 @@ class InsightsCoordinator {
 
     // Priority actions
     const priorityActions: string[] = [];
-    if (context.currentCrisisLevel !== CrisisRiskLevel.NONE) {
-      priorityActions.push('Crisis stabilization');
-    }
+    // Crisis actions removed
     if (insights.filter(i => !i.shown).length > 3) {
       priorityActions.push('Review pending insights');
     }
@@ -701,43 +737,7 @@ class InsightsCoordinator {
     };
   }
 
-  private getDefaultProgressAnalysis(context: ComprehensiveInsightContext): ProgressAnalyticsResult {
-    return {
-      userId: context.userId,
-      analysisId: `default_${Date.now()}`,
-      generatedAt: new Date(),
-      timeframe: {
-        start: context.timeframe.start,
-        end: context.timeframe.end,
-        period: 'weekly' as any
-      },
-      overallProgress: {
-        score: 50,
-        trend: 'stable' as any,
-        changePercent: 0,
-        clinicalSignificance: 'none'
-      },
-      categoryProgress: [],
-      predictions: {
-        nextMonthTrend: 'stable' as any,
-        riskFactors: [],
-        protectiveFactors: [],
-        recommendedInterventions: [],
-        confidenceLevel: 0.5
-      },
-      achievements: {
-        recentAchievements: [],
-        upcomingMilestones: [],
-        streaks: []
-      },
-      dataQuality: {
-        completeness: this.calculateDataQuality(context),
-        reliability: 0.5,
-        recency: 0.8,
-        consistency: 0.6
-      }
-    };
-  }
+  // Progress analytics removed
 
   // =============================================================================
   // 🔄 PUBLIC API
@@ -773,7 +773,6 @@ class InsightsCoordinator {
         allowNotifications: false,
         respectQuietHours: false
       },
-      currentCrisisLevel: CrisisRiskLevel.NONE,
       appUsageContext: {
         isActive: true,
         lastActivity: new Date()
@@ -782,7 +781,7 @@ class InsightsCoordinator {
 
     const result = await this.orchestrateInsightWorkflow(context, {
       enablePatternAnalysis: false,
-      enableProgressTracking: false,
+      
       enableNotificationScheduling: false,
       enableAIEnhancement: true,
       parallelExecution: false,
@@ -839,7 +838,6 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: CrisisRiskLevel.NONE,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',
@@ -908,7 +906,6 @@ class InsightsCoordinator {
           allowNotifications: true,
           respectQuietHours: true
         },
-        currentCrisisLevel: CrisisRiskLevel.NONE,
         appUsageContext: {
           isActive: true,
           currentScreen: 'home',

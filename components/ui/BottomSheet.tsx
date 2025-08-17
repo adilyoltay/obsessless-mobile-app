@@ -13,6 +13,7 @@ interface BottomSheetProps {
   isVisible: boolean;
   onClose: () => void;
   children: ReactNode;
+  edgeToEdge?: boolean; // Ekranı enine tam kapla (OKB/ERP sheet'leri gibi)
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -21,14 +22,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   isVisible,
   onClose,
   children,
+  edgeToEdge = true,
 }) => {
   if (!isVisible) return null;
 
   return (
     <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <BlurView intensity={20} style={styles.blurContainer}>
-        <View style={styles.content}>
+      <BlurView intensity={20} style={[styles.blurContainer, edgeToEdge && styles.fullWidth]}>
+        <View style={[styles.content, edgeToEdge && styles.contentEdgeToEdge]}>
           <View style={styles.handle} />
           {children}
         </View>
@@ -59,6 +61,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     overflow: 'hidden',
   },
+  fullWidth: {
+    width: '100%',
+  },
   content: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderTopLeftRadius: 20,
@@ -67,6 +72,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 16,
     minHeight: 200,
+  },
+  contentEdgeToEdge: {
+    paddingHorizontal: 16,
   },
   handle: {
     width: 40,

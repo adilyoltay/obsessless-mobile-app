@@ -10,6 +10,7 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   AIMessage, 
   ConversationContext, 
@@ -17,12 +18,14 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  CrisisRiskLevel
+  RiskLevel
 } from '@/features/ai/types';
 import { CBTTechnique, CognitiveDistortion, cbtEngine } from '@/features/ai/engines/cbtEngine';
-import { externalAIService, AIProvider } from '@/features/ai/services/externalAIService';
+import { externalAIService } from '@/features/ai/services/externalAIService';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import aiDataAggregator from '@/features/ai/services/dataAggregationService';
+ 
 
 // =============================================================================
 // 🎯 INSIGHT TYPES & DEFINITIONS
@@ -37,7 +40,6 @@ export enum InsightCategory {
   THERAPEUTIC_GUIDANCE = 'therapeutic_guidance',
   BEHAVIORAL_ANALYSIS = 'behavioral_analysis',
   EMOTIONAL_STATE = 'emotional_state',
-  CRISIS_PREVENTION = 'crisis_prevention',
   SKILL_DEVELOPMENT = 'skill_development',
   RELAPSE_PREVENTION = 'relapse_prevention'
 }
@@ -61,8 +63,7 @@ export enum InsightTiming {
   NEXT_SESSION = 'next_session', // Sonraki seansta
   DAILY_SUMMARY = 'daily_summary', // Günlük özette
   WEEKLY_REVIEW = 'weekly_review', // Haftalık incelemede
-  MILESTONE = 'milestone',     // Önemli başarılarda
-  CRISIS_MOMENT = 'crisis_moment' // Kriz anında
+  MILESTONE = 'milestone'     // Önemli başarılarda
 }
 
 /**
@@ -83,7 +84,7 @@ export interface IntelligentInsight {
   
   // AI Analysis
   confidence: number; // 0-1 arası güven skoru
-  aiProvider?: AIProvider;
+  aiProvider?: string;
   detectedPatterns: string[];
   cognitiveDistortions?: CognitiveDistortion[];
   emotionalState?: string;
@@ -130,7 +131,6 @@ export interface InsightGenerationContext {
     end: Date;
     period: 'day' | 'week' | 'month';
   };
-  currentCrisisLevel: CrisisRiskLevel;
   lastInsightGenerated: Date | null;
 }
 
@@ -152,7 +152,7 @@ export interface PatternAnalysisResult {
     urgency: InsightPriority;
   }[];
   riskAssessment: {
-    level: CrisisRiskLevel;
+    level: RiskLevel;
     indicators: string[];
     preventiveActions: string[];
   };
@@ -206,6 +206,31 @@ class InsightsEngineV2 {
       }
 
       this.isEnabled = true;
+
+      // Load persisted caches (offline-first)
+      try {
+        const indexRaw = await AsyncStorage.getItem('insights_cache_users');
+        const userIds: string[] = indexRaw ? JSON.parse(indexRaw) : [];
+        if (Array.isArray(userIds) && userIds.length > 0) {
+          for (const uid of userIds) {
+            if (typeof uid !== 'string' || uid.length === 0) continue;
+            try {
+              const cacheKey = `insights_cache_${uid}`;
+              const lastKey = `insights_last_gen_${uid}`;
+              const cachedRaw = await AsyncStorage.getItem(cacheKey);
+              const lastRaw = await AsyncStorage.getItem(lastKey);
+              if (cachedRaw) {
+                const parsed: IntelligentInsight[] = JSON.parse(cachedRaw);
+                this.insightCache.set(uid, parsed);
+              }
+              if (lastRaw) {
+                const ts = Number(lastRaw);
+                if (!Number.isNaN(ts)) this.lastGenerationTime.set(uid, new Date(ts));
+              }
+            } catch {}
+          }
+        }
+      } catch {}
       
       // Telemetry
       await trackAIInteraction(AIEventType.INSIGHTS_ENGINE_INITIALIZED, {
@@ -254,13 +279,30 @@ class InsightsEngineV2 {
     const startTime = Date.now();
 
     try {
+      // Guard: Validate minimal context
+      const hasRecentMessages = Array.isArray((context as any)?.recentMessages);
+      const hasBehavioral = (context as any)?.behavioralData && typeof (context as any).behavioralData === 'object';
+      const hasTimeframe = !!((context as any)?.timeframe && (context as any).timeframe.start && (context as any).timeframe.end && (context as any).timeframe.period);
+      if (!hasRecentMessages || !hasBehavioral || !hasTimeframe) {
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
+            userId,
+            reason: 'missing_required_fields',
+            hasRecentMessages,
+            hasBehavioral,
+            hasTimeframe
+          });
+        } catch {}
+        const cached = this.getCachedInsights(userId);
+        return cached;
+      }
       // Rate limiting - Aynı kullanıcı için çok sık generation engelle
       const lastGeneration = this.lastGenerationTime.get(userId);
       if (lastGeneration && Date.now() - lastGeneration.getTime() < 60000) { // 60 saniye
         console.log('🚫 Insight generation rate limited for user:', userId);
         const cached = this.getCachedInsights(userId);
         if (cached.length === 0) {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.INSIGHTS_RATE_LIMITED, {
             userId,
             reason: 'rate_limited_no_cache',
             messageCount: context.recentMessages.length,
@@ -271,7 +313,7 @@ class InsightsEngineV2 {
         return cached;
       }
 
-      // Existing generation check
+      // Existing generation check (dedupe concurrent calls)
       if (this.generationQueue.has(userId)) {
         console.log('⏳ Insight generation already in progress for user:', userId);
         return await this.generationQueue.get(userId)!;
@@ -284,9 +326,25 @@ class InsightsEngineV2 {
       try {
         const insights = await generationPromise;
         
-        // Cache results
+        // Cache results (memory)
         this.insightCache.set(userId, insights);
-        this.lastGenerationTime.set(userId, new Date());
+        const now = new Date();
+        this.lastGenerationTime.set(userId, now);
+
+        // Persist results (AsyncStorage)
+        try {
+          const cacheKey = `insights_cache_${userId}`;
+          const lastKey = `insights_last_gen_${userId}`;
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(insights));
+          await AsyncStorage.setItem(lastKey, String(now.getTime()));
+          // Maintain user index
+          const indexRaw = await AsyncStorage.getItem('insights_cache_users');
+          const indexList: string[] = indexRaw ? JSON.parse(indexRaw) : [];
+          if (!indexList.includes(userId)) {
+            indexList.push(userId);
+            await AsyncStorage.setItem('insights_cache_users', JSON.stringify(indexList));
+          }
+        } catch {}
         
         // Telemetry
         await trackAIInteraction(AIEventType.INSIGHTS_GENERATED, {
@@ -299,7 +357,7 @@ class InsightsEngineV2 {
         });
 
         if (insights.length === 0) {
-          await trackAIInteraction(AIEventType.INSIGHTS_DATA_INSUFFICIENT, {
+          await trackAIInteraction(AIEventType.NO_INSIGHTS_GENERATED, {
             userId,
             reason: 'no_insights_generated',
             messageCount: context.recentMessages.length,
@@ -340,29 +398,200 @@ class InsightsEngineV2 {
    */
   private async performInsightGeneration(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
     const insights: IntelligentInsight[] = [];
+    // Aggregation (best-effort) - prefer enhanced aggregator
+    let aggregate: any = null;
+    try {
+      const { enhancedAIDataAggregator } = await import('@/features/ai/pipeline/enhancedDataAggregation');
+      aggregate = await enhancedAIDataAggregator.aggregateComprehensiveData(context.userId);
+    } catch {
+      try { aggregate = await aiDataAggregator.aggregateUserData(context.userId); } catch {}
+    }
 
     // Pattern Analysis removed - keeping AI-powered insights only
 
     // 1. CBT Analysis - Cognitive distortions and techniques
     if (cbtEngine.enabled && context.recentMessages.length > 0) {
       const cbtInsights = await this.generateCBTInsights(context);
-      insights.push(...cbtInsights);
+      insights.push(...cbtInsights.map(i => this.applyAggregationContext(i, aggregate)));
     }
 
     // 2. AI-Powered Deep Analysis
     if (externalAIService.enabled && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
       const aiInsights = await this.generateAIInsights(context);
-      insights.push(...aiInsights);
+      insights.push(...aiInsights.map(i => this.applyAggregationContext(i, aggregate)));
     }
 
-    // 3. Progress Tracking Insights
+    // 3. Progress Tracking Insights (enhanced with aggregate.performance)
     const progressInsights = await this.generateProgressInsights(context);
-    insights.push(...progressInsights);
+    insights.push(...progressInsights.map(i => this.applyAggregationContext(i, aggregate)));
+
+    // 4. Enhanced contextual insights using aggregate fields directly
+    try {
+      if (aggregate) {
+        const now = new Date();
+        // Peak anxiety timing suggestion
+        const peakTimes = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) ? aggregate.patterns.peakAnxietyTimes.slice(0, 2) : [];
+        if (peakTimes.length > 0) {
+          insights.push(this.applyAggregationContext({
+            id: `insight_peak_${now.getTime()}`,
+            userId: context.userId,
+            category: InsightCategory.THERAPEUTIC_GUIDANCE,
+            priority: InsightPriority.HIGH,
+            timing: InsightTiming.DAILY_SUMMARY,
+            title: 'Zirve anksiyete saatleri için plan',
+            message: `Bu saatlerde kısa nefes/ERP mini egzersizi planlayın: ${peakTimes.join(', ')}`,
+            actionableAdvice: ['2 dk nefes egzersizi', '1 küçük maruziyet denemesi'],
+            confidence: 0.7,
+            aiProvider: undefined,
+            detectedPatterns: peakTimes,
+            emotionalState: undefined,
+            basedOnData: { messageCount: context.recentMessages.length, timeframe: context.timeframe.period, keyEvents: [] },
+            generatedAt: now,
+            validUntil: new Date(now.getTime() + 24*60*60*1000),
+            shown: false,
+            therapeuticGoals: [],
+            expectedOutcome: 'Zorlayıcı saatlerde baş etme',
+            followUpRequired: false,
+            relatedInsightIds: [],
+          } as any, aggregate));
+        }
+
+        // Compliance-based nudge
+        const completionRate = Number(aggregate?.performance?.erpCompletionRate ?? 100);
+        if (!Number.isNaN(completionRate) && completionRate < 50) {
+          insights.push(this.applyAggregationContext({
+            id: `insight_compliance_${now.getTime()}`,
+            userId: context.userId,
+            category: InsightCategory.PROGRESS_TRACKING,
+            priority: InsightPriority.HIGH,
+            timing: InsightTiming.NEXT_SESSION,
+            title: 'ERP sürekliliğini güçlendirelim',
+            message: 'Son günlerde ERP tamamlama oranı düşük. Daha kısa ama istikrarlı denemeler öneriyoruz.',
+            actionableAdvice: ['5 dk kısa deneme', 'Kolay tetikleyiciyle başlayın'],
+            confidence: 0.65,
+            aiProvider: undefined,
+            detectedPatterns: [],
+            emotionalState: undefined,
+            basedOnData: { messageCount: context.recentMessages.length, timeframe: context.timeframe.period, keyEvents: [] },
+            generatedAt: now,
+            validUntil: new Date(now.getTime() + 24*60*60*1000),
+            shown: false,
+            therapeuticGoals: [],
+            expectedOutcome: 'Adherence artışı',
+            followUpRequired: false,
+            relatedInsightIds: [],
+          } as any, aggregate));
+        }
+      }
+    } catch {}
 
     // Crisis Prevention Insights removed
 
+    // Fallback: no insights -> create aggregation-based behavioral suggestion
+    if (insights.length === 0) {
+      const now = new Date();
+      const priority = (aggregate?.performance?.erpCompletionRate ?? 100) < 50 ? InsightPriority.HIGH : InsightPriority.MEDIUM;
+      const timing = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) && aggregate.patterns.peakAnxietyTimes.length > 0
+        ? InsightTiming.DAILY_SUMMARY
+        : InsightTiming.NEXT_SESSION;
+      const triggers = (aggregate?.patterns?.commonTriggers as string[] | undefined) || [];
+      insights.push({
+        id: `insight_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
+        userId: context.userId,
+        category: InsightCategory.BEHAVIORAL_ANALYSIS,
+        priority,
+        timing,
+        title: 'Güncel davranış örüntüleri',
+        message: triggers.length > 0 ? `Sık tetikleyiciler: ${triggers.slice(0, 3).join(', ')}` : 'Son dönemde belirgin tetikleyici bulunamadı.',
+        actionableAdvice: [
+          'Kısa bir nefes egzersizi planla',
+          'Zorlayıcı tetikleyici için 2 dakikalık mini maruziyet dene',
+        ],
+        confidence: 0.6,
+        aiProvider: undefined,
+        detectedPatterns: triggers.slice(0, 5),
+        emotionalState: undefined,
+        basedOnData: {
+          messageCount: Array.isArray(context.recentMessages) ? context.recentMessages.length : 0,
+          timeframe: context.timeframe?.period || 'week',
+          keyEvents: [],
+          compulsionFrequency: undefined,
+          moodTrend: undefined,
+        },
+        generatedAt: now,
+        validUntil: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+        shown: false,
+        therapeuticGoals: [],
+        expectedOutcome: 'Tetikleyici farkındalığı ve öz düzenleme',
+        followUpRequired: false,
+        relatedInsightIds: [],
+      });
+    }
+
     // Sort by priority and timing
     return this.prioritizeAndFilterInsights(insights, context);
+  }
+
+  private applyAggregationContext(insight: IntelligentInsight, aggregate: any | null): IntelligentInsight {
+    if (!aggregate) return insight;
+    const cloned: IntelligentInsight = { ...insight };
+    const peak = aggregate.patterns?.peakAnxietyTimes as string[] | undefined;
+    if (peak && peak.length > 0 && cloned.timing === InsightTiming.NEXT_SESSION) {
+      cloned.timing = InsightTiming.DAILY_SUMMARY;
+    }
+    const triggers = (aggregate.patterns?.commonTriggers as string[] | undefined) || [];
+    if (triggers.some(t => (cloned.message || '').toLowerCase().includes(String(t).toLowerCase()))) {
+      cloned.priority = cloned.priority === InsightPriority.LOW ? InsightPriority.MEDIUM : InsightPriority.HIGH;
+    }
+    const compliance = aggregate.performance?.erpCompletionRate ?? 100;
+    if (compliance < 50) {
+      cloned.timing = InsightTiming.IMMEDIATE;
+      cloned.actionableAdvice = (cloned.actionableAdvice || []).slice(0, 2);
+    }
+
+    const categories = (aggregate.symptoms?.primaryCategories as string[] | undefined) || [];
+    const topCategory = categories[0];
+    const categoryMap: Record<string, string> = {
+      checking: 'kontrol',
+      contamination: 'kirlilik',
+      symmetry: 'simetri',
+      ordering: 'düzen',
+      counting: 'sayma',
+      religious: 'dini',
+      sexual: 'cinsel',
+      harm: 'zarar',
+      hoarding: 'biriktirme',
+      other: 'diğer'
+    };
+
+    const categoryLabel = topCategory ? (categoryMap[topCategory] || topCategory) : undefined;
+    const firstTrigger = triggers.length > 0 ? String(triggers[0]) : undefined;
+    const peakLabel = peak && peak.length > 0 ? String(peak[0]) : undefined;
+
+    const personalizedAdvice: string[] = [];
+    if (firstTrigger) personalizedAdvice.push(`"${firstTrigger}" tetikleyicisi için 2 dakikalık mini ERP denemesi`);
+    if (peakLabel) personalizedAdvice.push(`${peakLabel} saatinde kısa nefes egzersizi`);
+    if (typeof compliance === 'number' && compliance < 50) personalizedAdvice.push('Kısa ama istikrarlı denemeler planla');
+
+    if (personalizedAdvice.length > 0) {
+      const existing = cloned.actionableAdvice || [];
+      const merged = [...existing];
+      personalizedAdvice.forEach(item => {
+        if (!merged.some(a => a.toLowerCase() === item.toLowerCase())) merged.push(item);
+      });
+      cloned.actionableAdvice = merged.slice(0, 5);
+    }
+
+    if (categoryLabel && !(cloned.title || '').toLowerCase().includes(categoryLabel.toLowerCase())) {
+      cloned.title = `${cloned.title} • Odak: ${categoryLabel}`.trim();
+    }
+
+    if (firstTrigger && !(cloned.message || '').toLowerCase().includes(firstTrigger.toLowerCase())) {
+      const suffix = ` Sık tetikleyiciniz: ${firstTrigger}. Hazır olduğunuzda bununla küçük bir pratik deneyin.`;
+      cloned.message = `${cloned.message || ''}${suffix}`.trim();
+    }
+
+    return cloned;
   }
 
   // =============================================================================
@@ -504,8 +733,12 @@ class InsightsEngineV2 {
           currentState: 'therapeutic' as any,
           conversationHistory: context.recentMessages,
           userProfile: context.userProfile,
-          crisisLevel: context.currentCrisisLevel
-        };
+          startTime: new Date(),
+          lastActivity: new Date(),
+          messageCount: context.recentMessages.length,
+          topicHistory: [],
+          appContext: { screen: 'insights', route: 'engine_v2' }
+        } as any;
 
         const cbtAnalysis = await cbtEngine.detectCognitiveDistortions(lastMessage, mockConversationContext);
         
@@ -554,7 +787,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTInsightTitle(distortion: CognitiveDistortion): string {
-    const titles = {
+    const titles: Record<string, string> = {
       'all_or_nothing': '🌈 Esneklik Fırsatı',
       'catastrophizing': '🧘 Sakinlik Zamanı',
       'overgeneralization': '🔍 Detayları Keşfet',
@@ -565,7 +798,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTInsightMessage(distortion: CognitiveDistortion, technique: CBTTechnique): string {
-    const messages = {
+    const messages: Record<string, string> = {
       'all_or_nothing': `Son mesajlarınızda 'ya hep ya hiç' düşünce kalıbı fark ettim. Bu normal ve değiştirilebilir! ${technique} tekniği ile birlikte daha esnek düşünmeyi keşfedelim.`,
       'catastrophizing': `Endişelerinizin büyüdüğünü gözlemliyorum. ${technique} ile bu durumu daha dengeli bir perspektiften değerlendirmeyi deneyebiliriz.`,
       'overgeneralization': `Genelleme kalıpları tespit ettim. ${technique} kullanarak bu durumun özel yanlarını keşfetmeye ne dersiniz?`
@@ -574,7 +807,7 @@ class InsightsEngineV2 {
   }
 
   private getCBTActionableAdvice(technique: CBTTechnique): string[] {
-    const advice = {
+    const advice: Record<string, string[]> = {
       'socratic_questioning': [
         'Bu düşüncenin doğru olduğuna dair kanıtları listeleyin',
         'Karşı kanıtları da araştırın',
@@ -611,7 +844,7 @@ class InsightsEngineV2 {
       const insightPrompt = await this.createInsightGenerationPrompt(context);
       
       const aiResponse = await externalAIService.getAIResponse(
-        [{ role: 'user', content: insightPrompt }],
+        [{ id: `m_${Date.now()}`, role: 'user', content: insightPrompt, timestamp: new Date() } as any],
         (this.createMockConversationContext(context) || ({} as any)),
         {
           therapeuticMode: true,
@@ -629,12 +862,58 @@ class InsightsEngineV2 {
 
     } catch (error) {
       console.warn('⚠️ AI insights generation failed:', error);
+      try {
+        await trackAIError({
+          code: AIErrorCode.PROCESSING_FAILED,
+          message: (error as any)?.message || 'AI insights generation failed',
+          severity: ErrorSeverity.LOW,
+          context: {
+            component: 'InsightsEngineV2',
+            method: 'generateAIInsights',
+            provider: externalAIService.currentProvider || 'unknown'
+          }
+        });
+      } catch {}
+
+      // Friendly fallback to avoid empty insights stream
+      try {
+        const fallback: IntelligentInsight = {
+          id: `ai_fallback_${Date.now()}`,
+          userId: context.userId,
+          category: InsightCategory.THERAPEUTIC_GUIDANCE,
+          priority: InsightPriority.LOW,
+          timing: InsightTiming.DAILY_SUMMARY,
+          title: 'Nazik Bir Hatırlatma',
+          message: 'Bugün küçük bir adım atmak bile çok değerli. Nefes al, kendine şefkat göster ve ilerlemene güven.',
+          actionableAdvice: [
+            '2 dakika nefes farkındalığı yap',
+            'Kendine destekleyici bir cümle yaz',
+            'Bugün tek bir küçük hedef belirle'
+          ],
+          confidence: 0.5,
+          aiProvider: externalAIService.currentProvider || undefined,
+          detectedPatterns: ['fallback'],
+          basedOnData: {
+            messageCount: context.recentMessages?.length || 0,
+            timeframe: context.timeframe?.period || 'week',
+            keyEvents: ['fallback_used']
+          },
+          generatedAt: new Date(),
+          validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          shown: false,
+          therapeuticGoals: ['Self-compassion'],
+          expectedOutcome: 'Short-term relief and gentle motivation',
+          followUpRequired: false,
+          relatedInsightIds: []
+        };
+        insights.push(fallback);
+      } catch {}
     }
 
     return insights;
   }
 
-  private async createInsightGenerationPrompt(context: InsightGenerationContext): string {
+  private async createInsightGenerationPrompt(context: InsightGenerationContext): Promise<string> {
     const recentActivity = context.recentMessages.slice(-3).map(msg => 
       `"${msg.content}"`
     ).join(', ');
@@ -762,50 +1041,7 @@ KULLANICI PROFİLİ:
   // 🚨 CRISIS PREVENTION INSIGHTS
   // =============================================================================
 
-  /**
-   * Crisis prevention insights
-   */
-  private async generateCrisisPreventionInsights(context: InsightGenerationContext): Promise<IntelligentInsight[]> {
-    const insights: IntelligentInsight[] = [];
-
-    if (context.currentCrisisLevel === CrisisRiskLevel.NONE) return insights;
-
-    insights.push({
-      id: `crisis_prevention_${Date.now()}`,
-      userId: context.userId,
-      category: InsightCategory.CRISIS_PREVENTION,
-      priority: InsightPriority.HIGH,
-      timing: InsightTiming.IMMEDIATE,
-      
-      title: '🛡️ Destek Sistemi Aktif',
-      message: 'Zor bir dönemde olduğunuzu fark ediyorum. Bu geçici bir durum ve sizin için buradayım. Birlikte bu zorlukla başa çıkabiliriz.',
-      actionableAdvice: [
-        'Derin nefes alın: 4 saniye içeri, 6 saniye dışarı',
-        'Güvenilir birisini arayın',
-        'Profesyonel destek almayı düşünün',
-        'Bu anın geçici olduğunu hatırlayın'
-      ],
-      
-      confidence: 0.95,
-      detectedPatterns: ['crisis_risk_detected'],
-      
-      basedOnData: {
-        messageCount: context.recentMessages.length,
-        timeframe: 'immediate',
-        keyEvents: [`Crisis level: ${context.currentCrisisLevel}`]
-      },
-      
-      generatedAt: new Date(),
-      validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      shown: false,
-      therapeuticGoals: ['Crisis stabilization', 'Safety planning'],
-      expectedOutcome: 'Reduced crisis symptoms and improved coping',
-      followUpRequired: true,
-      relatedInsightIds: []
-    });
-
-    return insights;
-  }
+  // Crisis prevention removed
 
   // =============================================================================
   // 🔧 HELPER METHODS
@@ -838,7 +1074,7 @@ KULLANICI PROFİLİ:
   }
 
   private recommendTechniqueForPattern(patternType: string): CBTTechnique | null {
-    const recommendations = {
+    const recommendations: Record<string, CBTTechnique> = {
       'high_frequency_messages': CBTTechnique.MINDFULNESS_INTEGRATION,
       'negative_sentiment_trend': CBTTechnique.COGNITIVE_RESTRUCTURING,
       'high_compulsion_frequency': CBTTechnique.BEHAVIORAL_EXPERIMENT,
@@ -865,10 +1101,10 @@ KULLANICI PROFİLİ:
       p.confidence > 0.8
     );
 
-    let riskLevel = CrisisRiskLevel.NONE;
-    if (highRiskPatterns.length >= 3) riskLevel = CrisisRiskLevel.HIGH;
-    else if (highRiskPatterns.length >= 2) riskLevel = CrisisRiskLevel.MEDIUM;
-    else if (highRiskPatterns.length >= 1) riskLevel = CrisisRiskLevel.LOW;
+    let riskLevel: RiskLevel = RiskLevel.LOW;
+    if (highRiskPatterns.length >= 3) riskLevel = RiskLevel.VERY_HIGH;
+    else if (highRiskPatterns.length >= 2) riskLevel = RiskLevel.HIGH;
+    else if (highRiskPatterns.length >= 1) riskLevel = RiskLevel.MODERATE;
 
     return {
       level: riskLevel,
@@ -888,8 +1124,12 @@ KULLANICI PROFİLİ:
       currentState: 'therapeutic' as any,
       conversationHistory: context.recentMessages,
       userProfile: context.userProfile,
-      crisisLevel: context.currentCrisisLevel
-    };
+      startTime: new Date(),
+      lastActivity: new Date(),
+      messageCount: context.recentMessages.length,
+      topicHistory: [],
+      appContext: { screen: 'insights', route: 'engine_v2' }
+    } as any;
   }
 
   // =============================================================================
@@ -964,11 +1204,4 @@ KULLANICI PROFİLİ:
 
 export const insightsEngineV2 = InsightsEngineV2.getInstance();
 export default insightsEngineV2;
-export { 
-  InsightCategory,
-  InsightPriority, 
-  InsightTiming,
-  type IntelligentInsight, 
-  type InsightGenerationContext,
-  type PatternAnalysisResult 
-};
+// Re-exports removed to avoid conflicts (types are declared in-file)

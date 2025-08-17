@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import dataStandardizer from '@/utils/dataStandardization';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
 
@@ -191,7 +192,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
       exerciseName: exerciseName || 'Unknown Exercise',
       category: category || 'general',
       categoryName: categoryName || 'Genel',
-      exerciseType: exerciseType || 'real_life',
+      exerciseType: exerciseType || 'in_vivo',
       durationSeconds: elapsedTime,
       anxietyDataPoints,
       anxietyInitial: initialAnxiety,
@@ -221,7 +222,7 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
         console.log('🔄 Attempting to save to database...');
         
         // Ensure all required fields are present
-        const dbSession = {
+        const dbSession = dataStandardizer.standardizeERPSessionData({
           user_id: userId,
           exercise_id: exerciseId || 'unknown',
           exercise_name: exerciseName || 'Unknown Exercise',
@@ -233,11 +234,11 @@ export const useERPSessionStore = create<ERPSessionState>((set, get) => ({
           completed: true,
           // Add timestamp explicitly
           timestamp: new Date().toISOString(),
-        };
+        });
         
         console.log('📤 Database payload:', dbSession);
         
-        await supabaseService.saveERPSession(dbSession);
+        await supabaseService.saveERPSession(dbSession as any);
         console.log('✅ ERP session saved to database');
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);

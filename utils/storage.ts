@@ -17,15 +17,29 @@ export const StorageKeys = {
   ERP_SESSIONS: (userId: string, date?: string) => 
     date ? `erp_sessions_${userId}_${date}` : `erp_sessions_${userId}`,
   
+  // Breathwork Sessions
+  BREATH_SESSIONS: (userId: string, date?: string) =>
+    date ? `breath_sessions_${userId}_${date}` : `breath_sessions_${userId}`,
+  
   // Gamification
   GAMIFICATION: (userId: string) => `gamification_${userId}`,
   
   // Settings
   USER_SETTINGS: (userId: string) => `settings_${userId}`,
+  SETTINGS: 'app_settings',
   
   // Last used items (for smart suggestions)
   LAST_COMPULSION: (userId: string) => `last_compulsion_${userId}`,
   LAST_ERP_EXERCISE: (userId: string) => `last_erp_${userId}`,
+
+  // Voice & Check-in
+  CHECKINS: (userId: string) => `checkins_${userId}`,
+  VOICE_CONSENT_STT: (userId: string) => `consent_stt_${userId}`,
+  VOICE_CONSENT_TTS: (userId: string) => `consent_tts_${userId}`,
+
+  // CBT Thought Record
+  THOUGHT_RECORDS: (userId: string) => `thought_records_${userId}`,
+  THOUGHT_RECORD_DRAFT: (userId: string) => `thought_record_draft_${userId}`,
 } as const;
 
 /**

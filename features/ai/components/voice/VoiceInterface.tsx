@@ -13,7 +13,8 @@ import {
   Pressable,
   Animated,
   AccessibilityInfo,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -25,21 +26,35 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+// Audio import avoided in tests; voiceRecognitionService handles audio under the hood
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StorageKeys } from '@/utils/storage';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 interface VoiceInterfaceProps {
   onTranscription: (result: TranscriptionResult) => void;
   onError?: (error: Error) => void;
   disabled?: boolean;
   style?: any;
+  onStartListening?: () => void;
+  autoStart?: boolean; // Yeni: render edilince otomatik başlat
+  enableCountdown?: boolean; // Opsiyonel: başlatmadan önce 3-1 geri sayım
+  showStopButton?: boolean; // Opsiyonel: ayrı durdur butonu göster
+  showHints?: boolean; // Opsiyonel: alt ipucu metinleri
 }
 
 export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   onTranscription,
   onError,
   disabled = false,
-  style
+  style,
+  onStartListening,
+  autoStart = false,
+  enableCountdown = false,
+  showStopButton = false,
+  showHints = true,
 }) => {
+  const { user } = useAuth();
   const [state, setState] = useState<VoiceRecognitionState>(VoiceRecognitionState.IDLE);
   const [isListening, setIsListening] = useState(false);
   const [transcription, setTranscription] = useState<string>('');
@@ -51,23 +66,55 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const waveAnim2 = useRef(new Animated.Value(0)).current;
   const waveAnim3 = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Geri sayım ve kalp atışı animasyonu
+  const countdownAnim = useRef(new Animated.Value(1)).current;
+  const [countdown, setCountdown] = useState<number | null>(null);
 
-  // Feature flag kontrolü
-  if (!FEATURE_FLAGS.isEnabled('AI_VOICE')) {
-    return null;
-  }
+  // Feature flag kontrolü (hooks her zaman çağrılır; render safhasında koşullandırılır)
+  const isVoiceEnabled = FEATURE_FLAGS.isEnabled('AI_VOICE');
+
+  const hasSTTConsent = async (): Promise<boolean> => {
+    try {
+      const key = StorageKeys.VOICE_CONSENT_STT(user?.id || 'anon');
+      const saved = await AsyncStorage.getItem(key);
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  const ensureSTTConsent = async (): Promise<boolean> => {
+    const consent = await hasSTTConsent();
+    if (consent) return true;
+    return new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Sesli İzin',
+        'Konuşmaların yazıya dökülmesi için mikrofon kullanımına izin veriyor musun? Bu işlem cihaz üzerinde yapılır.',
+        [
+          { text: 'Hayır', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Evet', style: 'default', onPress: async () => {
+            try { await AsyncStorage.setItem(StorageKeys.VOICE_CONSENT_STT(user?.id || 'anon'), 'true'); } catch {}
+            resolve(true);
+          }}
+        ]
+      );
+    });
+  };
 
   useEffect(() => {
+    if (!isVoiceEnabled) return;
     // Servisi başlat
     voiceRecognitionService.initialize().catch(err => {
       setError('Ses tanıma başlatılamadı');
       onError?.(err);
     });
 
-    // Accessibility announcement
-    AccessibilityInfo.announceForAccessibility(
-      'Sesli asistan hazır. Konuşmak için mikrofon butonuna basın.'
-    );
+    // Accessibility announcement (autoStart ise göstermeyelim)
+    if (!autoStart) {
+      AccessibilityInfo.announceForAccessibility(
+        'Sesli asistan hazır. Konuşmak için mikrofon butonuna basın.'
+      );
+    }
 
     return () => {
       // Cleanup
@@ -75,7 +122,18 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         handleStopListening();
       }
     };
-  }, []);
+  }, [isVoiceEnabled]);
+
+  // Auto-start dinleme
+  useEffect(() => {
+    if (!isVoiceEnabled) return;
+    if (autoStart && !isListening) {
+      const id = setTimeout(() => {
+        handleStartListening();
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [autoStart, isVoiceEnabled]);
 
   useEffect(() => {
     // Listening animasyonları
@@ -163,10 +221,33 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     if (disabled || isListening) return;
 
     try {
+      const ok = await ensureSTTConsent();
+      if (!ok) return;
+
+      if (enableCountdown) {
+        // 3→1 geri sayım (kalp atışı)
+        setCountdown(3);
+        for (let i = 3; i >= 1; i--) {
+          setCountdown(i);
+          await new Promise((r) => setTimeout(r, 250));
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await new Promise<void>((resolve) => {
+            Animated.sequence([
+              Animated.timing(countdownAnim, { toValue: 1.2, duration: 120, useNativeDriver: true }),
+              Animated.timing(countdownAnim, { toValue: 1.0, duration: 120, useNativeDriver: true })
+            ]).start(() => resolve());
+          });
+        }
+        setCountdown(null);
+      }
+
       setError(null);
       setTranscription('');
       setIsListening(true);
       setState(VoiceRecognitionState.LISTENING);
+
+      // Notify start
+      try { onStartListening?.(); } catch {}
 
       // Haptic feedback
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -215,6 +296,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       } else {
         setError('Ses tanınamadı');
         setState(VoiceRecognitionState.ERROR);
+        try { onError?.(new Error('stt_no_result')); } catch {}
       }
     } catch (err) {
       console.error('Stop listening error:', err);
@@ -234,24 +316,9 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }
   };
 
-  const playSound = async (type: 'start' | 'stop') => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        type === 'start' 
-          ? require('@/assets/sounds/voice-start.mp3')
-          : require('@/assets/sounds/voice-stop.mp3'),
-        { shouldPlay: true }
-      );
-      
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync();
-        }
-      });
-    } catch (error) {
-      // Ses dosyası yoksa sessizce devam et
-      console.log('Sound playback skipped:', error);
-    }
+  const playSound = async (_type: 'start' | 'stop') => {
+    // Ses dosyaları projeye eklenmediği için sessiz geç
+    return;
   };
 
   const getStateIcon = () => {
@@ -302,6 +369,8 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         return 'Konuşmak için dokun';
     }
   };
+
+  if (!isVoiceEnabled) return null;
 
   return (
     <View style={[styles.container, style]}>
@@ -389,12 +458,24 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             />
           </Animated.View>
         </Pressable>
+
+        {/* Geri sayım overlay */}
+        {enableCountdown && countdown !== null && (
+          <Animated.View style={[styles.countdownOverlay, { transform: [{ scale: countdownAnim }] }]}> 
+            <Text style={styles.countdownText}>{countdown}</Text>
+          </Animated.View>
+        )}
       </View>
 
-      {/* Durum metni */}
+      {/* Durum metni ve Durdur butonu */}
       <Text style={[styles.stateText, { color: getStateColor() }]}>
         {getStateText()}
       </Text>
+      {showStopButton && isListening && (
+        <Button variant="secondary" onPress={handleStopListening} accessibilityLabel="Durdur" style={styles.stopButton}>
+          Durdur
+        </Button>
+      )}
 
       {/* Transkripsiyon sonucu */}
       {transcription && (
@@ -406,14 +487,14 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         </Animated.View>
       )}
 
-      {/* İpuçları */}
-      {state === VoiceRecognitionState.IDLE && !transcription && (
+      {/* İpuçları (opsiyonel) */}
+      {showHints && state === VoiceRecognitionState.IDLE && !transcription && (
         <View style={styles.hintsContainer}>
           <Text style={styles.hintTitle}>Sesli komutlar:</Text>
           <View style={styles.hintsList}>
-            <Text style={styles.hintItem}>• "Kayıt başlat"</Text>
-            <Text style={styles.hintItem}>• "İçgörü ver"</Text>
-            <Text style={styles.hintItem}>• "Oturumu bitir"</Text>
+            <Text style={styles.hintItem}>• &quot;Kayıt başlat&quot;</Text>
+            <Text style={styles.hintItem}>• &quot;İçgörü ver&quot;</Text>
+            <Text style={styles.hintItem}>• &quot;Oturumu bitir&quot;</Text>
           </View>
         </View>
       )}
@@ -426,10 +507,12 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
               style={[
                 styles.audioLevelFill,
                 {
-                  width: waveAnim1.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['20%', '80%'],
-                  }),
+                  transform: [{
+                    scaleX: waveAnim1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1.0],
+                    })
+                  }],
                 },
               ]}
             />
@@ -489,6 +572,21 @@ const styles = StyleSheet.create({
   transcriptionContainer: {
     width: '100%',
     marginTop: 20,
+  },
+  countdownOverlay: {
+    position: 'absolute',
+    top: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownText: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
+  stopButton: {
+    marginTop: -8,
+    marginBottom: 8,
   },
   transcriptionCard: {
     padding: 16,

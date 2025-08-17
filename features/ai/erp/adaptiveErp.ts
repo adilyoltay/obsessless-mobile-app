@@ -31,8 +31,7 @@ export enum ERPSessionState {
   EXPOSURE = 'exposure',
   PEAK_ANXIETY = 'peak_anxiety',
   HABITUATION = 'habituation',
-  COMPLETION = 'completion',
-  CRISIS_EXIT = 'crisis_exit'
+  COMPLETION = 'completion'
 }
 
 // Biometric Data Types
@@ -64,7 +63,6 @@ export interface ERPAdaptationParams {
   };
   safetyLimits: {
     maxAnxietySpike: number;
-    crisisDetectionLevel: number;
     emergencyExitConditions: string[];
   };
   personalization: {
@@ -197,8 +195,8 @@ class AdaptiveERPService {
     // Initial AI guidance
     await this.provideAIGuidance(session, 'Hoş geldiniz! Bu ERP seansında size özel olarak rehberlik edeceğim. Hazır olduğunuzda başlayalım.', 'encouragement');
     
-    // Track ERP session start (using generic session event type)
-    await trackAIInteraction(AIEventType.CHAT_SESSION_STARTED, {
+      // Track ERP session start (use ERP-specific event)
+      await trackAIInteraction(AIEventType.ERP_SESSION_STARTED, {
       sessionId: session.id,
       exerciseId,
       initialDifficulty,
@@ -283,9 +281,9 @@ class AdaptiveERPService {
         await this.decreaseDifficulty(session, 'Anxiety seviyesi güvenlik sınırını aştı');
       }
       
-      // Crisis intervention gerekebilir
-      if (currentAnxiety >= params.safetyLimits.crisisDetectionLevel) {
-        await this.triggerCrisisIntervention(session);
+      // Safety intervention logic (legacy crisis removal)
+      if (currentAnxiety >= params.anxietyThreshold.max + 1) {
+        await this.triggerSafetyIntervention(session);
       }
     }
 
@@ -335,9 +333,9 @@ class AdaptiveERPService {
       );
     }
 
-    // Crisis level anxiety
-    if (currentAnxiety >= safetyLimits.crisisDetectionLevel) {
-      await this.triggerCrisisIntervention(session);
+    // Safety threshold intervention
+    if (currentAnxiety >= session.adaptationParams.anxietyThreshold.max + 1) {
+      await this.triggerSafetyIntervention(session);
     }
 
     // Biometric alerts
@@ -361,9 +359,9 @@ class AdaptiveERPService {
   }
 
   /**
-   * Kriz müdahalesi tetikle
+   * Güvenlik müdahalesi tetikle
    */
-  private async triggerCrisisIntervention(session: AdaptiveERPSession): Promise<void> {
+  private async triggerSafetyIntervention(session: AdaptiveERPSession): Promise<void> {
     session.safetyEvents.push({
       timestamp: new Date(),
       type: 'panic_symptoms',
@@ -371,7 +369,7 @@ class AdaptiveERPService {
       resolved: false
     });
 
-    session.currentState = ERPSessionState.CRISIS_EXIT;
+    session.currentState = ERPSessionState.COMPLETION;
 
     await this.provideAIGuidance(
       session,
@@ -379,12 +377,11 @@ class AdaptiveERPService {
       'safety'
     );
 
-    // Crisis trigger oluştur (fallback if service not available)
-    // Note: conversationTriggerService will be integrated when triggers module is available
-    console.log('Crisis trigger logged locally:', { 
+    // Safety trigger oluştur (fallback until triggers module is available)
+    console.log('Safety trigger logged locally:', { 
       sessionId: session.id, 
       userId: session.userId, 
-      trigger: 'erp_crisis_exit' 
+      trigger: 'erp_safety_exit' 
     });
 
     // Session'ı güvenli şekilde sonlandır
@@ -531,7 +528,6 @@ class AdaptiveERPService {
       },
       safetyLimits: {
         maxAnxietySpike: 3,
-        crisisDetectionLevel: 9,
         emergencyExitConditions: ['user_request', 'biometric_alert', 'time_limit']
       },
       personalization: {

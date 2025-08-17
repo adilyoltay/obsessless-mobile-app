@@ -289,7 +289,7 @@ export const ERP_EXERCISES: ERPExerciseType[] = [
 
   // Imaginal Exercises
   {
-    id: 'contamination_imagination',
+    id: 'contamination_imaginal',
     name: 'Kirlenme Hayali',
     category: 'imaginal',
     targetCompulsion: ['washing'],

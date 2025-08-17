@@ -35,8 +35,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // UI Components
 import Button from '@/components/ui/Button';
@@ -44,28 +46,33 @@ import Card from '@/components/ui/Card';
 
 // Design Tokens
 import { Colors } from '@/constants/Colors';
+import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
 
 // Types
-import {
-  YBOCSAnswer,
-  UserProfile,
-  TreatmentPlan,
-  CulturalContext,
-} from '@/features/ai/types';
+import { OCDAnalysis } from '@/features/ai/types';
 
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 
 // Using global design tokens
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+type OnboardingCulturalContext = {
+  language: string;
+  religiousConsiderations: boolean;
+  familyInvolvement: 'none' | 'supportive';
+  culturalFactors: string[];
+};
+
 interface OnboardingFlowV3Props {
-  onComplete: (userProfile: UserProfile, treatmentPlan: TreatmentPlan) => void;
+  onComplete: (userProfile: any, treatmentPlan: any) => void;
   onExit: () => void;
   userId: string;
   resumeSession?: boolean;
 }
+
 
 // Adım tipleri - Master Prompt'a uygun sıralama
 enum OnboardingStep {
@@ -73,6 +80,7 @@ enum OnboardingStep {
   CONSENT = 'consent',
   YBOCS_INTRO = 'ybocs_intro',
   YBOCS_QUESTIONS = 'ybocs_questions',
+  QUICK_DECISION = 'quick_decision',
   PROFILE_NAME = 'profile_name',
   PROFILE_DEMOGRAPHICS = 'profile_demographics',
   PROFILE_HISTORY = 'profile_history',
@@ -237,6 +245,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   resumeSession = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const bottomPad = Math.max(100, insets.bottom + 80);
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -245,7 +254,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // State
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(OnboardingStep.WELCOME);
-  const [ybocsAnswers, setYbocsAnswers] = useState<YBOCSAnswer[]>([]);
+  const [quickMode, setQuickMode] = useState<boolean>(true);
+  const [ybocsAnswers, setYbocsAnswers] = useState<Record<string, number>>({});
   const [currentYbocsIndex, setCurrentYbocsIndex] = useState(0);
   const [sliderValue, setSliderValue] = useState(0);
   const [userName, setUserName] = useState('');
@@ -260,7 +270,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     familyHistory: false,
   });
   const [symptomTypes, setSymptomTypes] = useState<string[]>([]);
-  const [culturalContext, setCulturalContext] = useState<CulturalContext>({
+  const [culturalContext, setCulturalContext] = useState<OnboardingCulturalContext>({
     language: 'tr',
     religiousConsiderations: false,
     familyInvolvement: 'none',
@@ -268,6 +278,9 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   });
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // AI sonuçlarının yerel state'te tutulması
+  const [generatedPlan, setGeneratedPlan] = useState<any | null>(null);
+  const [generatedAnalysis, setGeneratedAnalysis] = useState<OCDAnalysis | null>(null);
 
   // Session kaydetme
   useEffect(() => {
@@ -287,6 +300,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     try {
       const sessionData = {
         currentStep,
+        quickMode,
         ybocsAnswers,
         currentYbocsIndex,
         userName,
@@ -314,7 +328,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       if (saved) {
         const sessionData = JSON.parse(saved);
         setCurrentStep(sessionData.currentStep);
-        setYbocsAnswers(sessionData.ybocsAnswers || []);
+        setQuickMode(typeof sessionData.quickMode === 'boolean' ? sessionData.quickMode : true);
+        setYbocsAnswers(sessionData.ybocsAnswers || {});
         setCurrentYbocsIndex(sessionData.currentYbocsIndex || 0);
         setUserName(sessionData.userName || '');
         setCulturalContext(sessionData.culturalContext || {
@@ -392,23 +407,21 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         case OnboardingStep.YBOCS_QUESTIONS:
           if (currentYbocsIndex < YBOCS_QUESTIONS.length - 1) {
             // Y-BOCS cevabını kaydet
-            const answer: YBOCSAnswer = {
-              questionId: YBOCS_QUESTIONS[currentYbocsIndex].id,
-              score: Math.round(sliderValue),
-              category: YBOCS_QUESTIONS[currentYbocsIndex].category as 'obsessions' | 'compulsions',
-            };
-            setYbocsAnswers([...ybocsAnswers, answer]);
+            const qid = YBOCS_QUESTIONS[currentYbocsIndex].id;
+            setYbocsAnswers({ ...ybocsAnswers, [qid]: Math.round(sliderValue) });
             setCurrentYbocsIndex(currentYbocsIndex + 1);
             setSliderValue(0);
           } else {
             // Son Y-BOCS cevabını kaydet ve profile geç
-            const answer: YBOCSAnswer = {
-              questionId: YBOCS_QUESTIONS[currentYbocsIndex].id,
-              score: Math.round(sliderValue),
-              category: YBOCS_QUESTIONS[currentYbocsIndex].category as 'obsessions' | 'compulsions',
-            };
-            setYbocsAnswers([...ybocsAnswers, answer]);
-            setCurrentStep(OnboardingStep.PROFILE_NAME);
+            const qid = YBOCS_QUESTIONS[currentYbocsIndex].id;
+            const nextMap = { ...ybocsAnswers, [qid]: Math.round(sliderValue) };
+            setYbocsAnswers(nextMap);
+            // Hızlı başlangıç modunda isteğe bağlı adımları atla
+            if (quickMode) {
+              setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+            } else {
+              setCurrentStep(OnboardingStep.PROFILE_NAME);
+            }
             setSliderValue(0);
           }
           break;
@@ -461,10 +474,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           break;
         case OnboardingStep.YBOCS_QUESTIONS:
           if (currentYbocsIndex > 0) {
-            setCurrentYbocsIndex(currentYbocsIndex - 1);
-            const prevAnswers = [...ybocsAnswers];
-            prevAnswers.pop();
-            setYbocsAnswers(prevAnswers);
+            const prevIndex = currentYbocsIndex - 1;
+            setCurrentYbocsIndex(prevIndex);
+            const prevQid = YBOCS_QUESTIONS[prevIndex].id;
+            setSliderValue(ybocsAnswers[prevQid] ?? 0);
           } else {
             setCurrentStep(OnboardingStep.YBOCS_INTRO);
           }
@@ -495,23 +508,75 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
   // Tedavi planı oluştur
   const generateTreatmentPlan = async () => {
     setIsLoading(true);
-    
-    // Telemetry
-    trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, {
-      ybocsScore: calculateYBOCSScore(),
-      goals: selectedGoals,
-    }, userId);
 
-    // Mock tedavi planı (gerçekte AI'dan gelecek)
-    setTimeout(() => {
+    try {
+      // Telemetry (request)
+      await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'treatment_plan_request' }, userId);
+
+      // Y-BOCS cevapları
+      const ybocsResponses = Object.entries(ybocsAnswers).map(([questionId, score]) => ({
+        questionId,
+        response: score,
+      }));
+
+      // AI destekli analiz (fallback manuel)
+      let analysis;
+      try {
+        analysis = await ybocsAnalysisService.analyzeYBOCS(ybocsResponses as any, { enhanceWithAI: true });
+      } catch {
+        analysis = { totalScore: calculateYBOCSScore(), subscores: { obsessions: 0, compulsions: 0 }, severityLevel: 'moderate', dominantSymptoms: [], riskFactors: [], confidence: 0.5, culturalConsiderations: [], recommendedInterventions: [] } as OCDAnalysis;
+      }
+
+      // AI treatment plan preview (basit yerel plan)
+      try {
+        const ybocsScorePreview = calculateYBOCSScore();
+        const baseInterventions = ybocsScorePreview >= 20
+          ? [{ type: 'erp', title: 'İleri Düzey ERP', description: 'Yoğun maruz bırakma ve tepki önleme egzersizleri', frequency: 'daily', duration: 45 }]
+          : [{ type: 'erp', title: 'Temel ERP', description: 'Aşamalı maruz bırakma egzersizleri', frequency: 'daily', duration: 30 }];
+        const plan = {
+          id: `plan_preview_${userId}_${Date.now()}`,
+          userId,
+          ybocsScore: ybocsScorePreview,
+          primaryGoals: selectedGoals.slice(0, 3),
+          interventions: baseInterventions,
+          weeklySchedule: {
+            monday: baseInterventions,
+            tuesday: baseInterventions,
+            wednesday: baseInterventions,
+            thursday: baseInterventions,
+            friday: baseInterventions,
+            saturday: baseInterventions.slice(0, 1),
+            sunday: [{ type: 'rest', title: 'Dinlenme Günü', description: 'Haftalık değerlendirme' }]
+          },
+          progressMetrics: {
+            ybocsTargetReduction: Math.max(5, Math.floor(ybocsScorePreview * 0.3)),
+            anxietyReductionTarget: 40,
+            functionalImprovementTarget: 50
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        try {
+          await AsyncStorage.setItem(`ai_onboarding_ybocs_${userId}`, JSON.stringify(analysis));
+          await AsyncStorage.setItem(`ai_onboarding_treatment_plan_${userId}`, JSON.stringify(plan));
+        } catch {}
+        setGeneratedPlan(plan);
+        setGeneratedAnalysis(analysis);
+        setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+      } catch (e) {
+        setCurrentStep(OnboardingStep.TREATMENT_PLAN);
+      }
+
+      // Telemetry (generated)
+      await trackAIInteraction(AIEventType.TREATMENT_PLAN_GENERATED, { ybocsScore: calculateYBOCSScore(), goals: selectedGoals }, userId);
+    } finally {
       setIsLoading(false);
-      setCurrentStep(OnboardingStep.TREATMENT_PLAN);
-    }, 1500);
+    }
   };
 
   // Y-BOCS skoru hesapla
   const calculateYBOCSScore = () => {
-    return ybocsAnswers.reduce((sum, answer) => sum + answer.score, 0);
+    return Object.values(ybocsAnswers).reduce((sum, score) => sum + (score || 0), 0);
   };
 
 
@@ -523,7 +588,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       const ybocsScore = calculateYBOCSScore();
       
       // User profile oluştur
-      const userProfile: UserProfile = {
+      const userProfile: any = {
         id: userId,
         name: userName,
         demographics: {
@@ -544,17 +609,18 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       // ✅ PRODUCTION: Gerçek AI treatment plan oluştur
       console.log('🤖 Generating real AI treatment plan...');
-      let treatmentPlan: TreatmentPlan;
+      let treatmentPlan: any;
       
       try {
         // Import AI engine
         const { adaptiveTreatmentPlanningEngine } = await import('@/features/ai/engines/treatmentPlanningEngine');
         
         // Y-BOCS responses'ları doğru formata çevir
-        const ybocsResponses = ybocsAnswers.map(answer => ({
-          questionId: answer.questionId,
-          response: answer.score,
-          category: answer.category
+        const ybocsResponses = Object.entries(ybocsAnswers).map(([questionId, score]) => ({
+          questionId,
+          response: score,
+          // Kategori bilgisi YBOCS_QUESTIONS listesinden türetilebilir
+          category: (YBOCS_QUESTIONS.find(q => q.id === questionId)?.category || 'obsessions') as 'obsessions' | 'compulsions',
         }));
         
         // Comprehensive user therapeutic profile
@@ -573,18 +639,18 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           accessibilityNeeds: [],
           treatmentHistory: ocdHistory.previousTreatment ? {
             previousTreatments: [{
-              type: 'therapy' as any,
+              type: 'therapy',
               startDate: new Date(),
               endDate: new Date(),
-              outcome: 'partial_improvement' as any,
+              outcome: 'partial_improvement',
               notes: 'User indicated previous treatment experience'
             }],
             currentMedications: ocdHistory.medication ? ['ssri'] : [],
-            treatmentResponse: 'moderate' as any
+            treatmentResponse: 'moderate'
           } : {
             previousTreatments: [],
             currentMedications: ocdHistory.medication ? ['ssri'] : [],
-            treatmentResponse: 'unknown' as any
+            treatmentResponse: 'unknown'
           }
         };
         
@@ -610,11 +676,21 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         };
         
         // Generate real AI treatment plan
+        const minimalYbocs: any = {
+          totalScore: ybocsScore,
+          subscores: { obsessions: Math.floor(ybocsScore / 2), compulsions: Math.ceil(ybocsScore / 2) },
+          severityLevel: ybocsScore > 31 ? 'extreme' : ybocsScore > 23 ? 'severe' : ybocsScore > 15 ? 'moderate' : ybocsScore > 7 ? 'mild' : 'minimal',
+          dominantSymptoms: symptomTypes,
+          riskFactors: [],
+          confidence: 0.6,
+          culturalConsiderations: [],
+          recommendedInterventions: []
+        };
         treatmentPlan = await adaptiveTreatmentPlanningEngine.generateInitialPlan(
           therapeuticProfile as any,
-          { totalScore: ybocsScore, severityLevel: ybocsScore > 25 ? 'severe' : ybocsScore > 15 ? 'moderate' : 'mild' } as any,
+          minimalYbocs,
           riskAssessment as any,
-          culturalContext
+          culturalContext as any
         );
         
         console.log('✅ Real AI treatment plan generated:', treatmentPlan.id);
@@ -701,13 +777,25 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         };
       }
 
-      // AsyncStorage'a kaydet
-      await AsyncStorage.multiSet([
-        [`ai_onboarding_completed_${userId}`, 'true'],
-        [`ai_user_profile_${userId}`, JSON.stringify(userProfile)],
-        [`ai_treatment_plan_${userId}`, JSON.stringify(treatmentPlan)],
-        [`ai_onboarding_date_${userId}`, new Date().toISOString()]
-      ]);
+      // AsyncStorage + Encrypted kaydet
+      try {
+        const { useSecureStorage } = await import('@/hooks/useSecureStorage');
+        const { setItem } = useSecureStorage();
+        await Promise.all([
+          AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true'),
+          setItem(`ai_user_profile_${userId}`, userProfile, true),
+          setItem(`ai_treatment_plan_${userId}`, treatmentPlan, true),
+          AsyncStorage.setItem(`ai_onboarding_date_${userId}`, new Date().toISOString()),
+        ]);
+      } catch {
+        // Fallback to plain if secure fails
+        await AsyncStorage.multiSet([
+          [`ai_onboarding_completed_${userId}`, 'true'],
+          [`ai_user_profile_${userId}`, JSON.stringify(userProfile)],
+          [`ai_treatment_plan_${userId}`, JSON.stringify(treatmentPlan)],
+          [`ai_onboarding_date_${userId}`, new Date().toISOString()],
+        ]);
+      }
 
       // Session temizle
       await AsyncStorage.removeItem(`onboarding_session_${userId}`);
@@ -720,7 +808,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     } catch (error) {
       console.error('❌ OnboardingFlowV3: Completion error:', error);
       // Hata durumunda da callback'i çağır
-      onComplete({} as UserProfile, {} as TreatmentPlan);
+      onComplete({} as any, {} as any);
     }
   };
 
@@ -752,7 +840,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 color={Colors.primary.green} 
               />
             </View>
-            <Text style={styles.title}>ObsessLess'e Hoş Geldiniz</Text>
+            <Text style={styles.title}>ObsessLess’e Hoş Geldiniz</Text>
             <Text style={styles.subtitle}>
               OKB yolculuğunuzda yanınızdayız
             </Text>
@@ -760,6 +848,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               Size özel bir destek planı oluşturmak için birkaç kısa adımda 
               sizi tanımak istiyoruz. Bu süreç yaklaşık 10 dakika sürecek.
             </Text>
+            <View style={{ marginTop: 16 }}>
+              <Button title={quickMode ? 'Hızlı Başlangıç Modu: Açık' : 'Hızlı Başlangıç Modu: Kapalı'} onPress={() => setQuickMode(!quickMode)} />
+              <Text style={styles.hint}>Hızlı başlangıç modunda yalnızca Y‑BOCS kısa değerlendirmesi tamamlanır; profil adımları daha sonra Ayarlar’dan doldurulabilir.</Text>
+            </View>
             </ScrollView>
           </View>
         );
@@ -858,11 +950,6 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 onValueChange={setSliderValue}
                 minimumTrackTintColor={getSliderColor(sliderValue)}
                 maximumTrackTintColor={Colors.ui.border}
-                thumbStyle={{
-                  backgroundColor: getSliderColor(sliderValue),
-                  width: 20,
-                  height: 20,
-                }}
               />
               
             <View style={styles.sliderLabels}>
@@ -1088,16 +1175,21 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         );
 
       case OnboardingStep.PROFILE_SYMPTOMS:
-        const SYMPTOM_TYPES = [
-          { id: 'contamination', label: 'Kirlenme/Bulaşma', emoji: '🧼' },
-          { id: 'symmetry', label: 'Simetri/Düzen', emoji: '⚖️' },
-          { id: 'checking', label: 'Kontrol Etme', emoji: '🔍' },
-          { id: 'counting', label: 'Sayma', emoji: '🔢' },
-          { id: 'religious', label: 'Dini Takıntılar', emoji: '🙏' },
-          { id: 'harm', label: 'Zarar Verme Korkusu', emoji: '⚠️' },
-          { id: 'sexual', label: 'Cinsel Düşünceler', emoji: '🤔' },
-          { id: 'hoarding', label: 'Biriktirme', emoji: '📦' },
-        ];
+        // Kanonik ikonlar - tüm gridlerde standart
+        const iconName = (id: string) => getCanonicalCategoryIconName(id);
+        const fallbackLabelMap: Record<string, string> = {
+          contamination: 'Bulaşma/Temizlik',
+          checking: 'Kontrol Etme',
+          symmetry: 'Simetri/Düzen',
+          mental: 'Zihinsel Ritüeller',
+          hoarding: 'Biriktirme',
+          other: 'Diğer',
+        };
+        const SYMPTOM_TYPES = CANONICAL_CATEGORIES.map((id) => ({
+          id,
+          label: t('categoriesCanonical.' + id, fallbackLabelMap[id] || id),
+          icon: iconName(id),
+        }));
         
         return (
           <View style={styles.contentContainer}>
@@ -1128,12 +1220,17 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                     }
                   }}
                 >
-                  <Text style={styles.symptomEmoji}>{symptom.emoji}</Text>
+                  <MaterialCommunityIcons 
+                    name={symptom.icon as React.ComponentProps<typeof MaterialCommunityIcons>['name']} 
+                    size={20} 
+                    color={getCanonicalCategoryColor(symptom.id)} 
+                    style={{ marginRight: 8 }}
+                  />
                   <Text style={[
                     styles.symptomText,
                     symptomTypes.includes(symptom.id) && styles.symptomTextSelected
                   ]}>
-                    {symptom.label}
+                    {t('categoriesCanonical.' + symptom.id, symptom.label)}
                   </Text>
                   {symptomTypes.includes(symptom.id) && (
                     <MaterialCommunityIcons 

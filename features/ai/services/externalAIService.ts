@@ -18,7 +18,8 @@ import {
   AIError,
   AIErrorCode,
   ErrorSeverity,
-  isAIError
+  isAIError,
+  AIProvider
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { contentFilterService } from '@/features/ai/safety/contentFilter';
@@ -30,12 +31,7 @@ import { AI_CONFIG } from '@/constants/featureFlags';
 // 🎯 AI PROVIDER DEFINITIONS
 // =============================================================================
 
-/**
- * Supported AI Providers
- */
-export enum AIProvider {
-  GEMINI = 'gemini'
-}
+// AIProvider enum is imported from '@/features/ai/types'
 
 /**
  * Provider Configuration
@@ -199,7 +195,7 @@ class ExternalAIService {
       this.activeProvider = this.selectBestProvider();
       
       if (!this.activeProvider) {
-        // NO_PROVIDER_AVAILABLE telemetry
+        // NO_PROVIDER_AVAILABLE telemetry (graceful degrade)
         await trackAIError({
           code: AIErrorCode.NO_PROVIDER_AVAILABLE,
           message: 'No AI provider available after health checks',
@@ -216,11 +212,16 @@ class ExternalAIService {
             }))
           }
         });
-        
-        throw Object.assign(new Error('No AI provider available'), { code: AIErrorCode.NO_PROVIDER_AVAILABLE, severity: ErrorSeverity.HIGH, recoverable: false });
+
+        // Disable service but allow local heuristic fallback at call site
+        this.isEnabled = false;
+        if (__DEV__) console.warn('⚠️ External AI disabled (no provider). System will use local fallback responses.');
+        return;
       }
 
       this.isEnabled = true;
+      // Hafıza izleme (hafif)
+      this.startMemoryProbe();
       
       // Telemetry
       await trackAIInteraction(AIEventType.EXTERNAL_AI_INITIALIZED, {
@@ -270,12 +271,12 @@ class ExternalAIService {
 
     // Gemini Configuration (only if selected)
     const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-2.5-pro';
+    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
     if (selectedProvider === 'gemini' && geminiKey && !isLikelyPlaceholder(geminiKey)) {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
         apiKey: geminiKey,
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        baseURL: 'https://generativelanguage.googleapis.com/v1',
         model: geminiModel,
         maxTokens: 4000,
         temperature: 0.7,
@@ -407,7 +408,8 @@ class ExternalAIService {
 
     // Sanitize messages
     const sanitizedMessages = messages.map(message => {
-      let sanitizedContent = message.content;
+      let sanitizedContent: string =
+        message?.content != null ? String((message as any).content) : '';
       
       // Apply PII patterns
       for (const [type, pattern] of Object.entries(piiPatterns)) {
@@ -659,15 +661,11 @@ class ExternalAIService {
     config?: AIRequestConfig,
     userId?: string
   ): Promise<EnhancedAIResponse> {
-    if (!this.isEnabled) {
-      const error = new Error('External AI Service is not enabled');
-      (error as any).code = AIErrorCode.FEATURE_DISABLED;
-      (error as any).severity = ErrorSeverity.MEDIUM;
-      (error as any).recoverable = true;
-      throw error;
-    }
-
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!this.isEnabled) {
+      // Graceful local fallback when external AI is disabled/unavailable
+      return this.getFallbackResponse(requestId, 0);
+    }
     const startTime = Date.now();
 
     try {
@@ -750,17 +748,33 @@ class ExternalAIService {
         } catch {}
       }
       
-      // API çağrısı yap
-      let response = await this.makeProviderRequest(provider, preparedRequest);
-      
-      // Fallback mekanizması
-      if (!response.success && provider !== this.getBackupProvider(provider)) {
-        if (__DEV__) console.warn(`⚠️ Primary provider ${provider} failed, trying backup...`);
-        const backupProvider = this.getBackupProvider(provider);
-        if (backupProvider) {
-          response = await this.makeProviderRequest(backupProvider, preparedRequest);
-          response.fallbackUsed = true;
+      // API çağrısı yap (aşamalı timeout + AbortController desteği)
+      const stagedTimeouts = [3000, 10000, 30000]; // 3/10/30s
+      let response: EnhancedAIResponse | null = null;
+      let lastError: any = null;
+      for (const stage of stagedTimeouts) {
+        try {
+          const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const timer = controller ? setTimeout(() => controller.abort(), stage) : null;
+          const reqWithTimeout = { ...preparedRequest, timeout: stage };
+          // Gemini implementasyonunda kendi timeout'u var; yine de dıştan abort sağlıyoruz
+          response = await this.makeProviderRequest(provider, reqWithTimeout);
+          if (timer) clearTimeout(timer as any);
+          if (response?.success) break;
+        } catch (e) {
+          lastError = e;
         }
+      }
+      if (!response) {
+        throw lastError || new Error('AI request failed with staged timeouts');
+      }
+      
+      // Fallback mekanizması (yerel heuristik)
+      if (!response.success) {
+        const heuristic = this.buildHeuristicFallback(messages, context);
+        // Telemetry: fallback tetiklendi
+        try { await trackAIInteraction(AIEventType.FALLBACK_TRIGGERED, { provider, reason: 'primary_failed' }, userId); } catch {}
+        return { ...heuristic, requestId, latency: Date.now() - startTime };
       }
 
       // Content filtering
@@ -885,60 +899,114 @@ class ExternalAIService {
         ? normalizedContents
         : [{ role: 'user', parts: [{ text: 'Kısa, güvenli ve terapötik bir yanıt üret.' }] }];
 
-      const fetchOptions: any = {
+      const buildFetchOptions = (body: any) => ({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: contentsToSend,
-          generationConfig: {
-            temperature: (req && req.temperature) != null ? req.temperature : config.temperature,
-            maxOutputTokens: (req && req.maxTokens) != null ? req.maxTokens : config.maxTokens
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-goog-api-key': config.apiKey
+        },
+        body: JSON.stringify(body),
+        signal: hasAbort && controller ? (controller as any).signal : undefined
+      } as any);
+
+      const buildBody = () => ({
+        contents: contentsToSend,
+        generationConfig: {
+          temperature: (req && req.temperature) != null ? req.temperature : config.temperature,
+          maxOutputTokens: (req && req.maxTokens) != null ? req.maxTokens : config.maxTokens
+        }
+      });
+
+      const attemptModels: string[] = Array.from(new Set([
+        config.model,
+        config.model?.includes('-latest') ? config.model : `${config.model}-latest`,
+        'gemini-1.5-pro',
+        'gemini-1.5-pro-latest'
+      ].filter(Boolean)));
+
+      let lastError: any = null;
+      for (const modelName of attemptModels) {
+        let response: any;
+        try {
+          response = await fetch(
+            `${config.baseURL}/models/${modelName}:generateContent`,
+            buildFetchOptions(buildBody())
+          );
+        } catch (netErr) {
+          if (__DEV__) console.warn('⚠️ Gemini network error at fetch():', netErr);
+          lastError = netErr;
+          continue;
+        }
+
+        if (!response.ok) {
+          let detail: any = null;
+          try { detail = await response.json(); } catch {}
+          if (__DEV__) console.warn(`⚠️ Gemini API error ${response.status} for model ${modelName}:`, detail?.error || detail || 'no-body');
+          // 400/404 -> model/validation fallbacks deneyelim
+          if (response.status === 400 || response.status === 404) {
+            lastError = detail || { status: response.status };
+            continue;
           }
-        })
-      };
-      if (hasAbort && controller) {
-        fetchOptions.signal = (controller as any).signal;
+          if (response.status === 429 || response.status >= 500) {
+            // Track rate limit/server error and backoff with jitter
+            try {
+              await trackAIInteraction(
+                response.status === 429 ? AIEventType.AI_RATE_LIMIT_HIT : AIEventType.API_ERROR,
+                { provider: 'gemini', status: response.status, model: modelName }
+              );
+            } catch {}
+
+            const attempt = (this as any)._retryAttempt ? (this as any)._retryAttempt + 1 : 1;
+            (this as any)._retryAttempt = attempt;
+            const base = 500;
+            const delay = Math.min(base * Math.pow(2, attempt), 8000) + Math.floor(Math.random() * 300);
+            await new Promise(res => setTimeout(res, delay));
+            lastError = detail || { status: response.status };
+            continue;
+          }
+          const err = new Error(`Gemini API error: ${response.status}`);
+          (err as any).code = AIErrorCode.PROVIDER_ERROR;
+          (err as any).detail = detail;
+          throw err;
+        }
+
+        let data: any;
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          if (__DEV__) console.warn('⚠️ Gemini response.json() parse error:', parseErr);
+          lastError = parseErr;
+          continue;
+        }
+
+        const contentText = (data?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined) || '';
+
+        if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
+
+        return {
+          success: true,
+          content: contentText,
+          provider: AIProvider.GEMINI,
+          model: modelName,
+          tokens: {
+            prompt: (data?.usageMetadata?.promptTokenCount as number | undefined) || 0,
+            completion: (data?.usageMetadata?.candidatesTokenCount as number | undefined) || 0,
+            total: (data?.usageMetadata?.totalTokenCount as number | undefined) || 0
+          },
+          latency: Date.now() - startTime,
+          timestamp: new Date(),
+          requestId: ''
+        };
       }
-      let response: any;
-      try {
-        response = await fetch(
-          `${config.baseURL}/models/${config.model}:generateContent?key=${config.apiKey}`,
-          fetchOptions
-        );
-      } catch (netErr) {
-        if (__DEV__) console.warn('⚠️ Gemini network error at fetch():', netErr);
-        throw netErr;
-      }
+
       if (hasAbort && timeoutId) clearTimeout(timeoutId as any);
 
-      if (!response.ok) {
-        const err = new Error(`Gemini API error: ${response.status}`);
-        (err as any).code = AIErrorCode.PROVIDER_ERROR;
-        throw err;
-      }
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (parseErr) {
-        if (__DEV__) console.warn('⚠️ Gemini response.json() parse error:', parseErr);
-        throw parseErr;
-      }
-      
-      return {
-        success: true,
-        content: data.candidates[0]?.content?.parts[0]?.text || '',
-        provider: AIProvider.GEMINI,
-        model: config.model,
-        tokens: {
-          prompt: data.usageMetadata?.promptTokenCount || 0,
-          completion: data.usageMetadata?.candidatesTokenCount || 0,
-          total: data.usageMetadata?.totalTokenCount || 0
-        },
-        latency: Date.now() - startTime,
-        timestamp: new Date(),
-        requestId: ''
-      };
+      const err = new Error(`Gemini API call failed (all fallbacks). Last error: ${JSON.stringify(lastError)}`);
+      (err as any).code = AIErrorCode.PROVIDER_ERROR;
+      (err as any).severity = ErrorSeverity.HIGH;
+      (err as any).recoverable = true;
+      throw err;
 
     } catch (error) {
       if (__DEV__) console.error('❌ Gemini API call failed:', error);
@@ -993,7 +1061,7 @@ class ExternalAIService {
     context: ConversationContext,
     config?: AIRequestConfig
   ): Promise<any> {
-    return {
+    const body: any = {
       messages: messages.map(msg => ({
         role: msg.role,
         content: msg.content
@@ -1002,6 +1070,13 @@ class ExternalAIService {
       temperature: config?.temperature,
       model: config?.model
     };
+    if (config?.systemPrompt) {
+      body.systemInstruction = {
+        role: 'system',
+        parts: [{ text: String(config.systemPrompt) }]
+      };
+    }
+    return body;
   }
 
   private async checkRateLimit(provider: AIProvider): Promise<void> {
@@ -1049,12 +1124,70 @@ class ExternalAIService {
     return {
       success: false,
       content: 'Üzgünüm, şu anda AI sistemi kullanılamıyor. Lütfen daha sonra tekrar deneyin. Bu arada nefes alma egzersizi yapmayı deneyebilirsiniz: 4 saniye nefes alın, 4 saniye tutun, 6 saniye bırakın.',
-      provider: AIProvider.GEMINI,
-      model: 'fallback',
+      provider: AIProvider.LOCAL,
+      model: 'heuristic-fallback',
       tokens: { prompt: 0, completion: 0, total: 0 },
       latency,
       timestamp: new Date(),
       requestId,
+      fallbackUsed: true
+    };
+  }
+
+  /**
+   * Basit bellek izleme (yaklaşık) ve telemetri.
+   */
+  private startMemoryProbe(): void {
+    try {
+      if ((this as any)._memoryProbeStarted) return;
+      (this as any)._memoryProbeStarted = true;
+      (this as any)._memoryProbeTimer = setInterval(() => {
+        try {
+          const cacheEntries = this.responseCache.size;
+          const rateTrackers = this.userRateLimits.size;
+          const queueSize = this.requestQueue.size;
+          let usedHeap = null as null | number;
+          const perf: any = (globalThis as any).performance;
+          if (perf && perf.memory && typeof perf.memory.usedJSHeapSize === 'number') {
+            usedHeap = perf.memory.usedJSHeapSize;
+          }
+          trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'memory_probe',
+            usedHeap,
+            cacheEntries,
+            rateTrackers,
+            queueSize
+          }).catch(() => {});
+          // 150MB eşiği aşıldıysa Safe Mode uyarısı/temizliği
+          const threshold = 150 * 1024 * 1024;
+          if (typeof usedHeap === 'number' && usedHeap > threshold) {
+            // Basit önlem: cache temizle ve uyarı telemetrisi
+            this.responseCache.clear();
+            trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+              event: 'memory_threshold_exceeded',
+              usedHeap
+            }).catch(() => {});
+          }
+        } catch {}
+      }, 60_000);
+    } catch {}
+  }
+
+  /**
+   * Yerel heuristik fallback içerik oluşturucu (on-device, privacy-first)
+   */
+  private buildHeuristicFallback(messages: AIMessage[] = [], context?: ConversationContext): EnhancedAIResponse {
+    const { getHeuristicText } = require('@/features/ai/services/heuristicFallback');
+    const text = getHeuristicText(messages, context);
+    return {
+      success: true,
+      content: text,
+      provider: AIProvider.LOCAL,
+      model: 'heuristic-fallback',
+      tokens: { prompt: 0, completion: 0, total: 0 },
+      latency: 0,
+      timestamp: new Date(),
+      requestId: '',
       fallbackUsed: true
     };
   }
@@ -1101,6 +1234,13 @@ class ExternalAIService {
     this.isEnabled = false;
     this.requestQueue.clear();
     this.rateLimiter.clear();
+    try {
+      if ((this as any)._memoryProbeTimer) {
+        clearInterval((this as any)._memoryProbeTimer);
+        (this as any)._memoryProbeTimer = undefined;
+        (this as any)._memoryProbeStarted = false;
+      }
+    } catch {}
     
     await trackAIInteraction(AIEventType.EXTERNAL_AI_SHUTDOWN, {
       providersShutdown: this.providers.size
