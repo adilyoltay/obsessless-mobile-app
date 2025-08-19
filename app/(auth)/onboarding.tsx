@@ -89,6 +89,32 @@ export default function OnboardingScreen() {
           ]);
         } catch (dbErr) {
           console.warn('⚠️ AI tables upsert failed (local data saved, will sync later):', (dbErr as any)?.message);
+          // Queue onboarding artifacts for offline sync
+          try {
+            const { offlineSyncService } = await import('@/services/offlineSync');
+            await offlineSyncService.addToSyncQueue({
+              type: 'CREATE',
+              entity: 'ai_profile' as any,
+              data: {
+                user_id: user.id,
+                profile_data: userProfile,
+                onboarding_completed: true,
+                created_at: new Date().toISOString(),
+              },
+            });
+            await offlineSyncService.addToSyncQueue({
+              type: 'CREATE',
+              entity: 'treatment_plan' as any,
+              data: {
+                user_id: user.id,
+                plan_data: treatmentPlan,
+                status: 'active',
+                created_at: new Date().toISOString(),
+              },
+            });
+          } catch (queueErr) {
+            console.warn('⚠️ Failed to enqueue onboarding data for offline sync:', queueErr);
+          }
         }
       }
       

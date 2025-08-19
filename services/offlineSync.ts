@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry';
+  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -172,6 +172,12 @@ export class OfflineSyncService {
       case 'erp_session':
         await this.syncERPSession(item);
         break;
+      case 'ai_profile':
+        await this.syncAIProfile(item);
+        break;
+      case 'treatment_plan':
+        await this.syncTreatmentPlan(item);
+        break;
       case 'achievement':
         await this.syncAchievement(item);
         break;
@@ -230,6 +236,18 @@ export class OfflineSyncService {
       }
       // ERP sessions typically aren't deleted
     }
+  }
+
+  private async syncAIProfile(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
+    const d = item.data || {};
+    await (svc as any).upsertAIProfile(d.user_id, d.profile_data, !!d.onboarding_completed);
+  }
+
+  private async syncTreatmentPlan(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
+    const d = item.data || {};
+    await (svc as any).upsertAITreatmentPlan(d.user_id, d.plan_data, d.status || 'active');
   }
 
   // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)

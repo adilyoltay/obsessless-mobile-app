@@ -122,24 +122,156 @@ class EnhancedAIDataAggregationService {
 
   private async analyzeSymptoms(compulsions: any[], moods: any[]): Promise<any> {
     const categoryFreq = new Map<string, number>();
-    compulsions.forEach(c => {
-      const k = c.category || 'other';
-      categoryFreq.set(k, (categoryFreq.get(k) || 0) + 1);
+    const severityByCategory = new Map<string, number[]>();
+    const timePatterns = new Map<string, number[]>();
+    compulsions.forEach((c) => {
+      const category = c.category || 'other';
+      const hour = new Date(c.timestamp || c.created_at || Date.now()).getHours();
+      categoryFreq.set(category, (categoryFreq.get(category) || 0) + 1);
+      if (!severityByCategory.has(category)) severityByCategory.set(category, []);
+      severityByCategory.get(category)!.push(Number(c.resistance_level ?? 5));
+      if (!timePatterns.has(category)) timePatterns.set(category, Array(24).fill(0));
+      timePatterns.get(category)![hour]++;
     });
-    const primaryCategories = Array.from(categoryFreq.entries()).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>k);
-    return { primaryCategories, severityTrend: 'stable' };
+
+    const primaryCategories = Array.from(categoryFreq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([k]) => k);
+
+    // Severity trend
+    let severityTrend: 'improving' | 'worsening' | 'stable' = 'stable';
+    if (compulsions.length >= 7) {
+      const recent = compulsions.slice(-7);
+      const previous = compulsions.slice(-14, -7);
+      if (previous.length > 0) {
+        const recentAvg = recent.reduce((s, c) => s + Number(c.resistance_level ?? 5), 0) / recent.length;
+        const prevAvg = previous.reduce((s, c) => s + Number(c.resistance_level ?? 5), 0) / previous.length;
+        if (recentAvg > prevAvg + 1) severityTrend = 'improving';
+        else if (recentAvg < prevAvg - 1) severityTrend = 'worsening';
+      }
+    }
+
+    // Peak hours
+    const peakHours: number[] = [];
+    timePatterns.forEach((hours) => {
+      const maxCount = Math.max(...hours);
+      hours.forEach((count, hour) => {
+        if (count === maxCount && count > 0) peakHours.push(hour);
+      });
+    });
+
+    // Mood correlation approximation
+    const anxietyLevels = moods.map((m) => Number(m.anxiety_level ?? 5));
+    const avgAnxiety = anxietyLevels.length > 0 ? anxietyLevels.reduce((a, b) => a + b, 0) / anxietyLevels.length : 5;
+
+    return {
+      primaryCategories,
+      severityTrend,
+      averageSeverity:
+        compulsions.length > 0
+          ? compulsions.reduce((sum, c) => sum + Number(c.resistance_level ?? 5), 0) / compulsions.length
+          : 0,
+      peakHours: Array.from(new Set(peakHours)).sort((a, b) => a - b),
+      anxietyCorrelation: avgAnxiety > 7 ? 'high' : avgAnxiety > 4 ? 'moderate' : 'low',
+      totalCompulsions: compulsions.length,
+      categoryCounts: Object.fromEntries(categoryFreq),
+    };
   }
+
   private async calculateDetailedPerformance(erp: any[], comp: any[]): Promise<any> {
-    return { erpCompletionRate: erp.length === 0 ? 100 : Math.round((erp.filter((e:any)=>e.completed).length/erp.length)*100), streakDays: 0 };
+    const total = erp.length;
+    const completed = erp.filter((e: any) => !!e.completed);
+    const erpCompletionRate = total === 0 ? 0 : Math.round((completed.length / total) * 100);
+
+    // Anxiety reduction across completed
+    let anxietyReduction = 0;
+    if (completed.length > 0) {
+      const reductions = completed.map((s: any) => {
+        const initial = Number(s.anxiety_initial ?? 10);
+        const final = Number(s.anxiety_final ?? initial);
+        return ((initial - final) / initial) * 100;
+      });
+      anxietyReduction = reductions.reduce((a: number, b: number) => a + b, 0) / reductions.length;
+    }
+
+    // Streak calculation (activity per day)
+    let streakDays = 0;
+    const today = new Date();
+    const activityDates = new Set<string>();
+    [...comp, ...erp].forEach((item: any) => {
+      const ts = item.timestamp || item.created_at;
+      if (!ts) return;
+      activityDates.add(new Date(ts).toDateString());
+    });
+    for (let i = 0; i < 30; i++) {
+      const checkDate = new Date(today.getTime() - i * 86400000).toDateString();
+      if (activityDates.has(checkDate)) streakDays++;
+      else if (i > 0) break;
+    }
+
+    // Resistance improvement week over week
+    let resistanceImprovement = 0;
+    if (comp.length >= 14) {
+      const recent = comp.slice(-7);
+      const previous = comp.slice(-14, -7);
+      if (previous.length > 0) {
+        const recentAvg = recent.reduce((s: number, c: any) => s + Number(c.resistance_level ?? 0), 0) / recent.length;
+        const prevAvg = previous.reduce((s: number, c: any) => s + Number(c.resistance_level ?? 0), 0) / previous.length;
+        resistanceImprovement = ((recentAvg - prevAvg) / (prevAvg || 1)) * 100;
+      }
+    }
+
+    return {
+      erpCompletionRate,
+      anxietyReduction: Math.round(anxietyReduction),
+      streakDays,
+      totalERPSessions: total,
+      completedERPSessions: completed.length,
+      resistanceImprovement: Math.round(resistanceImprovement),
+      weeklyActivity: Math.round((activityDates.size / 7) * 100),
+    };
   }
+
   private async extractAdvancedPatterns(compulsions: any[], moods: any[], erpSessions: any[]): Promise<any> {
+    // Placeholder for future advanced pattern mining; keep basic structure
     return { timeBasedPatterns: [], successFactors: [], riskPeriods: [] };
   }
+
   private async generateInsights(symptoms: any, performance: any, patterns: any): Promise<any> {
-    return { key_findings: [], improvement_areas: [], strengths: [], warnings: [] };
+    const insights = { key_findings: [] as string[], improvement_areas: [] as string[], strengths: [] as string[], warnings: [] as string[] };
+    if (symptoms.severityTrend === 'improving') insights.key_findings.push('Kompulsiyon direncinde iyileşme gözleniyor');
+    if (performance.streakDays >= 7) insights.key_findings.push(`${performance.streakDays} gündür düzenli aktivite`);
+    if (performance.anxietyReduction > 30) insights.key_findings.push('ERP egzersizlerinde anlamlı anksiyete azalması');
+
+    if (performance.erpCompletionRate < 50) insights.improvement_areas.push('ERP egzersizi tamamlama oranını artırın');
+    if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) insights.improvement_areas.push(`${symptoms.primaryCategories[0]} kompulsiyonlarına odaklanın`);
+
+    if (performance.streakDays > 0) insights.strengths.push('Düzenli kullanım alışkanlığı');
+    if (performance.resistanceImprovement > 10) insights.strengths.push('Kompulsiyonlara karşı direnç artıyor');
+
+    if (symptoms.severityTrend === 'worsening') insights.warnings.push('Son hafta kompulsiyon şiddeti artmış olabilir');
+    if (symptoms.anxietyCorrelation === 'high') insights.warnings.push('Anksiyete seviyeleri yüksek');
+    return insights;
   }
+
   private async generateRecommendations(insights: any, symptoms: any, performance: any): Promise<any> {
-    return { immediate: [], weekly: [], longTerm: [] };
+    const recommendations = { immediate: [] as any[], weekly: [] as any[], longTerm: [] as any[] };
+    if (symptoms.peakHours && symptoms.peakHours.length > 0) {
+      const peak = symptoms.peakHours[0];
+      recommendations.immediate.push({ type: 'timing', title: 'Kritik Saat Uyarısı', description: `Kompulsiyonlar genelde ${peak}:00 civarında artıyor`, action: 'Hatırlatıcı kur' });
+    }
+    if (performance.erpCompletionRate < 50) {
+      recommendations.immediate.push({ type: 'erp', title: 'ERP Egzersizi Önerisi', description: 'Bugün kısa bir ERP egzersizi deneyin', action: 'Egzersize başla' });
+    }
+    if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) {
+      const top = symptoms.primaryCategories[0];
+      recommendations.weekly.push({ type: 'focus', title: `${top} kompulsiyonlarına odaklan`, description: `Bu hafta ${top} kategorisinde çalışın`, action: 'Plan oluştur' });
+    }
+    if (performance.streakDays < 7) {
+      recommendations.longTerm.push({ type: 'habit', title: 'Düzenli Takip Alışkanlığı', description: '21 günlük takip hedefi belirleyin', action: 'Hedef belirle' });
+    }
+    return recommendations;
   }
 }
 
