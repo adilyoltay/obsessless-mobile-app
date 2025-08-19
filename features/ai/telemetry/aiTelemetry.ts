@@ -218,6 +218,16 @@ export enum AIEventType {
   INSIGHTS_FEEDBACK = 'insights_feedback',
   INTERVENTION_RECOMMENDED = 'intervention_recommended',
   YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed'
+  ,
+  // Legacy aliases (compat)
+  SERVICE_ACCESSED = 'service_accessed',
+  SESSION_STARTED = 'session_started',
+  ART_THERAPY_STARTED = 'art_therapy_started',
+  ART_THERAPY_COMPLETED = 'art_therapy_completed',
+  AI_ANALYSIS_COMPLETED = 'cbt_analysis_completed',
+  PROFILE_CREATED = 'user_profile_generated',
+  YBOCS_COMPLETED = 'ybocs_analysis_completed',
+  INTERVENTION_COMPLETED = 'intervention_delivered'
 }
 
 // Build a runtime set for event validation (after enum declaration)

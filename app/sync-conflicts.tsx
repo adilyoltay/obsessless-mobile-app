@@ -53,12 +53,12 @@ export default function SyncConflictsScreen() {
               <View key={c.id} style={styles.row}>
                 <Text style={styles.id}>#{c.id}</Text>
                 <Text style={styles.diff}>Yerel ve uzak veriler farklı. LWW uygulandı.</Text>
-                <View style={styles.choice}>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'local')} style={[styles.btn, styles.btnSmall]}>
-                    <Text style={styles.btnSmallText}>Yerel</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'local')} style={[styles.btn, { paddingVertical: 6, paddingHorizontal: 10 }]}>
+                    <Text style={{ color: 'white' }}>Yerel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'remote')} style={[styles.btn, styles.btnSmall]}>
-                    <Text style={styles.btnSmallText}>Sunucu</Text>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => resolve(c.id, 'remote')} style={[styles.btn, { paddingVertical: 6, paddingHorizontal: 10 }]}>
+                    <Text style={{ color: 'white' }}>Sunucu</Text>
                   </TouchableOpacity>
                 </View>
               </View>

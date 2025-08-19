@@ -57,7 +57,7 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile } = useAuth();
-  const { aiConsents, setConsent } = useAISettingsStore();
+  const aiStore = useAISettingsStore();
   const [consents, setConsents] = useState<Record<string, boolean>>({
     data_processing: false,
     analytics: false,
@@ -314,17 +314,17 @@ export default function SettingsScreen() {
         <View style={styles.profileStats}>
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="fire" size={16} color="#EF4444" />
-            <Text style={styles.profileStatText}>{profile?.currentStreak || 0} gün</Text>
+            <Text style={styles.profileStatText}>{(profile as any)?.currentStreak || 0} gün</Text>
           </View>
           <View style={styles.profileStatDivider} />
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="trophy" size={16} color="#10B981" />
-            <Text style={styles.profileStatText}>{profile?.level || 1}. seviye</Text>
+            <Text style={styles.profileStatText}>{(profile as any)?.level || 1}. seviye</Text>
           </View>
           <View style={styles.profileStatDivider} />
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="star" size={16} color="#F59E0B" />
-            <Text style={styles.profileStatText}>{profile?.healingPointsTotal || 0} puan</Text>
+            <Text style={styles.profileStatText}>{(profile as any)?.healingPointsTotal || 0} puan</Text>
           </View>
         </View>
       </View>
