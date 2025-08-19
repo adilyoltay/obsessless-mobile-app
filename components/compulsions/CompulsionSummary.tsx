@@ -302,21 +302,21 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
             </View>
             
             <View style={styles.statItem}>
-              <Text variant="headlineMedium" style={[styles.statNumber, { color: getIntensityColor(stats.averageIntensity) }]}>
-                {stats.averageIntensity}/10
+              <Text variant="headlineMedium" style={[styles.statNumber, { color: getIntensityColor(stats.averageIntensity || 0) }]}> 
+                {(stats.averageIntensity || 0)}/10
               </Text>
               <Text variant="bodySmall" style={styles.statLabel}>Ortalama Şiddet</Text>
             </View>
             
             <View style={styles.statItem}>
-              <Text variant="headlineMedium" style={[styles.statNumber, { color: getResistanceColor(stats.averageResistance) }]}>
-                {stats.averageResistance}/10
+              <Text variant="headlineMedium" style={[styles.statNumber, { color: getResistanceColor(stats.averageResistance || 0) }]}> 
+                {(stats.averageResistance || 0)}/10
               </Text>
               <Text variant="bodySmall" style={styles.statLabel}>Ortalama Direnç</Text>
             </View>
           </View>
 
-          {stats.longestDuration > 0 && (
+          {(stats.longestDuration || 0) > 0 && (
             <View style={styles.additionalStats}>
               <Divider style={styles.divider} />
               <View style={styles.additionalStatsRow}>
@@ -324,7 +324,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
                   ⏱️ En Uzun Süre: 
                 </Text>
                 <Text variant="bodyMedium" style={styles.additionalStatValue}>
-                  {formatDuration(stats.longestDuration)}
+                  {formatDuration(stats.longestDuration || 0)}
                 </Text>
               </View>
               

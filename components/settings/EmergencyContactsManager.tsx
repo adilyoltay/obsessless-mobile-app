@@ -207,7 +207,7 @@ export default function EmergencyContactsManager() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <MaterialCommunityIcons name="phone-alert" size={24} color="#dc2626" />
+        <MaterialCommunityIcons name={"phone-alert" as any} size={24} color="#dc2626" />
         <Text style={styles.title}>Acil Durum Kişileri</Text>
       </View>
 
@@ -256,13 +256,13 @@ export default function EmergencyContactsManager() {
                     onPress={() => openEditModal(contact)}
                     style={styles.actionButton}
                   >
-                    <MaterialCommunityIcons name="pencil" size={20} color="#6b7280" />
+                    <MaterialCommunityIcons name={"pencil" as any} size={20} color="#6b7280" />
                   </Pressable>
                   <Pressable 
                     onPress={() => deleteContact(contact.id)}
                     style={styles.actionButton}
                   >
-                    <MaterialCommunityIcons name="delete" size={20} color="#ef4444" />
+                    <MaterialCommunityIcons name={"delete" as any} size={20} color="#ef4444" />
                   </Pressable>
                 </View>
               </View>
