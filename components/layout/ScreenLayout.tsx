@@ -36,13 +36,36 @@ function ScreenLayout({
       return <Text key={`${keyPrefix}_txt`}>{node}</Text>;
     }
     if (Array.isArray(node)) {
-      return node.map((child, idx) => wrapTextNodesDeep(child, `${keyPrefix}_${idx}`));
+      return node.map((child, idx) => {
+        const wrappedChild = wrapTextNodesDeep(child, `${keyPrefix}_${idx}`);
+        if (React.isValidElement(wrappedChild)) {
+          // Ensure key exists for array children
+          // If key is missing or null, clone with a stable key
+          // @ts-ignore - key is readonly in types but React accepts overriding via cloneElement
+          if (wrappedChild.key == null) {
+            return React.cloneElement(wrappedChild as any, { key: `${keyPrefix}_${idx}` });
+          }
+        }
+        return wrappedChild;
+      });
     }
     if (React.isValidElement(node)) {
       const origChildren = (node as any).props?.children;
       if (origChildren === undefined) return node;
       const wrapped = wrapTextNodesDeep(origChildren, `${keyPrefix}_c`);
-      return React.cloneElement(node as any, undefined, wrapped);
+      // If wrapped is an array, ensure each child has a key
+      const childrenWithKeys = Array.isArray(wrapped)
+        ? wrapped.map((ch, idx) => {
+            if (React.isValidElement(ch)) {
+              // @ts-ignore
+              if (ch.key == null) {
+                return React.cloneElement(ch as any, { key: `${keyPrefix}_c_${idx}` });
+              }
+            }
+            return ch;
+          })
+        : wrapped;
+      return React.cloneElement(node as any, undefined, childrenWithKeys);
     }
     return node;
   };
