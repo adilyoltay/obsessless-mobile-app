@@ -69,7 +69,37 @@ export default function VoiceMoodCheckin() {
           confidence: n.confidence,
           lang: n.lang,
         });
-      } catch {}
+        // Mikro ödül: voice mood check-in
+        try {
+          const { useGamificationStore } = await import('@/store/gamificationStore');
+          useGamificationStore.getState().awardMicroReward('voice_mood_checkin');
+        } catch {}
+      } catch (dbErr) {
+        // Supabase başarısız: offline kuyruk
+        try {
+          const { offlineSyncService } = await import('@/services/offlineSync');
+          await offlineSyncService.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'voice_checkin',
+            data: {
+              id: item.id,
+              user_id: user.id,
+              text,
+              mood: n.mood,
+              trigger: n.trigger,
+              confidence: n.confidence,
+              lang: n.lang,
+              timestamp: item.createdAt,
+              kind: 'voice_checkin',
+            },
+          });
+          // Mikro ödül yine de verilsin (offline durumda da teşvik)
+          try {
+            const { useGamificationStore } = await import('@/store/gamificationStore');
+            useGamificationStore.getState().awardMicroReward('voice_mood_checkin');
+          } catch {}
+        } catch {}
+      }
     } catch { /* ignore */ }
   };
 

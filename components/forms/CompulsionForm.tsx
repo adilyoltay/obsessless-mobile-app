@@ -38,6 +38,7 @@ export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void })
     notes: ''
   });
   const [loading, setLoading] = useState(false);
+  const createCompulsion = useCreateCompulsion();
 
   const handleSave = async () => {
     if (!formData.type) {
@@ -47,17 +48,15 @@ export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void })
 
     setLoading(true);
     try {
-      const compulsionData = {
-        ...formData,
-        timestamp: new Date().toISOString(),
-        id: Date.now().toString()
-      };
-
-      // Save to AsyncStorage
-      // const existingData = await AsyncStorage.getItem('compulsions');
-      // const compulsions = existingData ? JSON.parse(existingData) : [];
-      // compulsions.push(compulsionData);
-      // await AsyncStorage.setItem('compulsions', JSON.stringify(compulsions));
+      // Offline-first kayıt pipeline'ına bağlan
+      await createCompulsion.mutateAsync({
+        type: formData.type,
+        severity: formData.severity,
+        resistanceLevel: formData.resistanceLevel,
+        duration: formData.duration,
+        trigger: formData.trigger,
+        notes: formData.notes,
+      });
 
       // Reset form
       setFormData({
@@ -71,7 +70,7 @@ export function CompulsionForm({ onSubmit }: { onSubmit?: (data: any) => void })
       });
 
       Alert.alert('Başarılı', 'Kompulsiyon kaydedildi');
-      onSubmit?.(compulsionData);
+      onSubmit?.({ ...formData });
     } catch (error) {
       Alert.alert('Hata', 'Kaydetme sırasında bir hata oluştu');
     } finally {

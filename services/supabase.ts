@@ -812,12 +812,11 @@ class SupabaseNativeService {
           streak_count: 0,
           healing_points_total: 0,
           healing_points_today: 0,
-          streak_last_update: new Date().toISOString(),
+          streak_last_update: new Date().toISOString().split('T')[0],
           level: 1,
           achievements: [],
           micro_rewards: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          // created_at DB'de yok; updated_at trigger ile güncellenir
         }, {
           onConflict: 'user_id'
         })
