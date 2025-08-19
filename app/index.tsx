@@ -15,7 +15,7 @@ export default function Index() {
     const handleInitialNavigation = async () => {
       if (isLoading) return; // Wait for auth to complete
 
-      console.log('🏠 Index: Handling initial navigation...', { user: !!user, loading });
+      console.log('🏠 Index: Handling initial navigation...', { user: !!user, isLoading });
 
       try {
         if (!user) {

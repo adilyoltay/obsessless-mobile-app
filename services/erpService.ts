@@ -103,9 +103,7 @@ class ERPService {
       const newExercise: ERPExercise = {
         ...data,
         id: Date.now().toString(),
-        createdAt: new Date(),
-        completedSessions: 0,
-        averageAnxiety: 0
+        createdAt: new Date()
       };
 
       // Save to AsyncStorage (offline-first)
