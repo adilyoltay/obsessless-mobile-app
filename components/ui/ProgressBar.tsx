@@ -74,7 +74,7 @@ export function ProgressBar({
       <Animated.View style={[progressStyle, animatedStyle]}>
         {gradient ? (
           <LinearGradient
-            colors={gradientColors}
+            colors={gradientColors as any}
             style={[StyleSheet.absoluteFill, { borderRadius }]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}

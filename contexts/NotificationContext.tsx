@@ -284,7 +284,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const value: NotificationContextType = {
+  const value: any = {
+    // Public API expected by consumers
     isEnabled,
     fcmToken,
     enableNotifications,
@@ -292,20 +293,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     scheduleERPReminder,
     scheduleDailyReminder,
     sendProgressMilestone,
-  };
-
-  const internalValue = {
+    // Internal helpers also exposed for existing usages
     notificationEnabled,
     dailyReminders,
     scheduleCompulsionReminder,
-    scheduleERPReminder: scheduleERPReminderInternal,
+    scheduleERPReminderInternal,
     sendMotivationalNotification,
     cancelAllReminders,
-    setupNotifications
+    setupNotifications,
   };
 
   return (
-    <NotificationContext.Provider value={internalValue}>
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );

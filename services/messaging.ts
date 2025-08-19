@@ -216,7 +216,7 @@ export class MessagingService {
     }
   }
 
-  async getExpoPushToken(): Promise<string | null> {
+  async getFCMToken(): Promise<string | null> {
     try {
       if (Platform.OS === 'web') return null;
       

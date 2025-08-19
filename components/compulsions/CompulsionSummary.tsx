@@ -121,7 +121,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
     ) as any;
 
     // Find longest duration
-    const longestDuration = Math.max(...filteredEntries.map(entry => entry.duration || 0));
+    const longestDuration = Math.max(0, ...filteredEntries.map(entry => entry.duration || 0));
 
     // Improvement percentage vs previous same-sized window
     const windowMillis = selectedPeriod === 'today' ? 24*60*60*1000 : selectedPeriod === 'week' ? 7*24*60*60*1000 : 30*24*60*60*1000;
@@ -413,13 +413,13 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
                     style={[
                       styles.barFill, 
                       { 
-                        height: Math.max(4, (day.totalCompulsions / Math.max(...dailyBreakdown.map(d => d.totalCompulsions), 1)) * 100),
-                        backgroundColor: day.totalCompulsions > 0 ? '#10B981' : '#E5E7EB'
+                        height: Math.max(4, ((day.totalCompulsions || 0) / Math.max(...dailyBreakdown.map(d => d.totalCompulsions || 0), 1)) * 100),
+                        backgroundColor: (day.totalCompulsions || 0) > 0 ? '#10B981' : '#E5E7EB'
                       }
                     ]} 
                   />
                   <Text variant="bodySmall" style={styles.chartLabel}>
-                    {day.date.getDate()}
+                    {(day.date instanceof Date ? day.date : new Date(day.date)).getDate()}
                   </Text>
                   <Text variant="bodySmall" style={styles.chartCount}>
                     {day.totalCompulsions}
