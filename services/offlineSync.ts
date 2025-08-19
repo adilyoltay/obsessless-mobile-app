@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeStorageKey } from '@/lib/queryClient';
 import NetInfo from '@react-native-community/netinfo';
-// Removed REST apiService usage; all sync goes through supabaseService per architecture
+import { apiService } from './api';
 import supabaseService from '@/services/supabase';
 import conflictResolver, { DataConflict } from './conflictResolution';
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin';
+  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -172,9 +172,6 @@ export class OfflineSyncService {
       case 'erp_session':
         await this.syncERPSession(item);
         break;
-      case 'voice_checkin':
-        await this.syncVoiceCheckin(item);
-        break;
       case 'ai_profile':
         await this.syncAIProfile(item);
         break;
@@ -322,24 +319,6 @@ export class OfflineSyncService {
         await (tracker as any).markAsSynced(e.id, e.user_id);
       }
     } catch {}
-  }
-
-  private async syncVoiceCheckin(item: SyncQueueItem): Promise<void> {
-    try {
-      const { default: svc } = await import('@/services/supabase');
-      await (svc as any).saveVoiceCheckin({
-        user_id: item.data.user_id,
-        text: item.data.text,
-        mood: item.data.mood,
-        trigger: item.data.trigger,
-        confidence: item.data.confidence,
-        lang: item.data.lang,
-        created_at: item.data.timestamp,
-      });
-    } catch (e) {
-      console.warn('Voice check-in sync failed:', e);
-      throw e;
-    }
   }
 
   private async handleFailedSync(item: SyncQueueItem): Promise<void> {
