@@ -43,18 +43,66 @@ export interface CompulsionType {
   category: 'cleaning' | 'checking' | 'symmetry' | 'counting' | 'mental' | 'other';
 }
 
+// Uygulama genelinde kullanılan geniş kapsamlı istatistik tipi
 export interface CompulsionStats {
+  // Summary component alanları
+  totalEntries?: number;
+  todayEntries?: number;
+  weeklyEntries?: number;
+  monthlyEntries?: number;
+  averageIntensity?: number;
+  averageResistance?: number;
+  longestDuration?: number;
+  improvementPercentage?: number;
+  streakDays?: number;
+  // Eski alanlar (geriye dönük uyumluluk)
   totalCompulsions: number;
   avgResistance: number;
   mostCommonType: string;
-  improvementTrend: string;
+  improvementTrend?: string;
 }
 
 export interface DailyCompulsionSummary {
-  date: string;
+  date: string | Date;
   count: number;
   avgResistance: number;
   types: string[];
+  // Summary bileşeninde kullanılan alanlar
+  totalCompulsions?: number;
+  averageIntensity?: number;
+  averageResistance?: number;
+  totalDuration?: number;
+  mood?: 'positive' | 'neutral' | 'negative';
+  compulsionsByType?: Record<string, number>;
+}
+
+// Kategori tipi (constants ile hizalı)
+export type CompulsionCategory =
+  | 'washing'
+  | 'checking'
+  | 'counting'
+  | 'ordering'
+  | 'symmetry'
+  | 'touching'
+  | 'hoarding'
+  | 'reassurance'
+  | 'avoidance'
+  | 'mental'
+  | 'other';
+
+// Kayıt tipi (Summary/Stats bileşenleri ve servisler için)
+export interface CompulsionEntry {
+  id: string;
+  userId?: string;
+  type: CompulsionCategory | string;
+  intensity: number; // 0-10
+  resistanceLevel: number; // 0-10
+  duration?: number; // minutes
+  notes?: string;
+  mood?: number | string;
+  timestamp: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Kompulsiyon türleri - OKB'de en sık görülen obsesyon/kompulsiyon temaları

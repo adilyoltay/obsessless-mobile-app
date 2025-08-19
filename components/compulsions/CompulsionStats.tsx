@@ -14,7 +14,7 @@ export default function CompulsionStats() {
     avgResistance: 0,
     mostCommonType: '',
     improvementRate: 0,
-    weeklyTrend: []
+    weeklyTrend: [] as any[]
   });
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function CompulsionStats() {
   };
 
   const generateWeeklyTrend = (data: any[]) => {
-    const weekly = [];
+    const weekly: any[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);

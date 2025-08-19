@@ -99,7 +99,9 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
         mostCommonType: 'washing',
         longestDuration: 0,
         improvementPercentage: 0,
-        streakDays: 0
+        streakDays: 0,
+        totalCompulsions: 0,
+        avgResistance: 0
       };
     }
 
@@ -153,7 +155,9 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
       mostCommonType,
       longestDuration,
       improvementPercentage,
-      streakDays
+      streakDays,
+      totalCompulsions: filteredEntries.length,
+      avgResistance: Number(avgResistance.toFixed(1))
     };
   }, [filteredEntries]);
 
@@ -213,8 +217,13 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
 
       days.push({
         date: dayStart,
+        count: dayEntries.length,
+        avgResistance: dayEntries.length > 0
+          ? Number((dayEntries.reduce((sum, e) => sum + e.resistanceLevel, 0) / dayEntries.length).toFixed(1))
+          : 0,
+        types: Object.keys(compulsionsByType),
         totalCompulsions: dayEntries.length,
-        averageIntensity: dayEntries.length > 0 
+        averageIntensity: dayEntries.length > 0
           ? Number((dayEntries.reduce((sum, e) => sum + e.intensity, 0) / dayEntries.length).toFixed(1))
           : 0,
         averageResistance: dayEntries.length > 0
@@ -223,7 +232,7 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
         totalDuration: dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0),
         mood: moodAvg >= 0.7 ? 'positive' : moodAvg <= 0.3 ? 'negative' : 'neutral',
         compulsionsByType: compulsionsByType as any
-      });
+      } as any);
     }
     
     return days;

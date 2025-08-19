@@ -40,7 +40,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 
 // Auth
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { awardMicroReward } from '@/services/achievementService';
+import awardMicroReward from '@/services/achievementService';
 import enhancedAchievements from '@/services/enhancedAchievementService';
 
 const { width } = Dimensions.get('window');

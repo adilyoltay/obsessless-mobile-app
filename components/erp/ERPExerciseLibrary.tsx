@@ -4,13 +4,13 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-nati
 import { Card, Title, Paragraph, Button, Chip, Avatar, Searchbar, List, Badge } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ERP_EXERCISES, getERPExercisesByCompulsion, EXPOSURE_CATEGORIES } from '@/constants/erpExercises';
-import { ERPExercise } from '@/types/erp';
+import type { ERPLibraryExercise } from '@/constants/erpExercises';
 import { CANONICAL_CATEGORIES, mapToCanonicalCategory } from '@/utils/categoryMapping';
 import { getCanonicalCategoryColor, getCanonicalCategoryIconName } from '@/constants/canonicalCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface ERPExerciseLibraryProps {
-  onSelectExercise: (exercise: ERPExercise) => void;
+  onSelectExercise: (exercise: ERPLibraryExercise) => void;
   selectedCompulsionType?: string;
 }
 
@@ -18,7 +18,7 @@ export function ERPExerciseLibrary({ onSelectExercise, selectedCompulsionType }:
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
-  const [filteredExercises, setFilteredExercises] = useState<ERPExercise[]>(ERP_EXERCISES);
+  const [filteredExercises, setFilteredExercises] = useState<ERPLibraryExercise[]>(ERP_EXERCISES);
 
   useEffect(() => {
     let exercises = ERP_EXERCISES;

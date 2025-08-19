@@ -50,7 +50,7 @@ export function CompulsionStatsAdvanced({ compulsions, timeRange }: CompulsionSt
       }
       
       stats[date].count += 1;
-      stats[date].totalDuration += entry.duration;
+      stats[date].totalDuration += entry.duration || 0;
     });
 
     // Calculate averages

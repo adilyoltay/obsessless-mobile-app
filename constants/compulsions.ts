@@ -1,4 +1,4 @@
-import { CompulsionCategory } from '@/types/compulsion';
+import type { CompulsionCategory } from '@/types/compulsion';
 
 export interface CompulsionCategoryData {
   id: string;
@@ -185,8 +185,8 @@ export const MOOD_LEVELS = [
 ];
 
 // Helper functions
-export const getCompulsionCategory = (type: CompulsionCategory): CompulsionCategory => {
-  return COMPULSION_CATEGORIES.find(cat => cat.id === type) || COMPULSION_CATEGORIES[0];
+export const getCompulsionCategory = (type: CompulsionCategory): CompulsionCategoryData => {
+  return (COMPULSION_CATEGORIES.find(cat => cat.id === type) || COMPULSION_CATEGORIES[0]) as CompulsionCategoryData;
 };
 
 export const getIntensityLevel = (value: number) => {

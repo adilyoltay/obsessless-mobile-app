@@ -1,7 +1,25 @@
-import { ERPExercise as ERPExerciseType, ERPCategoryInfo, ERPCategory, ERPDifficulty } from '@/types/erp';
+// Bu dosya ERP egzersizleri için kütüphane/sunum katmanına özgü tipleri içerir.
+// Domain tipi olan '@/types/erp' ile karıştırmamak için yerel tipler tanımlanmıştır.
+
+// ERP egzersiz sunum kategorileri (modality)
+export type ExposureCategory = 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
+export type CategoryDifficultyLabel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface ERPCategoryInfoLocal {
+  id: ExposureCategory | 'exposure' | 'cognitive' | 'behavioral';
+  name: string;
+  nameEn: string;
+  description: string;
+  descriptionEn: string;
+  icon: string;
+  color: string;
+  difficulty: CategoryDifficultyLabel;
+  recommendedOrder: number;
+}
 
 // ERP Categories
-export const ERP_CATEGORIES: ERPCategoryInfo[] = [
+export const ERP_CATEGORIES: ERPCategoryInfoLocal[] = [
   {
     id: 'exposure',
     name: 'Maruz Kalma',
@@ -81,12 +99,12 @@ export const ERP_CATEGORIES: ERPCategoryInfo[] = [
   },
 ];
 
-export interface ERPExercise {
+export interface ERPLibraryExercise {
   id: string;
   name: string;
-  category: 'in_vivo' | 'imaginal' | 'interoceptive' | 'response_prevention';
+  category: ExposureCategory;
   targetCompulsion: string[];
-  difficulty: 1 | 2 | 3 | 4 | 5;
+  difficulty: DifficultyLevel;
   duration: number; // minutes
   description: string;
   instructions: string[];
@@ -98,7 +116,7 @@ export interface ERPExercise {
   };
 }
 
-export const ERP_EXERCISES: ERPExerciseType[] = [
+export const ERP_EXERCISES: ERPLibraryExercise[] = [
   // Washing/Cleaning Exercises
   {
     id: 'touch_doorknob',
@@ -412,19 +430,19 @@ export const ERP_EXERCISE_TEMPLATES = {
 };
 
 // Helper functions
-export const getERPCategory = (id: ERPCategory): ERPCategoryInfo => {
-  return ERP_CATEGORIES.find(cat => cat.id === id) || ERP_CATEGORIES[0];
+export const getERPCategory = (id: ERPCategoryInfoLocal['id']): ERPCategoryInfoLocal => {
+  return (ERP_CATEGORIES.find(cat => cat.id === id) || ERP_CATEGORIES[0]) as ERPCategoryInfoLocal;
 };
 
-export const getERPExercise = (id: string): ERPExercise | undefined => {
+export const getERPExercise = (id: string): ERPLibraryExercise | undefined => {
   return ERP_EXERCISES.find(exercise => exercise.id === id);
 };
 
-export const getERPExercisesByCategory = (category: ERPCategory): ERPExercise[] => {
+export const getERPExercisesByCategory = (category: ExposureCategory): ERPLibraryExercise[] => {
   return ERP_EXERCISES.filter(exercise => exercise.category === category);
 };
 
-export const getERPExercisesByDifficulty = (difficulty: ERPDifficulty): ERPExercise[] => {
+export const getERPExercisesByDifficulty = (difficulty: CategoryDifficultyLabel): ERPLibraryExercise[] => {
   return ERP_EXERCISES.filter(exercise => {
     const difficultyMap = {
       beginner: 1,
@@ -432,17 +450,17 @@ export const getERPExercisesByDifficulty = (difficulty: ERPDifficulty): ERPExerc
       advanced: 3,
       expert: 4,
     };
-    return difficultyMap[difficulty] !== undefined ? ERP_EXERCISES.filter(exercise => exercise.difficulty === difficultyMap[difficulty])[0] : false;
+    return difficultyMap[difficulty] !== undefined ? ERP_EXERCISES.filter(exercise => exercise.difficulty === (difficultyMap as any)[difficulty])[0] : false as any;
   });
 };
 
-export const getERPExercisesByCompulsion = (compulsionType: string): ERPExercise[] => {
+export const getERPExercisesByCompulsion = (compulsionType: string): ERPLibraryExercise[] => {
   return ERP_EXERCISES.filter(exercise =>
     exercise.targetCompulsion.includes(compulsionType)
   );
 };
 
-export const getDifficultyColor = (difficulty: ERPDifficulty): string => {
+export const getDifficultyColor = (difficulty: CategoryDifficultyLabel): string => {
   const colors = {
     beginner: '#10B981',
     intermediate: '#F59E0B',
@@ -452,7 +470,7 @@ export const getDifficultyColor = (difficulty: ERPDifficulty): string => {
   return colors[difficulty];
 };
 
-export const getDifficultyLabel = (difficulty: ERPDifficulty, isEnglish: boolean = false): string => {
+export const getDifficultyLabel = (difficulty: CategoryDifficultyLabel, isEnglish: boolean = false): string => {
   const labels = {
     beginner: isEnglish ? 'Beginner' : 'Başlangıç',
     intermediate: isEnglish ? 'Intermediate' : 'Orta',
