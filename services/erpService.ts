@@ -9,34 +9,52 @@ const DEFAULT_EXERCISES: ERPExercise[] = [
   {
     id: 'default-1',
     title: 'Kapıyı Kontrol Etmeme',
+    titleEn: 'Single Check Only',
     description: 'Kapıyı sadece bir kez kontrol edip arkasına bakmama egzersizi',
+    descriptionEn: 'Lock once and avoid re-checking',
     category: 'checking',
     difficulty: 2,
-    targetDuration: 15,
+    duration: 15,
+    targetAnxiety: 6,
     instructions: [
       'Kapıyı normal şekilde kilitle',
       'Bir kez kontrol et',
       'Geri dönme ve tekrar kontrol etme'
     ],
+    instructionsEn: ['Lock normally', 'Check only once', 'Avoid returning to check again'],
+    relatedCompulsions: ['checking'],
+    tags: ['rp'],
+    isActive: true,
     createdAt: new Date(),
-    completedSessions: 0,
-    averageAnxiety: 0
+    updatedAt: new Date(),
+    preparations: [],
+    tips: [],
+    warnings: [],
   },
   {
     id: 'default-2',
     title: 'Ellerimi Yıkamama',
+    titleEn: "Delay Handwashing",
     description: 'Kirli hissetsem bile ellerimi fazla yıkamama egzersizi',
+    descriptionEn: 'Delay washing even if feeling contaminated',
     category: 'contamination',
     difficulty: 4,
-    targetDuration: 30,
+    duration: 30,
+    targetAnxiety: 7,
     instructions: [
       'Normal günlük aktiviteleri yap',
       'Kirli hissettiklerinde ellerini yıkama',
       '30 dakika boyunca dayan'
     ],
+    instructionsEn: ['Do normal activities', 'Avoid washing despite feeling dirty', 'Hold for 30 minutes'],
+    relatedCompulsions: ['washing'],
+    tags: ['in_vivo'],
+    isActive: true,
     createdAt: new Date(),
-    completedSessions: 0,
-    averageAnxiety: 0
+    updatedAt: new Date(),
+    preparations: [],
+    tips: [],
+    warnings: [],
   }
 ];
 
@@ -113,18 +131,22 @@ class ERPService {
 
       const session: ERPSession = {
         id: Date.now().toString(),
+        userId: this.getCurrentUserId()!,
         exerciseId,
         startTime: new Date(),
+        targetDuration: 0,
         duration: 0,
         initialAnxiety,
         peakAnxiety: initialAnxiety,
         finalAnxiety: 0,
+        difficulty: 1,
         completed: false,
-        anxietyReadings: [{
-          timestamp: Date.now(),
-          level: initialAnxiety
-        }]
-      };
+        anxietyLevels: [{ timestamp: Date.now(), level: initialAnxiety }],
+        helpUsed: false,
+        success: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
 
       // Save to AsyncStorage (offline-first)
       const storageKey = await this.getStorageKey('erp_sessions');
@@ -150,7 +172,7 @@ class ERPService {
       
       const sessionIndex = sessions.findIndex(s => s.id === sessionId);
       if (sessionIndex >= 0) {
-        sessions[sessionIndex].anxietyReadings.push({
+        sessions[sessionIndex].anxietyLevels.push({
           timestamp: Date.now(),
           level: anxietyLevel
         });
@@ -184,6 +206,7 @@ class ERPService {
         session.finalAnxiety = finalAnxiety;
         session.notes = notes;
         session.completed = true;
+        session.updatedAt = new Date();
 
         // Save to AsyncStorage
         await AsyncStorage.setItem(storageKey, JSON.stringify(sessions));
@@ -197,21 +220,21 @@ class ERPService {
             const allExercises = await this.getExercises();
             const exerciseMeta = allExercises.find(e => e.id === session.exerciseId);
 
-            await supabaseService.saveERPSession({
-              ...dataStandardizer.standardizeERPSessionData({
+            await supabaseService.saveERPSession(
+              dataStandardizer.standardizeERPSessionData({
                 id: session.id,
                 user_id: userId,
                 exercise_id: session.exerciseId,
-                exercise_name: exerciseMeta?.title || `Exercise ${session.exerciseId}`,
-                category: exerciseMeta?.category || 'general',
+                exercise_name: (exerciseMeta as any)?.title || `Exercise ${session.exerciseId}`,
+                category: (exerciseMeta as any)?.category || 'general',
                 duration_seconds: session.duration,
                 anxiety_initial: session.initialAnxiety,
                 anxiety_final: session.finalAnxiety,
-                anxiety_readings: session.anxietyReadings.map(r => ({ timestamp: r.timestamp, level: r.level })),
+                anxiety_readings: (session.anxietyLevels || []).map((r: any) => ({ timestamp: r.timestamp, level: r.level })),
                 completed: session.completed,
                 timestamp: new Date(),
-              })
-            });
+              }) as any
+            );
             console.log('✅ ERP session saved to Supabase');
           } else {
             console.log('⚠️ Session already exists in Supabase, skipping duplicate save');
@@ -241,17 +264,10 @@ class ERPService {
       const exerciseIndex = exercises.findIndex(e => e.id === exerciseId);
       
       if (exerciseIndex >= 0) {
-        const exercise = exercises[exerciseIndex];
+        const exercise = exercises[exerciseIndex] as any;
         const sessions = await this.getSessionHistory(exerciseId);
         const completedSessions = sessions.filter(s => s.completed);
-        
-        exercise.completedSessions = completedSessions.length;
-        exercise.lastSession = new Date();
-        
-        if (completedSessions.length > 0) {
-          const totalAnxiety = completedSessions.reduce((sum, s) => sum + s.finalAnxiety, 0);
-          exercise.averageAnxiety = totalAnxiety / completedSessions.length;
-        }
+        exercise.updatedAt = new Date();
 
         const storageKey = await this.getStorageKey('erp_exercises');
         await AsyncStorage.setItem(storageKey, JSON.stringify(exercises));

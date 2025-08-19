@@ -33,10 +33,11 @@ export class NotificationScheduler {
         data: { type: 'erp_reminder' },
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         hour: time.getHours(),
         minute: time.getMinutes(),
         repeats: true,
-      },
+      } as Notifications.CalendarTriggerInput,
     });
 
     await this.saveNotificationSchedule({
@@ -66,10 +67,11 @@ export class NotificationScheduler {
         data: { type: 'daily_tracking' },
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         hour: time.getHours(),
         minute: time.getMinutes(),
         repeats: true,
-      },
+      } as Notifications.CalendarTriggerInput,
     });
 
     await this.saveNotificationSchedule({
@@ -102,9 +104,10 @@ export class NotificationScheduler {
         data: { type: 'motivation' },
       },
       trigger: {
-        seconds: Math.random() * 86400, // Random time within 24 hours
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.floor(Math.random() * 86400), // Random time within 24 hours
         repeats: false,
-      },
+      } as Notifications.TimeIntervalTriggerInput,
     });
 
     return identifier;

@@ -285,7 +285,6 @@ export default function EmergencyContactsManager() {
       <Modal
         visible={showAddModal}
         onClose={resetForm}
-        title={editingContact ? 'Kişiyi Düzenle' : 'Acil Durum Kişisi Ekle'}
       >
         <View style={styles.form}>
           <View style={styles.inputGroup}>

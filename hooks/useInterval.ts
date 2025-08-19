@@ -8,7 +8,7 @@ export function useInterval(
   callback: () => void,
   delay: number | null
 ): void {
-  const savedCallback = useRef<() => void>();
+  const savedCallback = useRef<(() => void) | null>(null);
 
   // Callback'i güncelle
   useEffect(() => {
@@ -18,7 +18,7 @@ export function useInterval(
   // Interval'ı kur
   useEffect(() => {
     function tick() {
-      savedCallback.current?.();
+      if (savedCallback.current) savedCallback.current();
     }
 
     if (delay !== null) {

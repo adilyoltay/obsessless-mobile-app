@@ -183,10 +183,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           data: { type: 'compulsion_reminder' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour: hours,
           minute: minutes,
           repeats: true,
-        },
+        } as Notifications.CalendarTriggerInput,
       });
 
       const newReminder = {
@@ -226,10 +227,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           data: { type: 'erp_reminder', exerciseName },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour: hours,
           minute: minutes,
           repeats: true,
-        },
+        } as Notifications.CalendarTriggerInput,
       });
 
     } catch (error) {
@@ -259,8 +261,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           data: { type: 'motivation' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 2,
-        },
+          repeats: false,
+        } as Notifications.TimeIntervalTriggerInput,
       });
     } catch (error) {
       console.error('Send motivational notification error:', error);
