@@ -185,7 +185,7 @@ export const MOOD_LEVELS = [
 ];
 
 // Helper functions
-export const getCompulsionCategory = (type: CompulsionCategory): CompulsionCategoryData => {
+export const getCompulsionCategory = (type: string): CompulsionCategoryData => {
   return (COMPULSION_CATEGORIES.find(cat => cat.id === type) || COMPULSION_CATEGORIES[0]) as CompulsionCategoryData;
 };
 

@@ -333,9 +333,9 @@ export function CompulsionSummary({ period = 'today', showChart = true }: Props)
                   🎯 En Yaygın Tür: 
                 </Text>
                 <Chip mode="outlined" compact style={styles.typeChip}>
-                  {getCompulsionCategory(stats.mostCommonType).icon} {language === 'tr' 
-                    ? getCompulsionCategory(stats.mostCommonType).name 
-                    : getCompulsionCategory(stats.mostCommonType).nameEn}
+                  {getCompulsionCategory(stats.mostCommonType as any).icon} {language === 'tr' 
+                    ? getCompulsionCategory(stats.mostCommonType as any).name 
+                    : getCompulsionCategory(stats.mostCommonType as any).nameEn}
                 </Chip>
               </View>
             </View>
