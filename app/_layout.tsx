@@ -20,6 +20,7 @@ import { GlobalLoading } from '@/components/ui/GlobalLoading';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import ConflictNotificationBanner from '@/components/ui/ConflictNotificationBanner';
 
 // Import debug helpers in development
 if (__DEV__) {
@@ -75,6 +76,7 @@ export default function RootLayout() {
                   <NavigationGuard>
                     <GestureHandlerRootView style={{ flex: 1 }}>
                       <Slot />
+                      <ConflictNotificationBanner />
                       <GlobalLoading />
                       <Toast />
                     </GestureHandlerRootView>

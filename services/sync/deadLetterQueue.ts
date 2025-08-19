@@ -76,10 +76,23 @@ class DeadLetterQueueService {
     let retried = 0;
     let archived = 0;
     const items = await this.getQueue();
+    // Network-aware: skip if offline
+    try {
+      const NetInfo = require('@react-native-community/netinfo').default;
+      const state = await NetInfo.fetch();
+      const offline = !(state.isConnected && state.isInternetReachable !== false);
+      if (offline) return { retried: 0, archived: archived + (await this.archiveOldItems()) };
+    } catch {}
     for (const item of items) {
       if (item.archived) continue;
-      if (item.canRetry && (item.retryCount || 0) < 3) {
+      if (item.canRetry && (item.retryCount || 0) < 5) {
         try {
+          // Exponential backoff with jitter by retryCount
+          const attempt = (item.retryCount || 0) + 1;
+          const base = 2000; // 2 seconds
+          const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
+          await new Promise(res => setTimeout(res, delay));
+
           const { offlineSyncService } = await import('@/services/offlineSync');
           await offlineSyncService.addToSyncQueue({ type: item.type as any, entity: item.entity as any, data: item.data });
           await this.removeFromQueue(item.id);

@@ -253,12 +253,42 @@ export class OfflineSyncService {
   // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)
 
   private async syncAchievement(item: SyncQueueItem): Promise<void> {
-    // Sync achievement unlocks (best-effort)
+    // Sync achievements to Supabase
     try {
-      // no dedicated API in apiService; log for now
-      console.log('Syncing achievement:', item.data);
+      const { default: svc } = await import('@/services/supabase');
+      const d = item.data || {};
+      switch (item.type) {
+        case 'CREATE': {
+          const { error } = await (svc as any).supabaseClient
+            .from('user_achievements')
+            .upsert({
+              user_id: d.user_id,
+              achievement_id: d.achievement_id,
+              unlocked_at: d.unlocked_at || new Date().toISOString(),
+              progress: d.progress ?? 100,
+              metadata: d.metadata || {},
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,achievement_id' });
+          if (error) throw error;
+          break;
+        }
+        case 'UPDATE': {
+          const { error } = await (svc as any).supabaseClient
+            .from('user_achievements')
+            .update({
+              progress: d.progress,
+              metadata: d.metadata,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', d.user_id)
+            .eq('achievement_id', d.achievement_id);
+          if (error) throw error;
+          break;
+        }
+      }
     } catch (e) {
       console.warn('Achievement sync failed:', e);
+      throw e;
     }
   }
 
