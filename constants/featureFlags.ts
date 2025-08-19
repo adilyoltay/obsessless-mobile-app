@@ -99,6 +99,7 @@ const featureFlagState: Record<string, boolean> = {
   AI_ART_THERAPY: false, // Temporarily disabled
   AI_VOICE_ERP: AI_MASTER_ENABLED,
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
+  AI_UNIFIED_VOICE: AI_MASTER_ENABLED, // Merkezi ses analizi sistemi
   // KALDIRILDI: AI_CRISIS_DETECTION
   
   // 🔀 LLM Flags (aliases → AI master)

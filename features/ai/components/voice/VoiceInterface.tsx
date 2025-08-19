@@ -287,6 +287,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       if (result) {
         setTranscription(result.text);
         setState(VoiceRecognitionState.COMPLETED);
+        console.log('🔥 VoiceInterface calling onTranscription with:', result);
         onTranscription(result);
 
         // Accessibility

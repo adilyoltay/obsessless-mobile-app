@@ -24,7 +24,7 @@ import { Card } from '@/components/ui/Card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import moodTracker from '@/services/moodTrackingService';
 import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
-import { simpleNLU } from '@/features/ai/services/checkinService';
+import { unifiedVoiceAnalysis } from '@/features/ai/services/checkinService';
 import { useGamificationStore } from '@/store/gamificationStore';
 import * as Haptics from 'expo-haptics';
 
@@ -372,22 +372,81 @@ export default function TodayScreen() {
     }
     setQuickMoodSaving(true);
     try {
-      const nlu = simpleNLU(res.text || '');
-      const moodScore = Math.max(1, Math.min(10, Math.round(nlu.mood / 10)));
-      await moodTracker.saveMoodEntry({
-        user_id: user.id,
-        mood_score: moodScore,
-        energy_level: 5,
-        anxiety_level: Math.max(1, Math.min(10, 11 - moodScore)),
-      });
-      setToastMessage(`Mood otomatik kaydedildi: ${moodScore}/10`);
-      setShowToast(true);
-      setMoodSheetVisible(false);
-      onRefresh();
-      // Mikro ödül animasyonu
-      try { await awardMicroReward('voice_mood_checkin'); } catch {}
+      // Merkezi ses analizi servisi
+      const analysis = await unifiedVoiceAnalysis(res.text || '');
+      console.log('🎯 Unified Voice Analysis:', analysis);
+      
+      // Analiz sonucuna göre yönlendirme
+      switch (analysis.type) {
+        case 'MOOD':
+          // Mood kaydı ve ana sayfada kal
+          const moodScore = Math.max(1, Math.min(10, Math.round((analysis.mood || 50) / 10)));
+          await moodTracker.saveMoodEntry({
+            user_id: user.id,
+            mood_score: moodScore,
+            energy_level: 5,
+            anxiety_level: Math.max(1, Math.min(10, 11 - moodScore)),
+          });
+          setToastMessage(`Mood kaydedildi: ${moodScore}/10`);
+          setShowToast(true);
+          setMoodSheetVisible(false);
+          onRefresh();
+          try { await awardMicroReward('voice_mood_checkin'); } catch {}
+          break;
+          
+        case 'CBT':
+          // CBT sayfasına yönlendir
+          setToastMessage('CBT düşünce kaydına yönlendiriliyorsun...');
+          setShowToast(true);
+          setMoodSheetVisible(false);
+          setTimeout(() => {
+            router.push({ pathname: '/(tabs)/cbt', params: { text: res.text || '', trigger: 'voice' } });
+          }, 500);
+          break;
+          
+        case 'OCD':
+          // Tracking sayfasına yönlendir
+          setToastMessage('OCD takibine yönlendiriliyorsun...');
+          setShowToast(true);
+          setMoodSheetVisible(false);
+          setTimeout(() => {
+            router.push({ pathname: '/(tabs)/tracking', params: { 
+              text: res.text || '', 
+              category: analysis.category || 'genel' 
+            } });
+          }, 500);
+          break;
+          
+        case 'ERP':
+          // ERP sayfasına yönlendir
+          setToastMessage('ERP egzersizine yönlendiriliyorsun...');
+          setShowToast(true);
+          setMoodSheetVisible(false);
+          setTimeout(() => {
+            router.push({ pathname: '/(tabs)/erp', params: { text: res.text || '' } });
+          }, 500);
+          break;
+          
+        case 'BREATHWORK':
+          // Breathwork sayfasına yönlendir
+          setToastMessage('Nefes egzersizine yönlendiriliyorsun...');
+          setShowToast(true);
+          setMoodSheetVisible(false);
+          setTimeout(() => {
+            router.push({ pathname: '/(tabs)/breathwork', params: { text: res.text || '' } });
+          }, 500);
+          break;
+      }
+      
+      // Öneri varsa göster
+      if (analysis.suggestion) {
+        setTimeout(() => {
+          setToastMessage(analysis.suggestion);
+          setShowToast(true);
+        }, 1500);
+      }
     } catch (e) {
-      setToastMessage('Sesli mood kaydı başarısız');
+      setToastMessage('Sesli analiz başarısız');
       setShowToast(true);
     } finally {
       setQuickMoodSaving(false);
@@ -418,6 +477,7 @@ export default function TodayScreen() {
           onStartListening={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{}); }}
         />
       </BottomSheet>
+
     </View>
   );
 
@@ -1203,5 +1263,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#374151',
     marginTop: 4,
+  },
+  // CBT Suggestion Card styles
+  cbtSuggestionCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cbtSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cbtSuggestionIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  cbtSuggestionTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E40AF',
+    fontFamily: 'Inter',
+  },
+  cbtSuggestionClose: {
+    padding: 4,
+  },
+  cbtSuggestionText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    lineHeight: 20,
+    fontFamily: 'Inter',
+    marginBottom: 12,
+  },
+  cbtSuggestionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  cbtSuggestionActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
+    marginRight: 4,
+    fontFamily: 'Inter',
   },
 });

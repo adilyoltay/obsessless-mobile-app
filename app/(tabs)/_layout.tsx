@@ -61,7 +61,15 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* AI Chat Tab removed */}
+      <Tabs.Screen
+        name="cbt"
+        options={{
+          title: 'CBT',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'brain' : 'brain-outline'} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="erp"
         options={{
@@ -71,15 +79,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="thought-record"
-        options={{
-          title: 'CBT',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'book' : 'book-outline'} color={color} />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="breathwork"
         options={{

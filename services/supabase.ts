@@ -1,6 +1,7 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
@@ -885,7 +886,18 @@ class SupabaseNativeService {
       console.log('✅ Gamification profile updated:', userId);
     } catch (error) {
       console.error('❌ Update gamification profile failed:', error);
-      throw error;
+      // Offline-first fallback: enqueue for retry and proceed without throwing
+      try {
+        await deadLetterQueue.addToDeadLetter({
+          id: `gpf_${Date.now()}`,
+          type: 'update',
+          entity: 'gamification_profiles',
+          data: { user_id: userId, updates },
+          errorMessage: 'update_gamification_profile_failed',
+        } as any, error);
+        await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: 'gamification_profile_dead_letter', attempts: 0 });
+      } catch {}
+      // Do not rethrow to avoid redbox; UI continues and sync will retry later
     }
   }
 

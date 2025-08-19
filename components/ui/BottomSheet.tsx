@@ -6,8 +6,10 @@ import {
   Pressable,
   Dimensions,
   Animated,
+  Modal,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BottomSheetProps {
   isVisible: boolean;
@@ -24,18 +26,27 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   children,
   edgeToEdge = true,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!isVisible) return null;
 
   return (
-    <View style={styles.overlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <BlurView intensity={20} style={[styles.blurContainer, edgeToEdge && styles.fullWidth]}>
-        <View style={[styles.content, edgeToEdge && styles.contentEdgeToEdge]}>
-          <View style={styles.handle} />
-          {children}
-        </View>
-      </BlurView>
-    </View>
+    <Modal
+      visible={isVisible}
+      onRequestClose={onClose}
+      animationType="slide"
+      transparent
+      statusBarTranslucent
+    >
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <BlurView intensity={20} style={[styles.blurContainer, edgeToEdge && styles.fullWidth]}>
+          <View style={[styles.content, edgeToEdge && styles.contentEdgeToEdge, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+            <View style={styles.handle} />
+            {children}
+          </View>
+        </BlurView>
+      </View>
+    </Modal>
   );
 };
 

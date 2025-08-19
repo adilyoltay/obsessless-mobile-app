@@ -82,7 +82,29 @@ class AudioAdapter {
   async getDefaultRecordingOptions(): Promise<any> {
     if (!this.AudioMod) await this.initialize();
     if (this.impl === 'expo-av') {
-      return this.AudioMod.Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY;
+      const { Audio } = this.AudioMod;
+      return {
+        android: {
+          extension: '.webm',
+          outputFormat: Audio.AndroidOutputFormat.WEBM,
+          audioEncoder: Audio.AndroidAudioEncoder.OPUS,
+          sampleRate: 48000,
+          numberOfChannels: 1,
+          bitRate: 96000
+        },
+        ios: {
+          extension: '.wav',
+          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 256000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false
+        },
+        web: {}
+      };
     }
     // expo-audio: let the module choose sensible defaults
     return {};

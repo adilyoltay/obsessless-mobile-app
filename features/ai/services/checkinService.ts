@@ -10,6 +10,16 @@ export type NLUResult = {
 
 export type RouteDecision = 'ERP' | 'REFRAME';
 
+export type UnifiedAnalysisResult = {
+  type: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK';
+  confidence: number;
+  mood?: number;
+  trigger?: string;
+  category?: string;
+  suggestion?: string;
+  originalText: string;
+};
+
 const TRIGGERS_TR: Record<string, string> = {
   temizlik: 'temizlik',
   kir: 'temizlik',
@@ -88,5 +98,217 @@ export async function trackRouteSuggested(route: RouteDecision, meta: Record<str
 }
 
 export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
+
+/**
+ * Merkezi Ses Analizi - Gemini API ile otomatik tip tespiti
+ * Ses girişini analiz edip MOOD, CBT, OCD, ERP veya BREATHWORK'e yönlendirir
+ */
+export async function unifiedVoiceAnalysis(text: string): Promise<UnifiedAnalysisResult> {
+  try {
+    // Önce basit heuristik analiz
+    const heuristicResult = heuristicVoiceAnalysis(text);
+    
+    // Gemini API varsa kullan
+    const geminiApiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (geminiApiKey && FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) {
+      try {
+        const geminiResult = await analyzeWithGemini(text, geminiApiKey);
+        if (geminiResult) {
+          return geminiResult;
+        }
+      } catch (error) {
+        console.log('Gemini API hatası, heuristik analiz kullanılıyor:', error);
+      }
+    }
+    
+    return heuristicResult;
+  } catch (error) {
+    console.error('Unified voice analysis error:', error);
+    // Fallback: basit mood analizi
+    return {
+      type: 'MOOD',
+      confidence: 0.3,
+      mood: 50,
+      originalText: text
+    };
+  }
+}
+
+/**
+ * Heuristik tabanlı ses analizi (Gemini olmadığında fallback)
+ */
+function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
+  const lower = text.toLowerCase();
+  
+  // CBT tetikleme: bilişsel çarpıtma kalıpları
+  const cbtPatterns = [
+    /ya\s+(.*?)olursa/i,
+    /kesin\s+(.*?)olacak/i,
+    /asla\s+(.*?)yapamam/i,
+    /herkes\s+(.*?)düşünüyor/i,
+    /hep\s+(.*?)oluyor/i,
+    /felaket/i,
+    /mahvol/i,
+    /berbat/i,
+    /korkunç/i
+  ];
+  
+  if (cbtPatterns.some(pattern => pattern.test(lower))) {
+    return {
+      type: 'CBT',
+      confidence: 0.7,
+      suggestion: 'Düşüncelerini yeniden çerçevelemek ister misin?',
+      originalText: text
+    };
+  }
+  
+  // OCD tetikleme: kompulsiyon ve obsesyon kalıpları
+  const ocdPatterns = [
+    /kontrol\s+et/i,
+    /tekrar\s+kontrol/i,
+    /emin\s+olamıyorum/i,
+    /takıntı/i,
+    /obsesyon/i,
+    /kompulsiyon/i,
+    /temizle/i,
+    /mikrop/i,
+    /kirli/i,
+    /bulaş/i
+  ];
+  
+  if (ocdPatterns.some(pattern => pattern.test(lower))) {
+    return {
+      type: 'OCD',
+      confidence: 0.7,
+      category: lower.includes('temiz') || lower.includes('mikrop') ? 'temizlik' : 'kontrol',
+      originalText: text
+    };
+  }
+  
+  // ERP tetikleme: maruz kalma ve direnç
+  const erpPatterns = [
+    /maruz\s+kal/i,
+    /direnç\s+göster/i,
+    /erp\s+yap/i,
+    /egzersiz/i,
+    /pratik/i,
+    /alıştırma/i,
+    /yüzleş/i
+  ];
+  
+  if (erpPatterns.some(pattern => pattern.test(lower))) {
+    return {
+      type: 'ERP',
+      confidence: 0.7,
+      originalText: text
+    };
+  }
+  
+  // BREATHWORK tetikleme: nefes ve rahatlama
+  const breathPatterns = [
+    /nefes/i,
+    /rahatla/i,
+    /sakinleş/i,
+    /meditasyon/i,
+    /mindfulness/i,
+    /farkındalık/i,
+    /derin\s+nefes/i
+  ];
+  
+  if (breathPatterns.some(pattern => pattern.test(lower))) {
+    return {
+      type: 'BREATHWORK',
+      confidence: 0.7,
+      originalText: text
+    };
+  }
+  
+  // Default: MOOD analizi
+  const nlu = simpleNLU(text);
+  return {
+    type: 'MOOD',
+    confidence: nlu.confidence,
+    mood: nlu.mood,
+    trigger: nlu.trigger,
+    originalText: text
+  };
+}
+
+/**
+ * Gemini API ile gelişmiş analiz
+ */
+async function analyzeWithGemini(text: string, apiKey: string): Promise<UnifiedAnalysisResult | null> {
+  try {
+    const prompt = `
+Sen bir OKB (Obsesif Kompulsif Bozukluk) tedavi asistanısın. Kullanıcının ses kaydından gelen metni analiz edip hangi tedavi modülüne yönlendirilmesi gerektiğini belirle.
+
+Kullanıcı metni: "${text}"
+
+Lütfen aşağıdaki kategorilerden BİRİNİ seç ve JSON formatında yanıtla:
+
+1. MOOD - Genel duygu durumu paylaşımı (günlük his, enerji seviyesi)
+2. CBT - Bilişsel çarpıtmalar içeren düşünceler (felaketleştirme, aşırı genelleme, zihin okuma vb.)
+3. OCD - Obsesyon veya kompulsiyon bildirimi (takıntılı düşünceler, kontrol etme, temizleme)
+4. ERP - Maruz kalma ve tepki önleme egzersizi talebi veya direnç gösterme
+5. BREATHWORK - Rahatlama, nefes egzersizi veya meditasyon ihtiyacı
+
+Yanıt formatı:
+{
+  "type": "MOOD|CBT|OCD|ERP|BREATHWORK",
+  "confidence": 0.0-1.0,
+  "mood": 0-100 (sadece MOOD için),
+  "category": "string (OCD için: temizlik/kontrol/simetri/sayma/diğer)",
+  "suggestion": "Kullanıcıya önerilecek kısa mesaj (Türkçe)"
+}
+
+Sadece JSON döndür, başka açıklama ekleme.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 200,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Gemini API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!resultText) {
+      console.error('Gemini API boş yanıt döndü');
+      return null;
+    }
+
+    // JSON'u parse et
+    try {
+      const parsed = JSON.parse(resultText.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
+      return {
+        ...parsed,
+        originalText: text
+      };
+    } catch (parseError) {
+      console.error('Gemini yanıtı parse edilemedi:', resultText);
+      return null;
+    }
+  } catch (error) {
+    console.error('Gemini API çağrısı başarısız:', error);
+    return null;
+  }
+}
 
 

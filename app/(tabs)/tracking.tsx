@@ -18,7 +18,6 @@ import * as Haptics from 'expo-haptics';
 // Custom UI Components
 import FAB from '@/components/ui/FAB';
 import CompulsionQuickEntry from '@/components/forms/CompulsionQuickEntry';
-import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 import { Toast } from '@/components/ui/Toast';
 
 // Gamification
@@ -39,15 +38,10 @@ import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
-import deadLetterQueue from '@/services/sync/deadLetterQueue';
-import batchOptimizer from '@/services/sync/batchOptimizer';
-import performanceMetricsService from '@/services/telemetry/performanceMetricsService';
+// VoiceMoodCheckin removed - using unified voice from Today page
 
 // Kanonik kategori eşlemesi
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
-import dataStandardizer from '@/utils/dataStandardization';
-import enhancedAchievements from '@/services/enhancedAchievementService';
 
 interface CompulsionEntry {
   id: string;
@@ -59,9 +53,13 @@ interface CompulsionEntry {
   notes?: string;
 }
 
+import { useLocalSearchParams } from 'expo-router';
+import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
+
 export default function TrackingScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const params = useLocalSearchParams();
   const { awardMicroReward, updateStreak } = useGamificationStore();
   const { submitCompulsion } = useStandardizedCompulsion(user?.id);
   
@@ -82,15 +80,6 @@ export default function TrackingScreen() {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
-  const [syncMetrics, setSyncMetrics] = useState({
-    deadLetterCount: 0,
-    recommendedBatch: 10,
-    successRate: 1,
-    avgResponseTime: 0,
-    conflictRate: 0,
-  });
-  const [deadLetters, setDeadLetters] = useState<any[]>([]);
-  const [dlExpanded, setDlExpanded] = useState(false);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -106,6 +95,13 @@ export default function TrackingScreen() {
       loadAllData();
     }
   }, [user?.id]);
+
+  // Voice trigger'dan gelindiyse otomatik aç
+  useEffect(() => {
+    if (params.text && params.category) {
+      setShowQuickEntry(true);
+    }
+  }, [params]);
 
   useEffect(() => {
     setDisplayLimit(5);
@@ -287,38 +283,10 @@ export default function TrackingScreen() {
 
       // Load AI patterns after data loading
       await loadAIPatterns();
-      await loadSyncMetrics();
       
     } catch (error) {
       console.error('Error loading data:', error);
     }
-  };
-
-  const loadSyncMetrics = async () => {
-    try {
-      const stats = await deadLetterQueue.getStatistics();
-      const boStats = batchOptimizer.getStatistics();
-      setSyncMetrics({
-        deadLetterCount: stats.total,
-        recommendedBatch: boStats.recommendedBatchSize,
-        successRate: boStats.successRate,
-        avgResponseTime: boStats.avgResponseTime,
-        conflictRate: 0,
-      });
-      const items = await deadLetterQueue.list(20);
-      setDeadLetters(items);
-      // Persist daily metrics snapshot
-      try {
-        await performanceMetricsService.recordToday({
-          sync: {
-            deadLetters: stats.total,
-            recommendedBatch: boStats.recommendedBatchSize,
-            successRate: boStats.successRate,
-            avgResponseMs: boStats.avgResponseTime,
-          }
-        });
-      } catch {}
-    } catch {}
   };
 
   const onRefresh = async () => {
@@ -346,15 +314,17 @@ export default function TrackingScreen() {
       entries.push(newEntry);
       await AsyncStorage.setItem(storageKey, JSON.stringify(entries));
 
-      // Save to Supabase database (standardized)
+      // Save to Supabase database
       try {
-        await submitCompulsion({
-          type: mapToCanonicalCategory(compulsionData.type),
-          resistanceLevel: compulsionData.resistanceLevel,
-          trigger: compulsionData.trigger,
-          notes: compulsionData.notes,
+        await supabaseService.saveCompulsion({
+          user_id: user.id,
+          category: mapToCanonicalCategory(compulsionData.type), // kanonik kategori
+          subcategory: compulsionData.type, // orijinal değer etiket olarak
+          resistance_level: compulsionData.resistanceLevel,
+          trigger: compulsionData.trigger || '',
+          notes: compulsionData.notes || '',
         });
-        try { await enhancedAchievements.unlockAchievement(user.id, 'compulsion_recorded', 'compulsion_created', newEntry); } catch {}
+        console.log('✅ Compulsion saved to database');
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);
         // Continue with offline mode - data is already in AsyncStorage
@@ -519,41 +489,6 @@ export default function TrackingScreen() {
 
   const filteredCompulsions = getFilteredCompulsions();
 
-  function SevenDaySyncMiniChart() {
-    const [series, setSeries] = useState<{ date: string; success: number; latency: number; dq?: number }[]>([]);
-    useEffect(() => {
-      (async () => {
-        try {
-          const last = await performanceMetricsService.getLastNDays(7);
-          setSeries(last.map(d => ({ date: d.date, success: Math.round((d.sync.successRate || 0) * 100), latency: Math.round(d.sync.avgResponseMs || 0), dq: typeof d.ai?.dataQuality === 'number' ? d.ai?.dataQuality : undefined })));
-        } catch {}
-      })();
-    }, []);
-    if (series.length === 0) return null;
-    const maxLatency = Math.max(1, ...series.map(s => s.latency));
-    return (
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: '#6B7280', fontSize: 12 }}>Son 7 Gün Başarı ve Gecikme</Text>
-        {series.map((s) => (
-          <View key={s.date} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ width: 64, color: '#6B7280', fontSize: 12 }}>{s.date.slice(5)}</Text>
-            <View style={{ flex: 1, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-              <View style={{ width: `${s.success}%`, height: 6, backgroundColor: '#10B981', borderRadius: 4 }} />
-            </View>
-            <View style={{ width: 80, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-              <View style={{ width: `${Math.min(100, (s.latency / maxLatency) * 100)}%`, height: 6, backgroundColor: '#3B82F6', borderRadius: 4 }} />
-            </View>
-            {typeof s.dq === 'number' && (
-              <View style={{ width: 60, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-                <View style={{ width: `${Math.round((s.dq || 0) * 100)}%`, height: 6, backgroundColor: '#8B5CF6', borderRadius: 4 }} />
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-    );
-  }
-
   return (
     <ScreenLayout>
       {/* Header - New Design */}
@@ -673,15 +608,14 @@ export default function TrackingScreen() {
           </View>
         </View>
 
-        {/* Voice Mood Check-in (moved below Today's Stats) */}
-        <VoiceMoodCheckin />
+
 
         {/* AI Pattern Recognition & Insights */}
         {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
           <View style={styles.aiSection}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-              <Text style={styles.aiSectionTitle}>AI Analizleri</Text>
+              <Text style={styles.sectionTitle}>AI Analizleri</Text>
               {isLoadingAI && (
                 <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
               )}
@@ -733,16 +667,6 @@ export default function TrackingScreen() {
                 ))}
               </View>
             )}
-          </View>
-        )}
-
-        {/* Sync performans kartını son kullanıcıda gizle; yalnızca anomali varsa kısa uyarı göster */}
-        {(syncMetrics.deadLetterCount > 0 || syncMetrics.successRate < 0.95) && (
-          <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FEE2E2', borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="sync-alert" size={18} color="#DC2626" />
-            <Text style={{ marginLeft: 8, color: '#991B1B' }}>
-              Senkron uyarısı: Kuyruk {syncMetrics.deadLetterCount} • Başarı {Math.round(syncMetrics.successRate*100)}% — Ayrıntılar Ayarlar {'>'} Tanılama içinde.
-            </Text>
           </View>
         )}
 
@@ -835,6 +759,8 @@ export default function TrackingScreen() {
         visible={showQuickEntry}
         onDismiss={() => setShowQuickEntry(false)}
         onSubmit={handleCompulsionSubmit}
+        initialCategory={params.category as string}
+        initialText={params.text as string}
       />
 
       {/* Toast */}
@@ -1224,8 +1150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  // sectionTitle defined earlier; use aiSectionTitle here
-  aiSectionTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
