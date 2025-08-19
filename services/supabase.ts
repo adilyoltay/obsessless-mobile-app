@@ -82,12 +82,12 @@ export interface GamificationProfile {
   streak_count: number;
   healing_points_total: number;
   healing_points_today: number;
-  streak_last_update: string;
+  streak_last_update: string; // date (YYYY-MM-DD)
   level: number;
   achievements: string[];
   micro_rewards: any[];
-  created_at: string;
-  updated_at: string;
+  // created_at Supabase şemasında yok; updated_at trigger ile güncellenir
+  updated_at?: string;
 }
 
 export interface VoiceCheckinRecord {
@@ -869,7 +869,7 @@ class SupabaseNativeService {
     }
   }
 
-  async updateGamificationProfile(userId: string, updates: Partial<Omit<GamificationProfile, 'user_id' | 'created_at' | 'updated_at'>>): Promise<void> {
+  async updateGamificationProfile(userId: string, updates: Partial<Omit<GamificationProfile, 'user_id' | 'updated_at'>>): Promise<void> {
     try {
       console.log('🔄 Updating gamification profile...', { userId, updates });
       
