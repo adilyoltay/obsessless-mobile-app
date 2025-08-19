@@ -589,6 +589,8 @@ export interface YBOCSQuestion {
     socialFactors?: string;
     familialFactors?: string;
   };
+  // Compatibility
+  culturalAdaptations?: string[];
 }
 
 /**
@@ -605,6 +607,9 @@ export interface YBOCSAnswer {
     revisionCount: number;
     confidence?: number; // 0-1
   };
+  // Compatibility fields
+  value?: number | string;
+  questionType?: string;
 }
 
 /**
@@ -824,6 +829,8 @@ export interface TreatmentPlan {
   adaptationTriggers: AdaptationTrigger[];
   fallbackStrategies: FallbackStrategy[];
   emergencyProtocols: EmergencyProtocol[];
+  // Compatibility
+  safetyProtocols?: string[];
 }
 
 /**
@@ -839,6 +846,10 @@ export interface TreatmentPhase {
   milestones: Milestone[];
   prerequisites?: string[];
   successCriteria: string[];
+  // Compatibility
+  type?: string;
+  duration?: number;
+  goals?: string[];
 }
 
 /**
@@ -906,6 +917,11 @@ export interface RiskAssessment {
   confidence: number;
   humanReviewRequired: boolean;
   reassessmentInterval: number; // days
+  // Compatibility
+  overallRiskLevel?: RiskLevel;
+  riskFactors?: any[];
+  preventiveInterventions?: any[];
+  riskScore?: number;
 }
 
 // =============================================================================
@@ -945,12 +961,18 @@ export interface Intervention {
   name: string;
   type: InterventionType;
   description?: string;
+  // Compatibility
+  frequency?: string;
+  culturalNotes?: string;
 }
 
 export interface Milestone {
   id: string;
   description: string;
   dueInWeeks?: number;
+  // Compatibility
+  name?: string;
+  targetDate?: string;
 }
 
 export interface InterventionProtocol {
@@ -1009,6 +1031,14 @@ export interface UserProfile {
   currentStreak?: number;
   level?: number | string;
   healingPointsTotal?: number;
+  // Onboarding compatibility
+  userId?: string;
+  basicInfo?: {
+    age?: number; gender?: string; occupation?: string; educationLevel?: string;
+  };
+  preferences?: Record<string, any>;
+  culturalContext?: any;
+  therapeuticGoals?: string[];
 }
 
 export type TherapeuticGoal = string;
@@ -1097,3 +1127,10 @@ export interface FollowUpSchedule {
 
 // All types are already exported as named exports above
 // No default export needed since TypeScript interfaces cannot be used as values
+
+// Legacy aliases for compatibility with older modules
+export type TherapeuticIntervention = EvidenceBasedIntervention;
+export type TreatmentGoal = string;
+export type ProgressMilestone = Milestone;
+export type CulturalAdaptation = string;
+export type RiskFactors = RiskFactor[];

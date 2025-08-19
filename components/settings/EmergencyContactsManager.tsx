@@ -207,7 +207,8 @@ export default function EmergencyContactsManager() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <MaterialCommunityIcons name={"phone-alert" as unknown as any} size={24} color="#dc2626" />
+        {/** cast entire props to any to silence very strict name union types */}
+        {React.createElement(MaterialCommunityIcons as any, { name: 'phone-alert', size: 24, color: '#dc2626' })}
         <Text style={styles.title}>Acil Durum Kişileri</Text>
       </View>
 
@@ -256,13 +257,13 @@ export default function EmergencyContactsManager() {
                     onPress={() => openEditModal(contact)}
                     style={styles.actionButton}
                   >
-                    <MaterialCommunityIcons name={"pencil" as unknown as any} size={20} color="#6b7280" />
+                    {React.createElement(MaterialCommunityIcons as any, { name: 'pencil', size: 20, color: '#6b7280' })}
                   </Pressable>
                   <Pressable 
                     onPress={() => deleteContact(contact.id)}
                     style={styles.actionButton}
                   >
-                    <MaterialCommunityIcons name={"delete" as unknown as any} size={20} color="#ef4444" />
+                    {React.createElement(MaterialCommunityIcons as any, { name: 'delete', size: 20, color: '#ef4444' })}
                   </Pressable>
                 </View>
               </View>
