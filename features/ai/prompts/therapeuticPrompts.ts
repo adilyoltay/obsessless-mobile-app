@@ -156,7 +156,7 @@ class TherapeuticPromptEngine {
       safeguards,
       expectedTone: this.determineOptimalTone(context),
       techniques: this.recommendTechniques(context),
-      culturalAdaptations: [culturalAdaptations],
+      culturalAdaptations: typeof culturalAdaptations === 'string' ? [culturalAdaptations] : (Array.isArray(culturalAdaptations) ? culturalAdaptations : []),
       contraindications: this.getContraindications(context),
       followUpSuggestions: this.generateFollowUpSuggestions(context)
     };
@@ -188,7 +188,7 @@ class TherapeuticPromptEngine {
       safeguards: this.getCBTSafeguards(technique),
       expectedTone: this.getCBTTone(technique),
       techniques: [technique],
-      culturalAdaptations: this.getCulturalAdaptations(context.culturalContext || 'turkish'),
+      culturalAdaptations: [this.getCulturalAdaptations((context.culturalContext as any) || 'turkish')],
       contraindications: intervention.contraindications || [],
       followUpSuggestions: intervention.followUpQuestions
     };
@@ -410,26 +410,25 @@ KULLANICI PROFİLİ:
   }
 
   private getConversationStateInstructions(state: ConversationState): string {
-    const instructions = {
-      [ConversationState.STABLE]: 'Normal terapötik yaklaşım kullan',
-      [ConversationState.THERAPEUTIC]: 'Aktif CBT teknikleri uygula',
-      [ConversationState.EXPLORATORY]: 'Keşfedici sorular sor, durumu anlamaya odaklan'
-    } as const;
-
-    return instructions[state] || instructions[ConversationState.STABLE];
+    const map: Record<string, string> = {
+      stable: 'Normal terapötik yaklaşım kullan',
+      therapeutic: 'Aktif CBT teknikleri uygula',
+      educational: 'Eğitici ve bilgilendirici yaklaş',
+      celebration: 'İlerlemeni kutla ve pekiştir'
+    };
+    return map[String(state)] || map.stable;
   }
 
   private getCrisisLevelInstructions(level?: CrisisRiskLevel): string {
     if (!level || level === CrisisRiskLevel.NONE) return '';
 
-    const instructions = {
-      [CrisisRiskLevel.LOW]: 'Dikkatli izle, destekleyici ol',
-      [CrisisRiskLevel.MEDIUM]: 'Aktif destek ver, coping stratejiler öner',
-      [CrisisRiskLevel.HIGH]: 'Profesyonel yardım öner, sakinleştirici teknikler kullan',
-      [CrisisRiskLevel.CRITICAL]: '🚨 ACİL DURUM - Derhal profesyonel yardım yönlendir'
+    const map: Record<string, string> = {
+      low: 'Dikkatli izle, destekleyici ol',
+      medium: 'Aktif destek ver, coping stratejiler öner',
+      high: 'Profesyonel yardım öner, sakinleştirici teknikler kullan',
+      critical: '🚨 ACİL DURUM - Derhal profesyonel yardım yönlendir'
     };
-
-    return `\n⚠️ KRİZ SEVİYESİ (${level}): ${instructions[level]}`;
+    return `\n⚠️ KRİZ SEVİYESİ (${level}): ${map[String(level)] || ''}`;
   }
 
   private getCulturalAdaptations(culturalContext: string): string {
@@ -542,14 +541,13 @@ Bu çarpıtmaları ele alırken kullanıcının savunmaya geçmesini önle, mera
   // Crisis-specific helpers removed
 
   private getCrisisActions(level: CrisisRiskLevel): string {
-    const actions = {
-      [CrisisRiskLevel.LOW]: 'Destekleyici yaklaşım, coping stratejiler',
-      [CrisisRiskLevel.MEDIUM]: 'Aktif müdahale, sakinleştirici teknikler',
-      [CrisisRiskLevel.HIGH]: 'Profesyonel yardım önerisi, güvenlik planı',
-      [CrisisRiskLevel.CRITICAL]: 'ACİL müdahale, derhal yardım hattı yönlendirme'
+    const map: Record<string, string> = {
+      low: 'Destekleyici yaklaşım, coping stratejiler',
+      medium: 'Aktif müdahale, sakinleştirici teknikler',
+      high: 'Profesyonel yardım önerisi, güvenlik planı',
+      critical: 'ACİL müdahale, derhal yardım hattı yönlendirme'
     };
-
-    return actions[level] || actions[CrisisRiskLevel.NONE];
+    return map[String(level)] || '';
   }
 
   private getCrisisResources(culturalContext: string): string {
@@ -590,15 +588,14 @@ ACİL DURUM PROTOKOLLERİ:
   }
 
   private getCBTTone(technique: CBTTechnique): 'supportive' | 'challenging' | 'validating' | 'educational' {
-    const toneMap = {
-      [CBTTechnique.SOCRATIC_QUESTIONING]: 'challenging' as const,
-      [CBTTechnique.COGNITIVE_RESTRUCTURING]: 'educational' as const,
-      [CBTTechnique.MINDFULNESS_INTEGRATION]: 'supportive' as const,
-      [CBTTechnique.THOUGHT_CHALLENGING]: 'challenging' as const,
-      [CBTTechnique.PROGRESS_CELEBRATION]: 'validating' as const
-    };
-
-    return toneMap[technique] || 'supportive';
+    switch (technique) {
+      case CBTTechnique.SOCRATIC_QUESTIONING: return 'challenging';
+      case CBTTechnique.COGNITIVE_RESTRUCTURING: return 'educational';
+      case CBTTechnique.MINDFULNESS_INTEGRATION: return 'supportive';
+      case CBTTechnique.THOUGHT_CHALLENGING: return 'challenging';
+      case CBTTechnique.PROGRESS_CELEBRATION: return 'validating';
+      default: return 'supportive';
+    }
   }
 
   private getCrisisSafeguards(): string[] {

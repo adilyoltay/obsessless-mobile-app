@@ -212,7 +212,8 @@ export class DataExportService {
           minute: '2-digit' 
         });
         
-        let row = `${date},${time},${compulsion.type},${compulsion.duration},${compulsion.resistanceLevel},${compulsion.intensity},${compulsion.triggers?.join(';') || ''}`;
+        const triggers = (compulsion as any).triggers as string[] | undefined;
+        let row = `${date},${time},${compulsion.type},${compulsion.duration},${compulsion.resistanceLevel},${compulsion.intensity},${Array.isArray(triggers) ? triggers.join(';') : ''}`;
         
         if (options.includeNotes && compulsion.notes) {
           row += `,"${compulsion.notes.replace(/"/g, '""')}"`;
@@ -351,7 +352,7 @@ ${data.summary.keyInsights.map(insight => `• ${insight}`).join('\n')}
           duration: c.duration,
           resistanceLevel: c.resistanceLevel,
           intensity: c.intensity,
-          triggers: c.triggers,
+          triggers: (c as any).triggers,
           notes: options.includeNotes ? c.notes : undefined,
         })),
         erpSessions: data.erpSessions,

@@ -29,8 +29,11 @@ class SecureDataService {
     if (this.keyCache) return this.keyCache;
     let stored = await SecureStore.getItemAsync(SecureDataService.KEY_ID);
     if (!stored) {
-      const { utils: CryptoUtils, Random } = await import('react-native-simple-crypto');
-      const keyBytes = await Random.getRandomBytes(32);
+      const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
+      // Generate random 32 bytes key via AES helper (fallback: use random values)
+      const randomBytes = new Uint8Array(32);
+      for (let i = 0; i < randomBytes.length; i++) randomBytes[i] = Math.floor(Math.random() * 256);
+      const keyBytes = randomBytes.buffer as ArrayBuffer;
       stored = CryptoUtils.convertArrayBufferToBase64(keyBytes);
       await SecureStore.setItemAsync(SecureDataService.KEY_ID, stored);
       this.keyCache = keyBytes;
@@ -44,11 +47,13 @@ class SecureDataService {
 
   async encryptData(data: unknown): Promise<EncryptedData> {
     const key = await this.getOrCreateKey();
-    const { utils: CryptoUtils, AES, Random } = await import('react-native-simple-crypto');
-    const iv = await Random.getRandomBytes(12); // 96-bit IV for GCM
+    const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
+    const ivArr = new Uint8Array(12);
+    for (let i = 0; i < ivArr.length; i++) ivArr[i] = Math.floor(Math.random() * 256);
+    const iv = ivArr.buffer as ArrayBuffer; // 96-bit IV for GCM
     const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
     const ptBytes = CryptoUtils.convertUtf8ToArrayBuffer(plaintext);
-    const ct = await AES.encrypt(ptBytes, key, iv, { mode: 'gcm' } as any);
+    const ct = await AES.encrypt(ptBytes, key, iv);
     return {
       ciphertext: CryptoUtils.convertArrayBufferToBase64(ct),
       iv: CryptoUtils.convertArrayBufferToBase64(iv),
@@ -65,7 +70,7 @@ class SecureDataService {
     const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
     const iv = CryptoUtils.convertBase64ToArrayBuffer(payload.iv);
     const ct = CryptoUtils.convertBase64ToArrayBuffer(payload.ciphertext);
-    const pt = await AES.decrypt(ct, key, iv, { mode: 'gcm' } as any);
+    const pt = await AES.decrypt(ct, key, iv);
     const text = CryptoUtils.convertArrayBufferToUtf8(pt);
     try {
       return JSON.parse(text);

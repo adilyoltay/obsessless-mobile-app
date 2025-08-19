@@ -7,10 +7,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  AIError,
-  AIErrorCode
-} from '@/features/ai/types';
+import { AIErrorCode } from '@/features/ai/types';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Art Therapy Styles
@@ -371,7 +368,7 @@ class ArtTherapyGenerator {
   ): Promise<void> {
     const session = this.activeSessions.get(sessionId);
     if (!session) {
-      throw new AIError(AIErrorCode.SESSION_NOT_FOUND, 'Art therapy session bulunamadı');
+      throw new Error(`[${AIErrorCode.SESSION_NOT_FOUND}] Art therapy session bulunamadı`);
     }
 
     session.creationSteps.push({
@@ -402,7 +399,7 @@ class ArtTherapyGenerator {
   ): Promise<void> {
     const session = this.activeSessions.get(sessionId);
     if (!session || !session.reflectionQuestions[questionIndex]) {
-      throw new AIError(AIErrorCode.INVALID_REQUEST, 'Geçersiz soru indeksi');
+      throw new Error(`[${AIErrorCode.INVALID_INPUT}] Geçersiz soru indeksi`);
     }
 
     session.reflectionQuestions[questionIndex].answer = answer;
@@ -433,7 +430,7 @@ class ArtTherapyGenerator {
   ): Promise<ArtCreationSession> {
     const session = this.activeSessions.get(sessionId);
     if (!session) {
-      throw new AIError(AIErrorCode.SESSION_NOT_FOUND, 'Art therapy session bulunamadı');
+      throw new Error(`[${AIErrorCode.SESSION_NOT_FOUND}] Art therapy session bulunamadı`);
     }
 
     session.endTime = new Date();

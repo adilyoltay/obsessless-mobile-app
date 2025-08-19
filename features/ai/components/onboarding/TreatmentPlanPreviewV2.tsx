@@ -172,7 +172,7 @@ export const TreatmentPlanPreviewV2: React.FC<TreatmentPlanPreviewV2Props> = ({
             </View>
             
             <Text style={styles.phaseLabel}>Hedefler:</Text>
-            {phase.goals.map((goal, i) => (
+            {(phase.goals || []).map((goal, i) => (
               <View key={i} style={styles.goalItem}>
                 <Text style={styles.bullet}>•</Text>
                 <Text style={styles.goalText}>{goal}</Text>

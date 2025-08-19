@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import type { StyleProp } from 'react-native';
 
 interface BadgeProps {
   text: string;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
   size?: 'small' | 'medium' | 'large';
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export function Badge({

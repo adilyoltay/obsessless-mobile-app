@@ -10,8 +10,6 @@ interface SliderProps {
   maximumValue?: number;
   step?: number;
   style?: any;
-  thumbStyle?: any;
-  trackStyle?: any;
   minimumTrackTintColor?: string;
   maximumTrackTintColor?: string;
   thumbTintColor?: string;
@@ -39,8 +37,7 @@ export const CustomSlider: React.FC<SliderProps> = ({
         step={step}
         minimumTrackTintColor={minimumTrackTintColor}
         maximumTrackTintColor={maximumTrackTintColor}
-        thumbStyle={[styles.thumb, { backgroundColor: thumbTintColor }]}
-        trackStyle={styles.track}
+        thumbTintColor={thumbTintColor}
         {...props}
       />
     </View>

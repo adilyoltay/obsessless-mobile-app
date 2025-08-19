@@ -182,7 +182,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
     if (hasInteracted) {
       // Clear any existing timer
       if (autoProgressTimer.current) {
-        clearTimeout(autoProgressTimer.current);
+        clearTimeout(autoProgressTimer.current as unknown as number);
       }
       
       // Set new timer for auto-progress
@@ -192,7 +192,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
       
       return () => {
         if (autoProgressTimer.current) {
-          clearTimeout(autoProgressTimer.current);
+          clearTimeout(autoProgressTimer.current as unknown as number);
         }
       };
     }
@@ -207,7 +207,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
   const handleNext = () => {
     // Clear timer
     if (autoProgressTimer.current) {
-      clearTimeout(autoProgressTimer.current);
+      clearTimeout(autoProgressTimer.current as unknown as number);
     }
 
     // Save answer
@@ -264,7 +264,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
 
     // Clear timer
     if (autoProgressTimer.current) {
-      clearTimeout(autoProgressTimer.current);
+      clearTimeout(autoProgressTimer.current as unknown as number);
     }
 
     Animated.sequence([
@@ -296,7 +296,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
       setCurrentIndex(currentIndex - 1);
       const prevAnswer = answers[currentIndex - 1];
       if (prevAnswer) {
-        setSliderValue(prevAnswer.value);
+        setSliderValue(Number((prevAnswer as any).value ?? 0));
         setAnswers(answers.slice(0, -1));
       }
     });
@@ -371,7 +371,7 @@ export const YBOCSAssessmentV2: React.FC<YBOCSAssessmentV2Props> = ({
               step={1}
               minimumTrackTintColor={getSeverityColor(sliderValue)}
               maximumTrackTintColor={COLORS.border}
-              thumbStyle={{ backgroundColor: getSeverityColor(sliderValue) }}
+              thumbTintColor={getSeverityColor(sliderValue)}
               style={styles.slider}
             />
             

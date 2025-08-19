@@ -88,11 +88,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
       { value: 3, label: 'Ciddi (3-8 saat/gün)', description: 'Günde 3-8 saat arası' },
       { value: 4, label: 'Aşırı (8+ saat/gün)', description: 'Günde 8 saatten fazla' }
     ],
-    culturalAdaptations: {
-      turkishContext: 'Türk toplumunda düşünce kontrol etme ve "kötü düşünce" kavramları',
-      religiousConsiderations: 'Dini obsesyonlar ve vesvese kavramı',
-      familialFactors: 'Aile beklentileri ve sosyal baskı'
-    }
+    culturalAdaptations: ['Türk toplumunda düşünce kontrol etme', 'Dini obsesyonlar', 'Aile beklentileri']
   },
   {
     id: 'obs_interference',
@@ -164,11 +160,7 @@ const YBOCS_QUESTIONS: YBOCSQuestion[] = [
       { value: 3, label: 'Ciddi (3-8 saat/gün)', description: 'Günde 3-8 saat arası' },
       { value: 4, label: 'Aşırı (8+ saat/gün)', description: 'Günde 8 saatten fazla' }
     ],
-    culturalAdaptations: {
-      turkishContext: 'Temizlik ve düzen obsesyonu, misafir ağırlama kaygısı',
-      religiousConsiderations: 'Abdest ve namaz tekrarları, dua ritüelleri',
-      familialFactors: 'Aile sorumluluklarını kontrol etme ihtiyacı'
-    }
+    culturalAdaptations: ['Temizlik ve düzen', 'Dini ritüeller', 'Aile sorumlulukları']
   },
   {
     id: 'comp_interference',
@@ -256,7 +248,7 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
   const calculateEstimatedSeverity = useCallback((answers: YBOCSAnswer[]): OCDSeverityLevel | null => {
     if (answers.length < 3) return null;
 
-    const totalScore = answers.reduce((sum, answer) => sum + answer.value, 0);
+    const totalScore = answers.reduce((sum, answer: any) => sum + Number(answer?.value ?? 0), 0);
     const maxPossibleScore = answers.length * 4;
     const percentage = (totalScore / maxPossibleScore) * 100;
 
@@ -273,14 +265,13 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
   const handleAnswerSelect = useCallback(async (value: number, option: any) => {
     const currentQuestion = YBOCS_QUESTIONS[state.currentQuestionIndex];
     
-    const answer: YBOCSAnswer = {
+    const answer: YBOCSAnswer & { category?: string } = {
       questionId: currentQuestion.id,
       questionType: currentQuestion.type,
       category: currentQuestion.category,
       value,
-      selectedOption: option,
       timestamp: new Date(),
-      responseTime: 0 // Will be calculated if needed
+      metadata: { responseTime: 0, revisionCount: 0 }
     };
 
     // Crisis detection kaldırıldı – burada yalnızca kullanıcıyı destek kaynaklarına yönlendirecek
@@ -354,7 +345,7 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
           completedAnswers: state.answers.length,
           estimatedSeverity: finalSeverity,
           userId,
-          assessmentDuration: Date.now() - (state.answers[0]?.timestamp.getTime() || Date.now())
+          assessmentDuration: 0
         });
 
         // Clear progress

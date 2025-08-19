@@ -27,11 +27,13 @@ import {
   TreatmentType,
   AIError,
   AIErrorCode,
-  ErrorSeverity
+  ErrorSeverity,
+  UserProfile,
+  TherapeuticGoal
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { contextIntelligence } from '@/features/ai/context/contextIntelligence';
+import { contextIntelligenceEngine } from '@/features/ai/context/contextIntelligence';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -428,7 +430,7 @@ class UserProfilingService {
       // Sprint 6 entegrasyonu: Context Intelligence
       let environmentalContext = null;
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        environmentalContext = await contextIntelligence.analyzeUserEnvironment(userId);
+        environmentalContext = await contextIntelligenceEngine.analyzeUserEnvironment(userId);
       }
 
       // Context-based adjustments
@@ -945,7 +947,7 @@ class UserProfilingService {
         ? await (therapeuticPromptEngine as any).generateGoalEnhancementPrompt(goals, profile, patterns)
         : 'Mevcut terapötik hedefleri daha somut, ölçülebilir ve kültürel olarak uygun hale getir. JSON array döndür.';
       const aiResp = await externalAIService.getAIResponse(
-        [{ role: 'user', content: prompt }],
+        [{ id: `m_${Date.now()}`, role: 'user', content: prompt, timestamp: new Date() } as any],
         { therapeuticProfile: profile, assessmentMode: false } as any,
         { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
       );
@@ -1091,16 +1093,14 @@ class UserProfilingService {
           title: 'Obsesyonları Yönetme',
           description: 'Obsesif düşünceleri tanıma ve yönetme becerileri geliştirme',
           category: 'symptom_management',
-          priority: 'high',
-          estimatedDuration: 8
+          priority: 'high'
         },
         {
           id: 'goal_2',
           title: 'Kompülsiyonları Azaltma',
           description: 'Kompülsif davranışları kademeli olarak azaltma',
           category: 'behavior_change',
-          priority: 'high',
-          estimatedDuration: 12
+          priority: 'high'
         }
       ];
 
@@ -1121,14 +1121,14 @@ class UserProfilingService {
 
     try {
       // Get existing profile or create new
-      let existingProfile = this.profileCache.get(userId);
+      let existingProfile = this.profileCache.get(userId) as any;
       if (!existingProfile) {
         existingProfile = {
           id: userId,
           createdAt: new Date(),
           lastUpdated: new Date(),
           completenessScore: 0
-        };
+        } as any;
       }
 
       // Apply updates

@@ -200,7 +200,7 @@ class ERPService {
       if (sessionIndex >= 0) {
         const session = sessions[sessionIndex];
         session.endTime = new Date();
-        session.duration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 1000);
+        session.duration = Math.floor(((session.endTime as Date).getTime() - (session.startTime as Date).getTime()) / 1000);
         session.finalAnxiety = finalAnxiety;
         session.notes = notes;
         session.completed = true;

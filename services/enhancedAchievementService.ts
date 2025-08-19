@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { achievementService } from '@/services/achievementService';
+import achievementService from '@/services/achievementService';
 import supabaseService from '@/services/supabase';
 
 export interface AchievementUnlock {
@@ -22,7 +22,8 @@ class EnhancedAchievementService {
   }
 
   async unlockAchievement(userId: string, achievementId: string, triggerEvent: string, contextData?: any): Promise<void> {
-    const unlocked = await achievementService.unlockAchievement(achievementId);
+    // adapt to AchievementService API: incrementProgress returns boolean when unlocked
+    const unlocked = await achievementService.incrementProgress(achievementId, 1);
     if (!unlocked) return;
 
     const record: AchievementUnlock = {
@@ -36,7 +37,7 @@ class EnhancedAchievementService {
 
     await this.saveUnlockRecord(record);
     try {
-      await supabaseService.client.from('achievement_unlocks').upsert(record);
+      await supabaseService.supabaseClient.from('achievement_unlocks').upsert(record);
       await this.markAsSynced(userId, record.achievement_id);
     } catch {}
   }

@@ -579,13 +579,13 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
       // Treatment Planning Engine
       try {
         const mod = await import('@/features/ai/engines/treatmentPlanningEngine');
-        await mod.treatmentPlanningEngine?.shutdown?.();
+        await (mod as any).treatmentPlanningEngine?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('treatmentPlanningEngine shutdown skipped:', e); }
 
       // Onboarding Engine
       try {
         const mod = await import('@/features/ai/engines/onboardingEngine');
-        await mod.onboardingEngine?.shutdown?.();
+        await (mod as any).modernOnboardingEngine?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('onboardingEngine shutdown skipped:', e); }
 
       // Pattern Recognition V2
@@ -597,13 +597,13 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
       // Context Intelligence
       try {
         const mod = await import('@/features/ai/context/contextIntelligence');
-        await mod.contextIntelligence?.shutdown?.();
+        await (mod as any).contextIntelligenceEngine?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('contextIntelligence shutdown skipped:', e); }
 
       // Adaptive Interventions
       try {
         const mod = await import('@/features/ai/interventions/adaptiveInterventions');
-        await mod.adaptiveInterventions?.shutdown?.();
+        await (mod as any).adaptiveInterventionsEngine?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('adaptiveInterventions shutdown skipped:', e); }
 
     } catch (error) {

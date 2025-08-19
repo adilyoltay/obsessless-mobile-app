@@ -23,7 +23,7 @@ import {
   PatternSeverity 
 } from '@/features/ai/services/patternRecognitionV2';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { ErrorSeverity, AIError, AIErrorCode } from '@/features/ai/types';
+import { ErrorSeverity, AIErrorCode } from '@/features/ai/types';
 
 // =============================================================================
 // 🎯 NOTIFICATION DEFINITIONS & TYPES
@@ -253,7 +253,15 @@ class SmartNotificationService {
     deliveryContext: DeliveryContext
   ): Promise<SchedulingResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Smart Notifications Service is not enabled');
+      await trackAIError({
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'Smart Notifications Service is not enabled',
+        severity: ErrorSeverity.MEDIUM,
+        context: { component: 'SmartNotificationService', method: 'scheduleInsightNotification' },
+        timestamp: new Date(),
+        recoverable: true
+      } as any);
+      return { scheduled: false, reason: 'Service disabled' };
     }
 
     try {
@@ -363,7 +371,15 @@ class SmartNotificationService {
     deliveryContext: DeliveryContext
   ): Promise<SchedulingResult> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Smart Notifications Service is not enabled');
+      await trackAIError({
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'Smart Notifications Service is not enabled',
+        severity: ErrorSeverity.MEDIUM,
+        context: { component: 'SmartNotificationService', method: 'schedulePatternAlert' },
+        timestamp: new Date(),
+        recoverable: true
+      } as any);
+      return { scheduled: false, reason: 'Service disabled' };
     }
 
     try {
@@ -698,17 +714,16 @@ class SmartNotificationService {
 
   // Mapping functions
   private mapInsightCategoryToNotificationCategory(category: InsightCategory): NotificationCategory {
-    const mapping = {
+    const mapping: Partial<Record<InsightCategory, NotificationCategory>> = {
       [InsightCategory.PATTERN_RECOGNITION]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.PROGRESS_TRACKING]: NotificationCategory.PROGRESS_CELEBRATION,
       [InsightCategory.THERAPEUTIC_GUIDANCE]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.BEHAVIORAL_ANALYSIS]: NotificationCategory.INSIGHT_DELIVERY,
       [InsightCategory.EMOTIONAL_STATE]: NotificationCategory.CHECK_IN,
-      [InsightCategory.CRISIS_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER,
       [InsightCategory.SKILL_DEVELOPMENT]: NotificationCategory.SKILL_PRACTICE,
       [InsightCategory.RELAPSE_PREVENTION]: NotificationCategory.THERAPEUTIC_REMINDER
-    } as const;
-    return (mapping as any)[category] || NotificationCategory.INSIGHT_DELIVERY;
+    };
+    return mapping[category] ?? NotificationCategory.INSIGHT_DELIVERY;
   }
 
   private mapInsightPriorityToNotificationPriority(priority: InsightPriority): SmartNotification['priority'] {

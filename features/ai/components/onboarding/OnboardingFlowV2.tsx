@@ -206,17 +206,19 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
     };
 
     // Create user profile
-    const fullUserProfile: UserProfile = {
+    const fullUserProfile: any = {
       userId,
       basicInfo: state.userProfile?.basicInfo || {
-        firstName: 'Kullanıcı',
-        age: '25',
+        age: 25,
         gender: 'belirtmek_istemiyorum',
       },
       culturalContext: state.userProfile?.culturalContext || {
-        factors: ['family_values'],
         language: 'tr',
-        region: 'turkey',
+        country: 'TR',
+        culturalBackground: ['Turkish'],
+        communicationStyle: { formality: 'warm', directness: 'gentle', supportStyle: 'encouraging', humorAcceptable: true, preferredPronoun: 'siz' },
+        stigmaFactors: [],
+        supportSystemStructure: 'extended_family',
       },
       therapeuticGoals: state.userProfile?.therapeuticGoals || [],
       riskFactors: [],
@@ -278,7 +280,7 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
         return (
           <CompletionStep 
             onFinish={handleComplete}
-            ybocsScore={state.ybocsAnswers.reduce((sum, a) => sum + a.value, 0)}
+            ybocsScore={state.ybocsAnswers.reduce((sum, a: any) => sum + Number(a?.value ?? 0), 0)}
           />
         );
 

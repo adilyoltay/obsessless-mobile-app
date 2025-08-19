@@ -27,7 +27,7 @@ import {
 import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
-import { riskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import riskAssessmentService from '@/features/ai/services/riskAssessmentService';
 // Crisis detection runtime'dan kaldırıldı; UI tarafında import edilmez
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -144,7 +144,14 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
   });
 
   const safeLevel = (riskAssessment.overallRiskLevel ?? RiskLevel.LOW) as RiskLevel;
-  const riskConfig = RISK_CONFIGS[safeLevel === RiskLevel.NONE ? RiskLevel.LOW : safeLevel];
+  const key = safeLevel === RiskLevel.CRITICAL
+    ? 'critical'
+    : safeLevel === RiskLevel.HIGH
+      ? 'high'
+      : safeLevel === RiskLevel.MODERATE
+        ? 'moderate'
+        : 'low';
+  const riskConfig = (RISK_CONFIGS as any)[key];
 
   /**
    * 🚨 Handle Safety Intervention
@@ -196,7 +203,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
   useEffect(() => {
     // Risk level animation
     Animated.timing(riskLevelAnim, {
-      toValue: getRiskLevelNumeric(riskAssessment.overallRiskLevel),
+      toValue: getRiskLevelNumeric((riskAssessment.overallRiskLevel ?? RiskLevel.LOW) as RiskLevel),
       duration: 1000,
       useNativeDriver: false,
     }).start();
@@ -390,7 +397,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
             <View style={styles.preventiveMeta}>
               <Badge
                 text={intervention.type.toUpperCase()}
-                variant="secondary"
+                variant="info"
                 style={styles.preventiveTypeBadge}
               />
               <Text style={styles.preventiveFrequency}>

@@ -116,8 +116,11 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
     },
     culturalContext: {
       language: 'tr',
-      region: 'turkey',
-      factors: ['family_values'],
+      country: 'TR',
+      culturalBackground: ['Turkish'],
+      communicationStyle: { formality: 'warm', directness: 'gentle', supportStyle: 'encouraging', humorAcceptable: true, preferredPronoun: 'siz' },
+      stigmaFactors: ['family_expectations'],
+      supportSystemStructure: 'extended_family',
     },
     therapeuticGoals: [],
   });
@@ -167,7 +170,7 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
       return;
     }
 
-    trackAIInteraction(AIEventType.PROFILE_STEP_COMPLETED, {
+    trackAIInteraction(AIEventType.ONBOARDING_STEP_COMPLETED, {
       userId: userId || 'anonymous',
       step: 'basic_info',
       data: { hasFirstName: !!state.basicInfo.firstName },
@@ -177,7 +180,7 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
   };
 
   const handleCulturalContextNext = () => {
-    trackAIInteraction(AIEventType.PROFILE_STEP_COMPLETED, {
+    trackAIInteraction(AIEventType.ONBOARDING_STEP_COMPLETED, {
       userId: userId || 'anonymous',
       step: 'cultural_context',
     });
@@ -192,15 +195,15 @@ export const ProfileBuilderV2: React.FC<ProfileBuilderV2Props> = ({
     }
 
     const profile: Partial<UserProfile> = {
-      basicInfo: state.basicInfo,
-      culturalContext: state.culturalContext as CulturalContext,
+      basicInfo: { age: Number.isFinite(Number(state.basicInfo.age)) ? Number(state.basicInfo.age) : undefined, gender: state.basicInfo.gender },
+      culturalContext: state.culturalContext as any,
       therapeuticGoals: state.therapeuticGoals.map(goal => ({
         id: goal,
         description: GOAL_OPTIONS.find(opt => opt.value === goal)?.label || goal,
         priority: 'medium',
-        targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       })),
-    };
+    } as Partial<UserProfile>;
 
     onComplete(profile);
   };

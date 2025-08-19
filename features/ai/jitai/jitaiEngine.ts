@@ -454,8 +454,8 @@ class JITAIEngine {
     const missing: string[] = [];
     const safeUserId = typeof source?.userId === 'string' && source.userId.length > 0 ? source.userId : 'unknown_user';
     const defaultState = {
-      stressLevel: (ContextAnalysisResult as any)?.StressLevel?.MODERATE ?? (StressLevel.MODERATE as any),
-      activityState: (ContextAnalysisResult as any)?.UserActivityState?.UNKNOWN ?? (UserActivityState.UNKNOWN as any),
+      stressLevel: StressLevel.MODERATE,
+      activityState: UserActivityState.UNKNOWN,
       energyLevel: 50,
     } as any;
     const baseCurrent = source?.currentContext || {};

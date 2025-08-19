@@ -11,6 +11,7 @@ import {
   Platform,
   AccessibilityRole,
 } from 'react-native';
+import type { StyleProp } from 'react-native';
 
 interface ButtonProps {
   children?: React.ReactNode;
@@ -19,8 +20,8 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'outline';
   loading?: boolean;
   disabled?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   // Accessibility props

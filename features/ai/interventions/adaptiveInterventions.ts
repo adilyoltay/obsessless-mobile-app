@@ -273,7 +273,14 @@ class AdaptiveInterventionsEngine {
    */
   async triggerContextualIntervention(context: InterventionContext): Promise<AdaptiveIntervention | null> {
     if (!this.isEnabled) {
-      throw new AIError(AIErrorCode.FEATURE_DISABLED, 'Adaptive Interventions Engine is not enabled');
+      const err: AIError = {
+        code: AIErrorCode.FEATURE_DISABLED,
+        message: 'Adaptive Interventions Engine is not enabled',
+        timestamp: new Date(),
+        severity: ErrorSeverity.MEDIUM,
+        recoverable: true,
+      };
+      throw err;
     }
 
     const startTime = Date.now();
@@ -609,11 +616,11 @@ class AdaptiveInterventionsEngine {
   /**
    * Start intervention delivery loop
    */
-  private deliveryLoop?: NodeJS.Timer;
+  private deliveryLoop?: ReturnType<typeof setInterval>;
 
   private startInterventionDeliveryLoop(): void {
     if (this.deliveryLoop) {
-      clearInterval(this.deliveryLoop);
+      clearInterval(this.deliveryLoop as any);
     }
     this.deliveryLoop = setInterval(async () => {
       if (!this.isEnabled) return;
@@ -778,15 +785,14 @@ class AdaptiveInterventionsEngine {
   }
 
   private getExpirationTime(category: InterventionCategory): number {
-    const baseExpiration = {
-      [InterventionCategory.CRISIS_SUPPORT]: 60 * 60 * 1000, // 1 hour
-      [InterventionCategory.STRESS_REDUCTION]: 4 * 60 * 60 * 1000, // 4 hours
-      [InterventionCategory.MOOD_REGULATION]: 8 * 60 * 60 * 1000, // 8 hours
-      [InterventionCategory.ENERGY_BOOST]: 6 * 60 * 60 * 1000, // 6 hours
-      [InterventionCategory.SLEEP_HYGIENE]: 12 * 60 * 60 * 1000, // 12 hours
-    };
-    
-    return baseExpiration[category] || 4 * 60 * 60 * 1000; // Default 4 hours
+    switch (category) {
+      case InterventionCategory.CRISIS_SUPPORT: return 60 * 60 * 1000;
+      case InterventionCategory.STRESS_REDUCTION: return 4 * 60 * 60 * 1000;
+      case InterventionCategory.MOOD_REGULATION: return 8 * 60 * 60 * 1000;
+      case InterventionCategory.ENERGY_BOOST: return 6 * 60 * 60 * 1000;
+      case InterventionCategory.SLEEP_HYGIENE: return 12 * 60 * 60 * 1000;
+      default: return 4 * 60 * 60 * 1000;
+    }
   }
 
   private determinePreferredStyle(context: InterventionContext): 'gentle' | 'direct' | 'encouraging' {
@@ -812,13 +818,13 @@ class AdaptiveInterventionsEngine {
   }
 
   private mapCategoryToCBTTechnique(category: InterventionCategory): CBTTechnique | undefined {
-    const mapping = {
-      [InterventionCategory.STRESS_REDUCTION]: CBTTechnique.MINDFULNESS_INTEGRATION,
-      [InterventionCategory.MOOD_REGULATION]: CBTTechnique.COGNITIVE_RESTRUCTURING,
-      [InterventionCategory.CBT_TECHNIQUE]: CBTTechnique.SOCRATIC_QUESTIONING,
-      [InterventionCategory.BEHAVIORAL_ACTIVATION]: CBTTechnique.BEHAVIORAL_EXPERIMENT,
-    };
-    return mapping[category];
+    switch (category) {
+      case InterventionCategory.STRESS_REDUCTION: return CBTTechnique.MINDFULNESS_INTEGRATION;
+      case InterventionCategory.MOOD_REGULATION: return CBTTechnique.COGNITIVE_RESTRUCTURING;
+      case InterventionCategory.CBT_TECHNIQUE: return CBTTechnique.SOCRATIC_QUESTIONING;
+      case InterventionCategory.BEHAVIORAL_ACTIVATION: return CBTTechnique.BEHAVIORAL_EXPERIMENT;
+      default: return undefined;
+    }
   }
 
   private getUserConfig(userId: string): InterventionConfig {
@@ -1066,8 +1072,3 @@ class AdaptiveInterventionsEngine {
 
 export const adaptiveInterventionsEngine = AdaptiveInterventionsEngine.getInstance();
 export default adaptiveInterventionsEngine;
-export type { 
-  AdaptiveIntervention,
-  InterventionConfig,
-  InterventionContext
-};

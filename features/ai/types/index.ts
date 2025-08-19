@@ -598,8 +598,8 @@ export interface YBOCSQuestion {
  */
 export interface YBOCSAnswer {
   questionId: string;
-  questionText: string;
-  response: string | number;
+  questionText?: string;
+  response?: string | number;
   severity?: number; // 0-4 scale
   timestamp: Date;
   metadata?: {
@@ -964,6 +964,7 @@ export interface Intervention {
   // Compatibility
   frequency?: string;
   culturalNotes?: string;
+  duration?: number | string;
 }
 
 export interface Milestone {
@@ -1038,15 +1039,27 @@ export interface UserProfile {
   };
   preferences?: Record<string, any>;
   culturalContext?: any;
-  therapeuticGoals?: string[];
+  therapeuticGoals?: any[];
 }
 
-export type TherapeuticGoal = string;
+export interface TherapeuticGoal {
+  id: string;
+  title?: string;
+  description: string;
+  category?: string;
+  priority?: 'low' | 'medium' | 'high';
+  targetDate?: Date;
+}
 export type UserPreferences = Record<string, any>;
 export type ProfileStep = string;
 export interface CrisisProtocol { description?: string }
 export interface PreventiveIntervention { description?: string }
-export interface TherapeuticRecommendation { description?: string }
+export interface TherapeuticRecommendation {
+  title?: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  culturallyAdapted?: boolean;
+}
 
 // Re-export runtime event enum for modules expecting it here
 export { AIEventType } from '@/features/ai/telemetry/aiTelemetry';

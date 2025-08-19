@@ -969,7 +969,7 @@ KISITLAR: Tanı/ilaç önerme yok, kriz çağrısı gerektiğinde sadece genel �
 
       const aiResp = await externalAIService.getAIResponse(
         ([{ role: 'user', content: prompt }] as any),
-        ({ therapeuticProfile: profile, assessmentMode: true } as any) || ({} as any),
+        ({ therapeuticProfile: profile, assessmentMode: true } as any),
         { therapeuticMode: true, maxTokens: 300, temperature: 0.2 }
       );
 

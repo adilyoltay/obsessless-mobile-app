@@ -265,8 +265,8 @@ export function ERPSessionTracker({
                maximumValue={10}
                step={1}
                style={styles.anxietySlider}
-               thumbStyle={{ backgroundColor: getAnxietyColor(currentAnxiety) }}
-               trackStyle={{ backgroundColor: '#F3F4F6' }}
+               minimumTrackTintColor={getAnxietyColor(currentAnxiety)}
+               maximumTrackTintColor={'#F3F4F6'}
              />
             
             <View style={styles.anxietyLabels}>

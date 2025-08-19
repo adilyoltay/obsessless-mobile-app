@@ -11,6 +11,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { AIErrorCode, ErrorSeverity } from '@/features/ai/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // =============================================================================
@@ -341,10 +342,10 @@ class ArtTherapyEngineImpl {
       console.error(`❌ Artwork analysis failed for: ${artwork.artworkId}`, error);
       
       await trackAIError({
-        code: 'ART_ANALYSIS_FAILED',
+        code: AIErrorCode.PROCESSING_FAILED,
         message: 'Failed to analyze artwork',
         context: { artworkId: artwork.artworkId },
-        severity: 'medium'
+        severity: ErrorSeverity.MEDIUM
       });
 
       // Return basic analysis on failure
@@ -701,9 +702,7 @@ interface CulturalAdaptation {
   adaptedInstructions: string;
 }
 
-interface TherapeuticGoal {
-  // Define therapeutic goals
-}
+type TherapeuticGoal = string;
 
 interface StrokeAnalysis {
   complexity: number;
@@ -720,18 +719,4 @@ export const artTherapyEngine = ArtTherapyEngineImpl.getInstance();
 export default artTherapyEngine;
 
 // Export enums and types
-export { 
-  GuidanceLevel,
-  PrivacyLevel,
-  ArtTechnique,
-  TherapeuticGoal
-};
-
-// Type exports
-export type {
-  ArtSessionConfig,
-  TherapeuticPrompt,
-  ArtSession,
-  ArtAnalysis,
-  TherapeuticInsight
-};
+// (Removed duplicate re-exports to avoid conflicts)

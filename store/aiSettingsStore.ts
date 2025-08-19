@@ -47,7 +47,7 @@ export interface AISettingsState {
   
   // Safety functions
   revokeAllConsents: () => void;
-  exportData: () => AISettingsState;
+  exportData: () => Pick<AISettingsState, 'consents' | 'preferences' | 'usage'>;
   clearAllData: () => void;
 }
 

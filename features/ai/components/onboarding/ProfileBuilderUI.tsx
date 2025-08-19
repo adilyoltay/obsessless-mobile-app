@@ -488,15 +488,15 @@ const BasicInfoStep: React.FC<{
   onCanProceed: (canProceed: boolean) => void;
 }> = ({ profileData, onUpdate, onCanProceed }) => {
   const [formData, setFormData] = useState({
-    firstName: profileData.firstName || '',
-    age: profileData.age || '',
-    gender: profileData.gender || '',
-    occupation: profileData.occupation || ''
+    firstName: (profileData as any).firstName || '',
+    age: (profileData as any).age || '',
+    gender: (profileData as any).gender || '',
+    occupation: (profileData as any).occupation || ''
   });
 
   // Update parent whenever form data changes
   useEffect(() => {
-    onUpdate(formData);
+    onUpdate(formData as any);
   }, [formData.firstName, formData.age, formData.gender, formData.occupation]);
 
   // Update canProceed status
@@ -711,12 +711,16 @@ const CulturalContextStep: React.FC<{
 
   // Update parent whenever cultural factors change
   useEffect(() => {
-    const culturalContext: CulturalContext = {
-      factors: culturalFactors,
+    const culturalContext: any = {
       language: 'tr',
-      region: 'turkey'
+      country: 'TR',
+      culturalBackground: ['Turkish'],
+      communicationStyle: { formality: 'warm', directness: 'gentle', supportStyle: 'encouraging', humorAcceptable: true, preferredPronoun: 'siz' },
+      stigmaFactors: [],
+      supportSystemStructure: 'extended_family',
+      factors: culturalFactors,
     };
-    onUpdate({ culturalContext });
+    onUpdate({ culturalContext } as any);
   }, [culturalFactors]);
 
   // Set canProceed status (cultural context is optional but recommended)
