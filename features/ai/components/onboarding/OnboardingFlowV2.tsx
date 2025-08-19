@@ -143,7 +143,7 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
     // Track Y-BOCS completion
     await trackAIInteraction(AIEventType.YBOCS_COMPLETED, {
       userId,
-      totalScore: answers.reduce((sum, a) => sum + a.value, 0),
+      totalScore: answers.reduce((sum, a: any) => sum + Number(a?.value ?? 0), 0),
       answersCount: answers.length,
     });
 
@@ -169,21 +169,40 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
     console.log('✅ Onboarding completed');
 
     // Create mock treatment plan
-    const mockTreatmentPlan: TreatmentPlan = {
+    const mockTreatmentPlan: any = {
       id: `plan_${userId}_${Date.now()}`,
       userId,
+      createdAt: new Date(),
+      lastUpdated: new Date(),
+      currentPhase: 0,
+      estimatedDuration: 4,
+      userProfile: {
+        preferredLanguage: 'tr',
+        symptomSeverity: 0,
+        communicationStyle: { formality: 'casual', directness: 'gentle', supportStyle: 'encouraging', humorAcceptable: false, preferredPronoun: 'they' },
+        triggerWords: [], avoidanceTopics: [], preferredCBTTechniques: [], therapeuticGoals: [], riskFactors: []
+      },
+      culturalAdaptations: ['Türk kültürüne uygun örnekler'],
+      accessibilityAccommodations: [],
+      evidenceBasedInterventions: [],
+      expectedOutcomes: [],
+      successMetrics: [],
+      adaptationTriggers: [],
+      fallbackStrategies: [],
+      emergencyProtocols: [],
       phases: [
         {
           id: 'phase-1',
           name: 'Farkındalık ve Kabul',
-          weekNumber: 1,
-          goals: ['OKB semptomlarını tanıma', 'Tetikleyicileri belirleme'],
-          exercises: ['Günlük kompulsiyon kaydı', 'Farkındalık meditasyonu'],
-        },
-      ],
-      culturalAdaptations: ['Türk kültürüne uygun örnekler'],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+          description: 'OKB semptomlarına güvenli farkındalık',
+          estimatedDuration: 1,
+          objectives: ['OKB semptomlarını tanıma', 'Tetikleyicileri belirleme'],
+          interventions: [],
+          milestones: [],
+          prerequisites: [],
+          successCriteria: []
+        }
+      ]
     };
 
     // Create user profile
@@ -225,7 +244,7 @@ export const OnboardingFlowV2: React.FC<OnboardingFlowV2Props> = ({
     await trackAIInteraction(AIEventType.ONBOARDING_SESSION_COMPLETED, {
       userId,
       totalSteps: TOTAL_STEPS,
-      ybocsScore: state.ybocsAnswers.reduce((sum, a) => sum + a.value, 0),
+      ybocsScore: state.ybocsAnswers.reduce((sum, a: any) => sum + Number(a?.value ?? 0), 0),
     });
 
     onComplete(fullUserProfile, mockTreatmentPlan);

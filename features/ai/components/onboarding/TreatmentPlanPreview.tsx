@@ -29,7 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
-import { treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
+import treatmentPlanningEngine from '@/features/ai/engines/treatmentPlanningEngine';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Types

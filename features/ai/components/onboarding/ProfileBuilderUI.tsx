@@ -314,15 +314,8 @@ export const ProfileBuilderUI: React.FC<ProfileBuilderUIProps> = ({
    * 📊 Calculate Profile Completeness
    */
   const calculateCompleteness = useCallback((profileData: Partial<UserProfile>): number => {
-    const requiredFields = [
-      'firstName', 'age', 'selectedGoals', 'preferences', 'culturalContext'
-    ];
-    const completedFields = requiredFields.filter(field => 
-      profileData[field as keyof UserProfile] !== undefined &&
-      profileData[field as keyof UserProfile] !== null &&
-      profileData[field as keyof UserProfile] !== ''
-    );
-    return (completedFields.length / requiredFields.length) * 100;
+    const keysPresent = Object.keys(profileData).length;
+    return Math.min(100, Math.round((keysPresent / 5) * 100));
   }, []);
 
   /**
@@ -480,10 +473,7 @@ export const ProfileBuilderUI: React.FC<ProfileBuilderUIProps> = ({
 
       {/* Loading Overlay */}
       {(state.isGeneratingSuggestions && !isLoading) && (
-        <Loading 
-          overlay 
-          message="AI önerileri oluşturuluyor..."
-        />
+        <Loading overlay />
       )}
     </View>
   );

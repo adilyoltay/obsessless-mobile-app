@@ -143,7 +143,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
     pulseAnim
   });
 
-  const riskConfig = RISK_CONFIGS[riskAssessment.overallRiskLevel];
+  const riskConfig = RISK_CONFIGS[(riskAssessment.overallRiskLevel ?? RiskLevel.LOW) as RiskLevel];
 
   /**
    * 🚨 Handle Safety Intervention
@@ -201,8 +201,8 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
     }).start();
 
     // Pulse animation for high risk levels
-    if (riskAssessment.overallRiskLevel === RiskLevel.HIGH || 
-        riskAssessment.overallRiskLevel === RiskLevel.CRITICAL) {
+    const lvl = riskAssessment.overallRiskLevel ?? RiskLevel.LOW;
+    if (lvl === RiskLevel.HIGH || lvl === RiskLevel.CRITICAL) {
       const pulseSequence = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -282,7 +282,7 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
 
         {/* Risk Score */}
         <Text style={[styles.riskScore, { color: riskConfig.color }]}>
-          Risk Skoru: {Math.round(riskAssessment.riskScore * 100)}/100
+          Risk Skoru: {Math.round(((riskAssessment.riskScore ?? 0) * 100))}/100
         </Text>
       </Animated.View>
     );
