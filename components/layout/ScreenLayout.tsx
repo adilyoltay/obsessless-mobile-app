@@ -29,23 +29,31 @@ function ScreenLayout({
   ];
 
   // RN kuralı: Düz string/number children bir <Text> içinde olmalı.
-  // Her bir string/number düğümü güvenli şekilde <Text> içine saralım.
+  // Tüm çocuk ağacını dolaşıp string/number düğümleri güvenli şekilde <Text> içine saralım.
+  const wrapTextNodesDeep = (node: any, keyPrefix = 'k'): any => {
+    if (node === null || node === undefined || typeof node === 'boolean') return null;
+    if (typeof node === 'string' || typeof node === 'number') {
+      return <Text key={`${keyPrefix}_txt`}>{node}</Text>;
+    }
+    if (Array.isArray(node)) {
+      return node.map((child, idx) => wrapTextNodesDeep(child, `${keyPrefix}_${idx}`));
+    }
+    if (React.isValidElement(node)) {
+      const origChildren = (node as any).props?.children;
+      if (origChildren === undefined) return node;
+      const wrapped = wrapTextNodesDeep(origChildren, `${keyPrefix}_c`);
+      return React.cloneElement(node as any, undefined, wrapped);
+    }
+    return node;
+  };
+
   const childArray = React.Children.toArray(children);
   const hasVirtualizedList = childArray.some((node: any) => {
     const typeName = node?.type?.displayName || node?.type?.name || '';
     return ['FlatList', 'SectionList', 'VirtualizedList'].includes(typeName);
   });
 
-  const normalizedChildren = childArray.map((node, idx) => {
-    if (typeof node === 'string' || typeof node === 'number') {
-      return (
-        <Text key={`txt_${idx}`}>
-          {node}
-        </Text>
-      );
-    }
-    return node as React.ReactNode;
-  });
+  const normalizedChildren = childArray.map((node, idx) => wrapTextNodesDeep(node, `root_${idx}`));
 
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
