@@ -177,6 +177,50 @@ class MoodTrackingService {
     }
     return dates;
   }
+
+  // Cross-device: fetch recent remote entries and merge with local
+  async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
+    const entries: MoodEntry[] = [];
+    const dates = await this.getRecentDates(days);
+    for (const date of dates) {
+      const key = `${this.STORAGE_KEY}_${userId}_${date}`;
+      const existing = await AsyncStorage.getItem(key);
+      if (existing) entries.push(...JSON.parse(existing));
+    }
+    try {
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const { data, error } = await (supabaseService as any).supabaseClient
+        .from('mood_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        const remoteEntries: MoodEntry[] = data.map((d: any) => ({
+          id: d.id,
+          user_id: d.user_id,
+          mood_score: d.mood_score,
+          energy_level: d.energy_level,
+          anxiety_level: d.anxiety_level,
+          notes: d.notes,
+          triggers: d.triggers,
+          activities: d.activities,
+          timestamp: d.created_at,
+          synced: true,
+          sync_attempts: 0,
+        }));
+        const merged = new Map<string, MoodEntry>();
+        [...entries, ...remoteEntries].forEach((e) => {
+          const existing = merged.get(e.id);
+          if (!existing) merged.set(e.id, e);
+          else if (!existing.synced && e.synced) merged.set(e.id, e);
+          else if (new Date(e.timestamp).getTime() > new Date(existing.timestamp).getTime()) merged.set(e.id, e);
+        });
+        return Array.from(merged.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      }
+    } catch {}
+    return entries;
+  }
 }
 
 export const moodTracker = MoodTrackingService.getInstance();

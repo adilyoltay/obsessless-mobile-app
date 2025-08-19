@@ -4,6 +4,7 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 
@@ -45,19 +46,30 @@ export default function RootLayout() {
   // Foreground DLQ scheduler: process periodically when app is active
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+    let appStateListener: any;
     (async () => {
       try {
         const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+        const { offlineSyncService } = await import('@/services/offlineSync');
         // Run once shortly after startup
-        setTimeout(() => { deadLetterQueue.processDeadLetterQueue().catch(() => {}); }, 3000);
+        setTimeout(() => { deadLetterQueue.processDeadLetterQueue().catch(() => {}); offlineSyncService.processSyncQueue().catch(()=>{}); }, 3000);
         // Then run periodically
         interval = setInterval(() => {
           deadLetterQueue.processDeadLetterQueue().catch(() => {});
+          offlineSyncService.processSyncQueue().catch(()=>{});
         }, 60000);
+        // App comes to foreground: trigger quick sync
+        appStateListener = AppState.addEventListener('change', (state) => {
+          if (state === 'active') {
+            offlineSyncService.processSyncQueue().catch(()=>{});
+            deadLetterQueue.processDeadLetterQueue().catch(()=>{});
+          }
+        });
       } catch {}
     })();
     return () => {
       if (interval) clearInterval(interval);
+      try { appStateListener?.remove?.(); } catch {}
     };
   }, []);
 

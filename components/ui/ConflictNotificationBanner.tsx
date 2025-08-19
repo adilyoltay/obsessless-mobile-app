@@ -54,7 +54,7 @@ export default function ConflictNotificationBanner() {
   };
 
   return (
-    <View accessibilityRole="status" accessibilityLabel="Senkronizasyon çatışması bildirimi" style={styles.container}>
+    <View accessibilityRole="text" accessibilityLabel="Senkronizasyon çatışması bildirimi" style={styles.container}>
       <Text style={styles.text} numberOfLines={2}>
         Veri senkronizasyonunda bir çatışma tespit edildi. İncelemek için dokunun.
       </Text>

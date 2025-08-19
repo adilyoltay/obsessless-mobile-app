@@ -10,7 +10,7 @@ export default function SafeModeBanner() {
   const show = ctx.safeMode === true || (!isInitialized && initializationError);
   if (!show) return null;
   return (
-    <View accessibilityRole="status" accessibilityLabel="Güvenli mod bildirimi" style={styles.container}>
+    <View accessibilityRole="text" accessibilityLabel="Güvenli mod bildirimi" style={styles.container}>
       <Text style={styles.text}>Güvenli mod aktif. AI özelliklerinin bir kısmı geçici olarak devre dışı. Temel özellikler kullanılabilir.</Text>
       <Text style={styles.subtext}>Geliştiriciler bilgilendirildi. Çoğu işlem çevrimdışı/yerel modda çalışır.</Text>
     </View>

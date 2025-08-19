@@ -34,7 +34,7 @@ export default function OfflineBanner({ message }: OfflineBannerProps) {
   if (!isOffline) return null;
 
   return (
-    <View accessibilityRole="status" accessibilityLabel="Çevrimdışı durum bildirimi" style={styles.container}>
+    <View accessibilityRole="text" accessibilityLabel="Çevrimdışı durum bildirimi" style={styles.container}>
       <Text style={styles.text}>
         {message || 'Çevrimdışısınız. Değişiklikler yerel olarak kaydedilecek ve bağlantı kurulduğunda senkronize edilecek.'}
         {queueLength > 0 ? ` (${queueLength} bekleyen senkron öğe)` : ''}
