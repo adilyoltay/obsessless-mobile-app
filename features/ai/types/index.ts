@@ -983,13 +983,43 @@ export interface Safeguard {
 /**
  * Risk Levels
  */
+// Include legacy variants for compatibility
 export enum RiskLevel {
   NONE = 'none',
   LOW = 'low',
   MEDIUM = 'medium',
+  MODERATE = 'moderate',
   HIGH = 'high',
+  VERY_HIGH = 'very_high',
+  IMMINENT = 'imminent',
   CRITICAL = 'critical'
 }
+
+// ---------------------------------------------------------------------------
+// Compatibility shims for older modules
+// ---------------------------------------------------------------------------
+
+export interface UserProfile {
+  id?: string;
+  email?: string;
+  name?: string;
+  provider?: string;
+  updated_at?: string;
+  // Gamification fields used in settings screen
+  currentStreak?: number;
+  level?: number | string;
+  healingPointsTotal?: number;
+}
+
+export type TherapeuticGoal = string;
+export type UserPreferences = Record<string, any>;
+export type ProfileStep = string;
+export interface CrisisProtocol { description?: string }
+export interface PreventiveIntervention { description?: string }
+export interface TherapeuticRecommendation { description?: string }
+
+// Re-export runtime event enum for modules expecting it here
+export { AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 /**
  * Risk Factor

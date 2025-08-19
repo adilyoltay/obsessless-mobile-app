@@ -80,7 +80,7 @@ export function ProgressBar({
             end={{ x: 1, y: 0 }}
           />
         ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: progressColor, borderRadius }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: progressColor as any, borderRadius }]} />
         )}
       </Animated.View>
     </View>
