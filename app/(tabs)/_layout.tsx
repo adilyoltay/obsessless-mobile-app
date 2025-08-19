@@ -89,24 +89,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="moods"
-        options={{
-          title: 'Duygu',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'happy' : 'happy-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="moods-history"
-        options={{
-          title: 'Duygu Geçmişi',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'time' : 'time-outline'} color={color} />
-          ),
-        }}
-      />
+      
       <Tabs.Screen
         name="settings"
         options={{
