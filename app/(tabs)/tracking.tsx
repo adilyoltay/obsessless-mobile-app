@@ -1224,13 +1224,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 8,
-    flex: 1,
-  },
+  // sectionTitle defined earlier; use aiSectionTitle here
   aiSectionTitle: {
     fontSize: 18,
     fontWeight: '600',

@@ -31,7 +31,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
 // Types
-import type { ArtSessionConfig, TherapeuticPrompt, ArtTechnique, GuidanceLevel, PrivacyLevel } from '@/features/ai/artTherapy/artTherapyEngine';
+import { ArtSessionConfig, TherapeuticPrompt, ArtTechnique, GuidanceLevel, PrivacyLevel } from '@/features/ai/artTherapy/artTherapyEngine';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -150,7 +150,7 @@ export default function ArtTherapyScreen() {
     <Card key={prompt.id} style={styles.promptCard}>
       <View style={styles.promptHeader}>
         <MaterialCommunityIcons 
-          name={getIconForTechnique(prompt.technique)} 
+          name={getIconForTechnique(prompt.technique) as any} 
           size={28} 
           color="#8b5cf6" 
         />
@@ -166,7 +166,7 @@ export default function ArtTherapyScreen() {
       
       {prompt.culturalAdaptation && (
         <View style={styles.culturalTag}>
-          <MaterialCommunityIcons name="star-circle" size={16} color="#f59e0b" />
+          <MaterialCommunityIcons name={"star-circle" as any} size={16} color="#f59e0b" />
           <Text style={styles.culturalText}>Türk kültürüne uyarlanmış</Text>
         </View>
       )}
@@ -214,7 +214,7 @@ export default function ArtTherapyScreen() {
         {/* Introduction */}
         <Card style={styles.introCard}>
           <View style={styles.introHeader}>
-            <MaterialCommunityIcons name="brush" size={32} color="#8b5cf6" />
+            <MaterialCommunityIcons name={"brush" as any} size={32} color="#8b5cf6" />
             <Text style={styles.introTitle}>Sanatla İyileşin</Text>
           </View>
           <Text style={styles.introText}>
@@ -242,7 +242,7 @@ export default function ArtTherapyScreen() {
 
         {/* Feature Coming Soon */}
         <Card style={styles.comingSoonCard}>
-          <MaterialCommunityIcons name="construction" size={24} color="#f59e0b" />
+          <MaterialCommunityIcons name={"construction" as any} size={24} color="#f59e0b" />
           <Text style={styles.comingSoonTitle}>Yakında Geliyor</Text>
           <Text style={styles.comingSoonText}>
             • Dijital Canvas ve Çizim Araçları{'\n'}
@@ -271,7 +271,7 @@ function getIconForTechnique(technique: ArtTechnique): string {
 }
 
 function getDifficultyText(level: string): string {
-  const texts = {
+  const texts: Record<string, string> = {
     beginner: 'Başlangıç',
     intermediate: 'Orta',
     advanced: 'İleri',
@@ -281,7 +281,7 @@ function getDifficultyText(level: string): string {
 }
 
 function getGoalText(goal: string): string {
-  const texts = {
+  const texts: Record<string, string> = {
     stress_reduction: 'Stres Azaltma',
     mindfulness: 'Farkındalık',
     focus_improvement: 'Odaklanma',

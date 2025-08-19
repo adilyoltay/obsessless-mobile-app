@@ -232,7 +232,7 @@ export default function EmergencyContactsManager() {
               <View style={styles.contactHeader}>
                 <View style={styles.contactIcon}>
                   <MaterialCommunityIcons 
-                    name={getRelationshipIcon(contact.relationship)} 
+                    name={getRelationshipIcon(contact.relationship) as any} 
                     size={24} 
                     color="#7c3aed" 
                   />
@@ -324,7 +324,7 @@ export default function EmergencyContactsManager() {
                   onPress={() => setFormData(prev => ({ ...prev, relationship: rel }))}
                 >
                   <MaterialCommunityIcons 
-                    name={getRelationshipIcon(rel)} 
+                    name={getRelationshipIcon(rel) as any} 
                     size={20} 
                     color={formData.relationship === rel ? '#7c3aed' : '#6b7280'} 
                   />

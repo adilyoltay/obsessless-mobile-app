@@ -192,7 +192,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       urlSub?.remove?.();
       authListener?.subscription?.unsubscribe?.();
     };
-  }, [loadUserProfile, setUserId]);
+  }, [setUserId]);
 
   // ===========================
   // PROFILE LOADING
@@ -247,8 +247,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         console.warn('⚠️ Gamification profile initialization failed, but app can continue');
       }
       
-      // Set profile state so dependent screens render correctly
-      setProfile(userProfile ?? null);
+      // Set profile state so dependent screens render correctly (compat cast)
+      setProfile((userProfile as any) ?? null);
       lastProfileLoadRef.current = { userId: user.id, ts: now };
     } catch (error) {
       console.error('❌ Load user profile failed:', error);

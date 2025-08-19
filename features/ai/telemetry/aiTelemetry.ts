@@ -221,7 +221,10 @@ export enum AIEventType {
   ,
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
+  SERVICE_INITIALIZED = 'service_initialized',
   SESSION_STARTED = 'session_started',
+  SESSION_CREATED = 'session_created',
+  ARTWORK_SAVED = 'artwork_saved',
   ART_THERAPY_STARTED = 'art_therapy_started',
   ART_THERAPY_COMPLETED = 'art_therapy_completed',
   AI_ANALYSIS_COMPLETED = 'cbt_analysis_completed',

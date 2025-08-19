@@ -14,6 +14,7 @@ interface ProgressBarProps {
   height?: number;
   backgroundColor?: string;
   progressColor?: string;
+  color?: string; // alias for progressColor (compat)
   borderRadius?: number;
   animated?: boolean;
   gradient?: boolean;
@@ -25,13 +26,15 @@ export function ProgressBar({
   progress,
   height = 8,
   backgroundColor = '#E5E7EB',
-  progressColor = '#10B981',
+  progressColor: progressColorProp = '#10B981',
+  color,
   borderRadius = 4,
   animated = true,
   gradient = false,
   gradientColors = ['#10B981', '#7bc99e'],
   style,
 }: ProgressBarProps) {
+  const progressColor = color ?? progressColorProp;
   const progressValue = useSharedValue(0);
 
   useEffect(() => {
