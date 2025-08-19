@@ -681,7 +681,7 @@ export default function TrackingScreen() {
           <View style={styles.aiSection}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-              <Text style={styles.sectionTitle}>AI Analizleri</Text>
+              <Text style={styles.aiSectionTitle}>AI Analizleri</Text>
               {isLoadingAI && (
                 <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
               )}
@@ -1225,6 +1225,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+  },
+  aiSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',

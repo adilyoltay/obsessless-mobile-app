@@ -123,7 +123,7 @@ export default function AITestScreen() {
               Onboarding Testini Başlat
             </Button>
             
-            {FEATURE_FLAGS.AI_ONBOARDING && (
+            {FEATURE_FLAGS.isEnabled('AI_ONBOARDING') && (
               <View style={styles.componentDemo}>
                 <Text style={styles.demoTitle}>Onboarding Flow Demo:</Text>
                 <Text style={styles.demoText}>
@@ -157,7 +157,7 @@ export default function AITestScreen() {
               Voice Testini Başlat
             </Button>
             
-            {FEATURE_FLAGS.AI_VOICE && (
+            {FEATURE_FLAGS.isEnabled('AI_VOICE') && (
               <View style={styles.componentDemo}>
                 <Text style={styles.demoTitle}>Voice Interface Demo:</Text>
                 <Text style={styles.demoText}>
@@ -197,33 +197,33 @@ export default function AITestScreen() {
             <View style={styles.statusGrid}>
               <View style={styles.statusItem}>
                 <MaterialCommunityIcons
-                  name={FEATURE_FLAGS.AI_CHAT ? 'check-circle' : 'close-circle'}
+                  name={FEATURE_FLAGS.isEnabled('AI_CHAT') ? 'check-circle' : 'close-circle'}
                   size={20}
-                  color={FEATURE_FLAGS.AI_CHAT ? '#10B981' : '#EF4444'}
+                  color={FEATURE_FLAGS.isEnabled('AI_CHAT') ? '#10B981' : '#EF4444'}
                 />
                 <Text style={styles.statusLabel}>Chat</Text>
               </View>
               <View style={styles.statusItem}>
                 <MaterialCommunityIcons
-                  name={FEATURE_FLAGS.AI_ONBOARDING ? 'check-circle' : 'close-circle'}
+                  name={FEATURE_FLAGS.isEnabled('AI_ONBOARDING') ? 'check-circle' : 'close-circle'}
                   size={20}
-                  color={FEATURE_FLAGS.AI_ONBOARDING ? '#10B981' : '#EF4444'}
+                  color={FEATURE_FLAGS.isEnabled('AI_ONBOARDING') ? '#10B981' : '#EF4444'}
                 />
                 <Text style={styles.statusLabel}>Onboarding</Text>
               </View>
               <View style={styles.statusItem}>
                 <MaterialCommunityIcons
-                  name={FEATURE_FLAGS.AI_INSIGHTS ? 'check-circle' : 'close-circle'}
+                  name={FEATURE_FLAGS.isEnabled('AI_INSIGHTS') ? 'check-circle' : 'close-circle'}
                   size={20}
-                  color={FEATURE_FLAGS.AI_INSIGHTS ? '#10B981' : '#EF4444'}
+                  color={FEATURE_FLAGS.isEnabled('AI_INSIGHTS') ? '#10B981' : '#EF4444'}
                 />
                 <Text style={styles.statusLabel}>Insights</Text>
               </View>
               <View style={styles.statusItem}>
                 <MaterialCommunityIcons
-                  name={FEATURE_FLAGS.AI_VOICE ? 'check-circle' : 'close-circle'}
+                  name={FEATURE_FLAGS.isEnabled('AI_VOICE') ? 'check-circle' : 'close-circle'}
                   size={20}
-                  color={FEATURE_FLAGS.AI_VOICE ? '#10B981' : '#EF4444'}
+                  color={FEATURE_FLAGS.isEnabled('AI_VOICE') ? '#10B981' : '#EF4444'}
                 />
                 <Text style={styles.statusLabel}>Voice</Text>
               </View>

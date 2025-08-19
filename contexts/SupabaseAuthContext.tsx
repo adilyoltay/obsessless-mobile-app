@@ -121,7 +121,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           await WebBrowser.dismissBrowser();
         } else if (authCode) {
           // Authorization Code flow with PKCE
-          const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession({ code: authCode });
+          const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession(authCode as any);
           if (exchError) {
             console.error('❌ Code exchange failed:', exchError);
             setError('Giriş başarısız. Lütfen tekrar deneyin.');
@@ -398,7 +398,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         return;
       }
       if (authCode) {
-        const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession({ code: authCode });
+        const { data, error: exchError } = await supabaseService.supabaseClient.auth.exchangeCodeForSession(authCode as any);
         if (exchError) {
           setError('Giriş başarısız. Lütfen tekrar deneyin.');
           if (__DEV__) console.error('Code exchange error:', exchError);

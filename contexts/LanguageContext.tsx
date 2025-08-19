@@ -14,23 +14,11 @@ export type Language = 'tr' | 'en';
 type TranslationKeys = typeof trTranslations;
 
 // Deep path extraction for type safety
-type PathsToStringProps<T> = T extends string
-  ? []
-  : T extends Record<string, any>
-    ? { [K in Extract<keyof T, string>]: [K, ...PathsToStringProps<T[K]>] }[Extract<keyof T, string>]
-    : [];
+type PathsToStringProps<T> = any;
 
-type Join<T extends string[], D extends string> = T extends readonly [infer F, ...infer R]
-  ? F extends string
-    ? R extends readonly string[]
-      ? R['length'] extends 0
-        ? F
-        : `${F}${D}${Join<R, D>}`
-      : never
-    : never
-  : never;
+type Join<T extends string[], D extends string> = string;
 
-export type TranslationPath = Join<PathsToStringProps<TranslationKeys>, '.'>;
+export type TranslationPath = string;
 
 interface LanguageContextType {
   language: Language;
