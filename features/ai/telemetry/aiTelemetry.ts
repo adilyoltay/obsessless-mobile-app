@@ -463,7 +463,7 @@ class AITelemetryManager {
     userId?: string
   ): Promise<void> {
     // Slow response detection
-    if (metrics.responseTime > 5000) {
+    if ((metrics.responseTime || 0) > 5000) {
       await this.trackAIInteraction(AIEventType.SLOW_RESPONSE, {
         feature,
         responseTime: metrics.responseTime,

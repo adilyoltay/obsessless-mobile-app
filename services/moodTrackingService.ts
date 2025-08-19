@@ -41,7 +41,7 @@ class MoodTrackingService {
 
     // best-effort sync to server (if schema/table exists in current project)
     try {
-      await supabaseService.client
+      await (supabaseService as any).supabaseClient
         .from('mood_tracking')
         .upsert({
           id: moodEntry.id,
@@ -118,7 +118,7 @@ class MoodTrackingService {
     for (let i = 0; i < pending.length; i += BATCH_SIZE) {
       const batch = pending.slice(i, i + BATCH_SIZE);
       try {
-        const { error } = await supabaseService.client
+        const { error } = await (supabaseService as any).supabaseClient
           .from('mood_tracking')
           .upsert(
             batch.map(e => ({

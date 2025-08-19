@@ -984,11 +984,11 @@ export interface Safeguard {
  * Risk Levels
  */
 export enum RiskLevel {
+  NONE = 'none',
   LOW = 'low',
-  MODERATE = 'moderate',
+  MEDIUM = 'medium',
   HIGH = 'high',
-  VERY_HIGH = 'very_high',
-  IMMINENT = 'imminent'
+  CRITICAL = 'critical'
 }
 
 /**

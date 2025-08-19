@@ -9,11 +9,11 @@ import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/tel
 import crossDeviceSync from '@/services/crossDeviceSync';
 
 export default function Index() {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     const handleInitialNavigation = async () => {
-      if (loading) return; // Wait for auth to complete
+      if (isLoading) return; // Wait for auth to complete
 
       console.log('🏠 Index: Handling initial navigation...', { user: !!user, loading });
 
@@ -108,7 +108,7 @@ export default function Index() {
     };
 
     handleInitialNavigation();
-  }, [user, loading]);
+  }, [user, isLoading]);
 
   // Show loading while auth and navigation resolve
   return (

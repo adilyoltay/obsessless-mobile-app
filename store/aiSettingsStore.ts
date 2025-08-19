@@ -188,7 +188,7 @@ export const useAISettingsStore = create<AISettingsState>()(
             }
           };
         }
-        return persistedState;
+        return persistedState as AISettingsState;
       },
     }
   )
