@@ -53,22 +53,25 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tracking"
+        name="unified-tracking"
         options={{
-          title: 'Takip',
+          title: 'Terapi',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'pulse' : 'pulse-outline'} color={color} />
+            <TabBarIcon name={focused ? 'heart-pulse' : 'heart-pulse-outline'} color={color} />
           ),
         }}
       />
-      {/* AI Chat Tab removed */}
+      {/* Eski tracking ve erp sayfaları birleştirildi */}
+      <Tabs.Screen
+        name="tracking"
+        options={{
+          href: null, // Gizle
+        }}
+      />
       <Tabs.Screen
         name="erp"
         options={{
-          title: 'ERP',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} color={color} />
-          ),
+          href: null, // Gizle
         }}
       />
       <Tabs.Screen
