@@ -143,7 +143,8 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
     pulseAnim
   });
 
-  const riskConfig = RISK_CONFIGS[(riskAssessment.overallRiskLevel ?? RiskLevel.LOW) as RiskLevel];
+  const safeLevel = (riskAssessment.overallRiskLevel ?? RiskLevel.LOW) as RiskLevel;
+  const riskConfig = RISK_CONFIGS[safeLevel === RiskLevel.NONE ? RiskLevel.LOW : safeLevel];
 
   /**
    * 🚨 Handle Safety Intervention
@@ -303,8 +304,8 @@ export const RiskAssessmentIndicator: React.FC<RiskAssessmentIndicatorProps> = (
             <View style={styles.factorHeader}>
               <Text style={styles.factorName}>{factor.name}</Text>
               <Badge
-                text={`${Math.round(factor.severity * 100)}%`}
-                variant={factor.severity > 0.7 ? 'danger' : factor.severity > 0.4 ? 'warning' : 'secondary'}
+                text={`${Math.round(((factor.severity ?? 0) * 100))}%`}
+                variant={(factor.severity ?? 0) > 0.7 ? 'danger' : (factor.severity ?? 0) > 0.4 ? 'warning' : 'info'}
               />
             </View>
             <Text style={styles.factorDescription}>

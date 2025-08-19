@@ -218,7 +218,7 @@ export class AIErrorBoundary extends Component<AIErrorBoundaryProps, AIErrorBoun
   private getUserFriendlyMessage(error: Error): string {
     const code = this.classifyError(error);
     
-    const messages: Record<AIErrorCode, string> = {
+    const messages: Record<string, string> = {
       [AIErrorCode.NETWORK_ERROR]: 'Bağlantı sorunu yaşanıyor. İnternet bağlantınızı kontrol edin.',
       [AIErrorCode.RATE_LIMIT]: 'Çok hızlı istek gönderiyorsunuz. Lütfen biraz bekleyin.',
       [AIErrorCode.FEATURE_DISABLED]: 'Bu özellik şu anda kullanılamıyor.',

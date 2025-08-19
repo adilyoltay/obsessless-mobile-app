@@ -67,7 +67,6 @@ export class BiometricService {
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'ObsessLess\'e giriş yapmak için parmak izinizi kullanın',
-        subtitle: 'Güvenli giriş için biometric doğrulama',
         cancelLabel: 'İptal',
         fallbackLabel: 'Şifre kullan',
         disableDeviceFallback: false,

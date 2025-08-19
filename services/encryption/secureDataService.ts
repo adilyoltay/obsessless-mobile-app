@@ -29,12 +29,14 @@ class SecureDataService {
     if (this.keyCache) return this.keyCache;
     let stored = await SecureStore.getItemAsync(SecureDataService.KEY_ID);
     if (!stored) {
+      const { utils: CryptoUtils, Random } = await import('react-native-simple-crypto');
       const keyBytes = await Random.getRandomBytes(32);
       stored = CryptoUtils.convertArrayBufferToBase64(keyBytes);
       await SecureStore.setItemAsync(SecureDataService.KEY_ID, stored);
       this.keyCache = keyBytes;
       return keyBytes;
     }
+    const { utils: CryptoUtils } = await import('react-native-simple-crypto');
     const ab = CryptoUtils.convertBase64ToArrayBuffer(stored);
     this.keyCache = ab;
     return ab;

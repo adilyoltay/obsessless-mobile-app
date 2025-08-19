@@ -237,7 +237,7 @@ export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
                 <Badge
                   key={index}
                   text={adaptation}
-                  variant="secondary"
+                  variant="info"
                   style={styles.adaptationBadge}
                 />
               ))}
