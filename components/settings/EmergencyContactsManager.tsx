@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
+import { Modal } from '@/components/ui/Modal';
 // Background crisis monitor kaldırıldı; tip yerel olarak tanımlanır
 export interface EmergencyContact {
   id: string;
