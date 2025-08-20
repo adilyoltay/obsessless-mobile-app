@@ -212,9 +212,10 @@ class CrossDeviceSyncService {
         break;
       case 'voice_checkins':
         // Map field names if needed
+        const { sanitizePII } = await import('@/utils/privacy');
         const voiceData = {
           user_id: item.userId || item.user_id || userId,
-          text: item.text || '',
+          text: sanitizePII(item.text || ''),
           mood: item.mood || 0,
           trigger: item.trigger || '',
           confidence: item.confidence || 0,

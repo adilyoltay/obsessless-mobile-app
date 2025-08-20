@@ -49,14 +49,12 @@ interface ERPSession {
 export default function ERPScreen() {
   // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
   const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
+  const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
   useEffect(() => {
     if (params?.prefill === 'true' || params?.text || params?.category) {
       console.log('📝 ERP prefill params:', params);
-      // Eğer kategori geldiyse onu seçili yap ve quick start aç
-      if (params?.category) {
-        // ERPQuickStart içinde kategori seçimini doğrudan yapmak yerine, kullanıcıyı hızlı akışa alalım
-        setIsQuickStartVisible(true);
-      }
+      setPrefilledVoice({ text: params?.text as string, category: (params?.category as string) || undefined });
+      setIsQuickStartVisible(true);
     }
   }, [params]);
   const { t } = useTranslation();
@@ -773,6 +771,7 @@ export default function ERPScreen() {
         onDismiss={() => setIsQuickStartVisible(false)}
         onExerciseSelect={handleExerciseSelect}
         exercises={getAllExercises()}
+        prefilledVoice={prefilledVoice}
       />
     </ScreenLayout>
   );

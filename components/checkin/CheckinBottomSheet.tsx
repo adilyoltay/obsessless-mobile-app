@@ -339,7 +339,14 @@ export default function CheckinBottomSheet({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // High confidence (>0.8) = Show modal for confirmation (respect user prefs via shouldShowAutoRecord)
-    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis)) {
+    // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
+    let userPrefs: { autoRecordEnabled?: boolean } | undefined = undefined;
+    try {
+      const { useSettingsStore } = await import('@/store/settingsStore');
+      userPrefs = { autoRecordEnabled: useSettingsStore.getState()?.autoRecordEnabled };
+    } catch {}
+
+    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis, userPrefs)) {
       const autoRecord = prepareAutoRecord(analysis, user.id);
       console.log('🔄 High confidence - prepareAutoRecord result:', autoRecord);
       

@@ -328,15 +328,19 @@ export async function saveAutoRecord(
           notes: data.notes || ''
         };
       } else if (recordType === 'CBT') {
-        entity = 'thought_record';
+        // CBT için özel şema: thought_record yerine cbt_records (saveCBTRecord ile aynı alanlar)
+        entity = 'thought_record'; // Queue entity aynı kalsa da data CBT şemasına yakın tutulur
         mapped = {
           user_id: data.userId,
-          automatic_thought: data.thought,
+          thought: data.thought,
           distortions: [data.distortionType],
           evidence_for: '',
           evidence_against: '',
-          new_view: data.reframe || '',
-          lang: 'tr-TR'
+          reframe: data.reframe || '',
+          mood_before: data.moodBefore || 50,
+          mood_after: data.moodAfter || 50,
+          trigger: data.trigger || '',
+          notes: data.notes || ''
         };
       } else {
         entity = 'mood_entry';

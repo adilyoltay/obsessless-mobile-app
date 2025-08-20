@@ -28,6 +28,7 @@ interface ERPQuickStartProps {
   onDismiss: () => void;
   onExerciseSelect: (exerciseConfig: ERPExerciseConfig) => void;
   exercises: ERPExercise[];
+  prefilledVoice?: { text?: string; category?: string } | null;
 }
 
 interface ERPExerciseConfig {
@@ -49,6 +50,7 @@ export function ERPQuickStart({
   onDismiss,
   onExerciseSelect,
   exercises,
+  prefilledVoice,
 }: ERPQuickStartProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedExercise, setSelectedExercise] = useState<ERPExercise | null>(null);
@@ -63,6 +65,10 @@ export function ERPQuickStart({
     if (visible) {
       awardMicroReward('erp_wizard_start');
       resetWizard();
+      // Voice prefill varsa uygula
+      if (prefilledVoice?.category) {
+        setSelectedCategory(prefilledVoice.category);
+      }
     }
   }, [visible]);
 
