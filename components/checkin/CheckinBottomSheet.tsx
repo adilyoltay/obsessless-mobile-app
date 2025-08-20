@@ -66,6 +66,7 @@ export default function CheckinBottomSheet({
   const [showAutoRecord, setShowAutoRecord] = useState(false);
   const [autoRecordData, setAutoRecordData] = useState<any>(null);
   const [autoRecordType, setAutoRecordType] = useState<'OCD' | 'CBT' | 'MOOD' | 'ERP'>('OCD');
+  const [isSavingAutoRecord, setIsSavingAutoRecord] = useState(false);
 
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -245,6 +246,8 @@ export default function CheckinBottomSheet({
   // Auto Record Handlers
   const handleAutoRecordConfirm = async (type: 'OCD' | 'CBT' | 'MOOD' | 'ERP', data: any) => {
     setShowAutoRecord(false);
+    if (isSavingAutoRecord) return;
+    setIsSavingAutoRecord(true);
     
     if (type === 'ERP') {
       // Navigate to ERP
@@ -256,6 +259,7 @@ export default function CheckinBottomSheet({
           category: data.category 
         },
       });
+      setIsSavingAutoRecord(false);
     } else {
       // Save the record
       const result = await saveAutoRecord(type as 'OCD' | 'CBT' | 'MOOD', data);
@@ -288,10 +292,12 @@ export default function CheckinBottomSheet({
             });
           }
           if (onComplete) onComplete();
+          setIsSavingAutoRecord(false);
         }, 800);
       } else {
         setToastMessage(result.error || 'Kayıt oluşturulamadı');
         setShowToast(true);
+        setIsSavingAutoRecord(false);
       }
     }
   };

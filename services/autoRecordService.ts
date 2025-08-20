@@ -256,6 +256,15 @@ export async function saveAutoRecord(
   data: any
 ): Promise<{ success: boolean; error?: string; recordId?: string }> {
   try {
+    // Idempotency key: user + type + timestamp rounded to minute + hash of content
+    const idempotencyKey = `${data.userId || 'anon'}_${recordType}_${new Date(data.timestamp || Date.now()).toISOString().slice(0,16)}_${(data.thought || data.category || data.notes || '').toString().slice(0,32)}`;
+    try {
+      const existing = await AsyncStorage.getItem(`idemp_${idempotencyKey}`);
+      if (existing) {
+        console.log('🛡️ Idempotency: duplicate auto-record suppressed');
+        return { success: true };
+      }
+    } catch {}
     let savedRecord;
     switch (recordType) {
       case 'OCD':
@@ -314,6 +323,9 @@ export async function saveAutoRecord(
     // await awardMicroReward('auto_record');
     // await updateStreak();
     
+    // Persist idempotency marker (best-effort)
+    try { await AsyncStorage.setItem(`idemp_${idempotencyKey}`, '1'); } catch {}
+
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
