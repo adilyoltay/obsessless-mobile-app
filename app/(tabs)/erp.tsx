@@ -27,7 +27,7 @@ import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 import { useAIUserData, useAIActions } from '@/contexts/AIContext';
-import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
@@ -47,15 +47,17 @@ interface ERPSession {
 }
 
 export default function ERPScreen() {
-  // ERP modülü feature flag kontrolü
-  if (!FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED')) {
+  const erpStore = useERPSettingsStore();
+  
+  // ERP modülü store kontrolü
+  if (!erpStore.isEnabled) {
     return (
       <ScreenLayout>
         <View style={styles.disabledContainer}>
           <MaterialCommunityIcons name="shield-off" size={64} color="#9CA3AF" />
-          <Text style={styles.disabledTitle}>ERP Modülü Geçici Olarak Kapalı</Text>
+          <Text style={styles.disabledTitle}>ERP Modülü Kapalı</Text>
           <Text style={styles.disabledSubtitle}>
-            Bu özellik şu anda bakımda. Lütfen daha sonra tekrar deneyin.
+            Bu özellik ayarlardan açılabilir. Ayarlar {'>'} ERP Modülü bölümünden aktifleştirin.
           </Text>
         </View>
       </ScreenLayout>

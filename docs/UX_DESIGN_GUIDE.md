@@ -65,7 +65,9 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Zaman aralığı sekmeleri ve özet istatistikler
 - Sihirbaz Akışı: 1) Kategori Grid → 2) Egzersiz Grid + Ayarlar → 3) Süre & Hedef → 4) Özet & Güvenlik → Başlat
 - Egzersiz tipleri (kanonik): in_vivo, imaginal, interoceptive, response_prevention
-- **Feature Flag Kontrolü**: `ERP_MODULE_ENABLED` ile enable/disable edilebilir
+- **Ayarlardan Kontrol**: ERP Modülü ayarlardan enable/disable edilebilir
+- **Default State**: Varsayılan olarak kapalı gelir
+- **Dynamic Navigation**: Kapalıyken alt menüde görünmez
 - **Disabled State**: Modül kapalıyken kullanıcıya bilgilendirici mesaj gösterilir
 
 ## 🧱 Bileşen Spesifikasyonları

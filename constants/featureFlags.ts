@@ -129,8 +129,8 @@ const featureFlagState: Record<string, boolean> = {
   CONTENT_FILTERING: true,
   RATE_LIMITING: true,
   
-  // 🛡️ ERP Module Feature Flag
-  ERP_MODULE_ENABLED: true, // ERP modülünü enable/disable etmek için
+  // 🛡️ ERP Module Feature Flag - Store'dan dinamik olarak alınır
+  ERP_MODULE_ENABLED: false, // Default: kapalı, runtime'da store'dan güncellenir
 };
 
 // Feature flag logging için

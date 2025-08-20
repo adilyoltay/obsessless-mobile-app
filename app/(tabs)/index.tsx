@@ -39,6 +39,7 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -56,6 +57,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const erpStore = useERPSettingsStore();
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -475,8 +477,8 @@ export default function TodayScreen() {
           </View>
         </Pressable>
 
-        {/* Mission 2: ERP Session - Feature Flag Kontrolü */}
-        {FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED') ? (
+        {/* Mission 2: ERP Session - Store Kontrolü */}
+        {erpStore.isEnabled ? (
           <Pressable 
             style={styles.missionCard}
             onPress={() => router.push('/(tabs)/erp')}
@@ -693,7 +695,7 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      {FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED') ? (
+      {erpStore.isEnabled ? (
         <View style={styles.quickStatCard}>
           <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
           <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>

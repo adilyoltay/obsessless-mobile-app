@@ -11,10 +11,12 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { aiSettingsUtils } from '@/store/aiSettingsStore';
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
+  const erpStore = useERPSettingsStore();
   // AI Chat removed
 
   return (
@@ -114,33 +116,23 @@ export default function TabLayout() {
         }}
       />
       
-      <Tabs.Screen
-        name="erp"
-        options={{
-          title: 'ERP',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon 
-              name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} 
-              color={focused ? '#67E8F9' : '#9CA3AF'} 
-              size={26} 
-            />
-          ),
-          tabBarActiveTintColor: '#67E8F9', // Daha sakin cyan
-        }}
-        // ERP modülü feature flag kontrolü
-        listeners={{
-          tabPress: (e) => {
-            if (!FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED')) {
-              e.preventDefault();
-              Alert.alert(
-                'ERP Modülü Kapalı',
-                'Bu özellik şu anda bakımda. Lütfen daha sonra tekrar deneyin.',
-                [{ text: 'Tamam', style: 'default' }]
-              );
-            }
-          },
-        }}
-      />
+      {/* ERP Tab - Store ile dinamik olarak gösterilir */}
+      {erpStore.isEnabled && (
+        <Tabs.Screen
+          name="erp"
+          options={{
+            title: 'ERP',
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon 
+                name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} 
+                color={focused ? '#67E8F9' : '#9CA3AF'} 
+                size={26} 
+              />
+            ),
+            tabBarActiveTintColor: '#67E8F9', // Daha sakin cyan
+          }}
+        />
+      )}
 
       <Tabs.Screen
         name="breathwork"

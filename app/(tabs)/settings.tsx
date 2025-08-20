@@ -30,6 +30,7 @@ import { router } from 'expo-router';
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useAISettingsStore, aiSettingsUtils } from '@/store/aiSettingsStore';
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
@@ -70,6 +71,12 @@ export default function SettingsScreen() {
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile } = useAuth();
   const aiStore = useAISettingsStore();
+  const erpStore = useERPSettingsStore();
+  
+  // ERP store'u initialize et ve feature flags'i senkronize et
+  useEffect(() => {
+    erpStore.init();
+  }, []);
   const [consents, setConsents] = useState<Record<string, boolean>>({
     data_processing: false,
     analytics: false,
@@ -636,6 +643,35 @@ export default function SettingsScreen() {
         </View>
 
         {/* Dil seçimi kaldırıldı */}
+
+        {/* ERP Modülü Ayarları */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ERP Modülü</Text>
+          <View style={styles.sectionContent}>
+            {renderSettingItem(
+              'ERP Modülü',
+              'shield-checkmark',
+              erpStore.isEnabled,
+              (value) => {
+                erpStore.setModuleEnabled(value);
+                
+                Alert.alert(
+                  value ? '✅ ERP Modülü Açıldı' : '❌ ERP Modülü Kapatıldı',
+                  value 
+                    ? 'ERP (Maruz Bırakma ve Tepki Önleme) modülü aktif edildi:\n\n• ERP Egzersizleri\n• Anksiyete Takibi\n• İlerleme Analizi\n• Güvenlik Kontrolleri'
+                    : 'ERP modülü devre dışı bırakıldı. Alt menüde görünmeyecek.',
+                  [{ text: 'Tamam' }]
+                );
+                
+                Haptics.impactAsync(
+                  value 
+                    ? Haptics.ImpactFeedbackStyle.Light 
+                    : Haptics.ImpactFeedbackStyle.Medium
+                );
+              }
+            )}
+          </View>
+        </View>
 
         {/* AI Özellikleri - MASTER SWITCH */}
         <View style={styles.section}>
