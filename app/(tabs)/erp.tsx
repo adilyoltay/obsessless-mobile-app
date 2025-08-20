@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Text, 
   View, 
@@ -50,13 +50,18 @@ export default function ERPScreen() {
   // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
   const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
   const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
+  const hasProcessedVoiceParams = useRef(false);
   useEffect(() => {
-    if (params?.prefill === 'true' || params?.text || params?.category) {
+    const hasAny = params?.prefill === 'true' || !!params?.text || !!params?.category;
+    if (hasAny && !hasProcessedVoiceParams.current) {
       console.log('📝 ERP prefill params:', params);
-      setPrefilledVoice({ text: params?.text as string, category: (params?.category as string) || undefined });
+      setPrefilledVoice({ text: (params?.text as string) || '', category: (params?.category as string) || 'general' });
       setIsQuickStartVisible(true);
+      hasProcessedVoiceParams.current = true;
+      // Parametreleri temizle ki loop oluşmasın
+      try { router.setParams({ prefill: undefined, text: undefined, category: undefined } as any); } catch {}
     }
-  }, [params]);
+  }, [params?.prefill, params?.text, params?.category]);
   const { t } = useTranslation();
   const { user } = useAuth();
   const { treatmentPlan, userProfile } = useAIUserData();
