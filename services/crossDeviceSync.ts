@@ -128,7 +128,10 @@ class CrossDeviceSyncService {
         const localData = await AsyncStorage.getItem(localKey);
         const localItems = localData ? JSON.parse(localData) : [];
         
-        const unsyncedItems = localItems.filter((item: any) => !item.synced);
+        // Only attempt to upload items that are explicitly marked as unsynced
+        // and do NOT already have a remote id. Items loaded from Supabase
+        // (and cached locally) include an id and should be treated as synced.
+        const unsyncedItems = localItems.filter((item: any) => !item.synced && !item.id);
         
         for (const item of unsyncedItems) {
           try {

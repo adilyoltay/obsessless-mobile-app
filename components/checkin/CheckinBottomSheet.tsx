@@ -194,6 +194,7 @@ export default function CheckinBottomSheet({
               confidence: analysis.confidence || res.confidence || 0,
               lang: res.language || 'tr-TR',
               created_at: new Date().toISOString(),
+              synced: false,
             },
           });
         } catch (syncError) {

@@ -258,6 +258,7 @@ export default function TrackingScreen() {
           timestamp: new Date(c.timestamp),
           trigger: c.trigger,
           notes: c.notes,
+          synced: true,
         }));
         
         await AsyncStorage.setItem(storageKey, JSON.stringify(formattedCompulsions));
