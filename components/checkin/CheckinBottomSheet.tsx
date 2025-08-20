@@ -342,7 +342,9 @@ export default function CheckinBottomSheet({
     // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
     let userPrefs: { autoRecordEnabled?: boolean } | undefined = undefined;
     try {
-      const settingsModule = await import('@/store/settingsStore');
+      // RN/Metro'da dinamik import bazı yapılandırmalarda module.path üretmeyebilir; senkron require kullan
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const settingsModule = require('@/store/settingsStore');
       const useSettingsStore = (settingsModule as any)?.useSettingsStore;
       if (useSettingsStore) {
         userPrefs = { autoRecordEnabled: useSettingsStore.getState()?.autoRecordEnabled };
