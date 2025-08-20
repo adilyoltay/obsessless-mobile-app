@@ -93,6 +93,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="breathwork"
         options={{
+          href: null, // Tab'da görünmez ama route olarak erişilebilir kalır
           title: 'Nefes',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={color} />
