@@ -347,9 +347,17 @@ export default function CheckinBottomSheet({
 
     // High confidence (>0.8) = Show modal for confirmation (respect user prefs via shouldShowAutoRecord)
     // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
-    // Kullanıcı tercihlerini dinamik yükleme, Metro'da build-time require hatasına neden olabildiği için
-    // burada pas geçiyoruz; eşik kontrolü production değerinde (0.8)
-    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis)) {
+    // Kullanıcı tercihini AsyncStorage'dan oku (opsiyonel). Hata halinde varsayılan: enabled.
+    let prefs: { autoRecordEnabled?: boolean } | undefined = undefined;
+    try {
+      const raw = await AsyncStorage.getItem(StorageKeys.USER_SETTINGS(user?.id || 'anon'));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        prefs = { autoRecordEnabled: parsed?.autoRecordEnabled !== false };
+      }
+    } catch {}
+
+    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis, prefs)) {
       const autoRecord = prepareAutoRecord(analysis, user.id);
       console.log('🔄 High confidence - prepareAutoRecord result:', autoRecord);
       

@@ -5,6 +5,7 @@
 
 import { UnifiedAnalysisResult } from '@/features/ai/services/checkinService';
 import supabaseService from '@/services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { offlineSyncService } from '@/services/offlineSync';
 import * as Haptics from 'expo-haptics';
 

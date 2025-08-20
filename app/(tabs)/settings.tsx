@@ -7,7 +7,8 @@ import {
   Pressable,
   Alert,
   Share,
-  Linking
+  Linking,
+  ActivityIndicator
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -161,7 +162,7 @@ export default function SettingsScreen() {
         const planData = JSON.parse(savedPlan);
         setTreatmentPlan(planData);
       } else {
-        // Eğer yoksa onboarding'den gelen planı veya demo veri göster
+        // Eğer yoksa onboarding'den gelen planı kontrol et
         const userProfile = await AsyncStorage.getItem('ai_user_profile');
         const fullPlan = await AsyncStorage.getItem('ai_treatment_plan');
         
@@ -180,6 +181,9 @@ export default function SettingsScreen() {
           setTreatmentPlan(summary);
           // Özeti kaydet
           await AsyncStorage.setItem('treatment_plan_summary', JSON.stringify(summary));
+        } else {
+          // Demo veri göster - kullanıcı tıkladığında gerçek plan oluşturulacak
+          console.log('No treatment plan found, showing placeholder');
         }
       }
     } catch (error) {
@@ -385,8 +389,6 @@ export default function SettingsScreen() {
   );
 
   const renderTreatmentPlanSection = () => {
-    if (!treatmentPlan && !isLoadingPlan) return null;
-
     return (
       <View style={styles.treatmentSection}>
         <Pressable 
@@ -406,6 +408,20 @@ export default function SettingsScreen() {
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
           </View>
+          
+          {isLoadingPlan && (
+            <View style={styles.treatmentContent}>
+              <ActivityIndicator size="small" color="#3B82F6" />
+            </View>
+          )}
+          
+          {!isLoadingPlan && !treatmentPlan && (
+            <View style={styles.treatmentContent}>
+              <Text style={styles.treatmentEmptyText}>
+                Tedavi planınızı görüntülemek için tıklayın
+              </Text>
+            </View>
+          )}
           
           {treatmentPlan && (
             <View style={styles.treatmentContent}>
@@ -999,6 +1015,12 @@ const styles = StyleSheet.create({
     width: 1,
     height: 14,
     backgroundColor: '#E5E7EB',
+  },
+  treatmentEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
   section: {
     marginBottom: 24,
