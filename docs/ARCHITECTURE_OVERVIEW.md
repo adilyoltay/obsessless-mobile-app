@@ -70,6 +70,7 @@ Notlar:
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
 - ERP Oturumu: UI → Zustand (timer/anxiety, UUID id) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca; başarısızsa OfflineSync kuyruğu) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
 - Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
+- Breathwork: Contextual tetikleme → Protokol seçimi (anksiyete tabanlı) → AutoStart → Telemetry
 
 ## Kategori ve Tür Standartları
 - OCD Kategorileri (kanonik): contamination, checking, symmetry, mental, hoarding, other
@@ -95,4 +96,4 @@ Notlar:
 - [Güvenlik Rehberi](./security-guide.md) - Güvenlik ve gizlilik prensipleri
 
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX)
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX, Breathwork v2.0 akıllı tetikleme)

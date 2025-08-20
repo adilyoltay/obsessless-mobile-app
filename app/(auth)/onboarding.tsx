@@ -7,7 +7,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -38,6 +38,7 @@ export default function OnboardingScreen() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [useAIOnboarding, setUseAIOnboarding] = useState(true);
+  const params = useLocalSearchParams();
 
   useEffect(() => {
     checkOnboardingType();
@@ -48,13 +49,17 @@ export default function OnboardingScreen() {
       // Onboarding her zaman V3 ile çalışacak
       setUseAIOnboarding(true);
       
-      // Check if already completed
-      if (user?.id) {
-        const completed = await AsyncStorage.getItem(`onboarding_completed_${user.id}`);
-        if (completed === 'true') {
-          console.log('✅ Onboarding already completed, redirecting...');
-          router.replace('/(tabs)');
-          return;
+      // Force param ile onboarding'i her zaman aç
+      const force = String(params?.force || '').toLowerCase() === 'true';
+      if (!force) {
+        // Check if already completed
+        if (user?.id) {
+          const completed = await AsyncStorage.getItem(`onboarding_completed_${user.id}`);
+          if (completed === 'true') {
+            console.log('✅ Onboarding already completed, redirecting...');
+            router.replace('/(tabs)');
+            return;
+          }
         }
       }
       
@@ -118,8 +123,10 @@ export default function OnboardingScreen() {
         }
       }
       
-      // Navigate to main app
-      router.replace('/(tabs)');
+      // Redirect after completion (prefer explicit flow source)
+      const fromTP = String(params?.fromTreatmentPlan || '').toLowerCase() === 'true';
+      const redirect = typeof params?.redirect === 'string' ? (params.redirect as string) : '/(tabs)';
+      router.replace(fromTP ? '/treatment-plan' : redirect);
     } catch (error) {
       console.error('Error saving onboarding data:', error);
       router.replace('/(tabs)');
@@ -128,7 +135,9 @@ export default function OnboardingScreen() {
 
   const handleOnboardingExit = () => {
     console.log('❌ Onboarding exited');
-    router.replace('/(tabs)');
+    const fromTP = String(params?.fromTreatmentPlan || '').toLowerCase() === 'true';
+    const redirect = typeof params?.redirect === 'string' ? (params.redirect as string) : '/(tabs)';
+    router.replace(fromTP ? '/treatment-plan' : redirect);
   };
 
   const handleSimpleStart = async () => {

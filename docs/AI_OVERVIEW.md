@@ -72,6 +72,30 @@ Gemini API Analizi / Heuristik Fallback
 Tip Tespiti (MOOD/CBT/OCD/ERP/BREATHWORK)
     ↓
 Otomatik Sayfa Yönlendirmesi + Parametreler
+    ↓
+BREATHWORK ise: Protokol seçimi + AutoStart
+```
+
+### Breathwork Akıllı Tetikleme Akışı
+```
+Tetikleme Noktaları:
+├── Check-in Analizi → BREATHWORK kategorisi
+├── ERP Oturumu → Anksiyete ≥ 7
+├── Today Ekranı → Contextual öneriler
+│   ├── Sabah (7-9) → Morning routine
+│   ├── Akşam (21-23) → Sleep prep
+│   └── Post-kompulsiyon (30dk) → Recovery
+└── JITAI/Adaptive → Risk faktörleri
+
+Protokol Seçimi:
+├── Yüksek anksiyete (≥7) → 4-7-8
+├── Normal durum → Box (4-4-4-4)
+└── Toparlanma → Paced (6-6)
+
+Kullanıcı Kontrolü:
+├── AutoStart (1.5sn gecikme)
+├── Snooze (15dk ertele)
+└── Dismiss (kapat)
 ```
 
 ### CBT Düşünce Kaydı Akışı

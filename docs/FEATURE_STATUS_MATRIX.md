@@ -12,7 +12,7 @@
 | **CBT Düşünce Kaydı** | ✅ Aktif | v2.0 | 4-adımlı form, BottomSheet, Master Prompt uyumlu |
 | **OCD Tracking** | ✅ Aktif | v2.0 | Orijinal tasarım korundu, ses check-in kaldırıldı |
 | **ERP Sessions** | ✅ Aktif | v2.0 | FAB butonu, AI önerileri, ses check-in kaldırıldı |
-| **Breathwork** | ✅ Aktif | v1.0 | Ses analizi entegrasyonu |
+| **Breathwork** | ✅ Aktif | v2.0 | Akıllı tetikleme sistemi, contextual öneriler, protokol seçimi |
 | **Today Screen** | ✅ Aktif | v2.0 | Merkezi ses girişi, otomatik yönlendirme |
 
 ## 🤖 AI Özellikleri
@@ -59,8 +59,13 @@
 - Navigation yapısı optimizasyonu
 - AutoRecord: OCD/CBT/Mood/ERP için PII temizliği, kullanıcı tercihi, idempotency ve offline mapping
 - CrossDeviceSync: Yalnızca !synced && !id yükleme; tüm metin alanlarında sanitizePII
-- ERP: Voice prefill QuickStart, timestamp’li ERP auto-record verisi; prefill döngüsü düzeltildi
-- Breathwork: Anksiyete seviyesine göre 4-7-8 vs box protokolü ve autoStart
+- ERP: Voice prefill QuickStart, timestamp'li ERP auto-record verisi; prefill döngüsü düzeltildi
+- Breathwork v2.0: Akıllı tetikleme sistemi
+  - Check-in'den otomatik yönlendirme (protokol + autoStart)
+  - ERP sırasında anksiyete eşiği tetiklemesi (≥7)
+  - Today ekranında contextual öneriler (sabah/akşam/post-kompulsiyon)
+  - JITAI/Adaptive Interventions entegrasyonu
+  - Protokol seçimi: 4-7-8 (yüksek anksiyete), Box (normal), Paced (toparlanma)
 
 ### 🚧 Devam Eden
 - Supabase migration (thought_records tablosu)

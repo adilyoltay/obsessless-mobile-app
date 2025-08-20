@@ -395,7 +395,15 @@ export default function SettingsScreen() {
           style={styles.treatmentCard}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/treatment-plan');
+            router.push({
+              pathname: '/(auth)/onboarding',
+              params: {
+                fromSettings: 'true',
+                fromTreatmentPlan: 'true',
+                force: 'true',
+                redirect: '/treatment-plan'
+              }
+            });
           }}
         >
           <View style={styles.treatmentHeader}>

@@ -228,11 +228,15 @@ const handleVoiceTranscription = async (res: TranscriptionResult) => {
         break;
         
       case 'BREATHWORK':
+        // v2.0: Protokol seçimi ve autoStart
+        const anxietyLevel = analysis.extractedData.anxietyLevel || 5;
         router.push({
           pathname: '/(tabs)/breathwork',
           params: {
-            autoStart: true,
-            technique: analysis.extractedData.anxietyLevel > 7 ? '4-7-8' : 'box'
+            protocol: anxietyLevel >= 7 ? '478' : 'box',
+            autoStart: 'true',
+            source: 'checkin',
+            anxietyLevel: String(anxietyLevel)
           }
         });
         break;

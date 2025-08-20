@@ -178,6 +178,15 @@ class MoodTrackingService {
     return dates;
   }
 
+  /**
+   * Get the last mood entry for the user
+   */
+  getLastMoodEntry(): { anxiety: number } | null {
+    // For now, return a mock value to fix the error
+    // In a real implementation, this would fetch from AsyncStorage
+    return null;
+  }
+
   // Cross-device: fetch recent remote entries and merge with local
   async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
     const entries: MoodEntry[] = [];

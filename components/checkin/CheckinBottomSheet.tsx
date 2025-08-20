@@ -496,13 +496,25 @@ export default function CheckinBottomSheet({
           });
           break;
 
-        case 'BREATHWORK':
-          // Navigate to breathwork
+        case 'BREATHWORK': {
+          // Anksiyete seviyesine göre protokol seçimi
+          const anxietyLevel = Number(analysis?.anxiety ?? analysis?.extractedData?.anxietyLevel ?? 5);
+          const protocol = anxietyLevel >= 7 ? '478' : 'box'; // Yüksek anksiyetede 4-7-8, normalde box breathing
+          
+          console.log('🌬️ Navigating to breathwork with:', { anxietyLevel, protocol });
+          
           router.push({
             pathname: '/(tabs)/breathwork',
-            params: { text: text || '' },
+            params: { 
+              text: text || '',
+              protocol,
+              autoStart: 'true',
+              source: 'checkin',
+              anxietyLevel: String(anxietyLevel)
+            },
           });
           break;
+        }
       }
     }, 1000);
 

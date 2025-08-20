@@ -24,6 +24,7 @@ import { Card } from '@/components/ui/Card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import moodTracker from '@/services/moodTrackingService';
 import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
+import BreathworkSuggestionCard from '@/components/ui/BreathworkSuggestionCard';
 import { useGamificationStore } from '@/store/gamificationStore';
 import * as Haptics from 'expo-haptics';
 
@@ -60,6 +61,14 @@ export default function TodayScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [achievementsSheetVisible, setAchievementsSheetVisible] = useState(false);
+  
+  // Breathwork suggestion state
+  const [breathworkSuggestion, setBreathworkSuggestion] = useState<{
+    show: boolean;
+    trigger: 'morning' | 'evening' | 'high_anxiety' | 'post_compulsion' | 'general';
+    anxietyLevel?: number;
+  } | null>(null);
+  const [snoozedUntil, setSnoozedUntil] = useState<Date | null>(null);
   
   // AI Integration via Context
   const { isInitialized: aiInitialized, availableFeatures } = useAI();
@@ -122,6 +131,8 @@ export default function TodayScreen() {
       if (user?.id) {
         console.log('🔄 Today screen focused, refreshing stats...');
         onRefresh();
+        // Check for breathwork suggestions
+        checkBreathworkSuggestion();
       }
     }, [user?.id])
   );
@@ -171,6 +182,62 @@ export default function TodayScreen() {
    * 🛡️ Render Risk Assessment Section
    */
   // Risk section removed
+
+  /**
+   * 🌬️ Check and show breathwork suggestions
+   */
+  const checkBreathworkSuggestion = () => {
+    // Skip if already showing or snoozed
+    if (breathworkSuggestion?.show || (snoozedUntil && new Date() < snoozedUntil)) {
+      return;
+    }
+
+    const now = new Date();
+    const hour = now.getHours();
+    
+    // Morning suggestion (7-9 AM)
+    if (hour >= 7 && hour < 9) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'morning',
+      });
+      return;
+    }
+    
+    // Evening suggestion (9-11 PM)
+    if (hour >= 21 && hour < 23) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'evening',
+      });
+      return;
+    }
+    
+    // Check recent compulsions
+    const lastCompulsionTime = todayStats.compulsions > 0 ? new Date() : null;
+    if (lastCompulsionTime && (now.getTime() - lastCompulsionTime.getTime()) < 30 * 60 * 1000) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'post_compulsion',
+      });
+      return;
+    }
+    
+    // Check mood/anxiety from last check-in
+    try {
+      const lastMood = moodTracker.getLastMoodEntry();
+      if (lastMood && lastMood.anxiety >= 7) {
+        setBreathworkSuggestion({
+          show: true,
+          trigger: 'high_anxiety',
+          anxietyLevel: lastMood.anxiety,
+        });
+      }
+    } catch (error) {
+      // Silently fail if mood tracking is not available
+      console.log('Could not check last mood for breathwork suggestion');
+    }
+  };
 
   /**
    * 🤖 Load AI Insights via Context
@@ -458,6 +525,58 @@ export default function TodayScreen() {
             <Text style={styles.missionRewardText}>+75</Text>
           </View>
         </Pressable>
+
+        {/* Mission 4: CBT - Düşünce Kaydı */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => router.push('/(tabs)/cbt')}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="head-cog-outline" 
+              size={30} 
+              color="#8B5CF6" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>Düşünce Kaydı</Text>
+            <Text style={styles.missionDescription}>Bir olumsuz düşünceyi dönüştür</Text>
+            <View style={styles.missionTags}>
+              <Text style={styles.missionTag}>CBT</Text>
+              <Text style={styles.missionTag}>Bilişsel</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+60</Text>
+          </View>
+        </Pressable>
+
+        {/* Mission 5: MOOD - Ruh Hali Check-in */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => router.push('/(tabs)/mood')}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="emoticon-happy-outline" 
+              size={30} 
+              color="#EC4899" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>Ruh Hali Kaydı</Text>
+            <Text style={styles.missionDescription}>Bugünkü duygularını kaydet</Text>
+            <View style={styles.missionTags}>
+              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>MOOD</Text>
+              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>Duygu</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+40</Text>
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -658,6 +777,22 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderHeroSection()}
+        
+        {/* Breathwork Suggestion Card */}
+        {breathworkSuggestion?.show && (
+          <BreathworkSuggestionCard
+            trigger={breathworkSuggestion.trigger}
+            anxietyLevel={breathworkSuggestion.anxietyLevel}
+            onDismiss={() => setBreathworkSuggestion(null)}
+            onSnooze={() => {
+              setBreathworkSuggestion(null);
+              const snoozeTime = new Date();
+              snoozeTime.setMinutes(snoozeTime.getMinutes() + 15);
+              setSnoozedUntil(snoozeTime);
+            }}
+          />
+        )}
+        
         {renderQuickMoodEntry()}
         {renderQuickStats()}
         {/* Risk section removed */}
@@ -782,6 +917,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  missionCardOutlined: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
+  },
   missionIcon: {
     marginRight: 16,
   },
@@ -853,6 +993,20 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     fontFamily: 'Inter-Semibold',
     marginLeft: 4,
+  },
+  missionTags: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+  },
+  missionTag: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8B5CF6',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   quickStatsSection: {
     flexDirection: 'row',
