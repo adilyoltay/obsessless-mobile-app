@@ -117,7 +117,7 @@ export default function TabLayout() {
       />
       
       {/* ERP Tab - Store ile dinamik olarak gösterilir */}
-      {erpStore.isEnabled && (
+      {erpStore.isEnabled ? (
         <Tabs.Screen
           name="erp"
           options={{
@@ -130,6 +130,15 @@ export default function TabLayout() {
               />
             ),
             tabBarActiveTintColor: '#67E8F9', // Daha sakin cyan
+          }}
+        />
+      ) : (
+        // ERP modülü kapalıyken tab'ı tamamen gizle
+        <Tabs.Screen
+          name="erp"
+          options={{
+            href: null, // Tab'da görünmez
+            title: 'ERP',
           }}
         />
       )}

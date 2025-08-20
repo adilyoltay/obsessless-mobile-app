@@ -7,7 +7,8 @@ import {
   ScrollView, 
   Pressable,
   RefreshControl,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -28,6 +29,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 import { useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { useERPSettingsStore } from '@/store/erpSettingsStore';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
@@ -47,38 +49,7 @@ interface ERPSession {
 }
 
 export default function ERPScreen() {
-  const erpStore = useERPSettingsStore();
-  
-  // ERP modülü store kontrolü
-  if (!erpStore.isEnabled) {
-    return (
-      <ScreenLayout>
-        <View style={styles.disabledContainer}>
-          <MaterialCommunityIcons name="shield-off" size={64} color="#9CA3AF" />
-          <Text style={styles.disabledTitle}>ERP Modülü Kapalı</Text>
-          <Text style={styles.disabledSubtitle}>
-            Bu özellik ayarlardan açılabilir. Ayarlar {'>'} ERP Modülü bölümünden aktifleştirin.
-          </Text>
-        </View>
-      </ScreenLayout>
-    );
-  }
-
-  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
-  const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
-  const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
-  const hasProcessedVoiceParams = useRef(false);
-  useEffect(() => {
-    const hasAny = params?.prefill === 'true' || !!params?.text || !!params?.category;
-    if (hasAny && !hasProcessedVoiceParams.current) {
-      console.log('📝 ERP prefill params:', params);
-      setPrefilledVoice({ text: (params?.text as string) || '', category: (params?.category as string) || 'general' });
-      setIsQuickStartVisible(true);
-      hasProcessedVoiceParams.current = true;
-      // Parametreleri temizle ki loop oluşmasın
-      try { router.setParams({ prefill: undefined, text: undefined, category: undefined } as any); } catch {}
-    }
-  }, [params?.prefill, params?.text, params?.category]);
+  // Tüm hook'ları çağır - conditional return'dan önce
   const { t } = useTranslation();
   const { user } = useAuth();
   const { treatmentPlan, userProfile } = useAIUserData();
@@ -106,6 +77,47 @@ export default function ERPScreen() {
     avgAnxietyReduction: 0,
     streak: 0,
   });
+  
+  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
+  const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
+  const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
+  const hasProcessedVoiceParams = useRef(false);
+  
+  // ERP store'u en son çağır
+  const erpStore = useERPSettingsStore();
+  const isERPEnabled = erpStore.isEnabled;
+  
+  // ERP modülü kapalıysa ana sayfaya yönlendir
+  useEffect(() => {
+    if (!isERPEnabled) {
+      router.replace('/(tabs)/');
+    }
+  }, [isERPEnabled, router]);
+  
+  // ERP modülü kapalıysa loading göster
+  if (!isERPEnabled) {
+    return (
+      <ScreenLayout>
+        <View style={styles.disabledContainer}>
+          <ActivityIndicator size="large" color="#67E8F9" />
+          <Text style={styles.disabledTitle}>Yönlendiriliyor...</Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
+  useEffect(() => {
+    const hasAny = params?.prefill === 'true' || !!params?.text || !!params?.category;
+    if (hasAny && !hasProcessedVoiceParams.current) {
+      console.log('📝 ERP prefill params:', params);
+      setPrefilledVoice({ text: (params?.text as string) || '', category: (params?.category as string) || 'general' });
+      setIsQuickStartVisible(true);
+      hasProcessedVoiceParams.current = true;
+      // Parametreleri temizle ki loop oluşmasın
+      try { router.setParams({ prefill: undefined, text: undefined, category: undefined } as any); } catch {}
+    }
+  }, [params?.prefill, params?.text, params?.category]);
 
   // Migrate test data to user data if needed (one-time migration)
   const migrateTestData = async () => {
