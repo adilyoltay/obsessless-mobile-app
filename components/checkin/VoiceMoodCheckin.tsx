@@ -266,27 +266,48 @@ export default function VoiceMoodCheckin({
     if (!user?.id) return;
     
     try {
+      const moodBefore = Math.round((nlu?.mood || 50) / 10);
+      const moodAfter = Math.min(moodBefore + 2, 10); // Simüle edilmiş iyileşme (max 10)
+      
       const record = {
-        id: `cbt_${Date.now()}`,
+        user_id: user.id,
         thought: transcript,
         distortions: selectedDistortions,
-        evidenceFor: evidenceFor,
-        evidenceAgainst: evidenceAgainst,
+        evidence_for: evidenceFor,
+        evidence_against: evidenceAgainst,
         reframe: reframes[0] || '',
-        timestamp: new Date(),
-        mood_before: Math.round((nlu?.mood || 50) / 10),
-        mood_after: Math.round((nlu?.mood || 50) / 10) + 2 // Simüle edilmiş iyileşme
+        mood_before: moodBefore,
+        mood_after: moodAfter,
+        trigger: nlu?.trigger,
+        notes: ''
+      };
+      
+      // Save to Supabase first
+      try {
+        const supabaseService = (await import('@/services/supabase')).default;
+        const result = await supabaseService.saveCBTRecord(record);
+        console.log('✅ CBT record saved to Supabase:', result?.id);
+      } catch (error) {
+        console.warn('⚠️ Supabase save failed, using local storage:', error);
+      }
+      
+      // Also save to local storage for offline access
+      const localRecord = {
+        id: `cbt_${Date.now()}`,
+        ...record,
+        created_at: new Date().toISOString(),
+        timestamp: new Date() // For backward compatibility
       };
       
       const key = StorageKeys.THOUGHT_RECORDS?.(user.id) || `thought_records_${user.id}`;
       const existing = await loadUserData<any[]>(key) || [];
-      await saveUserData(key, [...existing, record]);
+      await saveUserData(key, [...existing, localRecord]);
       
       // Gamification
       try {
         const { useGamificationStore } = await import('@/store/gamificationStore');
         const { awardMicroReward } = useGamificationStore.getState();
-        await awardMicroReward('cbt_completed');
+        await awardMicroReward('cbt_completed', 15);
       } catch {}
       
       // Callback

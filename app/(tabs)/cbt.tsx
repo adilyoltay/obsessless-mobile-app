@@ -6,313 +6,572 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  Animated,
-  Dimensions
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Components
 import ScreenLayout from '@/components/layout/ScreenLayout';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Toast } from '@/components/ui/Toast';
 import FAB from '@/components/ui/FAB';
-import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
+import CBTQuickEntry from '@/components/forms/CBTQuickEntry';
+import { Toast } from '@/components/ui/Toast';
 
 // Hooks & Context
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { StorageKeys } from '@/utils/storage';
-
-const { width } = Dimensions.get('window');
+import supabaseService from '@/services/supabase';
+import { useGamificationStore } from '@/store/gamificationStore';
 
 interface ThoughtRecord {
   id: string;
   thought: string;
   distortions: string[];
-  evidenceFor: string;
-  evidenceAgainst: string;
+  evidence_for?: string;
+  evidence_against?: string;
   reframe: string;
-  timestamp: Date;
+  created_at: string;
   mood_before: number;
   mood_after: number;
+  trigger?: string;
+  notes?: string;
 }
 
 export default function CBTScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { awardMicroReward, updateStreak } = useGamificationStore();
   
   // States
-  const [showCheckin, setShowCheckin] = useState(false);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
+  const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [thoughtRecords, setThoughtRecords] = useState<ThoughtRecord[]>([]);
+  const [displayLimit, setDisplayLimit] = useState(5);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   
-  // Animation
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  
+  // Stats
+  const [stats, setStats] = useState({
+    todayCount: 0,
+    weekCount: 0,
+    monthCount: 0,
+    avgMoodImprovement: 0,
+    mostCommonDistortion: '',
+    totalRecords: 0,
+    successRate: 0
+  });
+
   // Voice trigger'dan gelindiyse otomatik aç
   useEffect(() => {
     if (params.trigger === 'voice' && params.text) {
-      setShowCheckin(true);
+      setShowQuickEntry(true);
     }
   }, [params]);
-  
-  // Load thought records
+
+  // Load data on mount and focus
   useEffect(() => {
     if (user?.id) {
-      loadThoughtRecords();
+      loadAllData();
     }
-    
-    // Entrance animation
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, [user?.id]);
-  
-  const loadThoughtRecords = async () => {
+  }, [user?.id, selectedTimeRange]);
+
+  // Refresh on screen focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        console.log('🔄 CBT screen focused, refreshing data...');
+        loadAllData();
+      }
+    }, [user?.id])
+  );
+
+  useEffect(() => {
+    setDisplayLimit(5);
+  }, [selectedTimeRange]);
+
+  const loadAllData = async () => {
     if (!user?.id) return;
     
     try {
-      const key = StorageKeys.THOUGHT_RECORDS?.(user.id) || `thought_records_${user.id}`;
-      const data = await AsyncStorage.getItem(key);
-      if (data) {
-        const records = JSON.parse(data);
-        // Son 30 günün kayıtları
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
-        const recentRecords = records.filter((r: ThoughtRecord) => 
-          new Date(r.timestamp) > thirtyDaysAgo
-        ).sort((a: ThoughtRecord, b: ThoughtRecord) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-        
-        setThoughtRecords(recentRecords);
+      console.log('📊 Loading CBT data for user:', user.id);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      
+      // Load from Supabase first
+      let records: ThoughtRecord[] = [];
+      try {
+        const dateRange = selectedTimeRange === 'today' 
+          ? { start: today, end: new Date() }
+          : selectedTimeRange === 'week'
+          ? { start: weekAgo, end: new Date() }
+          : { start: monthAgo, end: new Date() };
+          
+        records = await supabaseService.getCBTRecords(user.id, dateRange);
+        console.log('✅ Loaded from Supabase:', records.length, 'records');
+      } catch (error) {
+        console.warn('⚠️ Supabase load failed, using local storage:', error);
       }
+      
+      // Fallback to local storage if Supabase fails or returns empty
+      if (records.length === 0) {
+        const key = StorageKeys.THOUGHT_RECORDS?.(user.id) || `thought_records_${user.id}`;
+        const localData = await AsyncStorage.getItem(key);
+        if (localData) {
+          const allRecords = JSON.parse(localData);
+          
+          // Filter by selected time range
+          records = allRecords.filter((r: ThoughtRecord) => {
+            const recordDate = new Date(r.created_at || r.timestamp);
+            if (selectedTimeRange === 'today') {
+              return recordDate >= today;
+            } else if (selectedTimeRange === 'week') {
+              return recordDate >= weekAgo;
+            } else {
+              return recordDate >= monthAgo;
+            }
+          });
+          console.log('📱 Loaded from local storage:', records.length, 'records');
+        }
+      }
+      
+      // Sort by date (newest first)
+      records.sort((a, b) => 
+        new Date(b.created_at || b.timestamp).getTime() - 
+        new Date(a.created_at || a.timestamp).getTime()
+      );
+      
+      setThoughtRecords(records);
+      calculateStats(records);
+      
     } catch (error) {
-      console.error('Error loading thought records:', error);
+      console.error('❌ Error loading CBT data:', error);
     }
   };
-  
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadThoughtRecords();
-    setRefreshing(false);
-  };
-  
-  const handleFABPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowCheckin(true);
-  };
-  
-  const handleRecordSaved = () => {
-    setShowCheckin(false);
-    loadThoughtRecords();
-    setToastMessage('Düşünce kaydı başarıyla eklendi');
-    setShowToast(true);
-  };
-  
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <MaterialCommunityIcons name="head-heart-outline" size={64} color="#9CA3AF" />
-      <Text style={styles.emptyTitle}>Henüz düşünce kaydın yok</Text>
-      <Text style={styles.emptyDescription}>
-        Olumsuz düşüncelerini kaydet ve yeniden çerçevele.
-        CBT teknikleriyle bilişsel çarpıtmalarını fark et.
-      </Text>
-      <Button
-        variant="primary"
-        onPress={handleFABPress}
-        style={styles.emptyButton}
-        leftIcon={<MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />}
-      >
-        İlk Kaydını Oluştur
-      </Button>
-    </View>
-  );
-  
-  const renderThoughtCard = (record: ThoughtRecord) => {
-    const moodImprovement = record.mood_after - record.mood_before;
-    const improvementColor = moodImprovement > 0 ? '#10B981' : '#6B7280';
+
+  const calculateStats = (records: ThoughtRecord[]) => {
+    if (records.length === 0) {
+      setStats({
+        todayCount: 0,
+        weekCount: 0,
+        monthCount: 0,
+        avgMoodImprovement: 0,
+        mostCommonDistortion: '',
+        totalRecords: 0,
+        successRate: 0
+      });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    return (
-      <Card key={record.id} style={styles.thoughtCard}>
-        <View style={styles.thoughtHeader}>
-          <View style={styles.thoughtMeta}>
-            <MaterialCommunityIcons name="calendar" size={14} color="#6B7280" />
-            <Text style={styles.thoughtDate}>
-              {new Date(record.timestamp).toLocaleDateString('tr-TR', {
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
-          </View>
-          <View style={styles.moodChange}>
-            <Text style={styles.moodChangeLabel}>Mood:</Text>
-            <Text style={styles.moodBefore}>{record.mood_before}</Text>
-            <MaterialCommunityIcons name="arrow-right" size={16} color="#6B7280" />
-            <Text style={[styles.moodAfter, { color: improvementColor }]}>
-              {record.mood_after}
-            </Text>
-            {moodImprovement > 0 && (
-              <Text style={[styles.moodImprovement, { color: improvementColor }]}>
-                +{moodImprovement}
-              </Text>
-            )}
-          </View>
-        </View>
-        
-        <View style={styles.thoughtContent}>
-          <Text style={styles.thoughtLabel}>Olumsuz Düşünce:</Text>
-          <Text style={styles.thoughtText}>{record.thought}</Text>
-        </View>
-        
-        {record.distortions.length > 0 && (
-          <View style={styles.distortionsContainer}>
-            <Text style={styles.thoughtLabel}>Bilişsel Çarpıtmalar:</Text>
-            <View style={styles.distortionTags}>
-              {record.distortions.map((distortion, index) => (
-                <View key={index} style={styles.distortionTag}>
-                  <Text style={styles.distortionTagText}>{distortion}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-        
-        <View style={styles.reframeContainer}>
-          <MaterialCommunityIcons name="lightbulb-outline" size={18} color="#3B82F6" />
-          <View style={styles.reframeContent}>
-            <Text style={styles.reframeLabel}>Yeniden Çerçeveleme:</Text>
-            <Text style={styles.reframeText}>{record.reframe}</Text>
-          </View>
-        </View>
-      </Card>
-    );
-  };
-  
-  const renderStats = () => {
-    if (thoughtRecords.length === 0) return null;
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
     
-    const totalRecords = thoughtRecords.length;
-    const avgMoodImprovement = thoughtRecords.reduce((sum, r) => 
-      sum + (r.mood_after - r.mood_before), 0
-    ) / totalRecords;
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+    // Count records by time period
+    let todayCount = 0;
+    let weekCount = 0;
+    let monthCount = 0;
+    let totalMoodImprovement = 0;
+    let successfulRecords = 0;
     
-    const mostCommonDistortion = thoughtRecords
-      .flatMap(r => r.distortions)
-      .reduce((acc, d) => {
-        acc[d] = (acc[d] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+    // Track distortions
+    const distortionCounts: Record<string, number> = {};
     
-    const topDistortion = Object.entries(mostCommonDistortion)
+    records.forEach(record => {
+      const recordDate = new Date(record.created_at || record.timestamp);
+      
+      if (recordDate >= today) todayCount++;
+      if (recordDate >= weekAgo) weekCount++;
+      if (recordDate >= monthAgo) monthCount++;
+      
+      // Calculate mood improvement
+      const improvement = record.mood_after - record.mood_before;
+      totalMoodImprovement += improvement;
+      if (improvement > 0) successfulRecords++;
+      
+      // Count distortions
+      record.distortions?.forEach(distortion => {
+        distortionCounts[distortion] = (distortionCounts[distortion] || 0) + 1;
+      });
+    });
+    
+    // Find most common distortion
+    const mostCommon = Object.entries(distortionCounts)
       .sort(([,a], [,b]) => b - a)[0];
     
-    return (
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <MaterialCommunityIcons name="file-document-outline" size={24} color="#3B82F6" />
-          <Text style={styles.statValue}>{totalRecords}</Text>
-          <Text style={styles.statLabel}>Toplam Kayıt</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <MaterialCommunityIcons name="trending-up" size={24} color="#10B981" />
-          <Text style={styles.statValue}>+{avgMoodImprovement.toFixed(1)}</Text>
-          <Text style={styles.statLabel}>Ort. İyileşme</Text>
-        </View>
-        
-        {topDistortion && (
-          <View style={styles.statCard}>
-            <MaterialCommunityIcons name="brain" size={24} color="#F59E0B" />
-            <Text style={styles.statValue}>{topDistortion[1]}</Text>
-            <Text style={styles.statLabel}>{topDistortion[0].substring(0, 10)}</Text>
-          </View>
-        )}
-      </View>
+    setStats({
+      todayCount,
+      weekCount,
+      monthCount,
+      avgMoodImprovement: records.length > 0 
+        ? Math.round((totalMoodImprovement / records.length) * 10) / 10 
+        : 0,
+      mostCommonDistortion: mostCommon ? mostCommon[0] : '',
+      totalRecords: records.length,
+      successRate: records.length > 0 
+        ? Math.round((successfulRecords / records.length) * 100) 
+        : 0
+    });
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAllData();
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRefreshing(false);
+  };
+
+  const handleFABPress = () => {
+    console.log('🔴 FAB button pressed!');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowQuickEntry(true);
+    console.log('🔴 showQuickEntry set to true');
+  };
+
+  const handleRecordSaved = async () => {
+    await loadAllData();
+    setToastMessage('Düşünce kaydı başarıyla eklendi 🎯');
+    setShowToast(true);
+  };
+
+  const deleteRecord = async (recordId: string) => {
+    Alert.alert(
+      'Kaydı Sil',
+      'Bu düşünce kaydını silmek istediğinize emin misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete from Supabase
+              await supabaseService.deleteCBTRecord(recordId);
+              
+              // Also delete from local storage
+              if (user?.id) {
+                const key = StorageKeys.THOUGHT_RECORDS?.(user.id) || `thought_records_${user.id}`;
+                const localData = await AsyncStorage.getItem(key);
+                if (localData) {
+                  const records = JSON.parse(localData);
+                  const filtered = records.filter((r: ThoughtRecord) => r.id !== recordId);
+                  await AsyncStorage.setItem(key, JSON.stringify(filtered));
+                }
+              }
+              
+              await loadAllData();
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              setToastMessage('Kayıt silindi');
+              setShowToast(true);
+            } catch (error) {
+              console.error('Error deleting record:', error);
+              Alert.alert('Hata', 'Kayıt silinirken bir hata oluştu');
+            }
+          }
+        }
+      ]
     );
   };
-  
+
+  const getTimeRangeStats = () => {
+    switch (selectedTimeRange) {
+      case 'today':
+        return {
+          count: stats.todayCount,
+          improvement: stats.avgMoodImprovement,
+          label: 'Bugün'
+        };
+      case 'week':
+        return {
+          count: stats.weekCount,
+          improvement: stats.avgMoodImprovement,
+          label: 'Bu Hafta'
+        };
+      case 'month':
+        return {
+          count: stats.monthCount,
+          improvement: stats.avgMoodImprovement,
+          label: 'Bu Ay'
+        };
+    }
+  };
+
+  const timeRangeStats = getTimeRangeStats();
+  const filteredRecords = thoughtRecords.slice(0, displayLimit);
+
   return (
     <ScreenLayout>
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#3B82F6"
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
+      {/* Header */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft} />
+          <Text style={styles.headerTitle}>CBT Düşünce Kaydı</Text>
+          <Pressable
+            style={styles.headerRight}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // TODO: Navigate to insights/stats
+            }}
+          >
+            <MaterialCommunityIcons name="chart-line" size={24} color="#3B82F6" />
+          </Pressable>
+        </View>
+
+        {/* Time Range Tabs */}
+        <View style={styles.tabContainer}>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('today');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
+              Bugün
+            </Text>
+            {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
+          </Pressable>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('week');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
+              Hafta
+            </Text>
+            {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
+          </Pressable>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              setSelectedTimeRange('month');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
+              Ay
+            </Text>
+            {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
+          </Pressable>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#3B82F6"
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Date Display */}
+        <Text style={styles.dateText}>
+          {new Date().toLocaleDateString('tr-TR', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </Text>
+
+        {/* Summary Stats Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
             <View>
-              <Text style={styles.headerTitle}>CBT Düşünce Kaydı</Text>
-              <Text style={styles.headerSubtitle}>
-                Olumsuz düşüncelerini yeniden çerçevele
+              <Text style={styles.statsTitle}>
+                {timeRangeStats.label} Özeti
+              </Text>
+              <Text style={styles.statsSubtitle}>
+                Bilişsel yeniden yapılandırma ilerlemeniz
               </Text>
             </View>
-            <MaterialCommunityIcons name="head-heart" size={32} color="#3B82F6" />
+            {stats.successRate > 70 && (
+              <View style={styles.successBadge}>
+                <Text style={styles.successText}>🎯 %{stats.successRate}</Text>
+              </View>
+            )}
           </View>
-          
-          {/* Stats */}
-          {renderStats()}
-          
-          {/* Thought Records */}
-          {thoughtRecords.length > 0 ? (
-            <View style={styles.recordsList}>
-              {thoughtRecords.map(renderThoughtCard)}
+
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{timeRangeStats.count}</Text>
+              <Text style={styles.statLabel}>Kayıt</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: timeRangeStats.improvement > 0 ? '#10B981' : '#6B7280' }]}>
+                {timeRangeStats.improvement > 0 ? '+' : ''}{timeRangeStats.improvement}
+              </Text>
+              <Text style={styles.statLabel}>Mood Değişimi</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.successRate}%</Text>
+              <Text style={styles.statLabel}>Başarı Oranı</Text>
+            </View>
+          </View>
+
+          {stats.mostCommonDistortion && (
+            <View style={styles.insightContainer}>
+              <MaterialCommunityIcons name="lightbulb-outline" size={16} color="#F59E0B" />
+              <Text style={styles.insightText}>
+                En sık karşılaşılan çarpıtma: {stats.mostCommonDistortion}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Records List */}
+        <View style={styles.listSection}>
+          <Text style={styles.sectionTitle}>
+            {selectedTimeRange === 'today' ? 'Bugünün Kayıtları' :
+             selectedTimeRange === 'week' ? 'Bu Haftanın Kayıtları' :
+             'Bu Ayın Kayıtları'}
+          </Text>
+
+          {filteredRecords.length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="head-heart-outline" size={48} color="#E5E7EB" />
+              <Text style={styles.emptyText}>Henüz kayıt yok</Text>
+              <Text style={styles.emptySubtext}>
+                Olumsuz düşüncelerinizi kaydedin ve yeniden çerçeveleyin
+              </Text>
             </View>
           ) : (
-            renderEmptyState()
+            <View style={styles.recordsContainer}>
+              {filteredRecords.map((record) => {
+                const moodImprovement = record.mood_after - record.mood_before;
+                const improvementColor = moodImprovement > 0 ? '#10B981' : 
+                                        moodImprovement === 0 ? '#6B7280' : '#EF4444';
+
+                return (
+                  <View key={record.id} style={styles.recordCard}>
+                    <View style={styles.recordContent}>
+                      <View style={styles.recordHeader}>
+                        <Text style={styles.recordTime}>
+                          {new Date(record.created_at || record.timestamp).toLocaleTimeString('tr-TR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                        <View style={styles.moodChange}>
+                          <Text style={styles.moodValue}>{record.mood_before}</Text>
+                          <MaterialCommunityIcons name="arrow-right" size={14} color="#6B7280" />
+                          <Text style={[styles.moodValue, { color: improvementColor }]}>
+                            {record.mood_after}
+                          </Text>
+                          {moodImprovement !== 0 && (
+                            <Text style={[styles.moodDiff, { color: improvementColor }]}>
+                              ({moodImprovement > 0 ? '+' : ''}{moodImprovement})
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      
+                      <Text style={styles.thoughtText} numberOfLines={2}>
+                        {record.thought}
+                      </Text>
+                      
+                      {record.distortions?.length > 0 && (
+                        <View style={styles.distortionTags}>
+                          {record.distortions.slice(0, 3).map((distortion, index) => (
+                            <View key={index} style={styles.distortionTag}>
+                              <Text style={styles.distortionTagText}>
+                                {distortion.length > 15 ? distortion.substring(0, 15) + '...' : distortion}
+                              </Text>
+                            </View>
+                          ))}
+                          {record.distortions.length > 3 && (
+                            <View style={styles.distortionTag}>
+                              <Text style={styles.distortionTagText}>+{record.distortions.length - 3}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                      
+                      <View style={styles.reframePreview}>
+                        <MaterialCommunityIcons name="lightbulb-outline" size={14} color="#3B82F6" />
+                        <Text style={styles.reframeText} numberOfLines={1}>
+                          {record.reframe}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        deleteRecord(record.id);
+                      }}
+                      style={styles.deleteIcon}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MaterialCommunityIcons name="delete-outline" size={20} color="#6B7280" />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
           )}
-        </ScrollView>
-        
-        {/* FAB */}
-        {!showCheckin && (
-          <FAB
-            icon="plus"
-            onPress={handleFABPress}
-            style={styles.fab}
-            accessibilityLabel="Yeni düşünce kaydı ekle"
-          />
-        )}
-        
-        {/* Voice Mood Checkin Modal */}
-        {showCheckin && (
-          <VoiceMoodCheckin
-            isVisible={showCheckin}
-            onClose={() => setShowCheckin(false)}
-            onSave={handleRecordSaved}
-            initialText={params.text as string}
-            mode="cbt"
-          />
-        )}
-        
-        {/* Toast */}
-        <Toast
-          message={toastMessage}
-          type="success"
-          visible={showToast}
-          onHide={() => setShowToast(false)}
-        />
-      </Animated.View>
+
+          {/* Show More Button */}
+          {thoughtRecords.length > displayLimit && (
+            <View style={styles.showMoreContainer}>
+              <Pressable
+                style={styles.showMoreButton}
+                onPress={() => {
+                  setDisplayLimit(prev => prev + 5);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={styles.showMoreText}>Daha Fazla Göster</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* FAB */}
+      <FAB
+        icon="plus"
+        onPress={handleFABPress}
+        position="fixed"
+      />
+
+      {/* CBT Quick Entry Modal */}
+      <CBTQuickEntry
+        visible={showQuickEntry}
+        onDismiss={() => setShowQuickEntry(false)}
+        onSubmit={handleRecordSaved}
+        initialThought={params.text as string}
+      />
+
+      {/* Toast */}
+      <Toast
+        message={toastMessage}
+        type="success"
+        visible={showToast}
+        onHide={() => setShowToast(false)}
+      />
     </ScreenLayout>
   );
 }
@@ -320,195 +579,292 @@ export default function CBTScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F9FAFB',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: '#FFFFFF',
+  headerContainer: {
+    backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  headerSubtitle: {
+  headerLeft: {
+    width: 32,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 32,
+    alignItems: 'center',
+  },
+  // Tab Styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-around',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  tabTextActive: {
+    color: '#3B82F6',
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#3B82F6',
+  },
+  dateText: {
     fontSize: 14,
     color: '#6B7280',
+    textAlign: 'center',
+    marginVertical: 12,
+    fontFamily: 'Inter',
   },
-  statsContainer: {
+  // Stats Card
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  statsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+    fontFamily: 'Inter',
+  },
+  successBadge: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  successText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+    fontFamily: 'Inter',
+  },
+  statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    marginTop: 1,
   },
-  statCard: {
+  statItem: {
     alignItems: 'center',
     flex: 1,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
-    marginTop: 8,
+    color: '#374151',
+    fontFamily: 'Inter',
   },
   statLabel: {
     fontSize: 12,
     color: '#6B7280',
     marginTop: 4,
+    fontFamily: 'Inter',
   },
-  recordsList: {
-    paddingHorizontal: 16,
+  insightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
     paddingTop: 16,
-    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 8,
   },
-  thoughtCard: {
-    padding: 16,
+  insightText: {
+    fontSize: 13,
+    color: '#92400E',
+    fontFamily: 'Inter',
+    flex: 1,
+  },
+  // List Section
+  listSection: {
+    paddingHorizontal: 16,
+    marginTop: 24,
+    paddingBottom: 100,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 16,
+    fontFamily: 'Inter',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 16,
+    fontFamily: 'Inter',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  // Record Cards
+  recordsContainer: {
+    gap: 12,
+  },
+  recordCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  thoughtHeader: {
+  recordContent: {
+    flex: 1,
+  },
+  recordHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    marginBottom: 8,
   },
-  thoughtMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  thoughtDate: {
-    fontSize: 12,
-    color: '#6B7280',
+  recordTime: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
   },
   moodChange: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  moodChangeLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  moodBefore: {
+  moodValue: {
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
+    fontFamily: 'Inter',
   },
-  moodAfter: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  moodImprovement: {
+  moodDiff: {
     fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
-  },
-  thoughtContent: {
-    marginBottom: 12,
-  },
-  thoughtLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    fontFamily: 'Inter',
+    marginLeft: 2,
   },
   thoughtText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#374151',
     lineHeight: 20,
-  },
-  distortionsContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
+    fontFamily: 'Inter',
   },
   distortionTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
+    gap: 4,
+    marginBottom: 8,
   },
   distortionTag: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   distortionTagText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#92400E',
     fontWeight: '600',
+    fontFamily: 'Inter',
   },
-  reframeContainer: {
+  reframePreview: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#3B82F6',
-  },
-  reframeContent: {
-    flex: 1,
-  },
-  reframeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E40AF',
-    marginBottom: 4,
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   reframeText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
-  },
-  emptyState: {
+    fontSize: 12,
+    color: '#3B82F6',
+    fontFamily: 'Inter',
     flex: 1,
+  },
+  deleteIcon: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  showMoreContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  showMoreButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 64,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  emptyButton: {
+    paddingVertical: 10,
     paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
+  showMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
   },
 });

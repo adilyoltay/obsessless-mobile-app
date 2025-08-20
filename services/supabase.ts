@@ -985,6 +985,97 @@ class SupabaseNativeService {
     }
   }
 
+  // ===========================
+  // CBT THOUGHT RECORDS
+  // ===========================
+
+  async saveCBTRecord(record: {
+    user_id: string;
+    thought: string;
+    distortions: string[];
+    evidence_for?: string;
+    evidence_against?: string;
+    reframe: string;
+    mood_before: number;
+    mood_after: number;
+    trigger?: string;
+    notes?: string;
+  }): Promise<{ id: string } | null> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      
+      const { data, error } = await this.client
+        .from('thought_records')
+        .insert({
+          ...record,
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      console.log('✅ CBT record saved:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to save CBT record:', error);
+      // Offline fallback
+      await deadLetterQueue.addToDeadLetter({
+        id: `cbt_${Date.now()}`,
+        type: 'create',
+        entity: 'thought_records',
+        data: record,
+        errorMessage: 'save_cbt_record_failed',
+      } as any, error);
+      return null;
+    }
+  }
+
+  async getCBTRecords(userId: string, dateRange?: { start: Date; end: Date }): Promise<any[]> {
+    try {
+      let query = this.client
+        .from('thought_records')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (dateRange) {
+        query = query
+          .gte('created_at', dateRange.start.toISOString())
+          .lte('created_at', dateRange.end.toISOString());
+      }
+
+      const { data, error } = await query.limit(100);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Failed to fetch CBT records:', error);
+      return [];
+    }
+  }
+
+  async deleteCBTRecord(recordId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('thought_records')
+        .delete()
+        .eq('id', recordId);
+
+      if (error) throw error;
+      console.log('✅ CBT record deleted:', recordId);
+    } catch (error) {
+      console.error('❌ Failed to delete CBT record:', error);
+      // Queue for retry
+      await deadLetterQueue.addToDeadLetter({
+        id: `cbt_del_${Date.now()}`,
+        type: 'delete',
+        entity: 'thought_records',
+        data: { id: recordId },
+        errorMessage: 'delete_cbt_record_failed',
+      } as any, error);
+    }
+  }
+
   async saveVoiceSessionSummary(session: VoiceSessionDB): Promise<void> {
     try {
       await this.ensureUserProfileExists(session.user_id);
