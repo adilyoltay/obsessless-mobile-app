@@ -127,6 +127,12 @@ export default function OnboardingScreen() {
       const fromTP = String(params?.fromTreatmentPlan || '').toLowerCase() === 'true';
       const redirect = typeof params?.redirect === 'string' ? (params.redirect as string) : '/(tabs)';
       router.replace(fromTP ? '/treatment-plan' : redirect);
+      // Defensive: bazı guardlar tabs'a yönlendirebiliyor; kısa gecikmeyle tekrar hedefe yönlendir
+      if (fromTP) {
+        setTimeout(() => {
+          try { router.replace('/treatment-plan'); } catch {}
+        }, 50);
+      }
     } catch (error) {
       console.error('Error saving onboarding data:', error);
       router.replace('/(tabs)');
@@ -138,6 +144,11 @@ export default function OnboardingScreen() {
     const fromTP = String(params?.fromTreatmentPlan || '').toLowerCase() === 'true';
     const redirect = typeof params?.redirect === 'string' ? (params.redirect as string) : '/(tabs)';
     router.replace(fromTP ? '/treatment-plan' : redirect);
+    if (fromTP) {
+      setTimeout(() => {
+        try { router.replace('/treatment-plan'); } catch {}
+      }, 50);
+    }
   };
 
   const handleSimpleStart = async () => {
