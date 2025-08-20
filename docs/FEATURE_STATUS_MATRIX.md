@@ -57,6 +57,10 @@
 - BottomSheet entegrasyonu (CBT, OCD, ERP)
 - Merkezi ses analizi ve otomatik yönlendirme
 - Navigation yapısı optimizasyonu
+- AutoRecord: OCD/CBT/Mood/ERP için PII temizliği, kullanıcı tercihi, idempotency ve offline mapping
+- CrossDeviceSync: Yalnızca !synced && !id yükleme; tüm metin alanlarında sanitizePII
+- ERP: Voice prefill QuickStart, timestamp’li ERP auto-record verisi; prefill döngüsü düzeltildi
+- Breathwork: Anksiyete seviyesine göre 4-7-8 vs box protokolü ve autoStart
 
 ### 🚧 Devam Eden
 - Supabase migration (thought_records tablosu)

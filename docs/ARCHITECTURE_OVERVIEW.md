@@ -21,7 +21,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
+- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, ERP önerileri, Telemetry, Content Filtering
 - Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
   
 Güncel yönlendirme:
@@ -46,11 +46,14 @@ Notlar:
   - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.
   - `treatmentPlanningEngine` öneri zamanı: `optimalTiming.recommendedTime` kullanımı; `optimizeTreatmentTiming` gerekli `currentContext.userState`’i sağlar.
 - Voice
-  - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
+  - LLM‑öncelikli unifiedVoiceAnalysis (Gemini 1.5 Flash), hata/kapalı durumda heuristik fallback.
+  - `voice_checkins` kayıtları `sanitizePII(text)` ve `created_at` ile Supabase’e yazılır; offline kuyruğa aynı temizlikle eklenir.
+  - AutoRecord: kullanıcı tercihi (autoRecordEnabled) dikkate alınır; idempotency + UI guard ile çift kayıt önlenir; OCD/CBT/Mood/ERP için çevrimdışı mapping sağlanır.
+  - Breathwork yönlendirmesi: anksiyete seviyesine göre 4‑7‑8 veya box; `autoStart` parametresi ile başlatılır.
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
   - Mood Tracking: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`; history ekranı son 14 günü okur
-  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`; DLQ (`services/sync/deadLetterQueue.ts`) ve dinamik batch optimizer; `services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback)
+  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`; DLQ (`services/sync/deadLetterQueue.ts`) ve dinamik batch optimizer; `services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback). CrossDeviceSync yalnızca `!synced && !id` kayıtları yükler ve tüm metin alanlarına sanitizePII uygular.
  - Progress Analytics (sınırlı)
   - Bağımsız servis yok; coordinator doğrudan çağırmaz. Trend + temel pattern özetleri Insights v2 tarafından üretilir.
 - Test Altyapısı

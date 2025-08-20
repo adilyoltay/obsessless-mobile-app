@@ -17,6 +17,18 @@ graph TD
     D -->|BREATHWORK| I[Nefes Egzersizi]
 ```
 
+## 🧭 Routing Strategy (Güncel)
+- LLM-first: Gemini 1.5 Flash ile sınıflandır; başarısız/kapalı ise heuristik fallback kullan
+- High-confidence (≥ 0.8): AutoRecord onayı göster (kullanıcı tercihi `autoRecordEnabled` dikkate alınır)
+- Low/medium confidence: İlgili forma prefill parametreleri ile yönlendir
+- Breathwork: Anksiyete seviyesine göre protokol seç (≥7: 4-7-8, aksi halde box), `autoStart: true`
+
+## 🔐 Data Handling (Güncel)
+- VoiceCheckin: `sanitizePII(text)` ve `created_at` ile Supabase `voice_checkins` tablosuna yazılır; offline kuyruğa aynı temizlikle eklenir
+- AutoRecord (online): OCD/CBT/Mood metin alanları `sanitizePII` ile temizlenir; idempotency anahtarı ile çift kayıt engellenir
+- AutoRecord (offline): Kuyruğa eklenen veriler için camelCase → snake_case mapping ve `sanitizePII` uygulanır; ERP için `erp_session` minimal mapping kullanılır
+- CrossDeviceSync: Tüm metin alanlarında `sanitizePII`; yalnız `!synced && !id` nesneler yüklenir
+
 ## 📝 Uygulama Adımları
 
 ### Faz 1: Merkezi Analiz Servisi (Sprint 1 - 3 gün)
@@ -446,8 +458,8 @@ Eğer sistem başarısız olursa:
 
 ---
 
-**Doküman Versiyonu:** 1.0  
+**Doküman Versiyonu:** 1.1  
 **Oluşturma Tarihi:** 2025-01-19  
-**Son Güncelleme:** 2025-01-19  
+**Son Güncelleme:** 2025-08-20  
 **Sahip:** AI & Product Team  
 **Durum:** 🟢 Onaylandı - Geliştirmeye Hazır
