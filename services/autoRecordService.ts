@@ -93,6 +93,7 @@ export function prepareAutoRecord(
           userId,
           category: analysis.category || detectERPCategory(analysis.originalText),
           suggestedExercise: suggestERPExercise(analysis.originalText),
+          timestamp: new Date().toISOString(),
         },
         confidence: analysis.confidence,
         shouldAutoSave: false, // ERP yönlendirme yapılacak
@@ -363,7 +364,7 @@ export async function saveAutoRecord(
           trigger: data.trigger || '',
           notes: data.notes || ''
         };
-      } else {
+      } else if (recordType === 'MOOD') {
         entity = 'mood_entry';
         mapped = {
           user_id: data.userId,
@@ -372,6 +373,19 @@ export async function saveAutoRecord(
           anxiety_level: data.anxiety || 5,
           notes: data.notes || '',
           trigger: data.trigger || ''
+        };
+      } else {
+        // ERP için offline queue: yönlendirme olduğu için minimal veri (kategori + timestamp)
+        entity = 'erp_session';
+        mapped = {
+          user_id: data.userId,
+          category: data.category || 'general',
+          subcategory: data.category || 'general',
+          duration: 0,
+          anxiety_level_before: 0,
+          anxiety_level_after: 0,
+          notes: '',
+          created_at: data.timestamp || new Date().toISOString()
         };
       }
 

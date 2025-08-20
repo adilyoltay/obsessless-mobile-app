@@ -415,7 +415,7 @@ export default function CheckinBottomSheet({
               : { text: 'İptal', style: 'cancel' },
             autoRecord.type !== 'ERP'
               ? { text: 'Kaydet', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.type as any, autoRecord.data) }
-              : { text: 'Devam Et', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.data) },
+              : { text: 'Devam Et', style: 'default', onPress: () => handleAutoRecordConfirm('ERP', autoRecord.data) },
           ],
         );
 
