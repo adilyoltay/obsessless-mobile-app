@@ -340,18 +340,9 @@ export default function CheckinBottomSheet({
 
     // High confidence (>0.8) = Show modal for confirmation (respect user prefs via shouldShowAutoRecord)
     // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
-    let userPrefs: { autoRecordEnabled?: boolean } | undefined = undefined;
-    try {
-      // RN/Metro'da dinamik import bazı yapılandırmalarda module.path üretmeyebilir; senkron require kullan
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const settingsModule = require('@/store/settingsStore');
-      const useSettingsStore = (settingsModule as any)?.useSettingsStore;
-      if (useSettingsStore) {
-        userPrefs = { autoRecordEnabled: useSettingsStore.getState()?.autoRecordEnabled };
-      }
-    } catch {}
-
-    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis, userPrefs)) {
+    // Kullanıcı tercihlerini dinamik yükleme, Metro'da build-time require hatasına neden olabildiği için
+    // burada pas geçiyoruz; eşik kontrolü production değerinde (0.8)
+    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis)) {
       const autoRecord = prepareAutoRecord(analysis, user.id);
       console.log('🔄 High confidence - prepareAutoRecord result:', autoRecord);
       
