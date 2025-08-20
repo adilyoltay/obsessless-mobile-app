@@ -157,10 +157,10 @@ class CrossDeviceSyncService {
   }
 
   private async uploadItem(dataType: string, item: any, userId: string): Promise<void> {
+    const { sanitizePII } = await import('@/utils/privacy');
     switch (dataType) {
       case 'compulsions':
         // Map field names from camelCase to snake_case
-        const { sanitizePII } = await import('@/utils/privacy');
         const compulsionData = {
           user_id: item.userId || item.user_id || userId,
           category: item.type || item.category,
@@ -213,7 +213,6 @@ class CrossDeviceSyncService {
         break;
       case 'voice_checkins':
         // Map field names if needed
-        const { sanitizePII } = await import('@/utils/privacy');
         const voiceData = {
           user_id: item.userId || item.user_id || userId,
           text: sanitizePII(item.text || ''),
