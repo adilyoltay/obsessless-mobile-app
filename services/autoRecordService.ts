@@ -260,43 +260,52 @@ export async function saveAutoRecord(
     switch (recordType) {
       case 'OCD':
         console.log('📝 Saving OCD compulsion:', data);
-        savedRecord = await supabaseService.saveCompulsion({
-          user_id: data.userId,
-          category: data.category,
-          subcategory: data.category,
-          resistance_level: data.resistanceLevel,
-          trigger: data.trigger,
-          notes: data.notes,
-        });
+        {
+          const { sanitizePII } = await import('@/utils/privacy');
+          savedRecord = await supabaseService.saveCompulsion({
+            user_id: data.userId,
+            category: data.category,
+            subcategory: data.category,
+            resistance_level: data.resistanceLevel,
+            trigger: data.trigger,
+            notes: sanitizePII(data.notes || ''),
+          });
+        }
         console.log('✅ OCD compulsion saved:', savedRecord);
         break;
 
       case 'CBT':
         console.log('📝 Saving CBT record:', data);
-        savedRecord = await supabaseService.saveCBTRecord({
-          user_id: data.userId,
-          thought: data.thought,
-          distortions: [data.distortionType],
-          evidence_for: '',
-          evidence_against: '',
-          reframe: data.reframe || '',
-          mood_before: data.moodBefore,
-          mood_after: data.moodAfter,
-          trigger: '',
-          notes: '',
-        });
+        {
+          const { sanitizePII } = await import('@/utils/privacy');
+          savedRecord = await supabaseService.saveCBTRecord({
+            user_id: data.userId,
+            thought: sanitizePII(data.thought || ''),
+            distortions: [data.distortionType],
+            evidence_for: '',
+            evidence_against: '',
+            reframe: sanitizePII(data.reframe || ''),
+            mood_before: data.moodBefore,
+            mood_after: data.moodAfter,
+            trigger: '',
+            notes: '',
+          });
+        }
         console.log('✅ CBT record saved:', savedRecord);
         break;
 
       case 'MOOD':
         console.log('📝 Saving MOOD entry:', data);
-        savedRecord = await supabaseService.saveMoodEntry({
-          user_id: data.userId,
-          mood_score: data.mood,
-          energy_level: data.energy,
-          anxiety_level: data.anxiety,
-          notes: data.notes,
-        });
+        {
+          const { sanitizePII } = await import('@/utils/privacy');
+          savedRecord = await supabaseService.saveMoodEntry({
+            user_id: data.userId,
+            mood_score: data.mood,
+            energy_level: data.energy,
+            anxiety_level: data.anxiety,
+            notes: sanitizePII(data.notes || ''),
+          });
+        }
         console.log('✅ MOOD entry saved:', savedRecord);
         break;
     }
@@ -396,8 +405,8 @@ export function shouldShowAutoRecord(
     return true;
   }
   
-  // Güven eşiği kontrolü - TEST için düşük ayarlandı
-  const SHOW_THRESHOLD = 0.3; // Normalde 0.65
+  // Güven eşiği kontrolü - Production
+  const SHOW_THRESHOLD = 0.8; // Üretim değeri
   const shouldShow = analysis.confidence >= SHOW_THRESHOLD;
   console.log(`📊 Confidence ${analysis.confidence} vs threshold ${SHOW_THRESHOLD}: ${shouldShow}`);
   return shouldShow;

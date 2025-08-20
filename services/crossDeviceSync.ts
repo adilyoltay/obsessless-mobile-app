@@ -160,13 +160,14 @@ class CrossDeviceSyncService {
     switch (dataType) {
       case 'compulsions':
         // Map field names from camelCase to snake_case
+        const { sanitizePII } = await import('@/utils/privacy');
         const compulsionData = {
           user_id: item.userId || item.user_id || userId,
           category: item.type || item.category,
           subcategory: item.subcategory || item.type,
           resistance_level: item.resistanceLevel || item.resistance_level || 0,
           trigger: item.trigger || '',
-          notes: item.notes || ''
+          notes: sanitizePII(item.notes || '')
         };
         await supabaseService.saveCompulsion(compulsionData);
         break;
@@ -179,7 +180,7 @@ class CrossDeviceSyncService {
           duration: item.duration || 0,
           anxiety_level_before: item.anxietyLevelBefore || item.anxiety_level_before || 0,
           anxiety_level_after: item.anxietyLevelAfter || item.anxiety_level_after || 0,
-          notes: item.notes || ''
+          notes: sanitizePII(item.notes || '')
         };
         await supabaseService.saveERPSession(erpData);
         break;
@@ -188,24 +189,24 @@ class CrossDeviceSyncService {
           // CBT record format - map field names
           const cbtData = {
             user_id: item.userId || item.user_id || userId,
-            thought: item.thought,
+            thought: sanitizePII(item.thought || ''),
             distortions: item.distortions,
             evidence_for: item.evidenceFor || item.evidence_for || '',
             evidence_against: item.evidenceAgainst || item.evidence_against || '',
-            reframe: item.reframe || '',
+            reframe: sanitizePII(item.reframe || ''),
             mood_before: item.moodBefore || item.mood_before || 5,
             mood_after: item.moodAfter || item.mood_after || 5,
             trigger: item.trigger || '',
-            notes: item.notes || ''
+            notes: sanitizePII(item.notes || '')
           };
           await supabaseService.saveCBTRecord(cbtData);
         } else if (item.automatic_thought || item.automaticThought) {
           // Regular thought record format
           const thoughtData = {
             user_id: item.userId || item.user_id || userId,
-            automatic_thought: item.automaticThought || item.automatic_thought,
+            automatic_thought: sanitizePII(item.automaticThought || item.automatic_thought || ''),
             emotions: item.emotions || [],
-            balanced_thought: item.balancedThought || item.balanced_thought || ''
+            balanced_thought: sanitizePII(item.balancedThought || item.balanced_thought || '')
           };
           await supabaseService.saveThoughtRecord(thoughtData);
         }
@@ -231,7 +232,7 @@ class CrossDeviceSyncService {
           mood_score: item.moodScore || item.mood_score || 5,
           energy_level: item.energyLevel || item.energy_level || 5,
           anxiety_level: item.anxietyLevel || item.anxiety_level || 5,
-          notes: item.notes || ''
+          notes: sanitizePII(item.notes || '')
         };
         await supabaseService.saveMoodEntry(moodData);
         break;
