@@ -28,7 +28,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 import { useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
+
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
@@ -560,14 +560,6 @@ export default function ERPScreen() {
             </View>
           </View>
         </View>
-
-        {/* AI Treatment Plan (Sprint 7 Integration) */}
-        {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && (treatmentPlan || localPlan) && (
-          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
-            <TreatmentPlanPreview userProfile={userProfile || localProfile} treatmentPlan={treatmentPlan || localPlan} userId={user?.id} />
-          </View>
-        )}
 
         {/* ✅ PRODUCTION: AI ERP Recommendations */}
         {showAIRecommendations && aiRecommendations.length > 0 && (
