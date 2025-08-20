@@ -332,7 +332,7 @@ export default function CheckinBottomSheet({
     }
   };
 
-  const handleAnalysisResult = (analysis: any, text: string) => {
+  const handleAnalysisResult = async (analysis: any, text: string) => {
     console.log('🔄 handleAnalysisResult called with:', { analysis, text });
     
     // Haptic feedback
@@ -342,8 +342,11 @@ export default function CheckinBottomSheet({
     // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
     let userPrefs: { autoRecordEnabled?: boolean } | undefined = undefined;
     try {
-      const { useSettingsStore } = await import('@/store/settingsStore');
-      userPrefs = { autoRecordEnabled: useSettingsStore.getState()?.autoRecordEnabled };
+      const settingsModule = await import('@/store/settingsStore');
+      const useSettingsStore = (settingsModule as any)?.useSettingsStore;
+      if (useSettingsStore) {
+        userPrefs = { autoRecordEnabled: useSettingsStore.getState()?.autoRecordEnabled };
+      }
     } catch {}
 
     if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis, userPrefs)) {
