@@ -243,10 +243,10 @@ export default function CheckinBottomSheet({
   };
 
   // Auto Record Handlers
-  const handleAutoRecordConfirm = async (data: any) => {
+  const handleAutoRecordConfirm = async (type: 'OCD' | 'CBT' | 'MOOD' | 'ERP', data: any) => {
     setShowAutoRecord(false);
     
-    if (autoRecordType === 'ERP') {
+    if (type === 'ERP') {
       // Navigate to ERP
       onClose();
       router.push({
@@ -258,7 +258,7 @@ export default function CheckinBottomSheet({
       });
     } else {
       // Save the record
-      const result = await saveAutoRecord(autoRecordType as 'OCD' | 'CBT' | 'MOOD', data);
+      const result = await saveAutoRecord(type as 'OCD' | 'CBT' | 'MOOD', data);
       
       if (result.success) {
         // Award gamification rewards
@@ -271,17 +271,17 @@ export default function CheckinBottomSheet({
         // Başarılı kayıttan sonra ilgili sayfaya git ve yenile
         setTimeout(() => {
           onClose();
-          if (autoRecordType === 'OCD') {
+          if (type === 'OCD') {
             router.push({
               pathname: '/(tabs)/tracking',
               params: { highlight: 'latest', justSaved: 'true', refresh: String(Date.now()) },
             });
-          } else if (autoRecordType === 'CBT') {
+          } else if (type === 'CBT') {
             router.push({
               pathname: '/(tabs)/cbt',
               params: { refresh: 'true', highlightId: result.recordId },
             });
-          } else if (autoRecordType === 'MOOD') {
+          } else if (type === 'MOOD') {
             router.push({
               pathname: '/(tabs)/mood',
               params: { refresh: 'true', highlightId: result.recordId },
@@ -404,15 +404,7 @@ export default function CheckinBottomSheet({
                 }
               : { text: 'İptal', style: 'cancel' },
             autoRecord.type !== 'ERP'
-              ? { 
-                  text: 'Kaydet', 
-                  style: 'default', 
-                  onPress: () => {
-                    // autoRecordType'ı doğru set et ve kaydet
-                    setAutoRecordType(autoRecord.type);
-                    handleAutoRecordConfirm(autoRecord.data);
-                  }
-                }
+              ? { text: 'Kaydet', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.type as any, autoRecord.data) }
               : { text: 'Devam Et', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.data) },
           ],
         );
