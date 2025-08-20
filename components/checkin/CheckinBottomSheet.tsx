@@ -174,8 +174,7 @@ export default function CheckinBottomSheet({
           trigger: analysis.trigger || '',
           confidence: analysis.confidence || res.confidence || 0,
           lang: res.language || 'tr-TR',
-          analysis_type: analysis.type,
-          original_duration: res.duration,
+          // created_at will be filled by service if omitted
         });
         console.log('✅ Voice checkin saved');
       } catch (error) {
@@ -188,14 +187,12 @@ export default function CheckinBottomSheet({
             entity: 'voice_checkin',
             data: {
               user_id: user.id,
-              text: res.text || '',
+              text: sanitizePII(res.text || ''),
               mood: analysis.mood || 0,
               trigger: analysis.trigger || '',
               confidence: analysis.confidence || res.confidence || 0,
               lang: res.language || 'tr-TR',
-              analysis_type: analysis.type,
-              original_duration: res.duration,
-              timestamp: new Date().toISOString(),
+              created_at: new Date().toISOString(),
             },
           });
         } catch (syncError) {
@@ -341,8 +338,8 @@ export default function CheckinBottomSheet({
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // High confidence (>0.8) = Show modal for confirmation
-    if (analysis.confidence >= 0.8 && user?.id) {
+    // High confidence (>0.8) = Show modal for confirmation (respect user prefs via shouldShowAutoRecord)
+    if (analysis.confidence >= 0.8 && user?.id && shouldShowAutoRecord(analysis)) {
       const autoRecord = prepareAutoRecord(analysis, user.id);
       console.log('🔄 High confidence - prepareAutoRecord result:', autoRecord);
       

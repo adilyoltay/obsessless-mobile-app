@@ -219,8 +219,7 @@ class CrossDeviceSyncService {
           trigger: item.trigger || '',
           confidence: item.confidence || 0,
           lang: item.lang || 'tr-TR',
-          analysis_type: item.analysisType || item.analysis_type || 'MOOD',
-          original_duration: item.originalDuration || item.original_duration
+          created_at: item.created_at || item.timestamp || new Date().toISOString(),
         };
         await supabaseService.saveVoiceCheckin(voiceData);
         break;

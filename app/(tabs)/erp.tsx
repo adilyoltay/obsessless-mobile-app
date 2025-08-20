@@ -12,7 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Custom UI Components
@@ -47,6 +47,18 @@ interface ERPSession {
 }
 
 export default function ERPScreen() {
+  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
+  const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
+  useEffect(() => {
+    if (params?.prefill === 'true' || params?.text || params?.category) {
+      console.log('📝 ERP prefill params:', params);
+      // Eğer kategori geldiyse onu seçili yap ve quick start aç
+      if (params?.category) {
+        // ERPQuickStart içinde kategori seçimini doğrudan yapmak yerine, kullanıcıyı hızlı akışa alalım
+        setIsQuickStartVisible(true);
+      }
+    }
+  }, [params]);
   const { t } = useTranslation();
   const { user } = useAuth();
   const { treatmentPlan, userProfile } = useAIUserData();

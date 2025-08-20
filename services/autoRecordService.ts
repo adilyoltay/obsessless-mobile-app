@@ -314,12 +314,46 @@ export async function saveAutoRecord(
     
     // Offline queue'ya ekle
     try {
+      // Map camelCase to snake_case for offline sync compatibility
+      let entity: 'compulsion' | 'thought_record' | 'mood_entry' = 'mood_entry';
+      let mapped: any = {};
+      if (recordType === 'OCD') {
+        entity = 'compulsion';
+        mapped = {
+          user_id: data.userId,
+          category: data.category,
+          subcategory: data.category,
+          resistance_level: data.resistanceLevel,
+          trigger: data.trigger || '',
+          notes: data.notes || ''
+        };
+      } else if (recordType === 'CBT') {
+        entity = 'thought_record';
+        mapped = {
+          user_id: data.userId,
+          automatic_thought: data.thought,
+          distortions: [data.distortionType],
+          evidence_for: '',
+          evidence_against: '',
+          new_view: data.reframe || '',
+          lang: 'tr-TR'
+        };
+      } else {
+        entity = 'mood_entry';
+        mapped = {
+          user_id: data.userId,
+          mood_score: data.mood || 50,
+          energy_level: data.energy || 5,
+          anxiety_level: data.anxiety || 5,
+          notes: data.notes || '',
+          trigger: data.trigger || ''
+        };
+      }
+
       await offlineSyncService.addToSyncQueue({
         type: 'CREATE',
-        entity: recordType === 'OCD' ? 'compulsion' : 
-                recordType === 'CBT' ? 'thought_record' : 
-                'mood_entry',
-        data,
+        entity,
+        data: mapped,
       });
       
       return { success: true };
