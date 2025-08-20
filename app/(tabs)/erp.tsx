@@ -47,6 +47,21 @@ interface ERPSession {
 }
 
 export default function ERPScreen() {
+  // ERP modülü feature flag kontrolü
+  if (!FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED')) {
+    return (
+      <ScreenLayout>
+        <View style={styles.disabledContainer}>
+          <MaterialCommunityIcons name="shield-off" size={64} color="#9CA3AF" />
+          <Text style={styles.disabledTitle}>ERP Modülü Geçici Olarak Kapalı</Text>
+          <Text style={styles.disabledSubtitle}>
+            Bu özellik şu anda bakımda. Lütfen daha sonra tekrar deneyin.
+          </Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
   // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
   const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
   const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
@@ -1101,6 +1116,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     marginLeft: 12,
     flex: 1,
+  },
+  
+  // Disabled container stilleri
+  disabledContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#F9FAFB',
+  },
+  disabledTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  disabledSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontFamily: 'Inter',
   },
 
 });

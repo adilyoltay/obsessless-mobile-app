@@ -128,6 +128,9 @@ const featureFlagState: Record<string, boolean> = {
   SAFETY_CHECKS: true,
   CONTENT_FILTERING: true,
   RATE_LIMITING: true,
+  
+  // 🛡️ ERP Module Feature Flag
+  ERP_MODULE_ENABLED: true, // ERP modülünü enable/disable etmek için
 };
 
 // Feature flag logging için

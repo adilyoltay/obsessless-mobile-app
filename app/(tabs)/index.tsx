@@ -475,32 +475,51 @@ export default function TodayScreen() {
           </View>
         </Pressable>
 
-        {/* Mission 2: ERP Session */}
-        <Pressable 
-          style={styles.missionCard}
-          onPress={() => router.push('/(tabs)/erp')}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
-              size={30} 
-              color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
-            />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>İyileşme Adımın</Text>
-            <View style={styles.missionProgress}>
-              <View style={styles.missionProgressBar}>
-                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
+        {/* Mission 2: ERP Session - Feature Flag Kontrolü */}
+        {FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED') ? (
+          <Pressable 
+            style={styles.missionCard}
+            onPress={() => router.push('/(tabs)/erp')}
+          >
+            <View style={styles.missionIcon}>
+              <MaterialCommunityIcons 
+                name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
+                size={30} 
+                color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
+              />
+            </View>
+            <View style={styles.missionContent}>
+              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
+              <View style={styles.missionProgress}>
+                <View style={styles.missionProgressBar}>
+                  <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
+                </View>
+                <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
               </View>
-              <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
+            </View>
+            <View style={styles.missionReward}>
+              <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+              <Text style={styles.missionRewardText}>+100</Text>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={[styles.missionCard, styles.missionCardDisabled]}>
+            <View style={styles.missionIcon}>
+              <MaterialCommunityIcons 
+                name="shield-off" 
+                size={30} 
+                color="#9CA3AF" 
+              />
+            </View>
+            <View style={styles.missionContent}>
+              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
+              <Text style={styles.missionDescription}>Geçici olarak kapalı</Text>
+            </View>
+            <View style={styles.missionReward}>
+              <MaterialCommunityIcons name="lock" size={14} color="#9CA3AF" />
             </View>
           </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+100</Text>
-          </View>
-        </Pressable>
+        )}
 
         {/* Mission 3: Resistance */}
         <Pressable 
@@ -674,11 +693,19 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
-        <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
-        <Text style={styles.quickStatLabel}>ERP</Text>
-      </View>
+      {FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED') ? (
+        <View style={styles.quickStatCard}>
+          <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
+          <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
+          <Text style={styles.quickStatLabel}>ERP</Text>
+        </View>
+      ) : (
+        <View style={[styles.quickStatCard, styles.quickStatCardDisabled]}>
+          <MaterialCommunityIcons name="shield-off" size={30} color="#9CA3AF" />
+          <Text style={styles.quickStatValue}>-</Text>
+          <Text style={styles.quickStatLabel}>ERP</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -1367,5 +1394,17 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     marginRight: 4,
     fontFamily: 'Inter',
+  },
+  
+  // Disabled mission card stilleri
+  missionCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F9FAFB',
+  },
+  
+  // Disabled quick stat card stilleri
+  quickStatCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F9FAFB',
   },
 });

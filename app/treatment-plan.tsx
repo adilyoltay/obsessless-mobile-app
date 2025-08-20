@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSecureStorage } from '@/hooks/useSecureStorage';
 
 // AI Components
 import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
@@ -43,6 +44,7 @@ export default function TreatmentPlanScreen() {
   const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasUpdates, setHasUpdates] = useState(false);
+  const { getItem: secureGet, setItem: secureSet } = useSecureStorage();
 
   useEffect(() => {
     loadTreatmentData();
@@ -51,28 +53,62 @@ export default function TreatmentPlanScreen() {
   const loadTreatmentData = async () => {
     try {
       setIsLoading(true);
-      
-      // Kullanıcı profilini yükle
-      const profileData = await AsyncStorage.getItem('ai_user_profile');
-      let profile = null;
-      if (profileData) {
-        profile = JSON.parse(profileData);
-        setUserProfile(profile);
-      }
-      
-      // Tedavi planını yükle
-      const planData = await AsyncStorage.getItem('ai_treatment_plan');
-      if (planData) {
-        const plan = JSON.parse(planData);
-        setTreatmentPlan(plan);
-      } else if (profile) {
-        // Plan yoksa oluştur
-        const newPlan = await generateTreatmentPlan(profile);
-        if (newPlan) {
-          setTreatmentPlan(newPlan);
-          await AsyncStorage.setItem('ai_treatment_plan', JSON.stringify(newPlan));
+
+      const uid = user?.id;
+
+      // Profil: secure -> user-scoped legacy -> global
+      let profile: UserProfile | null = null;
+      if (uid) {
+        profile = await secureGet<UserProfile>(`ai_user_profile_${uid}`, true);
+        if (!profile) {
+          const legacyPlain = await AsyncStorage.getItem(`ai_user_profile_${uid}`);
+          profile = legacyPlain ? JSON.parse(legacyPlain) : null;
         }
       }
+      if (!profile) {
+        const plain = await AsyncStorage.getItem('ai_user_profile');
+        profile = plain ? JSON.parse(plain) : null;
+      }
+      if (profile) setUserProfile(profile);
+
+      // Plan: secure -> user-scoped legacy -> global
+      let plan: TreatmentPlan | null = null;
+      if (uid) {
+        plan = await secureGet<TreatmentPlan>(`ai_treatment_plan_${uid}`, true);
+        if (!plan) {
+          const legacyPlanPlain = await AsyncStorage.getItem(`ai_treatment_plan_${uid}`);
+          plan = legacyPlanPlain ? JSON.parse(legacyPlanPlain) : null;
+        }
+      }
+      if (!plan) {
+        const plainPlan = await AsyncStorage.getItem('ai_treatment_plan');
+        plan = plainPlan ? JSON.parse(plainPlan) : null;
+      }
+
+      // Plan yoksa ama profil varsa otomatik oluştur
+      if (!plan && profile) {
+        const newPlan = await generateTreatmentPlan(profile);
+        if (newPlan) {
+          plan = newPlan;
+          if (uid) {
+            await secureSet(`ai_treatment_plan_${uid}`, newPlan, true);
+            const summary = {
+              id: newPlan.id || 'plan_1',
+              currentPhase: newPlan.phases?.[0]?.type || 'assessment',
+              phaseName: newPlan.phases?.[0]?.name || 'Değerlendirme',
+              progress: 0.15,
+              totalPhases: newPlan.phases?.length || 5,
+              estimatedWeeks: Math.ceil(newPlan.estimatedDuration / 7) || 12,
+              lastUpdated: newPlan.createdAt || new Date().toISOString()
+            } as any;
+            await AsyncStorage.setItem(`treatment_plan_summary_${uid}`, JSON.stringify(summary));
+          } else {
+            await AsyncStorage.setItem('ai_treatment_plan', JSON.stringify(newPlan));
+          }
+        }
+      }
+
+      if (plan) setTreatmentPlan(plan);
     } catch (error) {
       console.error('Error loading treatment data:', error);
       Alert.alert('Hata', 'Tedavi planı yüklenirken bir hata oluştu.');
@@ -106,19 +142,22 @@ export default function TreatmentPlanScreen() {
                 const newPlan = await generateTreatmentPlan(userProfile);
                 if (newPlan) {
                   setTreatmentPlan(newPlan);
-                  await AsyncStorage.setItem('ai_treatment_plan', JSON.stringify(newPlan));
-                  
-                  // Özet bilgileri de güncelle
-                  const summary = {
-                    id: newPlan.id || 'plan_1',
-                    currentPhase: newPlan.phases?.[0]?.type || 'assessment',
-                    phaseName: newPlan.phases?.[0]?.name || 'Değerlendirme',
-                    progress: 0.15,
-                    totalPhases: newPlan.phases?.length || 5,
-                    estimatedWeeks: Math.ceil(newPlan.estimatedDuration / 7) || 12,
-                    lastUpdated: newPlan.createdAt || new Date().toISOString()
-                  };
-                  await AsyncStorage.setItem('treatment_plan_summary', JSON.stringify(summary));
+                  if (user?.id) {
+                    await secureSet(`ai_treatment_plan_${user.id}`, newPlan, true);
+                    // Özet bilgileri de güncelle (user-scoped)
+                    const summary = {
+                      id: newPlan.id || 'plan_1',
+                      currentPhase: newPlan.phases?.[0]?.type || 'assessment',
+                      phaseName: newPlan.phases?.[0]?.name || 'Değerlendirme',
+                      progress: 0.15,
+                      totalPhases: newPlan.phases?.length || 5,
+                      estimatedWeeks: Math.ceil(newPlan.estimatedDuration / 7) || 12,
+                      lastUpdated: newPlan.createdAt || new Date().toISOString()
+                    } as any;
+                    await AsyncStorage.setItem(`treatment_plan_summary_${user.id}`, JSON.stringify(summary));
+                  } else {
+                    await AsyncStorage.setItem('ai_treatment_plan', JSON.stringify(newPlan));
+                  }
                   
                   Alert.alert('Başarılı', 'Tedavi planınız güncellendi.');
                   setHasUpdates(false);

@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -20,27 +20,36 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#059669', // Daha koyu yeşil (kontrast artırıldı)
+        tabBarInactiveTintColor: '#374151', // Daha koyu gri (kontrast artırıldı)
         headerShown: false,
         tabBarButton: HapticTab, // Master Prompt: Haptic feedback enabled
         tabBarBackground: TabBarBackground,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
         tabBarStyle: Platform.select({
           ios: {
             position: 'absolute',
             backgroundColor: '#FFFFFF',
-            borderTopWidth: 1,
-            borderTopColor: '#E5E7EB',
+            borderTopWidth: 1.5,
+            borderTopColor: '#D1D5DB',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 4,
           },
           android: {
-            elevation: 8,
+            elevation: 10,
             backgroundColor: '#FFFFFF',
-            borderTopWidth: 1,
-            borderTopColor: '#E5E7EB',
+            borderTopWidth: 1.5,
+            borderTopColor: '#D1D5DB',
           },
           web: {
-            boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
-            borderTopWidth: 1,
-            borderTopColor: '#E5E7EB',
+            boxShadow: '0px -2px 10px rgba(0, 0, 0, 0.12)',
+            borderTopWidth: 1.5,
+            borderTopColor: '#D1D5DB',
             backgroundColor: '#FFFFFF',
           },
         }),
@@ -49,44 +58,87 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Bugün',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="tracking"
-        options={{
-          title: 'Takip',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'pulse' : 'pulse-outline'} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <IconSymbol 
+              size={28} 
+              name="house.fill" 
+              color={focused ? '#10B981' : '#9CA3AF'} 
+            />
           ),
+          tabBarActiveTintColor: '#10B981', // Daha sakin yeşil
         }}
       />
-      <Tabs.Screen
-        name="cbt"
-        options={{
-          title: 'CBT',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'bulb' : 'bulb-outline'} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="erp"
-        options={{
-          title: 'ERP',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} color={color} />
-          ),
-        }}
-      />
-
+      
       <Tabs.Screen
         name="mood"
         options={{
           title: 'Mood',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'happy' : 'happy-outline'} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon 
+              name={focused ? 'happy' : 'happy-outline'} 
+              color={focused ? '#F472B6' : '#9CA3AF'} 
+              size={26} 
+            />
           ),
+          tabBarActiveTintColor: '#F472B6', // Daha sakin pembe
+        }}
+      />
+      
+      <Tabs.Screen
+        name="cbt"
+        options={{
+          title: 'CBT',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon 
+              name={focused ? 'bulb' : 'bulb-outline'} 
+              color={focused ? '#A78BFA' : '#9CA3AF'} 
+              size={26} 
+            />
+          ),
+          tabBarActiveTintColor: '#A78BFA', // Daha sakin mor
+        }}
+      />
+      
+      <Tabs.Screen
+        name="tracking"
+        options={{
+          title: 'OCD',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon 
+              name={focused ? 'pulse' : 'pulse-outline'} 
+              color={focused ? '#34D399' : '#9CA3AF'} 
+              size={26} 
+            />
+          ),
+          tabBarActiveTintColor: '#34D399', // Daha sakin yeşil
+        }}
+      />
+      
+      <Tabs.Screen
+        name="erp"
+        options={{
+          title: 'ERP',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon 
+              name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} 
+              color={focused ? '#67E8F9' : '#9CA3AF'} 
+              size={26} 
+            />
+          ),
+          tabBarActiveTintColor: '#67E8F9', // Daha sakin cyan
+        }}
+        // ERP modülü feature flag kontrolü
+        listeners={{
+          tabPress: (e) => {
+            if (!FEATURE_FLAGS.isEnabled('ERP_MODULE_ENABLED')) {
+              e.preventDefault();
+              Alert.alert(
+                'ERP Modülü Kapalı',
+                'Bu özellik şu anda bakımda. Lütfen daha sonra tekrar deneyin.',
+                [{ text: 'Tamam', style: 'default' }]
+              );
+            }
+          },
         }}
       />
 
@@ -105,9 +157,14 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Ayarlar',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'settings' : 'settings-outline'} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon 
+              name={focused ? 'settings' : 'settings-outline'} 
+              color={focused ? '#9CA3AF' : '#9CA3AF'} 
+              size={26} 
+            />
           ),
+          tabBarActiveTintColor: '#9CA3AF', // Daha sakin gri
         }}
       />
     </Tabs>
