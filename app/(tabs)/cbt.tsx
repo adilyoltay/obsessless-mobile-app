@@ -69,7 +69,8 @@ export default function CBTScreen() {
 
   // Voice trigger'dan gelindiyse otomatik aç
   useEffect(() => {
-    if (params.trigger === 'voice' && params.text) {
+    if ((params.trigger === 'voice' && params.text) || params.prefill === 'true') {
+      console.log('📝 Opening CBT form with pre-filled data:', params);
       setShowQuickEntry(true);
     }
   }, [params]);
@@ -563,6 +564,7 @@ export default function CBTScreen() {
         onDismiss={() => setShowQuickEntry(false)}
         onSubmit={handleRecordSaved}
         initialThought={params.text as string}
+        initialTrigger={params.trigger as string}
       />
 
       {/* Toast */}

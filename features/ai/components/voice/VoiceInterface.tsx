@@ -37,6 +37,7 @@ interface VoiceInterfaceProps {
   disabled?: boolean;
   style?: any;
   onStartListening?: () => void;
+  onStopListening?: () => void;
   autoStart?: boolean; // Yeni: render edilince otomatik başlat
   enableCountdown?: boolean; // Opsiyonel: başlatmadan önce 3-1 geri sayım
   showStopButton?: boolean; // Opsiyonel: ayrı durdur butonu göster
@@ -49,6 +50,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   disabled = false,
   style,
   onStartListening,
+  onStopListening,
   autoStart = false,
   enableCountdown = false,
   showStopButton = false,
@@ -306,6 +308,7 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       onError?.(err as Error);
     } finally {
       setIsListening(false);
+      try { onStopListening?.(); } catch {}
     }
   };
 

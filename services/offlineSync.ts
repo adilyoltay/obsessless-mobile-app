@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan';
+  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -184,6 +184,12 @@ export class OfflineSyncService {
       case 'mood_entry':
         await this.syncMoodEntry(item);
         break;
+      case 'voice_checkin':
+        await this.syncVoiceCheckin(item);
+        break;
+      case 'thought_record':
+        await this.syncThoughtRecord(item);
+        break;
       default:
         throw new Error(`Unknown entity type: ${item.entity}`);
     }
@@ -293,32 +299,64 @@ export class OfflineSyncService {
   }
 
   private async syncMoodEntry(item: SyncQueueItem): Promise<void> {
-    // Upsert mood entry to Supabase
-    const e = item.data || {};
-    const payload = {
-      id: e.id,
-      user_id: e.user_id,
-      mood_score: e.mood_score,
-      energy_level: e.energy_level,
-      anxiety_level: e.anxiety_level,
-      notes: e.notes,
-      triggers: e.triggers,
-      activities: e.activities,
-      created_at: e.timestamp,
-    };
+    // Normalize payload and save to the new canonical table: mood_entries
+    const raw = item.data || {};
     const { default: svc } = await import('@/services/supabase');
-    const { data, error } = await (svc as any).supabaseClient
-      .from('mood_tracking')
-      .upsert(payload);
-    if (error) throw error;
-    // Mark local as synced (best-effort)
+
+    // Fallback user id acquisition
+    let userId = raw.user_id || raw.userId;
     try {
-      const { default: moodTracker, moodTracker: named } = await import('@/services/moodTrackingService');
-      const tracker = (named || moodTracker);
-      if (tracker && typeof (tracker as any).markAsSynced === 'function') {
-        await (tracker as any).markAsSynced(e.id, e.user_id);
-      }
+      const uid = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
+      if (!userId && uid && typeof uid === 'object' && uid.id) userId = uid.id;
     } catch {}
+
+    const entry = {
+      user_id: userId,
+      mood_score: raw.mood_score ?? raw.mood ?? 50,
+      energy_level: raw.energy_level ?? raw.energy ?? 5,
+      anxiety_level: raw.anxiety_level ?? raw.anxiety ?? 5,
+      notes: raw.notes || '',
+      trigger: raw.trigger || '',
+    };
+
+    await (svc as any).saveMoodEntry(entry);
+  }
+
+  private async syncVoiceCheckin(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
+    switch (item.type) {
+      case 'CREATE':
+      case 'UPDATE':
+        await (svc as any).saveVoiceCheckin(item.data);
+        break;
+      case 'DELETE':
+        // Voice checkins typically aren't deleted
+        console.log('Voice checkin deletion not implemented');
+        break;
+    }
+  }
+
+  private async syncThoughtRecord(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
+    switch (item.type) {
+      case 'CREATE':
+      case 'UPDATE':
+        // Check if it's a CBT record or regular thought record
+        if (item.data.thought && item.data.distortions) {
+          // CBT record format
+          await (svc as any).saveCBTRecord(item.data);
+        } else if (item.data.automatic_thought) {
+          // Regular thought record
+          await (svc as any).saveThoughtRecord(item.data);
+        } else {
+          console.warn('Unknown thought record format:', item.data);
+        }
+        break;
+      case 'DELETE':
+        // Thought records typically aren't deleted
+        console.log('Thought record deletion not implemented');
+        break;
+    }
   }
 
   private async handleFailedSync(item: SyncQueueItem): Promise<void> {

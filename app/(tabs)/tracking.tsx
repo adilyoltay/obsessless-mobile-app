@@ -10,6 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useTranslation } from '@/hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,13 +54,13 @@ interface CompulsionEntry {
   notes?: string;
 }
 
-import { useLocalSearchParams } from 'expo-router';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 
 export default function TrackingScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const params = useLocalSearchParams();
+  const router = useRouter();
   const { awardMicroReward, updateStreak } = useGamificationStore();
   const { submitCompulsion } = useStandardizedCompulsion(user?.id);
   
@@ -93,15 +94,31 @@ export default function TrackingScreen() {
   useEffect(() => {
     if (user?.id) {
       loadAllData();
+      // İlk yüklemede Supabase'den de çek
+      loadCompulsionsFromSupabase();
     }
   }, [user?.id]);
 
-  // Voice trigger'dan gelindiyse otomatik aç
+  // Voice trigger'dan gelindiyse otomatik aç (pre-filled data ile)
+  // veya refresh parametresi gelirse listeyi yenile
   useEffect(() => {
-    if (params.text && params.category) {
+    if (params.prefill === 'true') {
+      console.log('📝 Opening tracking form with pre-filled data:', params);
       setShowQuickEntry(true);
     }
-  }, [params]);
+  }, [params.prefill]);
+  
+  // Refresh için ayrı useEffect - sadece bir kez çalışsın
+  useEffect(() => {
+    if (params.refresh || params.justSaved === 'true') {
+      console.log('🔄 Refreshing compulsions list after auto-save');
+      loadAllData();
+      loadCompulsionsFromSupabase();
+      
+      // Parametreleri temizle ki tekrar çalışmasın
+      router.setParams({ refresh: undefined, justSaved: undefined, highlight: undefined });
+    }
+  }, [params.refresh, params.justSaved]);
 
   useEffect(() => {
     setDisplayLimit(5);
@@ -221,6 +238,42 @@ export default function TrackingScreen() {
     }
 
     return patterns;
+  };
+
+  // Supabase'den compulsion'ları yükle ve AsyncStorage ile senkronize et
+  const loadCompulsionsFromSupabase = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('📊 Loading compulsions from Supabase...');
+      const compulsions = await supabaseService.getUserCompulsions(user.id, 100);
+      
+      if (compulsions && compulsions.length > 0) {
+        // AsyncStorage'a kaydet (offline cache)
+        const storageKey = StorageKeys.COMPULSIONS(user.id);
+        const formattedCompulsions = compulsions.map(c => ({
+          id: c.id,
+          type: c.subcategory || c.category,
+          resistanceLevel: c.resistance_level,
+          timestamp: new Date(c.timestamp),
+          trigger: c.trigger,
+          notes: c.notes,
+        }));
+        
+        await AsyncStorage.setItem(storageKey, JSON.stringify(formattedCompulsions));
+        console.log(`✅ Synced ${compulsions.length} compulsions from Supabase`);
+        
+        // State'i güncelle
+        const today = new Date();
+        const todayKey = today.toDateString();
+        const todayEntries = formattedCompulsions.filter(entry => 
+          new Date(entry.timestamp).toDateString() === todayKey
+        );
+        setTodayCompulsions(todayEntries);
+      }
+    } catch (error) {
+      console.error('❌ Error loading from Supabase:', error);
+    }
   };
 
   const loadAllData = async () => {
@@ -615,7 +668,7 @@ export default function TrackingScreen() {
           <View style={styles.aiSection}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-              <Text style={styles.sectionTitle}>AI Analizleri</Text>
+              <Text style={styles.sectionHeaderTitle}>AI Analizleri</Text>
               {isLoadingAI && (
                 <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
               )}
@@ -761,6 +814,8 @@ export default function TrackingScreen() {
         onSubmit={handleCompulsionSubmit}
         initialCategory={params.category as string}
         initialText={params.text as string}
+        initialResistance={params.resistanceLevel ? Number(params.resistanceLevel) : undefined}
+        initialTrigger={params.trigger as string}
       />
 
       {/* Toast */}
@@ -1150,7 +1205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
+  sectionHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',

@@ -1,136 +1,264 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
+import { Platform } from 'react-native';
 import supabaseService from '@/services/supabase';
 
-type CompulsionLocal = {
-  id: string;
-  type: string;
-  resistanceLevel: number;
-  trigger?: string;
-  notes?: string;
-  timestamp: string | Date;
-  userId: string;
-};
-
-type ERPSessionLocal = any;
-
-async function mergeCompulsionsLocal(userId: string, remote: any[]): Promise<void> {
-  try {
-    const key = `compulsions_${userId}`;
-    const stored = await AsyncStorage.getItem(key);
-    const local: CompulsionLocal[] = stored ? JSON.parse(stored) : [];
-    const remoteConverted: CompulsionLocal[] = (remote || []).map(r => ({
-      id: r.id,
-      type: r.subcategory || r.category,
-      resistanceLevel: r.resistance_level,
-      trigger: r.trigger,
-      notes: r.notes,
-      timestamp: r.timestamp,
-      userId: r.user_id,
-    }));
-
-    const map = new Map<string, CompulsionLocal>();
-    for (const c of [...local, ...remoteConverted]) {
-      const prev = map.get(c.id);
-      if (!prev) {
-        map.set(c.id, c);
-      } else {
-        const pt = new Date((prev.timestamp as any)).getTime();
-        const ct = new Date((c.timestamp as any)).getTime();
-        map.set(c.id, ct >= pt ? c : prev);
-      }
-    }
-    const merged = Array.from(map.values()).sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
-    await AsyncStorage.setItem(key, JSON.stringify(merged));
-  } catch {}
+// Try to import expo-device, fallback if not available
+let Device: any = null;
+try {
+  Device = require('expo-device');
+} catch (e) {
+  console.log('expo-device not available, using fallback');
 }
 
-async function writeERPSessionsLocal(userId: string, remote: any[]): Promise<void> {
-  try {
-    // Keep a consolidated key for quick access
-    const key = `erp_sessions_${userId}`;
-    const stored = await AsyncStorage.getItem(key);
-    const local: ERPSessionLocal[] = stored ? JSON.parse(stored) : [];
-    const map = new Map<string, ERPSessionLocal>();
-    for (const s of [...local, ...(remote || [])]) {
-      const id = s.id || `${s.user_id}_${s.timestamp}`;
-      const prev = map.get(id);
-      if (!prev) {
-        map.set(id, s);
-      } else {
-        const pt = new Date(prev.timestamp).getTime();
-        const ct = new Date(s.timestamp).getTime();
-        map.set(id, ct >= pt ? s : prev);
-      }
-    }
-    const merged = Array.from(map.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    await AsyncStorage.setItem(key, JSON.stringify(merged));
-  } catch {}
+export interface SyncResult {
+  successful: number;
+  failed: number;
+  conflicts: number;
+  lastSyncTime: number;
 }
 
-async function writeMoodEntriesLocal(userId: string, rows: any[]): Promise<void> {
-  try {
-    // Store by day key: mood_entries_${userId}_${YYYY-MM-DD}
-    const grouped: Record<string, any[]> = {};
-    for (const r of rows || []) {
-      const date = (r.created_at || r.timestamp || new Date()).toString();
-      const day = new Date(date).toISOString().split('T')[0];
-      if (!grouped[day]) grouped[day] = [];
-      grouped[day].push({
-        id: r.id,
-        user_id: r.user_id,
-        mood_score: r.mood_score,
-        energy_level: r.energy_level,
-        anxiety_level: r.anxiety_level,
-        notes: r.notes,
-        triggers: r.triggers,
-        activities: r.activities,
-        timestamp: r.created_at || r.timestamp
-      });
-    }
-    const days = Object.keys(grouped);
-    for (const day of days) {
-      const key = `mood_entries_${userId}_${day}`;
-      const existing = await AsyncStorage.getItem(key);
-      const local: any[] = existing ? JSON.parse(existing) : [];
-      const map = new Map<string, any>();
-      for (const e of [...local, ...grouped[day]]) {
-        map.set(e.id, e);
-      }
-      await AsyncStorage.setItem(key, JSON.stringify(Array.from(map.values())));
-    }
-  } catch {}
-}
+class CrossDeviceSyncService {
+  private static instance: CrossDeviceSyncService;
+  private deviceId: string | null = null;
+  private deviceName: string = '';
+  private lastSyncTimestamp: number = 0;
+  private isSyncing: boolean = false;
+  private syncInterval: NodeJS.Timeout | null = null;
 
-export async function runInitialCrossDeviceSync(userId: string): Promise<void> {
-  try {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const [comp, erp, mood] = await Promise.all([
-      supabaseService.getCompulsions(userId, since),
-      supabaseService.getERPSessions(userId, since),
-      (async () => {
-        try {
-          const { data, error } = await supabaseService.supabaseClient
-            .from('mood_tracking')
-            .select('*')
-            .eq('user_id', userId)
-            .gte('created_at', since)
-            .order('created_at', { ascending: false });
-          if (error) throw error;
-          return data || [];
-        } catch {
-          return [] as any[];
+  public static getInstance(): CrossDeviceSyncService {
+    if (!CrossDeviceSyncService.instance) {
+      CrossDeviceSyncService.instance = new CrossDeviceSyncService();
+    }
+    return CrossDeviceSyncService.instance;
+  }
+
+  constructor() {
+    this.initializeDevice();
+    this.setupAutoSync();
+  }
+
+  private async initializeDevice(): Promise<void> {
+    try {
+      let storedDeviceId = await AsyncStorage.getItem('device_id');
+      if (!storedDeviceId) {
+        storedDeviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        await AsyncStorage.setItem('device_id', storedDeviceId);
+      }
+      this.deviceId = storedDeviceId;
+      this.deviceName = Device?.deviceName || Device?.modelName || Platform.OS || 'Unknown Device';
+      
+      const lastSync = await AsyncStorage.getItem('last_sync_time');
+      if (lastSync) {
+        this.lastSyncTimestamp = parseInt(lastSync, 10);
+      }
+      console.log(`📱 Device: ${this.deviceName} (${this.deviceId})`);
+    } catch (error) {
+      console.error('Error initializing device:', error);
+    }
+  }
+
+  private setupAutoSync(): void {
+    NetInfo.addEventListener(state => {
+      if (state.isConnected && !this.isSyncing) {
+        this.performSync();
+      }
+    });
+
+    this.syncInterval = setInterval(() => {
+      this.performSync();
+    }, 5 * 60 * 1000);
+  }
+
+  public async performSync(): Promise<SyncResult> {
+    if (this.isSyncing) {
+      return {
+        successful: 0,
+        failed: 0,
+        conflicts: 0,
+        lastSyncTime: this.lastSyncTimestamp,
+      };
+    }
+
+    this.isSyncing = true;
+    const result: SyncResult = {
+      successful: 0,
+      failed: 0,
+      conflicts: 0,
+      lastSyncTime: Date.now(),
+    };
+
+    try {
+      console.log('🔄 Starting cross-device sync...');
+      
+      const netInfo = await NetInfo.fetch();
+      if (!netInfo.isConnected) {
+        console.log('📵 No network connection');
+        return result;
+      }
+
+      const currentUser = supabaseService.getCurrentUser();
+      if (!currentUser) {
+        console.log('👤 No user logged in');
+        return result;
+      }
+
+      await this.syncData(currentUser.id, result);
+      
+      this.lastSyncTimestamp = result.lastSyncTime;
+      await AsyncStorage.setItem('last_sync_time', this.lastSyncTimestamp.toString());
+      
+      console.log(`✅ Sync: ${result.successful} OK, ${result.failed} failed`);
+    } catch (error) {
+      console.error('❌ Sync error:', error);
+      result.failed++;
+    } finally {
+      this.isSyncing = false;
+    }
+
+    return result;
+  }
+
+  private async syncData(userId: string, result: SyncResult): Promise<void> {
+    const dataTypes = ['compulsions', 'erp_sessions', 'thought_records', 'voice_checkins', 'mood_entries'];
+    
+    for (const dataType of dataTypes) {
+      try {
+        const localKey = `${dataType}_${userId}`;
+        const localData = await AsyncStorage.getItem(localKey);
+        const localItems = localData ? JSON.parse(localData) : [];
+        
+        const unsyncedItems = localItems.filter((item: any) => !item.synced);
+        
+        for (const item of unsyncedItems) {
+          try {
+            // User ID'yi item'a ekle
+            if (!item.userId && !item.user_id) {
+              item.userId = userId;
+            }
+            await this.uploadItem(dataType, item, userId);
+            item.synced = true;
+            item.deviceId = this.deviceId;
+            result.successful++;
+          } catch (error) {
+            console.error(`Sync failed for ${dataType}:`, error);
+            result.failed++;
+          }
         }
-      })()
-    ]);
+        
+        if (unsyncedItems.length > 0) {
+          await AsyncStorage.setItem(localKey, JSON.stringify(localItems));
+        }
+      } catch (error) {
+        console.error(`Error syncing ${dataType}:`, error);
+        result.failed++;
+      }
+    }
+  }
 
-    await mergeCompulsionsLocal(userId, comp || []);
-    await writeERPSessionsLocal(userId, erp || []);
-    await writeMoodEntriesLocal(userId, mood || []);
-  } catch {}
+  private async uploadItem(dataType: string, item: any, userId: string): Promise<void> {
+    switch (dataType) {
+      case 'compulsions':
+        // Map field names from camelCase to snake_case
+        const compulsionData = {
+          user_id: item.userId || item.user_id || userId,
+          category: item.type || item.category,
+          subcategory: item.subcategory || item.type,
+          resistance_level: item.resistanceLevel || item.resistance_level || 0,
+          trigger: item.trigger || '',
+          notes: item.notes || ''
+        };
+        await supabaseService.saveCompulsion(compulsionData);
+        break;
+      case 'erp_sessions':
+        // Map field names if needed
+        const erpData = {
+          user_id: item.userId || item.user_id || userId,
+          category: item.category,
+          subcategory: item.subcategory || item.category,
+          duration: item.duration || 0,
+          anxiety_level_before: item.anxietyLevelBefore || item.anxiety_level_before || 0,
+          anxiety_level_after: item.anxietyLevelAfter || item.anxiety_level_after || 0,
+          notes: item.notes || ''
+        };
+        await supabaseService.saveERPSession(erpData);
+        break;
+      case 'thought_records':
+        if (item.thought && item.distortions) {
+          // CBT record format - map field names
+          const cbtData = {
+            user_id: item.userId || item.user_id || userId,
+            thought: item.thought,
+            distortions: item.distortions,
+            evidence_for: item.evidenceFor || item.evidence_for || '',
+            evidence_against: item.evidenceAgainst || item.evidence_against || '',
+            reframe: item.reframe || '',
+            mood_before: item.moodBefore || item.mood_before || 5,
+            mood_after: item.moodAfter || item.mood_after || 5,
+            trigger: item.trigger || '',
+            notes: item.notes || ''
+          };
+          await supabaseService.saveCBTRecord(cbtData);
+        } else if (item.automatic_thought || item.automaticThought) {
+          // Regular thought record format
+          const thoughtData = {
+            user_id: item.userId || item.user_id || userId,
+            automatic_thought: item.automaticThought || item.automatic_thought,
+            emotions: item.emotions || [],
+            balanced_thought: item.balancedThought || item.balanced_thought || ''
+          };
+          await supabaseService.saveThoughtRecord(thoughtData);
+        }
+        break;
+      case 'voice_checkins':
+        // Map field names if needed
+        const voiceData = {
+          user_id: item.userId || item.user_id || userId,
+          text: item.text || '',
+          mood: item.mood || 0,
+          trigger: item.trigger || '',
+          confidence: item.confidence || 0,
+          lang: item.lang || 'tr-TR',
+          analysis_type: item.analysisType || item.analysis_type || 'MOOD',
+          original_duration: item.originalDuration || item.original_duration
+        };
+        await supabaseService.saveVoiceCheckin(voiceData);
+        break;
+      case 'mood_entries':
+        // Map field names if needed
+        const moodData = {
+          user_id: item.userId || item.user_id || userId,
+          mood_score: item.moodScore || item.mood_score || 5,
+          energy_level: item.energyLevel || item.energy_level || 5,
+          anxiety_level: item.anxietyLevel || item.anxiety_level || 5,
+          notes: item.notes || ''
+        };
+        await supabaseService.saveMoodEntry(moodData);
+        break;
+    }
+  }
+
+  public async triggerManualSync(): Promise<SyncResult> {
+    console.log('👆 Manual sync triggered');
+    return this.performSync();
+  }
+
+  public getSyncStatus() {
+    return {
+      isSyncing: this.isSyncing,
+      lastSyncTime: this.lastSyncTimestamp,
+      deviceId: this.deviceId,
+      deviceName: this.deviceName,
+    };
+  }
+
+  public cleanup(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
+  }
 }
 
-export default {
-  runInitialCrossDeviceSync,
-};
-
-
+export const crossDeviceSync = CrossDeviceSyncService.getInstance();
+export default CrossDeviceSyncService;

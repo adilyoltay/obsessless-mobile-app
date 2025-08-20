@@ -23,8 +23,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import moodTracker from '@/services/moodTrackingService';
-import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
-import { unifiedVoiceAnalysis } from '@/features/ai/services/checkinService';
+import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
 import { useGamificationStore } from '@/store/gamificationStore';
 import * as Haptics from 'expo-haptics';
 
@@ -59,8 +58,7 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [moodSheetVisible, setMoodSheetVisible] = useState(false);
-  const [quickMoodSaving, setQuickMoodSaving] = useState(false);
+  const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [achievementsSheetVisible, setAchievementsSheetVisible] = useState(false);
   
   // AI Integration via Context
@@ -339,147 +337,41 @@ export default function TodayScreen() {
     { label: 'Zor', emoji: '😣', value: 1 },
   ];
 
-  const handleQuickMoodSelect = async (score: number) => {
-    if (!user?.id || quickMoodSaving) return;
-    setQuickMoodSaving(true);
-    try {
-      Haptics.selectionAsync().catch(() => {});
-      await moodTracker.saveMoodEntry({
-        user_id: user.id,
-        mood_score: score,
-        energy_level: 5,
-        anxiety_level: 5,
-      });
-      setToastMessage('Duygu kaydı alındı');
-      setShowToast(true);
-      setMoodSheetVisible(false);
-      onRefresh();
-    } catch (e) {
-      setToastMessage('Bir hata oluştu');
-      setShowToast(true);
-    } finally {
-      setQuickMoodSaving(false);
-    }
+
+
+  const handleCheckinComplete = () => {
+    // Refresh data after check-in
+    onRefresh();
   };
 
-  const handleVoiceTranscription = async (res: { text: string; confidence?: number; language?: string; duration?: number; }) => {
-    if (!user?.id || quickMoodSaving) return;
-    // Kısa kayıt uyarısı
-    const durationSec = Math.round((res.duration || 0) / 1000);
-    if (durationSec < 5) {
-      setToastMessage('Biraz daha konuş, seni duyuyorum…');
-      setShowToast(true);
-    }
-    setQuickMoodSaving(true);
-    try {
-      // Merkezi ses analizi servisi
-      const analysis = await unifiedVoiceAnalysis(res.text || '');
-      console.log('🎯 Unified Voice Analysis:', analysis);
-      
-      // Analiz sonucuna göre yönlendirme
-      switch (analysis.type) {
-        case 'MOOD':
-          // Mood kaydı ve ana sayfada kal
-          const moodScore = Math.max(1, Math.min(10, Math.round((analysis.mood || 50) / 10)));
-          await moodTracker.saveMoodEntry({
-            user_id: user.id,
-            mood_score: moodScore,
-            energy_level: 5,
-            anxiety_level: Math.max(1, Math.min(10, 11 - moodScore)),
-          });
-          setToastMessage(`Mood kaydedildi: ${moodScore}/10`);
-          setShowToast(true);
-          setMoodSheetVisible(false);
-          onRefresh();
-          try { await awardMicroReward('voice_mood_checkin'); } catch {}
-          break;
-          
-        case 'CBT':
-          // CBT sayfasına yönlendir
-          setToastMessage('CBT düşünce kaydına yönlendiriliyorsun...');
-          setShowToast(true);
-          setMoodSheetVisible(false);
-          setTimeout(() => {
-            router.push({ pathname: '/(tabs)/cbt', params: { text: res.text || '', trigger: 'voice' } });
-          }, 500);
-          break;
-          
-        case 'OCD':
-          // Tracking sayfasına yönlendir
-          setToastMessage('OCD takibine yönlendiriliyorsun...');
-          setShowToast(true);
-          setMoodSheetVisible(false);
-          setTimeout(() => {
-            router.push({ pathname: '/(tabs)/tracking', params: { 
-              text: res.text || '', 
-              category: analysis.category || 'genel' 
-            } });
-          }, 500);
-          break;
-          
-        case 'ERP':
-          // ERP sayfasına yönlendir
-          setToastMessage('ERP egzersizine yönlendiriliyorsun...');
-          setShowToast(true);
-          setMoodSheetVisible(false);
-          setTimeout(() => {
-            router.push({ pathname: '/(tabs)/erp', params: { text: res.text || '' } });
-          }, 500);
-          break;
-          
-        case 'BREATHWORK':
-          // Breathwork sayfasına yönlendir
-          setToastMessage('Nefes egzersizine yönlendiriliyorsun...');
-          setShowToast(true);
-          setMoodSheetVisible(false);
-          setTimeout(() => {
-            router.push({ pathname: '/(tabs)/breathwork', params: { text: res.text || '' } });
-          }, 500);
-          break;
-      }
-      
-      // Öneri varsa göster
-      if (analysis.suggestion) {
-        setTimeout(() => {
-          setToastMessage(analysis.suggestion);
-          setShowToast(true);
-        }, 1500);
-      }
-    } catch (e) {
-      setToastMessage('Sesli analiz başarısız');
-      setShowToast(true);
-    } finally {
-      setQuickMoodSaving(false);
-    }
-  };
-
-  const renderQuickMoodEntry = () => (
-    <View style={styles.quickMoodContainer}>
-      <Button
-        variant="primary"
-        onPress={() => setMoodSheetVisible(true)}
-        accessibilityLabel="Mood Check-in başlat"
-        style={styles.quickMoodButton}
-        leftIcon={<MaterialCommunityIcons name="emoticon-happy-outline" size={20} color="#FFFFFF" />}
-      >
-        Mood Check‑in
-      </Button>
-      <BottomSheet isVisible={moodSheetVisible} onClose={() => setMoodSheetVisible(false)}>
-        <Text style={styles.sheetTitle}>Mood Check‑in</Text>
-        <Text style={styles.sheetSubtitle}>Konuştuğunda sesin güvenle yazıya dökülecek ve duygun otomatik atanacak.</Text>
-        <VoiceInterface
-          autoStart
-          enableCountdown={false}
-          showStopButton={false}
-          showHints={false}
-          onTranscription={handleVoiceTranscription}
-          onError={() => { setToastMessage('Ses tanıma başlatılamadı'); setShowToast(true); }}
-          onStartListening={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{}); }}
+  const renderQuickMoodEntry = () => {
+    console.log('🔍 renderQuickMoodEntry - checkinSheetVisible:', checkinSheetVisible);
+    
+    return (
+      <View style={styles.quickMoodContainer}>
+        <Button
+          variant="primary"
+          onPress={() => {
+            console.log('🔍 Check-in button pressed!');
+            setCheckinSheetVisible(true);
+          }}
+          accessibilityLabel="Check-in başlat"
+          style={styles.quickMoodButton}
+          leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
+        >
+          Check-in
+        </Button>
+        <CheckinBottomSheet
+          isVisible={checkinSheetVisible}
+          onClose={() => {
+            console.log('🔍 CheckinBottomSheet onClose called');
+            setCheckinSheetVisible(false);
+          }}
+          onComplete={handleCheckinComplete}
         />
-      </BottomSheet>
-
-    </View>
-  );
+      </View>
+    );
+  };
 
   const renderDailyMissions = () => (
     <View style={styles.missionsSection}>

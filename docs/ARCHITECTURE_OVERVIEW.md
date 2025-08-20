@@ -82,5 +82,14 @@ Notlar:
 - Gerçek AI cevapları için geçerli API anahtarı gerekir
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
+## 📚 İlgili Dokümanlar
+
+- **[Kritik Geliştirme Planı 2025](./CRITICAL_IMPROVEMENTS_PLAN_2025.md)** 🚨 - Tespit edilen kritik hatalar ve acil çözüm planı
+- [AI Sistemi Genel Bakış](./AI_OVERVIEW.md) - AI özellikleri ve entegrasyonları
+- [UX Tasarım Rehberi](./UX_DESIGN_GUIDE.md) - Tasarım prensipleri ve UI standartları
+- [Feature Status Matrix](./FEATURE_STATUS_MATRIX.md) - Özellik durumları ve versiyonlar
+- [Development Roadmap 2025](./DEVELOPMENT_ROADMAP_2025.md) - Genel geliştirme yol haritası
+- [Güvenlik Rehberi](./security-guide.md) - Güvenlik ve gizlilik prensipleri
+
 ---
 Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX)

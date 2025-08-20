@@ -1,5 +1,9 @@
 # 📊 Feature Status Matrix
 
+> **İlgili Dokümanlar**: 
+> - [Kritik Geliştirme Planı 2025](./CRITICAL_IMPROVEMENTS_PLAN_2025.md) - Tespit edilen kritik hatalar ve çözüm planı
+> - [Development Roadmap 2025](./DEVELOPMENT_ROADMAP_2025.md) - Genel geliştirme yol haritası
+
 ## 🎯 Ana Özellikler
 
 | Özellik | Durum | Versiyon | Not |
@@ -21,8 +25,7 @@
 | **CBT Engine** | ✅ Aktif | v2.0 | Bilişsel çarpıtma analizi, reframe önerileri |
 | **Gemini API Integration** | ✅ Aktif | v1.0 | Ses analizi ve tip tespiti |
 | **Onboarding (AI)** | ✅ Aktif | v1.0 | Varsayılan açık |
-| **AI Chat** | ❌ Devre dışı | - | UI/servis kaldırıldı |
-| **Crisis Detection** | ❌ Kaldırıldı | - | Güvenlik nedeniyle kaldırıldı |
+
 
 ## 📱 UI/UX Özellikleri
 

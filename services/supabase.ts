@@ -1110,6 +1110,105 @@ class SupabaseNativeService {
   // ===========================
   // UTILITY METHODS
   // ===========================
+  
+  // ===========================
+  // MOOD METHODS
+  // ===========================
+  
+  async saveMoodEntry(entry: {
+    user_id: string;
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    notes?: string;
+    trigger?: string;
+  }): Promise<any> {
+    try {
+      console.log('🔄 Saving mood entry...', entry);
+      
+      // Ensure user exists
+      await this.ensureUserProfileExists(entry.user_id);
+      
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .insert({
+          ...entry,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      console.log('✅ Mood entry saved:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Save mood entry failed:', error);
+      throw error;
+    }
+  }
+  
+  async getMoodEntries(userId: string, days: number = 7): Promise<any[]> {
+    try {
+      console.log('🔍 Fetching mood entries...', { userId, days });
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      console.log(`✅ Fetched ${data?.length || 0} mood entries`);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Get mood entries failed:', error);
+      return [];
+    }
+  }
+  
+  async updateMoodEntry(entryId: string, updates: Partial<{
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    notes: string;
+    trigger: string;
+  }>): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .update(updates)
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Update mood entry failed:', error);
+      throw error;
+    }
+  }
+  
+  async deleteMoodEntry(entryId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('mood_entries')
+        .delete()
+        .eq('id', entryId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('❌ Delete mood entry failed:', error);
+      throw error;
+    }
+  }
+
+  // ===========================
 
   get supabaseClient() {
     return this.client;

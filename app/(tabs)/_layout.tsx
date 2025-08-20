@@ -66,7 +66,7 @@ export default function TabLayout() {
         options={{
           title: 'CBT',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'brain' : 'brain-outline'} color={color} />
+            <TabBarIcon name={focused ? 'bulb' : 'bulb-outline'} color={color} />
           ),
         }}
       />
@@ -76,6 +76,16 @@ export default function TabLayout() {
           title: 'ERP',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="mood"
+        options={{
+          title: 'Mood',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'happy' : 'happy-outline'} color={color} />
           ),
         }}
       />

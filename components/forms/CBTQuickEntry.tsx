@@ -158,7 +158,20 @@ export default function CBTQuickEntry({
         const result = await supabaseService.saveCBTRecord(record);
         console.log('✅ CBT record saved to Supabase:', result?.id);
       } catch (error) {
-        console.warn('⚠️ Supabase save failed, using local storage:', error);
+        console.warn('⚠️ Supabase save failed, adding to offline queue:', error);
+        
+        // Add to offline sync queue
+        try {
+          const { offlineSyncService } = await import('@/services/offlineSync');
+          await offlineSyncService.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'thought_record',
+            data: record
+          });
+          console.log('✅ CBT record added to offline sync queue');
+        } catch (syncError) {
+          console.error('❌ Failed to add to offline queue:', syncError);
+        }
       }
 
       // Also save to local storage for offline access

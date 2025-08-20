@@ -27,6 +27,10 @@ interface CompulsionQuickEntryProps {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (entry: any) => void;
+  initialCategory?: string;
+  initialText?: string;
+  initialResistance?: number;
+  initialTrigger?: string;
 }
 
 const { width } = Dimensions.get('window');
@@ -37,6 +41,10 @@ export function CompulsionQuickEntry({
   visible,
   onDismiss,
   onSubmit,
+  initialCategory,
+  initialText,
+  initialResistance,
+  initialTrigger,
 }: CompulsionQuickEntryProps) {
   const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('');
@@ -52,10 +60,27 @@ export function CompulsionQuickEntry({
 
   useEffect(() => {
     if (visible) {
-      loadSmartData();
+      // Pre-fill with initial values if provided
+      if (initialCategory) {
+        setSelectedType(initialCategory);
+      }
+      if (initialText) {
+        const combinedNotes = initialTrigger 
+          ? `${initialText}\n\nTetikleyici: ${initialTrigger}`
+          : initialText;
+        setNotes(combinedNotes);
+      }
+      if (initialResistance !== undefined) {
+        setResistanceLevel(initialResistance);
+      }
+      
+      // Load smart data if no initial values
+      if (!initialCategory) {
+        loadSmartData();
+      }
       awardMicroReward('compulsion_quick_entry');
     }
-  }, [visible]);
+  }, [visible, initialCategory, initialText, initialResistance, initialTrigger]);
 
   useEffect(() => {
     if (!visible) {
