@@ -342,37 +342,40 @@ export async function saveAutoRecord(
       let mapped: any = {};
       if (recordType === 'OCD') {
         entity = 'compulsion';
+        const { sanitizePII } = await import('@/utils/privacy');
         mapped = {
           user_id: data.userId,
           category: data.category,
           subcategory: data.category,
           resistance_level: data.resistanceLevel,
           trigger: data.trigger || '',
-          notes: data.notes || ''
+          notes: sanitizePII(data.notes || '')
         };
       } else if (recordType === 'CBT') {
         // CBT için özel şema: thought_record yerine cbt_records (saveCBTRecord ile aynı alanlar)
         entity = 'thought_record'; // Queue entity aynı kalsa da data CBT şemasına yakın tutulur
+        const { sanitizePII } = await import('@/utils/privacy');
         mapped = {
           user_id: data.userId,
-          thought: data.thought,
+          thought: sanitizePII(data.thought || ''),
           distortions: [data.distortionType],
           evidence_for: '',
           evidence_against: '',
-          reframe: data.reframe || '',
+          reframe: sanitizePII(data.reframe || ''),
           mood_before: data.moodBefore || 50,
           mood_after: data.moodAfter || 50,
           trigger: data.trigger || '',
-          notes: data.notes || ''
+          notes: sanitizePII(data.notes || '')
         };
       } else if (recordType === 'MOOD') {
         entity = 'mood_entry';
+        const { sanitizePII } = await import('@/utils/privacy');
         mapped = {
           user_id: data.userId,
           mood_score: data.mood || 50,
           energy_level: data.energy || 5,
           anxiety_level: data.anxiety || 5,
-          notes: data.notes || '',
+          notes: sanitizePII(data.notes || ''),
           trigger: data.trigger || ''
         };
       } else {

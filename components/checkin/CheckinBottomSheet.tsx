@@ -29,6 +29,8 @@ import supabaseService from '@/services/supabase';
 
 // Utils
 import { sanitizePII } from '@/utils/privacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StorageKeys } from '@/utils/storage';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Auto Record – yalnızca servis; modal kaldırıldı (hafif Alert ile onay)
