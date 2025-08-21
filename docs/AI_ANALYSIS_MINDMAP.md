@@ -1,20 +1,25 @@
-# 🧠 AI Tabanlı Analizlerin Mantıksal Akış Mind Map'i - Updated
+# 🧠 AI Tabanlı Analizlerin Mantıksal Akış Mind Map'i - Ocak 2025 Güncellemesi
+
+> **🚨 Kritik Uyarı**: Mevcut sistemde aşırı analiz yükü tespit edilmiştir. Her kullanıcı etkileşiminde 5-8 AI servisi paralel çalışmaktadır.
+> Detaylı performans analizi için bkz: [AI_COMPLETE_FLOW_ANALYSIS.md](./AI_COMPLETE_FLOW_ANALYSIS.md)
 
 ## 🎯 AI Context (Merkezi Yönetim Katmanı)
  - **Görev**: Tüm AI servislerinin merkezi yönetimi ve koordinasyonu
  - **Başlatma Sırası (Phased)**:
-   1) Kritik ve bağımsız servisler: External AI, CBT Engine, Therapeutic Prompts
-   2) Bağımlı servisler: Insights Engine v2, Pattern Recognition v2
-   3) Koordinatörler: Smart Notifications
+   1) Kritik ve bağımsız servisler: External AI, CBT Engine, Therapeutic Prompts (~1-2s)
+   2) Bağımlı servisler: Insights Engine v2, Pattern Recognition v2 (~2-3s)
+   3) Koordinatörler: Smart Notifications (~500ms)
+ - **Toplam Başlatma Süresi**: 3-5 saniye (çok uzun!)
 
 ### 📊 Insights Coordinator (Orchestration Hub)
 - **Görev**: Tüm AI bileşenlerini orchestrate eder
 - **Çalışma Mantığı**:
   - **Paralel Execution** (Performans için):
-    - Pattern Recognition v2 (simplified)
+    - Pattern Recognition v2 (simplified) - ~1s
   - **Sıralı Execution** (Bağımlılıklar için):
-    - Insights Engine (simplified)
-    - Smart Notifications
+    - Insights Engine (simplified) - ~2s
+    - Smart Notifications - ~500ms
+- **Toplam İşlem Süresi**: 2-3 saniye (kullanıcı bekliyor!)
 
 ## 🔍 Pattern Recognition v2 (Desen Tanıma) - **SIMPLIFIED**
 
@@ -345,6 +350,19 @@ Legacy categories removed from runtime and codebase:
 - **🚨 Crisis Detection v2** (if needed in future)
 - **📊 Advanced Analytics** (when performance permits)
 
+## 📦 Modül Kullanım Haritası
+
+### Her Modülün AI Kullanımı:
+
+| Modül | AI Servisleri | Ortalama Yük | Kritiklik |
+|--------|--------------|--------------|----------|
+| **Onboarding** | Y-BOCS Analysis, Treatment Planning, Risk Assessment | Yüksek (5-10 dk) | Kritik |
+| **Today Screen** | Insights, Pattern Recognition, Breathwork Suggestions | Orta (3-4s) | Yüksek |
+| **CBT** | Cognitive Distortion Detection, Reframing, External AI | Orta (2-3s) | Yüksek |
+| **OCD/Tracking** | Pattern Recognition v2, Trend Analysis | Düşük (1-2s) | Orta |
+| **ERP** | Recommendations, Adaptive Sessions, Progress Tracking | Yüksek (3-4s) | Yüksek |
+| **Breathwork** | Smart Triggering, Protocol Selection | Düşük (<1s) | Düşük |
+
 ## Summary of Changes Made
 
 ### ❌ **Removed Components**:
@@ -367,3 +385,20 @@ Legacy categories removed from runtime and codebase:
 - Focused feature set
 - Easier maintenance
 - Lower resource usage
+
+## 💡 Önerilen Optimizasyon Stratejisi
+
+### Kısa Vadeli (1-2 Hafta):
+1. **Servis Konsolidasyonu**: 15 servisten 5 çekirdek servise indir
+2. **Agresif Caching**: 60 saniyeden 24 saate çıkar
+3. **Lazy Loading**: Sadece gerektiğinde yükle
+
+### Orta Vadeli (1 Ay):
+1. **Modüler Mimari**: Bağımsız, eklenti tabanlı sistem
+2. **Smart Batching**: Günlük tek analiz
+3. **Context-Aware AI**: Sadece gerektiğinde AI kullan
+
+### Uzun Vadeli (3 Ay):
+1. **Edge AI**: On-device modeller
+2. **Adaptive Complexity**: Kullanıcı seviyesine göre AI
+3. **AI Orchestrator**: Tek merkezi koordinatör

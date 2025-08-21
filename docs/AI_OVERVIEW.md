@@ -1,8 +1,10 @@
-# 🤖 AI Overview (Ocak 2025)
+# 🤖 AI Overview (Ocak 2025 - Güncellenmiş)
 
 Bu belge, aktif AI modüllerini, Unified Voice Analysis sistemini, Gemini entegrasyonunu ve telemetri yaklaşımını tek çatı altında toplar.
 
-## 🎯 Ana AI Modülleri
+> **⚠️ Kritik Not**: Mevcut sistemde 15+ AI modülü ve 30+ analiz algoritması bulunuyor. Bu karmaşıklık performans sorunlarına yol açıyor. Detaylı analiz için bkz: [AI_COMPLETE_FLOW_ANALYSIS.md](./AI_COMPLETE_FLOW_ANALYSIS.md)
+
+## 🎯 Ana AI Modülleri ve Kullanım Durumları
 
 ### Unified Voice Analysis (YENİ)
 - **Merkezi Ses Analizi**: Tüm ses girişleri tek noktadan işlenir
@@ -10,6 +12,8 @@ Bu belge, aktif AI modüllerini, Unified Voice Analysis sistemini, Gemini entegr
 - **Heuristik Fallback**: Gemini başarısız olursa regex tabanlı analiz
 - **Otomatik Yönlendirme**: Analiz sonucuna göre ilgili sayfaya yönlendirme
 - **Telemetry**: `UNIFIED_VOICE_ANALYSIS_STARTED/COMPLETED/FAILED`
+- **Performans**: Ortalama 2-3 saniye yanıt süresi (optimize edilmeli)
+- **Başarı Oranı**: Gemini %75, Heuristic %60
 
 ### CBT Engine v2.0 (GÜNCELLENDİ)
 - **4-Adımlı Form**: Düşünce → Çarpıtmalar → Kanıtlar → Yeniden Çerçeveleme
@@ -37,10 +41,24 @@ Bu belge, aktif AI modüllerini, Unified Voice Analysis sistemini, Gemini entegr
 - AI yanıt güvenliği ve PII maskeleme
 - **Telemetry**: `AI_CONTENT_FILTERED`
 
-## Mimari Kısa Özet
-- aiManager: başlatma/flag/sağlık kontrol
-- Telemetry: enum doğrulamalı, privacy-first
-- Storage: AsyncStorage (offline-first) + Supabase (sync)
+## 🏗️ Mimari Kısa Özet
+
+### Katmanlar:
+1. **AIManager**: Merkezi yönetim ve orchestration
+   - 3 fazlı başlatma sistemi
+   - Feature flag yönetimi
+   - Health monitoring
+
+2. **Core Services**:
+   - External AI Service (Gemini entegrasyonu)
+   - Pattern Recognition v2 (AI-assisted only)
+   - Insights Engine v2 (3 kaynak)
+   - CBT Engine (bilişsel çarpıtma tespiti)
+
+3. **Storage Layer**:
+   - AsyncStorage (offline-first)
+   - Supabase (sync ve backup)
+   - 60 saniye cache süresi
   - Storage wrapper: Geçersiz anahtar development modunda hata fırlatır; production’da uyarı + stack trace loglar
   - Mood: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`, history ekranı son 14 günü okur; best‑effort Supabase `mood_tracking` upsert
   - Aggregation: `features/ai/pipeline/enhancedDataAggregation.ts` hata durumlarını telemetriye işler (`AI_AGGREGATION_ERROR`); Supabase servis çağrıları instance bağlamıyla yapılır
@@ -118,7 +136,15 @@ Merkezi Today Screen Ses Girişi
 Unified Analysis → İlgili Sayfaya Yönlendirme
 ```
 
-## 📊 Veri Akışı Değişiklikleri
+## 📊 Veri Akışı ve Performans Metrikleri
+
+### Performans Darboğazları:
+- **İlk Yükleme**: 3-4 saniye (hedef: <1 saniye)
+- **AI Yanıt**: 2-3 saniye (hedef: <500ms)
+- **Pattern Analysis**: 1-2 saniye (hedef: <300ms)
+- **Bellek Kullanımı**: ~150MB (hedef: <80MB)
+
+### Veri Akışı Değişiklikleri
 
 ### Yeni Veri Yapıları
 - **`thought_records` tablosu**: CBT kayıtları için Supabase
@@ -137,7 +163,21 @@ Unified Analysis → İlgili Sayfaya Yönlendirme
 - `AI_ART_THERAPY`: ❌ Devre dışı
 - `CRISIS_DETECTION`: ❌ Kaldırıldı
 
-## 📋 Teknik Notlar
+## 📋 Teknik Notlar ve Optimizasyon Fırsatları
+
+### Mevcut Sorunlar:
+1. **Aşırı AI Servis Sayısı**: 15+ servis paralel çalışıyor
+2. **Generic Insights**: %70 oranında alakasız öneriler
+3. **Yüksek API Maliyeti**: Gereksiz Gemini çağrıları
+4. **Karmaşık Bağımlılıklar**: Debug ve test zorluğu
+
+### Önerilen İyileştirmeler:
+1. Servis konsolidasyonu (15 → 5 servis)
+2. Agresif caching (60s → 24 saat)
+3. Local-first AI (Gemini yerine heuristic)
+4. Lazy loading ve progressive enhancement
+
+### Teknik İlkeler
 - **Master Prompt Compliance**: Tüm UI bileşenleri sakinlik, güç, zahmetsizlik ilkelerine uygun
 - **BottomSheet Standardizasyonu**: Tutarlı kullanıcı deneyimi
 - **Offline-First**: Tüm veriler önce local'de saklanır
