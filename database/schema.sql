@@ -347,6 +347,42 @@ CREATE POLICY "Users can insert own ai telemetry" ON public.ai_telemetry FOR INS
 CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user_time ON public.ai_telemetry(user_id, timestamp DESC);
 
 -- ================================
+-- CBT THOUGHT RECORDS TABLE  
+-- ================================
+CREATE TABLE IF NOT EXISTS public.thought_records (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  thought TEXT NOT NULL,
+  distortions TEXT[] DEFAULT '{}',
+  evidence_for TEXT,
+  evidence_against TEXT,
+  reframe TEXT NOT NULL,
+  mood_before INTEGER NOT NULL CHECK (mood_before >= 1 AND mood_before <= 10),
+  mood_after INTEGER NOT NULL CHECK (mood_after >= 1 AND mood_after <= 10),
+  trigger TEXT,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_thought_records_user_id ON public.thought_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_thought_records_created_at ON public.thought_records(created_at);
+CREATE INDEX IF NOT EXISTS idx_thought_records_mood_improvement ON public.thought_records((mood_after - mood_before));
+
+-- Enable RLS (Row Level Security)
+ALTER TABLE public.thought_records ENABLE ROW LEVEL SECURITY;
+
+-- Users can only manage their own thought records
+CREATE POLICY "Users can manage own thought records" ON public.thought_records
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Add updated_at trigger
+CREATE TRIGGER update_thought_records_updated_at
+  BEFORE UPDATE ON public.thought_records
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ================================
 -- SAMPLE DATA (for testing)
 -- ================================
 
