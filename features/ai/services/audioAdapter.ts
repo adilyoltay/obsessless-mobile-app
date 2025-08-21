@@ -41,48 +41,101 @@ class AudioAdapter {
 
   async requestPermissionsAsync() {
     if (!this.AudioMod) await this.initialize();
-    if (this.impl === 'expo-av') {
-      return this.AudioMod.Audio.requestPermissionsAsync();
+    try {
+      // Prefer expo-av API if available
+      const AudioObj = this.AudioMod?.Audio;
+      if (this.impl === 'expo-av' && AudioObj) {
+        if (typeof AudioObj.requestPermissionsAsync === 'function') {
+          return await AudioObj.requestPermissionsAsync();
+        }
+        if (typeof AudioObj.getPermissionsAsync === 'function') {
+          const res = await AudioObj.getPermissionsAsync();
+          if (res?.granted !== undefined) return res;
+        }
+      }
+
+      // expo-audio or other shapes
+      const perms = this.AudioMod?.Audio?.requestPermissionsAsync || this.AudioMod?.requestPermissionsAsync;
+      if (typeof perms === 'function') {
+        return await perms();
+      }
+
+      // Ultimate fallback: assume granted to avoid hard crash. Actual recording will still fail gracefully if not permitted.
+      return { granted: true } as any;
+    } catch (e) {
+      return { granted: true } as any;
     }
-    const perms = this.AudioMod.Audio?.requestPermissionsAsync || this.AudioMod.requestPermissionsAsync;
-    return perms ? perms() : { granted: true };
   }
 
   async setModeAsync(options: any) {
     if (!this.AudioMod) await this.initialize();
-    if (this.impl === 'expo-av') {
-      return this.AudioMod.Audio.setAudioModeAsync(options);
+    try {
+      const AudioObj = this.AudioMod?.Audio;
+      if (this.impl === 'expo-av' && AudioObj?.setAudioModeAsync) {
+        return await AudioObj.setAudioModeAsync(options);
+      }
+      const setMode = this.AudioMod?.Audio?.setModeAsync || this.AudioMod?.setModeAsync;
+      return setMode ? await setMode(options) : undefined;
+    } catch {
+      return undefined;
     }
-    const setMode = this.AudioMod.Audio?.setModeAsync || this.AudioMod.setModeAsync;
-    return setMode ? setMode(options) : undefined;
   }
 
   async createRecording(): Promise<RecordingHandle> {
     if (!this.AudioMod) await this.initialize();
-    if (this.impl === 'expo-av') {
-      const rec = new this.AudioMod.Audio.Recording();
+    try {
+      const AudioObj = this.AudioMod?.Audio;
+      if (this.impl === 'expo-av' && AudioObj?.Recording) {
+        const rec = new AudioObj.Recording();
+        return new ExpoAVRecordingHandle(rec);
+      }
+      const Recorder = this.AudioMod?.Audio?.Recording || this.AudioMod?.Recording;
+      if (Recorder) {
+        const rec = new (Recorder as any)();
+        if (!(rec as any).prepareAsync && (rec as any).prepareToRecordAsync) {
+          (rec as any).prepareAsync = (rec as any).prepareToRecordAsync.bind(rec);
+        }
+        if (!(rec as any).getStatusAsync) {
+          (rec as any).getStatusAsync = async () => ({ durationMillis: ((rec as any).getDurationMillis?.() || 0) });
+        }
+        return rec as unknown as RecordingHandle;
+      }
+      const av = await import('expo-av');
+      const rec = new av.Audio.Recording();
+      return new ExpoAVRecordingHandle(rec);
+    } catch {
+      const av = await import('expo-av');
+      const rec = new av.Audio.Recording();
       return new ExpoAVRecordingHandle(rec);
     }
-    const Recorder = this.AudioMod.Audio?.Recording || this.AudioMod.Recording;
-    if (Recorder) {
-      const rec = new Recorder();
-      if (!rec.prepareAsync && rec.prepareToRecordAsync) {
-        rec.prepareAsync = rec.prepareToRecordAsync.bind(rec);
-      }
-      if (!rec.getStatusAsync) {
-        rec.getStatusAsync = async () => ({ durationMillis: (rec.getDurationMillis?.() || 0) });
-      }
-      return rec as unknown as RecordingHandle;
-    }
-    const av = await import('expo-av');
-    const rec = new av.Audio.Recording();
-    return new ExpoAVRecordingHandle(rec);
   }
 
   async getDefaultRecordingOptions(): Promise<any> {
     if (!this.AudioMod) await this.initialize();
     if (this.impl === 'expo-av') {
-      return this.AudioMod.Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY;
+      const { Audio } = this.AudioMod;
+      return {
+        android: {
+          extension: '.webm',
+          outputFormat: Audio.AndroidOutputFormat.WEBM,
+          audioEncoder: Audio.AndroidAudioEncoder.OPUS,
+          sampleRate: 48000,
+          numberOfChannels: 1,
+          bitRate: 96000
+        },
+        ios: {
+          extension: '.wav',
+          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          audioQuality: Audio.IOSAudioQuality.HIGH,
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          bitRate: 256000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false
+        },
+        web: {}
+      };
     }
     // expo-audio: let the module choose sensible defaults
     return {};

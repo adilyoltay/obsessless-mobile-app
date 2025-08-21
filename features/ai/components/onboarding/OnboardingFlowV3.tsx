@@ -31,22 +31,45 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getCanonicalCategoryIconName, getCanonicalCategoryColor } from '@/constants/canonicalCategories';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Slider from '@react-native-community/slider';
 import { useTranslation } from '@/hooks/useTranslation';
+import { supabase } from '@/lib/supabase';
 
 // UI Components
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 
+// Lindsay Braman Style Illustrations
+import { 
+  OnboardingIllustrations,
+  WelcomeIllustration,
+  ConsentIllustration,
+  AssessmentIllustration,
+  ProfileIllustration,
+  GoalsIllustration,
+  TreatmentPlanIllustration,
+  CompletionIllustration 
+} from '@/components/illustrations/OnboardingIllustrations';
+
+// ERP/OCD İllüstrasyonları
+import * as ERPIllustrations from '@/components/illustrations/ERPIllustrations';
+
+// Hedef İllüstrasyonları
+import * as GoalsIllustrations from '@/components/illustrations/GoalsIllustrations';
+
 // Design Tokens
 import { Colors } from '@/constants/Colors';
 import { CANONICAL_CATEGORIES } from '@/utils/categoryMapping';
+
+// Screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Types
 import { OCDAnalysis } from '@/features/ai/types';
@@ -56,8 +79,6 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 
 // Using global design tokens
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type OnboardingCulturalContext = {
   language: string;
@@ -80,7 +101,6 @@ enum OnboardingStep {
   CONSENT = 'consent',
   YBOCS_INTRO = 'ybocs_intro',
   YBOCS_QUESTIONS = 'ybocs_questions',
-  QUICK_DECISION = 'quick_decision',
   PROFILE_NAME = 'profile_name',
   PROFILE_DEMOGRAPHICS = 'profile_demographics',
   PROFILE_HISTORY = 'profile_history',
@@ -230,12 +250,12 @@ const YBOCS_QUESTIONS = [
 
 // Tedavi hedefleri
 const TREATMENT_GOALS = [
-  { id: 'reduce_anxiety', label: 'Kaygıyı Azaltmak', emoji: '😌' },
-  { id: 'control_compulsions', label: 'Kompulsiyonları Kontrol Etmek', emoji: '💪' },
-  { id: 'improve_daily_life', label: 'Günlük Yaşamı İyileştirmek', emoji: '🌟' },
-  { id: 'better_relationships', label: 'İlişkileri Güçlendirmek', emoji: '❤️' },
-  { id: 'increase_functionality', label: 'İşlevselliği Artırmak', emoji: '🎯' },
-  { id: 'emotional_regulation', label: 'Duygu Düzenleme', emoji: '🧘' },
+  { id: 'reduce_anxiety', label: 'Kaygıyı Azaltmak', emoji: '😌', Illustration: GoalsIllustrations.ReduceAnxietyIcon },
+  { id: 'control_compulsions', label: 'Kompulsiyonları Kontrol Etmek', emoji: '💪', Illustration: GoalsIllustrations.ControlCompulsionsIcon },
+  { id: 'improve_daily_life', label: 'Günlük Yaşamı İyileştirmek', emoji: '🌟', Illustration: GoalsIllustrations.ImproveDailyLifeIcon },
+  { id: 'better_relationships', label: 'İlişkileri Güçlendirmek', emoji: '❤️', Illustration: GoalsIllustrations.BetterRelationshipsIcon },
+  { id: 'increase_functionality', label: 'İşlevselliği Artırmak', emoji: '🎯', Illustration: GoalsIllustrations.IncreaseFunctionalityIcon },
+  { id: 'emotional_regulation', label: 'Duygu Düzenleme', emoji: '🧘', Illustration: GoalsIllustrations.EmotionalRegulationIcon },
 ];
 
 export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
@@ -246,7 +266,6 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const bottomPad = Math.max(100, insets.bottom + 80);
   // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -254,7 +273,6 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // State
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(OnboardingStep.WELCOME);
-  const [quickMode, setQuickMode] = useState<boolean>(true);
   const [ybocsAnswers, setYbocsAnswers] = useState<Record<string, number>>({});
   const [currentYbocsIndex, setCurrentYbocsIndex] = useState(0);
   const [sliderValue, setSliderValue] = useState(0);
@@ -289,18 +307,50 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     }
   }, [currentStep, ybocsAnswers, userName, culturalContext, selectedGoals]);
 
-  // Session yükleme
+  // Session yükleme ve kullanıcı bilgilerini yükleme
   useEffect(() => {
     if (resumeSession) {
       loadSession();
     }
+    // Kullanıcı ismini yükle
+    loadUserName();
   }, [resumeSession]);
+
+  // Android geri tuşu kontrolü
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Onboarding'i tamamlamadan çıkışı engelle
+      Alert.alert(
+        'Onboarding\'den Çıkmak İstediğinize Emin Misiniz?',
+        'Kişiselleştirilmiş tedavi planınızı oluşturmak için lütfen tüm adımları tamamlayın.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          { 
+            text: 'Çık', 
+            style: 'destructive',
+            onPress: () => {
+              Alert.alert(
+                'Uyarı',
+                'Onboarding tamamlanmadan uygulamayı kullanamazsınız. Yine de çıkmak istiyor musunuz?',
+                [
+                  { text: 'Hayır, Devam Et', style: 'cancel' },
+                  { text: 'Evet, Çık', onPress: () => onExit(), style: 'destructive' }
+                ]
+              );
+            }
+          }
+        ]
+      );
+      return true; // Geri tuşunu override et
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   const saveSession = async () => {
     try {
       const sessionData = {
         currentStep,
-        quickMode,
         ybocsAnswers,
         currentYbocsIndex,
         userName,
@@ -328,7 +378,6 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       if (saved) {
         const sessionData = JSON.parse(saved);
         setCurrentStep(sessionData.currentStep);
-        setQuickMode(typeof sessionData.quickMode === 'boolean' ? sessionData.quickMode : true);
         setYbocsAnswers(sessionData.ybocsAnswers || {});
         setCurrentYbocsIndex(sessionData.currentYbocsIndex || 0);
         setUserName(sessionData.userName || '');
@@ -391,6 +440,13 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
   // İleri gitme
   const handleNext = () => {
+    // Debounce to prevent rapid multiple presses
+    const now = Date.now();
+    if (isLoading) {
+      console.log('⚠️ Button press ignored - already loading');
+      return;
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     animateTransition(() => {
@@ -416,12 +472,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             const qid = YBOCS_QUESTIONS[currentYbocsIndex].id;
             const nextMap = { ...ybocsAnswers, [qid]: Math.round(sliderValue) };
             setYbocsAnswers(nextMap);
-            // Hızlı başlangıç modunda isteğe bağlı adımları atla
-            if (quickMode) {
-              setCurrentStep(OnboardingStep.TREATMENT_PLAN);
-            } else {
-              setCurrentStep(OnboardingStep.PROFILE_NAME);
-            }
+            // Profil adımlarına geç
+            setCurrentStep(OnboardingStep.PROFILE_NAME);
             setSliderValue(0);
           }
           break;
@@ -486,8 +538,17 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           setCurrentStep(OnboardingStep.YBOCS_QUESTIONS);
           setCurrentYbocsIndex(YBOCS_QUESTIONS.length - 1);
           break;
-        case OnboardingStep.PROFILE_CULTURE:
+        case OnboardingStep.PROFILE_DEMOGRAPHICS:
           setCurrentStep(OnboardingStep.PROFILE_NAME);
+          break;
+        case OnboardingStep.PROFILE_HISTORY:
+          setCurrentStep(OnboardingStep.PROFILE_DEMOGRAPHICS);
+          break;
+        case OnboardingStep.PROFILE_SYMPTOMS:
+          setCurrentStep(OnboardingStep.PROFILE_HISTORY);
+          break;
+        case OnboardingStep.PROFILE_CULTURE:
+          setCurrentStep(OnboardingStep.PROFILE_SYMPTOMS);
           break;
         case OnboardingStep.PROFILE_GOALS:
           setCurrentStep(OnboardingStep.PROFILE_CULTURE);
@@ -579,10 +640,45 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
     return Object.values(ybocsAnswers).reduce((sum, score) => sum + (score || 0), 0);
   };
 
+  // Kullanıcı ismini yükle
+  const loadUserName = async () => {
+    try {
+      // Önce AsyncStorage'dan kontrol et
+      const savedName = await AsyncStorage.getItem(`user_name_${userId}`);
+      if (savedName) {
+        setUserName(savedName);
+        return;
+      }
+
+      // Supabase'den kullanıcı bilgilerini al
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!error && user) {
+        // Email'den isim çıkar veya metadata'dan al
+        const displayName = user.user_metadata?.full_name || 
+                          user.user_metadata?.name || 
+                          user.email?.split('@')[0] || 
+                          '';
+        if (displayName) {
+          setUserName(displayName);
+        }
+      }
+    } catch (error) {
+      console.log('Error loading user name:', error);
+    }
+  };
+
 
 
   // Onboarding'i tamamla
   const completeOnboarding = async () => {
+    // Prevent multiple calls
+    if (isLoading) {
+      console.log('⚠️ Onboarding completion already in progress');
+      return;
+    }
+    
+    setIsLoading(true);
+    
     try {
       // Y-BOCS analizi
       const ybocsScore = calculateYBOCSScore();
@@ -821,6 +917,9 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       console.error('❌ OnboardingFlowV3: Completion error:', error);
       // Hata durumunda da callback'i çağır
       onComplete({} as any, {} as any);
+    } finally {
+      // Reset loading state after completion
+      setIsLoading(false);
     }
   };
 
@@ -844,27 +943,20 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.WELCOME:
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="hand-wave" 
-                size={80} 
-                color={Colors.primary.green} 
-              />
+              <WelcomeIllustration width={200} height={200} />
             </View>
-            <Text style={styles.title}>ObsessLess’e Hoş Geldiniz</Text>
+            <Text style={styles.title}>ObsessLess'e Hoş Geldiniz</Text>
             <Text style={styles.subtitle}>
               OKB yolculuğunuzda yanınızdayız
             </Text>
             <Text style={styles.description}>
-              Size özel bir destek planı oluşturmak için birkaç kısa adımda 
-              sizi tanımak istiyoruz. Bu süreç yaklaşık 10 dakika sürecek.
+              Size özel bir destek planı oluşturmak için birkaç adımda 
+              sizi tanımak istiyoruz. Bu süreç yaklaşık 15-20 dakika sürecek.
             </Text>
             <View style={{ marginTop: 16 }}>
-              <Button title={quickMode ? 'Hızlı Başlangıç Modu: Açık' : 'Hızlı Başlangıç Modu: Kapalı'} onPress={() => setQuickMode(!quickMode)} />
-              <Text style={styles.hint}>Hızlı başlangıç modunda yalnızca Y‑BOCS kısa değerlendirmesi tamamlanır; profil adımları daha sonra Ayarlar’dan doldurulabilir.</Text>
+              <Text style={styles.hint}>Lütfen tüm adımları tamamlayarak kişiselleştirilmiş tedavi planınızı oluşturun.</Text>
             </View>
-            </ScrollView>
           </View>
         );
 
@@ -872,14 +964,10 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         return (
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="shield-check" 
-                size={80} 
-                color={Colors.primary.green} 
-              />
+              <ConsentIllustration width={200} height={200} />
             </View>
             <Text style={styles.title}>Gizlilik ve Güvenlik</Text>
-            <ScrollView style={styles.consentScroll} showsVerticalScrollIndicator={false}>
+            <View style={{ flex: 1 }}>
               <Text style={styles.consentText}>
                 {'\n'}🔒 <Text style={styles.bold}>Verileriniz Güvende</Text>
                 {'\n'}Tüm bilgileriniz şifrelenerek saklanır ve asla üçüncü taraflarla paylaşılmaz.
@@ -895,7 +983,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 
                 {'\n\n'}Devam ederek, gizlilik politikamızı ve kullanım koşullarımızı kabul etmiş olursunuz.
               </Text>
-            </ScrollView>
+            </View>
           </View>
         );
 
@@ -903,11 +991,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         return (
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="clipboard-check" 
-                size={80} 
-                color={Colors.primary.green} 
-              />
+              <AssessmentIllustration width={200} height={200} />
             </View>
             <Text style={styles.title}>OKB Değerlendirmesi</Text>
             <Text style={styles.subtitle}>Y-BOCS Ölçeği</Text>
@@ -922,56 +1006,61 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
 
       case OnboardingStep.YBOCS_QUESTIONS:
         const currentQuestion = YBOCS_QUESTIONS[currentYbocsIndex];
-        const selectedOption = currentQuestion.options.find(opt => opt.value === Math.round(sliderValue));
+        const selectedValue = Math.round(sliderValue);
         return (
           <View style={styles.ybocsContainer}>
-            <Text style={styles.questionNumber}>
-              Soru {currentYbocsIndex + 1} / {YBOCS_QUESTIONS.length}
-            </Text>
-            <Text style={styles.questionCategory}>
-              {currentQuestion.category === 'obsessions' ? '🧠 Obsesyonlar' : '🔄 Kompulsiyonlar'}
-            </Text>
+            {/* Progress indicator */}
+            <View style={styles.questionProgressContainer}>
+              <Text style={styles.questionNumber}>
+                {currentYbocsIndex + 1}/{YBOCS_QUESTIONS.length}
+              </Text>
+            </View>
+            
+            {/* Question text */}
             <Text style={styles.questionText}>
               {currentQuestion.text}
             </Text>
-            <Text style={styles.questionSubtitle}>
-              {currentQuestion.subtitle}
-            </Text>
             
-            <View style={styles.sliderContainer}>
-              <View style={styles.sliderValueContainer}>
-                <Text style={[styles.sliderValue, { color: getSliderColor(sliderValue) }]}>
-                  {Math.round(sliderValue)}
-                </Text>
-                <Text style={[styles.sliderLabel, { color: getSliderColor(sliderValue) }]}>
-                  {selectedOption?.label || 'Hiç'}
-                </Text>
-                {selectedOption && (
-                  <Text style={styles.sliderDescription}>
-                    {selectedOption.description}
-                  </Text>
-                )}
-              </View>
-              
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={4}
-                step={1}
-                value={sliderValue}
-                onValueChange={setSliderValue}
-                minimumTrackTintColor={getSliderColor(sliderValue)}
-                maximumTrackTintColor={Colors.ui.border}
-              />
-              
-            <View style={styles.sliderLabels}>
-                {currentQuestion.options.map((option, index) => (
-                  <View key={option.value} style={styles.sliderLabelContainer}>
-                    <Text style={styles.sliderLabelText}>{option.value}</Text>
-                    <Text style={styles.sliderLabelName}>{option.label}</Text>
-                  </View>
-                ))}
-              </View>
+            {/* Options with full width cards */}
+            <View style={styles.optionsFullWidthContainer}>
+              {currentQuestion.options.map((option) => {
+                const isSelected = selectedValue === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.optionFullWidthCard,
+                      isSelected && styles.optionFullWidthCardSelected
+                    ]}
+                    onPress={() => {
+                      setSliderValue(option.value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionFullWidthContent}>
+                      <Text style={[
+                        styles.optionFullWidthLabel,
+                        isSelected && styles.optionFullWidthLabelSelected
+                      ]}>
+                        {option.label}
+                      </Text>
+                      <View style={[
+                        styles.checkCircle,
+                        isSelected && styles.checkCircleSelected
+                      ]}>
+                        {isSelected && (
+                          <MaterialCommunityIcons 
+                            name="check" 
+                            size={16} 
+                            color="#FFFFFF" 
+                          />
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           
           </View>
@@ -981,11 +1070,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         return (
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="account" 
-                size={80} 
-                color={Colors.primary.green} 
-              />
+              <ProfileIllustration width={200} height={200} />
             </View>
             <Text style={styles.title}>Sizi Tanıyalım</Text>
             <Text style={styles.subtitle}>Size nasıl hitap edelim?</Text>
@@ -1009,11 +1094,11 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_DEMOGRAPHICS:
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="account-details" 
-                size={80} 
+                size={SCREEN_HEIGHT < 700 ? 60 : 80} 
                 color={Colors.primary.green} 
               />
             </View>
@@ -1024,8 +1109,9 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Yaş</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.modernInput}
                   placeholder="Yaşınızı girin"
+                  placeholderTextColor="#9CA3AF"
                   value={age}
                   onChangeText={setAge}
                   keyboardType="numeric"
@@ -1034,20 +1120,25 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               </View>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Cinsiyet (İsteğe bağlı)</Text>
-                <View style={styles.genderContainer}>
-                  {['Kadın', 'Erkek', 'Diğer', 'Belirtmek istemiyorum'].map((option) => (
+                <Text style={styles.inputLabel}>Cinsiyet</Text>
+                <View style={styles.modernSelectionGrid}>
+                  {['Kadın', 'Erkek', 'Diğer'].map((option) => (
                     <TouchableOpacity
                       key={option}
                       style={[
-                        styles.genderOption,
-                        gender === option && styles.genderOptionSelected
+                        styles.modernSelectionCard,
+                        gender === option && styles.modernSelectionCardSelected
                       ]}
                       onPress={() => setGender(option)}
                     >
+                      <MaterialCommunityIcons 
+                        name={option === 'Kadın' ? 'gender-female' : option === 'Erkek' ? 'gender-male' : 'gender-transgender'} 
+                        size={24} 
+                        color={gender === option ? Colors.primary.green : '#9CA3AF'} 
+                      />
                       <Text style={[
-                        styles.genderText,
-                        gender === option && styles.genderTextSelected
+                        styles.modernSelectionText,
+                        gender === option && styles.modernSelectionTextSelected
                       ]}>
                         {option}
                       </Text>
@@ -1079,18 +1170,18 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 </View>
               </View>
             </View>
-            </ScrollView>
+
           </View>
         );
 
       case OnboardingStep.PROFILE_HISTORY:
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="history" 
-                size={80} 
+                size={SCREEN_HEIGHT < 700 ? 60 : 80} 
                 color={Colors.primary.green} 
               />
             </View>
@@ -1182,13 +1273,24 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                 <Text style={styles.optionText}>Ailemde OKB öyküsü var</Text>
               </TouchableOpacity>
             </View>
-            </ScrollView>
+
           </View>
         );
 
       case OnboardingStep.PROFILE_SYMPTOMS:
-        // Kanonik ikonlar - tüm gridlerde standart
-        const iconName = (id: string) => getCanonicalCategoryIconName(id);
+        // Lindsay Braman SVG illüstrasyonları
+        const getSymptomIllustration = (id: string) => {
+          switch(id) {
+            case 'contamination': return ERPIllustrations.ContaminationIcon;
+            case 'checking': return ERPIllustrations.CheckingIcon;
+            case 'symmetry': return ERPIllustrations.SymmetryIcon;
+            case 'mental': return ERPIllustrations.MentalIcon;
+            case 'hoarding': return ERPIllustrations.HoardingIcon;
+            case 'other': return ERPIllustrations.OtherIcon;
+            default: return ERPIllustrations.OtherIcon;
+          }
+        };
+        
         const fallbackLabelMap: Record<string, string> = {
           contamination: 'Bulaşma/Temizlik',
           checking: 'Kontrol Etme',
@@ -1197,71 +1299,75 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           hoarding: 'Biriktirme',
           other: 'Diğer',
         };
+        
         const SYMPTOM_TYPES = CANONICAL_CATEGORIES.map((id) => ({
           id,
           label: t('categoriesCanonical.' + id, fallbackLabelMap[id] || id),
-          icon: iconName(id),
+          Illustration: getSymptomIllustration(id),
         }));
         
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="brain" 
-                size={80} 
+                size={SCREEN_HEIGHT < 700 ? 60 : 80} 
                 color={Colors.primary.green} 
               />
             </View>
             <Text style={styles.title}>Belirtileriniz</Text>
-            <Text style={styles.subtitle}>Yaşadığınız ana belirtiler (birden fazla seçebilirsiniz)</Text>
+            <Text style={styles.subtitle}>Yaşadığınız ana belirtiler</Text>
             
-            <View>
-              {SYMPTOM_TYPES.map((symptom) => (
-                <TouchableOpacity
-                  key={symptom.id}
-                  style={[
-                    styles.symptomCard,
-                    symptomTypes.includes(symptom.id) && styles.symptomCardSelected
-                  ]}
-                  onPress={() => {
-                    if (symptomTypes.includes(symptom.id)) {
-                      setSymptomTypes(symptomTypes.filter(s => s !== symptom.id));
-                    } else {
-                      setSymptomTypes([...symptomTypes, symptom.id]);
-                    }
-                  }}
-                >
-                  <MaterialCommunityIcons 
-                    name={symptom.icon as React.ComponentProps<typeof MaterialCommunityIcons>['name']} 
-                    size={20} 
-                    color={getCanonicalCategoryColor(symptom.id)} 
-                    style={{ marginRight: 8 }}
-                  />
+            <View style={styles.symptomGrid}>
+              {SYMPTOM_TYPES.map((symptom) => {
+                const IllustrationComponent = symptom.Illustration;
+                return (
+                  <TouchableOpacity
+                    key={symptom.id}
+                    style={[
+                      styles.symptomGridCard,
+                      symptomTypes.includes(symptom.id) && styles.symptomGridCardSelected
+                    ]}
+                    onPress={() => {
+                      if (symptomTypes.includes(symptom.id)) {
+                        setSymptomTypes(symptomTypes.filter(s => s !== symptom.id));
+                      } else {
+                        setSymptomTypes([...symptomTypes, symptom.id]);
+                      }
+                    }}
+                  >
+                    <IllustrationComponent 
+                      width={SCREEN_HEIGHT < 700 ? 32 : 40} 
+                      height={SCREEN_HEIGHT < 700 ? 32 : 40}
+                    />
                   <Text style={[
-                    styles.symptomText,
-                    symptomTypes.includes(symptom.id) && styles.symptomTextSelected
+                    styles.symptomGridText,
+                    symptomTypes.includes(symptom.id) && styles.symptomGridTextSelected
                   ]}>
                     {t('categoriesCanonical.' + symptom.id, symptom.label)}
                   </Text>
                   {symptomTypes.includes(symptom.id) && (
-                    <MaterialCommunityIcons 
-                      name="check-circle" 
-                      size={20} 
-                      color={Colors.primary.green} 
-                    />
+                    <View style={styles.symptomCheckmark}>
+                      <MaterialCommunityIcons 
+                        name="check" 
+                        size={14} 
+                        color="#FFFFFF" 
+                      />
+                    </View>
                   )}
                 </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
-            </ScrollView>
+
           </View>
         );
 
       case OnboardingStep.PROFILE_CULTURE:
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
               <MaterialCommunityIcons 
                 name="earth" 
@@ -1307,98 +1413,185 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
               />
               <Text style={styles.optionText}>Ailem tedavi sürecimde destekçi</Text>
             </TouchableOpacity>
-            </ScrollView>
+
           </View>
         );
 
       case OnboardingStep.PROFILE_GOALS:
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="target" 
-                size={80} 
-                color={Colors.primary.green} 
+              <GoalsIllustration 
+                width={SCREEN_HEIGHT < 700 ? 150 : 200} 
+                height={SCREEN_HEIGHT < 700 ? 150 : 200} 
               />
             </View>
             <Text style={styles.title}>Hedefleriniz</Text>
             <Text style={styles.subtitle}>En fazla 3 hedef seçin</Text>
             
-            <View>
-              {TREATMENT_GOALS.map((goal) => (
-                <TouchableOpacity
-                  key={goal.id}
-                  style={[
-                    styles.goalCard,
-                    selectedGoals.includes(goal.id) && styles.goalCardSelected
-                  ]}
-                  onPress={() => {
-                    if (selectedGoals.includes(goal.id)) {
-                      setSelectedGoals(selectedGoals.filter(g => g !== goal.id));
-                    } else if (selectedGoals.length < 3) {
-                      setSelectedGoals([...selectedGoals, goal.id]);
-                    }
-                  }}
-                  disabled={!selectedGoals.includes(goal.id) && selectedGoals.length >= 3}
-                >
-                  <Text style={styles.goalEmoji}>{goal.emoji}</Text>
-                  <Text style={[
-                    styles.goalText,
-                    selectedGoals.includes(goal.id) && styles.goalTextSelected
-                  ]}>
-                    {goal.label}
-                  </Text>
-                  {selectedGoals.includes(goal.id) && (
-                    <MaterialCommunityIcons 
-                      name="check-circle" 
-                      size={20} 
-                      color={Colors.primary.green} 
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
+            <View style={styles.goalsFullWidthContainer}>
+              {TREATMENT_GOALS.map((goal) => {
+                const IllustrationComponent = goal.Illustration;
+                const isSelected = selectedGoals.includes(goal.id);
+                const isDisabled = !isSelected && selectedGoals.length >= 3;
+                
+                return (
+                  <TouchableOpacity
+                    key={goal.id}
+                    style={[
+                      styles.goalFullWidthCard,
+                      isSelected && styles.goalFullWidthCardSelected,
+                      isDisabled && styles.goalFullWidthCardDisabled
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedGoals(selectedGoals.filter(g => g !== goal.id));
+                      } else if (selectedGoals.length < 3) {
+                        setSelectedGoals([...selectedGoals, goal.id]);
+                      }
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    disabled={isDisabled}
+                  >
+                    <View style={styles.goalFullWidthContent}>
+                      <View style={styles.goalIconContainer}>
+                        <IllustrationComponent 
+                          width={SCREEN_HEIGHT < 700 ? 36 : 45} 
+                          height={SCREEN_HEIGHT < 700 ? 36 : 45} 
+                        />
+                      </View>
+                      <Text style={[
+                        styles.goalFullWidthText,
+                        isSelected && styles.goalFullWidthTextSelected,
+                        isDisabled && styles.goalFullWidthTextDisabled
+                      ]}>
+                        {goal.label}
+                      </Text>
+                      <View style={[
+                        styles.goalCheckCircle,
+                        isSelected && styles.goalCheckCircleSelected
+                      ]}>
+                        {isSelected && (
+                          <MaterialCommunityIcons 
+                            name="check" 
+                            size={16} 
+                            color="#FFFFFF" 
+                          />
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            </ScrollView>
+
           </View>
         );
 
       case OnboardingStep.TREATMENT_PLAN:
+        const ybocsScore = calculateYBOCSScore();
+        const getSeverityLevel = (score: number) => {
+          if (score <= 7) return { level: 'Minimal', color: '#10B981', description: 'Belirtiler çok hafif' };
+          if (score <= 15) return { level: 'Hafif', color: '#84CC16', description: 'Hafif düzeyde OKB belirtileri' };
+          if (score <= 23) return { level: 'Orta', color: '#F59E0B', description: 'Orta düzeyde tedavi gerekli' };
+          if (score <= 31) return { level: 'Ciddi', color: '#EF4444', description: 'Yoğun tedavi önerilir' };
+          return { level: 'Çok Ciddi', color: '#991B1B', description: 'Acil tedavi gerekli' };
+        };
+        
+        const severity = getSeverityLevel(ybocsScore);
+        const progressPercentage = Math.min((ybocsScore / 40) * 100, 100);
+        
+        // AI Destekli Rapor Oluştur
+        const generateAIReport = () => {
+          const symptoms = symptomTypes.map(id => {
+            const label = { 
+              contamination: 'Bulaşma/Temizlik',
+              checking: 'Kontrol Etme',
+              symmetry: 'Simetri/Düzen',
+              mental: 'Zihinsel Ritüeller',
+              hoarding: 'Biriktirme',
+              other: 'Diğer'
+            }[id] || id;
+            return label;
+          }).join(', ');
+          
+          const goals = selectedGoals.map(id => {
+            const goal = TREATMENT_GOALS.find(g => g.id === id);
+            return goal?.label || id;
+          }).join(', ');
+          
+          return `${userName} için hazırlanan tedavi planı:\n\n` +
+                 `• OKB Şiddeti: ${severity.level} (${ybocsScore}/40)\n` +
+                 `• Ana Belirtiler: ${symptoms || 'Belirtilmemiş'}\n` +
+                 `• Tedavi Hedefleri: ${goals}\n\n` +
+                 `Önerilen Yaklaşım:\n` +
+                 (ybocsScore >= 16 ? 
+                   `• Yoğun ERP programı (günlük 45 dk)\n• CBT destekli bilişsel yeniden yapılandırma\n• Haftalık ilerleme takibi` :
+                   `• Kademeli maruz bırakma egzersizleri\n• Günlük 30 dk ERP uygulaması\n• İki haftada bir değerlendirme`);
+        };
+        
         return (
           <View style={styles.contentContainer}>
-            <ScrollView style={styles.stepScroll} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="clipboard-text" 
-                size={80} 
-                color={Colors.primary.green} 
+              <TreatmentPlanIllustration width={200} height={200} 
               />
             </View>
             <Text style={styles.title}>Tedavi Planınız Hazır</Text>
-            <Text style={styles.subtitle}>
-              Y-BOCS Skorunuz: {calculateYBOCSScore()}
-            </Text>
             
-            <View style={styles.planCard}>
-              <Text style={styles.planTitle}>📅 4 Haftalık Program</Text>
-              <Text style={styles.planText}>
-                • Hafta 1-2: Temel ERP teknikleri{'\n'}
-                • Hafta 3-4: İleri düzey müdahaleler
+            {/* Y-BOCS Skor Grafiği */}
+            <View style={styles.ybocsGraphContainer}>
+              <Text style={styles.ybocsGraphTitle}>Y-BOCS Skorunuz</Text>
+              <View style={styles.ybocsScoreDisplay}>
+                <Text style={[styles.ybocsScoreNumber, { color: severity.color }]}>
+                  {ybocsScore}
+                </Text>
+                <Text style={styles.ybocsScoreMax}>/40</Text>
+              </View>
+              
+              {/* Progress Bar */}
+              <View style={styles.ybocsProgressBar}>
+                <View style={[styles.ybocsProgressFill, { 
+                  width: `${progressPercentage}%`,
+                  backgroundColor: severity.color 
+                }]} />
+              </View>
+              
+              {/* Severity Label */}
+              <View style={[styles.ybocsSeverityBadge, { backgroundColor: `${severity.color}20` }]}>
+                <Text style={[styles.ybocsSeverityText, { color: severity.color }]}>
+                  {severity.level}: {severity.description}
+                </Text>
+              </View>
+            </View>
+            
+            {/* AI Destekli Rapor */}
+            <View style={styles.aiReportCard}>
+              <View style={styles.aiReportHeader}>
+                <MaterialCommunityIcons name="robot" size={20} color={Colors.primary.green} />
+                <Text style={styles.aiReportTitle}>AI Destekli Analiz</Text>
+              </View>
+              <Text style={styles.aiReportText}>
+                {generateAIReport()}
               </Text>
             </View>
             
+            {/* Ana Hedefler */}
             <View style={styles.planCard}>
               <Text style={styles.planTitle}>🎯 Ana Hedefleriniz</Text>
               {selectedGoals.slice(0, 3).map((goalId) => {
                 const goal = TREATMENT_GOALS.find(g => g.id === goalId);
+                const GoalIcon = goal?.Illustration;
                 return (
-                  <Text key={goalId} style={styles.planText}>
-                    {goal?.emoji} {goal?.label}
-                  </Text>
+                  <View key={goalId} style={styles.goalRow}>
+                    {GoalIcon && <GoalIcon width={24} height={24} />}
+                    <Text style={styles.goalRowText}>{goal?.label}</Text>
+                  </View>
                 );
               })}
             </View>
-            </ScrollView>
+
           </View>
         );
 
@@ -1445,11 +1638,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
         return (
           <View style={styles.contentContainer}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons 
-                name="check-circle" 
-                size={80} 
-                color={Colors.status.success} 
-              />
+              <CompletionIllustration width={200} height={200} />
             </View>
             <Text style={styles.title}>Tebrikler {userName}! 🎉</Text>
             <Text style={styles.subtitle}>
@@ -1531,12 +1720,7 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
             </TouchableOpacity>
           )}
           
-          <TouchableOpacity 
-            onPress={onExit}
-            style={styles.skipButton}
-          >
-            <Text style={styles.skipText}>Atla</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
         </View>
 
         {/* Progress Bar */}
@@ -1551,34 +1735,44 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
           </View>
         </View>
 
-        {/* Main Card */}
-        <Animated.View
-          style={[
-            styles.cardContainer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                { translateY: slideAnim },
-                { scale: scaleAnim }
-              ],
-            },
-          ]}
-        >
-          <Card style={styles.card}>
-            {renderStepContent()}
-            
-            {/* Action Button */}
-            <View style={[styles.actionContainer, { paddingBottom: Math.max(16, insets.bottom + 12) }]}>
-              <Button
-                title={getButtonText()}
-                onPress={handleNext}
-                disabled={!isNextEnabled() || isLoading}
-                loading={isLoading}
-                style={styles.actionButton}
-              />
-            </View>
-          </Card>
-        </Animated.View>
+        {/* Main Content Area with Flex */}
+        <View style={styles.contentWrapper}>
+          {/* Scrollable Card */}
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  { translateY: slideAnim },
+                  { scale: scaleAnim }
+                ],
+              },
+            ]}
+          >
+            <Card style={styles.card}>
+              <ScrollView 
+                style={styles.scrollContent}
+                contentContainerStyle={styles.scrollContentContainer}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {renderStepContent()}
+              </ScrollView>
+            </Card>
+          </Animated.View>
+
+          {/* Fixed Action Button Container */}
+          <View style={[styles.fixedButtonContainer, { paddingBottom: Math.max(16, insets.bottom) }]}>
+            <Button
+              title={getButtonText()}
+              onPress={handleNext}
+              disabled={!isNextEnabled() || isLoading}
+              loading={isLoading}
+              style={styles.actionButton}
+            />
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1603,13 +1797,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  skipButton: {
-    padding: 8,
-  },
-  skipText: {
-    color: Colors.text.secondary,
-    fontSize: 16,
-  },
   progressContainer: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -1625,14 +1812,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary.green,
     borderRadius: 2,
   },
+  contentWrapper: {
+    flex: 1,
+    flexDirection: 'column',
+  },
   cardContainer: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingBottom: 16,
   },
   card: {
     flex: 1,
-    padding: 24,
     backgroundColor: Colors.ui.backgroundSecondary,
     borderRadius: 12,
     shadowColor: '#000',
@@ -1640,36 +1829,51 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    overflow: 'hidden',
   },
-  stepScroll: {
-    width: '100%',
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: SCREEN_HEIGHT < 700 ? 20 : 40,
+    flexGrow: 1,
+  },
+  fixedButtonContainer: {
+    backgroundColor: Colors.ui.backgroundSecondary,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.ui.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 5,
   },
   contentContainer: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ybocsContainer: {
-    flex: 1,
-    paddingTop: 20,
     paddingHorizontal: 16,
+    flex: 1,
     justifyContent: 'flex-start',
   },
+  ybocsContainer: {
+    paddingTop: 12,
+  },
   iconContainer: {
-    marginBottom: 24,
+    marginBottom: SCREEN_HEIGHT < 700 ? 8 : 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: SCREEN_HEIGHT < 700 ? 20 : 24,
     fontWeight: '700',
     color: Colors.text.primary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: SCREEN_HEIGHT < 700 ? 14 : 16,
     color: Colors.text.secondary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: SCREEN_HEIGHT < 700 ? 12 : 16,
   },
   description: {
     fontSize: 16,
@@ -1682,28 +1886,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text.primary,
   },
-  consentScroll: {
-    maxHeight: SCREEN_HEIGHT * 0.35,
-    marginTop: 16,
-  },
+
   consentText: {
     fontSize: 15,
     color: Colors.text.secondary,
     lineHeight: 22,
   },
   questionNumber: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary.green,
   },
   questionText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: Colors.text.primary,
     textAlign: 'center',
     marginBottom: 24,
-    paddingHorizontal: 8,
-    lineHeight: 26,
+    paddingHorizontal: 16,
+    lineHeight: 28,
   },
   sliderContainer: {
     width: '100%',
@@ -1766,16 +1967,16 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
-    maxHeight: SCREEN_HEIGHT * 0.6,
+    flex: 1,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: SCREEN_HEIGHT < 700 ? 12 : 16,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: SCREEN_HEIGHT < 700 ? 14 : 16,
     fontWeight: '600',
     color: Colors.text.primary,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   genderContainer: {
     flexDirection: 'row',
@@ -1859,14 +2060,14 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    height: 56,
+    height: SCREEN_HEIGHT < 700 ? 44 : 52,
     borderWidth: 1,
     borderColor: Colors.ui.border,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 18,
+    paddingHorizontal: 12,
+    fontSize: SCREEN_HEIGHT < 700 ? 14 : 16,
     color: Colors.text.primary,
-    marginTop: 24,
+    marginTop: SCREEN_HEIGHT < 700 ? 12 : 20,
     backgroundColor: Colors.ui.background,
   },
   hint: {
@@ -1969,13 +2170,292 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginTop: 2,
   },
-  actionContainer: {
-    marginTop: 24,
-  },
   actionButton: {
     width: '100%',
     height: 56,
     borderRadius: 12,
+  },
+  
+  // Y-BOCS Question Styles - Full Width Design
+  questionProgressContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  optionsFullWidthContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  optionFullWidthCard: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    marginVertical: 8,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  optionFullWidthCardSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: '#F0FDF4',
+  },
+  optionFullWidthContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optionFullWidthLabel: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  optionFullWidthLabelSelected: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircleSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: Colors.primary.green,
+  },
+  
+  // Modern Mobile-First Form Styles
+  modernInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.text.primary,
+  },
+  modernSelectionGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modernSelectionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: SCREEN_HEIGHT < 700 ? 12 : 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modernSelectionCardSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: '#F0FDF4',
+  },
+  modernSelectionText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  modernSelectionTextSelected: {
+    color: Colors.primary.green,
+    fontWeight: '600',
+  },
+  symptomGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+    marginTop: SCREEN_HEIGHT < 700 ? 8 : 12,
+  },
+  symptomGridCard: {
+    width: '47%',
+    marginHorizontal: '1.5%',
+    marginVertical: SCREEN_HEIGHT < 700 ? 4 : 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: SCREEN_HEIGHT < 700 ? 12 : 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  symptomGridCardSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: '#F0FDF4',
+  },
+  symptomGridText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  symptomGridTextSelected: {
+    color: Colors.primary.green,
+    fontWeight: '600',
+  },
+  symptomCheckmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.primary.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  // Goals Full Width Styles
+  goalsFullWidthContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  goalFullWidthCard: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: SCREEN_HEIGHT < 700 ? 10 : 14,
+    paddingHorizontal: 16,
+    marginVertical: SCREEN_HEIGHT < 700 ? 4 : 6,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  goalFullWidthCardSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: '#F0FDF4',
+  },
+  goalFullWidthCardDisabled: {
+    opacity: 0.5,
+  },
+  goalFullWidthContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  goalIconContainer: {
+    marginRight: 12,
+  },
+  goalFullWidthText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  goalFullWidthTextSelected: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  goalFullWidthTextDisabled: {
+    color: '#9CA3AF',
+  },
+  goalCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalCheckCircleSelected: {
+    borderColor: Colors.primary.green,
+    backgroundColor: Colors.primary.green,
+  },
+  
+  // Y-BOCS Graph Styles
+  ybocsGraphContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  ybocsGraphTitle: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    marginBottom: 8,
+  },
+  ybocsScoreDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  ybocsScoreNumber: {
+    fontSize: 48,
+    fontWeight: 'bold',
+  },
+  ybocsScoreMax: {
+    fontSize: 20,
+    color: Colors.text.secondary,
+    marginLeft: 4,
+  },
+  ybocsProgressBar: {
+    width: '100%',
+    height: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginVertical: 12,
+  },
+  ybocsProgressFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  ybocsSeverityBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  ybocsSeverityText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // AI Report Styles
+  aiReportCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary.green,
+  },
+  aiReportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  aiReportTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text.primary,
+    marginLeft: 8,
+  },
+  aiReportText: {
+    fontSize: 14,
+    color: Colors.text.primary,
+    lineHeight: 20,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  goalRowText: {
+    fontSize: 14,
+    color: Colors.text.primary,
+    marginLeft: 8,
   },
 });
 

@@ -12,6 +12,15 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Tipografi: Inter (Heading XL 32/700, L 28/700, M 24/600, S 20/600, Body 18/16/14, Caption 12)
 - Tema: Light (default), Dark (gelecek)
 
+### 🎯 Tab Navigation Renkleri
+- **Bugün**: #10B981 (Yeşil)
+- **Mood**: #F472B6 (Pembe)
+- **CBT**: #A78BFA (Mor)
+- **OCD**: #34D399 (Yeşil)
+- **ERP**: #67E8F9 (Cyan)
+- **Ayarlar**: #9CA3AF (Gri)
+- **Pasif**: #9CA3AF (Açık gri)
+
 ## 📐 Spacing & Layout
 - Screen padding: 24, Card padding: 16, Section gap: 24, Element gap: 16, Small gap: 8
 - Touch target: 48x48, Button height: 48, Input height: 50
@@ -22,6 +31,12 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Uygulama Açılışı → Auth Check → Onboarding (Hızlı Başlangıç + opsiyonel profil adımları) → Today
 - Quick Entry (Kompulsiyon) → AsyncStorage yaz → Supabase senkron → Gamification
 - ERP Sihirbazı: Kategori (6 ana kategori) → Egzersiz seçimi + Ayarlar → Oturum
+
+## 🧭 Bottom Tab Navigation
+- **Bugün** → **Mood** → **CBT** → **OCD** → **ERP** → **Ayarlar**
+- Her tab için özel renk ve boyut tanımları
+- Master Prompt ilkelerine uygun sakin renkler
+- Aktif/pasif durumlar arasında net kontrast
 
 ### 🔐 Authentication (Login/Signup)
 - Login: Logo, email, şifre, “Giriş Yap”, “Google ile Giriş”
@@ -34,6 +49,12 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 ### 🏠 Today
 - Healing Points ana kartı, Quick Stats (Today/Streak/ERP), Öneriler kartları, Başarımlar bölümü
 
+### 🌈 Mood Tracking
+- Lindsay Braman tarzı spektrum tabanlı mood tracker
+- Günlük (saatlik), Haftalık (günlük), Aylık (takvim) görünümleri
+- Renk spektrumu ile duygu yoğunluğu gösterimi
+- Çoklu duygu kaydı ve interaktif detaylar
+
 ### 📊 OKB Takip (Compulsions)
 - Zaman aralığı sekmeleri (Bugün/Hafta/Ay)
 - Günlük kayıt listesi kartları, “Daha Fazla Göster”
@@ -44,6 +65,10 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Zaman aralığı sekmeleri ve özet istatistikler
 - Sihirbaz Akışı: 1) Kategori Grid → 2) Egzersiz Grid + Ayarlar → 3) Süre & Hedef → 4) Özet & Güvenlik → Başlat
 - Egzersiz tipleri (kanonik): in_vivo, imaginal, interoceptive, response_prevention
+- **Ayarlardan Kontrol**: ERP Modülü ayarlardan enable/disable edilebilir
+- **Default State**: Varsayılan olarak kapalı gelir
+- **Dynamic Navigation**: Kapalıyken alt menüde görünmez
+- **Disabled State**: Modül kapalıyken kullanıcıya bilgilendirici mesaj gösterilir
 
 ## 🧱 Bileşen Spesifikasyonları
 

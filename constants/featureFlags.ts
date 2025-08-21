@@ -96,10 +96,18 @@ const featureFlagState: Record<string, boolean> = {
   AI_ONBOARDING_UI: AI_MASTER_ENABLED,
   AI_ONBOARDING_CONTEXT_INTEGRATION: AI_MASTER_ENABLED,
   AI_ONBOARDING_INTERVENTIONS_INTEGRATION: AI_MASTER_ENABLED,
-  AI_ART_THERAPY: false, // Temporarily disabled
+  AI_ART_THERAPY: AI_MASTER_ENABLED, // Reactivated with Lindsay Braman style
   AI_VOICE_ERP: AI_MASTER_ENABLED,
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
+  AI_UNIFIED_VOICE: AI_MASTER_ENABLED, // Merkezi ses analizi sistemi
   // KALDIRILDI: AI_CRISIS_DETECTION
+  
+  // 🚀 CoreAnalysisService v1 flags
+  AI_CORE_ANALYSIS: false, // Yeni CoreAnalysisService (default: off)
+  AI_LLM_GATING: false, // LLM gating logic (default: off) 
+  AI_PROGRESSIVE: false, // Progressive UI updates (default: off)
+  AI_ONBOARDING_REFINE: false, // Onboarding skeleton->refine (default: off)
+  AI_ERP_STAIRCASE: false, // Deterministic ERP difficulty (default: off)
   
   // 🔀 LLM Flags (aliases → AI master)
   LLM_ROUTER: AI_MASTER_ENABLED,
@@ -127,6 +135,9 @@ const featureFlagState: Record<string, boolean> = {
   SAFETY_CHECKS: true,
   CONTENT_FILTERING: true,
   RATE_LIMITING: true,
+  
+  // 🛡️ ERP Module Feature Flag - Store'dan dinamik olarak alınır
+  ERP_MODULE_ENABLED: false, // Default: kapalı, runtime'da store'dan güncellenir
 };
 
 // Feature flag logging için

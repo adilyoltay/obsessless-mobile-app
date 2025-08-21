@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Text, 
   View, 
@@ -7,12 +7,13 @@ import {
   ScrollView, 
   Pressable,
   RefreshControl,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Custom UI Components
@@ -27,8 +28,9 @@ import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 import { useAIUserData, useAIActions } from '@/contexts/AIContext';
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
+
 // ✅ PRODUCTION: AI ERP Recommendations
 import { erpRecommendationService } from '@/features/ai/services/erpRecommendationService';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
@@ -47,6 +49,7 @@ interface ERPSession {
 }
 
 export default function ERPScreen() {
+  // Tüm hook'ları çağır - conditional return'dan önce
   const { t } = useTranslation();
   const { user } = useAuth();
   const { treatmentPlan, userProfile } = useAIUserData();
@@ -74,6 +77,47 @@ export default function ERPScreen() {
     avgAnxietyReduction: 0,
     streak: 0,
   });
+  
+  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
+  const params = useLocalSearchParams<{ text?: string; category?: string; prefill?: string }>();
+  const [prefilledVoice, setPrefilledVoice] = useState<{ text?: string; category?: string } | null>(null);
+  const hasProcessedVoiceParams = useRef(false);
+  
+  // ERP store'u en son çağır
+  const erpStore = useERPSettingsStore();
+  const isERPEnabled = erpStore.isEnabled;
+  
+  // ERP modülü kapalıysa ana sayfaya yönlendir
+  useEffect(() => {
+    if (!isERPEnabled) {
+      router.replace('/(tabs)/');
+    }
+  }, [isERPEnabled, router]);
+  
+  // ERP modülü kapalıysa loading göster
+  if (!isERPEnabled) {
+    return (
+      <ScreenLayout>
+        <View style={styles.disabledContainer}>
+          <ActivityIndicator size="large" color="#67E8F9" />
+          <Text style={styles.disabledTitle}>Yönlendiriliyor...</Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  // Voice yönlendirmeden gelen parametreleri oku ve hızlı başlangıcı aç
+  useEffect(() => {
+    const hasAny = params?.prefill === 'true' || !!params?.text || !!params?.category;
+    if (hasAny && !hasProcessedVoiceParams.current) {
+      console.log('📝 ERP prefill params:', params);
+      setPrefilledVoice({ text: (params?.text as string) || '', category: (params?.category as string) || 'general' });
+      setIsQuickStartVisible(true);
+      hasProcessedVoiceParams.current = true;
+      // Parametreleri temizle ki loop oluşmasın
+      try { router.setParams({ prefill: undefined, text: undefined, category: undefined } as any); } catch {}
+    }
+  }, [params?.prefill, params?.text, params?.category]);
 
   // Migrate test data to user data if needed (one-time migration)
   const migrateTestData = async () => {
@@ -511,14 +555,7 @@ export default function ERPScreen() {
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? 'Bugünün Özeti' : 
-                 selectedTimeRange === 'week' ? 'Bu Haftanın Özeti' : 
-                 'Bu Ayın Özeti'}
-              </Text>
-              <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Günlük özetiniz' : 
-                 selectedTimeRange === 'week' ? 'Haftalık özetiniz' : 
-                 'Aylık özetiniz'}
+                Özet
               </Text>
             </View>
             {stats.streak > 0 && (
@@ -546,22 +583,11 @@ export default function ERPScreen() {
           </View>
         </View>
 
-        {/* AI Treatment Plan (Sprint 7 Integration) */}
-        {FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING') && (treatmentPlan || localPlan) && (
-          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
-            <Text style={styles.sectionTitle}>Önerilen Tedavi Planı</Text>
-            <TreatmentPlanPreview userProfile={userProfile || localProfile} treatmentPlan={treatmentPlan || localPlan} userId={user?.id} />
-          </View>
-        )}
-
         {/* ✅ PRODUCTION: AI ERP Recommendations */}
         {showAIRecommendations && aiRecommendations.length > 0 && (
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <View style={styles.aiRecommendationsHeader}>
               <Text style={styles.sectionTitle}>🤖 AI Önerileri</Text>
-              <Text style={styles.aiRecommendationsSubtitle}>
-                Size özel seçilmiş egzersizler
-              </Text>
             </View>
             
             <ScrollView 
@@ -642,13 +668,8 @@ export default function ERPScreen() {
           </View>
         )}
 
-        {/* Today's Sessions - New Design */}
+        {/* Sessions List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? 'Bugünün Oturumları' : 
-             selectedTimeRange === 'week' ? 'Bu Haftanın Oturumları' : 
-             'Bu Ayın Oturumları'}
-          </Text>
 
           {filteredSessions.length === 0 ? (
             <View style={styles.emptyState}>
@@ -761,6 +782,7 @@ export default function ERPScreen() {
         onDismiss={() => setIsQuickStartVisible(false)}
         onExerciseSelect={handleExerciseSelect}
         exercises={getAllExercises()}
+        prefilledVoice={prefilledVoice}
       />
     </ScreenLayout>
   );
@@ -1093,6 +1115,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     marginLeft: 12,
     flex: 1,
+  },
+  
+  // Disabled container stilleri
+  disabledContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#F9FAFB',
+  },
+  disabledTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  disabledSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontFamily: 'Inter',
   },
 
 });

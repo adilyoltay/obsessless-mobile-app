@@ -6,8 +6,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -38,6 +38,8 @@ export default function OnboardingScreen() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [useAIOnboarding, setUseAIOnboarding] = useState(true);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const params = useLocalSearchParams();
 
   useEffect(() => {
     checkOnboardingType();
@@ -48,13 +50,17 @@ export default function OnboardingScreen() {
       // Onboarding her zaman V3 ile çalışacak
       setUseAIOnboarding(true);
       
-      // Check if already completed
-      if (user?.id) {
-        const completed = await AsyncStorage.getItem(`onboarding_completed_${user.id}`);
-        if (completed === 'true') {
-          console.log('✅ Onboarding already completed, redirecting...');
-          router.replace('/(tabs)');
-          return;
+      // Force param ile onboarding'i her zaman aç
+      const force = String(params?.force || '').toLowerCase() === 'true';
+      if (!force) {
+        // Check if already completed
+        if (user?.id) {
+          const completed = await AsyncStorage.getItem(`onboarding_completed_${user.id}`);
+          if (completed === 'true') {
+            console.log('✅ Onboarding already completed, redirecting...');
+            router.replace('/(tabs)');
+            return;
+          }
         }
       }
       
@@ -66,6 +72,13 @@ export default function OnboardingScreen() {
   };
 
   const handleOnboardingComplete = async (userProfile: UserProfile, treatmentPlan: TreatmentPlan) => {
+    // Prevent multiple completions
+    if (isCompleting) {
+      console.log('⚠️ Already completing onboarding, ignoring duplicate call');
+      return;
+    }
+    
+    setIsCompleting(true);
     console.log('✅ Onboarding completed:', { userProfile, treatmentPlan });
     
     try {
@@ -118,17 +131,32 @@ export default function OnboardingScreen() {
         }
       }
       
-      // Navigate to main app
-      router.replace('/(tabs)');
+      // Redirect after completion (prefer explicit flow source)
+      const fromTP = String(params?.fromTreatmentPlan || '').toLowerCase() === 'true';
+      const redirect = typeof params?.redirect === 'string' ? (params.redirect as string) : '/(tabs)';
+      router.replace(fromTP ? '/treatment-plan' : redirect);
+      // Defensive: bazı guardlar tabs'a yönlendirebiliyor; kısa gecikmeyle tekrar hedefe yönlendir
+      if (fromTP) {
+        setTimeout(() => {
+          try { router.replace('/treatment-plan'); } catch {}
+        }, 50);
+      }
     } catch (error) {
       console.error('Error saving onboarding data:', error);
+      setIsCompleting(false);
       router.replace('/(tabs)');
     }
   };
 
   const handleOnboardingExit = () => {
-    console.log('❌ Onboarding exited');
-    router.replace('/(tabs)');
+    console.log('❌ Onboarding exit attempted - not allowed');
+    // Onboarding tamamlanmadan çıkışa izin verme
+    Alert.alert(
+      'Onboarding Zorunludur',
+      'Uygulamayı kullanmaya başlamak için lütfen tüm adımları tamamlayın.',
+      [{ text: 'Tamam', style: 'default' }]
+    );
+    // Çıkışa izin verme - kullanıcı onboarding'de kalacak
   };
 
   const handleSimpleStart = async () => {
@@ -216,13 +244,6 @@ export default function OnboardingScreen() {
           onPress={handleSimpleStart}
         >
           <Text style={styles.startButtonText}>Başla</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.skipButton}
-          onPress={() => router.replace('/(tabs)')}
-        >
-          <Text style={styles.skipButtonText}>Şimdi değil</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -323,13 +344,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  skipButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  skipButtonText: {
-    color: COLORS.secondaryText,
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
+
 });

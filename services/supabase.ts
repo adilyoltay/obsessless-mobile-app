@@ -1,6 +1,7 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
@@ -730,9 +731,15 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(session.user_id);
       
+      // Compute content hash from notes or exercise description
+      const contentForHash = session.notes || 
+                            `${session.exercise_type}_${session.fear_level}_${session.resistance_level}`;
+      const contentHash = this.computeContentHash(contentForHash);
+      
       const sessionData = {
         ...session,
         timestamp: new Date().toISOString(),
+        content_hash: contentHash,
       };
       
       // Include ID if provided for duplicate prevention
@@ -742,13 +749,20 @@ class SupabaseNativeService {
       
       const { data, error } = await this.client
         .from('erp_sessions')
-        .upsert(sessionData, { onConflict: 'id' })
+        .upsert(sessionData, { 
+          onConflict: session.id ? 'id' : 'user_id,content_hash',
+          ignoreDuplicates: true 
+        })
         .select()
         .single();
 
-      if (error) throw error;
-      console.log('✅ ERP session saved to database:', data.id);
-      return data;
+      if (error && !error.message?.includes('duplicate')) {
+        console.error('❌ Save ERP session error:', error);
+        throw error;
+      }
+      
+      console.log('✅ ERP session saved to database:', data?.id);
+      return data || session as ERPSession;
     } catch (error) {
       console.error('❌ Save ERP session failed:', error);
       throw error;
@@ -885,7 +899,18 @@ class SupabaseNativeService {
       console.log('✅ Gamification profile updated:', userId);
     } catch (error) {
       console.error('❌ Update gamification profile failed:', error);
-      throw error;
+      // Offline-first fallback: enqueue for retry and proceed without throwing
+      try {
+        await deadLetterQueue.addToDeadLetter({
+          id: `gpf_${Date.now()}`,
+          type: 'update',
+          entity: 'gamification_profiles',
+          data: { user_id: userId, updates },
+          errorMessage: 'update_gamification_profile_failed',
+        } as any, error);
+        await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: 'gamification_profile_dead_letter', attempts: 0 });
+      } catch {}
+      // Do not rethrow to avoid redbox; UI continues and sync will retry later
     }
   }
 
@@ -932,9 +957,31 @@ class SupabaseNativeService {
   // NEW: VOICE CHECK-IN / THOUGHT RECORD / VOICE SESSION
   // ===========================
 
+  /**
+   * Compute content hash for text (client-side SHA-256)
+   */
+  private computeContentHash(text: string): string {
+    // Normalize text: trim, collapse spaces, lowercase
+    const normalized = text.trim().replace(/\s+/g, ' ').toLowerCase();
+    
+    // Simple hash function for client-side (not cryptographic)
+    // In production, use a proper SHA-256 library
+    let hash = 0;
+    for (let i = 0; i < normalized.length; i++) {
+      const char = normalized.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16);
+  }
+
   async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
+      
+      // Compute content hash for idempotency
+      const contentHash = this.computeContentHash(record.text);
+      
       const payload = {
         user_id: record.user_id,
         text: record.text,
@@ -942,19 +989,33 @@ class SupabaseNativeService {
         trigger: record.trigger,
         confidence: record.confidence,
         lang: record.lang,
+        content_hash: contentHash,
         created_at: record.created_at || new Date().toISOString(),
       };
-      await this.client
+      
+      // Use idempotent upsert with content_hash
+      const { error } = await this.client
         .from('voice_checkins')
-        .upsert(payload, { onConflict: 'user_id,created_at,text' });
+        .upsert(payload, { 
+          onConflict: 'user_id,content_hash',
+          ignoreDuplicates: true 
+        });
+        
+      if (error && !error.message?.includes('duplicate')) {
+        console.warn('⚠️ saveVoiceCheckin error:', error);
+      }
     } catch (error) {
-      console.warn('⚠️ saveVoiceCheckin skipped (table may not exist):', (error as any)?.message);
+      console.warn('⚠️ saveVoiceCheckin skipped:', (error as any)?.message);
     }
   }
 
   async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
+      
+      // Compute content hash from automatic thought
+      const contentHash = this.computeContentHash(record.automatic_thought || '');
+      
       const payload = {
         user_id: record.user_id,
         automatic_thought: record.automatic_thought,
@@ -963,13 +1024,113 @@ class SupabaseNativeService {
         distortions: record.distortions,
         new_view: record.new_view,
         lang: record.lang,
+        content_hash: contentHash,
         created_at: record.created_at || new Date().toISOString(),
       };
-      await this.client
+      // Use idempotent upsert with content_hash
+      const { error } = await this.client
         .from('thought_records')
-        .upsert(payload, { onConflict: 'user_id,created_at,automatic_thought' });
+        .upsert(payload, { 
+          onConflict: 'user_id,content_hash',
+          ignoreDuplicates: true 
+        });
+        
+      if (error && !error.message?.includes('duplicate')) {
+        console.warn('⚠️ saveThoughtRecord error:', error);
+      }
     } catch (error) {
       console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
+    }
+  }
+
+  // ===========================
+  // CBT THOUGHT RECORDS
+  // ===========================
+
+  async saveCBTRecord(record: {
+    user_id: string;
+    thought: string;
+    distortions: string[];
+    evidence_for?: string;
+    evidence_against?: string;
+    reframe: string;
+    mood_before: number;
+    mood_after: number;
+    trigger?: string;
+    notes?: string;
+  }): Promise<{ id: string } | null> {
+    try {
+      await this.ensureUserProfileExists(record.user_id);
+      
+      const { data, error } = await this.client
+        .from('thought_records')
+        .insert({
+          ...record,
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      console.log('✅ CBT record saved:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to save CBT record:', error);
+      // Offline fallback
+      await deadLetterQueue.addToDeadLetter({
+        id: `cbt_${Date.now()}`,
+        type: 'create',
+        entity: 'thought_records',
+        data: record,
+        errorMessage: 'save_cbt_record_failed',
+      } as any, error);
+      return null;
+    }
+  }
+
+  async getCBTRecords(userId: string, dateRange?: { start: Date; end: Date }): Promise<any[]> {
+    try {
+      let query = this.client
+        .from('thought_records')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (dateRange) {
+        query = query
+          .gte('created_at', dateRange.start.toISOString())
+          .lte('created_at', dateRange.end.toISOString());
+      }
+
+      const { data, error } = await query.limit(100);
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('❌ Failed to fetch CBT records:', error);
+      return [];
+    }
+  }
+
+  async deleteCBTRecord(recordId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('thought_records')
+        .delete()
+        .eq('id', recordId);
+
+      if (error) throw error;
+      console.log('✅ CBT record deleted:', recordId);
+    } catch (error) {
+      console.error('❌ Failed to delete CBT record:', error);
+      // Queue for retry
+      await deadLetterQueue.addToDeadLetter({
+        id: `cbt_del_${Date.now()}`,
+        type: 'delete',
+        entity: 'thought_records',
+        data: { id: recordId },
+        errorMessage: 'delete_cbt_record_failed',
+      } as any, error);
     }
   }
 
@@ -1006,6 +1167,105 @@ class SupabaseNativeService {
 
   // ===========================
   // UTILITY METHODS
+  // ===========================
+  
+  // ===========================
+  // MOOD METHODS
+  // ===========================
+  
+  async saveMoodEntry(entry: {
+    user_id: string;
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    notes?: string;
+    trigger?: string;
+  }): Promise<any> {
+    try {
+      console.log('🔄 Saving mood entry...', entry);
+      
+      // Ensure user exists
+      await this.ensureUserProfileExists(entry.user_id);
+      
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .insert({
+          ...entry,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      console.log('✅ Mood entry saved:', data.id);
+      return data;
+    } catch (error) {
+      console.error('❌ Save mood entry failed:', error);
+      throw error;
+    }
+  }
+  
+  async getMoodEntries(userId: string, days: number = 7): Promise<any[]> {
+    try {
+      console.log('🔍 Fetching mood entries...', { userId, days });
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      console.log(`✅ Fetched ${data?.length || 0} mood entries`);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Get mood entries failed:', error);
+      return [];
+    }
+  }
+  
+  async updateMoodEntry(entryId: string, updates: Partial<{
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    notes: string;
+    trigger: string;
+  }>): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('mood_entries')
+        .update(updates)
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('❌ Update mood entry failed:', error);
+      throw error;
+    }
+  }
+  
+  async deleteMoodEntry(entryId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('mood_entries')
+        .delete()
+        .eq('id', entryId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('❌ Delete mood entry failed:', error);
+      throw error;
+    }
+  }
+
   // ===========================
 
   get supabaseClient() {

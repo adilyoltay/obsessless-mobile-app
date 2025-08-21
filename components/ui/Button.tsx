@@ -211,6 +211,11 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   secondaryButton: {
     backgroundColor: '#F3F4F6',

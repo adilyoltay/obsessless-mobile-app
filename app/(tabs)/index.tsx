@@ -23,8 +23,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import moodTracker from '@/services/moodTrackingService';
-import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
-import { simpleNLU } from '@/features/ai/services/checkinService';
+import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
+import BreathworkSuggestionCard from '@/components/ui/BreathworkSuggestionCard';
 import { useGamificationStore } from '@/store/gamificationStore';
 import * as Haptics from 'expo-haptics';
 
@@ -39,6 +39,7 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
+import { useERPSettingsStore } from '@/store/erpSettingsStore';
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -46,6 +47,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { coreAnalysisService } from '@/features/ai/core/CoreAnalysisService';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -56,12 +58,20 @@ export default function TodayScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const erpStore = useERPSettingsStore();
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [moodSheetVisible, setMoodSheetVisible] = useState(false);
-  const [quickMoodSaving, setQuickMoodSaving] = useState(false);
+  const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [achievementsSheetVisible, setAchievementsSheetVisible] = useState(false);
+  
+  // Breathwork suggestion state
+  const [breathworkSuggestion, setBreathworkSuggestion] = useState<{
+    show: boolean;
+    trigger: 'morning' | 'evening' | 'high_anxiety' | 'post_compulsion' | 'general';
+    anxietyLevel?: number;
+  } | null>(null);
+  const [snoozedUntil, setSnoozedUntil] = useState<Date | null>(null);
   
   // AI Integration via Context
   const { isInitialized: aiInitialized, availableFeatures } = useAI();
@@ -73,6 +83,11 @@ export default function TodayScreen() {
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   const insightsPromiseRef = useRef<Promise<any[]> | null>(null);
+  
+  // Progressive UI State
+  const [insightsSource, setInsightsSource] = useState<'cache' | 'heuristic' | 'llm'>('cache');
+  const [hasDeepInsights, setHasDeepInsights] = useState(false);
+  const [insightsConfidence, setInsightsConfidence] = useState(0);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -124,6 +139,8 @@ export default function TodayScreen() {
       if (user?.id) {
         console.log('🔄 Today screen focused, refreshing stats...');
         onRefresh();
+        // Check for breathwork suggestions
+        checkBreathworkSuggestion();
       }
     }, [user?.id])
   );
@@ -146,7 +163,7 @@ export default function TodayScreen() {
         <Pressable 
           style={styles.artTherapyCard}
           onPress={() => {
-            router.push('/(auth)/art-therapy');
+            router.push('/art-therapy');
           }}
         >
           <View style={styles.artTherapyContent}>
@@ -175,50 +192,211 @@ export default function TodayScreen() {
   // Risk section removed
 
   /**
-   * 🤖 Load AI Insights via Context
+   * 🌬️ Check and show breathwork suggestions
+   */
+  const checkBreathworkSuggestion = () => {
+    // Skip if already showing or snoozed
+    if (breathworkSuggestion?.show || (snoozedUntil && new Date() < snoozedUntil)) {
+      return;
+    }
+
+    const now = new Date();
+    const hour = now.getHours();
+    
+    // Morning suggestion (7-9 AM)
+    if (hour >= 7 && hour < 9) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'morning',
+      });
+      return;
+    }
+    
+    // Evening suggestion (9-11 PM)
+    if (hour >= 21 && hour < 23) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'evening',
+      });
+      return;
+    }
+    
+    // Check recent compulsions
+    const lastCompulsionTime = todayStats.compulsions > 0 ? new Date() : null;
+    if (lastCompulsionTime && (now.getTime() - lastCompulsionTime.getTime()) < 30 * 60 * 1000) {
+      setBreathworkSuggestion({
+        show: true,
+        trigger: 'post_compulsion',
+      });
+      return;
+    }
+    
+    // Check mood/anxiety from last check-in
+    try {
+      const lastMood = moodTracker.getLastMoodEntry();
+      if (lastMood && lastMood.anxiety >= 7) {
+        setBreathworkSuggestion({
+          show: true,
+          trigger: 'high_anxiety',
+          anxietyLevel: lastMood.anxiety,
+        });
+      }
+    } catch (error) {
+      // Silently fail if mood tracking is not available
+      console.log('Could not check last mood for breathwork suggestion');
+    }
+  };
+
+  /**
+   * 🤖 Load AI Insights with Progressive UI
    */
   const loadAIInsights = async () => {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
-    if (isInsightsRunning && insightsPromiseRef.current) {
-      if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
-      const existing = await insightsPromiseRef.current;
-      setAiInsights(existing || []);
-      return;
-    }
+    
+    // Progressive UI: Use CoreAnalysisService if enabled
+    if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
+      console.log('🚀 Using Progressive Insights Loading');
+      
+      // Step 1: Immediate - Load from cache or generate basic insights
+      try {
+        const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
+        const cached = await coreAnalysisService.getCached(cacheKey);
+        
+        if (cached) {
+          console.log('✅ Loaded insights from cache');
+          setAiInsights([
+            {
+              type: 'info',
+              title: 'Bugünkü Özet',
+              message: cached.payload?.message || 'Günlük takibini sürdürüyorsun',
+              confidence: cached.confidence,
+            }
+          ]);
+          setInsightsSource('cache');
+          setInsightsConfidence(cached.confidence);
+        } else {
+          // Generate basic heuristic insights immediately
+          console.log('📝 Generating heuristic insights');
+          const basicInsights = [
+            {
+              type: 'progress',
+              title: 'İlerleme',
+              message: `${todayStats.compulsions} kompulsiyon, ${todayStats.resistanceWins} direnç kazancı`,
+              confidence: 0.6,
+            },
+            {
+              type: 'tip',
+              title: 'Öneri',
+              message: todayStats.erpSessions === 0 ? 'Bugün bir ERP egzersizi deneyelim' : 'ERP pratiğine devam et',
+              confidence: 0.5,
+            }
+          ];
+          setAiInsights(basicInsights);
+          setInsightsSource('heuristic');
+          setInsightsConfidence(0.5);
+        }
+        
+        setAiInsightsLoading(false);
+        
+        // Step 2: Deep - Generate enhanced insights in background
+        setTimeout(async () => {
+          if (isInsightsRunning) return;
+          
+          try {
+            setIsInsightsRunning(true);
+            console.log('🔮 Generating deep insights in background');
+            
+            // Track insights request
+            await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+              userId: user.id,
+              source: 'home_screen_progressive',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Generate deep insights
+            const deepInsights = await generateInsights();
+            
+            if (deepInsights && deepInsights.length > 0) {
+              setAiInsights(deepInsights);
+              setInsightsSource('llm');
+              setInsightsConfidence(0.9);
+              setHasDeepInsights(true);
+              
+              // Cache the deep insights
+              await coreAnalysisService.analyze({
+                kind: 'TEXT',
+                content: JSON.stringify(deepInsights),
+                userId: user.id,
+                locale: 'tr-TR',
+                ts: Date.now(),
+                metadata: {
+                  source: 'today-deep-insights',
+                }
+              });
+              
+              // Track insights delivered
+              await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+                userId: user.id,
+                insightsCount: deepInsights.length,
+                source: 'home_screen_progressive',
+                type: 'deep'
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error generating deep insights:', error);
+          } finally {
+            setIsInsightsRunning(false);
+          }
+        }, 3000); // 3 second delay for deep insights
+        
+      } catch (error) {
+        console.error('❌ Error in progressive insights:', error);
+        setAiInsightsLoading(false);
+      }
+      
+    } else {
+      // Legacy insights loading
+      if (isInsightsRunning && insightsPromiseRef.current) {
+        if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
+        const existing = await insightsPromiseRef.current;
+        setAiInsights(existing || []);
+        return;
+      }
 
-    try {
-      setIsInsightsRunning(true);
-      setAiInsightsLoading(true);
+      try {
+        setIsInsightsRunning(true);
+        setAiInsightsLoading(true);
 
-      // Track insights request
-      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-        userId: user.id,
-        source: 'home_screen',
-        timestamp: new Date().toISOString()
-      });
+        // Track insights request
+        await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+          userId: user.id,
+          source: 'home_screen',
+          timestamp: new Date().toISOString()
+        });
 
-      // Generate insights using AI context
-      const running = generateInsights();
-      insightsPromiseRef.current = running;
-      const insights = await running;
-      setAiInsights(insights || []);
+        // Generate insights using AI context
+        const running = generateInsights();
+        insightsPromiseRef.current = running;
+        const insights = await running;
+        setAiInsights(insights || []);
 
-      // Track insights delivered
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        userId: user.id,
-        insightsCount: insights?.length || 0,
-        source: 'home_screen'
-      });
+        // Track insights delivered
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          userId: user.id,
+          insightsCount: insights?.length || 0,
+          source: 'home_screen'
+        });
 
-    } catch (error) {
-      console.error('❌ Error loading AI insights:', error);
-      // Fail silently, don't impact main app functionality
-    } finally {
-      setAiInsightsLoading(false);
-      setIsInsightsRunning(false);
-      insightsPromiseRef.current = null;
+      } catch (error) {
+        console.error('❌ Error loading AI insights:', error);
+        // Fail silently, don't impact main app functionality
+      } finally {
+        setAiInsightsLoading(false);
+        setIsInsightsRunning(false);
+        insightsPromiseRef.current = null;
+      }
     }
   };
 
@@ -339,87 +517,41 @@ export default function TodayScreen() {
     { label: 'Zor', emoji: '😣', value: 1 },
   ];
 
-  const handleQuickMoodSelect = async (score: number) => {
-    if (!user?.id || quickMoodSaving) return;
-    setQuickMoodSaving(true);
-    try {
-      Haptics.selectionAsync().catch(() => {});
-      await moodTracker.saveMoodEntry({
-        user_id: user.id,
-        mood_score: score,
-        energy_level: 5,
-        anxiety_level: 5,
-      });
-      setToastMessage('Duygu kaydı alındı');
-      setShowToast(true);
-      setMoodSheetVisible(false);
-      onRefresh();
-    } catch (e) {
-      setToastMessage('Bir hata oluştu');
-      setShowToast(true);
-    } finally {
-      setQuickMoodSaving(false);
-    }
+
+
+  const handleCheckinComplete = () => {
+    // Refresh data after check-in
+    onRefresh();
   };
 
-  const handleVoiceTranscription = async (res: { text: string; confidence?: number; language?: string; duration?: number; }) => {
-    if (!user?.id || quickMoodSaving) return;
-    // Kısa kayıt uyarısı
-    const durationSec = Math.round((res.duration || 0) / 1000);
-    if (durationSec < 5) {
-      setToastMessage('Biraz daha konuş, seni duyuyorum…');
-      setShowToast(true);
-    }
-    setQuickMoodSaving(true);
-    try {
-      const nlu = simpleNLU(res.text || '');
-      const moodScore = Math.max(1, Math.min(10, Math.round(nlu.mood / 10)));
-      await moodTracker.saveMoodEntry({
-        user_id: user.id,
-        mood_score: moodScore,
-        energy_level: 5,
-        anxiety_level: Math.max(1, Math.min(10, 11 - moodScore)),
-      });
-      setToastMessage(`Mood otomatik kaydedildi: ${moodScore}/10`);
-      setShowToast(true);
-      setMoodSheetVisible(false);
-      onRefresh();
-      // Mikro ödül animasyonu
-      try { await awardMicroReward('voice_mood_checkin'); } catch {}
-    } catch (e) {
-      setToastMessage('Sesli mood kaydı başarısız');
-      setShowToast(true);
-    } finally {
-      setQuickMoodSaving(false);
-    }
-  };
-
-  const renderQuickMoodEntry = () => (
-    <View style={styles.quickMoodContainer}>
-      <Button
-        variant="primary"
-        onPress={() => setMoodSheetVisible(true)}
-        accessibilityLabel="Mood Check-in başlat"
-        style={styles.quickMoodButton}
-        leftIcon={<MaterialCommunityIcons name="emoticon-happy-outline" size={20} color="#FFFFFF" />}
-      >
-        Mood Check‑in
-      </Button>
-      <BottomSheet isVisible={moodSheetVisible} onClose={() => setMoodSheetVisible(false)}>
-        <Text style={styles.sheetTitle}>Mood Check‑in</Text>
-        <Text style={styles.sheetSubtitle}>Konuştuğunda sesin güvenle yazıya dökülecek ve duygun otomatik atanacak.</Text>
-        <VoiceInterface
-          autoStart
-          enableCountdown={false}
-          showStopButton={false}
-          showHints={false}
-          onTranscription={handleVoiceTranscription}
-          onError={() => { setToastMessage('Ses tanıma başlatılamadı'); setShowToast(true); }}
-          onStartListening={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{}); }}
+  const renderQuickMoodEntry = () => {
+    console.log('🔍 renderQuickMoodEntry - checkinSheetVisible:', checkinSheetVisible);
+    
+    return (
+      <View style={styles.quickMoodContainer}>
+        <Button
+          variant="primary"
+          onPress={() => {
+            console.log('🔍 Check-in button pressed!');
+            setCheckinSheetVisible(true);
+          }}
+          accessibilityLabel="Check-in başlat"
+          style={styles.quickMoodButton}
+          leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
+        >
+          Check-in
+        </Button>
+        <CheckinBottomSheet
+          isVisible={checkinSheetVisible}
+          onClose={() => {
+            console.log('🔍 CheckinBottomSheet onClose called');
+            setCheckinSheetVisible(false);
+          }}
+          onComplete={handleCheckinComplete}
         />
-      </BottomSheet>
-    </View>
-  );
+      </View>
+    );
+  };
 
   const renderDailyMissions = () => (
     <View style={styles.missionsSection}>
@@ -456,32 +588,51 @@ export default function TodayScreen() {
           </View>
         </Pressable>
 
-        {/* Mission 2: ERP Session */}
-        <Pressable 
-          style={styles.missionCard}
-          onPress={() => router.push('/(tabs)/erp')}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
-              size={30} 
-              color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
-            />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>İyileşme Adımın</Text>
-            <View style={styles.missionProgress}>
-              <View style={styles.missionProgressBar}>
-                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
+        {/* Mission 2: ERP Session - Store Kontrolü */}
+        {erpStore.isEnabled ? (
+          <Pressable 
+            style={styles.missionCard}
+            onPress={() => router.push('/(tabs)/erp')}
+          >
+            <View style={styles.missionIcon}>
+              <MaterialCommunityIcons 
+                name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
+                size={30} 
+                color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
+              />
+            </View>
+            <View style={styles.missionContent}>
+              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
+              <View style={styles.missionProgress}>
+                <View style={styles.missionProgressBar}>
+                  <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
+                </View>
+                <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
               </View>
-              <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
+            </View>
+            <View style={styles.missionReward}>
+              <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+              <Text style={styles.missionRewardText}>+100</Text>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={[styles.missionCard, styles.missionCardDisabled]}>
+            <View style={styles.missionIcon}>
+              <MaterialCommunityIcons 
+                name="shield-off" 
+                size={30} 
+                color="#9CA3AF" 
+              />
+            </View>
+            <View style={styles.missionContent}>
+              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
+              <Text style={styles.missionDescription}>Geçici olarak kapalı</Text>
+            </View>
+            <View style={styles.missionReward}>
+              <MaterialCommunityIcons name="lock" size={14} color="#9CA3AF" />
             </View>
           </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+100</Text>
-          </View>
-        </Pressable>
+        )}
 
         {/* Mission 3: Resistance */}
         <Pressable 
@@ -504,6 +655,94 @@ export default function TodayScreen() {
           <View style={styles.missionReward}>
             <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
             <Text style={styles.missionRewardText}>+75</Text>
+          </View>
+        </Pressable>
+
+        {/* Mission 4: CBT - Düşünce Kaydı */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => router.push('/(tabs)/cbt')}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="head-cog-outline" 
+              size={30} 
+              color="#8B5CF6" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>Düşünce Kaydı</Text>
+            <Text style={styles.missionDescription}>Bir olumsuz düşünceyi dönüştür</Text>
+            <View style={styles.missionTags}>
+              <Text style={styles.missionTag}>CBT</Text>
+              <Text style={styles.missionTag}>Bilişsel</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+60</Text>
+          </View>
+        </Pressable>
+
+        {/* Mission 5: MOOD - Ruh Hali Check-in */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => router.push('/(tabs)/mood')}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="emoticon-happy-outline" 
+              size={30} 
+              color="#EC4899" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>Ruh Hali Kaydı</Text>
+            <Text style={styles.missionDescription}>Bugünkü duygularını kaydet</Text>
+            <View style={styles.missionTags}>
+              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>MOOD</Text>
+              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>Duygu</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+40</Text>
+          </View>
+        </Pressable>
+
+        {/* Mission 6: BREATHWORK - Nefes Egzersizi */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => {
+            console.log('🌬️ Breathwork mission pressed!');
+            router.push({
+              pathname: '/(tabs)/breathwork',
+              params: { 
+                protocol: 'box',
+                autoStart: 'false',
+                source: 'mission'
+              }
+            });
+          }}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="meditation" 
+              size={30} 
+              color="#06B6D4" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>60 Saniye Nefes</Text>
+            <Text style={styles.missionDescription}>Sakinleşmek için mini mola</Text>
+            <View style={styles.missionTags}>
+              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Nefes</Text>
+              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Sakinlik</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+30</Text>
           </View>
         </Pressable>
       </View>
@@ -563,6 +802,20 @@ export default function TodayScreen() {
                     color={accentColor} 
                   />
                   <Text style={styles.aiInsightType}>{insight.category || 'İçgörü'}</Text>
+                  {/* Progressive UI: Show update badge */}
+                  {hasDeepInsights && index === 0 && (
+                    <View style={{
+                      backgroundColor: '#10B981',
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 10,
+                      marginLeft: 'auto',
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                        Güncellendi
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.aiInsightText}>{insight.message}</Text>
                 {insight.confidence && (
@@ -570,6 +823,13 @@ export default function TodayScreen() {
                     <Text style={styles.aiInsightConfidence}>
                       Güvenilirlik: {Math.round(insight.confidence * 100)}%
                     </Text>
+                    {/* Progressive UI: Show source */}
+                    {FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && (
+                      <Text style={[styles.aiInsightConfidence, { marginLeft: 10 }]}>
+                        Kaynak: {insightsSource === 'cache' ? 'Önbellek' : 
+                                insightsSource === 'heuristic' ? 'Hızlı Analiz' : 'Derin Analiz'}
+                      </Text>
+                    )}
                   </View>
                 )}
               </View>
@@ -603,11 +863,19 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
-        <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
-        <Text style={styles.quickStatLabel}>ERP</Text>
-      </View>
+      {erpStore.isEnabled ? (
+        <View style={styles.quickStatCard}>
+          <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
+          <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
+          <Text style={styles.quickStatLabel}>ERP</Text>
+        </View>
+      ) : (
+        <View style={[styles.quickStatCard, styles.quickStatCardDisabled]}>
+          <MaterialCommunityIcons name="shield-off" size={30} color="#9CA3AF" />
+          <Text style={styles.quickStatValue}>-</Text>
+          <Text style={styles.quickStatLabel}>ERP</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -706,6 +974,22 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderHeroSection()}
+        
+        {/* Breathwork Suggestion Card */}
+        {breathworkSuggestion?.show && (
+          <BreathworkSuggestionCard
+            trigger={breathworkSuggestion.trigger}
+            anxietyLevel={breathworkSuggestion.anxietyLevel}
+            onDismiss={() => setBreathworkSuggestion(null)}
+            onSnooze={() => {
+              setBreathworkSuggestion(null);
+              const snoozeTime = new Date();
+              snoozeTime.setMinutes(snoozeTime.getMinutes() + 15);
+              setSnoozedUntil(snoozeTime);
+            }}
+          />
+        )}
+        
         {renderQuickMoodEntry()}
         {renderQuickStats()}
         {/* Risk section removed */}
@@ -830,6 +1114,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  missionCardOutlined: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
+  },
   missionIcon: {
     marginRight: 16,
   },
@@ -901,6 +1190,20 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     fontFamily: 'Inter-Semibold',
     marginLeft: 4,
+  },
+  missionTags: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+  },
+  missionTag: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8B5CF6',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   quickStatsSection: {
     flexDirection: 'row',
@@ -1203,5 +1506,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#374151',
     marginTop: 4,
+  },
+  // CBT Suggestion Card styles
+  cbtSuggestionCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cbtSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cbtSuggestionIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  cbtSuggestionTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E40AF',
+    fontFamily: 'Inter',
+  },
+  cbtSuggestionClose: {
+    padding: 4,
+  },
+  cbtSuggestionText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    lineHeight: 20,
+    fontFamily: 'Inter',
+    marginBottom: 12,
+  },
+  cbtSuggestionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  cbtSuggestionActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
+    marginRight: 4,
+    fontFamily: 'Inter',
+  },
+  
+  // Disabled mission card stilleri
+  missionCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F9FAFB',
+  },
+  
+  // Disabled quick stat card stilleri
+  quickStatCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F9FAFB',
   },
 });

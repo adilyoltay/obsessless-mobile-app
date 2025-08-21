@@ -10,6 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useTranslation } from '@/hooks/useTranslation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,7 +19,6 @@ import * as Haptics from 'expo-haptics';
 // Custom UI Components
 import FAB from '@/components/ui/FAB';
 import CompulsionQuickEntry from '@/components/forms/CompulsionQuickEntry';
-import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 import { Toast } from '@/components/ui/Toast';
 
 // Gamification
@@ -39,15 +39,10 @@ import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import VoiceMoodCheckin from '@/components/checkin/VoiceMoodCheckin';
-import deadLetterQueue from '@/services/sync/deadLetterQueue';
-import batchOptimizer from '@/services/sync/batchOptimizer';
-import performanceMetricsService from '@/services/telemetry/performanceMetricsService';
+// VoiceMoodCheckin removed - using unified voice from Today page
 
 // Kanonik kategori eşlemesi
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
-import dataStandardizer from '@/utils/dataStandardization';
-import enhancedAchievements from '@/services/enhancedAchievementService';
 
 interface CompulsionEntry {
   id: string;
@@ -59,9 +54,13 @@ interface CompulsionEntry {
   notes?: string;
 }
 
+import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
+
 export default function TrackingScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const params = useLocalSearchParams();
+  const router = useRouter();
   const { awardMicroReward, updateStreak } = useGamificationStore();
   const { submitCompulsion } = useStandardizedCompulsion(user?.id);
   
@@ -82,15 +81,6 @@ export default function TrackingScreen() {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
-  const [syncMetrics, setSyncMetrics] = useState({
-    deadLetterCount: 0,
-    recommendedBatch: 10,
-    successRate: 1,
-    avgResponseTime: 0,
-    conflictRate: 0,
-  });
-  const [deadLetters, setDeadLetters] = useState<any[]>([]);
-  const [dlExpanded, setDlExpanded] = useState(false);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -104,8 +94,31 @@ export default function TrackingScreen() {
   useEffect(() => {
     if (user?.id) {
       loadAllData();
+      // İlk yüklemede Supabase'den de çek
+      loadCompulsionsFromSupabase();
     }
   }, [user?.id]);
+
+  // Voice trigger'dan gelindiyse otomatik aç (pre-filled data ile)
+  // veya refresh parametresi gelirse listeyi yenile
+  useEffect(() => {
+    if (params.prefill === 'true') {
+      console.log('📝 Opening tracking form with pre-filled data:', params);
+      setShowQuickEntry(true);
+    }
+  }, [params.prefill]);
+  
+  // Refresh için ayrı useEffect - sadece bir kez çalışsın
+  useEffect(() => {
+    if (params.refresh || params.justSaved === 'true') {
+      console.log('🔄 Refreshing compulsions list after auto-save');
+      loadAllData();
+      loadCompulsionsFromSupabase();
+      
+      // Parametreleri temizle ki tekrar çalışmasın
+      router.setParams({ refresh: undefined, justSaved: undefined, highlight: undefined });
+    }
+  }, [params.refresh, params.justSaved]);
 
   useEffect(() => {
     setDisplayLimit(5);
@@ -227,6 +240,43 @@ export default function TrackingScreen() {
     return patterns;
   };
 
+  // Supabase'den compulsion'ları yükle ve AsyncStorage ile senkronize et
+  const loadCompulsionsFromSupabase = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('📊 Loading compulsions from Supabase...');
+      const compulsions = await supabaseService.getUserCompulsions(user.id, 100);
+      
+      if (compulsions && compulsions.length > 0) {
+        // AsyncStorage'a kaydet (offline cache)
+        const storageKey = StorageKeys.COMPULSIONS(user.id);
+        const formattedCompulsions = compulsions.map(c => ({
+          id: c.id,
+          type: c.subcategory || c.category,
+          resistanceLevel: c.resistance_level,
+          timestamp: new Date(c.timestamp),
+          trigger: c.trigger,
+          notes: c.notes,
+          synced: true,
+        }));
+        
+        await AsyncStorage.setItem(storageKey, JSON.stringify(formattedCompulsions));
+        console.log(`✅ Synced ${compulsions.length} compulsions from Supabase`);
+        
+        // State'i güncelle
+        const today = new Date();
+        const todayKey = today.toDateString();
+        const todayEntries = formattedCompulsions.filter(entry => 
+          new Date(entry.timestamp).toDateString() === todayKey
+        );
+        setTodayCompulsions(todayEntries);
+      }
+    } catch (error) {
+      console.error('❌ Error loading from Supabase:', error);
+    }
+  };
+
   const loadAllData = async () => {
     if (!user?.id) return;
     
@@ -287,38 +337,10 @@ export default function TrackingScreen() {
 
       // Load AI patterns after data loading
       await loadAIPatterns();
-      await loadSyncMetrics();
       
     } catch (error) {
       console.error('Error loading data:', error);
     }
-  };
-
-  const loadSyncMetrics = async () => {
-    try {
-      const stats = await deadLetterQueue.getStatistics();
-      const boStats = batchOptimizer.getStatistics();
-      setSyncMetrics({
-        deadLetterCount: stats.total,
-        recommendedBatch: boStats.recommendedBatchSize,
-        successRate: boStats.successRate,
-        avgResponseTime: boStats.avgResponseTime,
-        conflictRate: 0,
-      });
-      const items = await deadLetterQueue.list(20);
-      setDeadLetters(items);
-      // Persist daily metrics snapshot
-      try {
-        await performanceMetricsService.recordToday({
-          sync: {
-            deadLetters: stats.total,
-            recommendedBatch: boStats.recommendedBatchSize,
-            successRate: boStats.successRate,
-            avgResponseMs: boStats.avgResponseTime,
-          }
-        });
-      } catch {}
-    } catch {}
   };
 
   const onRefresh = async () => {
@@ -346,15 +368,17 @@ export default function TrackingScreen() {
       entries.push(newEntry);
       await AsyncStorage.setItem(storageKey, JSON.stringify(entries));
 
-      // Save to Supabase database (standardized)
+      // Save to Supabase database
       try {
-        await submitCompulsion({
-          type: mapToCanonicalCategory(compulsionData.type),
-          resistanceLevel: compulsionData.resistanceLevel,
-          trigger: compulsionData.trigger,
-          notes: compulsionData.notes,
+        await supabaseService.saveCompulsion({
+          user_id: user.id,
+          category: mapToCanonicalCategory(compulsionData.type), // kanonik kategori
+          subcategory: compulsionData.type, // orijinal değer etiket olarak
+          resistance_level: compulsionData.resistanceLevel,
+          trigger: compulsionData.trigger || '',
+          notes: compulsionData.notes || '',
         });
-        try { await enhancedAchievements.unlockAchievement(user.id, 'compulsion_recorded', 'compulsion_created', newEntry); } catch {}
+        console.log('✅ Compulsion saved to database');
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);
         // Continue with offline mode - data is already in AsyncStorage
@@ -519,48 +543,13 @@ export default function TrackingScreen() {
 
   const filteredCompulsions = getFilteredCompulsions();
 
-  function SevenDaySyncMiniChart() {
-    const [series, setSeries] = useState<{ date: string; success: number; latency: number; dq?: number }[]>([]);
-    useEffect(() => {
-      (async () => {
-        try {
-          const last = await performanceMetricsService.getLastNDays(7);
-          setSeries(last.map(d => ({ date: d.date, success: Math.round((d.sync.successRate || 0) * 100), latency: Math.round(d.sync.avgResponseMs || 0), dq: typeof d.ai?.dataQuality === 'number' ? d.ai?.dataQuality : undefined })));
-        } catch {}
-      })();
-    }, []);
-    if (series.length === 0) return null;
-    const maxLatency = Math.max(1, ...series.map(s => s.latency));
-    return (
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: '#6B7280', fontSize: 12 }}>Son 7 Gün Başarı ve Gecikme</Text>
-        {series.map((s) => (
-          <View key={s.date} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ width: 64, color: '#6B7280', fontSize: 12 }}>{s.date.slice(5)}</Text>
-            <View style={{ flex: 1, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-              <View style={{ width: `${s.success}%`, height: 6, backgroundColor: '#10B981', borderRadius: 4 }} />
-            </View>
-            <View style={{ width: 80, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-              <View style={{ width: `${Math.min(100, (s.latency / maxLatency) * 100)}%`, height: 6, backgroundColor: '#3B82F6', borderRadius: 4 }} />
-            </View>
-            {typeof s.dq === 'number' && (
-              <View style={{ width: 60, height: 6, backgroundColor: '#E5E7EB', borderRadius: 4 }}>
-                <View style={{ width: `${Math.round((s.dq || 0) * 100)}%`, height: 6, backgroundColor: '#8B5CF6', borderRadius: 4 }} />
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-    );
-  }
-
   return (
     <ScreenLayout>
       {/* Header - New Design */}
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
-          <Text style={styles.headerTitle}>OCD Tracking</Text>
+          <Text style={styles.headerTitle}>OCD Takibi</Text>
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
@@ -582,7 +571,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
-              Today
+              Bugün
             </Text>
             {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -594,7 +583,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
-              Week
+              Hafta
             </Text>
             {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -606,7 +595,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
-              Month
+              Ay
             </Text>
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -633,19 +622,12 @@ export default function TrackingScreen() {
           })}
         </Text>
 
-        {/* Summary Stats Card */}
+        {/* Summary Stats Card - Simplified */}
         <View style={styles.weekStatsCard}>
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? "Today's Stats" : 
-                 selectedTimeRange === 'week' ? "This Week's Stats" : 
-                 "This Month's Stats"}
-              </Text>
-              <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Your daily summary' : 
-                 selectedTimeRange === 'week' ? 'Your weekly summary' : 
-                 'Your monthly summary'}
+                Özet
               </Text>
             </View>
             {stats.weekCount > 0 && (
@@ -658,30 +640,29 @@ export default function TrackingScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.count}</Text>
-              <Text style={styles.statLabel}>Total Recordings</Text>
+              <Text style={styles.statLabel}>Kayıt</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {stats.avgResistance > 0 ? `${stats.avgResistance}/10` : '0/10'}
+                {stats.avgResistance > 0 ? `${stats.avgResistance}` : '0'}
               </Text>
-              <Text style={styles.statLabel}>Avg. Resistance</Text>
+              <Text style={styles.statLabel}>Direnç</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{calculateProgress()}%</Text>
-              <Text style={styles.statLabel}>Progress</Text>
+              <Text style={styles.statLabel}>İlerleme</Text>
             </View>
           </View>
         </View>
 
-        {/* Voice Mood Check-in (moved below Today's Stats) */}
-        <VoiceMoodCheckin />
+
 
         {/* AI Pattern Recognition & Insights */}
         {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
           <View style={styles.aiSection}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-              <Text style={styles.aiSectionTitle}>AI Analizleri</Text>
+              <Text style={styles.sectionHeaderTitle}>AI Analizleri</Text>
               {isLoadingAI && (
                 <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
               )}
@@ -736,31 +717,13 @@ export default function TrackingScreen() {
           </View>
         )}
 
-        {/* Sync performans kartını son kullanıcıda gizle; yalnızca anomali varsa kısa uyarı göster */}
-        {(syncMetrics.deadLetterCount > 0 || syncMetrics.successRate < 0.95) && (
-          <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FEE2E2', borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="sync-alert" size={18} color="#DC2626" />
-            <Text style={{ marginLeft: 8, color: '#991B1B' }}>
-              Senkron uyarısı: Kuyruk {syncMetrics.deadLetterCount} • Başarı {Math.round(syncMetrics.successRate*100)}% — Ayrıntılar Ayarlar {'>'} Tanılama içinde.
-            </Text>
-          </View>
-        )}
-
-        {/* Today's Recordings - New Design */}
+        {/* Recordings List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? "Today's Recordings" : 
-             selectedTimeRange === 'week' ? "This Week's Recordings" : 
-             "This Month's Recordings"}
-          </Text>
 
           {filteredCompulsions.length === 0 ? (
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>No recordings yet</Text>
-              <Text style={styles.emptySubtext}>
-                Tap the + button below to add your first recording
-              </Text>
+              <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={40} color="#E5E7EB" />
+              <Text style={styles.emptyText}>Henüz kayıt yok</Text>
             </View>
           ) : (
             <View style={styles.recordingsContainer}>
@@ -771,35 +734,42 @@ export default function TrackingScreen() {
                 
                 return (
                   <View key={compulsion.id} style={styles.recordingCard}>
-                    <View style={styles.recordingContent}>
-                      <View style={styles.recordingHeader}>
+                    <View style={styles.recordingHeader}>
+                      <View style={styles.recordingLeft}>
+                        <Text style={styles.recordingCategory}>
+                          {t('categoriesCanonical.' + mapToCanonicalCategory(compulsion.type), category?.name || 'Other')}
+                        </Text>
                         <Text style={styles.recordingTime}>
                           {new Date(compulsion.timestamp).toLocaleTimeString('en-US', { 
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true
-                          }).toUpperCase()} - {t('categoriesCanonical.' + mapToCanonicalCategory(compulsion.type), category?.name || 'Other')}
-                        </Text>
-                        <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
-                          {compulsion.resistanceLevel}/10
+                          })}
                         </Text>
                       </View>
-                      {compulsion.notes && (
-                        <Text style={styles.recordingNotes}>
-                          Notes: {compulsion.notes}
-                        </Text>
-                      )}
+                      <View style={styles.recordingRight}>
+                        <View style={[styles.resistanceBadge, { backgroundColor: resistanceColor + '20' }]}>
+                          <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
+                            {compulsion.resistanceLevel}/10
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            deleteEntry(compulsion.id);
+                          }}
+                          style={styles.deleteIcon}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <MaterialCommunityIcons name="close-circle" size={20} color="#D1D5DB" />
+                        </Pressable>
+                      </View>
                     </View>
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        deleteEntry(compulsion.id);
-                      }}
-                      style={styles.deleteIcon}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <MaterialCommunityIcons name="delete-outline" size={20} color="#6B7280" />
-                    </Pressable>
+                    {compulsion.notes && (
+                      <Text style={styles.recordingNotes}>
+                        {compulsion.notes}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
@@ -816,7 +786,7 @@ export default function TrackingScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Text style={styles.showMoreText}>Show More</Text>
+                <Text style={styles.showMoreText}>Daha fazla</Text>
               </Pressable>
             </View>
           )}
@@ -835,6 +805,10 @@ export default function TrackingScreen() {
         visible={showQuickEntry}
         onDismiss={() => setShowQuickEntry(false)}
         onSubmit={handleCompulsionSubmit}
+        initialCategory={params.category as string}
+        initialText={params.text as string}
+        initialResistance={params.resistanceLevel ? Number(params.resistanceLevel) : undefined}
+        initialTrigger={params.trigger as string}
       />
 
       {/* Toast */}
@@ -1083,44 +1057,60 @@ const styles = StyleSheet.create({
   },
   recordingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  recordingContent: {
-    flex: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   recordingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  recordingTime: {
+  recordingLeft: {
+    flex: 1,
+  },
+  recordingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordingCategory: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: '#111827',
     fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  recordingTime: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  resistanceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   resistanceScore: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     fontFamily: 'Inter',
   },
   recordingNotes: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#4B5563',
     fontFamily: 'Inter',
-    marginTop: 4,
+    marginTop: 12,
+    lineHeight: 20,
   },
   deleteIcon: {
-    padding: 8,
-    marginLeft: 8,
+    padding: 4,
   },
   // Old style kept for compatibility
   compulsionCard: {
@@ -1224,8 +1214,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  // sectionTitle defined earlier; use aiSectionTitle here
-  aiSectionTitle: {
+  sectionHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',

@@ -15,6 +15,7 @@ import supabaseService, { BreathSessionDB } from '@/services/supabase';
 type BreathworkProProps = {
   protocol?: 'box' | '478' | 'paced';
   totalDurationMs?: number; // session target duration for progress bar
+  autoStart?: boolean; // otomatik başlatma için
 };
 
 function BreathingVisualization({ label, instruction, scale, circleSize, ring1, ring2 }: { label: string; instruction: string; scale: Animated.SharedValue<number>; circleSize: number; ring1: number; ring2: number }) {
@@ -40,7 +41,7 @@ function formatTime(ms: number) {
   return `${mm}:${ss}`;
 }
 
-export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_000 }: BreathworkProProps) {
+export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_000, autoStart = false }: BreathworkProProps) {
   const { user } = useAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -115,6 +116,25 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
       handleFinish();
     }
   }, [elapsedMs, running, TOTAL_MS]);
+
+  // Auto-start desteği
+  useEffect(() => {
+    if (autoStart && playerRef.current && !running) {
+      // Küçük bir gecikme ile başlat (kullanıcının hazırlanması için)
+      const timer = setTimeout(() => {
+        console.log('🌬️ Auto-starting breathwork session...');
+        // Direkt player API'sini kullan
+        const api = playerRef.current;
+        if (api) {
+          setElapsedMs(0);
+          api.start();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart]);
 
   const handleStartPause = async () => {
     const api = playerRef.current;

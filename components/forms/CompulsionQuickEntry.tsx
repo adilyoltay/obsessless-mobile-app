@@ -22,11 +22,16 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
+import { ERPIllustrations } from '@/components/illustrations/ERPIllustrations';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (entry: any) => void;
+  initialCategory?: string;
+  initialText?: string;
+  initialResistance?: number;
+  initialTrigger?: string;
 }
 
 const { width } = Dimensions.get('window');
@@ -37,6 +42,10 @@ export function CompulsionQuickEntry({
   visible,
   onDismiss,
   onSubmit,
+  initialCategory,
+  initialText,
+  initialResistance,
+  initialTrigger,
 }: CompulsionQuickEntryProps) {
   const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('');
@@ -52,10 +61,27 @@ export function CompulsionQuickEntry({
 
   useEffect(() => {
     if (visible) {
-      loadSmartData();
+      // Pre-fill with initial values if provided
+      if (initialCategory) {
+        setSelectedType(initialCategory);
+      }
+      if (initialText) {
+        const combinedNotes = initialTrigger 
+          ? `${initialText}\n\nTetikleyici: ${initialTrigger}`
+          : initialText;
+        setNotes(combinedNotes);
+      }
+      if (initialResistance !== undefined) {
+        setResistanceLevel(initialResistance);
+      }
+      
+      // Load smart data if no initial values
+      if (!initialCategory) {
+        loadSmartData();
+      }
       awardMicroReward('compulsion_quick_entry');
     }
-  }, [visible]);
+  }, [visible, initialCategory, initialText, initialResistance, initialTrigger]);
 
   useEffect(() => {
     if (!visible) {
@@ -260,15 +286,31 @@ export function CompulsionQuickEntry({
                   ]}
                   onPress={() => handleTypeSelect(id)}
                 >
-                  <View style={[
-                    styles.categoryIcon,
-                    isSelected && styles.categoryIconSelected
-                  ]}>
-                    <MaterialCommunityIcons
-                      name={getCanonicalCategoryIconName(id) as any}
-                      size={24}
-                      color={getCanonicalCategoryColor(id)}
-                    />
+                  <View style={styles.categoryIconContainer}>
+                    {(() => {
+                      const IllustrationComponent = ERPIllustrations[id];
+                      if (IllustrationComponent) {
+                        return (
+                          <IllustrationComponent 
+                            size={60}
+                            selected={isSelected}
+                          />
+                        );
+                      }
+                      // Fallback to icon if no illustration
+                      return (
+                        <View style={[
+                          styles.categoryIcon,
+                          isSelected && styles.categoryIconSelected
+                        ]}>
+                          <MaterialCommunityIcons
+                            name={getCanonicalCategoryIconName(id) as any}
+                            size={24}
+                            color={getCanonicalCategoryColor(id)}
+                          />
+                        </View>
+                      );
+                    })()}
                   </View>
                   <Text style={[
                     styles.categoryName,
@@ -471,6 +513,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
+  },
+  categoryIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   categoryIcon: {
     width: 44,

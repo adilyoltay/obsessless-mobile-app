@@ -142,11 +142,12 @@ class ExternalAIService {
   private rateLimiter: Map<AIProvider, { count: number; resetTime: number }> = new Map();
 
   // Cache & Rate Limiting
+  // DISABLED for CoreAnalysisService v1 - resultCache is now the source of truth
   private cacheConfig: CacheConfig = {
-    enabled: true,
-    ttlMs: 10 * 60 * 1000, // 10 minutes
+    enabled: false, // Disabled - using CoreAnalysisService resultCache instead
+    ttlMs: 0, // TTL set to 0
     maxSize: 100,
-    useStorage: true
+    useStorage: false
   };
   private rateLimitConfig: RateLimitConfig = {
     enabled: true,

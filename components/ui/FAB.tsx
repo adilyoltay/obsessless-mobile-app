@@ -17,6 +17,7 @@ interface FABProps {
   style?: ViewStyle;
   testID?: string;
   position?: 'fixed' | 'relative';
+  backgroundColor?: string;
 }
 
 // FAB için responsive pozisyon hesaplama
@@ -38,6 +39,7 @@ export const FAB: React.FC<FABProps> = ({
   style,
   testID = 'fab-button',
   position = 'fixed',
+  backgroundColor = '#10B981',
 }) => {
   const handlePress = async () => {
     // Hafif haptic feedback - ObsessLess tasarım prensiplerine uygun
@@ -55,6 +57,7 @@ export const FAB: React.FC<FABProps> = ({
           width: size,
           height: size,
           borderRadius: size / 2,
+          backgroundColor: backgroundColor,
         },
         position === 'fixed' && {
           position: 'absolute',
@@ -67,8 +70,8 @@ export const FAB: React.FC<FABProps> = ({
       activeOpacity={0.8}
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel="Hızlı kompulsiyon kaydı"
-      accessibilityHint="Kompulsiyon kaydı formunu açar"
+      accessibilityLabel="Hızlı kayıt ekle"
+      accessibilityHint="Hızlı kayıt formunu açar"
     >
       <View style={styles.iconContainer}>
         <MaterialCommunityIcons

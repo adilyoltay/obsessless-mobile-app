@@ -1,5 +1,44 @@
 # 📝 ObsessLess - Changelog
 
+## [3.1.0] - 2025-08-20 🌬️
+
+### 🌬️ **Breathwork v2.0: Akıllı Tetikleme Sistemi**
+
+#### **Yeni Özellikler**
+- **Contextual Tetikleme**: Doğru zamanda, doğru protokolle nefes önerileri
+  - Check-in analizi sonucu otomatik yönlendirme
+  - ERP sırasında anksiyete eşiği (≥7) tetiklemesi
+  - Today ekranında zaman tabanlı öneriler (sabah/akşam)
+  - Kompulsiyon sonrası toparlanma nefesi
+
+- **Akıllı Protokol Seçimi**:
+  - 4-7-8: Yüksek anksiyete (≥7) veya uyku öncesi
+  - Box (4-4-4-4): Normal durumlar
+  - Paced (6-6): Toparlanma için
+
+- **JITAI/Adaptive Interventions Entegrasyonu**:
+  - Risk faktörlerine göre otomatik öneri
+  - Rate limiting ve snooze özellikleri
+  - Telemetri ve effectiveness tracking
+
+- **Kullanıcı Kontrolü**:
+  - AutoStart (1.5sn gecikme ile)
+  - Snooze (15dk ertele)
+  - Dismiss (kapat)
+
+#### **UI/UX İyileştirmeleri**
+- **BreathworkSuggestionCard**: Gradient tasarımlı öneri kartı
+- **Inline BottomSheet**: ERP içinde kesintisiz nefes deneyimi
+- **Toast bildirimleri**: Kullanıcı bilgilendirme
+
+#### **Teknik İyileştirmeler**
+- URL parametreleri ile protokol ve autoStart desteği
+- Kaynak takibi (checkin, ERP, suggestion, mission, vb.)
+- moodTracker.getLastMoodEntry() metodu eklendi
+- Import hataları düzeltildi
+- handleStart hatası düzeltildi (autoStart için player API kullanımı)
+- Bottom tab'dan kaldırıldı (href: null ile gizlendi)
+
 ## [3.0.0] - 2025-01-01 🎉
 
 ### 🚀 **MAJOR RELEASE: Production-Ready AI System**

@@ -23,29 +23,48 @@ Notlar:
 
 ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarlanmış bir **"dijital sığınak"** uygulamasıdır. Kullanıcının OKB'nin getirdiği fırtınalı anlarda sığındığı, onu yargılamadan dinleyen, kanıta dayalı yöntemlerle güçlendiren ve kontrolü tekrar kendi eline almasına yardımcı olan dijital bir yol arkadaşıdır.
 
+## 🚀 Son Güncellemeler (Ocak 2025)
+
+### ✨ Yeni Özellikler
+- **🎤 Unified Voice Analysis**: Merkezi ses analizi sistemi (Gemini API)
+- **🧠 CBT Düşünce Kaydı**: 4-adımlı bilişsel terapi formu
+- **🎨 Master Prompt Uyumlu Tasarım**: Sakinlik, güç, zahmetsizlik ilkeleri
+- **📱 BottomSheet Standardizasyonu**: Tutarlı kullanıcı deneyimi
+- **⚡ Otomatik Yönlendirme**: Ses analizi ile akıllı sayfa yönlendirmesi
+
 ## 🎯 Temel Özellikler
 
-### 🏛️ **4 Temel Yetenek**
+### 🏛️ **5 Ana Modül**
 
-1. **📋 Güvenli Tanışma ve Akıllı Kişiselleştirme**
-   - 5 adımlı onboarding süreci
-   - Y-BOCS Lite değerlendirmesi
-   - Kişiselleştirilmiş hedef belirleme
+1. **🎤 Akıllı Ses Analizi (YENİ)**
+   - Merkezi ses girişi (Today screen)
+   - AI destekli tip tespiti (Mood/CBT/OCD/ERP/Breathwork)
+   - Otomatik sayfa yönlendirmesi
+   - Heuristik fallback sistemi
 
-2. **⚡ Yargısız & Anlık Kompulsiyon Kaydı**
-   - FAB butonuyla hızlı erişim (< 15 saniye)
-   - Grid layout ile kategori seçimi
+2. **🧠 CBT Düşünce Kaydı (YENİ)**
+   - 4-adımlı terapötik form
+   - AI destekli çarpıtma analizi
+   - Yeniden çerçeveleme önerileri
+   - Offline-first veri saklama
+
+3. **📋 OCD Takip Sistemi**
+   - Kompulsiyon kaydı ve analizi
    - Direnç seviyesi takibi
+   - Pattern recognition
+   - İstatistiksel insights
 
-3. **🛡️ Kontrollü & Güvenli Yüzleşme (ERP)**
-   - Rehberli maruz kalma egzersizleri
+4. **🛡️ ERP Egzersizleri**
+   - Rehberli maruz kalma
+   - AI destekli egzersiz önerileri
    - Gerçek zamanlı anksiyete takibi
-   - Güvenli çıkış seçenekleri
+   - Güvenli çıkış protokolleri
 
-4. **🏆 Anlamlı Oyunlaştırma ve Motivasyon**
-   - Healing Points sistemi
-   - Günlük seri takibi (Streak)
-   - Terapötik kilometre taşları
+5. **🌬️ Nefes Egzersizleri**
+   - Guided breathing sessions
+   - Çeşitli teknikler (4-7-8, Box Breathing)
+   - Progress tracking
+   - Ses analizi entegrasyonu
 
 ## 🛠️ Teknoloji Stack
 
@@ -57,6 +76,7 @@ ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarla
 - **Animations:** React Native Reanimated + Lottie
 - **UI Components:** Custom components following Master Prompt principles
 - **AI Provider:** Gemini-only (AI Chat devre dışı, Crisis Detection kaldırıldı)
+- **AI Architecture:** CoreAnalysisService v1 (Single-entry point, LLM gating, Multi-layer cache)
 
 ## 🎨 Tasarım İlkeleri
 

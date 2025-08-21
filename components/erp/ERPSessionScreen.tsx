@@ -179,6 +179,35 @@ export default function ERPSessionScreen({
     }
   }, [isActive, elapsedTime, targetDuration, showCompletion, user?.id]);
 
+  // Anksiyete eşiğine göre nefes egzersizi önerisi
+  const ANXIETY_THRESHOLD = 7; // Kişiselleştirilebilir eşik
+  const hasShownBreathworkRef = useRef(false);
+  
+  useEffect(() => {
+    // ERP aktifken ve anksiyete yüksekse nefes egzersizi öner
+    if (isActive && currentAnxiety >= ANXIETY_THRESHOLD && !showBreath && !hasShownBreathworkRef.current) {
+      console.log('🌬️ High anxiety detected during ERP, suggesting breathwork...');
+      
+      // Kullanıcıya öneriyi göster (3 saniye sonra otomatik aç)
+      const timer = setTimeout(() => {
+        if (isActive && currentAnxiety >= ANXIETY_THRESHOLD) {
+          setShowBreath(true);
+          hasShownBreathworkRef.current = true;
+          
+          // Haptic feedback
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Anksiyete düştüğünde flag'i resetle
+    if (currentAnxiety < ANXIETY_THRESHOLD - 2) {
+      hasShownBreathworkRef.current = false;
+    }
+  }, [isActive, currentAnxiety, showBreath]);
+
   useEffect(() => {
     // Rotate calming messages
     const messageInterval = setInterval(() => {

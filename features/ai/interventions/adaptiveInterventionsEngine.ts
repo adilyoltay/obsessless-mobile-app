@@ -361,6 +361,20 @@ class AdaptiveInterventionsEngineImpl {
   ): Promise<InterventionRecommendation[]> {
     const recommendations: InterventionRecommendation[] = [];
     
+    // 🌬️ Check for breathwork triggers
+    if (this.shouldSuggestBreathwork(situation)) {
+      const breathworkIntervention = await this.createBreathworkIntervention(situation);
+      if (breathworkIntervention) {
+        recommendations.push({
+          intervention: breathworkIntervention,
+          relevanceScore: 0.9, // High priority for breathwork
+          reasoning: this.getBreathworkReasoning(situation),
+          alternativeOptions: [],
+          timing: 'immediate'
+        });
+      }
+    }
+    
     // Get relevant interventions from library
     const relevantInterventions = Array.from(this.interventionLibrary.values())
       .filter(intervention => {
@@ -753,6 +767,116 @@ class AdaptiveInterventionsEngineImpl {
     }
     
     return recommendations;
+  }
+
+  /**
+   * 🌬️ Check if breathwork should be suggested
+   */
+  private shouldSuggestBreathwork(situation: any): boolean {
+    // High anxiety or stress
+    if (situation.riskFactors.includes('low_mood') || 
+        situation.riskFactors.includes('recent_compulsion')) {
+      return true;
+    }
+    
+    // Late night usage - suggest calming breathwork
+    if (situation.riskFactors.includes('late_night_usage')) {
+      return true;
+    }
+    
+    // Overall risk is medium or high
+    if (situation.overallRisk === 'medium' || situation.overallRisk === 'high') {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🌬️ Create breathwork intervention
+   */
+  private async createBreathworkIntervention(situation: any): Promise<any> {
+    const protocol = this.selectBreathworkProtocol(situation);
+    
+    return {
+      id: `breathwork_${Date.now()}`,
+      type: 'breathwork',
+      title: '🌬️ Nefes Egzersizi',
+      description: this.getBreathworkDescription(protocol),
+      protocol,
+      duration: 60, // seconds
+      urgency: situation.overallRisk === 'high' ? 'high' : 'medium',
+      delivery: 'inline_modal',
+      metadata: {
+        trigger: this.getBreathworkTrigger(situation),
+        autoStart: true
+      }
+    };
+  }
+
+  /**
+   * 🌬️ Select appropriate breathwork protocol
+   */
+  private selectBreathworkProtocol(situation: any): string {
+    // High anxiety - use 4-7-8
+    if (situation.overallRisk === 'high' || 
+        situation.riskFactors.includes('recent_compulsion')) {
+      return '478';
+    }
+    
+    // Late night - use 4-7-8 for sleep
+    if (situation.riskFactors.includes('late_night_usage')) {
+      return '478';
+    }
+    
+    // Default to box breathing
+    return 'box';
+  }
+
+  /**
+   * 🌬️ Get breathwork description
+   */
+  private getBreathworkDescription(protocol: string): string {
+    switch (protocol) {
+      case '478':
+        return '4-7-8 nefesi ile derin rahatlama sağlayın';
+      case 'paced':
+        return 'Tempolu nefes ile dengeyi bulun';
+      default:
+        return 'Box breathing ile sakinleşin';
+    }
+  }
+
+  /**
+   * 🌬️ Get breathwork trigger type
+   */
+  private getBreathworkTrigger(situation: any): string {
+    if (situation.riskFactors.includes('recent_compulsion')) {
+      return 'post_compulsion';
+    }
+    if (situation.riskFactors.includes('late_night_usage')) {
+      return 'evening';
+    }
+    if (situation.riskFactors.includes('low_mood')) {
+      return 'high_anxiety';
+    }
+    return 'general';
+  }
+
+  /**
+   * 🌬️ Get breathwork reasoning
+   */
+  private getBreathworkReasoning(situation: any): string {
+    if (situation.riskFactors.includes('recent_compulsion')) {
+      return 'Kompulsiyondan sonra toparlanmak için nefes egzersizi öneriyoruz';
+    }
+    if (situation.riskFactors.includes('late_night_usage')) {
+      return 'Uyku öncesi rahatlamak için nefes egzersizi faydalı olabilir';
+    }
+    if (situation.riskFactors.includes('low_mood')) {
+      return 'Ruh halinizi dengelemek için nefes egzersizi deneyin';
+    }
+    return 'Şu an için kısa bir nefes molası iyi gelebilir';
   }
 
   /**

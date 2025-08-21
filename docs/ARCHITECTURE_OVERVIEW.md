@@ -21,8 +21,17 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Mood Check‑in, ERP önerileri, Telemetry, Content Filtering
+- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, ERP önerileri, Telemetry, Content Filtering, **CoreAnalysisService v1 (YENİ)**
 - Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
+
+### 🚀 CoreAnalysisService v1 (YENİ - Ocak 2025)
+- **Single-entry point architecture**: Tüm AI analizleri tek noktadan
+- **Smart LLM gating**: Heuristik güven skoruna göre LLM kullanım kararı (%40-50 maliyet azaltımı)
+- **Multi-layer caching**: TTL tabanlı önbellekleme (1h/12h/24h)
+- **Progressive UI**: <500ms immediate insights, <3s deep analysis
+- **Batch jobs**: Günlük trend analizi, mood smoothing, risk updates (03:05 Europe/Istanbul)
+- **Idempotent operations**: content_hash ile duplicate önleme
+- **Full telemetry**: Cache hit/miss, gating decisions, performance metrics
   
 Güncel yönlendirme:
 - Onboarding giriş rotası: `/(auth)/onboarding` (eski `/(auth)/ai-onboarding` kaldırıldı)
@@ -46,11 +55,14 @@ Notlar:
   - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.
   - `treatmentPlanningEngine` öneri zamanı: `optimalTiming.recommendedTime` kullanımı; `optimizeTreatmentTiming` gerekli `currentContext.userState`’i sağlar.
 - Voice
-  - `VoiceInterface` ses katmanını `voiceRecognitionService` üzerinden kullanır; doğrudan `expo-av` import edilmez. Feature flag koşulu render aşamasında uygulanır.
+  - LLM‑öncelikli unifiedVoiceAnalysis (Gemini 1.5 Flash), hata/kapalı durumda heuristik fallback.
+  - `voice_checkins` kayıtları `sanitizePII(text)` ve `created_at` ile Supabase’e yazılır; offline kuyruğa aynı temizlikle eklenir.
+  - AutoRecord: kullanıcı tercihi (autoRecordEnabled) dikkate alınır; idempotency + UI guard ile çift kayıt önlenir; OCD/CBT/Mood/ERP için çevrimdışı mapping sağlanır.
+  - Breathwork yönlendirmesi: anksiyete seviyesine göre 4‑7‑8 veya box; `autoStart` parametresi ile başlatılır.
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
   - Mood Tracking: günlük anahtar `mood_entries_{userId}_{YYYY-MM-DD}`; history ekranı son 14 günü okur
-  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`; DLQ (`services/sync/deadLetterQueue.ts`) ve dinamik batch optimizer; `services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback)
+  - OfflineSync: özet metrikler `last_sync_summary`; batch `syncWithConflictResolution(batchSize)`; DLQ (`services/sync/deadLetterQueue.ts`) ve dinamik batch optimizer; `services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback). CrossDeviceSync yalnızca `!synced && !id` kayıtları yükler ve tüm metin alanlarına sanitizePII uygular.
  - Progress Analytics (sınırlı)
   - Bağımsız servis yok; coordinator doğrudan çağırmaz. Trend + temel pattern özetleri Insights v2 tarafından üretilir.
 - Test Altyapısı
@@ -67,6 +79,7 @@ Notlar:
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
 - ERP Oturumu: UI → Zustand (timer/anxiety, UUID id) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca; başarısızsa OfflineSync kuyruğu) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
 - Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
+- Breathwork: Contextual tetikleme → Protokol seçimi (anksiyete tabanlı) → AutoStart → Telemetry
 
 ## Kategori ve Tür Standartları
 - OCD Kategorileri (kanonik): contamination, checking, symmetry, mental, hoarding, other
@@ -82,5 +95,14 @@ Notlar:
 - Gerçek AI cevapları için geçerli API anahtarı gerekir
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
 
+## 📚 İlgili Dokümanlar
+
+- **[Kritik Geliştirme Planı 2025](./CRITICAL_IMPROVEMENTS_PLAN_2025.md)** 🚨 - Tespit edilen kritik hatalar ve acil çözüm planı
+- [AI Sistemi Genel Bakış](./AI_OVERVIEW.md) - AI özellikleri ve entegrasyonları
+- [UX Tasarım Rehberi](./UX_DESIGN_GUIDE.md) - Tasarım prensipleri ve UI standartları
+- [Feature Status Matrix](./FEATURE_STATUS_MATRIX.md) - Özellik durumları ve versiyonlar
+- [Development Roadmap 2025](./DEVELOPMENT_ROADMAP_2025.md) - Genel geliştirme yol haritası
+- [Güvenlik Rehberi](./security-guide.md) - Güvenlik ve gizlilik prensipleri
+
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX)
+Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX, Breathwork v2.0 akıllı tetikleme)

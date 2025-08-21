@@ -484,13 +484,15 @@ export function AIProvider({ children }: AIProviderProps) {
         }
       }
 
-      // Onboarding flag fallbacks
-      if (!completed) {
-        const aiCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${userId}`);
-        if (aiCompleted === 'true') completed = true;
-        if (!completed) {
-          const legacyCompleted = await AsyncStorage.getItem(`onboarding_completed_${userId}`);
-          if (legacyCompleted === 'true') completed = true;
+      // Onboarding flag - prioritize AsyncStorage (most up-to-date)
+      // Check AsyncStorage first since it gets updated immediately on completion
+      const aiCompleted = await AsyncStorage.getItem(`ai_onboarding_completed_${userId}`);
+      if (aiCompleted === 'true') {
+        completed = true;
+      } else {
+        const legacyCompleted = await AsyncStorage.getItem(`onboarding_completed_${userId}`);
+        if (legacyCompleted === 'true') {
+          completed = true;
         }
       }
       setHasCompletedOnboarding(completed);
