@@ -20,8 +20,10 @@ BEGIN
     ON voice_checkins (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
-    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_created 
-    ON voice_checkins (user_id, created_at);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'voice_checkins' AND column_name = 'created_at') THEN
+      CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_created 
+      ON voice_checkins (user_id, created_at);
+    END IF;
   END IF;
 END $$;
 
@@ -43,8 +45,10 @@ BEGIN
     ON thought_records (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
-    CREATE INDEX IF NOT EXISTS idx_thought_records_user_created 
-    ON thought_records (user_id, created_at);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'thought_records' AND column_name = 'created_at') THEN
+      CREATE INDEX IF NOT EXISTS idx_thought_records_user_created 
+      ON thought_records (user_id, created_at);
+    END IF;
   END IF;
 END $$;
 
@@ -75,8 +79,10 @@ BEGIN
     ON erp_sessions (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_created 
-    ON erp_sessions (user_id, created_at);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
+      CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_created 
+      ON erp_sessions (user_id, created_at);
+    END IF;
   END IF;
 END $$;
 
@@ -107,8 +113,10 @@ BEGIN
     ON mood_entries (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
-    CREATE INDEX IF NOT EXISTS idx_mood_entries_user_created 
-    ON mood_entries (user_id, created_at);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mood_entries' AND column_name = 'created_at') THEN
+      CREATE INDEX IF NOT EXISTS idx_mood_entries_user_created 
+      ON mood_entries (user_id, created_at);
+    END IF;
   END IF;
 END $$;
 
@@ -139,8 +147,10 @@ BEGIN
     ON compulsion_records (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
-    CREATE INDEX IF NOT EXISTS idx_compulsion_records_user_created 
-    ON compulsion_records (user_id, created_at);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'compulsion_records' AND column_name = 'created_at') THEN
+      CREATE INDEX IF NOT EXISTS idx_compulsion_records_user_created 
+      ON compulsion_records (user_id, created_at);
+    END IF;
   END IF;
 END $$;
 
@@ -259,10 +269,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply trigger to tables (only if they exist and trigger doesn't exist)
+-- Apply trigger to tables (only if they exist, have content_hash column, and trigger doesn't exist)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') 
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'voice_checkins' AND column_name = 'content_hash')
      AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'voice_checkins_content_hash_trigger') THEN
     CREATE TRIGGER voice_checkins_content_hash_trigger
     BEFORE INSERT OR UPDATE ON voice_checkins
@@ -271,6 +282,7 @@ BEGIN
   END IF;
   
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'thought_records' AND column_name = 'content_hash')
      AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'thought_records_content_hash_trigger') THEN
     CREATE TRIGGER thought_records_content_hash_trigger
     BEFORE INSERT OR UPDATE ON thought_records
@@ -279,6 +291,7 @@ BEGIN
   END IF;
   
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'content_hash')
      AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'erp_sessions_content_hash_trigger') THEN
     CREATE TRIGGER erp_sessions_content_hash_trigger
     BEFORE INSERT OR UPDATE ON erp_sessions
@@ -341,21 +354,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 12. Create indexes for performance optimization (only if tables exist)
+-- 12. Create indexes for performance optimization (only if tables exist and have created_at column)
 DO $$ 
 BEGIN
   -- Index for finding recent entries by user
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') 
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'voice_checkins' AND column_name = 'created_at') THEN
     CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_recent 
     ON voice_checkins (user_id, created_at DESC);
   END IF;
   
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'thought_records' AND column_name = 'created_at') THEN
     CREATE INDEX IF NOT EXISTS idx_thought_records_user_recent 
     ON thought_records (user_id, created_at DESC);
   END IF;
   
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
     CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_recent 
     ON erp_sessions (user_id, created_at DESC);
     
