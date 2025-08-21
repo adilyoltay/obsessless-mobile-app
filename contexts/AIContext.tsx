@@ -24,7 +24,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // AI Services - Sprint Integration
 import { aiManager } from '@/features/ai/config/aiManager';
-import { insightsCoordinator } from '@/features/ai/coordinators/insightsCoordinator';
+// import { insightsCoordinator } from '@/features/ai/coordinators/insightsCoordinator'; // DEPRECATED - moved to UnifiedAIPipeline
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import contextIntelligenceEngine from '@/features/ai/context/contextIntelligence';
 import adaptiveInterventionsEngine from '@/features/ai/interventions/adaptiveInterventions';
 
@@ -171,7 +172,11 @@ export function AIProvider({ children }: AIProviderProps) {
         {
           name: 'AI_INSIGHTS',
           enabled: FEATURE_FLAGS.isEnabled('AI_INSIGHTS'),
-          task: async () => await insightsCoordinator.initialize()
+          task: async () => {
+            // Insights now handled by UnifiedAIPipeline
+            console.log('✅ Insights handled by UnifiedAIPipeline');
+            return true;
+          }
         },
         {
           name: 'AI_CONTEXT_INTELLIGENCE',
@@ -250,16 +255,18 @@ export function AIProvider({ children }: AIProviderProps) {
           name: 'AI_PATTERN_RECOGNITION_V2',
           enabled: FEATURE_FLAGS.isEnabled('AI_PATTERN_RECOGNITION_V2'),
           task: async () => {
-            const { patternRecognitionV2 } = await import('@/features/ai/services/patternRecognitionV2');
-            await patternRecognitionV2.initialize();
+            // Pattern Recognition now handled by UnifiedAIPipeline
+            console.log('✅ Pattern Recognition handled by UnifiedAIPipeline');
+            return true;
           }
         },
         {
           name: 'AI_SMART_NOTIFICATIONS',
           enabled: FEATURE_FLAGS.isEnabled('AI_SMART_NOTIFICATIONS'),
           task: async () => {
-            const { smartNotificationService } = await import('@/features/ai/services/smartNotifications');
-            await smartNotificationService.initialize();
+            // Smart Notifications now handled by UnifiedAIPipeline
+            console.log('✅ Smart Notifications handled by UnifiedAIPipeline');
+            return true;
           }
         },
         {
@@ -804,14 +811,29 @@ export function AIProvider({ children }: AIProviderProps) {
         }];
       }
 
-      // Prefer enriched insights if method exists
-      if (insightsCoordinator && typeof (insightsCoordinator as any).generateDailyInsightsWithData === "function") {
-        const insights = await (insightsCoordinator as any).generateDailyInsightsWithData(
-          user.id,
-          userProfile as any,
-          behavioralData,
-          'standard'
-        );
+      // Use UnifiedAIPipeline for insights generation
+      if (unifiedPipeline) {
+        const result = await unifiedPipeline.process({
+          userId: user.id,
+          content: behavioralData || {},
+          type: 'data',
+          context: {
+            source: 'today',
+            timestamp: Date.now(),
+            metadata: { userProfile }
+          }
+        });
+        
+        // Convert unified result to insights format
+        const insights = [];
+        if (result.insights) {
+          if (result.insights.therapeutic) {
+            insights.push(...result.insights.therapeutic);
+          }
+          if (result.insights.progress) {
+            insights.push(...result.insights.progress);
+          }
+        }
         
         // Cache successful insights
         if (insights && insights.length > 0) {
@@ -863,20 +885,15 @@ export function AIProvider({ children }: AIProviderProps) {
         }
         return insights || [];
       } else {
-        if (__DEV__) console.warn("⚠️ Insights Coordinator generateDailyInsights not available");
-        // Try legacy path
-        if (typeof insightsCoordinator.generateDailyInsights === 'function') {
-          const insights = await insightsCoordinator.generateDailyInsights(user.id, userProfile as any);
-          if (insights && insights.length > 0) {
-            try {
-              await AsyncStorage.setItem(`ai_cached_insights_${safeStorageKey(user.id)}`, JSON.stringify({ insights, timestamp: Date.now() }));
-            } catch (cacheError) {
-              if (__DEV__) console.warn('⚠️ Failed to cache insights:', cacheError);
-            }
+        if (__DEV__) console.warn("⚠️ UnifiedAIPipeline not available");
+        // Try to load from cache as fallback
+        try {
+          const cached = await AsyncStorage.getItem(`ai_cached_insights_${safeStorageKey(user.id)}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            return parsed.insights || [];
           }
-          lastInsightsRef.current = Date.now();
-          return insights || [];
-        }
+        } catch {}
         return [];
       }
       })();

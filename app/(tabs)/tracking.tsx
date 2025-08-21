@@ -35,7 +35,8 @@ import supabaseService from '@/services/supabase';
 // AI Integration - Pattern Recognition & Insights
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV2';
+// import { patternRecognitionV2 } from '@/features/ai/services/patternRecognitionV2'; // DEPRECATED - moved to UnifiedAIPipeline
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
