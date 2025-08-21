@@ -15,6 +15,15 @@ CREATE TABLE IF NOT EXISTS voice_checkins (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add missing columns if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+    ALTER TABLE voice_checkins ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE voice_checkins ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+END $$;
+
 -- Enable RLS on voice_checkins
 ALTER TABLE voice_checkins ENABLE ROW LEVEL SECURITY;
 
@@ -32,12 +41,19 @@ BEGIN
   END IF;
 END $$;
 
--- Create basic indexes
-CREATE INDEX IF NOT EXISTS idx_voice_checkins_user 
-ON voice_checkins (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_voice_checkins_created 
-ON voice_checkins (created_at DESC);
+-- Create basic indexes (check if columns exist first)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'voice_checkins' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user 
+    ON voice_checkins (user_id);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'voice_checkins' AND column_name = 'created_at') THEN
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_created 
+    ON voice_checkins (created_at DESC);
+  END IF;
+END $$;
 
 -- 2. Create thought_records table if it doesn't exist
 CREATE TABLE IF NOT EXISTS thought_records (
@@ -56,6 +72,15 @@ CREATE TABLE IF NOT EXISTS thought_records (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add missing columns if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records') THEN
+    ALTER TABLE thought_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE thought_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+END $$;
+
 -- Enable RLS on thought_records
 ALTER TABLE thought_records ENABLE ROW LEVEL SECURITY;
 
@@ -73,12 +98,19 @@ BEGIN
   END IF;
 END $$;
 
--- Create basic indexes
-CREATE INDEX IF NOT EXISTS idx_thought_records_user 
-ON thought_records (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_thought_records_created 
-ON thought_records (created_at DESC);
+-- Create basic indexes (check if columns exist first)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'thought_records' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_thought_records_user 
+    ON thought_records (user_id);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'thought_records' AND column_name = 'created_at') THEN
+    CREATE INDEX IF NOT EXISTS idx_thought_records_created 
+    ON thought_records (created_at DESC);
+  END IF;
+END $$;
 
 -- 3. Create erp_sessions table if it doesn't exist
 CREATE TABLE IF NOT EXISTS erp_sessions (
@@ -93,6 +125,15 @@ CREATE TABLE IF NOT EXISTS erp_sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+    ALTER TABLE erp_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE erp_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+END $$;
 
 -- Enable RLS on erp_sessions
 ALTER TABLE erp_sessions ENABLE ROW LEVEL SECURITY;
@@ -111,12 +152,19 @@ BEGIN
   END IF;
 END $$;
 
--- Create basic indexes
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_user 
-ON erp_sessions (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_created 
-ON erp_sessions (created_at DESC);
+-- Create basic indexes (check if columns exist first)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user 
+    ON erp_sessions (user_id);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_created 
+    ON erp_sessions (created_at DESC);
+  END IF;
+END $$;
 
 -- 4. Create mood_entries table if it doesn't exist
 CREATE TABLE IF NOT EXISTS mood_entries (
@@ -128,6 +176,15 @@ CREATE TABLE IF NOT EXISTS mood_entries (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mood_entries') THEN
+    ALTER TABLE mood_entries ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE mood_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+END $$;
 
 -- Enable RLS on mood_entries
 ALTER TABLE mood_entries ENABLE ROW LEVEL SECURITY;
@@ -146,12 +203,19 @@ BEGIN
   END IF;
 END $$;
 
--- Create basic indexes
-CREATE INDEX IF NOT EXISTS idx_mood_entries_user 
-ON mood_entries (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_mood_entries_created 
-ON mood_entries (created_at DESC);
+-- Create basic indexes (check if columns exist first)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mood_entries' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_mood_entries_user 
+    ON mood_entries (user_id);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mood_entries' AND column_name = 'created_at') THEN
+    CREATE INDEX IF NOT EXISTS idx_mood_entries_created 
+    ON mood_entries (created_at DESC);
+  END IF;
+END $$;
 
 -- 5. Create compulsion_records table if it doesn't exist
 CREATE TABLE IF NOT EXISTS compulsion_records (
@@ -165,6 +229,15 @@ CREATE TABLE IF NOT EXISTS compulsion_records (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add missing columns if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'compulsion_records') THEN
+    ALTER TABLE compulsion_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE compulsion_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+END $$;
 
 -- Enable RLS on compulsion_records
 ALTER TABLE compulsion_records ENABLE ROW LEVEL SECURITY;
@@ -183,12 +256,19 @@ BEGIN
   END IF;
 END $$;
 
--- Create basic indexes
-CREATE INDEX IF NOT EXISTS idx_compulsion_records_user 
-ON compulsion_records (user_id);
-
-CREATE INDEX IF NOT EXISTS idx_compulsion_records_created 
-ON compulsion_records (created_at DESC);
+-- Create basic indexes (check if columns exist first)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'compulsion_records' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_compulsion_records_user 
+    ON compulsion_records (user_id);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'compulsion_records' AND column_name = 'created_at') THEN
+    CREATE INDEX IF NOT EXISTS idx_compulsion_records_created 
+    ON compulsion_records (created_at DESC);
+  END IF;
+END $$;
 
 -- 6. Add updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
