@@ -17,6 +17,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Constants from 'expo-constants';
+import { trackCacheEvent, trackGatingDecision, trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 
 // =============================================================================
 // 🎯 TYPE DEFINITIONS
@@ -263,6 +264,8 @@ class CoreAnalysisService implements ICoreAnalysisService {
       const cached = await this.getCached(cacheKey);
       if (cached) {
         this.stats.cacheHits++;
+        // Track cache hit
+        await trackCacheEvent(true, cacheKey, input.userId);
         return {
           ...cached,
           source: 'cache',
@@ -272,6 +275,9 @@ class CoreAnalysisService implements ICoreAnalysisService {
           },
         };
       }
+      
+      // Track cache miss
+      await trackCacheEvent(false, cacheKey, input.userId);
 
       // Normalize and preprocess input
       const normalized = this.normalizeInput(input);
@@ -281,6 +287,12 @@ class CoreAnalysisService implements ICoreAnalysisService {
         const isDuplicate = await this.similarityDedup.checkDuplicate(normalized.content);
         if (isDuplicate) {
           console.log('🔁 Duplicate request detected, returning cached result');
+          // Track similarity dedup hit
+          await trackAIInteraction(AIEventType.SIMILARITY_DEDUP_HIT, {
+            userId: input.userId,
+            cacheKey,
+            content: normalized.content.substring(0, 100), // First 100 chars only
+          });
           // Return a generic result for duplicates
           return this.createGenericResult(input, cacheKey, startTime);
         }
@@ -291,6 +303,18 @@ class CoreAnalysisService implements ICoreAnalysisService {
 
       // Determine if LLM is needed
       const shouldUseLLM = this.shouldUseLLM(heuristicResult, normalized);
+      
+      // Track gating decision
+      await trackGatingDecision(
+        shouldUseLLM ? 'allow' : 'block',
+        shouldUseLLM ? 'Low confidence or complex input' : 'High confidence heuristic',
+        {
+          userId: input.userId,
+          quickClass: heuristicResult.quickClass,
+          confidence: heuristicResult.confidence,
+          textLength: normalized.content.length,
+        }
+      );
 
       let finalResult: AnalysisResult;
 

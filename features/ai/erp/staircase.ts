@@ -17,6 +17,7 @@
 
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trackERPStaircase } from '../telemetry/aiTelemetry';
 
 // =============================================================================
 // 🔧 CONFIGURATION
