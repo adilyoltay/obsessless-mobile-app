@@ -10,6 +10,12 @@ import {
 } from '@/types/gamification';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
+import { 
+  dynamicGamificationService, 
+  DynamicPointsCalculation, 
+  DynamicMission 
+} from '@/features/ai/services/dynamicGamificationService';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Achievement definitions based on documentation
 const ACHIEVEMENTS: AchievementDefinition[] = [
@@ -168,6 +174,8 @@ interface GamificationState {
   profile: UserGamificationProfile;
   achievements: AchievementDefinition[];
   lastMicroReward?: MicroReward;
+  lastPointsCalculation?: DynamicPointsCalculation;
+  currentMissions: DynamicMission[];
   isLoading: boolean;
   currentUserId?: string;
   
@@ -177,6 +185,13 @@ interface GamificationState {
   updateStreak: () => Promise<void>;
   checkAchievements: (type: 'compulsion' | 'erp', data?: any) => Promise<AchievementDefinition[]>;
   awardMicroReward: (trigger: MicroRewardTrigger) => Promise<void>;
+  
+  // Dynamic Gamification (NEW - Week 2)
+  awardDynamicPoints: (action: string, context?: any) => Promise<DynamicPointsCalculation>;
+  generateDailyMissions: () => Promise<DynamicMission[]>;
+  updateMissionProgress: (missionId: string, increment?: number) => Promise<boolean>;
+  getMissionsForToday: () => DynamicMission[];
+  
   getStreakInfo: () => StreakInfo;
   saveProfile: () => Promise<void>;
 }
@@ -193,6 +208,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
   },
   achievements: ACHIEVEMENTS,
   lastMicroReward: undefined,
+  lastPointsCalculation: undefined,
+  currentMissions: [],
   isLoading: true,
   currentUserId: undefined,
 
@@ -441,4 +458,151 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       console.error('Failed to save gamification profile:', error);
     }
   },
+
+  // =============================================================================
+  // DYNAMIC GAMIFICATION METHODS (Week 2)
+  // =============================================================================
+
+  awardDynamicPoints: async (action: string, context: any = {}) => {
+    const { currentUserId } = get();
+    if (!currentUserId) {
+      console.warn('No userId to award dynamic points.');
+      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['No user ID'] } as DynamicPointsCalculation;
+    }
+
+    if (!FEATURE_FLAGS.isEnabled('AI_DYNAMIC_GAMIFICATION')) {
+      // Fall back to static micro reward system
+      const staticReward = MICRO_REWARDS[action as MicroRewardTrigger];
+      if (staticReward) {
+        await get().awardMicroReward(action as MicroRewardTrigger);
+        return {
+          basePoints: staticReward.points,
+          contextMultipliers: {
+            difficultyBonus: 1, streakMultiplier: 1, progressBonus: 1,
+            timingBonus: 1, consistencyBonus: 1, achievementMultiplier: 1
+          },
+          totalPoints: staticReward.points,
+          reasoning: [`Static reward: ${staticReward.points} points`]
+        };
+      }
+      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['Feature disabled'] } as DynamicPointsCalculation;
+    }
+
+    try {
+      const pointsCalculation = await dynamicGamificationService.awardDynamicPoints(
+        currentUserId,
+        action,
+        context
+      );
+
+      // Update local state with calculation
+      set({ lastPointsCalculation: pointsCalculation });
+
+      // Update profile with new points (service already updated storage)
+      const { profile } = get();
+      set({
+        profile: {
+          ...profile,
+          healingPointsToday: profile.healingPointsToday + pointsCalculation.totalPoints,
+          healingPointsTotal: profile.healingPointsTotal + pointsCalculation.totalPoints
+        }
+      });
+
+      // Haptic feedback based on points earned
+      if (pointsCalculation.totalPoints >= 50) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+
+      return pointsCalculation;
+    } catch (error) {
+      console.error('Dynamic points award failed:', error);
+      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['Error occurred'] } as DynamicPointsCalculation;
+    }
+  },
+
+  generateDailyMissions: async () => {
+    const { currentUserId } = get();
+    if (!currentUserId) {
+      console.warn('No userId to generate daily missions.');
+      return [];
+    }
+
+    if (!FEATURE_FLAGS.isEnabled('AI_DYNAMIC_MISSIONS')) {
+      return [];
+    }
+
+    try {
+      const missions = await dynamicGamificationService.generateDailyMissions(currentUserId);
+      
+      // Update local state with missions
+      set({ currentMissions: missions });
+
+      return missions;
+    } catch (error) {
+      console.error('Daily mission generation failed:', error);
+      return [];
+    }
+  },
+
+  updateMissionProgress: async (missionId: string, increment: number = 1) => {
+    const { currentUserId, currentMissions } = get();
+    if (!currentUserId) {
+      console.warn('No userId to update mission progress.');
+      return false;
+    }
+
+    try {
+      const success = await dynamicGamificationService.updateMissionProgress(
+        currentUserId,
+        missionId,
+        increment
+      );
+
+      if (success) {
+        // Update local missions state
+        const updatedMissions = currentMissions.map(mission => {
+          if (mission.id === missionId) {
+            const newProgress = mission.currentProgress + increment;
+            
+            // Check if mission is completed
+            if (newProgress >= mission.targetValue) {
+              // Mission completed - remove from current missions
+              return null;
+            } else {
+              return { ...mission, currentProgress: newProgress };
+            }
+          }
+          return mission;
+        }).filter(Boolean) as DynamicMission[];
+
+        set({ currentMissions: updatedMissions });
+
+        // Check if mission was completed (for haptic feedback)
+        const mission = currentMissions.find(m => m.id === missionId);
+        if (mission && mission.currentProgress + increment >= mission.targetValue) {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Mission progress update failed:', error);
+      return false;
+    }
+  },
+
+  getMissionsForToday: () => {
+    const { currentMissions } = get();
+    const today = new Date().toISOString().split('T')[0];
+    
+    return currentMissions.filter(mission => {
+      const missionDate = new Date(mission.metadata.generatedAt).toISOString().split('T')[0];
+      return missionDate === today && mission.expiresAt > Date.now();
+    });
+  },
+
 })); 

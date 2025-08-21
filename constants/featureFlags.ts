@@ -111,11 +111,18 @@ const featureFlagState: Record<string, boolean> = {
   
   // 🎯 Unified AI Pipeline flags (NEW - Jan 2025)
   AI_UNIFIED_PIPELINE: false, // Master toggle for unified pipeline (default: off)
-  AI_UNIFIED_PIPELINE_PERCENTAGE: 10, // Gradual rollout percentage (10% initial)
+  AI_UNIFIED_PIPELINE_PERCENTAGE: 25, // Gradual rollout percentage (25% as per documentation)
   AI_UNIFIED_VOICE: true, // Voice module in pipeline
   AI_UNIFIED_PATTERNS: true, // Pattern recognition in pipeline
   AI_UNIFIED_INSIGHTS: true, // Insights generation in pipeline
   AI_UNIFIED_CBT: true, // CBT analysis in pipeline
+  
+  // 🌬️ Breathwork Suggestions (NEW - Week 2)
+  AI_BREATHWORK_SUGGESTIONS: true, // AI-powered breathwork recommendations
+  
+  // 🎮 Dynamic Gamification (NEW - Week 2)
+  AI_DYNAMIC_GAMIFICATION: true, // Context-based dynamic points calculation
+  AI_DYNAMIC_MISSIONS: true, // AI-generated daily missions
   
   // 🔀 LLM Flags (aliases → AI master)
   LLM_ROUTER: AI_MASTER_ENABLED,

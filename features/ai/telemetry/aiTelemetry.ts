@@ -249,6 +249,14 @@ export enum AIEventType {
   BREATHWORK_SUGGESTION_ACCEPTED = 'breathwork_suggestion_accepted',
   BREATHWORK_SESSION_COMPLETED = 'breathwork_session_completed',
   
+  // Dynamic Gamification events (NEW - Week 2)
+  GAMIFICATION_DYNAMIC_POINTS_AWARDED = 'gamification_dynamic_points_awarded',
+  GAMIFICATION_MISSIONS_GENERATED = 'gamification_missions_generated',
+  GAMIFICATION_MISSION_COMPLETED = 'gamification_mission_completed',
+  GAMIFICATION_LEVEL_UP = 'gamification_level_up',
+  GAMIFICATION_STREAK_MILESTONE = 'gamification_streak_milestone',
+  GAMIFICATION_ADAPTATION_UPDATED = 'gamification_adaptation_updated',
+  
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
