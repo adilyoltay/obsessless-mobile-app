@@ -266,7 +266,7 @@ class MoodTrackingService {
           });
           
           const intelligentMergeService = new IntelligentMoodMergeService();
-          const mergeResult = await intelligentMergeService.mergeMoodEntries(localEntries, remoteEntries);
+          const mergeResult = await intelligentMergeService.intelligentMoodMerge(userId, localEntries, remoteEntries);
           
           console.log('✅ Intelligent merge completed:', {
             totalEntries: mergeResult.mergedEntries.length,
