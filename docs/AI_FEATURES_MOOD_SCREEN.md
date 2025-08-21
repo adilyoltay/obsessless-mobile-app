@@ -22,11 +22,8 @@ Today Screen'deki ses analizi, kullanıcının duygusal durumunu tespit ettiğin
 ### 🤖 **AI Analiz Süreci:**
 ```mermaid
 graph LR
-    A[🎤 "Bugün çok keyifsizim..."] --> B{🎲 Rollout Check}
-    B -->|25%| C[🚀 UnifiedAIPipeline]
-    B -->|75%| D[📊 Legacy Mood]
-    C --> E[🧠 CoreAnalysisService]
-    E --> F{🚪 LLM Gating?}
+    A[🎤 "Bugün çok keyifsizim..."] --> C[🚀 UnifiedAIPipeline ONLY]
+    C --> F{🚪 LLM Gating?}
     F -->|Allow| G[🌐 Gemini API]
     F -->|Block| H[⚡ Heuristic Sentiment]
     G --> I{📊 Sentiment Analysis}

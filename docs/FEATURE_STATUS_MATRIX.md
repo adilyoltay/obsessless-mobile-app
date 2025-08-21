@@ -19,8 +19,8 @@
 
 | Özellik | Durum | Versiyon | Not |
 |---|---|---|---|
-| **CoreAnalysisService** | ✅ Aktif | v1.0 | Single-entry AI, LLM gating (-%70 API), Token budget (20K/day), Similarity dedup, Multi-layer cache (24h/12h/1h TTL), Progressive UI (300ms/3s) |
-| **Unified AI Pipeline** | 🔄 Rollout | v1.0 | Voice + Pattern + Insights + CBT birleşik, 24h cache, Gradual rollout %10→%100 |
+| **UnifiedAIPipeline** | ✅ Aktif | v1.0 | Single-entry AI, LLM gating (-%70 API), Token budget (20K/day), Similarity dedup, Multi-layer cache (24h/12h/1h TTL), Progressive UI (<500ms/3s), Voice + Pattern + Insights + CBT birleşik |
+| **CoreAnalysisService** | ❌ Deprecated | v1.0 | Replaced by UnifiedAIPipeline, removed from codebase |
 | **Insights v2** | ✅ Aktif | v2.0 | Data Aggregation ile öncelik/zamanlama |
 | **Pattern Recognition v2** | ✅ Aktif | v2.0 | AI-assisted analiz |
 | **Smart Notifications** | ✅ Aktif | v2.0 | Kriz içeriği kaldırıldı |

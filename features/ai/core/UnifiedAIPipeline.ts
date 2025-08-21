@@ -2115,7 +2115,7 @@ export class UnifiedAIPipeline {
             type: 'preventive',
             priority: 5,
             action: 'Haftalık mood tracking pattern analizi yapın',
-            reason: 'Trend'inizi anlayarak proaktif adımlar atabilirsiniz',
+            reason: 'Trendinizi anlayarak proaktif adımlar atabilirsiniz',
             effectivenessProbability: 0.65
           });
           break;

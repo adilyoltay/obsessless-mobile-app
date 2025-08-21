@@ -20,6 +20,17 @@ rules:
   - rule: "UI bileşenleri, `react-native-paper` gibi harici kütüphaneler yerine, projenin kendi tasarım sistemine uygun özel bileşenler (`custom components`) olarak oluşturulmalıdır. Stil için `StyleSheet.create` kullanılacaktır."
   - rule: "Offline-first yaklaşımı benimsenecektir. Kritik veriler (yeni kayıtlar, oturumlar) önce AsyncStorage'a yazılmalı, ardından Supabase ile senkronize edilmelidir."
   - rule: "AI altyapısını ve özelikleri içeren herhangi bir geliştirme ve düzeltme yapılacağız zaman öncelikle mevcut koda tabanı ve önceki geliştirmeler incelenecek kod tekrarı olmaması önemli"
+  
+  # 2.1. UnifiedAIPipeline Mimarisi - KESİN KURALLARI (Ocak 2025)
+  # Bu kurallar ASLA ihlal edilmemelidir ve tüm AI işlemleri için zorunludur.
+  - rule: "🚀 TEK GİRİŞ NOKTASI: Tüm AI analizleri SADECE 'unifiedPipeline.process()' üzerinden yapılmalıdır. CoreAnalysisService, coreAnalysisService.analyze(), veya herhangi başka AI servisi direkt kullanılmamalıdır."
+  - rule: "📝 PIPELINE INPUT FORMAT: Tüm unifiedPipeline.process() çağrıları şu formatta olmalıdır: { userId: string, content: string|object, type: 'voice'|'data'|'mixed', context: { source: 'today'|'mood'|'tracking'|'erp'|'cbt', timestamp?: number, metadata?: object } }"
+  - rule: "🔄 CACHE YÖNETİMİ: UnifiedAIPipeline'ın built-in cache'i kullanılmalıdır. Manuel cache yönetimi (AsyncStorage, coreAnalysisService.getCached vb.) YASAKTIR."
+  - rule: "📊 TELEMETRY: Tüm AI işlemleri için trackAIInteraction ile uygun telemetry events (UNIFIED_PIPELINE_STARTED, UNIFIED_PIPELINE_COMPLETED, UNIFIED_PIPELINE_ERROR) kullanılmalıdır."
+  - rule: "⚡ PROGRESSVE UI: AI işlemleri Progressive UI pattern ile yapılmalıdır: immediate response (heuristic) + background deep analysis (LLM)."
+  - rule: "🚨 ERROR HANDLING: unifiedPipeline.process() çağrıları try-catch ile sarılmalı ve fallback mekanizmaları eklenmelidir. Kullanıcı asla başarısız AI analizi yüzünden işlevsellik kaybetmemelidir."
+  - rule: "📖 DOKÜMANTASYONa: Yeni AI özellikleri geliştirilirken ilgili dokümanlarda (AI_FEATURES_*.md, ARCHITECTURE_OVERVIEW.md) UnifiedAIPipeline referansları güncellenmeli, CoreAnalysisService referansları kaldırılmalıdır."
+  - rule: "🧪 TEST PRİORİTESİ: AI işlemleri test edilirken UnifiedAIPipeline.process() mock'lanmalı ve çeşitli input/output senaryoları test edilmelidir."
 
   # 3. Kod Kalitesi ve Standartlar
   # Bu kurallar, kodun tutarlı, okunabilir ve sürdürülebilir olmasını sağlar.

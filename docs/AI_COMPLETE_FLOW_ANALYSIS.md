@@ -1,13 +1,13 @@
 # 🧠 ObsessLess AI ve Analiz Sistemlerinin Tam Akış Analizi
 
-> **Son Güncelleme**: Ocak 2025 - CoreAnalysisService v1 Entegrasyonu
+> **Son Güncelleme**: Ocak 2025 - UnifiedAIPipeline v1.0 Migration
 
 ## 📋 Yönetici Özeti
 
-ObsessLess uygulaması, **CoreAnalysisService v1** ile konsolide edilmiş AI mimarisi sunuyor. Önceki **15+ AI modülü** ve **30+ analiz algoritması** yerine, tek giriş noktası ve akıllı yönlendirme ile performans ve kullanıcı deneyimi optimize edildi.
+ObsessLess uygulaması, **UnifiedAIPipeline v1.0** ile konsolide edilmiş AI mimarisi sunuyor. Önceki **15+ AI modülü** ve **30+ analiz algoritması** yerine, tek giriş noktası ve akıllı yönlendirme ile performans ve kullanıcı deneyimi optimize edildi.
 
-### ✅ Yapılan İyileştirmeler (CoreAnalysisService v1):
-- **Tek Giriş Noktası**: Tüm AI analizleri `CoreAnalysisService` üzerinden
+### ✅ Yapılan İyileştirmeler (UnifiedAIPipeline v1.0):
+- **Tek Giriş Noktası**: Tüm AI analizleri `unifiedPipeline.process()` üzerinden
 - **LLM Gating**: Gereksiz API çağrılarını %70 azaltan akıllı filtreleme
 - **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token) ve rate limiting
 - **Similarity Dedup**: Tekrarlayan istekleri önleyen deduplication
@@ -28,12 +28,12 @@ ObsessLess uygulaması, **CoreAnalysisService v1** ile konsolide edilmiş AI mim
 ```
 AIManager (aiManager.ts)
 ├── Phased Initialization (4 aşamalı başlatma)
-│   ├── Phase 0: CoreAnalysisService + Daily Jobs (YENİ)
+│   ├── Phase 0: UnifiedAIPipeline + Daily Jobs (GÜNCEL)
 │   ├── Phase 1: External AI, CBT Engine, Therapeutic Prompts
 │   ├── Phase 2: Insights v2, Pattern Recognition v2
 │   └── Phase 3: Smart Notifications, JITAI
 ├── Feature Flag Management
-│   ├── AI_CORE_ANALYSIS (CoreAnalysisService aktif/pasif)
+│   ├── AI_UNIFIED_PIPELINE (UnifiedAIPipeline aktif/pasif)
 │   ├── AI_LLM_GATING (LLM filtreleme)
 │   ├── AI_PROGRESSIVE (Progressive UI)
 │   ├── AI_ONBOARDING_REFINE (Skeleton→Refine)
@@ -85,7 +85,7 @@ graph TB
     BREATH --> STORE
 ```
 
-## 🚀 CoreAnalysisService v1 Özellikleri
+## 🚀 UnifiedAIPipeline v1.0 Özellikleri
 
 ### 🎯 Tek Giriş Noktası
 ```typescript
@@ -510,7 +510,7 @@ ERP: STAIRCASE_ADJUSTMENT (+1/-1 difficulty)
 
 ---
 
-*Bu doküman, CoreAnalysisService v1 implementasyonu sonrası güncellenmiştir (Ocak 2025). Yapılan optimizasyonlar ve performans iyileştirmeleri başarıyla uygulanmıştır.*
+*Bu doküman, UnifiedAIPipeline v1.0 migration sonrası güncellenmiştir (Ocak 2025). CoreAnalysisService'ten UnifiedAIPipeline'a geçiş tamamlanmış ve tek giriş noktası mimarisi başarıyla uygulanmıştır.*
 
 ## 🔗 İlgili Dokümanlar
 - [AI Overview](./AI_OVERVIEW.md) - Genel AI mimarisi

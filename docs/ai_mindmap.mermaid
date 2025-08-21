@@ -2,19 +2,19 @@ graph TB
     subgraph "🧠 AI ANALYSIS ECOSYSTEM - January 2025 (Unified Pipeline)"
         UNIFIED_PIPELINE["🚀 Unified AI Pipeline<br/>Voice+Pattern+Insights+CBT<br/>✅ <500ms response"]
         
-        CORE_ANALYSIS["🎯 CoreAnalysisService v1<br/>Single Entry Point<br/>✅ 300ms response"]
+        UNIFIED_PIPELINE_CORE["🚀 UnifiedAIPipeline v1.0<br/>Single Entry Point<br/>✅ <500ms response"]
         
-        CORE_ANALYSIS --> |"Cache Check"| CACHE["💾 Multi-layer Cache<br/>TTL: 24h/12h/1h"]
-        CORE_ANALYSIS --> |"Dedup Check"| DEDUP["🔁 Similarity Dedup<br/>60 min window"]
-        CORE_ANALYSIS --> |"LLM Gating"| GATING["🔒 LLM Gating<br/>Smart filtering"]
-        CORE_ANALYSIS --> |"Budget Check"| BUDGET["💰 Token Budget<br/>20K daily/user"]
+        UNIFIED_PIPELINE_CORE --> |"Cache Check"| CACHE["💾 Multi-layer Cache<br/>TTL: 24h/12h/1h"]
+        UNIFIED_PIPELINE_CORE --> |"Dedup Check"| DEDUP["🔁 Similarity Dedup<br/>60 min window"]
+        UNIFIED_PIPELINE_CORE --> |"LLM Gating"| GATING["🔒 LLM Gating<br/>Smart filtering"]
+        UNIFIED_PIPELINE_CORE --> |"Budget Check"| BUDGET["💰 Token Budget<br/>20K daily/user"]
         
         GATING --> |"High Confidence"| HEURISTIC["⚡ Heuristic<br/>Immediate result"]
         GATING --> |"Low Confidence"| LLM["🤖 Gemini API<br/>Deep analysis"]
         
-        AI_CONTEXT["🎯 AI Context<br/>Merkezi Yönetim<br/>✅ Phase 0: CoreAnalysis"]
+        AI_CONTEXT["🎯 AI Context<br/>Merkezi Yönetim<br/>✅ Phase 0: UnifiedPipeline"]
         
-        AI_CONTEXT --> CORE_ANALYSIS
+        AI_CONTEXT --> UNIFIED_PIPELINE_CORE
         AI_CONTEXT --> INSIGHTS_COORD["📊 Insights Coordinator<br/>Orchestration Hub"]
         
         INSIGHTS_COORD --> |"Cache-first"| PATTERN_REC["🔍 Pattern Recognition v2<br/>AI-Assisted Only"]
@@ -101,7 +101,7 @@ graph TB
         end
         
         subgraph "🚀 Status Summary & Performance"
-            STATUS["✅ CoreAnalysisService: ACTIVE v1<br/>✅ LLM Gating: %70 API reduction<br/>✅ Progressive UI: 300ms → 3s<br/>✅ Cache Hit Rate: %45<br/>✅ Token Savings: %60<br/>❌ AI Chat: DISABLED<br/>❌ Crisis: REMOVED<br/>🔒 Art Therapy: Disabled<br/><br/>✅ PERFORMANS İYİLEŞTİRMELERİ:<br/>• İlk yanıt: 300ms (was 3-5s)<br/>• API çağrıları: -%70<br/>• Token tasarrufu: %60<br/>• Alakalı insights: %50+"]
+            STATUS["✅ UnifiedAIPipeline: ACTIVE v1.0<br/>✅ LLM Gating: %70 API reduction<br/>✅ Progressive UI: <500ms → 3s<br/>✅ Cache Hit Rate: %45<br/>✅ Token Savings: %60<br/>❌ AI Chat: DISABLED<br/>❌ Crisis: REMOVED<br/>🔒 Art Therapy: Disabled<br/>❌ CoreAnalysisService: DEPRECATED<br/><br/>✅ PERFORMANS İYİLEŞTİRMELERİ:<br/>• İlk yanıt: <500ms (was 3-5s)<br/>• API çağrıları: -%70<br/>• Token tasarrufu: %60<br/>• Alakalı insights: %50+<br/>• Tek giriş noktası: 100% unified"]
         end
     end
     

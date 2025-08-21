@@ -22,13 +22,10 @@ Today Screen'deki **"Check-in"** butonu, kullanıcının sesli olarak günlük d
 ### 🤖 **AI Analiz Süreci:**
 ```mermaid
 graph LR
-    A[🎤 Sesli Giriş] --> B{🎲 Gradual Rollout?}
-    B -->|25% Users| C[🚀 UnifiedAIPipeline]
-    B -->|75% Users| D[📊 Legacy Analysis]
-    C --> E[🧠 CoreAnalysisService]
-    E --> F{🚪 LLM Gating?}
-    F -->|Allow| G[🌐 Gemini API]
-    F -->|Block| H[⚡ Heuristic Analysis]
+    A[🎤 Sesli Giriş] --> B[🚀 UnifiedAIPipeline ONLY]
+    B --> C{🚪 LLM Gating?}
+    C -->|Allow| G[🌐 Gemini API]
+    C -->|Block| H[⚡ Heuristic Analysis]
     G --> I[📊 Category Detection]
     H --> I
     I --> J1[🎭 MOOD] 
@@ -80,13 +77,11 @@ Kullanıcının son 7-30 günlük verilerini analiz ederek kişiselleştirilmiş
 ### 🔄 **Unified AI Pipeline Süreci:**
 ```mermaid
 graph TB
-    A[👤 User Opens Today] --> B{🎲 shouldUseUnifiedPipeline?}
-    B -->|25% Yes| C[🚀 UnifiedAIPipeline.process()]
-    B -->|75% No| D[📊 Legacy Services]
+    A[👤 User Opens Today] --> C[🚀 UnifiedAIPipeline.process() ONLY]
     
     C --> E{💾 Unified Cache Check}
     E -->|Hit| F[⚡ <500ms Response]
-    E -->|Miss| G[🧠 CoreAnalysisService]
+    E -->|Miss| G[🚀 UnifiedAIPipeline]
     
     G --> H[🚪 LLM Gating Check]
     H --> I[📊 4 Parallel Modules]

@@ -22,11 +22,8 @@ Today Screen'deki ses analizi, kullanıcının düşünce kalıplarını tespit 
 ### 🤖 **AI Analiz Süreci:**
 ```mermaid
 graph LR
-    A[🎤 "Hep kötü şeyler olacak..."] --> B{🎲 Rollout Check}
-    B -->|25%| C[🚀 UnifiedAIPipeline]
-    B -->|75%| D[📊 Legacy CBT]
-    C --> E[🧠 CoreAnalysisService]
-    E --> F{🚪 LLM Gating?}
+    A[🎤 "Hep kötü şeyler olacak..."] --> C[🚀 UnifiedAIPipeline ONLY]
+    C --> F{🚪 LLM Gating?}
     F -->|Allow| G[🌐 Gemini API]
     F -->|Block| H[⚡ Heuristic CBT]
     G --> I{📊 CBT Pattern Detection}

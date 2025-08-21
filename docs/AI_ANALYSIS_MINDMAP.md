@@ -1,18 +1,18 @@
-# 🧠 AI Tabanlı Analizlerin Mantıksal Akış Mind Map'i - Ocak 2025 (CoreAnalysisService v1)
+# 🧠 AI Tabanlı Analizlerin Mantıksal Akış Mind Map'i - Ocak 2025 (UnifiedAIPipeline v1.0)
 
-> **✅ Çözüm Uygulandı**: CoreAnalysisService v1 ile aşırı analiz yükü çözüldü. Tek giriş noktası, LLM gating ve multi-layer cache ile %70 API azalması sağlandı.
+> **✅ Çözüm Uygulandı**: UnifiedAIPipeline v1.0 ile aşırı analiz yükü çözüldü. Tek giriş noktası, LLM gating ve multi-layer cache ile %70 API azalması sağlandı.
 > Detaylı analiz için bkz: [AI_COMPLETE_FLOW_ANALYSIS.md](./AI_COMPLETE_FLOW_ANALYSIS.md)
 
 ## 🎯 AI Context (Merkezi Yönetim Katmanı)
  - **Görev**: Tüm AI servislerinin merkezi yönetimi ve koordinasyonu
  - **Başlatma Sırası (Phased)**:
-   0) **CoreAnalysisService + Daily Jobs** (~500ms) ✨ YENİ
+   0) **UnifiedAIPipeline + Daily Jobs** (~500ms) ✨ GÜNCEL
    1) Kritik ve bağımsız servisler: External AI, CBT Engine, Therapeutic Prompts (~1-2s)
    2) Bağımlı servisler: Insights Engine v2, Pattern Recognition v2 (~2-3s)
    3) Koordinatörler: Smart Notifications (~500ms)
  - **Toplam Başlatma Süresi**: ~~3-5 saniye~~ → 300ms (Progressive UI ile)
 
-## 🚀 CoreAnalysisService v1 (Single Entry Point) ✨ YENİ
+## 🚀 UnifiedAIPipeline v1.0 (Single Entry Point) ✨ GÜNCEL
 - **Görev**: Tüm AI analizleri için tek giriş noktası
 - **Özellikler**:
   - **LLM Gating**: Heuristic confidence'a göre LLM kullanım kararı
@@ -33,7 +33,7 @@
 - **Performans**: %80 daha az API çağrısı, %85 daha hızlı yanıt
 
 ### 📊 Insights Coordinator (Orchestration Hub)
-- **Görev**: CoreAnalysisService ile entegre çalışır
+- **Görev**: UnifiedAIPipeline ile entegre çalışır
 - **Çalışma Mantığı**:
   - **Cache-first**: Önce cache kontrolü
   - **Progressive Loading**: Immediate → Deep insights

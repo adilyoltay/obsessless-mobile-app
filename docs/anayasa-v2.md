@@ -199,7 +199,7 @@ Not: Kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an mevcut deği
 - **Frontend:** React Native 0.74+ + Expo SDK 51
 - **State Management:** Zustand (Global) + React Query (Server State)
 - **Backend:** Supabase (PostgreSQL + Auth + RLS + Edge Functions)
-- **AI Architecture:** CoreAnalysisService v1 (Single-entry point, LLM gating, Multi-layer cache)
+- **AI Architecture:** UnifiedAIPipeline v1.0 (Single-entry point, LLM gating, Multi-layer cache)
 - **Primary Data Storage:** 
   - **Supabase PostgreSQL:** Tüm kullanıcı verileri, kompulsiyonlar, ERP kayıtları
   - **AsyncStorage:** Offline cache ve geçici veri
@@ -209,7 +209,7 @@ Not: Kapsamlı ML tahminleme ve otomatik hedef optimizasyonu şu an mevcut deği
 - **Animations:** React Native Reanimated + Lottie
 - **Haptics:** Expo Haptics
 - **AI Services (Analiz & Öneriler):** 
-  - CoreAnalysisService v1 - Tek giriş noktası, LLM gating, Token budget
+  - UnifiedAIPipeline v1.0 - Tek giriş noktası, LLM gating, Token budget
   - External AI Service (Gemini) - LLM provider
   - AI Context Provider - Veri işleme ve öneri üretimi
   - Feature Flag System - AI özellik kontrolü
@@ -252,8 +252,8 @@ Bu dokümanda veritabanı şeması tutulmaz; şema ve migration’lar `database/
 5. **Feature Flags:** Master toggle + Granular controls
 6. **Telemetry:** Event tracking + Performance metrics (privacy-first)
 
-### **Performans Metrikleri (CoreAnalysisService v1 ile):**
-- **AI Response Time:** 300ms immediate, 3s deep (was < 3 saniye)
+### **Performans Metrikleri (UnifiedAIPipeline v1.0 ile):**
+- **AI Response Time:** <500ms immediate, 3s deep (was < 3 saniye)
 - **API Çağrıları:** %70 azalma (LLM Gating)
 - **Token Kullanımı:** %60 tasarruf (Dedup + Budget)
 - **Cache Hit Rate:** %45

@@ -21,12 +21,12 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, ERP önerileri, Telemetry, Content Filtering, **CoreAnalysisService v1 (YENİ)**
-- Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı)
+- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, ERP önerileri, Telemetry, Content Filtering, **UnifiedAIPipeline v1.0 (GÜNCEL)**
+- Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı), CoreAnalysisService (deprecated)
 
-### 🚀 CoreAnalysisService v1 (YENİ - Ocak 2025)
-- **Single-entry point architecture**: Tüm AI analizleri tek noktadan
-- **Smart LLM gating**: Heuristik güven skoruna göre LLM kullanım kararı (%40-50 maliyet azaltımı)
+### 🚀 UnifiedAIPipeline v1.0 (GÜNCEL - Ocak 2025)
+- **Single-entry point architecture**: Tüm AI analizleri `unifiedPipeline.process()` üzerinden
+- **Smart LLM gating**: Heuristik güven skoruna göre LLM kullanım kararı (%70 maliyet azaltımı)
 - **Multi-layer caching**: TTL tabanlı önbellekleme (1h/12h/24h)
 - **Progressive UI**: <500ms immediate insights, <3s deep analysis
 - **Batch jobs**: Günlük trend analizi, mood smoothing, risk updates (03:05 Europe/Istanbul)
