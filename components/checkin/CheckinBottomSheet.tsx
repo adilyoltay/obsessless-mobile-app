@@ -468,21 +468,45 @@ export default function CheckinBottomSheet({
   };
 
   const handleAnalysisResult = async (analysis: any, text: string) => {
-    console.log('🔄 handleAnalysisResult called with:', { analysis, text });
+    console.log('🔄 handleAnalysisResult called with:', { 
+      analysis: {
+        type: analysis.type,
+        confidence: analysis.confidence,
+        route: analysis.route,
+        params: analysis.params
+      }, 
+      text: text?.substring(0, 50) + '...' 
+    });
+    
+    // 🚨 DEBUG: Feature flags check
+    console.log('🚩 Feature flags status:', {
+      AI_SMART_ROUTING: FEATURE_FLAGS.isEnabled('AI_SMART_ROUTING'),
+      AI_CORE_ANALYSIS: FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS'),
+      AI_BREATHWORK_SUGGESTIONS: FEATURE_FLAGS.isEnabled('AI_BREATHWORK_SUGGESTIONS')
+    });
+    
+    // 🚨 DEBUG: Special logging for BREATHWORK
+    if (analysis.type === 'BREATHWORK') {
+      console.log('🌬️ BREATHWORK DETECTED! Analysis details:', analysis);
+    }
     
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     // 🗂️ TRY SMART ROUTING FIRST (if enabled and user available)
     if (FEATURE_FLAGS.isEnabled('AI_SMART_ROUTING') && user?.id) {
+      console.log('🗂️ Smart routing enabled, trying smart routing...');
       try {
         const { smartRoutingService } = await import('@/features/ai/services/smartRoutingService');
         const success = await handleSmartRouting(analysis, text, smartRoutingService);
+        console.log('🗂️ Smart routing result:', success);
         if (success) return; // Smart routing succeeded, exit early
       } catch (error) {
         console.warn('🚨 Smart routing failed, falling back to legacy:', error);
         // Continue to legacy routing below
       }
+    } else {
+      console.log('🗂️ Smart routing disabled or no user, using legacy routing');
     }
     
     // 🚀 FALLBACK: CoreAnalysisService route actions
@@ -613,8 +637,11 @@ export default function CheckinBottomSheet({
     // Navigate based on type with pre-filled data
     setTimeout(() => {
       onClose();
+      console.log('🗂️ LEGACY ROUTING: Navigating based on analysis type:', analysis.type);
+      
       switch (analysis.type) {
         case 'MOOD':
+          console.log('🌟 LEGACY ROUTING: MOOD case triggered');
           // Navigate to mood page with pre-filled data
           router.push({
             pathname: '/(tabs)/mood',
@@ -668,11 +695,18 @@ export default function CheckinBottomSheet({
           break;
 
         case 'BREATHWORK': {
+          console.log('🌬️ LEGACY ROUTING: BREATHWORK case triggered!');
+          
           // Anksiyete seviyesine göre protokol seçimi
           const anxietyLevel = Number(analysis?.anxiety ?? analysis?.extractedData?.anxietyLevel ?? 5);
           const protocol = anxietyLevel >= 7 ? '478' : 'box'; // Yüksek anksiyetede 4-7-8, normalde box breathing
           
-          console.log('🌬️ Navigating to breathwork with:', { anxietyLevel, protocol });
+          console.log('🌬️ Breathwork navigation details:', { 
+            anxietyLevel, 
+            protocol, 
+            analysis_type: analysis.type,
+            analysis_confidence: analysis.confidence 
+          });
           
           router.push({
             pathname: '/(tabs)/breathwork',
