@@ -124,6 +124,10 @@ const featureFlagState: Record<string, boolean> = {
   AI_DYNAMIC_GAMIFICATION: true, // Context-based dynamic points calculation
   AI_DYNAMIC_MISSIONS: true, // AI-generated daily missions
   
+  // 🗂️ Smart Routing & Prefilling (NEW - Week 2)
+  AI_SMART_ROUTING: true, // Intelligent screen navigation with context
+  AI_FORM_PREFILLING: true, // Automatic form prefilling from analysis
+  
   // 🔀 LLM Flags (aliases → AI master)
   LLM_ROUTER: AI_MASTER_ENABLED,
   LLM_REFRAME: AI_MASTER_ENABLED,

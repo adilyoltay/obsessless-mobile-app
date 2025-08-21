@@ -257,6 +257,14 @@ export enum AIEventType {
   GAMIFICATION_STREAK_MILESTONE = 'gamification_streak_milestone',
   GAMIFICATION_ADAPTATION_UPDATED = 'gamification_adaptation_updated',
   
+  // Smart Routing events (NEW - Week 2)
+  SMART_ROUTE_GENERATED = 'smart_route_generated',
+  SMART_NAVIGATION_ATTEMPTED = 'smart_navigation_attempted',
+  SMART_NAVIGATION_COMPLETED = 'smart_navigation_completed',
+  SMART_NAVIGATION_FAILED = 'smart_navigation_failed',
+  ROUTE_SUGGESTION_PROVIDED = 'route_suggestion_provided',
+  PREFILL_DATA_EXTRACTED = 'prefill_data_extracted',
+  
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
