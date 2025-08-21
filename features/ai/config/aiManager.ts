@@ -96,6 +96,19 @@ export class AIManager {
   private async initializeAIServices(): Promise<void> {
     console.log('🚀 AIManager: Initializing AI services...');
 
+    // Phase 0: CoreAnalysisService (if enabled)
+    if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
+      try {
+        const { coreAnalysisService } = await import('@/features/ai/core/CoreAnalysisService');
+        await coreAnalysisService.initialize();
+        console.log('✅ CoreAnalysisService initialized');
+        this.healthStatus.set('coreAnalysis', true);
+      } catch (error) {
+        console.warn('⚠️ CoreAnalysisService initialization failed:', error);
+        this.healthStatus.set('coreAnalysis', false);
+      }
+    }
+
     // Phase 1: critical & independent
     const phase1 = [
       (async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize())(),
