@@ -47,6 +47,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { coreAnalysisService } from '@/features/ai/core/CoreAnalysisService';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -82,6 +83,11 @@ export default function TodayScreen() {
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   const insightsPromiseRef = useRef<Promise<any[]> | null>(null);
+  
+  // Progressive UI State
+  const [insightsSource, setInsightsSource] = useState<'cache' | 'heuristic' | 'llm'>('cache');
+  const [hasDeepInsights, setHasDeepInsights] = useState(false);
+  const [insightsConfidence, setInsightsConfidence] = useState(0);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -242,50 +248,155 @@ export default function TodayScreen() {
   };
 
   /**
-   * 🤖 Load AI Insights via Context
+   * 🤖 Load AI Insights with Progressive UI
    */
   const loadAIInsights = async () => {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
-    if (isInsightsRunning && insightsPromiseRef.current) {
-      if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
-      const existing = await insightsPromiseRef.current;
-      setAiInsights(existing || []);
-      return;
-    }
+    
+    // Progressive UI: Use CoreAnalysisService if enabled
+    if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
+      console.log('🚀 Using Progressive Insights Loading');
+      
+      // Step 1: Immediate - Load from cache or generate basic insights
+      try {
+        const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
+        const cached = await coreAnalysisService.getCached(cacheKey);
+        
+        if (cached) {
+          console.log('✅ Loaded insights from cache');
+          setAiInsights([
+            {
+              type: 'info',
+              title: 'Bugünkü Özet',
+              message: cached.payload?.message || 'Günlük takibini sürdürüyorsun',
+              confidence: cached.confidence,
+            }
+          ]);
+          setInsightsSource('cache');
+          setInsightsConfidence(cached.confidence);
+        } else {
+          // Generate basic heuristic insights immediately
+          console.log('📝 Generating heuristic insights');
+          const basicInsights = [
+            {
+              type: 'progress',
+              title: 'İlerleme',
+              message: `${todayStats.compulsions} kompulsiyon, ${todayStats.resistanceWins} direnç kazancı`,
+              confidence: 0.6,
+            },
+            {
+              type: 'tip',
+              title: 'Öneri',
+              message: todayStats.erpSessions === 0 ? 'Bugün bir ERP egzersizi deneyelim' : 'ERP pratiğine devam et',
+              confidence: 0.5,
+            }
+          ];
+          setAiInsights(basicInsights);
+          setInsightsSource('heuristic');
+          setInsightsConfidence(0.5);
+        }
+        
+        setAiInsightsLoading(false);
+        
+        // Step 2: Deep - Generate enhanced insights in background
+        setTimeout(async () => {
+          if (isInsightsRunning) return;
+          
+          try {
+            setIsInsightsRunning(true);
+            console.log('🔮 Generating deep insights in background');
+            
+            // Track insights request
+            await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+              userId: user.id,
+              source: 'home_screen_progressive',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Generate deep insights
+            const deepInsights = await generateInsights();
+            
+            if (deepInsights && deepInsights.length > 0) {
+              setAiInsights(deepInsights);
+              setInsightsSource('llm');
+              setInsightsConfidence(0.9);
+              setHasDeepInsights(true);
+              
+              // Cache the deep insights
+              await coreAnalysisService.analyze({
+                kind: 'TEXT',
+                content: JSON.stringify(deepInsights),
+                userId: user.id,
+                locale: 'tr-TR',
+                ts: Date.now(),
+                metadata: {
+                  source: 'today-deep-insights',
+                }
+              });
+              
+              // Track insights delivered
+              await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+                userId: user.id,
+                insightsCount: deepInsights.length,
+                source: 'home_screen_progressive',
+                type: 'deep'
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error generating deep insights:', error);
+          } finally {
+            setIsInsightsRunning(false);
+          }
+        }, 3000); // 3 second delay for deep insights
+        
+      } catch (error) {
+        console.error('❌ Error in progressive insights:', error);
+        setAiInsightsLoading(false);
+      }
+      
+    } else {
+      // Legacy insights loading
+      if (isInsightsRunning && insightsPromiseRef.current) {
+        if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
+        const existing = await insightsPromiseRef.current;
+        setAiInsights(existing || []);
+        return;
+      }
 
-    try {
-      setIsInsightsRunning(true);
-      setAiInsightsLoading(true);
+      try {
+        setIsInsightsRunning(true);
+        setAiInsightsLoading(true);
 
-      // Track insights request
-      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-        userId: user.id,
-        source: 'home_screen',
-        timestamp: new Date().toISOString()
-      });
+        // Track insights request
+        await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+          userId: user.id,
+          source: 'home_screen',
+          timestamp: new Date().toISOString()
+        });
 
-      // Generate insights using AI context
-      const running = generateInsights();
-      insightsPromiseRef.current = running;
-      const insights = await running;
-      setAiInsights(insights || []);
+        // Generate insights using AI context
+        const running = generateInsights();
+        insightsPromiseRef.current = running;
+        const insights = await running;
+        setAiInsights(insights || []);
 
-      // Track insights delivered
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        userId: user.id,
-        insightsCount: insights?.length || 0,
-        source: 'home_screen'
-      });
+        // Track insights delivered
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          userId: user.id,
+          insightsCount: insights?.length || 0,
+          source: 'home_screen'
+        });
 
-    } catch (error) {
-      console.error('❌ Error loading AI insights:', error);
-      // Fail silently, don't impact main app functionality
-    } finally {
-      setAiInsightsLoading(false);
-      setIsInsightsRunning(false);
-      insightsPromiseRef.current = null;
+      } catch (error) {
+        console.error('❌ Error loading AI insights:', error);
+        // Fail silently, don't impact main app functionality
+      } finally {
+        setAiInsightsLoading(false);
+        setIsInsightsRunning(false);
+        insightsPromiseRef.current = null;
+      }
     }
   };
 
@@ -691,6 +802,20 @@ export default function TodayScreen() {
                     color={accentColor} 
                   />
                   <Text style={styles.aiInsightType}>{insight.category || 'İçgörü'}</Text>
+                  {/* Progressive UI: Show update badge */}
+                  {hasDeepInsights && index === 0 && (
+                    <View style={{
+                      backgroundColor: '#10B981',
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 10,
+                      marginLeft: 'auto',
+                    }}>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                        Güncellendi
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.aiInsightText}>{insight.message}</Text>
                 {insight.confidence && (
@@ -698,6 +823,13 @@ export default function TodayScreen() {
                     <Text style={styles.aiInsightConfidence}>
                       Güvenilirlik: {Math.round(insight.confidence * 100)}%
                     </Text>
+                    {/* Progressive UI: Show source */}
+                    {FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && (
+                      <Text style={[styles.aiInsightConfidence, { marginLeft: 10 }]}>
+                        Kaynak: {insightsSource === 'cache' ? 'Önbellek' : 
+                                insightsSource === 'heuristic' ? 'Hızlı Analiz' : 'Derin Analiz'}
+                      </Text>
+                    )}
                   </View>
                 )}
               </View>
