@@ -87,8 +87,9 @@ export class MoodPatternAnalysisService {
     console.log(`🎭 Starting mood pattern analysis for ${moodEntries.length} entries`);
 
     // Track analysis start
-    await trackAIInteraction(AIEventType.PATTERN_RECOGNITION_STARTED, {
+    await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
       userId,
+      dataType: 'mood_patterns',
       entryCount: moodEntries.length,
       analysisType,
       timestamp: startTime
@@ -141,11 +142,12 @@ export class MoodPatternAnalysisService {
       console.log(`✅ Found ${sortedPatterns.length} mood patterns in ${Date.now() - startTime}ms`);
 
       // Track analysis completion
-      await trackAIInteraction(AIEventType.PATTERN_RECOGNITION_COMPLETED, {
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         userId,
-        patternsFound: sortedPatterns.length,
+        insightsCount: sortedPatterns.length,
         processingTime: Date.now() - startTime,
-        highPriorityPatterns: sortedPatterns.filter(p => p.severity === 'high' || p.severity === 'critical').length
+        highPriorityPatterns: sortedPatterns.filter(p => p.severity === 'high' || p.severity === 'critical').length,
+        source: 'mood_pattern_analysis'
       });
 
       return sortedPatterns;
@@ -153,8 +155,9 @@ export class MoodPatternAnalysisService {
     } catch (error) {
       console.error('❌ Mood pattern analysis failed:', error);
       
-      await trackAIInteraction(AIEventType.PATTERN_RECOGNITION_FAILED, {
+      await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
         userId,
+        component: 'moodPatternAnalysis',
         error: error instanceof Error ? error.message : String(error),
         processingTime: Date.now() - startTime
       });

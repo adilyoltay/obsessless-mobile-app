@@ -14,6 +14,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 import supabaseService from '@/services/supabase';
+import { smartMoodJournalingService } from '../services/smartMoodJournalingService';
 
 /**
  * Simple deterministic hash function for React Native
@@ -1768,6 +1769,481 @@ export class UnifiedAIPipeline {
       }
     }, 60 * 60 * 1000); // 1 hour
   }
+
+  // ============================================================================
+  // 🔮 PREDICTIVE MOOD INTERVENTION
+  // ============================================================================
+
+  /**
+   * 🔮 Predictive Mood Intervention - AI-powered mood drop prediction and proactive interventions
+   */
+  async predictMoodIntervention(
+    userId: string,
+    recentMoodEntries: any[],
+    currentMoodState?: any
+  ): Promise<{
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    predictedDrop?: {
+      likelihood: number;
+      timeframe: string;
+      severity: number;
+    };
+    interventions: Array<{
+      type: 'immediate' | 'preventive' | 'emergency';
+      priority: number;
+      action: string;
+      reason: string;
+      effectivenessProbability: number;
+    }>;
+    riskFactors: Array<{
+      factor: string;
+      impact: number;
+      confidence: number;
+    }>;
+    earlyWarning?: {
+      triggered: boolean;
+      message: string;
+      urgency: 'low' | 'medium' | 'high';
+    };
+  }> {
+    console.log('🔮 Starting predictive mood intervention analysis...');
+
+    const startTime = Date.now();
+    
+    // Track intervention analysis start
+    await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+      userId,
+      dataType: 'predictive_mood_intervention',
+      entryCount: recentMoodEntries.length,
+      timestamp: startTime
+    });
+
+    try {
+      // 1. ANALYZE RECENT TRENDS
+      const trendAnalysis = this.analyzeMoodTrends(recentMoodEntries);
+      
+      // 2. IDENTIFY RISK FACTORS
+      const riskFactors = this.identifyMoodRiskFactors(recentMoodEntries, trendAnalysis);
+      
+      // 3. CALCULATE RISK LEVEL
+      const riskLevel = this.calculateMoodRiskLevel(riskFactors, trendAnalysis);
+      
+      // 4. PREDICT MOOD DROP
+      const predictedDrop = this.predictMoodDrop(recentMoodEntries, trendAnalysis, riskFactors);
+      
+      // 5. GENERATE INTERVENTIONS
+      const interventions = this.generateMoodInterventions(riskLevel, riskFactors, predictedDrop);
+      
+      // 6. EARLY WARNING SYSTEM
+      const earlyWarning = this.checkEarlyWarningTriggers(riskLevel, predictedDrop, riskFactors);
+
+      const result = {
+        riskLevel,
+        predictedDrop,
+        interventions,
+        riskFactors,
+        earlyWarning
+      };
+
+      // Track successful intervention analysis
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        userId,
+        source: 'predictive_mood_intervention',
+        insightsCount: interventions.length,
+        processingTime: Date.now() - startTime,
+        riskLevel,
+        earlyWarningTriggered: earlyWarning?.triggered || false
+      });
+
+      console.log(`✅ Predictive mood intervention completed: ${riskLevel} risk`);
+      return result;
+
+    } catch (error) {
+      console.error('❌ Predictive mood intervention failed:', error);
+      
+      await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
+        userId,
+        component: 'predictiveMoodIntervention',
+        error: error instanceof Error ? error.message : String(error),
+        processingTime: Date.now() - startTime
+      });
+
+      // Return safe fallback
+      return {
+        riskLevel: 'low',
+        interventions: [{
+          type: 'immediate',
+          priority: 1,
+          action: 'Düzenli mood takibine devam edin',
+          reason: 'Veri analizi sırasında hata oluştu',
+          effectivenessProbability: 0.5
+        }],
+        riskFactors: []
+      };
+    }
+  }
+
+  // ============================================================================
+  // MOOD TREND ANALYSIS HELPERS
+  // ============================================================================
+
+  private analyzeMoodTrends(entries: any[]): {
+    trend: 'declining' | 'stable' | 'improving';
+    slope: number;
+    volatility: number;
+    recentAverage: number;
+    weeklyChange: number;
+  } {
+    if (entries.length < 3) {
+      return {
+        trend: 'stable',
+        slope: 0,
+        volatility: 0,
+        recentAverage: 50,
+        weeklyChange: 0
+      };
+    }
+
+    // Sort by timestamp
+    const sortedEntries = entries.sort((a, b) => 
+      new Date(a.timestamp || a.created_at).getTime() - 
+      new Date(b.timestamp || b.created_at).getTime()
+    );
+
+    // Calculate trend (linear regression slope)
+    const scores = sortedEntries.map(e => e.mood_score || e.mood || 50);
+    const n = scores.length;
+    const sumX = ((n - 1) * n) / 2; // 0 + 1 + 2 + ... + (n-1)
+    const sumY = scores.reduce((a, b) => a + b, 0);
+    const sumXY = scores.reduce((sum, y, x) => sum + (x * y), 0);
+    const sumXX = ((n - 1) * n * (2 * n - 1)) / 6;
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    
+    // Determine trend
+    let trend: 'declining' | 'stable' | 'improving' = 'stable';
+    if (slope < -2) trend = 'declining';
+    else if (slope > 2) trend = 'improving';
+
+    // Calculate volatility (standard deviation)
+    const mean = sumY / n;
+    const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / n;
+    const volatility = Math.sqrt(variance);
+
+    // Recent average (last 3 entries)
+    const recentEntries = sortedEntries.slice(-3);
+    const recentAverage = recentEntries.reduce((sum, e) => sum + (e.mood_score || e.mood || 50), 0) / recentEntries.length;
+
+    // Weekly change (if enough data)
+    const weeklyChange = entries.length >= 7 
+      ? (scores[scores.length - 1] - scores[Math.max(0, scores.length - 7)])
+      : 0;
+
+    return {
+      trend,
+      slope,
+      volatility,
+      recentAverage,
+      weeklyChange
+    };
+  }
+
+  private identifyMoodRiskFactors(entries: any[], trendAnalysis: any): Array<{
+    factor: string;
+    impact: number;
+    confidence: number;
+  }> {
+    const riskFactors: Array<{ factor: string; impact: number; confidence: number }> = [];
+
+    // 1. DECLINING TREND
+    if (trendAnalysis.trend === 'declining' && Math.abs(trendAnalysis.slope) > 3) {
+      riskFactors.push({
+        factor: 'declining_trend',
+        impact: Math.min(10, Math.abs(trendAnalysis.slope) / 2),
+        confidence: 0.8
+      });
+    }
+
+    // 2. HIGH VOLATILITY
+    if (trendAnalysis.volatility > 15) {
+      riskFactors.push({
+        factor: 'high_volatility',
+        impact: trendAnalysis.volatility / 5,
+        confidence: 0.7
+      });
+    }
+
+    // 3. LOW RECENT AVERAGE
+    if (trendAnalysis.recentAverage < 35) {
+      riskFactors.push({
+        factor: 'low_recent_mood',
+        impact: (50 - trendAnalysis.recentAverage) / 3,
+        confidence: 0.9
+      });
+    }
+
+    // 4. RECURRING PATTERNS
+    const recurringLowDays = this.detectRecurringLowMoodDays(entries);
+    if (recurringLowDays.length > 0) {
+      riskFactors.push({
+        factor: 'recurring_low_days',
+        impact: recurringLowDays.length * 2,
+        confidence: 0.6
+      });
+    }
+
+    // 5. TRIGGER FREQUENCY
+    const highImpactTriggers = this.analyzeHighImpactTriggers(entries);
+    if (highImpactTriggers.length > 0) {
+      riskFactors.push({
+        factor: 'frequent_triggers',
+        impact: highImpactTriggers.length * 1.5,
+        confidence: 0.7
+      });
+    }
+
+    return riskFactors;
+  }
+
+  private calculateMoodRiskLevel(riskFactors: any[], trendAnalysis: any): 'low' | 'medium' | 'high' | 'critical' {
+    // Calculate total risk score
+    const totalRisk = riskFactors.reduce((sum, factor) => 
+      sum + (factor.impact * factor.confidence), 0
+    );
+
+    // Additional risk from trend analysis
+    let trendRisk = 0;
+    if (trendAnalysis.trend === 'declining') trendRisk += 5;
+    if (trendAnalysis.recentAverage < 30) trendRisk += 10;
+    if (trendAnalysis.volatility > 20) trendRisk += 5;
+
+    const combinedRisk = totalRisk + trendRisk;
+
+    if (combinedRisk >= 25) return 'critical';
+    if (combinedRisk >= 15) return 'high';
+    if (combinedRisk >= 8) return 'medium';
+    return 'low';
+  }
+
+  private predictMoodDrop(entries: any[], trendAnalysis: any, riskFactors: any[]): {
+    likelihood: number;
+    timeframe: string;
+    severity: number;
+  } | undefined {
+    // Only predict if there are sufficient risk indicators
+    if (riskFactors.length === 0 || trendAnalysis.trend !== 'declining') {
+      return undefined;
+    }
+
+    // Calculate likelihood based on risk factors
+    const riskScore = riskFactors.reduce((sum, factor) => sum + factor.impact * factor.confidence, 0);
+    const likelihood = Math.min(0.95, riskScore / 20);
+
+    // Determine timeframe based on trend slope
+    let timeframe = '1-2 hafta';
+    if (Math.abs(trendAnalysis.slope) > 5) timeframe = '3-5 gün';
+    else if (Math.abs(trendAnalysis.slope) > 3) timeframe = '1 hafta';
+
+    // Predict severity of drop
+    const currentLevel = trendAnalysis.recentAverage;
+    const potentialDrop = Math.abs(trendAnalysis.slope) * 3; // 3 day projection
+    const severity = Math.min(10, potentialDrop);
+
+    return {
+      likelihood,
+      timeframe,
+      severity
+    };
+  }
+
+  private generateMoodInterventions(
+    riskLevel: string, 
+    riskFactors: any[], 
+    predictedDrop?: any
+  ): Array<{
+    type: 'immediate' | 'preventive' | 'emergency';
+    priority: number;
+    action: string;
+    reason: string;
+    effectivenessProbability: number;
+  }> {
+    const interventions: any[] = [];
+
+    // IMMEDIATE INTERVENTIONS
+    if (riskLevel === 'high' || riskLevel === 'critical') {
+      interventions.push({
+        type: 'immediate',
+        priority: 1,
+        action: 'Hemen nefes egzersizi yapın (4-7-8 tekniği)',
+        reason: 'Anksiyete ve stres seviyelerini hızla düşürür',
+        effectivenessProbability: 0.85
+      });
+
+      interventions.push({
+        type: 'immediate',
+        priority: 2,
+        action: 'Güvenilir bir arkadaş veya aile üyesi ile konuşun',
+        reason: 'Sosyal destek mood iyileşmesinde kanıtlanmış etki gösterir',
+        effectivenessProbability: 0.75
+      });
+    }
+
+    // PREVENTIVE INTERVENTIONS
+    if (riskLevel === 'medium' || riskLevel === 'high') {
+      interventions.push({
+        type: 'preventive',
+        priority: 3,
+        action: 'Günlük 10 dakika mindfulness meditasyonu başlatın',
+        reason: 'Düzenli meditasyon mood stabilitesini artırır',
+        effectivenessProbability: 0.70
+      });
+
+      interventions.push({
+        type: 'preventive',
+        priority: 4,
+        action: 'Uyku rutininizi optimize edin (22:00-06:00)',
+        reason: 'Düzenli uyku mood dengesi için kritik faktördür',
+        effectivenessProbability: 0.80
+      });
+    }
+
+    // RISK-SPECIFIC INTERVENTIONS
+    riskFactors.forEach(factor => {
+      switch (factor.factor) {
+        case 'declining_trend':
+          interventions.push({
+            type: 'preventive',
+            priority: 5,
+            action: 'Haftalık mood tracking pattern analizi yapın',
+            reason: 'Trend'inizi anlayarak proaktif adımlar atabilirsiniz',
+            effectivenessProbability: 0.65
+          });
+          break;
+          
+        case 'high_volatility':
+          interventions.push({
+            type: 'preventive',
+            priority: 6,
+            action: 'Günlük yaşam rutininizi standardize edin',
+            reason: 'Düzenli rutinler mood dalgalanmalarını azaltır',
+            effectivenessProbability: 0.60
+          });
+          break;
+
+        case 'frequent_triggers':
+          interventions.push({
+            type: 'preventive',
+            priority: 7,
+            action: 'Tetikleyici durumlar için başa çıkma stratejileri geliştirin',
+            reason: 'Proaktif strateji mood düşüşlerini önler',
+            effectivenessProbability: 0.70
+          });
+          break;
+      }
+    });
+
+    // EMERGENCY INTERVENTIONS
+    if (riskLevel === 'critical') {
+      interventions.push({
+        type: 'emergency',
+        priority: 0,
+        action: 'Acil destek hatlarından yardım alın veya profesyonel destek arayın',
+        reason: 'Kritik mood seviyelerinde profesyonel müdahale gereklidir',
+        effectivenessProbability: 0.95
+      });
+    }
+
+    return interventions.sort((a, b) => a.priority - b.priority);
+  }
+
+  private checkEarlyWarningTriggers(
+    riskLevel: string, 
+    predictedDrop: any, 
+    riskFactors: any[]
+  ): {
+    triggered: boolean;
+    message: string;
+    urgency: 'low' | 'medium' | 'high';
+  } | undefined {
+    
+    if (riskLevel === 'critical') {
+      return {
+        triggered: true,
+        message: 'Kritik mood seviyesi tespit edildi. Lütfen hemen destek alın.',
+        urgency: 'high'
+      };
+    }
+
+    if (riskLevel === 'high' && predictedDrop?.likelihood > 0.7) {
+      return {
+        triggered: true,
+        message: `Yüksek mood düşüş riski: ${predictedDrop.timeframe} içinde dikkatli olun.`,
+        urgency: 'medium'
+      };
+    }
+
+    if (riskLevel === 'medium' && riskFactors.length >= 3) {
+      return {
+        triggered: true,
+        message: 'Birden fazla risk faktörü tespit edildi. Proaktif önlemler alın.',
+        urgency: 'low'
+      };
+    }
+
+    return undefined;
+  }
+
+  // Helper methods for risk factor detection
+  private detectRecurringLowMoodDays(entries: any[]): string[] {
+    const dayMoods: Record<number, number[]> = {};
+    
+    entries.forEach(entry => {
+      const dayOfWeek = new Date(entry.timestamp || entry.created_at).getDay();
+      const mood = entry.mood_score || entry.mood || 50;
+      
+      if (!dayMoods[dayOfWeek]) dayMoods[dayOfWeek] = [];
+      dayMoods[dayOfWeek].push(mood);
+    });
+
+    const lowMoodDays: string[] = [];
+    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+
+    Object.entries(dayMoods).forEach(([day, moods]) => {
+      const avgMood = moods.reduce((a, b) => a + b, 0) / moods.length;
+      if (avgMood < 40 && moods.length >= 2) {
+        lowMoodDays.push(dayNames[parseInt(day)]);
+      }
+    });
+
+    return lowMoodDays;
+  }
+
+  private analyzeHighImpactTriggers(entries: any[]): string[] {
+    const triggerImpact: Record<string, { totalImpact: number; count: number }> = {};
+    
+    entries.forEach(entry => {
+      if (entry.triggers && Array.isArray(entry.triggers)) {
+        entry.triggers.forEach((trigger: string) => {
+          const moodImpact = 50 - (entry.mood_score || entry.mood || 50);
+          
+          if (!triggerImpact[trigger]) {
+            triggerImpact[trigger] = { totalImpact: 0, count: 0 };
+          }
+          
+          triggerImpact[trigger].totalImpact += moodImpact;
+          triggerImpact[trigger].count += 1;
+        });
+      }
+    });
+
+    return Object.entries(triggerImpact)
+      .filter(([_, data]) => {
+        const avgImpact = data.totalImpact / data.count;
+        return avgImpact > 10 && data.count >= 2;
+      })
+      .map(([trigger, _]) => trigger);
+  }
+
 }
 
 // ============================================================================
