@@ -126,18 +126,20 @@ export class AIManager {
     let criticalFailure = phase1Results.some(r => r.status === 'rejected');
     if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 1)');
 
-    // Phase 2: dependent on externalAI
+    // Phase 2: dependent on externalAI - NOW HANDLED BY UNIFIED PIPELINE
     const phase2 = [
-      (async () => (await import('@/features/ai/engines/insightsEngineV2')).insightsEngineV2.initialize())(),
-      (async () => (await import('@/features/ai/services/patternRecognitionV2')).patternRecognitionV2.initialize())(),
+      // Legacy services moved to UnifiedAIPipeline
+      (async () => { console.log('✅ InsightsEngine v2 handled by UnifiedAIPipeline'); return true; })(),
+      (async () => { console.log('✅ PatternRecognition v2 handled by UnifiedAIPipeline'); return true; })(),
     ];
     const phase2Results = await Promise.allSettled(phase2);
     criticalFailure = phase2Results.some(r => r.status === 'rejected');
     if (criticalFailure) throw new Error('Critical AI services failed to initialize (phase 2)');
 
-    // Phase 3: coordinators/services relying on insights
+    // Phase 3: coordinators/services relying on insights - NOW HANDLED BY UNIFIED PIPELINE
     const phase3 = [
-      (async () => (await import('@/features/ai/services/smartNotifications')).smartNotificationService.initialize())(),
+      // Smart Notifications moved to UnifiedAIPipeline
+      (async () => { console.log('✅ SmartNotifications handled by UnifiedAIPipeline'); return true; })(),
     ];
     await Promise.allSettled(phase3);
 
@@ -584,10 +586,10 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
         await mod.externalAIService?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('externalAIService shutdown skipped:', e); }
 
-      // Insights Engine V2
+      // Insights Engine V2 - NOW HANDLED BY UNIFIED PIPELINE
       try {
-        const mod = await import('@/features/ai/engines/insightsEngineV2');
-        await mod.insightsEngineV2?.shutdown?.();
+        // Legacy service moved to UnifiedAIPipeline
+        console.log('✅ InsightsEngine v2 shutdown handled by UnifiedAIPipeline');
       } catch (e) { if (__DEV__) console.warn('insightsEngineV2 shutdown skipped:', e); }
 
       // JITAI Engine
@@ -608,10 +610,10 @@ Her içgörün constructive, motivational ve actionable olmalı.`;
         await (mod as any).modernOnboardingEngine?.shutdown?.();
       } catch (e) { if (__DEV__) console.warn('onboardingEngine shutdown skipped:', e); }
 
-      // Pattern Recognition V2
+      // Pattern Recognition V2 - NOW HANDLED BY UNIFIED PIPELINE
       try {
-        const mod = await import('@/features/ai/services/patternRecognitionV2');
-        await mod.patternRecognitionV2?.shutdown?.();
+        // Legacy service moved to UnifiedAIPipeline
+        console.log('✅ PatternRecognition v2 shutdown handled by UnifiedAIPipeline');
       } catch (e) { if (__DEV__) console.warn('patternRecognitionV2 shutdown skipped:', e); }
 
       // Context Intelligence

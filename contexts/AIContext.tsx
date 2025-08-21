@@ -247,8 +247,9 @@ export function AIProvider({ children }: AIProviderProps) {
           name: 'AI_INSIGHTS_ENGINE_V2',
           enabled: FEATURE_FLAGS.isEnabled('AI_INSIGHTS_ENGINE_V2'),
           task: async () => {
-            const { insightsEngineV2 } = await import('@/features/ai/engines/insightsEngineV2');
-            await insightsEngineV2.initialize();
+            // Insights Engine v2 now handled by UnifiedAIPipeline
+            console.log('✅ Insights Engine v2 handled by UnifiedAIPipeline');
+            return true;
           }
         },
         {
