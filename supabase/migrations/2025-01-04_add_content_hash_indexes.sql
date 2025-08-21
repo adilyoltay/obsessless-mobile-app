@@ -225,18 +225,62 @@ CREATE TABLE IF NOT EXISTS ai_telemetry (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure missing columns exist for legacy tables
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_telemetry') THEN
+    -- Add session_id if missing
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'ai_telemetry' AND column_name = 'session_id'
+    ) THEN
+      ALTER TABLE ai_telemetry ADD COLUMN session_id TEXT;
+    END IF;
+  END IF;
+END $$;
+
 -- Create indexes for ai_telemetry
-CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user 
-ON ai_telemetry (user_id);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'ai_telemetry' AND column_name = 'user_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user 
+    ON ai_telemetry (user_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_ai_telemetry_event 
-ON ai_telemetry (event_type);
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'ai_telemetry' AND column_name = 'event_type'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_ai_telemetry_event 
+    ON ai_telemetry (event_type);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_ai_telemetry_session 
-ON ai_telemetry (session_id);
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'ai_telemetry' AND column_name = 'session_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_ai_telemetry_session 
+    ON ai_telemetry (session_id);
+  END IF;
 
-CREATE INDEX IF NOT EXISTS idx_ai_telemetry_timestamp 
-ON ai_telemetry (timestamp);
+  -- Support both legacy "timestamp" and newer "occurred_at"
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'ai_telemetry' AND column_name = 'timestamp'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_ai_telemetry_timestamp 
+    ON ai_telemetry ("timestamp");
+  ELSIF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'ai_telemetry' AND column_name = 'occurred_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_ai_telemetry_occurred_at 
+    ON ai_telemetry (occurred_at);
+  END IF;
+END $$;
 
 -- Enable RLS on ai_telemetry
 ALTER TABLE ai_telemetry ENABLE ROW LEVEL SECURITY;
