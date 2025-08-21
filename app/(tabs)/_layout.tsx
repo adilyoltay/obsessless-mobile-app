@@ -124,7 +124,7 @@ export default function TabLayout() {
             title: 'ERP',
             tabBarIcon: ({ focused }) => (
               <TabBarIcon 
-                name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} 
+                name={focused ? 'shield-check' : 'shield-outline'} 
                 color={focused ? '#67E8F9' : '#9CA3AF'} 
                 size={26} 
               />

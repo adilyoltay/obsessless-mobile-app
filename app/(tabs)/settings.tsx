@@ -650,7 +650,7 @@ export default function SettingsScreen() {
           <View style={styles.sectionContent}>
             {renderSettingItem(
               'ERP Modülü',
-              'shield-checkmark',
+              'shield-check',
               erpStore.isEnabled,
               (value) => {
                 erpStore.setModuleEnabled(value);
