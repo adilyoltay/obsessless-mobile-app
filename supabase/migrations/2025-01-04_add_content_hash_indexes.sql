@@ -162,10 +162,30 @@ CREATE TABLE IF NOT EXISTS ai_cache (
   content JSONB NOT NULL,
   computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ttl_hours INTEGER NOT NULL DEFAULT 24,
-  expires_at TIMESTAMPTZ GENERATED ALWAYS AS (computed_at + (ttl_hours || ' hours')::INTERVAL) STORED,
+  expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Create trigger to calculate expires_at
+CREATE OR REPLACE FUNCTION calculate_ai_cache_expires_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.expires_at := NEW.computed_at + (NEW.ttl_hours * INTERVAL '1 hour');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply trigger to ai_cache table
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'ai_cache_expires_at_trigger') THEN
+    CREATE TRIGGER ai_cache_expires_at_trigger
+    BEFORE INSERT OR UPDATE OF computed_at, ttl_hours ON ai_cache
+    FOR EACH ROW
+    EXECUTE FUNCTION calculate_ai_cache_expires_at();
+  END IF;
+END $$;
 
 -- Create indexes for ai_cache
 CREATE INDEX IF NOT EXISTS idx_ai_cache_user 
