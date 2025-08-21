@@ -32,6 +32,14 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - **Batch jobs**: Günlük trend analizi, mood smoothing, risk updates (03:05 Europe/Istanbul)
 - **Idempotent operations**: content_hash ile duplicate önleme
 - **Full telemetry**: Cache hit/miss, gating decisions, performance metrics
+
+### 🎯 Unified AI Pipeline (YENİ - Ocak 2025)
+- **Tek Pipeline Architecture**: Voice + Pattern + Insights + CBT tek serviste
+- **15→5 Servis İndirimi**: Sadece 5 core servis (Unified AI, Supabase, Gamification, Notifications, Telemetry)
+- **24 Saat Cache**: TTL bazlı önbellekleme, invalidation hooks
+- **Gradual Rollout**: %10→%50→%100 kademeli açılım
+- **Paralel İşleme**: Tüm analizler paralel çalışır
+- **Cache Invalidation Hooks**: compulsion_added, erp_completed, mood_added, manual_refresh
   
 Güncel yönlendirme:
 - Onboarding giriş rotası: `/(auth)/onboarding` (eski `/(auth)/ai-onboarding` kaldırıldı)

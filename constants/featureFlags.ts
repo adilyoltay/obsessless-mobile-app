@@ -102,12 +102,20 @@ const featureFlagState: Record<string, boolean> = {
   AI_UNIFIED_VOICE: AI_MASTER_ENABLED, // Merkezi ses analizi sistemi
   // KALDIRILDI: AI_CRISIS_DETECTION
   
-  // 🚀 CoreAnalysisService v1 flags
+    // 🚀 CoreAnalysisService v1 flags
   AI_CORE_ANALYSIS: false, // Yeni CoreAnalysisService (default: off)
-  AI_LLM_GATING: false, // LLM gating logic (default: off) 
+  AI_LLM_GATING: false, // LLM gating logic (default: off)
   AI_PROGRESSIVE: false, // Progressive UI updates (default: off)
   AI_ONBOARDING_REFINE: false, // Onboarding skeleton->refine (default: off)
   AI_ERP_STAIRCASE: false, // Deterministic ERP difficulty (default: off)
+  
+  // 🎯 Unified AI Pipeline flags (NEW - Jan 2025)
+  AI_UNIFIED_PIPELINE: false, // Master toggle for unified pipeline (default: off)
+  AI_UNIFIED_PIPELINE_PERCENTAGE: 10, // Gradual rollout percentage (10% initial)
+  AI_UNIFIED_VOICE: true, // Voice module in pipeline
+  AI_UNIFIED_PATTERNS: true, // Pattern recognition in pipeline
+  AI_UNIFIED_INSIGHTS: true, // Insights generation in pipeline
+  AI_UNIFIED_CBT: true, // CBT analysis in pipeline
   
   // 🔀 LLM Flags (aliases → AI master)
   LLM_ROUTER: AI_MASTER_ENABLED,

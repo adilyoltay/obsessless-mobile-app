@@ -85,17 +85,17 @@ Bu belge, CoreAnalysisService v1 ile optimize edilmiş AI sistemini, merkezi ana
 
 ### Katmanlar:
 1. **AIManager**: Merkezi yönetim ve orchestration
-   - **Phase 0**: CoreAnalysisService + Daily Jobs (YENİ)
+   - **Phase 0**: CoreAnalysisService + Daily Jobs + Unified Pipeline (YENİ)
    - Phase 1-3: Legacy servisler (geriye uyumluluk)
    - Feature flag yönetimi
    - Health monitoring
 
-2. **Core Services**:
-   - **CoreAnalysisService v1** (Primary)
-   - External AI Service (Gemini entegrasyonu)
-   - Pattern Recognition v2 (AI-assisted only)
-   - Insights Engine v2 (3 kaynak)
-   - CBT Engine (bilişsel çarpıtma tespiti)
+2. **Core Services (5 Servis)**:
+   - **UnifiedAIPipeline** (Primary - Voice/Pattern/Insights/CBT birleşik)
+   - **SupabaseSync** (Veri senkronizasyonu)
+   - **GamificationService** (Puan/rozet sistemi)
+   - **NotificationService** (Bildirimler)
+   - **TelemetryService** (Metrikler)
 
 3. **Storage Layer**:
    - AsyncStorage (offline-first)

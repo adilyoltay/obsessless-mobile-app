@@ -49,6 +49,10 @@ import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { coreAnalysisService } from '@/features/ai/core/CoreAnalysisService';
 
+// Unified AI Pipeline (NEW - Jan 2025)
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout';
+
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
 
@@ -248,10 +252,82 @@ export default function TodayScreen() {
   };
 
   /**
+   * 🚀 Load data using Unified AI Pipeline (NEW)
+   */
+  const loadUnifiedPipelineData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setAiInsightsLoading(true);
+      const startTime = Date.now();
+      
+      console.log('🚀 Using Unified AI Pipeline');
+      
+      // Gather local data
+      const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
+      const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
+      const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
+      
+      // Call Unified Pipeline
+      const result = await unifiedPipeline.process({
+        userId: user.id,
+        content: {
+          compulsions: allCompulsions,
+          moods: [], // Will be loaded if needed
+          erpSessions: [], // Will be loaded if needed  
+        },
+        type: 'mixed',
+        context: {
+          source: 'today',
+          timestamp: Date.now()
+        }
+      });
+      
+      // Process insights from unified result
+      if (result.insights) {
+        const formattedInsights = [
+          ...result.insights.therapeutic.map(i => ({
+            text: i.text,
+            category: i.category,
+            priority: i.priority
+          })),
+          ...result.insights.progress.map(p => ({
+            text: p.interpretation,
+            category: 'progress',
+            priority: 'medium'
+          }))
+        ];
+        
+        setAiInsights(formattedInsights);
+        setInsightsSource(result.metadata.source);
+        setInsightsConfidence(0.85);
+      }
+      
+      // Track telemetry
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+        userId: user.id,
+        processingTime: Date.now() - startTime,
+        cacheHit: result.metadata.source === 'cache'
+      });
+      
+    } catch (error) {
+      console.error('Unified Pipeline error:', error);
+    } finally {
+      setAiInsightsLoading(false);
+    }
+  };
+
+  /**
    * 🤖 Load AI Insights with Progressive UI
    */
   const loadAIInsights = async () => {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
+      return;
+    }
+    
+    // Check if user should use Unified Pipeline (NEW)
+    if (shouldUseUnifiedPipeline(user.id)) {
+      await loadUnifiedPipelineData();
       return;
     }
     

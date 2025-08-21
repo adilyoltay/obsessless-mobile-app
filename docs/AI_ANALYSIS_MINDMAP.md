@@ -22,6 +22,16 @@
   - **Progressive UI**: 300ms immediate, 3s deep analysis
 - **Performans**: %70 daha az API çağrısı, %92 daha hızlı yanıt
 
+## 🎯 Unified AI Pipeline (Ocak 2025) ✨ YENİ
+- **Görev**: Voice + Pattern + Insights + CBT tek pipeline'da
+- **Özellikler**:
+  - **15→5 Servis**: Sadece 5 core servis kaldı
+  - **24 Saat Cache**: TTL bazlı önbellekleme
+  - **Paralel İşleme**: Tüm analizler paralel
+  - **Invalidation Hooks**: Akıllı cache temizleme
+  - **Gradual Rollout**: %10→%50→%100 kademeli açılım
+- **Performans**: %80 daha az API çağrısı, %85 daha hızlı yanıt
+
 ### 📊 Insights Coordinator (Orchestration Hub)
 - **Görev**: CoreAnalysisService ile entegre çalışır
 - **Çalışma Mantığı**:

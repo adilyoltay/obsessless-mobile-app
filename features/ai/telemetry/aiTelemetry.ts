@@ -231,6 +231,13 @@ export enum AIEventType {
   PROGRESSIVE_UI_UPDATE = 'progressive_ui_update',
   ERP_STAIRCASE_ADJUSTMENT = 'erp_staircase_adjustment',
   
+  // Unified AI Pipeline events (NEW - Jan 2025)
+  UNIFIED_PIPELINE_STARTED = 'unified_pipeline_started',
+  UNIFIED_PIPELINE_COMPLETED = 'unified_pipeline_completed',
+  UNIFIED_PIPELINE_ERROR = 'unified_pipeline_error',
+  UNIFIED_PIPELINE_CACHE_HIT = 'unified_pipeline_cache_hit',
+  CACHE_INVALIDATION = 'cache_invalidation',
+  
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
