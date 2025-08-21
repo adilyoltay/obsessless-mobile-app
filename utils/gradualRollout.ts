@@ -6,7 +6,23 @@
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import crypto from 'crypto';
+
+/**
+ * Simple deterministic hash function for React Native
+ * Replaces crypto module which is not available in React Native
+ */
+function simpleHash(str: string): number {
+  let hash = 0;
+  if (str.length === 0) return hash;
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return Math.abs(hash);
+}
 
 /**
  * Check if user should use Unified Pipeline
@@ -31,8 +47,7 @@ export function shouldUseUnifiedPipeline(userId: string): boolean {
   }
   
   // Deterministic hash based on user ID
-  const hash = crypto.createHash('md5').update(userId).digest('hex');
-  const hashValue = parseInt(hash.substring(0, 8), 16);
+  const hashValue = simpleHash(userId);
   const userPercentage = (hashValue % 100) + 1;
   
   // User is in rollout percentage
