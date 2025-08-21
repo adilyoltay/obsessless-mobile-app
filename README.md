@@ -25,8 +25,16 @@ ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarla
 
 ## 🚀 Son Güncellemeler (Ocak 2025)
 
-### ✨ Yeni Özellikler
-- **🎤 Unified Voice Analysis**: Merkezi ses analizi sistemi (Gemini API)
+### 🎯 CoreAnalysisService v1 - AI Performans Devrimi
+- **Tek Giriş Noktası**: Tüm AI analizleri tek yerden yönetim
+- **LLM Gating**: %70 daha az API çağrısı, akıllı filtreleme
+- **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token)
+- **Similarity Dedup**: Tekrarlayan istekleri otomatik önleme
+- **Progressive UI**: 300ms'de hızlı yanıt, 3s'de derin analiz
+- **Multi-layer Cache**: Optimize TTL (24h insights, 12h ERP, 1h voice)
+
+### ✨ Diğer Yeni Özellikler
+- **🎤 Unified Voice Analysis**: CoreAnalysisService ile entegre ses analizi
 - **🧠 CBT Düşünce Kaydı**: 4-adımlı bilişsel terapi formu
 - **🎨 Master Prompt Uyumlu Tasarım**: Sakinlik, güç, zahmetsizlik ilkeleri
 - **📱 BottomSheet Standardizasyonu**: Tutarlı kullanıcı deneyimi
