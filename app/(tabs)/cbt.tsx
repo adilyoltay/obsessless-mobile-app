@@ -402,10 +402,7 @@ export default function CBTScreen() {
           <View style={styles.statsHeader}>
             <View>
               <Text style={styles.statsTitle}>
-                {timeRangeStats.label} Özeti
-              </Text>
-              <Text style={styles.statsSubtitle}>
-                Bilişsel yeniden yapılandırma ilerlemeniz
+                Özet
               </Text>
             </View>
             {stats.successRate > 70 && (
