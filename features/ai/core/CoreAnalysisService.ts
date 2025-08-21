@@ -169,6 +169,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
 
   // Dependencies (will be injected)
   private needsLLMAnalysis?: (params: any) => boolean;
+  private makeGatingDecision?: (params: any) => { needsLLM: boolean; reason: string; confidence: number };
   private tokenBudgetManager?: any;
   private similarityDedup?: any;
   private resultCache?: any;
@@ -206,7 +207,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
 
       // Import dependencies dynamically
       const [
-        { needsLLMAnalysis },
+        { needsLLMAnalysis, makeGatingDecision },
         { TokenBudgetManager },
         { SimilarityDedup },
         { ResultCache },
@@ -223,6 +224,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
 
       // Initialize dependencies
       this.needsLLMAnalysis = needsLLMAnalysis;
+      this.makeGatingDecision = makeGatingDecision as any;
       this.tokenBudgetManager = new TokenBudgetManager();
       this.similarityDedup = new SimilarityDedup();
       this.resultCache = new ResultCache();
@@ -283,45 +285,59 @@ class CoreAnalysisService implements ICoreAnalysisService {
       const normalized = this.normalizeInput(input);
 
       // Check for duplicate/similar recent requests
+      let lastSimilarHashAt: number | undefined;
       if (this.similarityDedup) {
-        const isDuplicate = await this.similarityDedup.checkDuplicate(normalized.content);
-        if (isDuplicate) {
+        const dedupResult = await this.similarityDedup.analyze(normalized.content);
+        if (dedupResult.isDuplicate) {
           console.log('🔁 Duplicate request detected, returning cached result');
           // Track similarity dedup hit
           await trackAIInteraction(AIEventType.SIMILARITY_DEDUP_HIT, {
             userId: input.userId,
             cacheKey,
-            content: normalized.content.substring(0, 100), // First 100 chars only
+            content_hash: dedupResult.hash,
+            content_length: normalized.content.length,
           });
           // Return a generic result for duplicates
           return this.createGenericResult(input, cacheKey, startTime);
         }
+        lastSimilarHashAt = dedupResult.lastSeenAt;
       }
 
       // Perform heuristic classification
       const heuristicResult = await this.performHeuristicAnalysis(normalized);
 
       // Determine if LLM is needed
-      const shouldUseLLM = this.shouldUseLLM(heuristicResult, normalized);
+      const gating = this.getGatingDecision(heuristicResult, normalized, lastSimilarHashAt);
+      const shouldUseLLM = gating.needsLLM;
       
       // Track gating decision
       await trackGatingDecision(
         shouldUseLLM ? 'allow' : 'block',
-        shouldUseLLM ? 'Low confidence or complex input' : 'High confidence heuristic',
+        gating.reason,
         {
           userId: input.userId,
           quickClass: heuristicResult.quickClass,
           confidence: heuristicResult.confidence,
           textLength: normalized.content.length,
+          lastSimilarHashAt,
         }
       );
 
       let finalResult: AnalysisResult;
 
-      if (shouldUseLLM && this.canUseLLM()) {
+      if (shouldUseLLM && await this.canUseLLM(input.userId)) {
         // Use LLM for enhanced analysis
         finalResult = await this.performLLMAnalysis(normalized, heuristicResult);
         this.stats.llmCalls++;
+        // Record token usage if available
+        try {
+          const used = Math.max(0, Number(finalResult?.debugInfo?.tokenCount || 0));
+          if (used > 0 && this.tokenBudgetManager) {
+            await this.tokenBudgetManager.recordUsage(input.userId, used);
+            this.stats.tokenUsage.daily += used;
+            this.stats.tokenUsage.remaining = Math.max(0, this.stats.tokenUsage.remaining - used);
+          }
+        } catch {}
       } else {
         // Use heuristic result
         finalResult = this.buildResult(heuristicResult, cacheKey, startTime, 'heuristic');
@@ -388,9 +404,11 @@ class CoreAnalysisService implements ICoreAnalysisService {
    * Generate cache key for input
    */
   private generateCacheKey(input: AnalysisInput): string {
+    const dayKey = this.getCurrentDayKey();
     const components = [
       'ai',
       input.userId,
+      dayKey,
       input.kind.toLowerCase(),
       this.hashString(input.content),
     ];
@@ -408,6 +426,15 @@ class CoreAnalysisService implements ICoreAnalysisService {
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Get current day key in Europe/Istanbul timezone (DST-safe)
+   */
+  private getCurrentDayKey(): string {
+    const now = new Date();
+    const istanbulTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
+    return istanbulTime.toISOString().split('T')[0];
   }
 
   /**
@@ -467,28 +494,32 @@ class CoreAnalysisService implements ICoreAnalysisService {
   /**
    * Determine if LLM should be used
    */
-  private shouldUseLLM(heuristicResult: any, input: AnalysisInput): boolean {
-    if (!this.needsLLMAnalysis || !FEATURE_FLAGS.isEnabled('AI_LLM_GATING')) {
-      return false;
+  private getGatingDecision(heuristicResult: any, input: AnalysisInput, lastSimilarHashAt?: number): { needsLLM: boolean; reason: string; confidence: number } {
+    if (!this.makeGatingDecision || !FEATURE_FLAGS.isEnabled('AI_LLM_GATING')) {
+      return { needsLLM: false, reason: 'gating_disabled', confidence: heuristicResult.confidence };
     }
 
-    return this.needsLLMAnalysis({
+    return this.makeGatingDecision({
       quickClass: heuristicResult.quickClass,
       heuristicConfidence: heuristicResult.confidence,
       textLen: input.content.length,
-    });
+      lastSimilarHashAt,
+    }) as any;
   }
 
   /**
    * Check if LLM can be used (budget/rate limits)
    */
-  private canUseLLM(): boolean {
+  private async canUseLLM(userId: string): Promise<boolean> {
     if (!this.tokenBudgetManager) {
       return false;
     }
-    
-    return this.tokenBudgetManager.canMakeRequest() && 
-           this.stats.tokenUsage.remaining > 0;
+    try {
+      const ok = await this.tokenBudgetManager.canMakeRequest(userId);
+      return ok && this.stats.tokenUsage.remaining > 0;
+    } catch {
+      return false;
+    }
   }
 
   /**
