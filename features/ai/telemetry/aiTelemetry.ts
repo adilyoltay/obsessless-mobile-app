@@ -245,6 +245,11 @@ export enum AIEventType {
   VOICE_ANALYSIS_STARTED = 'voice_analysis_started',
   VOICE_ANALYSIS_COMPLETED = 'voice_analysis_completed',
   VOICE_ANALYSIS_FAILED = 'voice_analysis_failed',
+
+  // Pattern Recognition specific events
+  PATTERN_RECOGNITION_STARTED = 'pattern_recognition_started',
+  PATTERN_RECOGNITION_COMPLETED = 'pattern_recognition_completed',
+  PATTERN_RECOGNITION_FAILED = 'pattern_recognition_failed',
   
   // Breathwork Suggestion events (NEW - Week 2)
   BREATHWORK_SUGGESTION_GENERATED = 'breathwork_suggestion_generated',

@@ -28,6 +28,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
+import { moodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
+import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +59,11 @@ export default function MoodScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [displayLimit, setDisplayLimit] = useState(5);
+  
+  // 🎭 Advanced Pattern Analysis State
+  const [moodPatterns, setMoodPatterns] = useState<any[]>([]);
+  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [showPatterns, setShowPatterns] = useState(false);
 
   // Pre-fill from voice trigger if available
   useEffect(() => {
@@ -99,6 +106,61 @@ export default function MoodScreen() {
     await loadMoodEntries();
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(false);
+  };
+
+  /**
+   * 🎭 Advanced Mood Pattern Analysis
+   * Analyzes mood patterns for temporal, trigger, and MEA correlations
+   */
+  const analyzeMoodPatterns = async () => {
+    if (!user?.id || moodEntries.length < 3) {
+      setToastMessage('En az 3 mood kaydı gerekli');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      setPatternsLoading(true);
+      console.log('🎭 Starting mood pattern analysis...');
+
+      // Convert local MoodEntry to service MoodEntry format
+      const serviceMoodEntries: ServiceMoodEntry[] = moodEntries.map(entry => ({
+        id: entry.id,
+        user_id: entry.user_id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        notes: entry.notes,
+        triggers: entry.trigger ? [entry.trigger] : [],
+        activities: [], // Not available in current interface
+        timestamp: entry.created_at,
+        synced: true,
+        sync_attempts: 0
+      }));
+
+      const patterns = await moodPatternAnalysisService.analyzeMoodPatterns(
+        serviceMoodEntries,
+        user.id,
+        'full'
+      );
+
+      setMoodPatterns(patterns);
+      setShowPatterns(true);
+
+      if (patterns.length === 0) {
+        setToastMessage('Henüz belirgin pattern bulunamadı');
+        setShowToast(true);
+      } else {
+        console.log(`✅ Found ${patterns.length} mood patterns`);
+      }
+
+    } catch (error) {
+      console.error('❌ Mood pattern analysis failed:', error);
+      setToastMessage('Pattern analizi başarısız oldu');
+      setShowToast(true);
+    } finally {
+      setPatternsLoading(false);
+    }
   };
 
   // Helper function to get week days
@@ -703,7 +765,120 @@ export default function MoodScreen() {
           </View>
         )}
 
+        {/* 🎭 Advanced Mood Pattern Analysis Section */}
+        <View style={styles.patternAnalysisCard}>
+          <View style={styles.patternAnalysisHeader}>
+            <View style={styles.patternAnalysisHeaderLeft}>
+              <MaterialCommunityIcons name="brain" size={24} color="#8B5CF6" />
+              <Text style={styles.patternAnalysisTitle}>AI Pattern Analizi</Text>
+            </View>
+            <Pressable
+              style={[styles.analysisButton, patternsLoading && styles.analysisButtonDisabled]}
+              onPress={analyzeMoodPatterns}
+              disabled={patternsLoading || moodEntries.length < 3}
+            >
+              <MaterialCommunityIcons 
+                name={patternsLoading ? "loading" : "chart-timeline-variant"} 
+                size={16} 
+                color="white" 
+              />
+              <Text style={styles.analysisButtonText}>
+                {patternsLoading ? 'Analiz Ediliyor...' : 'Analiz Et'}
+              </Text>
+            </Pressable>
+          </View>
+          
+          <Text style={styles.patternAnalysisDescription}>
+            Mood pattern'lerinizi keşfedin: saatlik/günlük döngüler, tetikleyici korelasyonları, MEA analizi
+          </Text>
 
+          {moodEntries.length < 3 && (
+            <View style={styles.patternRequirement}>
+              <MaterialCommunityIcons name="information-outline" size={16} color="#F59E0B" />
+              <Text style={styles.patternRequirementText}>
+                En az 3 mood kaydı gerekli ({moodEntries.length}/3)
+              </Text>
+            </View>
+          )}
+
+          {/* Pattern Results */}
+          {showPatterns && moodPatterns.length > 0 && (
+            <View style={styles.patternsContainer}>
+              <Text style={styles.patternsHeader}>
+                🔍 {moodPatterns.length} Pattern Keşfedildi
+              </Text>
+              
+              {moodPatterns.slice(0, 3).map((pattern, index) => (
+                <View key={index} style={styles.patternCard}>
+                  <View style={styles.patternHeader}>
+                    <Text style={styles.patternTitle}>{pattern.title}</Text>
+                    <View style={[
+                      styles.patternSeverityBadge,
+                      {
+                        backgroundColor: 
+                          pattern.severity === 'high' ? '#FEE2E2' :
+                          pattern.severity === 'medium' ? '#FEF3C7' :
+                          pattern.severity === 'critical' ? '#FECACA' : '#F0F9FF'
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.patternSeverityText,
+                        {
+                          color:
+                            pattern.severity === 'high' ? '#DC2626' :
+                            pattern.severity === 'medium' ? '#D97706' :
+                            pattern.severity === 'critical' ? '#B91C1C' : '#1E40AF'
+                        }
+                      ]}>
+                        {Math.round(pattern.confidence * 100)}%
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.patternDescription}>
+                    {pattern.description}
+                  </Text>
+                  
+                  {pattern.actionable && pattern.suggestion && (
+                    <View style={styles.patternSuggestion}>
+                      <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color="#8B5CF6" />
+                      <Text style={styles.patternSuggestionText}>
+                        {pattern.suggestion}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              {moodPatterns.length > 3 && (
+                <Pressable 
+                  style={styles.showMorePatternsButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Tüm Pattern\'ler',
+                      moodPatterns.map((p, i) => `${i+1}. ${p.title}: ${p.description}`).join('\n\n'),
+                      [{ text: 'Tamam', style: 'default' }]
+                    );
+                  }}
+                >
+                  <Text style={styles.showMorePatternsText}>
+                    +{moodPatterns.length - 3} pattern daha göster
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {showPatterns && moodPatterns.length === 0 && (
+            <View style={styles.noPatternsFound}>
+              <MaterialCommunityIcons name="chart-line-variant" size={24} color="#9CA3AF" />
+              <Text style={styles.noPatternsText}>
+                Henüz belirgin pattern bulunamadı.{'\n'}
+                Daha fazla veri toplandıkça pattern'ler ortaya çıkacak.
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Mood Entries List - Matching OCD/ERP Design */}
         <View style={styles.listSection}>
@@ -1392,6 +1567,171 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
+    fontFamily: 'Inter',
+  },
+
+  // 🎭 Pattern Analysis Styles
+  patternAnalysisCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  patternAnalysisHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  patternAnalysisHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  patternAnalysisTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 8,
+    fontFamily: 'Inter',
+  },
+  analysisButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  analysisButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  analysisButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+    fontFamily: 'Inter',
+  },
+  patternAnalysisDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 20,
+    fontFamily: 'Inter',
+  },
+  patternRequirement: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  patternRequirementText: {
+    fontSize: 12,
+    color: '#92400E',
+    marginLeft: 6,
+    fontFamily: 'Inter',
+  },
+  patternsContainer: {
+    marginTop: 12,
+  },
+  patternsHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+    fontFamily: 'Inter',
+  },
+  patternCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  patternHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  patternTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+    marginRight: 8,
+    fontFamily: 'Inter',
+  },
+  patternSeverityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  patternSeverityText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+  },
+  patternDescription: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  patternSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#8B5CF6',
+  },
+  patternSuggestionText: {
+    fontSize: 12,
+    color: '#374151',
+    marginLeft: 6,
+    flex: 1,
+    fontStyle: 'italic',
+    lineHeight: 16,
+    fontFamily: 'Inter',
+  },
+  showMorePatternsButton: {
+    alignItems: 'center',
+    marginTop: 8,
+    padding: 8,
+  },
+  showMorePatternsText: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    fontWeight: '500',
+    fontFamily: 'Inter',
+  },
+  noPatternsFound: {
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 8,
+  },
+  noPatternsText: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
     fontFamily: 'Inter',
   },
   
