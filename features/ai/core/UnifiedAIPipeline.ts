@@ -13,7 +13,23 @@
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
-import crypto from 'crypto';
+
+/**
+ * Simple deterministic hash function for React Native
+ * Replaces crypto module which is not available in React Native
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  if (str.length === 0) return hash.toString(16);
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return Math.abs(hash).toString(16);
+}
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -426,10 +442,7 @@ export class UnifiedAIPipeline {
       source: input.context?.source
     };
     
-    return `unified:${input.userId}:${crypto
-      .createHash('md5')
-      .update(JSON.stringify(data))
-      .digest('hex')}`;
+    return `unified:${input.userId}:${simpleHash(JSON.stringify(data))}`;
   }
   
   private getFromCache(key: string): UnifiedPipelineResult | null {
