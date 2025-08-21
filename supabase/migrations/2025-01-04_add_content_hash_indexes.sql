@@ -52,6 +52,15 @@ END $$;
 DO $$ 
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+    -- Add created_at column if it doesn't exist
+    ALTER TABLE erp_sessions 
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add updated_at column if it doesn't exist
+    ALTER TABLE erp_sessions 
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add content_hash column
     ALTER TABLE erp_sessions 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
@@ -75,6 +84,15 @@ END $$;
 DO $$ 
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mood_entries') THEN
+    -- Add created_at column if it doesn't exist
+    ALTER TABLE mood_entries 
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add updated_at column if it doesn't exist
+    ALTER TABLE mood_entries 
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add content_hash column
     ALTER TABLE mood_entries 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
@@ -98,6 +116,15 @@ END $$;
 DO $$ 
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'compulsion_records') THEN
+    -- Add created_at column if it doesn't exist
+    ALTER TABLE compulsion_records 
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add updated_at column if it doesn't exist
+    ALTER TABLE compulsion_records 
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+    
+    -- Add content_hash column
     ALTER TABLE compulsion_records 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
