@@ -957,14 +957,22 @@ class CoreAnalysisService implements ICoreAnalysisService {
   }
 
   private selectBreathworkProtocol(patterns: string[], score: number): string {
-    if (patterns.includes('anxiety') && score > 0.4) return '4-7-8';
+    // Enhanced protocol selection with comprehensive logic
+    if (patterns.includes('physical_symptoms') && score > 0.7) return 'quick_calm';
+    if (patterns.includes('anxiety') && score > 0.6) return '4-7-8';
     if (patterns.includes('relaxation')) return 'paced';
-    return 'box';
+    if (score > 0.5) return 'box';
+    return 'extended'; // For maintenance/gentle sessions
   }
 
   private estimateAnxietyLevel(patterns: string[], score: number): number {
-    if (patterns.includes('physical_symptoms')) return Math.min(Math.round(score * 12), 10);
-    return Math.min(Math.round(score * 10), 8);
+    let baseLevel = Math.min(Math.round(score * 10), 8);
+    
+    // Adjust based on specific patterns
+    if (patterns.includes('physical_symptoms')) baseLevel = Math.min(baseLevel + 2, 10);
+    if (patterns.some(p => p.includes('panic') || p.includes('dayanam'))) baseLevel = Math.min(baseLevel + 3, 10);
+    
+    return baseLevel;
   }
 
   private estimateMoodScore(patterns: string[]): number {

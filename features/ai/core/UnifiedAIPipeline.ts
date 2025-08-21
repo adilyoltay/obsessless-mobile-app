@@ -225,6 +225,15 @@ export class UnifiedAIPipeline {
       );
     }
     
+    // 4. Breathwork Analysis (NEW - Week 2)
+    if (this.shouldRunBreathwork(input)) {
+      promises.push(
+        this.processBreathworkAnalysis(input).then(breathwork => {
+          result.breathwork = breathwork;
+        })
+      );
+    }
+    
     // Wait for parallel analyses
     await Promise.allSettled(promises);
     
@@ -1182,6 +1191,224 @@ export class UnifiedAIPipeline {
       // If same priority, sort by confidence
       return (b.confidence || 0) - (a.confidence || 0);
     });
+  }
+  
+  /**
+   * Determine if breathwork analysis should run
+   */
+  private shouldRunBreathwork(input: UnifiedPipelineInput): boolean {
+    // Always check for breathwork opportunities
+    return true;
+  }
+  
+  /**
+   * Process comprehensive breathwork analysis with new service integration
+   */
+  private async processBreathworkAnalysis(input: UnifiedPipelineInput): Promise<any> {
+    try {
+      // Extract context for breathwork suggestion
+      const context = {
+        moodScore: this.extractMoodFromInput(input),
+        anxietyLevel: this.extractAnxietyFromInput(input),
+        recentCompulsions: this.extractRecentCompulsions(input),
+        userInput: typeof input.content === 'string' ? input.content : undefined
+      };
+      
+      // Use new breathwork suggestion service
+      try {
+        const { breathworkSuggestionService } = await import('../services/breathworkSuggestionService');
+        
+        const suggestion = await breathworkSuggestionService.generateSuggestion({
+          userId: input.userId,
+          ...context,
+          currentTime: new Date()
+        });
+        
+        if (suggestion) {
+          return {
+            hasBreathworkSuggestion: true,
+            suggestion: {
+              id: suggestion.id,
+              trigger: suggestion.trigger,
+              protocol: suggestion.protocol,
+              urgency: suggestion.urgency,
+              customization: suggestion.customization,
+              timing: suggestion.timing,
+              metadata: {
+                confidence: suggestion.trigger.confidence,
+                source: 'ai_breathwork_service',
+                generatedAt: suggestion.metadata.generatedAt,
+                priority: suggestion.metadata.priority
+              }
+            },
+            enhancement: {
+              contextualRelevance: this.calculateBreathworkRelevance(context),
+              fallbackProtocols: suggestion.metadata.fallbackOptions,
+              adaptations: {
+                userPreferences: true,
+                urgencyAdjusted: suggestion.urgency !== 'low',
+                protocolCustomized: suggestion.protocol.name !== 'box'
+              }
+            }
+          };
+        }
+        
+      } catch (serviceError) {
+        console.warn('Breathwork service unavailable, using fallback:', serviceError);
+        
+        // Fallback to enhanced heuristic analysis
+        return this.processBreathworkHeuristics(context);
+      }
+      
+      return { hasBreathworkSuggestion: false };
+      
+    } catch (error) {
+      console.error('Breathwork analysis failed:', error);
+      return { hasBreathworkSuggestion: false, error: 'analysis_failed' };
+    }
+  }
+  
+  /**
+   * Fallback breathwork analysis using heuristics
+   */
+  private processBreathworkHeuristics(context: any): any {
+    const anxietyLevel = context.anxietyLevel || 5;
+    const moodScore = context.moodScore;
+    const recentCompulsions = context.recentCompulsions || 0;
+    
+    // Determine if breathwork is needed
+    let needsBreathwork = false;
+    let urgency: 'low' | 'medium' | 'high' = 'low';
+    let triggerType = 'maintenance';
+    
+    if (anxietyLevel >= 8) {
+      needsBreathwork = true;
+      urgency = 'high';
+      triggerType = 'anxiety';
+    } else if (anxietyLevel >= 6) {
+      needsBreathwork = true;
+      urgency = 'medium';
+      triggerType = 'anxiety';
+    } else if (moodScore && moodScore <= 4) {
+      needsBreathwork = true;
+      urgency = 'medium';
+      triggerType = 'low_mood';
+    } else if (recentCompulsions >= 2) {
+      needsBreathwork = true;
+      urgency = 'medium';
+      triggerType = 'post_compulsion';
+    }
+    
+    if (!needsBreathwork) {
+      return { hasBreathworkSuggestion: false };
+    }
+    
+    // Select protocol based on context
+    let protocol = 'box';
+    if (anxietyLevel >= 8) protocol = 'quick_calm';
+    else if (anxietyLevel >= 6) protocol = '4-7-8';
+    else if (moodScore && moodScore <= 3) protocol = 'paced';
+    
+    return {
+      hasBreathworkSuggestion: true,
+      suggestion: {
+        id: `heuristic_${Date.now()}`,
+        trigger: { 
+          type: triggerType, 
+          confidence: anxietyLevel >= 7 ? 0.8 : 0.6,
+          contextData: { anxietyLevel, moodScore, recentCompulsions }
+        },
+        protocol: { 
+          name: protocol, 
+          duration: protocol === 'quick_calm' ? 120 : 300 
+        },
+        urgency,
+        metadata: {
+          confidence: anxietyLevel >= 7 ? 0.8 : 0.6,
+          source: 'heuristic_fallback',
+          generatedAt: Date.now()
+        }
+      },
+      enhancement: {
+        contextualRelevance: this.calculateBreathworkRelevance(context),
+        fallbackProtocols: ['box', 'paced'],
+        adaptations: {
+          userPreferences: false,
+          urgencyAdjusted: urgency !== 'low',
+          protocolCustomized: false
+        }
+      }
+    };
+  }
+  
+  private extractMoodFromInput(input: UnifiedPipelineInput): number | undefined {
+    if (typeof input.content === 'object' && input.content.mood) {
+      return input.content.mood;
+    }
+    
+    if (typeof input.content === 'string') {
+      // Simple mood extraction from text
+      const text = input.content.toLowerCase();
+      if (/çok.*?(kötü|berbat|mutsuz)/i.test(text)) return 2;
+      if (/kötü|üzgün|keyifsiz/i.test(text)) return 4;
+      if (/iyi|güzel|mutlu/i.test(text)) return 7;
+      if (/(çok|aşırı).*?(iyi|mutlu|harika)/i.test(text)) return 9;
+    }
+    
+    return undefined;
+  }
+  
+  private extractAnxietyFromInput(input: UnifiedPipelineInput): number {
+    if (typeof input.content === 'object' && input.content.anxiety) {
+      return input.content.anxiety;
+    }
+    
+    if (typeof input.content === 'string') {
+      const text = input.content.toLowerCase();
+      let anxietyScore = 0;
+      
+      // High anxiety indicators
+      if (/panik|dehşet|korkunç|dayanamıyorum/i.test(text)) anxietyScore += 4;
+      if (/kaygı|endişe|gergin/i.test(text)) anxietyScore += 2;
+      if (/(çok|aşırı).*?(kaygılı|endişeli|gergin)/i.test(text)) anxietyScore += 3;
+      if (/nefes.*?alamıyorum|çarpıntı|titreme/i.test(text)) anxietyScore += 3;
+      
+      return Math.min(anxietyScore, 10);
+    }
+    
+    return 5; // Default neutral
+  }
+  
+  private extractRecentCompulsions(input: UnifiedPipelineInput): number {
+    if (typeof input.content === 'object' && input.content.compulsions) {
+      if (Array.isArray(input.content.compulsions)) {
+        // Count recent compulsions (last 24 hours)
+        const yesterday = Date.now() - (24 * 60 * 60 * 1000);
+        return input.content.compulsions.filter(c => 
+          c.timestamp && new Date(c.timestamp).getTime() > yesterday
+        ).length;
+      }
+    }
+    
+    if (typeof input.content === 'string') {
+      // Simple compulsion indicators from text
+      const compulsionWords = /kontrol.*?etti?m|tekrar.*?bakt?ım|yıka.*?dım|temizle.*?dim|say.*?dım/gi;
+      const matches = input.content.match(compulsionWords);
+      return matches ? matches.length : 0;
+    }
+    
+    return 0;
+  }
+  
+  private calculateBreathworkRelevance(context: any): number {
+    let relevance = 0.3; // Base relevance
+    
+    if (context.anxietyLevel && context.anxietyLevel >= 6) relevance += 0.4;
+    if (context.moodScore && context.moodScore <= 4) relevance += 0.3;
+    if (context.recentCompulsions && context.recentCompulsions >= 1) relevance += 0.2;
+    if (context.userInput && /nefes|sakin|rahatlat/i.test(context.userInput)) relevance += 0.3;
+    
+    return Math.min(relevance, 1.0);
   }
   
   // ============================================================================

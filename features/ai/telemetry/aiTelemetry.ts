@@ -241,6 +241,14 @@ export enum AIEventType {
   UNIFIED_PIPELINE_CACHE_HIT = 'unified_pipeline_cache_hit',
   CACHE_INVALIDATION = 'cache_invalidation',
   
+  // Breathwork Suggestion events (NEW - Week 2)
+  BREATHWORK_SUGGESTION_GENERATED = 'breathwork_suggestion_generated',
+  BREATHWORK_SUGGESTION_SNOOZED = 'breathwork_suggestion_snoozed',
+  BREATHWORK_SUGGESTION_DISMISSED = 'breathwork_suggestion_dismissed',
+  BREATHWORK_SUGGESTION_DELAYED = 'breathwork_suggestion_delayed',
+  BREATHWORK_SUGGESTION_ACCEPTED = 'breathwork_suggestion_accepted',
+  BREATHWORK_SESSION_COMPLETED = 'breathwork_session_completed',
+  
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
