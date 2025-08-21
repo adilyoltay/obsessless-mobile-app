@@ -53,6 +53,8 @@ export enum AIEventType {
   // Performance events
   SLOW_RESPONSE = 'slow_response',
   API_ERROR = 'api_error',
+  EXTERNAL_API_ERROR = 'external_api_error',
+  SYSTEM_ERROR = 'system_error',
   FALLBACK_TRIGGERED = 'fallback_triggered',
   
   // User experience events
@@ -227,6 +229,7 @@ export enum AIEventType {
   CACHE_MISS = 'cache_miss',
   LLM_GATING_DECISION = 'llm_gating_decision',
   TOKEN_BUDGET_EXCEEDED = 'token_budget_exceeded',
+  TOKEN_USAGE_RECORDED = 'token_usage_recorded',
   SIMILARITY_DEDUP_HIT = 'similarity_dedup_hit',
   PROGRESSIVE_UI_UPDATE = 'progressive_ui_update',
   ERP_STAIRCASE_ADJUSTMENT = 'erp_staircase_adjustment',

@@ -264,58 +264,479 @@ export class UnifiedAIPipeline {
   
   private async processPatternRecognition(input: UnifiedPipelineInput): Promise<any> {
     try {
-      // Simplified pattern recognition logic
-      // In real implementation, would use patternRecognitionV2
-      
       const patterns = {
         temporal: [],
         behavioral: [],
-        environmental: []
+        environmental: [],
+        triggers: [],
+        severity: [],
+        metadata: {
+          analysisTime: Date.now(),
+          dataPoints: 0,
+          confidence: 0
+        }
       };
       
       // Extract patterns from user data
-      if (typeof input.content === 'object' && input.content.compulsions) {
-        // Temporal patterns
-        const timePatterns = this.extractTemporalPatterns(input.content.compulsions);
-        patterns.temporal = timePatterns;
+      if (typeof input.content === 'object') {
+        const content = input.content;
         
-        // Behavioral patterns
-        const behaviorPatterns = this.extractBehavioralPatterns(input.content.compulsions);
-        patterns.behavioral = behaviorPatterns;
+        // 1. TEMPORAL PATTERNS (Zaman bazlı kalıplar)
+        if (content.compulsions && Array.isArray(content.compulsions)) {
+          patterns.temporal = this.extractTemporalPatterns(content.compulsions);
+          patterns.metadata.dataPoints += content.compulsions.length;
+        }
+        
+        if (content.moods && Array.isArray(content.moods)) {
+          patterns.temporal.push(...this.extractMoodTemporalPatterns(content.moods));
+          patterns.metadata.dataPoints += content.moods.length;
+        }
+        
+        if (content.erpSessions && Array.isArray(content.erpSessions)) {
+          patterns.temporal.push(...this.extractERPTemporalPatterns(content.erpSessions));
+          patterns.metadata.dataPoints += content.erpSessions.length;
+        }
+        
+        // 2. BEHAVIORAL PATTERNS (Davranışsal kalıplar)
+        if (content.compulsions) {
+          patterns.behavioral = this.extractBehavioralPatterns(content.compulsions);
+        }
+        
+        // 3. ENVIRONMENTAL TRIGGERS (Çevresel tetikleyiciler)
+        patterns.environmental = this.extractEnvironmentalTriggers(content);
+        
+        // 4. TRIGGER ANALYSIS (Tetik analizi)
+        patterns.triggers = this.analyzeTriggers(content);
+        
+        // 5. SEVERITY PROGRESSION (Şiddet seyrı)
+        patterns.severity = this.analyzeSeverityProgression(content);
+        
+        // 6. CALCULATE CONFIDENCE (Güven skoru hesaplama)
+        patterns.metadata.confidence = this.calculatePatternConfidence(patterns.metadata.dataPoints);
+      }
+      
+      // Handle text input (voice/notes)
+      if (typeof input.content === 'string') {
+        const textPatterns = this.extractTextPatterns(input.content);
+        patterns.behavioral.push(...textPatterns.behavioral);
+        patterns.triggers.push(...textPatterns.triggers);
+        patterns.metadata.dataPoints += 1;
+        patterns.metadata.confidence = 0.6; // Text analysis has medium confidence
       }
       
       return patterns;
     } catch (error) {
-      console.warn('Pattern recognition failed:', error);
-      return null;
+      console.error('Pattern recognition error:', error);
+      return { 
+        temporal: [], 
+        behavioral: [], 
+        environmental: [], 
+        triggers: [],
+        severity: [],
+        metadata: { analysisTime: Date.now(), dataPoints: 0, confidence: 0 }
+      };
     }
   }
   
   private async processCBTAnalysis(input: UnifiedPipelineInput): Promise<any> {
     try {
-      const { cbtEngine } = await import('../engines/cbtEngine');
+      const text = typeof input.content === 'string' 
+        ? input.content 
+        : input.content.description || input.content.notes || '';
       
-      if (!cbtEngine.enabled) {
+      if (!text || text.length < 5) {
         return null;
       }
       
-      const text = typeof input.content === 'string' 
-        ? input.content 
-        : input.content.description || '';
-      
-      const distortions = await cbtEngine.detectDistortions(text);
-      const reframes = await cbtEngine.suggestReframes(text, distortions);
-      
-      return {
-        distortions: distortions.map(d => d.name),
-        reframes,
+      const analysis = {
+        distortions: [],
+        reframes: [],
         techniques: [],
-        confidence: 0.85
+        thoughtRecord: null,
+        severity: 0,
+        urgency: 'low',
+        metadata: {
+          analysisTime: Date.now(),
+          textLength: text.length,
+          confidence: 0
+        }
       };
+      
+      // 1. COGNITIVE DISTORTION DETECTION
+      const detectedDistortions = this.detectCognitiveDistortions(text);
+      analysis.distortions = detectedDistortions;
+      
+      // 2. AUTOMATIC THOUGHT RECORD GENERATION
+      if (detectedDistortions.length > 0) {
+        analysis.thoughtRecord = this.generateThoughtRecord(text, detectedDistortions);
+      }
+      
+      // 3. REFRAME SUGGESTIONS
+      analysis.reframes = await this.generateCBTReframes(text, detectedDistortions);
+      
+      // 4. CBT TECHNIQUE RECOMMENDATIONS
+      analysis.techniques = this.recommendCBTTechniques(detectedDistortions, text);
+      
+      // 5. SEVERITY ASSESSMENT
+      analysis.severity = this.assessCognitiveDistortionSeverity(text, detectedDistortions);
+      
+      // 6. URGENCY CALCULATION
+      analysis.urgency = this.calculateCBTUrgency(analysis.severity, detectedDistortions);
+      
+      // 7. CONFIDENCE CALCULATION
+      analysis.metadata.confidence = this.calculateCBTConfidence(detectedDistortions, text.length);
+      
+      // Try to use cbtEngine if available (fallback to built-in logic)
+      try {
+        const { cbtEngine } = await import('../engines/cbtEngine');
+        
+        if (cbtEngine.enabled) {
+          const engineDistortions = await cbtEngine.detectDistortions(text);
+          const engineReframes = await cbtEngine.suggestReframes(text, engineDistortions);
+          
+          // Merge engine results with built-in analysis
+          analysis.distortions = [...analysis.distortions, ...engineDistortions.map(d => ({ name: d.name, confidence: d.confidence }))];
+          analysis.reframes = [...analysis.reframes, ...engineReframes];
+          analysis.metadata.confidence = Math.max(analysis.metadata.confidence, 0.85);
+        }
+      } catch (engineError) {
+        console.warn('CBT Engine unavailable, using built-in analysis:', engineError);
+      }
+      
+      return analysis;
     } catch (error) {
-      console.warn('CBT analysis failed:', error);
+      console.error('CBT analysis failed:', error);
       return null;
     }
+  }
+
+  private detectCognitiveDistortions(text: string): Array<{name: string, confidence: number, evidence: string[]}> {
+    const distortions = [];
+    const lowerText = text.toLowerCase();
+    
+    // Catastrophizing (Felaketleştirme)
+    const catastrophizingPatterns = [
+      { pattern: /ya\s+.*?olursa/gi, weight: 0.8 },
+      { pattern: /kesin.*?olacak/gi, weight: 0.7 },
+      { pattern: /felaket|korkunç|berbat/gi, weight: 0.6 },
+      { pattern: /mahvol.*?|bitecek|dayanamam/gi, weight: 0.9 }
+    ];
+    
+    const catastrophizingEvidence = [];
+    let catastrophizingScore = 0;
+    
+    catastrophizingPatterns.forEach(({ pattern, weight }) => {
+      const matches = text.match(pattern);
+      if (matches) {
+        catastrophizingScore += matches.length * weight;
+        catastrophizingEvidence.push(...matches);
+      }
+    });
+    
+    if (catastrophizingScore > 0.5) {
+      distortions.push({
+        name: 'catastrophizing',
+        confidence: Math.min(catastrophizingScore, 1),
+        evidence: catastrophizingEvidence.slice(0, 3) // Max 3 examples
+      });
+    }
+    
+    // All-or-Nothing Thinking (Hep-Hiç Düşünce)
+    const allOrNothingPatterns = [
+      { pattern: /asla.*?olmaz|hiçbir zaman/gi, weight: 0.8 },
+      { pattern: /her zaman|hep|hiç/gi, weight: 0.6 },
+      { pattern: /tamamen.*?başarısız|mükemmel.*?olmalı/gi, weight: 0.9 }
+    ];
+    
+    const allOrNothingEvidence = [];
+    let allOrNothingScore = 0;
+    
+    allOrNothingPatterns.forEach(({ pattern, weight }) => {
+      const matches = text.match(pattern);
+      if (matches) {
+        allOrNothingScore += matches.length * weight;
+        allOrNothingEvidence.push(...matches);
+      }
+    });
+    
+    if (allOrNothingScore > 0.4) {
+      distortions.push({
+        name: 'all_or_nothing',
+        confidence: Math.min(allOrNothingScore, 1),
+        evidence: allOrNothingEvidence.slice(0, 3)
+      });
+    }
+    
+    // Mind Reading (Zihin Okuma)
+    const mindReadingPatterns = [
+      { pattern: /herkes.*?düşünüyor|kesin.*?düşünüyor/gi, weight: 0.8 },
+      { pattern: /benden nefret|beni sevmiyor/gi, weight: 0.9 },
+      { pattern: /yargılıyor|dalga geçiyor|aptal sanıyor/gi, weight: 0.7 }
+    ];
+    
+    const mindReadingEvidence = [];
+    let mindReadingScore = 0;
+    
+    mindReadingPatterns.forEach(({ pattern, weight }) => {
+      const matches = text.match(pattern);
+      if (matches) {
+        mindReadingScore += matches.length * weight;
+        mindReadingEvidence.push(...matches);
+      }
+    });
+    
+    if (mindReadingScore > 0.4) {
+      distortions.push({
+        name: 'mind_reading',
+        confidence: Math.min(mindReadingScore, 1),
+        evidence: mindReadingEvidence.slice(0, 3)
+      });
+    }
+    
+    // Personalization (Kişiselleştirme)
+    const personalizationPatterns = [
+      { pattern: /benim yüzümden|benim suçum/gi, weight: 0.9 },
+      { pattern: /ben sebep oldum|hep ben/gi, weight: 0.8 },
+      { pattern: /benden kaynaklı/gi, weight: 0.7 }
+    ];
+    
+    const personalizationEvidence = [];
+    let personalizationScore = 0;
+    
+    personalizationPatterns.forEach(({ pattern, weight }) => {
+      const matches = text.match(pattern);
+      if (matches) {
+        personalizationScore += matches.length * weight;
+        personalizationEvidence.push(...matches);
+      }
+    });
+    
+    if (personalizationScore > 0.4) {
+      distortions.push({
+        name: 'personalization',
+        confidence: Math.min(personalizationScore, 1),
+        evidence: personalizationEvidence.slice(0, 3)
+      });
+    }
+    
+    // Labeling (Etiketleme)
+    const labelingPatterns = [
+      { pattern: /ben.*?başarısızım|ben.*?aptalım/gi, weight: 0.9 },
+      { pattern: /ben.*?değersizim|ben.*?beceriksizim/gi, weight: 0.9 },
+      { pattern: /hiçbir işe yaramıyorum/gi, weight: 0.8 }
+    ];
+    
+    const labelingEvidence = [];
+    let labelingScore = 0;
+    
+    labelingPatterns.forEach(({ pattern, weight }) => {
+      const matches = text.match(pattern);
+      if (matches) {
+        labelingScore += matches.length * weight;
+        labelingEvidence.push(...matches);
+      }
+    });
+    
+    if (labelingScore > 0.4) {
+      distortions.push({
+        name: 'labeling',
+        confidence: Math.min(labelingScore, 1),
+        evidence: labelingEvidence.slice(0, 3)
+      });
+    }
+    
+    return distortions;
+  }
+
+  private generateThoughtRecord(text: string, distortions: any[]): any {
+    const primaryDistortion = distortions[0];
+    if (!primaryDistortion) return null;
+    
+    return {
+      automaticThought: text.substring(0, 200), // First 200 chars as automatic thought
+      emotion: this.extractEmotionFromText(text),
+      intensity: this.calculateEmotionalIntensity(text),
+      distortion: primaryDistortion.name,
+      evidence: primaryDistortion.evidence,
+      balancedThought: '', // Will be filled by user or AI reframes
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  private async generateCBTReframes(text: string, distortions: any[]): Promise<string[]> {
+    const reframes = [];
+    
+    // Generate distortion-specific reframes
+    distortions.forEach(distortion => {
+      switch (distortion.name) {
+        case 'catastrophizing':
+          reframes.push(
+            'Bu durumun gerçekte ne kadar kötü olabileceğini gerçekçi bir şekilde değerlendirebilirim.',
+            'Geçmişte benzer durumlarla başa çıktığımı hatırlıyorum.',
+            'En kötü senaryo gerçekleşse bile, bunun üstesinden gelme yolları vardır.'
+          );
+          break;
+        case 'all_or_nothing':
+          reframes.push(
+            'Bu durum siyah-beyaz değil, grinin tonları var.',
+            'Mükemmel olmak zorunda değilim, yeterince iyi olmak da değerlidir.',
+            'Her şeyin bir spektrumu olduğunu hatırlamalıyım.'
+          );
+          break;
+        case 'mind_reading':
+          reframes.push(
+            'Başkalarının ne düşündüğünü gerçekten bilemem.',
+            'İnsanlar genellikle kendi sorunlarıyla meşguller, beni o kadar düşünmüyorlar.',
+            'Varsayımlarım gerçek olmayabilir, doğrudan sormak daha iyi olabilir.'
+          );
+          break;
+        case 'personalization':
+          reframes.push(
+            'Her şey benim kontrolümde değil ve her şeyden sorumlu değilim.',
+            'Bu duruma birçok faktör katkıda bulunmuş olabilir.',
+            'Kendimi gereksiz yere suçlamak yerine çözüm odaklı düşünebilirim.'
+          );
+          break;
+        case 'labeling':
+          reframes.push(
+            'Ben bir davranışım değilim, bu sadece bir hata.',
+            'Herkes hata yapar, bu beni kötü bir insan yapmaz.',
+            'Kendimle daha şefkatli konuşmalıyım.'
+          );
+          break;
+      }
+    });
+    
+    // Generic reframes if no specific distortions
+    if (reframes.length === 0) {
+      reframes.push(
+        'Bu düşüncenin bana ne kadar faydası var?',
+        'Bu durumu daha dengeli bir şekilde nasıl değerlendirebilirim?',
+        'En iyi arkadaşıma ne söylerdim?'
+      );
+    }
+    
+    // Remove duplicates and limit to 3
+    return [...new Set(reframes)].slice(0, 3);
+  }
+
+  private recommendCBTTechniques(distortions: any[], text: string): Array<{name: string, description: string, priority: number}> {
+    const techniques = [];
+    const distortionNames = distortions.map(d => d.name);
+    
+    // Technique recommendations based on detected distortions
+    if (distortionNames.includes('catastrophizing')) {
+      techniques.push({
+        name: 'Probability Estimation',
+        description: 'Korkulan durumun gerçekleşme olasılığını gerçekçi bir şekilde değerlendirin (0-100%).',
+        priority: 9
+      });
+      techniques.push({
+        name: 'Decatastrophizing',
+        description: 'En kötü senaryo gerçekleşse bile nasıl başa çıkabileceğinizi planlayın.',
+        priority: 8
+      });
+    }
+    
+    if (distortionNames.includes('all_or_nothing')) {
+      techniques.push({
+        name: 'Continuum Technique',
+        description: 'Durumu 0-100 skalasında değerlendirerek gri alanları keşfedin.',
+        priority: 9
+      });
+    }
+    
+    if (distortionNames.includes('mind_reading')) {
+      techniques.push({
+        name: 'Evidence Testing',
+        description: 'Başkalarının düşüncelerine dair varsayımlarınız için kanıt arayın.',
+        priority: 8
+      });
+      techniques.push({
+        name: 'Alternative Perspectives',
+        description: 'Durumu farklı açılardan değerlendirin.',
+        priority: 7
+      });
+    }
+    
+    // General techniques
+    techniques.push({
+      name: 'Thought Record',
+      description: 'Düşüncelerinizi yazarak analiz edin ve dengeli alternatifler bulun.',
+      priority: 6
+    });
+    
+    techniques.push({
+      name: 'Self-Compassion',
+      description: 'Kendinize en iyi arkadaşınıza davranır gibi şefkatli davranın.',
+      priority: 5
+    });
+    
+    // Sort by priority and return top 3
+    return techniques
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 3);
+  }
+
+  private assessCognitiveDistortionSeverity(text: string, distortions: any[]): number {
+    if (distortions.length === 0) return 0;
+    
+    // Base severity from number of distortions
+    let severity = Math.min(distortions.length * 2, 6);
+    
+    // Increase severity based on confidence
+    const avgConfidence = distortions.reduce((sum, d) => sum + d.confidence, 0) / distortions.length;
+    severity += avgConfidence * 2;
+    
+    // Increase severity for emotional intensity words
+    const intensityWords = /çok|aşırı|korkunç|berbat|dayanamam|mahvoldum/gi;
+    const intensityMatches = text.match(intensityWords);
+    if (intensityMatches) {
+      severity += Math.min(intensityMatches.length * 0.5, 2);
+    }
+    
+    return Math.min(Math.round(severity), 10);
+  }
+
+  private calculateCBTUrgency(severity: number, distortions: any[]): 'low' | 'medium' | 'high' {
+    if (severity >= 8) return 'high';
+    if (severity >= 5) return 'medium';
+    return 'low';
+  }
+
+  private calculateCBTConfidence(distortions: any[], textLength: number): number {
+    if (distortions.length === 0) return 0.3;
+    
+    const avgDistortionConfidence = distortions.reduce((sum, d) => sum + d.confidence, 0) / distortions.length;
+    const lengthBonus = Math.min(textLength / 100, 0.2); // Bonus for longer text
+    
+    return Math.min(avgDistortionConfidence + lengthBonus, 0.95);
+  }
+
+  private extractEmotionFromText(text: string): string {
+    const emotions = {
+      'üzgün': /üzgün|üzülü|kederli|melankolik/gi,
+      'öfkeli': /öfkeli|sinirli|kızgın|rahatsız/gi,
+      'kaygılı': /kaygılı|endişeli|gergin|stresli/gi,
+      'korku': /korku|panik|dehşet/gi,
+      'utanç': /utanç|mahcup|rezil/gi
+    };
+    
+    for (const [emotion, pattern] of Object.entries(emotions)) {
+      if (pattern.test(text)) {
+        return emotion;
+      }
+    }
+    
+    return 'belirsiz';
+  }
+
+  private calculateEmotionalIntensity(text: string): number {
+    const intensifiers = text.match(/çok|aşırı|son derece|fazlasıyla|tam/gi);
+    const baseIntensity = 5;
+    const intensifierBonus = intensifiers ? Math.min(intensifiers.length * 2, 4) : 0;
+    
+    return Math.min(baseIntensity + intensifierBonus, 10);
   }
   
   private async processInsightsGeneration(
@@ -325,33 +746,442 @@ export class UnifiedAIPipeline {
     try {
       const insights = {
         therapeutic: [],
-        progress: []
+        progress: [],
+        behavioral: [],
+        motivational: [],
+        metadata: {
+          generatedAt: Date.now(),
+          confidence: 0,
+          totalInsights: 0,
+          categories: []
+        }
       };
       
-      // Generate insights based on patterns
-      if (patterns.temporal.length > 0) {
-        insights.therapeutic.push({
-          text: `Kompulsiyonlarınız genellikle ${patterns.temporal[0].timeOfDay} saatlerinde artıyor.`,
-          category: 'pattern',
-          priority: 'high' as const,
-          actionable: true
-        });
+      // 1. TEMPORAL INSIGHTS (Zaman bazlı içgörüler)
+      if (patterns.temporal && patterns.temporal.length > 0) {
+        const temporalInsights = this.generateTemporalInsights(patterns.temporal);
+        insights.therapeutic.push(...temporalInsights);
       }
       
-      if (patterns.behavioral.length > 0) {
-        insights.progress.push({
-          metric: 'trigger_awareness',
-          value: patterns.behavioral.length,
-          change: 0,
-          interpretation: 'Tetikleyici farkındalığınız artıyor'
-        });
+      // 2. BEHAVIORAL INSIGHTS (Davranışsal içgörüler)
+      if (patterns.behavioral && patterns.behavioral.length > 0) {
+        const behavioralInsights = this.generateBehavioralInsights(patterns.behavioral);
+        insights.behavioral.push(...behavioralInsights);
       }
+      
+      // 3. TRIGGER INSIGHTS (Tetik içgörüleri)
+      if (patterns.triggers && patterns.triggers.length > 0) {
+        const triggerInsights = this.generateTriggerInsights(patterns.triggers);
+        insights.therapeutic.push(...triggerInsights);
+      }
+      
+      // 4. SEVERITY PROGRESSION INSIGHTS (Şiddet seyri içgörüleri)
+      if (patterns.severity && patterns.severity.length > 0) {
+        const severityInsights = this.generateSeverityInsights(patterns.severity);
+        insights.progress.push(...severityInsights);
+      }
+      
+      // 5. ENVIRONMENTAL INSIGHTS (Çevresel içgörüler)
+      if (patterns.environmental && patterns.environmental.length > 0) {
+        const environmentalInsights = this.generateEnvironmentalInsights(patterns.environmental);
+        insights.therapeutic.push(...environmentalInsights);
+      }
+      
+      // 6. PROGRESS INSIGHTS (İlerleme içgörüleri)
+      const progressInsights = this.generateProgressInsights(patterns, input);
+      insights.progress.push(...progressInsights);
+      
+      // 7. MOTIVATIONAL INSIGHTS (Motivasyon içgörüleri)
+      const motivationalInsights = this.generateMotivationalInsights(patterns);
+      insights.motivational.push(...motivationalInsights);
+      
+      // 8. CROSS-PATTERN INSIGHTS (Çapraz kalıp analizi)
+      const crossPatternInsights = this.generateCrossPatternInsights(patterns);
+      insights.therapeutic.push(...crossPatternInsights);
+      
+      // 9. CALCULATE METADATA
+      insights.metadata = this.calculateInsightsMetadata(insights);
+      
+      // 10. PRIORITIZE AND LIMIT INSIGHTS (En önemli içgörüleri seç)
+      insights.therapeutic = this.prioritizeInsights(insights.therapeutic).slice(0, 5);
+      insights.progress = insights.progress.slice(0, 3);
+      insights.behavioral = insights.behavioral.slice(0, 3);
+      insights.motivational = insights.motivational.slice(0, 2);
       
       return insights;
     } catch (error) {
-      console.warn('Insights generation failed:', error);
-      return null;
+      console.error('Insights generation failed:', error);
+      return {
+        therapeutic: [],
+        progress: [],
+        behavioral: [],
+        motivational: [],
+        metadata: {
+          generatedAt: Date.now(),
+          confidence: 0,
+          totalInsights: 0,
+          categories: []
+        }
+      };
     }
+  }
+
+  private generateTemporalInsights(temporalPatterns: any[]): any[] {
+    const insights = [];
+    
+    temporalPatterns.forEach(pattern => {
+      switch (pattern.type) {
+        case 'peak_hour':
+          insights.push({
+            text: `Kompulsiyonlarınız genellikle ${pattern.timeOfDay} saatlerinde pik yapıyor. Bu saatlerde önceden hazırlanmak faydalı olabilir.`,
+            category: 'temporal',
+            priority: 'high',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { peakTime: pattern.timeOfDay, frequency: pattern.frequency }
+          });
+          break;
+        case 'peak_day':
+          insights.push({
+            text: `${pattern.dayOfWeek} günleri kompulsiyonlarınız daha sık görülüyor. Bu günler için özel stratejiler geliştirebilirsiniz.`,
+            category: 'temporal',
+            priority: 'medium',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { peakDay: pattern.dayOfWeek, frequency: pattern.frequency }
+          });
+          break;
+        case 'clustering':
+          insights.push({
+            text: 'Kompulsiyonlarınız kümelenmede meydana geliyor. Bir kompulsiyondan sonra diğerlerini tetiklemeyi önlemek için ara teknikler kullanabilirsiniz.',
+            category: 'temporal',
+            priority: 'high',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { clusterCount: pattern.clusters.length }
+          });
+          break;
+        case 'mood_trend':
+          if (pattern.direction === 'improving') {
+            insights.push({
+              text: 'Ruh haliniz son zamanlarda iyileşme eğiliminde! Bu pozitif trendi sürdürmeye odaklanın.',
+              category: 'progress',
+              priority: 'high',
+              actionable: false,
+              confidence: pattern.confidence,
+              data: { trend: pattern.direction, strength: pattern.strength }
+            });
+          } else if (pattern.direction === 'declining') {
+            insights.push({
+              text: 'Ruh halinizde düşüş gözleniyor. Destek stratejilerinizi devreye sokmak için uygun bir zaman olabilir.',
+              category: 'alert',
+              priority: 'high',
+              actionable: true,
+              confidence: pattern.confidence,
+              data: { trend: pattern.direction, strength: pattern.strength }
+            });
+          }
+          break;
+        case 'erp_progress':
+          if (pattern.direction === 'improving') {
+            insights.push({
+              text: 'ERP seanslarınızda ilerleme kaydediyorsunuz! Mevcut yaklaşımınızı sürdürün.',
+              category: 'progress',
+              priority: 'high',
+              actionable: false,
+              confidence: pattern.confidence,
+              data: { direction: pattern.direction, consistency: pattern.consistency }
+            });
+          }
+          break;
+      }
+    });
+    
+    return insights;
+  }
+
+  private generateBehavioralInsights(behavioralPatterns: any[]): any[] {
+    const insights = [];
+    
+    behavioralPatterns.forEach(pattern => {
+      switch (pattern.type) {
+        case 'dominant_category':
+          insights.push({
+            text: `Kompulsiyonlarınızın %${pattern.percentage}'i ${pattern.category} kategorisinde. Bu alana özel müdahaleler geliştirebilirsiniz.`,
+            category: 'behavioral',
+            priority: 'high',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { category: pattern.category, percentage: pattern.percentage }
+          });
+          break;
+        case 'duration_pattern':
+          if (pattern.trend === 'increasing') {
+            insights.push({
+              text: `Kompulsiyon süreleriniz artış eğiliminde (ortalama ${pattern.averageDuration} dakika). Durdurma stratejilerinizi gözden geçirin.`,
+              category: 'behavioral',
+              priority: 'medium',
+              actionable: true,
+              confidence: pattern.confidence,
+              data: { averageDuration: pattern.averageDuration, trend: pattern.trend }
+            });
+          } else if (pattern.trend === 'decreasing') {
+            insights.push({
+              text: `Kompulsiyon süreleriniz azalıyor! Bu olumlu gelişimi sürdürün.`,
+              category: 'progress',
+              priority: 'medium',
+              actionable: false,
+              confidence: pattern.confidence,
+              data: { averageDuration: pattern.averageDuration, trend: pattern.trend }
+            });
+          }
+          break;
+        case 'compulsion_indicator':
+          insights.push({
+            text: `${pattern.category} tipi kompulsiyonlara yönelik belirtiler tespit edildi. Bu alana özel egzersizler faydalı olabilir.`,
+            category: 'behavioral',
+            priority: 'medium',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { category: pattern.category, intensity: pattern.intensity }
+          });
+          break;
+      }
+    });
+    
+    return insights;
+  }
+
+  private generateTriggerInsights(triggerPatterns: any[]): any[] {
+    const insights = [];
+    
+    triggerPatterns.forEach(pattern => {
+      switch (pattern.type) {
+        case 'situational':
+          insights.push({
+            text: `"${pattern.description}" sıklıkla tetikleyici oluyor. Bu durumlar için önceden stratejiler hazırlayabilirsiniz.`,
+            category: 'trigger',
+            priority: 'medium',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { trigger: pattern.description, frequency: pattern.frequency }
+          });
+          break;
+        case 'emotional':
+          const emotionTurkish = {
+            'anxiety': 'kaygı',
+            'stress': 'stres',
+            'perfectionism': 'mükemmeliyetçilik'
+          };
+          insights.push({
+            text: `${emotionTurkish[pattern.trigger] || pattern.trigger} durumlarında kompulsiyonlar tetikleniyor. Duygu düzenleme tekniklerini devreye alın.`,
+            category: 'trigger',
+            priority: 'high',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { emotionalTrigger: pattern.trigger }
+          });
+          break;
+        case 'location':
+          insights.push({
+            text: `${pattern.trigger} konumunda kompulsiyonlar sıklıkla görülüyor. Bu ortamda özel önlemler alabilirsiniz.`,
+            category: 'trigger',
+            priority: 'medium',
+            actionable: true,
+            confidence: pattern.confidence,
+            data: { location: pattern.trigger, frequency: pattern.frequency }
+          });
+          break;
+      }
+    });
+    
+    return insights;
+  }
+
+  private generateSeverityInsights(severityPatterns: any[]): any[] {
+    const insights = [];
+    
+    severityPatterns.forEach(pattern => {
+      if (pattern.type === 'severity_trend') {
+        switch (pattern.direction) {
+          case 'improving':
+            insights.push({
+              metric: 'severity_trend',
+              value: pattern.recentAverage,
+              change: -pattern.strength,
+              interpretation: `Şiddet düzeyinde iyileşme var! Son veriler ${pattern.recentAverage.toFixed(1)} ortalama gösteriyor.`,
+              confidence: pattern.confidence
+            });
+            break;
+          case 'worsening':
+            insights.push({
+              metric: 'severity_trend',
+              value: pattern.recentAverage,
+              change: pattern.strength,
+              interpretation: `Şiddet düzeyinde artış gözleniyor. Destek stratejilerini devreye alma zamanı.`,
+              confidence: pattern.confidence
+            });
+            break;
+          case 'stable':
+            insights.push({
+              metric: 'severity_trend',
+              value: pattern.recentAverage,
+              change: 0,
+              interpretation: 'Şiddet düzeyi stabil seyrediyor.',
+              confidence: pattern.confidence
+            });
+            break;
+        }
+      }
+    });
+    
+    return insights;
+  }
+
+  private generateEnvironmentalInsights(environmentalPatterns: any[]): any[] {
+    const insights = [];
+    
+    environmentalPatterns.forEach(pattern => {
+      if (pattern.type === 'location') {
+        insights.push({
+          text: `${pattern.trigger} konumunda kompulsiyonlar sık görülüyor. Bu ortamda tetik faktörlerini belirleyip önlem almayı düşünün.`,
+          category: 'environmental',
+          priority: 'medium',
+          actionable: true,
+          confidence: pattern.confidence,
+          data: { location: pattern.trigger, frequency: pattern.frequency }
+        });
+      }
+    });
+    
+    return insights;
+  }
+
+  private generateProgressInsights(patterns: any, input: UnifiedPipelineInput): any[] {
+    const insights = [];
+    
+    // Data richness insight
+    if (patterns.metadata && patterns.metadata.dataPoints > 10) {
+      insights.push({
+        metric: 'data_richness',
+        value: patterns.metadata.dataPoints,
+        change: 0,
+        interpretation: `${patterns.metadata.dataPoints} veri noktası ile güçlü bir analiz yapabiliyoruz.`,
+        confidence: 0.9
+      });
+    }
+    
+    // Pattern detection confidence
+    if (patterns.metadata && patterns.metadata.confidence > 0.7) {
+      insights.push({
+        metric: 'pattern_confidence',
+        value: Math.round(patterns.metadata.confidence * 100),
+        change: 0,
+        interpretation: `Kalıp tespitinde %${Math.round(patterns.metadata.confidence * 100)} güven düzeyi.`,
+        confidence: patterns.metadata.confidence
+      });
+    }
+    
+    return insights;
+  }
+
+  private generateMotivationalInsights(patterns: any): any[] {
+    const insights = [];
+    
+    // Encourage pattern awareness
+    if (patterns.temporal && patterns.temporal.length > 0) {
+      insights.push({
+        text: 'Verilerinizi analiz etmek, kendi kalıplarınızı anlamanızı sağlıyor. Bu farkındalık iyileşmenin ilk adımıdır.',
+        category: 'motivational',
+        priority: 'low',
+        actionable: false,
+        confidence: 0.8
+      });
+    }
+    
+    // Encourage consistency
+    if (patterns.metadata && patterns.metadata.dataPoints >= 5) {
+      insights.push({
+        text: 'Düzenli kayıt tutmaya devam ediyorsunuz. Bu tutarlılık uzun vadeli başarının anahtarı!',
+        category: 'motivational',
+        priority: 'low',
+        actionable: false,
+        confidence: 0.9
+      });
+    }
+    
+    return insights;
+  }
+
+  private generateCrossPatternInsights(patterns: any): any[] {
+    const insights = [];
+    
+    // Cross-pattern analysis (temporal + behavioral)
+    if (patterns.temporal && patterns.behavioral && patterns.temporal.length > 0 && patterns.behavioral.length > 0) {
+      insights.push({
+        text: 'Zaman kalıplarınız ile davranış örüntüleriniz arasında bağlantı var. Bu ilişkiyi anlayarak daha etkili stratejiler geliştirebilirsiniz.',
+        category: 'complex_pattern',
+        priority: 'medium',
+        actionable: true,
+        confidence: 0.7,
+        data: { 
+          temporalPatterns: patterns.temporal.length, 
+          behavioralPatterns: patterns.behavioral.length 
+        }
+      });
+    }
+    
+    // High severity with strong patterns
+    if (patterns.severity && patterns.temporal && patterns.severity.length > 0) {
+      const hasSeverePattern = patterns.severity.some(s => s.direction === 'worsening');
+      if (hasSeverePattern) {
+        insights.push({
+          text: 'Şiddet artışı ile zaman kalıpları birleştiğinde, öngörülü müdahale planları önem kazanıyor.',
+          category: 'strategic',
+          priority: 'high',
+          actionable: true,
+          confidence: 0.8
+        });
+      }
+    }
+    
+    return insights;
+  }
+
+  private calculateInsightsMetadata(insights: any): any {
+    const allInsights = [
+      ...insights.therapeutic,
+      ...insights.progress,
+      ...insights.behavioral,
+      ...insights.motivational
+    ];
+    
+    const categories = [...new Set(allInsights.map(insight => insight.category || 'unknown'))];
+    const avgConfidence = allInsights.reduce((sum, insight) => 
+      sum + (insight.confidence || 0.5), 0) / allInsights.length;
+    
+    return {
+      generatedAt: Date.now(),
+      confidence: avgConfidence || 0,
+      totalInsights: allInsights.length,
+      categories
+    };
+  }
+
+  private prioritizeInsights(insights: any[]): any[] {
+    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+    
+    return insights.sort((a, b) => {
+      const aPriority = priorityOrder[a.priority] || 0;
+      const bPriority = priorityOrder[b.priority] || 0;
+      
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority; // High priority first
+      }
+      
+      // If same priority, sort by confidence
+      return (b.confidence || 0) - (a.confidence || 0);
+    });
   }
   
   // ============================================================================

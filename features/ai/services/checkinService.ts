@@ -1,5 +1,9 @@
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { AIEventType, trackAIInteraction } from '@/features/ai/telemetry/aiTelemetry';
+import { AIEventType, trackAIInteraction, trackGatingDecision } from '@/features/ai/telemetry/aiTelemetry';
+import { makeGatingDecision } from '@/features/ai/core/needsLLMAnalysis';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// TOKEN_USAGE_RECORDED will be used as AIEventType.TOKEN_USAGE_RECORDED
 
 export type NLUResult = {
   mood: number; // 0..100
@@ -100,16 +104,17 @@ export async function trackRouteSuggested(route: RouteDecision, meta: Record<str
 export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
 
 /**
- * Merkezi Ses Analizi - Gemini API ile otomatik tip tespiti
+ * Merkezi Ses Analizi - LLM Gating + Budget Control ile Gemini API
  * Ses girişini analiz edip MOOD, CBT, OCD, ERP veya BREATHWORK'e yönlendirir
+ * 
+ * v1.1: LLM Gating, Token Budget, Similarity Dedup eklendi
  */
-export async function unifiedVoiceAnalysis(text: string): Promise<UnifiedAnalysisResult> {
+export async function unifiedVoiceAnalysis(text: string, userId?: string): Promise<UnifiedAnalysisResult> {
   try {
     // Önce basit heuristik analiz
     const heuristicResult = heuristicVoiceAnalysis(text);
     
-    // Gemini API varsa kullan
-    // React Native'de process.env runtime'da çalışmaz, Constants kullan
+    // Gemini API check
     const Constants = require('expo-constants').default;
     const geminiApiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_GEMINI_API_KEY || 
                          Constants.manifest?.extra?.EXPO_PUBLIC_GEMINI_API_KEY ||
@@ -123,17 +128,74 @@ export async function unifiedVoiceAnalysis(text: string): Promise<UnifiedAnalysi
     });
     
     if (geminiApiKey && FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) {
+      // 🚪 1. LLM GATING: Check if we need LLM analysis
+      const gatingDecision = makeGatingDecisionForVoice({
+        heuristicResult,
+        textLength: text.length,
+        userId: userId || 'anonymous'
+      });
+      
+      if (!gatingDecision.needsLLM) {
+        console.log('🚫 LLM Gating blocked:', gatingDecision.reason);
+        // Track gating decision
+        await trackGatingDecision('block', gatingDecision.reason, {
+          userId,
+          heuristicConfidence: heuristicResult.confidence,
+          textLength: text.length
+        });
+        return heuristicResult;
+      }
+      
+      // 💰 2. TOKEN BUDGET: Check if user can afford LLM call
+      if (userId) {
+        const canAfford = await checkTokenBudget(userId);
+        if (!canAfford) {
+          console.log('💰 Token budget exceeded for user:', userId);
+          await trackGatingDecision('block', 'token_budget_exceeded', { userId });
+          return heuristicResult;
+        }
+      }
+      
+      // 🔄 3. SIMILARITY DEDUP: Check for recent similar requests
+      const similarityCheck = await checkSimilarityDedup(text, userId);
+      if (similarityCheck.isDuplicate) {
+        console.log('🔁 Duplicate request detected, using cached result');
+        await trackSimilarityDedup(userId, similarityCheck);
+        return similarityCheck.cachedResult || heuristicResult;
+      }
+      
       try {
-        console.log('🚀 Calling Gemini API for voice analysis...');
+        console.log('🚀 LLM Gating approved, calling Gemini API...');
+        await trackGatingDecision('allow', gatingDecision.reason, {
+          userId,
+          heuristicConfidence: heuristicResult.confidence
+        });
+        
         const geminiResult = await analyzeWithGemini(text, geminiApiKey);
+        
         if (geminiResult) {
+          // 📊 4. RECORD TOKEN USAGE
+          if (userId) {
+            await recordTokenUsage(userId, estimateTokenCount(text, geminiResult));
+          }
+          
           console.log('✅ Gemini analysis successful:', geminiResult);
+          
+          // Cache the result for similarity dedup
+          await cacheSimilarResult(text, geminiResult, userId);
+          
           return geminiResult;
         } else {
           console.log('⚠️ Gemini returned null, falling back to heuristic');
         }
       } catch (error) {
         console.log('❌ Gemini API error, using heuristic analysis:', error);
+        // Track API errors for monitoring
+        await trackAIInteraction(AIEventType.EXTERNAL_API_ERROR, {
+          error: error instanceof Error ? error.message : String(error),
+          userId,
+          fallback: 'heuristic'
+        });
       }
     } else {
       console.log('⚠️ Gemini API not available or feature disabled, using heuristic');
@@ -143,6 +205,13 @@ export async function unifiedVoiceAnalysis(text: string): Promise<UnifiedAnalysi
     return heuristicResult;
   } catch (error) {
     console.error('Unified voice analysis error:', error);
+    // Track system errors
+    await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
+      error: error instanceof Error ? error.message : String(error),
+      userId,
+      component: 'unifiedVoiceAnalysis'
+    });
+    
     // Fallback: basit mood analizi
     return {
       type: 'MOOD',
@@ -497,6 +566,204 @@ function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
     suggestion: suggestion,
     originalText: text
   };
+}
+
+// =============================================================================
+// 🚪 LLM GATING HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Voice analysis için gating decision
+ */
+function makeGatingDecisionForVoice(params: {
+  heuristicResult: UnifiedAnalysisResult;
+  textLength: number;
+  userId: string;
+}): { needsLLM: boolean; reason: string; confidence: number } {
+  // High confidence heuristic results don't need LLM
+  if (params.heuristicResult.confidence >= 0.8) {
+    return {
+      needsLLM: false,
+      reason: 'high_confidence_heuristic',
+      confidence: params.heuristicResult.confidence
+    };
+  }
+  
+  // Very short text - heuristic is enough
+  if (params.textLength < 20) {
+    return {
+      needsLLM: false,
+      reason: 'text_too_short',
+      confidence: params.heuristicResult.confidence
+    };
+  }
+  
+  // Low confidence complex text needs LLM
+  if (params.textLength > 50 && params.heuristicResult.confidence < 0.6) {
+    return {
+      needsLLM: true,
+      reason: 'complex_text_low_confidence',
+      confidence: params.heuristicResult.confidence
+    };
+  }
+  
+  // Default: use LLM for medium confidence
+  return {
+    needsLLM: params.heuristicResult.confidence < 0.7,
+    reason: params.heuristicResult.confidence < 0.7 ? 'medium_confidence' : 'high_confidence',
+    confidence: params.heuristicResult.confidence
+  };
+}
+
+/**
+ * Token budget checker
+ */
+async function checkTokenBudget(userId: string): Promise<boolean> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `token_usage_${userId}_${today}`;
+    const usageStr = await AsyncStorage.getItem(key);
+    const usage = usageStr ? parseInt(usageStr) : 0;
+    
+    const dailyLimit = 1000; // Daily token limit per user
+    return usage < dailyLimit;
+  } catch (error) {
+    console.warn('Token budget check failed:', error);
+    return true; // Allow on error
+  }
+}
+
+/**
+ * Similarity dedup checker
+ */
+async function checkSimilarityDedup(text: string, userId?: string): Promise<{
+  isDuplicate: boolean;
+  cachedResult?: UnifiedAnalysisResult;
+  similarity?: number;
+}> {
+  if (!userId) return { isDuplicate: false };
+  
+  try {
+    const key = `voice_cache_${userId}`;
+    const cacheStr = await AsyncStorage.getItem(key);
+    if (!cacheStr) return { isDuplicate: false };
+    
+    const cache = JSON.parse(cacheStr);
+    const now = Date.now();
+    
+    // Check for similar text in last 1 hour
+    for (const entry of cache) {
+      if (now - entry.timestamp > 60 * 60 * 1000) continue; // 1 hour TTL
+      
+      const similarity = calculateTextSimilarity(text, entry.originalText);
+      if (similarity > 0.85) { // 85% similarity threshold
+        return {
+          isDuplicate: true,
+          cachedResult: entry.result,
+          similarity
+        };
+      }
+    }
+    
+    return { isDuplicate: false };
+  } catch (error) {
+    console.warn('Similarity dedup check failed:', error);
+    return { isDuplicate: false };
+  }
+}
+
+/**
+ * Simple text similarity calculator
+ */
+function calculateTextSimilarity(text1: string, text2: string): number {
+  const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const n1 = normalize(text1);
+  const n2 = normalize(text2);
+  
+  if (n1 === n2) return 1.0;
+  if (n1.length === 0 || n2.length === 0) return 0.0;
+  
+  // Simple jaccard similarity
+  const words1 = new Set(n1.split(/\s+/));
+  const words2 = new Set(n2.split(/\s+/));
+  const intersection = new Set([...words1].filter(x => words2.has(x)));
+  const union = new Set([...words1, ...words2]);
+  
+  return intersection.size / union.size;
+}
+
+/**
+ * Track similarity dedup hit
+ */
+async function trackSimilarityDedup(userId: string | undefined, similarityCheck: any): Promise<void> {
+  await trackAIInteraction(AIEventType.SIMILARITY_DEDUP_HIT, {
+    userId,
+    similarity: similarityCheck.similarity,
+    cacheHit: true
+  });
+}
+
+/**
+ * Record token usage
+ */
+async function recordTokenUsage(userId: string, tokenCount: number): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `token_usage_${userId}_${today}`;
+    const usageStr = await AsyncStorage.getItem(key);
+    const currentUsage = usageStr ? parseInt(usageStr) : 0;
+    const newUsage = currentUsage + tokenCount;
+    
+    await AsyncStorage.setItem(key, newUsage.toString());
+    
+    // Track usage for monitoring  
+    await trackAIInteraction('token_usage_recorded' as any, {
+      userId,
+      tokensUsed: tokenCount,
+      dailyTotal: newUsage
+    });
+  } catch (error) {
+    console.warn('Failed to record token usage:', error);
+  }
+}
+
+/**
+ * Estimate token count for API call
+ */
+function estimateTokenCount(inputText: string, result: UnifiedAnalysisResult): number {
+  // Rough estimation: 1 token ≈ 4 characters
+  const inputTokens = Math.ceil(inputText.length / 4);
+  const outputTokens = Math.ceil(JSON.stringify(result).length / 4);
+  const promptTokens = 50; // Estimated prompt overhead
+  
+  return inputTokens + outputTokens + promptTokens;
+}
+
+/**
+ * Cache similar result for dedup
+ */
+async function cacheSimilarResult(text: string, result: UnifiedAnalysisResult, userId?: string): Promise<void> {
+  if (!userId) return;
+  
+  try {
+    const key = `voice_cache_${userId}`;
+    const cacheStr = await AsyncStorage.getItem(key);
+    let cache = cacheStr ? JSON.parse(cacheStr) : [];
+    
+    // Add new entry
+    cache.push({
+      originalText: text,
+      result,
+      timestamp: Date.now()
+    });
+    
+    // Keep only last 10 entries
+    cache = cache.slice(-10);
+    
+    await AsyncStorage.setItem(key, JSON.stringify(cache));
+  } catch (error) {
+    console.warn('Failed to cache similarity result:', error);
+  }
 }
 
 /**
