@@ -19,8 +19,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_voice_checkins_hash 
     ON voice_checkins (content_hash);
     
-    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_day 
-    ON voice_checkins (user_id, (created_at::date));
+    -- Index for user and created_at (will be used for date range queries)
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_created 
+    ON voice_checkins (user_id, created_at);
   END IF;
 END $$;
 
@@ -41,8 +42,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_thought_records_hash 
     ON thought_records (content_hash);
     
-    CREATE INDEX IF NOT EXISTS idx_thought_records_user_day 
-    ON thought_records (user_id, (created_at::date));
+    -- Index for user and created_at (will be used for date range queries)
+    CREATE INDEX IF NOT EXISTS idx_thought_records_user_created 
+    ON thought_records (user_id, created_at);
   END IF;
 END $$;
 
@@ -63,8 +65,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_erp_sessions_hash 
     ON erp_sessions (content_hash);
     
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_day 
-    ON erp_sessions (user_id, (created_at::date));
+    -- Index for user and created_at (will be used for date range queries)
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_created 
+    ON erp_sessions (user_id, created_at);
   END IF;
 END $$;
 
@@ -82,8 +85,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_mood_entries_hash 
     ON mood_entries (content_hash);
     
-    CREATE INDEX IF NOT EXISTS idx_mood_entries_user_day 
-    ON mood_entries (user_id, (created_at::date));
+    -- Index for user and created_at (will be used for date range queries)
+    CREATE INDEX IF NOT EXISTS idx_mood_entries_user_created 
+    ON mood_entries (user_id, created_at);
   END IF;
 END $$;
 
@@ -101,8 +105,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_compulsion_records_hash 
     ON compulsion_records (content_hash);
     
-    CREATE INDEX IF NOT EXISTS idx_compulsion_records_user_day 
-    ON compulsion_records (user_id, (created_at::date));
+    -- Index for user and created_at (will be used for date range queries)
+    CREATE INDEX IF NOT EXISTS idx_compulsion_records_user_created 
+    ON compulsion_records (user_id, created_at);
   END IF;
 END $$;
 
