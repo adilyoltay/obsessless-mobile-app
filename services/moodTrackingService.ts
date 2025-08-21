@@ -180,10 +180,46 @@ class MoodTrackingService {
 
   /**
    * Get the last mood entry for the user
+   * Combines local and remote data to return the most recent entry
    */
-  getLastMoodEntry(): { anxiety: number } | null {
-    // For now, return a mock value to fix the error
-    // In a real implementation, this would fetch from AsyncStorage
+  async getLastMoodEntry(userId: string): Promise<MoodEntry | null> {
+    if (!userId) {
+      console.warn('⚠️ getLastMoodEntry: userId is required');
+      return null;
+    }
+
+    try {
+      // Get recent mood entries (last 7 days should be sufficient for "last" entry)
+      const recentEntries = await this.getMoodEntries(userId, 7);
+      
+      if (recentEntries.length === 0) {
+        console.log('📊 getLastMoodEntry: No mood entries found');
+        return null;
+      }
+
+      // getMoodEntries already returns sorted by timestamp (desc), so first is most recent
+      const lastEntry = recentEntries[0];
+      
+      console.log('📊 getLastMoodEntry: Found last entry:', {
+        id: lastEntry.id,
+        timestamp: lastEntry.timestamp,
+        mood_score: lastEntry.mood_score,
+        synced: lastEntry.synced
+      });
+      
+      return lastEntry;
+    } catch (error) {
+      console.error('❌ getLastMoodEntry error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Legacy sync method - get last mood entry synchronously (deprecated)
+   * @deprecated Use getLastMoodEntry(userId) instead
+   */
+  getLastMoodEntrySync(): { anxiety: number } | null {
+    console.warn('⚠️ getLastMoodEntrySync is deprecated, use async getLastMoodEntry(userId) instead');
     return null;
   }
 

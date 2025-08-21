@@ -215,9 +215,10 @@ export default function TodayScreen() {
       // Prepare context data for AI service
       let moodScore: number | undefined = undefined;
       try {
-        const lastMood = await moodTracker.getLastMoodEntry();
-        moodScore = lastMood?.mood;
+        const lastMood = await moodTracker.getLastMoodEntry(user.id);
+        moodScore = lastMood?.mood_score; // Use correct property name
       } catch (error) {
+        console.warn('⚠️ Failed to get last mood entry for breathwork context:', error);
         // Ignore mood tracking errors
       }
       

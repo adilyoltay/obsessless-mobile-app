@@ -68,28 +68,169 @@ export function MoodQuickEntry({
     'Diğer',
   ];
 
+  /**
+   * 🎭 Enhanced Emotion-to-Mood Algorithm with Secondary Contributions
+   * Based on AI_FEATURES_MOOD_SCREEN.md specifications
+   */
   const getMoodScoreFromEmotion = (emotion: { primary: string; secondary?: string } | null): number => {
     if (!emotion) return 50;
     
-    // Ana duygulara göre temel skor
+    // 🎯 Primary emotion base scores (core emotional states)
     const primaryScores: Record<string, number> = {
-      'mutlu': 80,
-      'güvenli': 75,
-      'şaşkın': 60,
-      'üzgün': 40,
-      'korkmuş': 35,
-      'kızgın': 30,
+      // High positive emotions
+      'mutlu': 85,      // Joy/Happy
+      'coşkulu': 82,    // Excited
+      'neşeli': 80,     // Cheerful
+      
+      // Medium-high positive
+      'güvenli': 75,    // Safe/Secure
+      'rahat': 72,      // Comfortable
+      'umutlu': 70,     // Hopeful
+      
+      // Neutral-positive
+      'şaşkın': 62,     // Surprised (curious)
+      'meraklı': 60,    // Curious
+      'karışık': 58,    // Mixed feelings
+      
+      // Neutral
+      'normal': 50,     // Normal/Baseline
+      'sakin': 55,      // Calm (slightly positive)
+      
+      // Medium negative  
+      'üzgün': 35,      // Sad
+      'yorgun': 32,     // Tired
+      'hayal kırıklığı': 30, // Disappointed
+      
+      // High negative
+      'kızgın': 25,     // Angry
+      'korkmuş': 20,    // Scared/Afraid
+      'endişeli': 18,   // Anxious
+      
+      // Very high negative
+      'çaresiz': 15,    // Hopeless
+      'utanç': 12,      // Shame
+      'suçlu': 10,      // Guilty
     };
     
-    return primaryScores[emotion.primary] || 50;
+    // 🎨 Secondary emotion modifiers (fine-tuning adjustments)
+    const secondaryModifiers: Record<string, number> = {
+      // Happiness boosters
+      'keyifli': +8,    // Delightful
+      'heyecanlı': +6,  // Enthusiastic
+      'gururlu': +5,    // Proud
+      'memnun': +4,     // Satisfied
+      'şükran': +7,     // Grateful
+      
+      // Energy modifiers
+      'enerjik': +5,    // Energetic
+      'dinamik': +4,    // Dynamic
+      'aktif': +3,      // Active
+      'halsiz': -6,     // Weak/Tired
+      'bitkin': -8,     // Exhausted
+      
+      // Anxiety penalties
+      'gergin': -7,     // Tense
+      'stresli': -6,    // Stressed
+      'tedirgin': -8,   // Uneasy
+      'panik': -12,     // Panic
+      
+      // Depression indicators  
+      'umutsuz': -10,   // Hopeless
+      'boş': -8,        // Empty
+      'anlamsız': -9,   // Meaningless
+      'yalnız': -7,     // Lonely
+      
+      // Anger adjustments
+      'sinirli': -5,    // Irritated
+      'öfkeli': -8,     // Furious
+      'bıkkın': -4,     // Fed up
+      'kızgın': -6,     // Mad
+      
+      // Peace/calm bonuses
+      'huzurlu': +6,    // Peaceful
+      'dengeli': +5,    // Balanced
+      'rahatlamış': +4, // Relaxed
+      'dingin': +3,     // Serene
+      
+      // Motivation modifiers
+      'motive': +6,     // Motivated
+      'kararlı': +4,    // Determined
+      'istekli': +5,    // Willing
+      'cesaretli': +7,  // Brave
+      
+      // Social emotions
+      'sevgi': +8,      // Love
+      'minnettarlık': +6, // Appreciation
+      'empati': +4,     // Empathy
+      'reddedilmiş': -9, // Rejected
+    };
+    
+    // Calculate final score
+    const baseScore = primaryScores[emotion.primary.toLowerCase()] || 50;
+    const secondaryBonus = emotion.secondary 
+      ? (secondaryModifiers[emotion.secondary.toLowerCase()] || 0) 
+      : 0;
+    
+    const finalScore = Math.max(0, Math.min(100, baseScore + secondaryBonus));
+    
+    // 🔍 Debug logging for emotion analysis
+    console.log('🎭 Emotion Score Calculation:', {
+      primary: emotion.primary,
+      secondary: emotion.secondary,
+      baseScore,
+      secondaryBonus,
+      finalScore
+    });
+    
+    return finalScore;
   };
 
-  const getMoodColor = (value: number) => {
-    if (value < 20) return '#EF4444';
-    if (value < 40) return '#F59E0B';
-    if (value < 60) return '#FCD34D';
-    if (value < 80) return '#84CC16';
-    return '#10B981';
+  /**
+   * 🎨 Dynamic Color Psychology for Mood Visualization
+   * Based on scientific color-emotion research and UX best practices
+   */
+  const getMoodColor = (value: number): string => {
+    // Very Happy (80-100): Rich Green - prosperity, growth, positivity
+    if (value >= 80) return '#10B981'; // Emerald green - very positive
+    
+    // Happy (60-79): Light Green - balance, harmony, hope
+    if (value >= 60) return '#84CC16'; // Lime green - positive
+    
+    // Neutral (40-59): Warm Yellow - neutrality, caution, balance
+    if (value >= 40) return '#FCD34D'; // Yellow - neutral
+    
+    // Sad (20-39): Orange - warning, concern, attention needed
+    if (value >= 20) return '#F59E0B'; // Amber orange - concerning
+    
+    // Very Sad (0-19): Red - urgency, crisis, immediate attention
+    return '#EF4444'; // Red - critical/very negative
+  };
+
+  /**
+   * 🎨 Get mood color with transparency for background use
+   */
+  const getMoodColorWithOpacity = (value: number, opacity: number = 0.1): string => {
+    const baseColor = getMoodColor(value);
+    // Convert hex to rgba
+    const hex = baseColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
+  /**
+   * 🎭 Get descriptive mood label based on score
+   */
+  const getMoodLabel = (value: number): string => {
+    if (value >= 85) return 'Harika! 🌟';
+    if (value >= 70) return 'Çok İyi 😊';
+    if (value >= 60) return 'İyi 🙂';
+    if (value >= 50) return 'Normal 😐';
+    if (value >= 40) return 'Orta 😕';
+    if (value >= 30) return 'Düşük 😞';
+    if (value >= 20) return 'Zor 😢';
+    return 'Çok Zor 😰';
   };
 
   const handleSubmit = () => {
@@ -139,6 +280,20 @@ export function MoodQuickEntry({
                       {selectedEmotion.primary}
                       {selectedEmotion.secondary && ` - ${selectedEmotion.secondary}`}
                     </Text>
+                    <View style={[
+                      styles.moodPreview,
+                      { 
+                        backgroundColor: getMoodColorWithOpacity(getMoodScoreFromEmotion(selectedEmotion), 0.2),
+                        borderColor: getMoodColor(getMoodScoreFromEmotion(selectedEmotion))
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.moodPreviewText,
+                        { color: getMoodColor(getMoodScoreFromEmotion(selectedEmotion)) }
+                      ]}>
+                        {getMoodLabel(getMoodScoreFromEmotion(selectedEmotion))} ({getMoodScoreFromEmotion(selectedEmotion)})
+                      </Text>
+                    </View>
                   </View>
                 )}
               </View>
@@ -335,8 +490,22 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   valueContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    minWidth: 120,
+  },
+  moodPreview: {
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
     alignItems: 'center',
+  },
+  moodPreviewText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   value: {
     fontSize: 18,
