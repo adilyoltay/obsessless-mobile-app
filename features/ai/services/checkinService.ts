@@ -280,6 +280,7 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
  */
 function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
   const lower = text.toLowerCase();
+  console.log('🔍 HEURISTIC ANALYSIS: Processing text:', lower.substring(0, 50) + '...');
   
   // CBT tetikleme: bilişsel çarpıtma kalıpları (Genişletilmiş)
   const cbtPatterns = [
@@ -344,6 +345,35 @@ function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
       type: 'CBT',
       confidence: 0.7,
       suggestion: 'Düşüncelerini yeniden çerçevelemek ister misin?',
+      originalText: text
+    };
+  }
+  
+  // BREATHWORK tetikleme: nefes ve rahatlama (YÜKSELTİLDİ - OCD'den önce check edilsin)
+  const breathPatterns = [
+    /nefes/i,
+    /rahatla/i,
+    /sakinleş/i,
+    /meditasyon/i,
+    /mindfulness/i,
+    /farkındalık/i,
+    /derin\s+nefes/i,
+    /nefes.*terapisi/i,     // Özel ekleme
+    /nefes.*egzersizi/i,    // Özel ekleme
+    /soluk/i,               // Türkçe alternatif
+    /nefes.*al/i,           // "nefes al" kalıbı
+    /hırıl/i,               // Nefes sesi
+    /espirasyon/i,          // Tıbbi terim
+    /inspirasyon/i          // Tıbbi terim
+  ];
+  
+  if (breathPatterns.some(pattern => pattern.test(lower))) {
+    const matchedPattern = breathPatterns.find(pattern => pattern.test(lower));
+    console.log('🌬️ BREATHWORK PATTERN MATCHED!', matchedPattern?.toString());
+    return {
+      type: 'BREATHWORK',
+      confidence: 0.8,  // Güveni artırdım
+      suggestion: 'Nefes egzersizi yaparak sakinleşmeyi deneyelim.',
       originalText: text
     };
   }
@@ -525,24 +555,7 @@ function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
     };
   }
   
-  // BREATHWORK tetikleme: nefes ve rahatlama
-  const breathPatterns = [
-    /nefes/i,
-    /rahatla/i,
-    /sakinleş/i,
-    /meditasyon/i,
-    /mindfulness/i,
-    /farkındalık/i,
-    /derin\s+nefes/i
-  ];
-  
-  if (breathPatterns.some(pattern => pattern.test(lower))) {
-    return {
-      type: 'BREATHWORK',
-      confidence: 0.7,
-      originalText: text
-    };
-  }
+  // BREATHWORK patterns moved above OCD patterns for priority
   
   // Geliştirilmiş MOOD analizi
   const moodPatterns = {
