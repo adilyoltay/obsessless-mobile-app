@@ -20,7 +20,7 @@ BEGIN
     ON voice_checkins (content_hash);
     
     CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_day 
-    ON voice_checkins (user_id, DATE(created_at));
+    ON voice_checkins (user_id, (created_at::date));
   END IF;
 END $$;
 
@@ -42,7 +42,7 @@ BEGIN
     ON thought_records (content_hash);
     
     CREATE INDEX IF NOT EXISTS idx_thought_records_user_day 
-    ON thought_records (user_id, DATE(created_at));
+    ON thought_records (user_id, (created_at::date));
   END IF;
 END $$;
 
@@ -64,7 +64,7 @@ BEGIN
     ON erp_sessions (content_hash);
     
     CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_day 
-    ON erp_sessions (user_id, DATE(created_at));
+    ON erp_sessions (user_id, (created_at::date));
   END IF;
 END $$;
 
@@ -83,7 +83,7 @@ BEGIN
     ON mood_entries (content_hash);
     
     CREATE INDEX IF NOT EXISTS idx_mood_entries_user_day 
-    ON mood_entries (user_id, DATE(created_at));
+    ON mood_entries (user_id, (created_at::date));
   END IF;
 END $$;
 
@@ -102,7 +102,7 @@ BEGIN
     ON compulsion_records (content_hash);
     
     CREATE INDEX IF NOT EXISTS idx_compulsion_records_user_day 
-    ON compulsion_records (user_id, DATE(created_at));
+    ON compulsion_records (user_id, (created_at::date));
   END IF;
 END $$;
 
