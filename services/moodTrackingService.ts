@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
+import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
 
 export interface MoodEntry {
   id: string;
@@ -223,15 +224,16 @@ class MoodTrackingService {
     return null;
   }
 
-  // Cross-device: fetch recent remote entries and merge with local
+  // Cross-device: fetch recent remote entries and merge with local using intelligent merge
   async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
-    const entries: MoodEntry[] = [];
+    const localEntries: MoodEntry[] = [];
     const dates = await this.getRecentDates(days);
     for (const date of dates) {
       const key = `${this.STORAGE_KEY}_${userId}_${date}`;
       const existing = await AsyncStorage.getItem(key);
-      if (existing) entries.push(...JSON.parse(existing));
+      if (existing) localEntries.push(...JSON.parse(existing));
     }
+    
     try {
       const since = new Date(Date.now() - days * 86400000).toISOString();
       const { data, error } = await (supabaseService as any).supabaseClient
@@ -240,6 +242,7 @@ class MoodTrackingService {
         .eq('user_id', userId)
         .gte('created_at', since)
         .order('created_at', { ascending: false });
+        
       if (!error && data) {
         const remoteEntries: MoodEntry[] = data.map((d: any) => ({
           id: d.id,
@@ -254,17 +257,55 @@ class MoodTrackingService {
           synced: true,
           sync_attempts: 0,
         }));
-        const merged = new Map<string, MoodEntry>();
-        [...entries, ...remoteEntries].forEach((e) => {
-          const existing = merged.get(e.id);
-          if (!existing) merged.set(e.id, e);
-          else if (!existing.synced && e.synced) merged.set(e.id, e);
-          else if (new Date(e.timestamp).getTime() > new Date(existing.timestamp).getTime()) merged.set(e.id, e);
-        });
-        return Array.from(merged.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        // 🔄 INTELLIGENT MOOD MERGE WITH CONFLICT RESOLUTION
+        try {
+          console.log('🔄 Using intelligent mood merge for cross-device sync...', {
+            localCount: localEntries.length,
+            remoteCount: remoteEntries.length
+          });
+          
+          const intelligentMergeService = new IntelligentMoodMergeService();
+          const mergeResult = await intelligentMergeService.mergeMoodEntries(localEntries, remoteEntries);
+          
+          console.log('✅ Intelligent merge completed:', {
+            totalEntries: mergeResult.mergedEntries.length,
+            conflictsResolved: mergeResult.conflicts.length,
+            syncSuccess: mergeResult.stats.syncSuccess
+          });
+          
+          // Log conflicts for debugging if any
+          if (mergeResult.conflicts.length > 0) {
+            console.log('⚠️ Mood data conflicts resolved:', mergeResult.conflicts.map(c => ({
+              entryId: c.entryId,
+              strategy: c.resolution,
+              timestamp: c.mergedVersion?.timestamp
+            })));
+          }
+          
+          return mergeResult.mergedEntries.sort((a, b) => 
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          
+        } catch (mergeError) {
+          console.error('⚠️ Intelligent mood merge failed, falling back to simple merge:', mergeError);
+          
+          // Fallback to original simple merge logic
+          const merged = new Map<string, MoodEntry>();
+          [...localEntries, ...remoteEntries].forEach((e) => {
+            const existing = merged.get(e.id);
+            if (!existing) merged.set(e.id, e);
+            else if (!existing.synced && e.synced) merged.set(e.id, e);
+            else if (new Date(e.timestamp).getTime() > new Date(existing.timestamp).getTime()) merged.set(e.id, e);
+          });
+          return Array.from(merged.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        }
       }
-    } catch {}
-    return entries;
+    } catch (fetchError) {
+      console.error('⚠️ Failed to fetch remote mood entries:', fetchError);
+    }
+    
+    return localEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 }
 

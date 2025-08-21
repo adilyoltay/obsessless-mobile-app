@@ -30,6 +30,9 @@ import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
 import { moodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
+import { MoodGamificationService } from '@/features/ai/services/moodGamificationService';
+import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 
@@ -302,9 +305,104 @@ export default function MoodScreen() {
         trigger: data.trigger,
       };
 
+      // 📝 SMART MOOD JOURNALING ANALYSIS
+      let journalAnalysis = null;
+      if (data.notes && data.notes.trim().length > 10) {
+        try {
+          console.log('📝 Analyzing mood journal entry...');
+          const journalingService = new SmartMoodJournalingService();
+          journalAnalysis = await journalingService.analyzeJournalEntry(
+            user.id,
+            data.notes,
+            {
+              existingMoodScore: data.mood,
+              timestamp: new Date()
+            }
+          );
+          console.log('📊 Journal analysis completed:', journalAnalysis);
+        } catch (analysisError) {
+          console.error('⚠️ Journal analysis failed:', analysisError);
+          // Continue with entry save even if analysis fails
+        }
+      }
+
       await supabaseService.saveMoodEntry(entry);
       
-      setToastMessage('Mood kaydı oluşturuldu ✅');
+      // 🎮 MOOD GAMIFICATION & ACHIEVEMENT TRACKING
+      let gamificationResult = null;
+      let pointsEarned = 0;
+      let achievements: any[] = [];
+      
+      try {
+        console.log('🎮 Calculating mood points and achievements...');
+        const gamificationService = new MoodGamificationService();
+        
+        // Get user's mood history for point calculation
+        const userHistory = await supabaseService.getMoodEntries(user.id, 30); // Last 30 days
+        
+        // Calculate mood points
+        const moodEntryForPoints = {
+          id: `temp_${Date.now()}`,
+          user_id: user.id,
+          mood_score: data.mood,
+          energy_level: data.energy,
+          anxiety_level: data.anxiety,
+          notes: data.notes,
+          trigger: data.trigger,
+          timestamp: new Date().toISOString(),
+          synced: false,
+          sync_attempts: 0,
+          triggers: data.trigger ? [data.trigger] : [],
+          activities: []
+        };
+        
+        const pointsResult = await gamificationService.calculateMoodPoints(
+          user.id,
+          moodEntryForPoints,
+          userHistory || []
+        );
+        pointsEarned = pointsResult.totalPoints;
+        
+        // Check for mood-specific achievements
+        const achievementsList = await gamificationService.checkAchievements(
+          user.id,
+          userHistory || [],
+          pointsEarned
+        );
+        achievements = achievementsList;
+        
+        // Track activity in main achievement service
+        // Note: extending trackActivity to support 'mood' type would require service update
+        // For now, we'll track it generically
+        
+        gamificationResult = {
+          points: pointsEarned,
+          achievements,
+          breakdown: pointsResult.breakdown
+        };
+        
+        console.log('🎮 Gamification completed:', gamificationResult);
+      } catch (gamificationError) {
+        console.error('⚠️ Mood gamification failed:', gamificationError);
+        // Continue with entry save even if gamification fails
+      }
+      
+      // Show enhanced feedback based on analysis and gamification
+      let toastMsg = 'Mood kaydı oluşturuldu ✅';
+      if (pointsEarned > 0) {
+        toastMsg += ` 🎯 +${pointsEarned} puan kazandınız!`;
+      }
+      if (achievements.length > 0) {
+        toastMsg += ` 🏆 ${achievements.length} rozet açıldı!`;
+      }
+      if (journalAnalysis?.insights) {
+        const insightCount = journalAnalysis.insights.suggestions.length;
+        if (insightCount > 0) {
+          toastMsg += ` 📊 ${insightCount} insight`;
+        }
+      }
+      
+      setToastMessage(toastMsg);
       setShowToast(true);
       setShowQuickEntry(false);
       
