@@ -598,6 +598,42 @@ export default function TodayScreen() {
             <Text style={styles.missionRewardText}>+40</Text>
           </View>
         </Pressable>
+
+        {/* Mission 6: BREATHWORK - Nefes Egzersizi */}
+        <Pressable 
+          style={[styles.missionCard, styles.missionCardOutlined]}
+          onPress={() => {
+            console.log('🌬️ Breathwork mission pressed!');
+            router.push({
+              pathname: '/(tabs)/breathwork',
+              params: { 
+                protocol: 'box',
+                autoStart: 'false',
+                source: 'mission'
+              }
+            });
+          }}
+        >
+          <View style={styles.missionIcon}>
+            <MaterialCommunityIcons 
+              name="meditation" 
+              size={30} 
+              color="#06B6D4" 
+            />
+          </View>
+          <View style={styles.missionContent}>
+            <Text style={styles.missionTitle}>60 Saniye Nefes</Text>
+            <Text style={styles.missionDescription}>Sakinleşmek için mini mola</Text>
+            <View style={styles.missionTags}>
+              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Nefes</Text>
+              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Sakinlik</Text>
+            </View>
+          </View>
+          <View style={styles.missionReward}>
+            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+            <Text style={styles.missionRewardText}>+30</Text>
+          </View>
+        </Pressable>
       </View>
     </View>
   );
