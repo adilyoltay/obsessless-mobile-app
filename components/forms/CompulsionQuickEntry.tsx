@@ -22,6 +22,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
+import { ERPIllustrations } from '@/components/illustrations/ERPIllustrations';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
@@ -285,15 +286,31 @@ export function CompulsionQuickEntry({
                   ]}
                   onPress={() => handleTypeSelect(id)}
                 >
-                  <View style={[
-                    styles.categoryIcon,
-                    isSelected && styles.categoryIconSelected
-                  ]}>
-                    <MaterialCommunityIcons
-                      name={getCanonicalCategoryIconName(id) as any}
-                      size={24}
-                      color={getCanonicalCategoryColor(id)}
-                    />
+                  <View style={styles.categoryIconContainer}>
+                    {(() => {
+                      const IllustrationComponent = ERPIllustrations[id];
+                      if (IllustrationComponent) {
+                        return (
+                          <IllustrationComponent 
+                            size={60}
+                            selected={isSelected}
+                          />
+                        );
+                      }
+                      // Fallback to icon if no illustration
+                      return (
+                        <View style={[
+                          styles.categoryIcon,
+                          isSelected && styles.categoryIconSelected
+                        ]}>
+                          <MaterialCommunityIcons
+                            name={getCanonicalCategoryIconName(id) as any}
+                            size={24}
+                            color={getCanonicalCategoryColor(id)}
+                          />
+                        </View>
+                      );
+                    })()}
                   </View>
                   <Text style={[
                     styles.categoryName,
@@ -496,6 +513,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
+  },
+  categoryIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   categoryIcon: {
     width: 44,

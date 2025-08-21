@@ -157,7 +157,7 @@ export default function TodayScreen() {
         <Pressable 
           style={styles.artTherapyCard}
           onPress={() => {
-            router.push('/(auth)/art-therapy');
+            router.push('/art-therapy');
           }}
         >
           <View style={styles.artTherapyContent}>

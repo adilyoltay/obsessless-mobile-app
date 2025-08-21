@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys } from '@/utils/storage';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 import { useTranslation } from '@/hooks/useTranslation';
+import { ERPIllustrations } from '@/components/illustrations/ERPIllustrations';
 
 const { width } = Dimensions.get('window');
 
@@ -227,15 +228,31 @@ export function ERPQuickStart({
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
-                  <View style={[
-                    styles.categoryIcon,
-                    { backgroundColor: `${getCanonicalCategoryColor(category.id)}15` }
-                  ]}>
-                    <MaterialCommunityIcons
-                      name={getCanonicalCategoryIconName(category.id) as any}
-                      size={20}
-                      color={getCanonicalCategoryColor(category.id)}
-                    />
+                  <View style={styles.categoryIconContainer}>
+                    {(() => {
+                      const IllustrationComponent = ERPIllustrations[category.id];
+                      if (IllustrationComponent) {
+                        return (
+                          <IllustrationComponent 
+                            size={60}
+                            selected={selectedCategory === category.id}
+                          />
+                        );
+                      }
+                      // Fallback to icon if no illustration
+                      return (
+                        <View style={[
+                          styles.categoryIcon,
+                          { backgroundColor: `${getCanonicalCategoryColor(category.id)}15` }
+                        ]}>
+                          <MaterialCommunityIcons
+                            name={getCanonicalCategoryIconName(category.id) as any}
+                            size={20}
+                            color={getCanonicalCategoryColor(category.id)}
+                          />
+                        </View>
+                      );
+                    })()}
                   </View>
                   <Text style={styles.categoryName}>{t('categoriesCanonical.' + category.id, category.id)}</Text>
                   <Text style={styles.categoryCount}>{category.exercises.length} egzersiz</Text>
@@ -534,6 +551,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
+  },
+  categoryIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   categoryIcon: {
     width: 36,

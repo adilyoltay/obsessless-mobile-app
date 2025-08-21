@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
+import EmotionWheel from '@/components/illustrations/EmotionWheel';
 
 interface MoodQuickEntryProps {
   visible: boolean;
@@ -38,7 +39,7 @@ export function MoodQuickEntry({
   onSubmit,
   initialData,
 }: MoodQuickEntryProps) {
-  const [mood, setMood] = useState(50);
+  const [selectedEmotion, setSelectedEmotion] = useState<{ primary: string; secondary?: string } | null>(null);
   const [energy, setEnergy] = useState(5);
   const [anxiety, setAnxiety] = useState(5);
   const [notes, setNotes] = useState('');
@@ -47,7 +48,7 @@ export function MoodQuickEntry({
   // Set initial values when modal opens
   React.useEffect(() => {
     if (visible && initialData) {
-      setMood(initialData.mood || 50);
+      // Mood artık emotion wheel ile seçilecek
       setEnergy(initialData.energy || 5);
       setAnxiety(initialData.anxiety || 5);
       setNotes(initialData.notes || '');
@@ -67,12 +68,20 @@ export function MoodQuickEntry({
     'Diğer',
   ];
 
-  const getMoodEmoji = (value: number) => {
-    if (value < 20) return '😢';
-    if (value < 40) return '😟';
-    if (value < 60) return '😐';
-    if (value < 80) return '🙂';
-    return '😊';
+  const getMoodScoreFromEmotion = (emotion: { primary: string; secondary?: string } | null): number => {
+    if (!emotion) return 50;
+    
+    // Ana duygulara göre temel skor
+    const primaryScores: Record<string, number> = {
+      'mutlu': 80,
+      'güvenli': 75,
+      'şaşkın': 60,
+      'üzgün': 40,
+      'korkmuş': 35,
+      'kızgın': 30,
+    };
+    
+    return primaryScores[emotion.primary] || 50;
   };
 
   const getMoodColor = (value: number) => {
@@ -84,8 +93,11 @@ export function MoodQuickEntry({
   };
 
   const handleSubmit = () => {
+    // Emotion'ı mood score'a çevir (basit bir mapping)
+    const moodScore = getMoodScoreFromEmotion(selectedEmotion);
+    
     onSubmit({
-      mood,
+      mood: moodScore,
       energy,
       anxiety,
       notes,
@@ -93,7 +105,7 @@ export function MoodQuickEntry({
     });
     
     // Reset form
-    setMood(50);
+    setSelectedEmotion(null);
     setEnergy(5);
     setAnxiety(5);
     setNotes('');
@@ -117,100 +129,102 @@ export function MoodQuickEntry({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Mood Slider */}
+            {/* Emotion Wheel - Lindsay Braman Style */}
             <View style={styles.section}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Mood</Text>
+                <Text style={styles.label}>Duygu Seçimi</Text>
+                {selectedEmotion && (
+                  <View style={styles.valueContainer}>
+                    <Text style={styles.selectedEmotionText}>
+                      {selectedEmotion.primary}
+                      {selectedEmotion.secondary && ` - ${selectedEmotion.secondary}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.emotionWheelContainer}>
+                <EmotionWheel
+                  size={280}
+                  selectedEmotion={selectedEmotion}
+                  onEmotionSelect={(primary, secondary) => {
+                    setSelectedEmotion({ primary, secondary });
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  interactive={true}
+                />
+              </View>
+              <Text style={styles.emotionHelperText}>
+                Ana duyguya dokunun, ardından alt duyguları keşfedin
+              </Text>
+            </View>
+
+            {/* Energy Level Slider */}
+            <View style={styles.section}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Enerji Seviyesi</Text>
                 <View style={styles.valueContainer}>
-                  <Text style={[styles.moodEmoji, { fontSize: 28 }]}>
-                    {getMoodEmoji(mood)}
-                  </Text>
-                  <Text style={[styles.value, { color: getMoodColor(mood) }]}>
-                    {Math.round(mood)}
+                  <MaterialCommunityIcons 
+                    name="lightning-bolt" 
+                    size={20} 
+                    color={energy > 5 ? '#10B981' : '#6B7280'} 
+                  />
+                  <Text style={[styles.value, { color: energy > 5 ? '#10B981' : '#6B7280' }]}>
+                    {Math.round(energy)}/10
                   </Text>
                 </View>
               </View>
               <Slider
                 style={styles.slider}
-                minimumValue={0}
-                maximumValue={100}
-                value={mood}
+                minimumValue={1}
+                maximumValue={10}
+                value={energy}
+                step={1}
                 onValueChange={(value) => {
-                  setMood(value);
-                  if (value % 10 === 0) {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
+                  setEnergy(value);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
-                minimumTrackTintColor={getMoodColor(mood)}
+                minimumTrackTintColor="#10B981"
                 maximumTrackTintColor="#E5E7EB"
-                thumbTintColor={getMoodColor(mood)}
+                thumbTintColor="#10B981"
               />
               <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>Çok Kötü</Text>
-                <Text style={styles.sliderLabel}>Çok İyi</Text>
+                <Text style={styles.sliderLabel}>Düşük</Text>
+                <Text style={styles.sliderLabel}>Yüksek</Text>
               </View>
             </View>
 
-            {/* Energy Level */}
-            <View style={styles.section}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Enerji Seviyesi</Text>
-                <Text style={styles.value}>{energy}/10</Text>
-              </View>
-              <View style={styles.levelButtons}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.levelButton,
-                      energy >= level && styles.levelButtonActive,
-                    ]}
-                    onPress={() => {
-                      setEnergy(level);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Text style={[
-                      styles.levelText,
-                      energy >= level && styles.levelTextActive,
-                    ]}>
-                      {level}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Anxiety Level */}
+            {/* Anxiety Level Slider */}
             <View style={styles.section}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Anksiyete Seviyesi</Text>
-                <Text style={styles.value}>{anxiety}/10</Text>
+                <View style={styles.valueContainer}>
+                  <MaterialCommunityIcons 
+                    name="alert-circle-outline" 
+                    size={20} 
+                    color={anxiety > 5 ? '#EF4444' : '#6B7280'} 
+                  />
+                  <Text style={[styles.value, { color: anxiety > 5 ? '#EF4444' : '#6B7280' }]}>
+                    {Math.round(anxiety)}/10
+                  </Text>
+                </View>
               </View>
-              <View style={styles.levelButtons}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.levelButton,
-                      anxiety >= level && [
-                        styles.levelButtonActive,
-                        { backgroundColor: anxiety >= level ? '#EF4444' : '#F3F4F6' },
-                      ],
-                    ]}
-                    onPress={() => {
-                      setAnxiety(level);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Text style={[
-                      styles.levelText,
-                      anxiety >= level && styles.levelTextActive,
-                    ]}>
-                      {level}
-                    </Text>
-                  </Pressable>
-                ))}
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={10}
+                value={anxiety}
+                step={1}
+                onValueChange={(value) => {
+                  setAnxiety(value);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                minimumTrackTintColor="#EF4444"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#EF4444"
+              />
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>Sakin</Text>
+                <Text style={styles.sliderLabel}>Kaygılı</Text>
               </View>
             </View>
 
@@ -390,6 +404,22 @@ const styles = StyleSheet.create({
   },
   triggerTextActive: {
     color: '#FFFFFF',
+  },
+  emotionWheelContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  selectedEmotionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  emotionHelperText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   textInput: {
     backgroundColor: '#F9FAFB',

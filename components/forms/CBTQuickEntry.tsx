@@ -14,6 +14,19 @@ import * as Haptics from 'expo-haptics';
 
 // UI Components removed - using Pressable instead
 
+// Lindsay Braman Style Illustrations
+import { 
+  CBTIllustrations, 
+  distortionInfo,
+  OvergeneralizationIcon,
+  MindReadingIcon,
+  CatastrophizingIcon,
+  BlackWhiteIcon,
+  PersonalizationIcon,
+  LabelingIcon,
+  MentalFilterIcon
+} from '@/components/illustrations/CBTIllustrations';
+
 // Hooks & Services
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -32,20 +45,62 @@ interface CBTQuickEntryProps {
   initialThought?: string;
 }
 
-// Bilişsel çarpıtmalar listesi
+// Bilişsel çarpıtmalar listesi - Lindsay Braman görselleriyle eşleştirilmiş
 const COGNITIVE_DISTORTIONS = [
-  { id: 'all_or_nothing', label: 'Ya Hep Ya Hiç', description: 'Her şeyi siyah-beyaz görme' },
-  { id: 'overgeneralization', label: 'Aşırı Genelleme', description: 'Tek olaydan genel sonuç çıkarma' },
-  { id: 'mental_filter', label: 'Zihinsel Filtre', description: 'Sadece olumsuzlara odaklanma' },
+  { 
+    id: 'blackWhite', 
+    label: 'Siyah-Beyaz Düşünce', 
+    description: 'Her şeyi uç noktalarda görme',
+    icon: 'blackWhite',
+    example: 'Ya mükemmelim ya da başarısızım'
+  },
+  { 
+    id: 'overgeneralization', 
+    label: 'Aşırı Genelleme', 
+    description: 'Tek olaydan genel sonuç çıkarma',
+    icon: 'overgeneralization',
+    example: 'Bir kere başarısız oldum, her zaman başarısız olurum'
+  },
+  { 
+    id: 'mentalFilter', 
+    label: 'Zihinsel Filtre', 
+    description: 'Sadece olumsuzlara odaklanma',
+    icon: 'mentalFilter',
+    example: 'Bir eleştiri aldım, gün mahvoldu'
+  },
+  { 
+    id: 'mindReading', 
+    label: 'Zihin Okuma', 
+    description: 'Başkalarının ne düşündüğünü bildiğini sanma',
+    icon: 'mindReading',
+    example: 'Herkes beni yetersiz buluyor'
+  },
+  { 
+    id: 'catastrophizing', 
+    label: 'Felaketleştirme', 
+    description: 'En kötü senaryoyu düşünme',
+    icon: 'catastrophizing',
+    example: 'Bu hata yüzünden hayatım mahvoldu'
+  },
+  { 
+    id: 'personalization', 
+    label: 'Kişiselleştirme', 
+    description: 'Her şeyi üstüne alma',
+    icon: 'personalization',
+    example: 'Arkadaşım mutsuzsa, ben kötü bir dostum'
+  },
+  { 
+    id: 'labeling', 
+    label: 'Etiketleme', 
+    description: 'Kendine veya başkalarına etiket yapıştırma',
+    icon: 'labeling',
+    example: 'Ben bir ezik/başarısızım'
+  },
   { id: 'disqualifying_positive', label: 'Olumluyu Yok Sayma', description: 'İyi şeyleri görmezden gelme' },
   { id: 'jumping_conclusions', label: 'Sonuca Atlama', description: 'Kanıt olmadan varsayımda bulunma' },
   { id: 'magnification', label: 'Büyütme/Küçültme', description: 'Olayları abartma veya önemsizleştirme' },
   { id: 'emotional_reasoning', label: 'Duygusal Akıl Yürütme', description: 'Hislerini gerçek sanma' },
-  { id: 'should_statements', label: '-Meli/-Malı İfadeleri', description: 'Kendine katı kurallar koyma' },
-  { id: 'labeling', label: 'Etiketleme', description: 'Kendine veya başkalarına etiket yapıştırma' },
-  { id: 'personalization', label: 'Kişiselleştirme', description: 'Her şeyi üstüne alma' },
-  { id: 'catastrophizing', label: 'Felaketleştirme', description: 'En kötü senaryoyu düşünme' },
-  { id: 'mind_reading', label: 'Zihin Okuma', description: 'Başkalarının ne düşündüğünü bildiğini sanma' }
+  { id: 'should_statements', label: '-Meli/-Malı İfadeleri', description: 'Kendine katı kurallar koyma' }
 ];
 
 export default function CBTQuickEntry({ 
@@ -94,12 +149,32 @@ export default function CBTQuickEntry({
     if (!thought.trim()) return;
     
     try {
-      const analysis = await cbtEngine.analyzeDistortions(thought, user?.id || 'anonymous');
-      if (analysis.detectedDistortions) {
-        setSelectedDistortions(analysis.detectedDistortions);
+      // Basit bir analiz yapalım - gerçek AI analizi için CBT Engine'in güncellenmesi gerekir
+      // Şimdilik bazı anahtar kelimelere bakarak çarpıtmaları tespit edebiliriz
+      const lowerThought = thought.toLowerCase();
+      const detectedDistortions: string[] = [];
+      
+      if (lowerThought.includes('her zaman') || lowerThought.includes('hiçbir zaman')) {
+        detectedDistortions.push('overgeneralization');
       }
-      if (analysis.suggestedTechniques && analysis.suggestedTechniques.length > 0) {
-        setAiSuggestions(analysis.suggestedTechniques.map(t => t.description));
+      if (lowerThought.includes('herkes') || lowerThought.includes('kimse')) {
+        detectedDistortions.push('overgeneralization');
+      }
+      if (lowerThought.includes('kesin') || lowerThought.includes('mutlaka')) {
+        detectedDistortions.push('mindReading');
+      }
+      if (lowerThought.includes('felaket') || lowerThought.includes('mahvoldum')) {
+        detectedDistortions.push('catastrophizing');
+      }
+      if (lowerThought.includes('ya hep ya hiç') || lowerThought.includes('tamamen')) {
+        detectedDistortions.push('blackWhite');
+      }
+      if (lowerThought.includes('benim yüzümden') || lowerThought.includes('suçluyum')) {
+        detectedDistortions.push('personalization');
+      }
+      
+      if (detectedDistortions.length > 0) {
+        setSelectedDistortions(detectedDistortions);
       }
     } catch (error) {
       console.warn('CBT analysis failed:', error);
@@ -111,13 +186,27 @@ export default function CBTQuickEntry({
     if (!thought.trim()) return;
     
     try {
-      const reframes = await cbtEngine.generateReframes({
-        text: thought,
-        lang: 'tr'
-      });
-      if (reframes && reframes.length > 0) {
-        setAiSuggestions(reframes.map(r => r.text));
+      // Basit reframe önerileri
+      const suggestions = [
+        'Bu duruma başka bir açıdan bakmaya ne dersin?',
+        'Kanıtlar gerçekten bu düşünceyi destekliyor mu?',
+        'Bir arkadaşın bu durumda olsaydı ona ne söylerdin?',
+        'Bu düşünce sana yardımcı mı oluyor yoksa engelliyor mu?',
+        'Daha dengeli bir bakış açısı geliştirebilir misin?'
+      ];
+      
+      // Çarpıtmalara özel öneriler
+      if (selectedDistortions.includes('overgeneralization')) {
+        suggestions.push('Bu gerçekten HER ZAMAN böyle mi? İstisnaları düşün.');
       }
+      if (selectedDistortions.includes('catastrophizing')) {
+        suggestions.push('En kötü senaryo gerçekleşme olasılığı nedir?');
+      }
+      if (selectedDistortions.includes('personalization')) {
+        suggestions.push('Bu durumda başka faktörler de rol oynuyor olabilir mi?');
+      }
+      
+      setAiSuggestions(suggestions.slice(0, 3));
     } catch (error) {
       console.warn('Reframe generation failed:', error);
     }
@@ -350,34 +439,66 @@ export default function CBTQuickEntry({
                 <Text style={styles.stepDescription}>
                   Hangi düşünce kalıplarını fark ediyorsunuz?
                 </Text>
+                
 
-                <View style={styles.distortionGrid}>
-                  {COGNITIVE_DISTORTIONS.map(distortion => (
-                    <Pressable
-                      key={distortion.id}
-                      style={[
-                        styles.distortionCard,
-                        selectedDistortions.includes(distortion.id) && styles.distortionCardActive
-                      ]}
-                      onPress={() => toggleDistortion(distortion.id)}
-                    >
-                      <View style={styles.distortionHeader}>
-                        <Text style={[
-                          styles.distortionLabel,
-                          selectedDistortions.includes(distortion.id) && styles.distortionLabelActive
-                        ]}>
-                          {distortion.label}
-                        </Text>
-                        {selectedDistortions.includes(distortion.id) && (
-                          <MaterialCommunityIcons name="check-circle" size={20} color="#6366F1" />
+
+                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true}>
+                  <View style={styles.distortionGrid}>
+                    {COGNITIVE_DISTORTIONS.map(distortion => {
+                      const IllustrationComponent = distortion.icon ? CBTIllustrations[distortion.icon] : null;
+                      const isSelected = selectedDistortions.includes(distortion.id);
+                      console.log('🎨 Rendering distortion:', distortion.label, 'has icon:', !!distortion.icon);
+                      
+                      return (
+                      <Pressable
+                        key={distortion.id}
+                        style={[
+                          styles.distortionCard,
+                          isSelected && styles.distortionCardActive
+                        ]}
+                        onPress={() => toggleDistortion(distortion.id)}
+                        accessible={true}
+                        accessibilityLabel={`${distortion.label} çarpıtması`}
+                        accessibilityHint={distortion.description}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
+                      >
+                        {/* Lindsay Braman tarzı görsel */}
+                        {IllustrationComponent && (
+                          <View style={styles.distortionIllustration}>
+                            <IllustrationComponent 
+                              size={70} 
+                              color={isSelected ? '#7C9885' : undefined}
+                            />
+                          </View>
                         )}
-                      </View>
-                      <Text style={styles.distortionDescription}>
-                        {distortion.description}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                        
+                        <View style={styles.distortionContent}>
+                          <View style={styles.distortionHeader}>
+                            <Text style={[
+                              styles.distortionLabel,
+                              isSelected && styles.distortionLabelActive
+                            ]}>
+                              {distortion.label}
+                            </Text>
+                            {isSelected && (
+                              <MaterialCommunityIcons name="check-circle" size={20} color="#7C9885" />
+                            )}
+                          </View>
+                          <Text style={styles.distortionDescription}>
+                            {distortion.description}
+                          </Text>
+                          {distortion.example && (
+                            <Text style={styles.distortionExample}>
+                              Örnek: "{distortion.example}"
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                  </View>
+                </ScrollView>
               </View>
 
               <View style={styles.actions}>
@@ -669,36 +790,66 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   distortionGrid: {
-    gap: 12,
+    flexDirection: 'column',
+    paddingHorizontal: 8,
   },
   distortionCard: {
-    padding: 12,
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 2,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   distortionCardActive: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
+    borderColor: '#7C9885',
+    backgroundColor: '#F0FDF4',
+    shadowOpacity: 0.1,
+    elevation: 3,
+  },
+  distortionIllustration: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  distortionContent: {
+    flex: 1,
   },
   distortionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   distortionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    flex: 1,
   },
   distortionLabelActive: {
-    color: '#3B82F6',
+    color: '#7C9885',
+    fontWeight: '800',
   },
   distortionDescription: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  distortionExample: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    lineHeight: 16,
+    marginTop: 4,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: '#E5E7EB',
   },
   moodContainer: {
     marginTop: 20,

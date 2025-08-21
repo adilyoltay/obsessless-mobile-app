@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
+
 // Components
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { Card } from '@/components/ui/Card';
@@ -450,6 +451,8 @@ export default function MoodScreen() {
           </View>
         </View>
 
+
+
         {/* Spectrum Mood Tracker - Lindsay Braman Style */}
         {moodEntries.length > 0 && (
           <View style={styles.chartSection}>
@@ -707,6 +710,8 @@ export default function MoodScreen() {
           </View>
         )}
 
+
+
         {/* Mood Entries List - Matching OCD/ERP Design */}
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>
@@ -844,6 +849,94 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  visualModeSelector: {
+    marginTop: 16,
+    marginBottom: 8,
+    marginHorizontal: 16,
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  modeButtonActive: {
+    backgroundColor: '#7C9885',
+    borderColor: '#7C9885',
+  },
+  modeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  modeButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  wheelContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  wheelHeader: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  wheelDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  wheelInfo: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  wheelInfoText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  wheelLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#374151',
   },
   
   // Header Styles - Matching OCD/ERP
