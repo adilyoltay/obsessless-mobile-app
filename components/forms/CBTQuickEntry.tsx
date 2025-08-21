@@ -35,14 +35,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
 
-// CBT Engine
+// CBT Engine & UI Components
 import { cbtEngine } from '@/features/ai/engines/cbtEngine';
+import DistortionBadge, { MultiDistortionAnalysis } from '@/components/ui/DistortionBadge';
+import SocraticQuestions, { InlineSocraticQuestions } from '@/components/ui/SocraticQuestions';
 
 interface CBTQuickEntryProps {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: () => void;
   initialThought?: string;
+  initialTrigger?: string;
+  initialDistortions?: string[];
+  voiceAnalysisData?: {
+    confidence?: number;
+    suggestedDistortions?: Array<{
+      id: string;
+      label: string;
+      confidence: number;
+    }>;
+    autoThought?: string;
+    analysisSource?: 'gemini' | 'heuristic';
+  };
 }
 
 // Bilişsel çarpıtmalar listesi - Lindsay Braman görselleriyle eşleştirilmiş
@@ -107,7 +121,10 @@ export default function CBTQuickEntry({
   visible, 
   onDismiss, 
   onSubmit,
-  initialThought = '' 
+  initialThought = '',
+  initialTrigger,
+  initialDistortions,
+  voiceAnalysisData
 }: CBTQuickEntryProps) {
   console.log('🔵 CBTQuickEntry rendered, visible:', visible);
   const { user } = useAuth();
@@ -127,11 +144,46 @@ export default function CBTQuickEntry({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
-  // Reset form when modal opens
+  // Reset form when modal opens with voice analysis prefill
   useEffect(() => {
     if (visible) {
       setStep('thought');
-      if (!initialThought) {
+      
+      // Voice analysis prefill
+      if (voiceAnalysisData) {
+        console.log('🎤 CBT Quick Entry prefilling from voice analysis:', voiceAnalysisData);
+        
+        // Set auto-detected thought
+        if (voiceAnalysisData.autoThought) {
+          setThought(voiceAnalysisData.autoThought);
+        } else if (initialThought) {
+          setThought(initialThought);
+        }
+        
+        // Set initial trigger
+        if (initialTrigger) {
+          setTrigger(initialTrigger);
+        }
+        
+        // Auto-select suggested distortions with high confidence
+        if (voiceAnalysisData.suggestedDistortions && voiceAnalysisData.suggestedDistortions.length > 0) {
+          const highConfidenceDistortions = voiceAnalysisData.suggestedDistortions
+            .filter(d => d.confidence >= 0.7)
+            .map(d => d.id);
+          
+          if (highConfidenceDistortions.length > 0) {
+            setSelectedDistortions(highConfidenceDistortions);
+            console.log('🎯 Auto-selected distortions:', highConfidenceDistortions);
+          }
+        }
+        
+        // Set mood based on analysis confidence
+        if (voiceAnalysisData.confidence) {
+          const estimatedMoodBefore = Math.max(1, Math.round(5 - (voiceAnalysisData.confidence * 3)));
+          setMoodBefore(estimatedMoodBefore);
+        }
+      } else if (!initialThought) {
+        // Default reset when no prefill data
         setThought('');
         setSelectedDistortions([]);
         setEvidenceFor('');
@@ -140,9 +192,12 @@ export default function CBTQuickEntry({
         setMoodBefore(5);
         setMoodAfter(7);
         setTrigger('');
+      } else {
+        // Just initial thought
+        setThought(initialThought);
       }
     }
-  }, [visible]);
+  }, [visible, initialThought, initialTrigger, voiceAnalysisData]);
 
   // Analyze thought for distortions
   const analyzeThought = async () => {
@@ -442,63 +497,60 @@ export default function CBTQuickEntry({
                 
 
 
-                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true}>
-                  <View style={styles.distortionGrid}>
-                    {COGNITIVE_DISTORTIONS.map(distortion => {
-                      const IllustrationComponent = distortion.icon ? CBTIllustrations[distortion.icon] : null;
-                      const isSelected = selectedDistortions.includes(distortion.id);
-                      console.log('🎨 Rendering distortion:', distortion.label, 'has icon:', !!distortion.icon);
-                      
-                      return (
-                      <Pressable
-                        key={distortion.id}
-                        style={[
-                          styles.distortionCard,
-                          isSelected && styles.distortionCardActive
-                        ]}
-                        onPress={() => toggleDistortion(distortion.id)}
-                        accessible={true}
-                        accessibilityLabel={`${distortion.label} çarpıtması`}
-                        accessibilityHint={distortion.description}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: isSelected }}
-                      >
-                        {/* Lindsay Braman tarzı görsel */}
-                        {IllustrationComponent && (
-                          <View style={styles.distortionIllustration}>
-                            <IllustrationComponent 
-                              size={70} 
-                              color={isSelected ? '#7C9885' : undefined}
-                            />
-                          </View>
-                        )}
-                        
-                        <View style={styles.distortionContent}>
-                          <View style={styles.distortionHeader}>
-                            <Text style={[
-                              styles.distortionLabel,
-                              isSelected && styles.distortionLabelActive
-                            ]}>
-                              {distortion.label}
-                            </Text>
-                            {isSelected && (
-                              <MaterialCommunityIcons name="check-circle" size={20} color="#7C9885" />
-                            )}
-                          </View>
-                          <Text style={styles.distortionDescription}>
-                            {distortion.description}
-                          </Text>
-                          {distortion.example && (
-                            <Text style={styles.distortionExample}>
-                              Örnek: "{distortion.example}"
-                            </Text>
-                          )}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+                {/* AI-Suggested Distortions (if available) */}
+                {voiceAnalysisData?.suggestedDistortions && voiceAnalysisData.suggestedDistortions.length > 0 && (
+                  <View style={styles.aiSuggestionsSection}>
+                    <View style={styles.aiSuggestionHeader}>
+                      <MaterialCommunityIcons name="robot" size={18} color="#6366F1" />
+                      <Text style={styles.aiSuggestionTitle}>
+                        AI Önerileri ({voiceAnalysisData.analysisSource === 'gemini' ? 'Gemini' : 'Heuristik'})
+                      </Text>
+                    </View>
+                    
+                    <MultiDistortionAnalysis
+                      distortions={voiceAnalysisData.suggestedDistortions.map(d => ({
+                        id: d.id,
+                        confidence: d.confidence,
+                        selected: selectedDistortions.includes(d.id)
+                      }))}
+                      onDistortionPress={(distortionId) => toggleDistortion(distortionId)}
+                      maxDisplay={6}
+                    />
                   </View>
-                </ScrollView>
+                )}
+
+                {/* Manual Selection */}
+                <View style={styles.manualSelectionSection}>
+                  <Text style={styles.manualSelectionTitle}>Elle Seç</Text>
+                  <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={true}>
+                    <View style={styles.distortionBadgeGrid}>
+                      {COGNITIVE_DISTORTIONS.map(distortion => {
+                        const isSelected = selectedDistortions.includes(distortion.id);
+                        const suggestedMatch = voiceAnalysisData?.suggestedDistortions?.find(s => s.id === distortion.id);
+                        const confidence = suggestedMatch?.confidence || 0.5;
+                        
+                        return (
+                          <Pressable
+                            key={distortion.id}
+                            onPress={() => toggleDistortion(distortion.id)}
+                            accessible={true}
+                            accessibilityLabel={`${distortion.label} çarpıtması`}
+                            accessibilityHint={distortion.description}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: isSelected }}
+                          >
+                            <DistortionBadge
+                              distortion={distortion.id}
+                              confidence={confidence}
+                              selected={isSelected}
+                              showPercentage={!!suggestedMatch}
+                            />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
               </View>
 
               <View style={styles.actions}>
@@ -531,6 +583,26 @@ export default function CBTQuickEntry({
               <Text style={styles.stepDescription}>
                 Bu düşünceyi destekleyen ve çürüten kanıtlar neler?
               </Text>
+
+              {/* Socratic Questions for Evidence Step */}
+              <InlineSocraticQuestions
+                questions={[
+                  "Bu düşünceyi destekleyen somut kanıtlar neler?",
+                  "Bu durumu farklı yorumlayabilir misin?",
+                  "En yakın arkadaşın bu durumda ne derdi?",
+                  "Bu olayı 10 yıl sonra nasıl değerlendirirsin?",
+                  "Bu düşüncenin alternatif açıklamaları var mı?",
+                  "Geçmişte benzer durumlar nasıl sonuçlandı?"
+                ]}
+                onQuestionSelect={(question) => {
+                  // Add question as placeholder or hint
+                  if (!evidenceFor.trim() && !evidenceAgainst.trim()) {
+                    // Use as thinking prompt
+                    console.log('Selected question for evidence thinking:', question);
+                  }
+                }}
+                maxDisplay={3}
+              />
 
               <Text style={styles.fieldLabel}>Lehine Kanıtlar</Text>
               <TextInput
@@ -585,6 +657,22 @@ export default function CBTQuickEntry({
               <Text style={styles.stepDescription}>
                 Daha dengeli ve gerçekçi bir düşünce oluşturun
               </Text>
+              
+              {/* Socratic Questions for Reframe Step */}
+              <InlineSocraticQuestions
+                questions={[
+                  "Bu düşünceyi daha dengeli nasıl ifade edebilirsin?",
+                  "Kendine nasıl şefkatle yaklaşabilirsin?",
+                  "Bu durumdan ne öğrenebilirsin?",
+                  "İlerleme için hangi küçük adımları atabilirsin?",
+                  "Bu konuda ne yapabileceğin var?",
+                  "Kontrolünde olan şeyler neler?"
+                ]}
+                onQuestionSelect={(question) => {
+                  console.log('Selected reframe question:', question);
+                }}
+                maxDisplay={3}
+              />
 
               {aiSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
@@ -957,5 +1045,41 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  // AI Suggestions Styles
+  aiSuggestionsSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  aiSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  aiSuggestionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366F1',
+    fontFamily: 'Inter',
+  },
+  manualSelectionSection: {
+    marginTop: 8,
+  },
+  manualSelectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+    fontFamily: 'Inter',
+  },
+  distortionBadgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
 });

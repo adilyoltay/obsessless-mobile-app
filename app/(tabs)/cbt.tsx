@@ -557,6 +557,17 @@ export default function CBTScreen() {
         onSubmit={handleRecordSaved}
         initialThought={params.text as string}
         initialTrigger={params.trigger as string}
+        voiceAnalysisData={params.confidence && params.prefill === 'true' ? {
+          confidence: parseFloat(params.confidence as string) || 0.5,
+          analysisSource: params.analysisSource as 'gemini' | 'heuristic' || 'heuristic',
+          autoThought: params.text as string,
+          suggestedDistortions: params.distortions ? 
+            JSON.parse(params.distortions as string).map((d: string, idx: number) => ({
+              id: d.toLowerCase().replace(/\s+/g, '_'),
+              label: d,
+              confidence: parseFloat(params.confidence as string) || 0.7
+            })) : undefined
+        } : undefined}
       />
 
       {/* Toast */}
