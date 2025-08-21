@@ -22,10 +22,12 @@ import { Toast } from '@/components/ui/Toast';
 
 // Services
 import { unifiedVoiceAnalysis } from '@/features/ai/services/checkinService';
+import { coreAnalysisService, type AnalysisInput, type AnalysisResult } from '@/features/ai/core/CoreAnalysisService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
 import supabaseService from '@/services/supabase';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Utils
 import { sanitizePII } from '@/utils/privacy';
@@ -149,12 +151,51 @@ export default function CheckinBottomSheet({
       
       // Analyze voice input
       let analysis;
-      try {
-        // unifiedVoiceAnalysis sadece text parametresi alıyor
-        analysis = await unifiedVoiceAnalysis(res.text || '');
-      } catch (analysisError) {
-        console.error('🔴 unifiedVoiceAnalysis failed:', analysisError);
-        throw analysisError;
+      
+      // Use CoreAnalysisService if enabled, otherwise fallback to legacy
+      if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
+        console.log('🚀 Using CoreAnalysisService for voice analysis');
+        
+        const input: AnalysisInput = {
+          kind: 'VOICE',
+          content: res.text || '',
+          userId: user.id,
+          locale: (res.language || 'tr-TR') as 'tr-TR' | 'en-US',
+          ts: Date.now(),
+          metadata: {
+            source: 'checkin-bottomsheet',
+            sessionId: `checkin_${Date.now()}`,
+            contextData: {
+              confidence: res.confidence,
+              duration: res.duration,
+            }
+          }
+        };
+        
+        const coreResult = await coreAnalysisService.analyze(input);
+        console.log('🎯 CoreAnalysisService Result:', JSON.stringify(coreResult, null, 2));
+        
+        // Map CoreAnalysisService result to expected format
+        analysis = {
+          type: coreResult.quickClass,
+          confidence: coreResult.confidence,
+          mood: coreResult.payload?.mood || 50,
+          trigger: coreResult.payload?.params?.trigger || '',
+          suggestion: coreResult.payload?.message || '',
+          originalText: res.text,
+          route: coreResult.route,
+          screen: coreResult.payload?.screen,
+          params: coreResult.payload?.params,
+        };
+      } else {
+        console.log('📝 Using legacy unifiedVoiceAnalysis');
+        try {
+          // unifiedVoiceAnalysis sadece text parametresi alıyor
+          analysis = await unifiedVoiceAnalysis(res.text || '');
+        } catch (analysisError) {
+          console.error('🔴 unifiedVoiceAnalysis failed:', analysisError);
+          throw analysisError;
+        }
       }
       
       console.log('🎯 Voice Analysis Result:', JSON.stringify(analysis, null, 2));
@@ -346,6 +387,39 @@ export default function CheckinBottomSheet({
     
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // If using CoreAnalysisService, honor the route action
+    if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS') && analysis.route) {
+      console.log('🚀 Using CoreAnalysisService route:', analysis.route);
+      
+      switch (analysis.route) {
+        case 'OPEN_SCREEN':
+          if (analysis.screen) {
+            onClose();
+            router.push({
+              pathname: `/(tabs)/${analysis.screen}`,
+              params: analysis.params || {}
+            });
+            return;
+          }
+          break;
+          
+        case 'AUTO_SAVE':
+          // Continue with auto-save flow below
+          break;
+          
+        case 'SUGGEST_BREATHWORK':
+          onClose();
+          router.push({
+            pathname: '/(tabs)/breathwork',
+            params: analysis.params || {}
+          });
+          return;
+          
+        default:
+          console.log('Unknown route action:', analysis.route);
+      }
+    }
 
     // High confidence (>0.8) = Show modal for confirmation (respect user prefs via shouldShowAutoRecord)
     // Kullanıcı tercihlerini store'dan çek (opsiyonel). Eğer store yoksa varsayılana bırakılır
