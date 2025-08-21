@@ -54,6 +54,7 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Günlük (saatlik), Haftalık (günlük), Aylık (takvim) görünümleri
 - Renk spektrumu ile duygu yoğunluğu gösterimi
 - Çoklu duygu kaydı ve interaktif detaylar
+- **Voice Entry**: Today screen'den ses ile mood kaydı (CoreAnalysisService)
 
 ### 📊 OKB Takip (Compulsions)
 - Zaman aralığı sekmeleri (Bugün/Hafta/Ay)
