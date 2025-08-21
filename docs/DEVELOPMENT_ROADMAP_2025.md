@@ -8,6 +8,12 @@ Bu yol haritası, 2025 için yakın ve orta vadeli hedefleri konsolide eder (Oca
 - **Navigation Optimizasyonu**: FAB butonları, CBT tab kaldırma, tutarlı UX
 - **BottomSheet Standardizasyonu**: Tüm modüller için tutarlı tasarım sistemi
 - **Offline-First CBT**: AsyncStorage + Supabase senkronizasyonu
+- **CoreAnalysisService v1**: Single-entry AI architecture, LLM gating (%40-50 cost reduction)
+- **Multi-layer Caching**: TTL-based caching (1h/12h/24h), cache invalidation
+- **Progressive UI**: <500ms immediate insights, <3s deep analysis
+- **Batch Jobs**: Daily trend analysis, mood smoothing, risk updates
+- **Idempotent Operations**: content_hash based deduplication
+- **Comprehensive Test Suite**: 60+ golden set cases, unit/integration tests
 
 ## 🚧 Şubat 2025 (Devam Eden)
 - **Supabase Migration**: `thought_records` tablosu deployment

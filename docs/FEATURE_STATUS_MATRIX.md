@@ -19,12 +19,15 @@
 
 | Özellik | Durum | Versiyon | Not |
 |---|---|---|---|
+| **CoreAnalysisService** | ✅ Aktif | v1.0 | Single-entry AI, LLM gating, Multi-layer cache |
 | **Insights v2** | ✅ Aktif | v2.0 | Data Aggregation ile öncelik/zamanlama |
 | **Pattern Recognition v2** | ✅ Aktif | v2.0 | AI-assisted analiz |
 | **Smart Notifications** | ✅ Aktif | v2.0 | Kriz içeriği kaldırıldı |
 | **CBT Engine** | ✅ Aktif | v2.0 | Bilişsel çarpıtma analizi, reframe önerileri |
 | **Gemini API Integration** | ✅ Aktif | v1.0 | Ses analizi ve tip tespiti |
 | **Onboarding (AI)** | ✅ Aktif | v1.0 | Varsayılan açık |
+| **Batch Jobs** | ✅ Aktif | v1.0 | Trend analysis, mood smoothing, risk updates |
+| **Progressive UI** | ✅ Aktif | v1.0 | <500ms immediate, <3s deep insights |
 
 
 ## 📱 UI/UX Özellikleri

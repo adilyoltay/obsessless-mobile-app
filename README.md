@@ -76,6 +76,7 @@ ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarla
 - **Animations:** React Native Reanimated + Lottie
 - **UI Components:** Custom components following Master Prompt principles
 - **AI Provider:** Gemini-only (AI Chat devre dışı, Crisis Detection kaldırıldı)
+- **AI Architecture:** CoreAnalysisService v1 (Single-entry point, LLM gating, Multi-layer cache)
 
 ## 🎨 Tasarım İlkeleri
 
