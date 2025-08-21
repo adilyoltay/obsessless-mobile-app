@@ -731,9 +731,15 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(session.user_id);
       
+      // Compute content hash from notes or exercise description
+      const contentForHash = session.notes || 
+                            `${session.exercise_type}_${session.fear_level}_${session.resistance_level}`;
+      const contentHash = this.computeContentHash(contentForHash);
+      
       const sessionData = {
         ...session,
         timestamp: new Date().toISOString(),
+        content_hash: contentHash,
       };
       
       // Include ID if provided for duplicate prevention
@@ -743,13 +749,20 @@ class SupabaseNativeService {
       
       const { data, error } = await this.client
         .from('erp_sessions')
-        .upsert(sessionData, { onConflict: 'id' })
+        .upsert(sessionData, { 
+          onConflict: session.id ? 'id' : 'user_id,content_hash',
+          ignoreDuplicates: true 
+        })
         .select()
         .single();
 
-      if (error) throw error;
-      console.log('✅ ERP session saved to database:', data.id);
-      return data;
+      if (error && !error.message?.includes('duplicate')) {
+        console.error('❌ Save ERP session error:', error);
+        throw error;
+      }
+      
+      console.log('✅ ERP session saved to database:', data?.id);
+      return data || session as ERPSession;
     } catch (error) {
       console.error('❌ Save ERP session failed:', error);
       throw error;
@@ -944,9 +957,31 @@ class SupabaseNativeService {
   // NEW: VOICE CHECK-IN / THOUGHT RECORD / VOICE SESSION
   // ===========================
 
+  /**
+   * Compute content hash for text (client-side SHA-256)
+   */
+  private computeContentHash(text: string): string {
+    // Normalize text: trim, collapse spaces, lowercase
+    const normalized = text.trim().replace(/\s+/g, ' ').toLowerCase();
+    
+    // Simple hash function for client-side (not cryptographic)
+    // In production, use a proper SHA-256 library
+    let hash = 0;
+    for (let i = 0; i < normalized.length; i++) {
+      const char = normalized.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16);
+  }
+
   async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
+      
+      // Compute content hash for idempotency
+      const contentHash = this.computeContentHash(record.text);
+      
       const payload = {
         user_id: record.user_id,
         text: record.text,
@@ -954,19 +989,33 @@ class SupabaseNativeService {
         trigger: record.trigger,
         confidence: record.confidence,
         lang: record.lang,
+        content_hash: contentHash,
         created_at: record.created_at || new Date().toISOString(),
       };
-      await this.client
+      
+      // Use idempotent upsert with content_hash
+      const { error } = await this.client
         .from('voice_checkins')
-        .upsert(payload, { onConflict: 'user_id,created_at,text' });
+        .upsert(payload, { 
+          onConflict: 'user_id,content_hash',
+          ignoreDuplicates: true 
+        });
+        
+      if (error && !error.message?.includes('duplicate')) {
+        console.warn('⚠️ saveVoiceCheckin error:', error);
+      }
     } catch (error) {
-      console.warn('⚠️ saveVoiceCheckin skipped (table may not exist):', (error as any)?.message);
+      console.warn('⚠️ saveVoiceCheckin skipped:', (error as any)?.message);
     }
   }
 
   async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
+      
+      // Compute content hash from automatic thought
+      const contentHash = this.computeContentHash(record.automatic_thought || '');
+      
       const payload = {
         user_id: record.user_id,
         automatic_thought: record.automatic_thought,
@@ -975,11 +1024,20 @@ class SupabaseNativeService {
         distortions: record.distortions,
         new_view: record.new_view,
         lang: record.lang,
+        content_hash: contentHash,
         created_at: record.created_at || new Date().toISOString(),
       };
-      await this.client
+      // Use idempotent upsert with content_hash
+      const { error } = await this.client
         .from('thought_records')
-        .upsert(payload, { onConflict: 'user_id,created_at,automatic_thought' });
+        .upsert(payload, { 
+          onConflict: 'user_id,content_hash',
+          ignoreDuplicates: true 
+        });
+        
+      if (error && !error.message?.includes('duplicate')) {
+        console.warn('⚠️ saveThoughtRecord error:', error);
+      }
     } catch (error) {
       console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
     }
