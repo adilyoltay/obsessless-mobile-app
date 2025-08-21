@@ -217,8 +217,20 @@ export enum AIEventType {
   ,
   INSIGHTS_FEEDBACK = 'insights_feedback',
   INTERVENTION_RECOMMENDED = 'intervention_recommended',
-  YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed'
-  ,
+  YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed',
+  
+  // CoreAnalysisService v1 events
+  BATCH_JOB_STARTED = 'batch_job_started',
+  BATCH_JOB_COMPLETED = 'batch_job_completed',
+  BATCH_JOB_FAILED = 'batch_job_failed',
+  CACHE_HIT = 'cache_hit',
+  CACHE_MISS = 'cache_miss',
+  LLM_GATING_DECISION = 'llm_gating_decision',
+  TOKEN_BUDGET_EXCEEDED = 'token_budget_exceeded',
+  SIMILARITY_DEDUP_HIT = 'similarity_dedup_hit',
+  PROGRESSIVE_UI_UPDATE = 'progressive_ui_update',
+  ERP_STAIRCASE_ADJUSTMENT = 'erp_staircase_adjustment',
+  
   // Legacy aliases (compat)
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
@@ -998,6 +1010,53 @@ export const trackSuggestionUsage = async (
  */
 export const getSuggestionStats = (days: number) => {
   return telemetryManager.getSuggestionStats(days);
+};
+
+/**
+ * Track cache hit/miss events
+ */
+export const trackCacheEvent = async (
+  hit: boolean,
+  cacheKey: string,
+  userId?: string
+): Promise<void> => {
+  return trackAIInteraction(hit ? AIEventType.CACHE_HIT : AIEventType.CACHE_MISS, {
+    cacheKey,
+    userId,
+    timestamp: new Date().toISOString(),
+  });
+};
+
+/**
+ * Track LLM gating decisions
+ */
+export const trackGatingDecision = async (
+  decision: 'allow' | 'block',
+  reason: string,
+  metadata?: Record<string, any>
+): Promise<void> => {
+  return trackAIInteraction(AIEventType.LLM_GATING_DECISION, {
+    decision,
+    reason,
+    ...metadata,
+    timestamp: new Date().toISOString(),
+  });
+};
+
+/**
+ * Track ERP difficulty adjustments
+ */
+export const trackERPStaircase = async (
+  adjustment: number,
+  newDifficulty: number,
+  userId?: string
+): Promise<void> => {
+  return trackAIInteraction(AIEventType.ERP_STAIRCASE_ADJUSTMENT, {
+    adjustment,
+    newDifficulty,
+    userId,
+    timestamp: new Date().toISOString(),
+  });
 };
 
 /**

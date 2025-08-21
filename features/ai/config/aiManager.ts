@@ -103,9 +103,16 @@ export class AIManager {
         await coreAnalysisService.initialize();
         console.log('✅ CoreAnalysisService initialized');
         this.healthStatus.set('coreAnalysis', true);
+        
+        // Initialize batch jobs if enabled
+        const { dailyJobsManager } = await import('@/features/ai/batch/dailyJobs');
+        await dailyJobsManager.initialize();
+        console.log('✅ Daily batch jobs initialized');
+        this.healthStatus.set('batchJobs', true);
       } catch (error) {
-        console.warn('⚠️ CoreAnalysisService initialization failed:', error);
+        console.warn('⚠️ CoreAnalysisService/BatchJobs initialization failed:', error);
         this.healthStatus.set('coreAnalysis', false);
+        this.healthStatus.set('batchJobs', false);
       }
     }
 
