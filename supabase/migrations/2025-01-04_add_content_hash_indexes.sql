@@ -78,9 +78,12 @@ BEGIN
     ALTER TABLE mood_entries 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
-    ALTER TABLE mood_entries
-    ADD CONSTRAINT mood_entries_user_content_unique 
-    UNIQUE (user_id, content_hash);
+    -- Check if constraint doesn't exist before adding
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mood_entries_user_content_unique') THEN
+      ALTER TABLE mood_entries
+      ADD CONSTRAINT mood_entries_user_content_unique 
+      UNIQUE (user_id, content_hash);
+    END IF;
     
     CREATE INDEX IF NOT EXISTS idx_mood_entries_hash 
     ON mood_entries (content_hash);
@@ -98,9 +101,12 @@ BEGIN
     ALTER TABLE compulsion_records 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
-    ALTER TABLE compulsion_records
-    ADD CONSTRAINT compulsion_records_user_content_unique 
-    UNIQUE (user_id, content_hash);
+    -- Check if constraint doesn't exist before adding
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'compulsion_records_user_content_unique') THEN
+      ALTER TABLE compulsion_records
+      ADD CONSTRAINT compulsion_records_user_content_unique 
+      UNIQUE (user_id, content_hash);
+    END IF;
     
     CREATE INDEX IF NOT EXISTS idx_compulsion_records_hash 
     ON compulsion_records (content_hash);
@@ -137,10 +143,19 @@ ON ai_cache (expires_at);
 -- Enable RLS on ai_cache
 ALTER TABLE ai_cache ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for ai_cache
-CREATE POLICY "Users can only access their own cache entries" 
-ON ai_cache FOR ALL 
-USING (auth.uid() = user_id);
+-- RLS policies for ai_cache (if it doesn't exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'ai_cache' 
+    AND policyname = 'Users can only access their own cache entries'
+  ) THEN
+    CREATE POLICY "Users can only access their own cache entries" 
+    ON ai_cache FOR ALL 
+    USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- 7. Create AI telemetry table
 CREATE TABLE IF NOT EXISTS ai_telemetry (
@@ -169,10 +184,19 @@ ON ai_telemetry (timestamp);
 -- Enable RLS on ai_telemetry
 ALTER TABLE ai_telemetry ENABLE ROW LEVEL SECURITY;
 
--- RLS policies for ai_telemetry
-CREATE POLICY "Users can only access their own telemetry" 
-ON ai_telemetry FOR ALL 
-USING (auth.uid() = user_id);
+-- RLS policies for ai_telemetry (if it doesn't exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'ai_telemetry' 
+    AND policyname = 'Users can only access their own telemetry'
+  ) THEN
+    CREATE POLICY "Users can only access their own telemetry" 
+    ON ai_telemetry FOR ALL 
+    USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- 8. Create function to compute content hash
 CREATE OR REPLACE FUNCTION compute_content_hash(text_content TEXT)

@@ -18,10 +18,19 @@ CREATE TABLE IF NOT EXISTS voice_checkins (
 -- Enable RLS on voice_checkins
 ALTER TABLE voice_checkins ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy for voice_checkins
-CREATE POLICY "Users can only access their own voice checkins" 
-ON voice_checkins FOR ALL 
-USING (auth.uid() = user_id);
+-- Create RLS policy for voice_checkins (if it doesn't exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'voice_checkins' 
+    AND policyname = 'Users can only access their own voice checkins'
+  ) THEN
+    CREATE POLICY "Users can only access their own voice checkins" 
+    ON voice_checkins FOR ALL 
+    USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Create basic indexes
 CREATE INDEX IF NOT EXISTS idx_voice_checkins_user 
@@ -50,10 +59,19 @@ CREATE TABLE IF NOT EXISTS thought_records (
 -- Enable RLS on thought_records
 ALTER TABLE thought_records ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy for thought_records
-CREATE POLICY "Users can only access their own thought records" 
-ON thought_records FOR ALL 
-USING (auth.uid() = user_id);
+-- Create RLS policy for thought_records (if it doesn't exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'thought_records' 
+    AND policyname = 'Users can only access their own thought records'
+  ) THEN
+    CREATE POLICY "Users can only access their own thought records" 
+    ON thought_records FOR ALL 
+    USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Create basic indexes
 CREATE INDEX IF NOT EXISTS idx_thought_records_user 
