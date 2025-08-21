@@ -110,6 +110,15 @@ export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
  * v1.1: LLM Gating, Token Budget, Similarity Dedup eklendi
  */
 export async function unifiedVoiceAnalysis(text: string, userId?: string): Promise<UnifiedAnalysisResult> {
+  const startTime = Date.now();
+  
+  // 📊 Track voice analysis start
+  await trackAIInteraction(AIEventType.VOICE_ANALYSIS_STARTED, {
+    userId,
+    textLength: text?.length || 0,
+    timestamp: startTime
+  });
+  
   try {
     // Önce basit heuristik analiz
     const heuristicResult = heuristicVoiceAnalysis(text);
@@ -184,6 +193,16 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
           // Cache the result for similarity dedup
           await cacheSimilarResult(text, geminiResult, userId);
           
+          // 📊 Track voice analysis completion
+          await trackAIInteraction(AIEventType.VOICE_ANALYSIS_COMPLETED, {
+            userId,
+            textLength: text?.length || 0,
+            processingTime: Date.now() - startTime,
+            analysisType: geminiResult.type,
+            confidence: geminiResult.confidence,
+            usedLLM: true
+          });
+          
           return geminiResult;
         } else {
           console.log('⚠️ Gemini returned null, falling back to heuristic');
@@ -202,9 +221,30 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
     }
     
     console.log('📊 Using heuristic result:', heuristicResult);
+    
+    // 📊 Track voice analysis completion (heuristic only)
+    await trackAIInteraction(AIEventType.VOICE_ANALYSIS_COMPLETED, {
+      userId,
+      textLength: text?.length || 0,
+      processingTime: Date.now() - startTime,
+      analysisType: heuristicResult.type,
+      confidence: heuristicResult.confidence,
+      usedLLM: false
+    });
+    
     return heuristicResult;
   } catch (error) {
     console.error('Unified voice analysis error:', error);
+    
+    // 📊 Track voice analysis failure
+    await trackAIInteraction(AIEventType.VOICE_ANALYSIS_FAILED, {
+      userId,
+      textLength: text?.length || 0,
+      processingTime: Date.now() - startTime,
+      error: error instanceof Error ? error.message : String(error),
+      component: 'unifiedVoiceAnalysis'
+    });
+    
     // Track system errors
     await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
       error: error instanceof Error ? error.message : String(error),
@@ -213,12 +253,25 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
     });
     
     // Fallback: basit mood analizi
-    return {
-      type: 'MOOD',
+    const fallbackResult = {
+      type: 'MOOD' as const,
       confidence: 0.3,
       mood: 50,
       originalText: text
     };
+    
+    // 📊 Track fallback result
+    await trackAIInteraction(AIEventType.VOICE_ANALYSIS_COMPLETED, {
+      userId,
+      textLength: text?.length || 0,
+      processingTime: Date.now() - startTime,
+      analysisType: fallbackResult.type,
+      confidence: fallbackResult.confidence,
+      usedLLM: false,
+      isFallback: true
+    });
+    
+    return fallbackResult;
   }
 }
 

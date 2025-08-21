@@ -42,6 +42,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import awardMicroReward from '@/services/achievementService';
 import enhancedAchievements from '@/services/enhancedAchievementService';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
@@ -322,6 +323,9 @@ export default function ERPSessionScreen({
     
     // Update streak
     await updateStreak();
+    
+    // 🗑️ Invalidate AI cache - ERP completion affects insights
+    unifiedPipeline.triggerInvalidation('erp_completed', user.id);
     
     console.log('🏆 Gamification updates completed');
     

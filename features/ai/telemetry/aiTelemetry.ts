@@ -241,6 +241,11 @@ export enum AIEventType {
   UNIFIED_PIPELINE_CACHE_HIT = 'unified_pipeline_cache_hit',
   CACHE_INVALIDATION = 'cache_invalidation',
   
+  // Voice Analysis specific events
+  VOICE_ANALYSIS_STARTED = 'voice_analysis_started',
+  VOICE_ANALYSIS_COMPLETED = 'voice_analysis_completed',
+  VOICE_ANALYSIS_FAILED = 'voice_analysis_failed',
+  
   // Breathwork Suggestion events (NEW - Week 2)
   BREATHWORK_SUGGESTION_GENERATED = 'breathwork_suggestion_generated',
   BREATHWORK_SUGGESTION_SNOOZED = 'breathwork_suggestion_snoozed',

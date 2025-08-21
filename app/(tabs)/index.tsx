@@ -52,6 +52,7 @@ import { coreAnalysisService } from '@/features/ai/core/CoreAnalysisService';
 // Unified AI Pipeline (NEW - Jan 2025)
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout';
+import { BreathworkSuggestionService } from '@/features/ai/services/breathworkSuggestionService';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -143,7 +144,7 @@ export default function TodayScreen() {
       if (user?.id) {
         console.log('🔄 Today screen focused, refreshing stats...');
         onRefresh();
-        // Check for breathwork suggestions
+        // Check for AI-powered breathwork suggestions
         checkBreathworkSuggestion();
       }
     }, [user?.id])
@@ -196,58 +197,59 @@ export default function TodayScreen() {
   // Risk section removed
 
   /**
-   * 🌬️ Check and show breathwork suggestions
+   * 🌬️ AI-Powered Breathwork Suggestions (NEW - Week 2)
+   * Replaces static time-based checks with intelligent AI-driven recommendations
    */
-  const checkBreathworkSuggestion = () => {
+  const checkBreathworkSuggestion = async () => {
+    // Skip if not enabled or user not available
+    if (!FEATURE_FLAGS.isEnabled('AI_BREATHWORK_SUGGESTIONS') || !user?.id) {
+      return;
+    }
+    
     // Skip if already showing or snoozed
     if (breathworkSuggestion?.show || (snoozedUntil && new Date() < snoozedUntil)) {
       return;
     }
 
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // Morning suggestion (7-9 AM)
-    if (hour >= 7 && hour < 9) {
-      setBreathworkSuggestion({
-        show: true,
-        trigger: 'morning',
-      });
-      return;
-    }
-    
-    // Evening suggestion (9-11 PM)
-    if (hour >= 21 && hour < 23) {
-      setBreathworkSuggestion({
-        show: true,
-        trigger: 'evening',
-      });
-      return;
-    }
-    
-    // Check recent compulsions
-    const lastCompulsionTime = todayStats.compulsions > 0 ? new Date() : null;
-    if (lastCompulsionTime && (now.getTime() - lastCompulsionTime.getTime()) < 30 * 60 * 1000) {
-      setBreathworkSuggestion({
-        show: true,
-        trigger: 'post_compulsion',
-      });
-      return;
-    }
-    
-    // Check mood/anxiety from last check-in
     try {
-      const lastMood = moodTracker.getLastMoodEntry();
-      if (lastMood && lastMood.anxiety >= 7) {
+      // Use AI service to generate contextual suggestions
+      const breathworkService = new BreathworkSuggestionService(user.id);
+      const suggestion = await breathworkService.generateSuggestion();
+      
+      if (suggestion && suggestion.show) {
+        console.log('🌬️ AI Breathwork suggestion generated:', suggestion.trigger);
+        
         setBreathworkSuggestion({
           show: true,
-          trigger: 'high_anxiety',
-          anxietyLevel: lastMood.anxiety,
+          trigger: suggestion.trigger as any,
+          anxietyLevel: suggestion.anxietyLevel,
         });
+        
+        // Track AI breathwork suggestion
+        await trackAIInteraction(AIEventType.BREATHWORK_SUGGESTION_GENERATED, {
+          userId: user.id,
+          trigger: suggestion.trigger,
+          anxietyLevel: suggestion.anxietyLevel,
+          confidence: suggestion.confidence,
+          protocol: suggestion.protocol
+        });
+      } else {
+        console.log('🚫 No breathwork suggestion needed at this time');
       }
     } catch (error) {
-      // Silently fail if mood tracking is not available
-      console.log('Could not check last mood for breathwork suggestion');
+      console.warn('⚠️ AI breathwork suggestion failed, falling back to static check:', error);
+      
+      // Fallback to simplified static logic
+      const now = new Date();
+      const hour = now.getHours();
+      
+      // Simple morning/evening fallback
+      if ((hour >= 7 && hour < 9) || (hour >= 21 && hour < 23)) {
+        setBreathworkSuggestion({
+          show: true,
+          trigger: hour < 12 ? 'morning' : 'evening',
+        });
+      }
     }
   };
 
@@ -484,6 +486,9 @@ export default function TodayScreen() {
         setRefreshing(false);
         return;
       }
+      
+      // 🗑️ Manual refresh - invalidate all AI caches
+      unifiedPipeline.triggerInvalidation('manual_refresh', user.id);
 
       // Load today's compulsions
       const compulsionsKey = StorageKeys.COMPULSIONS(user.id);

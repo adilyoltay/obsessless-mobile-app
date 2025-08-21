@@ -253,7 +253,7 @@ export default function CheckinBottomSheet({
       });
 
       // Award gamification reward
-      await awardMicroReward('voice_checkin');
+      await awardMicroReward('voice_mood_checkin');
       await updateStreak();
 
       // Show result and prepare for navigation
@@ -382,13 +382,110 @@ export default function CheckinBottomSheet({
     }
   };
 
+  /**
+   * 🗂️ Smart Routing Handler - Uses AI to determine best navigation path
+   */
+  const handleSmartRouting = async (
+    analysis: any, 
+    text: string, 
+    smartRoutingService: any
+  ): Promise<boolean> => {
+    if (!user?.id) {
+      console.warn('❌ Smart routing requires user ID');
+      return false;
+    }
+    
+    try {
+      // Convert analysis to expected format for smart routing
+      const analysisResult = {
+        type: analysis.type as any,
+        confidence: analysis.confidence || 0.5,
+        extractedData: analysis.extractedData || analysis,
+        urgency: analysis.urgency || 'medium',
+        context: analysis,
+        userInput: text
+      };
+      
+      // Generate smart route suggestion
+      const routeConfig = await smartRoutingService.generateSmartRoute(
+        analysisResult,
+        user.id,
+        `checkin_${Date.now()}`
+      );
+      
+      if (!routeConfig) {
+        console.log('🚫 No smart route generated, continuing to fallback');
+        return false;
+      }
+      
+      console.log('🗂️ Smart route generated:', {
+        screen: routeConfig.screen,
+        confidence: routeConfig.confidence,
+        reasoning: routeConfig.reasoning
+      });
+      
+      // Show confirmation for lower confidence routes
+      if (routeConfig.confidence < 0.8) {
+        return new Promise((resolve) => {
+          Alert.alert(
+            'Akıllı Yönlendirme',
+            `${routeConfig.screen} sayfasına yönlendirilmek istiyor musun?\n\nSebep: ${routeConfig.reasoning.slice(0, 2).join(', ')}`,
+            [
+              { 
+                text: 'İptal', 
+                style: 'cancel',
+                onPress: () => resolve(false)
+              },
+              {
+                text: 'Evet',
+                onPress: async () => {
+                  const success = await smartRoutingService.navigateWithPrefill(routeConfig);
+                  if (success) {
+                    onClose();
+                    setToastMessage(`${routeConfig.screen} sayfasına yönlendiriliyor...`);
+                    setShowToast(true);
+                  }
+                  resolve(success);
+                }
+              }
+            ]
+          );
+        });
+      } else {
+        // High confidence - navigate directly
+        const success = await smartRoutingService.navigateWithPrefill(routeConfig);
+        if (success) {
+          onClose();
+          setToastMessage(`Akıllı yönlendirme: ${routeConfig.screen} sayfası`);
+          setShowToast(true);
+        }
+        return success;
+      }
+    } catch (error) {
+      console.error('🚨 Smart routing error:', error);
+      return false;
+    }
+  };
+
   const handleAnalysisResult = async (analysis: any, text: string) => {
     console.log('🔄 handleAnalysisResult called with:', { analysis, text });
     
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    // If using CoreAnalysisService, honor the route action
+    // 🗂️ TRY SMART ROUTING FIRST (if enabled and user available)
+    if (FEATURE_FLAGS.isEnabled('AI_SMART_ROUTING') && user?.id) {
+      try {
+        const { smartRoutingService } = await import('@/features/ai/services/smartRoutingService');
+        const success = await handleSmartRouting(analysis, text, smartRoutingService);
+        if (success) return; // Smart routing succeeded, exit early
+      } catch (error) {
+        console.warn('🚨 Smart routing failed, falling back to legacy:', error);
+        // Continue to legacy routing below
+      }
+    }
+    
+    // 🚀 FALLBACK: CoreAnalysisService route actions
     if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS') && analysis.route) {
       console.log('🚀 Using CoreAnalysisService route:', analysis.route);
       

@@ -8,6 +8,7 @@ import supabaseService from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { offlineSyncService } from '@/services/offlineSync';
 import * as Haptics from 'expo-haptics';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 interface AutoRecordData {
   type: 'OCD' | 'CBT' | 'MOOD' | 'ERP';
@@ -330,6 +331,20 @@ export async function saveAutoRecord(
 
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // 🗑️ Invalidate AI cache based on record type
+    switch (recordType) {
+      case 'OCD':
+        unifiedPipeline.triggerInvalidation('compulsion_added', data.userId);
+        break;
+      case 'MOOD':
+        unifiedPipeline.triggerInvalidation('mood_added', data.userId);
+        break;
+      case 'CBT':
+        // CBT affects patterns too
+        unifiedPipeline.triggerInvalidation('compulsion_added', data.userId);
+        break;
+    }
     
     return { success: true, recordId: savedRecord?.id };
   } catch (error) {

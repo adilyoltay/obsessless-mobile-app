@@ -13,6 +13,7 @@
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
+import supabaseService from '@/services/supabase';
 
 /**
  * Simple deterministic hash function for React Native
@@ -140,13 +141,23 @@ export class UnifiedAIPipeline {
     const startTime = Date.now();
     const cacheKey = this.generateCacheKey(input);
     
+    // 📊 Track pipeline start
+    await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_STARTED, {
+      userId: input.userId,
+      inputType: input.type,
+      pipeline: 'unified',
+      cacheKey,
+      timestamp: startTime
+    });
+    
     // 1. Check cache first
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) {
-      await trackAIInteraction(AIEventType.CACHE_HIT, {
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
         userId: input.userId,
         pipeline: 'unified',
-        cacheKey
+        cacheKey,
+        processingTime: Date.now() - startTime
       });
       
       return {
@@ -164,12 +175,15 @@ export class UnifiedAIPipeline {
     // 3. Cache the result
     this.setCache(cacheKey, result);
     
-    // 4. Track telemetry
-    await trackAIInteraction(AIEventType.ANALYSIS_COMPLETED, {
+    // 4. Track pipeline completion telemetry
+    const processingTime = Date.now() - startTime;
+    await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
       userId: input.userId,
       pipeline: 'unified',
-      processingTime: Date.now() - startTime,
-      modules: this.getEnabledModules()
+      processingTime,
+      modules: this.getEnabledModules(),
+      cacheKey,
+      resultSize: JSON.stringify(result).length
     });
     
     return {
@@ -1502,25 +1516,65 @@ export class UnifiedAIPipeline {
     return `unified:${input.userId}:${simpleHash(JSON.stringify(data))}`;
   }
   
-  private getFromCache(key: string): UnifiedPipelineResult | null {
-    const cached = this.cache.get(key);
+  private async getFromCache(key: string): Promise<UnifiedPipelineResult | null> {
+    // 1. Check in-memory cache first (fastest)
+    const memoryCache = this.cache.get(key);
     
-    if (!cached) return null;
-    if (cached.expires < Date.now()) {
-      this.cache.delete(key);
-      return null;
+    if (memoryCache) {
+      if (memoryCache.expires < Date.now()) {
+        this.cache.delete(key);
+      } else {
+        return memoryCache.result;
+      }
     }
     
-    return cached.result;
+    // 2. Check Supabase cache (persistent, shared across devices)
+    try {
+      const supabaseCached = await this.getFromSupabaseCache(key);
+      if (supabaseCached) {
+        // Restore to memory cache for faster future access
+        this.cache.set(key, {
+          result: supabaseCached,
+          expires: Date.now() + this.DEFAULT_TTL
+        });
+        
+        console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
+        return supabaseCached;
+      }
+    } catch (error) {
+      console.warn('⚠️ Supabase cache read failed:', error);
+    }
+    
+    // 3. Check AsyncStorage cache (offline fallback)
+    try {
+      const offlineCache = await AsyncStorage.getItem(key);
+      if (offlineCache) {
+        const parsed = JSON.parse(offlineCache);
+        if (parsed.expires > Date.now()) {
+          console.log('📱 Cache restored from AsyncStorage:', key.substring(0, 30) + '...');
+          return parsed.result;
+        } else {
+          await AsyncStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ AsyncStorage cache read failed:', error);
+    }
+    
+    return null;
   }
   
   private setCache(key: string, result: UnifiedPipelineResult): void {
+    // 1. Store in memory cache (fastest access)
     this.cache.set(key, {
       result,
       expires: Date.now() + this.DEFAULT_TTL
     });
     
-    // Also persist to AsyncStorage for offline
+    // 2. Persist to Supabase (shared across devices)
+    this.setToSupabaseCache(key, result);
+    
+    // 3. Also persist to AsyncStorage for offline
     this.persistToStorage(key, result);
   }
   
@@ -1535,6 +1589,76 @@ export class UnifiedAIPipeline {
       );
     } catch (error) {
       console.warn('Failed to persist to storage:', error);
+    }
+  }
+  
+  /**
+   * 📦 Supabase Cache Layer - Persistent, Cross-Device Cache
+   */
+  private async getFromSupabaseCache(key: string): Promise<UnifiedPipelineResult | null> {
+    try {
+      // Use ai_cache table for persistent storage
+      const { data, error } = await supabaseService.client
+        .from('ai_cache')
+        .select('cached_result, expires_at')
+        .eq('cache_key', key)
+        .maybeSingle();
+      
+      if (error) {
+        console.warn('⚠️ Supabase cache read error:', error);
+        return null;
+      }
+      
+      if (!data) {
+        return null; // Cache miss
+      }
+      
+      // Check expiration
+      const now = new Date();
+      const expiresAt = new Date(data.expires_at);
+      if (now > expiresAt) {
+        // Cleanup expired entry
+        await supabaseService.client
+          .from('ai_cache')
+          .delete()
+          .eq('cache_key', key);
+        return null;
+      }
+      
+      return data.cached_result as UnifiedPipelineResult;
+    } catch (error) {
+      console.warn('⚠️ Supabase cache read failed:', error);
+      return null;
+    }
+  }
+  
+  private async setToSupabaseCache(key: string, result: UnifiedPipelineResult): Promise<void> {
+    try {
+      // Extract userId from key for proper RLS
+      const userId = key.split(':')[1];
+      const expiresAt = new Date(Date.now() + this.DEFAULT_TTL);
+      
+      // Upsert to ai_cache table
+      const { error } = await supabaseService.client
+        .from('ai_cache')
+        .upsert({
+          cache_key: key,
+          user_id: userId,
+          cached_result: result,
+          expires_at: expiresAt.toISOString(),
+          cache_type: 'unified_pipeline',
+          created_at: new Date().toISOString()
+        }, {
+          onConflict: 'cache_key'
+        });
+      
+      if (error) {
+        console.warn('⚠️ Supabase cache write error:', error);
+      } else {
+        console.log('📦 Cached to Supabase:', key.substring(0, 30) + '...');
+      }
+    } catch (error) {
+      console.warn('⚠️ Supabase cache write failed:', error);
     }
   }
   
@@ -1590,6 +1714,35 @@ export class UnifiedAIPipeline {
     });
     
     keysToDelete.forEach(key => this.cache.delete(key));
+    
+    // Also invalidate Supabase cache
+    this.invalidateSupabaseCache(type, userId);
+  }
+  
+  /**
+   * 🗑️ Supabase Cache Invalidation
+   */
+  private async invalidateSupabaseCache(type: 'patterns' | 'insights' | 'all', userId?: string): Promise<void> {
+    try {
+      let query = supabaseService.client
+        .from('ai_cache')
+        .delete()
+        .eq('cache_type', 'unified_pipeline');
+      
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      
+      const { error } = await query;
+      
+      if (error) {
+        console.warn('⚠️ Supabase cache invalidation error:', error);
+      } else {
+        console.log(`🗑️ Supabase cache invalidated for ${type}${userId ? ` (user: ${userId})` : ''}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Supabase cache invalidation failed:', error);
+    }
   }
   
   // ============================================================================

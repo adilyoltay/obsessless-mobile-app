@@ -414,6 +414,9 @@ export default function TrackingScreen() {
 
       // Refresh data
       await loadAllData();
+      
+      // 🗑️ Invalidate AI cache - new compulsion affects patterns
+      unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
     } catch (error) {
       console.error('Error saving compulsion:', error);
     }
@@ -1163,11 +1166,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  resistanceBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
+
   resistanceText: {
     fontSize: 14,
     fontWeight: '600',

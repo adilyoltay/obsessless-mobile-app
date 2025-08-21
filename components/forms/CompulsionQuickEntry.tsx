@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
 import { ERPIllustrations } from '@/components/illustrations/ERPIllustrations';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
@@ -195,6 +196,9 @@ export function CompulsionQuickEntry({
         if (resistanceLevel >= 8) {
           awardMicroReward('high_resistance');
         }
+        
+        // 🗑️ Invalidate AI cache - new compulsion affects patterns
+        unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
 
         onSubmit(entry);
         onDismiss();
@@ -213,6 +217,9 @@ export function CompulsionQuickEntry({
         if (resistanceLevel >= 8) {
           awardMicroReward('high_resistance');
         }
+        
+        // 🗑️ Invalidate AI cache - new compulsion affects patterns (fallback)
+        unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
 
         onSubmit(entry);
         onDismiss();
