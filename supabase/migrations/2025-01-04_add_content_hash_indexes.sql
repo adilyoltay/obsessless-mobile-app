@@ -2,56 +2,71 @@
 -- Date: 2025-01-04
 -- Purpose: Prevent duplicate entries and optimize queries for CoreAnalysisService v1
 
--- 1. Add content_hash column to voice_checkins
-ALTER TABLE voice_checkins 
-ADD COLUMN IF NOT EXISTS content_hash TEXT;
+-- 1. Add content_hash column to voice_checkins (if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+    ALTER TABLE voice_checkins 
+    ADD COLUMN IF NOT EXISTS content_hash TEXT;
+    
+    -- Check if constraint doesn't exist before adding
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'voice_checkins_user_content_unique') THEN
+      ALTER TABLE voice_checkins
+      ADD CONSTRAINT voice_checkins_user_content_unique 
+      UNIQUE (user_id, content_hash);
+    END IF;
+    
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_hash 
+    ON voice_checkins (content_hash);
+    
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_day 
+    ON voice_checkins (user_id, DATE(created_at));
+  END IF;
+END $$;
 
--- Add unique constraint on (user_id, content_hash)
-ALTER TABLE voice_checkins
-ADD CONSTRAINT voice_checkins_user_content_unique 
-UNIQUE (user_id, content_hash);
+-- 2. Add content_hash column to thought_records (if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records') THEN
+    ALTER TABLE thought_records 
+    ADD COLUMN IF NOT EXISTS content_hash TEXT;
+    
+    -- Check if constraint doesn't exist before adding
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'thought_records_user_content_unique') THEN
+      ALTER TABLE thought_records
+      ADD CONSTRAINT thought_records_user_content_unique 
+      UNIQUE (user_id, content_hash);
+    END IF;
+    
+    CREATE INDEX IF NOT EXISTS idx_thought_records_hash 
+    ON thought_records (content_hash);
+    
+    CREATE INDEX IF NOT EXISTS idx_thought_records_user_day 
+    ON thought_records (user_id, DATE(created_at));
+  END IF;
+END $$;
 
--- Create index for fast lookups
-CREATE INDEX IF NOT EXISTS idx_voice_checkins_hash 
-ON voice_checkins (content_hash);
-
--- Create compound index for user + day queries
-CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_day 
-ON voice_checkins (user_id, DATE(created_at));
-
--- 2. Add content_hash column to thought_records
-ALTER TABLE thought_records 
-ADD COLUMN IF NOT EXISTS content_hash TEXT;
-
--- Add unique constraint on (user_id, content_hash)
-ALTER TABLE thought_records
-ADD CONSTRAINT thought_records_user_content_unique 
-UNIQUE (user_id, content_hash);
-
--- Create index for fast lookups
-CREATE INDEX IF NOT EXISTS idx_thought_records_hash 
-ON thought_records (content_hash);
-
--- Create compound index for user + day queries
-CREATE INDEX IF NOT EXISTS idx_thought_records_user_day 
-ON thought_records (user_id, DATE(created_at));
-
--- 3. Add content_hash column to erp_sessions
-ALTER TABLE erp_sessions 
-ADD COLUMN IF NOT EXISTS content_hash TEXT;
-
--- Add unique constraint on (user_id, content_hash)
-ALTER TABLE erp_sessions
-ADD CONSTRAINT erp_sessions_user_content_unique 
-UNIQUE (user_id, content_hash);
-
--- Create index for fast lookups
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_hash 
-ON erp_sessions (content_hash);
-
--- Create compound index for user + day queries
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_day 
-ON erp_sessions (user_id, DATE(created_at));
+-- 3. Add content_hash column to erp_sessions (if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+    ALTER TABLE erp_sessions 
+    ADD COLUMN IF NOT EXISTS content_hash TEXT;
+    
+    -- Check if constraint doesn't exist before adding
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'erp_sessions_user_content_unique') THEN
+      ALTER TABLE erp_sessions
+      ADD CONSTRAINT erp_sessions_user_content_unique 
+      UNIQUE (user_id, content_hash);
+    END IF;
+    
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_hash 
+    ON erp_sessions (content_hash);
+    
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_day 
+    ON erp_sessions (user_id, DATE(created_at));
+  END IF;
+END $$;
 
 -- 4. Add content_hash column to mood_entries (if exists)
 DO $$ 
@@ -188,54 +203,71 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply trigger to tables
-CREATE TRIGGER voice_checkins_content_hash_trigger
-BEFORE INSERT OR UPDATE ON voice_checkins
-FOR EACH ROW
-EXECUTE FUNCTION auto_compute_content_hash();
-
-CREATE TRIGGER thought_records_content_hash_trigger
-BEFORE INSERT OR UPDATE ON thought_records
-FOR EACH ROW
-EXECUTE FUNCTION auto_compute_content_hash();
-
-CREATE TRIGGER erp_sessions_content_hash_trigger
-BEFORE INSERT OR UPDATE ON erp_sessions
-FOR EACH ROW
-EXECUTE FUNCTION auto_compute_content_hash();
-
--- 10. Create idempotent upsert functions
-CREATE OR REPLACE FUNCTION upsert_voice_checkin(
-  p_user_id UUID,
-  p_text TEXT,
-  p_mood INTEGER,
-  p_trigger TEXT,
-  p_confidence REAL,
-  p_lang TEXT
-)
-RETURNS voice_checkins AS $$
-DECLARE
-  v_content_hash TEXT;
-  v_result voice_checkins;
+-- Apply trigger to tables (only if they exist and trigger doesn't exist)
+DO $$ 
 BEGIN
-  -- Compute content hash
-  v_content_hash := compute_content_hash(p_text);
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') 
+     AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'voice_checkins_content_hash_trigger') THEN
+    CREATE TRIGGER voice_checkins_content_hash_trigger
+    BEFORE INSERT OR UPDATE ON voice_checkins
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_compute_content_hash();
+  END IF;
   
-  -- Try to insert or get existing
-  INSERT INTO voice_checkins (
-    user_id, text, mood, trigger, confidence, lang, content_hash
-  ) VALUES (
-    p_user_id, p_text, p_mood, p_trigger, p_confidence, p_lang, v_content_hash
-  )
-  ON CONFLICT (user_id, content_hash) 
-  DO UPDATE SET
-    updated_at = NOW(),
-    confidence = GREATEST(voice_checkins.confidence, EXCLUDED.confidence)
-  RETURNING * INTO v_result;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records')
+     AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'thought_records_content_hash_trigger') THEN
+    CREATE TRIGGER thought_records_content_hash_trigger
+    BEFORE INSERT OR UPDATE ON thought_records
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_compute_content_hash();
+  END IF;
   
-  RETURN v_result;
-END;
-$$ LANGUAGE plpgsql;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions')
+     AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'erp_sessions_content_hash_trigger') THEN
+    CREATE TRIGGER erp_sessions_content_hash_trigger
+    BEFORE INSERT OR UPDATE ON erp_sessions
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_compute_content_hash();
+  END IF;
+END $$;
+
+-- 10. Create idempotent upsert functions (only if table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+    CREATE OR REPLACE FUNCTION upsert_voice_checkin(
+      p_user_id UUID,
+      p_text TEXT,
+      p_mood INTEGER,
+      p_trigger TEXT,
+      p_confidence REAL,
+      p_lang TEXT
+    )
+    RETURNS voice_checkins AS $FUNC$
+    DECLARE
+      v_content_hash TEXT;
+      v_result voice_checkins;
+    BEGIN
+      -- Compute content hash
+      v_content_hash := compute_content_hash(p_text);
+      
+      -- Try to insert or get existing
+      INSERT INTO voice_checkins (
+        user_id, text, mood, trigger, confidence, lang, content_hash
+      ) VALUES (
+        p_user_id, p_text, p_mood, p_trigger, p_confidence, p_lang, v_content_hash
+      )
+      ON CONFLICT (user_id, content_hash) 
+      DO UPDATE SET
+        updated_at = NOW(),
+        confidence = GREATEST(voice_checkins.confidence, EXCLUDED.confidence)
+      RETURNING * INTO v_result;
+      
+      RETURN v_result;
+    END;
+    $FUNC$ LANGUAGE plpgsql;
+  END IF;
+END $$;
 
 -- Add similar functions for other tables as needed
 
@@ -253,29 +285,48 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 12. Create indexes for performance optimization
--- Index for finding recent entries by user
-CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_recent 
-ON voice_checkins (user_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_thought_records_user_recent 
-ON thought_records (user_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_recent 
-ON erp_sessions (user_id, created_at DESC);
-
--- Partial indexes for active/completed sessions
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_active 
-ON erp_sessions (user_id, created_at DESC) 
-WHERE completed = false;
-
-CREATE INDEX IF NOT EXISTS idx_erp_sessions_completed 
-ON erp_sessions (user_id, created_at DESC) 
-WHERE completed = true;
+-- 12. Create indexes for performance optimization (only if tables exist)
+DO $$ 
+BEGIN
+  -- Index for finding recent entries by user
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+    CREATE INDEX IF NOT EXISTS idx_voice_checkins_user_recent 
+    ON voice_checkins (user_id, created_at DESC);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'thought_records') THEN
+    CREATE INDEX IF NOT EXISTS idx_thought_records_user_recent 
+    ON thought_records (user_id, created_at DESC);
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_recent 
+    ON erp_sessions (user_id, created_at DESC);
+    
+    -- Partial indexes for active/completed sessions
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_active 
+    ON erp_sessions (user_id, created_at DESC) 
+    WHERE completed = false;
+    
+    CREATE INDEX IF NOT EXISTS idx_erp_sessions_completed 
+    ON erp_sessions (user_id, created_at DESC) 
+    WHERE completed = true;
+  END IF;
+END $$;
 
 -- Comments for documentation
 COMMENT ON TABLE ai_cache IS 'Cache table for CoreAnalysisService results with TTL support';
 COMMENT ON TABLE ai_telemetry IS 'Telemetry events for AI interactions and performance monitoring';
-COMMENT ON COLUMN voice_checkins.content_hash IS 'SHA-256 hash of normalized text for deduplication';
 COMMENT ON FUNCTION compute_content_hash IS 'Computes normalized SHA-256 hash for text content';
-COMMENT ON FUNCTION upsert_voice_checkin IS 'Idempotent upsert for voice checkins using content hash';
+
+-- Comments for columns and functions (only if tables exist)
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'voice_checkins') THEN
+    COMMENT ON COLUMN voice_checkins.content_hash IS 'SHA-256 hash of normalized text for deduplication';
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'upsert_voice_checkin') THEN
+    COMMENT ON FUNCTION upsert_voice_checkin IS 'Idempotent upsert for voice checkins using content hash';
+  END IF;
+END $$;
