@@ -33,9 +33,11 @@
 
 #### **Teknik İyileştirmeler**
 - URL parametreleri ile protokol ve autoStart desteği
-- Kaynak takibi (checkin, ERP, suggestion, vb.)
+- Kaynak takibi (checkin, ERP, suggestion, mission, vb.)
 - moodTracker.getLastMoodEntry() metodu eklendi
 - Import hataları düzeltildi
+- handleStart hatası düzeltildi (autoStart için player API kullanımı)
+- Bottom tab'dan kaldırıldı (href: null ile gizlendi)
 
 ## [3.0.0] - 2025-01-01 🎉
 

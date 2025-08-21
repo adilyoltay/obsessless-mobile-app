@@ -64,8 +64,10 @@
   - Check-in'den otomatik yönlendirme (protokol + autoStart)
   - ERP sırasında anksiyete eşiği tetiklemesi (≥7)
   - Today ekranında contextual öneriler (sabah/akşam/post-kompulsiyon)
+  - Daily Missions'da nefes görevi (+30 puan)
   - JITAI/Adaptive Interventions entegrasyonu
   - Protokol seçimi: 4-7-8 (yüksek anksiyete), Box (normal), Paced (toparlanma)
+  - Bottom tab'dan kaldırıldı (sadece akıllı tetiklemelerle erişim)
 
 ### 🚧 Devam Eden
 - Supabase migration (thought_records tablosu)

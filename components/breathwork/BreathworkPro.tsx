@@ -123,7 +123,13 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
       // Küçük bir gecikme ile başlat (kullanıcının hazırlanması için)
       const timer = setTimeout(() => {
         console.log('🌬️ Auto-starting breathwork session...');
-        handleStart();
+        // Direkt player API'sini kullan
+        const api = playerRef.current;
+        if (api) {
+          setElapsedMs(0);
+          api.start();
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
       }, 1500);
       
       return () => clearTimeout(timer);
