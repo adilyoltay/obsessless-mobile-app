@@ -444,11 +444,6 @@ export default function CBTScreen() {
 
         {/* Records List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? 'Bugünün Kayıtları' :
-             selectedTimeRange === 'week' ? 'Bu Haftanın Kayıtları' :
-             'Bu Ayın Kayıtları'}
-          </Text>
 
           {filteredRecords.length === 0 ? (
             <View style={styles.emptyState}>

@@ -555,14 +555,7 @@ export default function ERPScreen() {
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? 'Bugünün Özeti' : 
-                 selectedTimeRange === 'week' ? 'Bu Haftanın Özeti' : 
-                 'Bu Ayın Özeti'}
-              </Text>
-              <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Günlük özetiniz' : 
-                 selectedTimeRange === 'week' ? 'Haftalık özetiniz' : 
-                 'Aylık özetiniz'}
+                Özet
               </Text>
             </View>
             {stats.streak > 0 && (
@@ -595,9 +588,6 @@ export default function ERPScreen() {
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <View style={styles.aiRecommendationsHeader}>
               <Text style={styles.sectionTitle}>🤖 AI Önerileri</Text>
-              <Text style={styles.aiRecommendationsSubtitle}>
-                Size özel seçilmiş egzersizler
-              </Text>
             </View>
             
             <ScrollView 
@@ -678,13 +668,8 @@ export default function ERPScreen() {
           </View>
         )}
 
-        {/* Today's Sessions - New Design */}
+        {/* Sessions List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? 'Bugünün Oturumları' : 
-             selectedTimeRange === 'week' ? 'Bu Haftanın Oturumları' : 
-             'Bu Ayın Oturumları'}
-          </Text>
 
           {filteredSessions.length === 0 ? (
             <View style={styles.emptyState}>

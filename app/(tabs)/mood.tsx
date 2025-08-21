@@ -403,14 +403,7 @@ export default function MoodScreen() {
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? "Bugünün Özeti" : 
-                 selectedTimeRange === 'week' ? "Bu Haftanın Özeti" : 
-                 "Bu Ayın Özeti"}
-              </Text>
-              <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Günlük ruh hali durumunuz' : 
-                 selectedTimeRange === 'week' ? 'Haftalık ruh hali durumunuz' : 
-                 'Aylık ruh hali durumunuz'}
+                Özet
               </Text>
             </View>
             {stats.trend !== 'stable' && (
@@ -714,11 +707,6 @@ export default function MoodScreen() {
 
         {/* Mood Entries List - Matching OCD/ERP Design */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? "Bugünün Kayıtları" : 
-             selectedTimeRange === 'week' ? "Bu Haftanın Kayıtları" : 
-             "Bu Ayın Kayıtları"}
-          </Text>
 
           {filteredEntries.length === 0 ? (
             <View style={styles.emptyState}>

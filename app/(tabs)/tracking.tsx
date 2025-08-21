@@ -549,7 +549,7 @@ export default function TrackingScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
-          <Text style={styles.headerTitle}>OCD Tracking</Text>
+          <Text style={styles.headerTitle}>OCD Takibi</Text>
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
@@ -571,7 +571,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
-              Today
+              Bugün
             </Text>
             {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -583,7 +583,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
-              Week
+              Hafta
             </Text>
             {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -595,7 +595,7 @@ export default function TrackingScreen() {
             }}
           >
             <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
-              Month
+              Ay
             </Text>
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
@@ -622,19 +622,12 @@ export default function TrackingScreen() {
           })}
         </Text>
 
-        {/* Summary Stats Card */}
+        {/* Summary Stats Card - Simplified */}
         <View style={styles.weekStatsCard}>
           <View style={styles.weekStatsHeader}>
             <View>
               <Text style={styles.weekStatsTitle}>
-                {selectedTimeRange === 'today' ? "Today's Stats" : 
-                 selectedTimeRange === 'week' ? "This Week's Stats" : 
-                 "This Month's Stats"}
-              </Text>
-              <Text style={styles.weekStatsSubtitle}>
-                {selectedTimeRange === 'today' ? 'Your daily summary' : 
-                 selectedTimeRange === 'week' ? 'Your weekly summary' : 
-                 'Your monthly summary'}
+                Özet
               </Text>
             </View>
             {stats.weekCount > 0 && (
@@ -647,17 +640,17 @@ export default function TrackingScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeRangeStats.count}</Text>
-              <Text style={styles.statLabel}>Total Recordings</Text>
+              <Text style={styles.statLabel}>Kayıt</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {stats.avgResistance > 0 ? `${stats.avgResistance}/10` : '0/10'}
+                {stats.avgResistance > 0 ? `${stats.avgResistance}` : '0'}
               </Text>
-              <Text style={styles.statLabel}>Avg. Resistance</Text>
+              <Text style={styles.statLabel}>Direnç</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{calculateProgress()}%</Text>
-              <Text style={styles.statLabel}>Progress</Text>
+              <Text style={styles.statLabel}>İlerleme</Text>
             </View>
           </View>
         </View>
@@ -724,21 +717,13 @@ export default function TrackingScreen() {
           </View>
         )}
 
-        {/* Today's Recordings - New Design */}
+        {/* Recordings List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>
-            {selectedTimeRange === 'today' ? "Today's Recordings" : 
-             selectedTimeRange === 'week' ? "This Week's Recordings" : 
-             "This Month's Recordings"}
-          </Text>
 
           {filteredCompulsions.length === 0 ? (
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={48} color="#E5E7EB" />
-              <Text style={styles.emptyText}>No recordings yet</Text>
-              <Text style={styles.emptySubtext}>
-                Tap the + button below to add your first recording
-              </Text>
+              <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={40} color="#E5E7EB" />
+              <Text style={styles.emptyText}>Henüz kayıt yok</Text>
             </View>
           ) : (
             <View style={styles.recordingsContainer}>
@@ -749,35 +734,42 @@ export default function TrackingScreen() {
                 
                 return (
                   <View key={compulsion.id} style={styles.recordingCard}>
-                    <View style={styles.recordingContent}>
-                      <View style={styles.recordingHeader}>
+                    <View style={styles.recordingHeader}>
+                      <View style={styles.recordingLeft}>
+                        <Text style={styles.recordingCategory}>
+                          {t('categoriesCanonical.' + mapToCanonicalCategory(compulsion.type), category?.name || 'Other')}
+                        </Text>
                         <Text style={styles.recordingTime}>
                           {new Date(compulsion.timestamp).toLocaleTimeString('en-US', { 
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true
-                          }).toUpperCase()} - {t('categoriesCanonical.' + mapToCanonicalCategory(compulsion.type), category?.name || 'Other')}
-                        </Text>
-                        <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
-                          {compulsion.resistanceLevel}/10
+                          })}
                         </Text>
                       </View>
-                      {compulsion.notes && (
-                        <Text style={styles.recordingNotes}>
-                          Notes: {compulsion.notes}
-                        </Text>
-                      )}
+                      <View style={styles.recordingRight}>
+                        <View style={[styles.resistanceBadge, { backgroundColor: resistanceColor + '20' }]}>
+                          <Text style={[styles.resistanceScore, { color: resistanceColor }]}>
+                            {compulsion.resistanceLevel}/10
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            deleteEntry(compulsion.id);
+                          }}
+                          style={styles.deleteIcon}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <MaterialCommunityIcons name="close-circle" size={20} color="#D1D5DB" />
+                        </Pressable>
+                      </View>
                     </View>
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        deleteEntry(compulsion.id);
-                      }}
-                      style={styles.deleteIcon}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <MaterialCommunityIcons name="delete-outline" size={20} color="#6B7280" />
-                    </Pressable>
+                    {compulsion.notes && (
+                      <Text style={styles.recordingNotes}>
+                        {compulsion.notes}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
@@ -794,7 +786,7 @@ export default function TrackingScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }}
               >
-                <Text style={styles.showMoreText}>Show More</Text>
+                <Text style={styles.showMoreText}>Daha fazla</Text>
               </Pressable>
             </View>
           )}
@@ -1065,44 +1057,60 @@ const styles = StyleSheet.create({
   },
   recordingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  recordingContent: {
-    flex: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   recordingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  recordingTime: {
+  recordingLeft: {
+    flex: 1,
+  },
+  recordingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordingCategory: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: '#111827',
     fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  recordingTime: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  resistanceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   resistanceScore: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     fontFamily: 'Inter',
   },
   recordingNotes: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#4B5563',
     fontFamily: 'Inter',
-    marginTop: 4,
+    marginTop: 12,
+    lineHeight: 20,
   },
   deleteIcon: {
-    padding: 8,
-    marginLeft: 8,
+    padding: 4,
   },
   // Old style kept for compatibility
   compulsionCard: {
