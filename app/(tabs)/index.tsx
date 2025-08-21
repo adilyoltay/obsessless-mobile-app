@@ -212,9 +212,26 @@ export default function TodayScreen() {
     }
 
     try {
+      // Prepare context data for AI service
+      let moodScore: number | undefined = undefined;
+      try {
+        const lastMood = await moodTracker.getLastMoodEntry();
+        moodScore = lastMood?.mood;
+      } catch (error) {
+        // Ignore mood tracking errors
+      }
+      
+      const contextData = {
+        userId: user.id,
+        currentTime: new Date(),
+        moodScore,
+        recentCompulsions: todayStats.compulsions,
+        anxietyLevel: moodScore ? Math.max(1, Math.min(10, 10 - moodScore/10)) : undefined,
+      };
+      
       // Use AI service to generate contextual suggestions
       const breathworkService = new BreathworkSuggestionService(user.id);
-      const suggestion = await breathworkService.generateSuggestion();
+      const suggestion = await breathworkService.generateSuggestion(contextData);
       
       if (suggestion && suggestion.show) {
         console.log('🌬️ AI Breathwork suggestion generated:', suggestion.trigger);

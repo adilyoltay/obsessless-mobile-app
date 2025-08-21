@@ -256,7 +256,7 @@ export class BreathworkSuggestionService {
       console.error('Breathwork suggestion generation failed:', error);
       await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
         error: error instanceof Error ? error.message : String(error),
-        userId: context.userId,
+        userId: context?.userId || this.userId,
         component: 'BreathworkSuggestionService'
       });
       return null;
