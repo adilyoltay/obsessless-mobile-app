@@ -40,7 +40,7 @@ import { useRouter } from 'expo-router';
 import { Modal } from 'react-native';
 import gdprService from '@/services/compliance/gdprService';
 import SecureStorageMigration from '@/utils/secureStorageMigration';
-import performanceMetricsService from '@/services/telemetry/performanceMetricsService';
+// performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 interface SettingsData {
   notifications: boolean;
@@ -78,15 +78,15 @@ export default function SettingsScreen() {
     erpStore.init();
   }, []);
   const [consents, setConsents] = useState<Record<string, boolean>>({
-    data_processing: false,
-    analytics: false,
-    ai_processing: false,
+    data_processing: true,
+    analytics: true,
+    ai_processing: true,
     marketing: false,
   });
   const [auditVisible, setAuditVisible] = useState(false);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [migrationVersion, setMigrationVersion] = useState<number>(0);
-  const [dailyMetrics, setDailyMetrics] = useState<any[]>([]);
+  // Daily metrics removed - performance summary section removed
   const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending'; requestedAt?: string; scheduledAt?: string; remainingDays?: number }>({ status: 'none' });
   const [consentHistory, setConsentHistory] = useState<any[]>([]);
   
@@ -97,9 +97,7 @@ export default function SettingsScreen() {
     weeklyReports: true
   });
 
-  // AI Onboarding local status
-  const [aiOnboardingCompleted, setAiOnboardingCompleted] = useState<boolean>(false);
-  const [aiOnboardingHasProgress, setAiOnboardingHasProgress] = useState<boolean>(false);
+  // AI Onboarding state removed - no longer needed
   
   // Treatment Plan
   const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanSummary | null>(null);
@@ -107,7 +105,6 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     loadSettings();
-    loadAIOnboardingStatus();
     loadConsents();
     loadMigrationAndMetrics();
     loadTreatmentPlan();
@@ -136,27 +133,13 @@ export default function SettingsScreen() {
     } catch {}
   };
 
-  const loadAIOnboardingStatus = async () => {
-    try {
-      if (!user?.id) return;
-      const safeId = user?.id || 'anon';
-      const [completed, session] = await Promise.all([
-        AsyncStorage.getItem(`ai_onboarding_completed_${safeId}`),
-        AsyncStorage.getItem(`onboarding_session_${safeId}`)
-      ]);
-      setAiOnboardingCompleted(completed === 'true');
-      setAiOnboardingHasProgress(!!session);
-    } catch (e) {
-      // noop
-    }
-  };
+  // loadAIOnboardingStatus function removed - no longer needed
 
   const loadMigrationAndMetrics = async () => {
     try {
       const vRaw = await AsyncStorage.getItem('secure_storage_migration_version');
       setMigrationVersion(vRaw ? parseInt(vRaw, 10) : 0);
-      const last = await performanceMetricsService.getLastNDays(7);
-      setDailyMetrics(last);
+      // Daily metrics loading removed - performance summary section removed
     } catch {}
   };
 
@@ -200,13 +183,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleContinueAIOnboarding = async () => {
-    if (!user?.id) return;
-    router.push({
-      pathname: '/(auth)/onboarding',
-      params: { fromSettings: 'true', resume: aiOnboardingHasProgress ? 'true' : 'false' }
-    });
-  };
+  // handleContinueAIOnboarding function removed - AI onboarding section removed
 
   const updateSetting = async (key: keyof SettingsData, value: boolean) => {
     const newSettings = { ...settings, [key]: value };
@@ -569,11 +546,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Tanılama ve Gelişmiş */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tanılama</Text>
-          {renderActionItem('Senkronizasyon Tanılama', 'sync-alert', () => router.push('/dead-letter'))}
-        </View>
+
 
         {/* Security */}
         <View style={styles.section}>
@@ -621,24 +594,16 @@ export default function SettingsScreen() {
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <MaterialCommunityIcons name="lock-check" size={24} color="#10B981" />
-                <Text style={styles.settingTitle}>Güvenli Depolama Migrasyonu</Text>
+                <Text style={styles.settingTitle}>Güvenli Depolama</Text>
               </View>
-              <Text style={{ color: '#6B7280' }}>v{migrationVersion}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
+                <Text style={{ color: '#10B981', marginLeft: 4, fontWeight: '600' }}>Aktif</Text>
+              </View>
             </View>
-            <Button 
-              title="Yeniden Tara ve Şifrele"
-              onPress={async () => {
-                if (!user?.id) return;
-                try {
-                  await SecureStorageMigration.migrate(user.id);
-                  await loadMigrationAndMetrics();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  Alert.alert('Tamamlandı', 'Duyarlı veriler yeniden şifrelendi.');
-                } catch (e) {
-                  Alert.alert('Hata', 'Migrasyon sırasında hata oluştu.');
-                }
-              }}
-            />
+            <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 8, paddingHorizontal: 16 }}>
+              Tüm hassas verileriniz otomatik olarak şifrelenerek güvenli bir şekilde saklanmaktadır.
+            </Text>
           </View>
         </View>
 
@@ -673,55 +638,27 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* AI Özellikleri - MASTER SWITCH */}
+        {/* AI Özellikleri - Varsayılan Aktif (Toggle Kaldırıldı) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Yapay Zeka Asistanı</Text>
           <View style={styles.sectionContent}>
-            {renderSettingItem(
-              'AI Özellikleri',
-              'robot',
-              FEATURE_FLAGS.isEnabled('AI_ENABLED'),
-              (value) => {
-                // Master AI toggle değiştirildiğinde
-                FEATURE_FLAGS.setFlag('AI_ENABLED', value);
-                
-                // Kullanıcıya bilgi ver
-                Alert.alert(
-                  value ? '✅ AI Özellikleri Açıldı' : '❌ AI Özellikleri Kapatıldı',
-                  value 
-                    ? 'Tüm yapay zeka özellikleri aktif edildi:\n\n• AI Sohbet Asistanı\n• Akıllı İçgörüler\n• Kişiselleştirilmiş Onboarding\n• Tedavi Planı Oluşturma\n• Risk Değerlendirmesi\n• CBT Müdahaleleri\n• İlerleme Analizi'
-                    : 'Tüm yapay zeka özellikleri devre dışı bırakıldı.',
-                  [{ text: 'Tamam' }]
-                );
-                
-                // Haptic feedback
-                Haptics.impactAsync(
-                  value 
-                    ? Haptics.ImpactFeedbackStyle.Light 
-                    : Haptics.ImpactFeedbackStyle.Medium
-                );
-              }
-            )}
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="robot" size={24} color="#10B981" />
+                <Text style={styles.settingTitle}>AI Özellikleri</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
+                <Text style={{ color: '#10B981', marginLeft: 4, fontWeight: '600' }}>Aktif</Text>
+              </View>
+            </View>
+            <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 8, paddingHorizontal: 16 }}>
+              Tüm AI özellikleri varsayılan olarak etkinleştirilmiştir: Akıllı İçgörüler, Ses Analizi, CBT Desteği, Tedavi Planı ve İlerleme Takibi.
+            </Text>
           </View>
         </View>
 
-        {/* AI Onboarding Durumu */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Onboarding</Text>
-          <View style={styles.sectionContent}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <MaterialCommunityIcons name="rocket-launch" size={24} color="#3B82F6" />
-                <Text style={styles.settingTitle}>
-                  {aiOnboardingCompleted ? 'Tamamlandı' : aiOnboardingHasProgress ? 'Devam Edebilir' : 'Henüz Tamamlanmadı'}
-                </Text>
-              </View>
-              {!aiOnboardingCompleted && (
-                <Button title={aiOnboardingHasProgress ? 'Devam Et' : 'Başlat'} onPress={handleContinueAIOnboarding} />
-              )}
-            </View>
-          </View>
-        </View>
+
 
         {/* Support */}
         <View style={styles.section}>
@@ -764,19 +701,7 @@ export default function SettingsScreen() {
               handleTermsOfService
             )}
           </View>
-          {dailyMetrics.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Performans Özeti (7 Gün)</Text>
-              {dailyMetrics.map((d: any) => (
-                <View key={d.date} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
-                  <Text style={{ color: '#6B7280', width: 88 }}>{d.date}</Text>
-                  <Text style={{ color: '#10B981', width: 64, textAlign: 'right' }}>{Math.round((d.sync?.successRate || 0) * 100)}%</Text>
-                  <Text style={{ color: '#3B82F6', width: 64, textAlign: 'right' }}>{Math.round(d.sync?.avgResponseMs || 0)}ms</Text>
-                  <Text style={{ color: '#EF4444', width: 48, textAlign: 'right' }}>{d.sync?.deadLetters || 0}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+
         </View>
 
 
