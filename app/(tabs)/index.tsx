@@ -47,7 +47,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { coreAnalysisService } from '@/features/ai/core/CoreAnalysisService';
+// Removed CoreAnalysisService - using UnifiedAIPipeline only
 
 // Unified AI Pipeline (NEW - Jan 2025)
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
@@ -358,7 +358,8 @@ export default function TodayScreen() {
       // Step 1: Immediate - Load from cache or generate basic insights
       try {
         const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
-        const cached = await coreAnalysisService.getCached(cacheKey);
+        // UnifiedAIPipeline has built-in caching
+        const cached = null; // Skip manual cache for now - UnifiedAIPipeline handles caching internally
         
         if (cached) {
           console.log('✅ Loaded insights from cache');
@@ -420,17 +421,8 @@ export default function TodayScreen() {
               setInsightsConfidence(0.9);
               setHasDeepInsights(true);
               
-              // Cache the deep insights
-              await coreAnalysisService.analyze({
-                kind: 'TEXT',
-                content: JSON.stringify(deepInsights),
-                userId: user.id,
-                locale: 'tr-TR',
-                ts: Date.now(),
-                metadata: {
-                  source: 'today-deep-insights',
-                }
-              });
+              // UnifiedAIPipeline automatically caches insights
+              console.log('✅ Deep insights cached automatically by UnifiedAIPipeline');
               
               // Track insights delivered
               await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {

@@ -29,6 +29,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
 import { moodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 
 const { width } = Dimensions.get('window');
@@ -109,7 +111,7 @@ export default function MoodScreen() {
   };
 
   /**
-   * 🎭 Advanced Mood Pattern Analysis
+   * 🎭 Advanced Mood Pattern Analysis via UnifiedAIPipeline
    * Analyzes mood patterns for temporal, trigger, and MEA correlations
    */
   const analyzeMoodPatterns = async () => {
@@ -121,7 +123,7 @@ export default function MoodScreen() {
 
     try {
       setPatternsLoading(true);
-      console.log('🎭 Starting mood pattern analysis...');
+      console.log('🎭 Starting mood pattern analysis via UnifiedAIPipeline...');
 
       // Convert local MoodEntry to service MoodEntry format
       const serviceMoodEntries: ServiceMoodEntry[] = moodEntries.map(entry => ({
@@ -138,11 +140,41 @@ export default function MoodScreen() {
         sync_attempts: 0
       }));
 
-      const patterns = await moodPatternAnalysisService.analyzeMoodPatterns(
-        serviceMoodEntries,
-        user.id,
-        'full'
-      );
+      // Use UnifiedAIPipeline for comprehensive analysis
+      const pipelineResult = await unifiedPipeline.process({
+        userId: user.id,
+        content: {
+          moods: serviceMoodEntries,
+          compulsions: [],
+          erpSessions: []
+        },
+        type: 'data' as const,
+        context: {
+          source: 'mood' as const,
+          timestamp: Date.now(),
+          metadata: {
+            analysisType: 'full'
+          }
+        }
+      });
+
+      console.log('🎯 UnifiedAIPipeline Pattern Result:', pipelineResult);
+
+      // Extract patterns from pipeline result
+      let patterns: any[] = [];
+      
+      if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
+        patterns = pipelineResult.patterns;
+        console.log(`🎯 UnifiedAIPipeline found ${patterns.length} patterns`);
+      } else {
+        // Fallback to direct service call if pipeline doesn't have patterns
+        console.log('📝 Fallback: Using direct moodPatternAnalysisService');
+        patterns = await moodPatternAnalysisService.analyzeMoodPatterns(
+          serviceMoodEntries,
+          user.id,
+          'full'
+        );
+      }
 
       setMoodPatterns(patterns);
       setShowPatterns(true);
@@ -151,7 +183,7 @@ export default function MoodScreen() {
         setToastMessage('Henüz belirgin pattern bulunamadı');
         setShowToast(true);
       } else {
-        console.log(`✅ Found ${patterns.length} mood patterns`);
+        console.log(`✅ Found ${patterns.length} mood patterns via UnifiedAIPipeline`);
       }
 
     } catch (error) {

@@ -22,7 +22,7 @@ import { Toast } from '@/components/ui/Toast';
 
 // Services
 import { unifiedVoiceAnalysis } from '@/features/ai/services/checkinService';
-import { coreAnalysisService, type AnalysisInput, type AnalysisResult } from '@/features/ai/core/CoreAnalysisService';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -152,42 +152,48 @@ export default function CheckinBottomSheet({
       // Analyze voice input
       let analysis;
       
-      // Use CoreAnalysisService if enabled, otherwise fallback to legacy
-      if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
-        console.log('🚀 Using CoreAnalysisService for voice analysis');
+      // Use UnifiedAIPipeline for voice analysis
+      try {
+        console.log('🚀 Using UnifiedAIPipeline for voice analysis');
         
-        const input: AnalysisInput = {
-          kind: 'VOICE',
-          content: res.text || '',
+        const pipelineResult = await unifiedPipeline.process({
           userId: user.id,
-          locale: (res.language || 'tr-TR') as 'tr-TR' | 'en-US',
-          ts: Date.now(),
-          metadata: {
-            source: 'checkin-bottomsheet',
-            sessionId: `checkin_${Date.now()}`,
-            contextData: {
+          content: res.text || '',
+          type: 'voice' as const,
+          context: {
+            source: 'mood' as const,
+            timestamp: Date.now(),
+            metadata: {
+              sessionId: `checkin_${Date.now()}`,
               confidence: res.confidence,
               duration: res.duration,
+              locale: res.language || 'tr-TR'
             }
           }
-        };
+        });
         
-        const coreResult = await coreAnalysisService.analyze(input);
-        console.log('🎯 CoreAnalysisService Result:', JSON.stringify(coreResult, null, 2));
+        console.log('🎯 UnifiedAIPipeline Result:', JSON.stringify(pipelineResult, null, 2));
         
-        // Map CoreAnalysisService result to expected format
-        analysis = {
-          type: coreResult.quickClass,
-          confidence: coreResult.confidence,
-          mood: coreResult.payload?.mood || 50,
-          trigger: coreResult.payload?.params?.trigger || '',
-          suggestion: coreResult.payload?.message || '',
-          originalText: res.text,
-          route: coreResult.route,
-          screen: coreResult.payload?.screen,
-          params: coreResult.payload?.params,
-        };
-      } else {
+        // Map UnifiedAIPipeline result to expected format
+        if (pipelineResult.voice) {
+          const voiceResult = pipelineResult.voice as any; // Type assertion for now
+          analysis = {
+            type: voiceResult.category?.toUpperCase() || 'OTHER',
+            confidence: voiceResult.confidence || 0.5,
+            mood: voiceResult.extractedData?.mood || voiceResult.extractedData?.moodScore || 50,
+            trigger: voiceResult.extractedData?.trigger || voiceResult.extractedData?.triggers?.[0] || '',
+            suggestion: voiceResult.summary || voiceResult.suggestion || 'Analiz tamamlandı',
+            originalText: res.text,
+            route: 'AUTO_SAVE',
+            screen: voiceResult.category?.toLowerCase(),
+            params: voiceResult.extractedData || {},
+          };
+        } else {
+          // Fallback to legacy analysis if no voice result
+          throw new Error('No voice analysis result from UnifiedAIPipeline');
+        }
+      } catch (error) {
+        console.warn('🚨 UnifiedAIPipeline failed, using legacy analysis:', error);
         console.log('📝 Using legacy unifiedVoiceAnalysis');
         try {
           // unifiedVoiceAnalysis sadece text parametresi alıyor

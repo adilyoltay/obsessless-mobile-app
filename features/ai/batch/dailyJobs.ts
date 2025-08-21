@@ -8,7 +8,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { Platform } from 'react-native';
 import { StorageKeys } from '@/utils/storage';
-import { coreAnalysisService } from '../core/CoreAnalysisService';
+import { unifiedPipeline } from '../core/UnifiedAIPipeline';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 import supabaseService from '@/services/supabase';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -505,19 +505,20 @@ export class DailyJobsManager {
       const cacheKey = `ai:${userId}:${today}:todayDigest`;
       await AsyncStorage.setItem(cacheKey, JSON.stringify(digest));
 
-      // Also trigger CoreAnalysisService to cache it
-      if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
-        await coreAnalysisService.analyze({
-          kind: 'TEXT',
-          content: JSON.stringify(digest),
+      // Process digest through UnifiedAIPipeline for comprehensive analysis
+      try {
+        await unifiedPipeline.process({
           userId,
-          locale: 'tr-TR',
-          ts: Date.now(),
-          metadata: {
+          content: digest,
+          context: {
             source: 'batch-today-digest',
             cacheKey,
-          },
+            timestamp: Date.now()
+          }
         });
+        console.log('✅ Daily digest processed through UnifiedAIPipeline');
+      } catch (error) {
+        console.warn('⚠️ UnifiedAIPipeline processing failed for daily digest:', error);
       }
 
       return {
