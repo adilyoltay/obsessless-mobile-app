@@ -140,17 +140,18 @@ export default function UserCentricOCDDashboard({
     const compulsionQuestionIds = ['comp_time', 'comp_interference', 'comp_distress', 'comp_resistance', 'comp_control'];
     
     // Create mock answers with correct question IDs and response property
+    // Ensure responses are never 0 to pass validation (!answer.response check)
     const obsessionAnswers = obsessionQuestionIds.map((questionId, i) => ({
       questionId,
       questionType: 'OBSESSIONS' as const,
-      response: Math.min(4, Math.floor(obsessionScore / 5) + (i < obsessionScore % 5 ? 1 : 0)),
+      response: Math.max(1, Math.min(4, Math.floor(obsessionScore / 5) + (i < obsessionScore % 5 ? 1 : 0))),
       timestamp: new Date().toISOString()
     }));
     
     const compulsionAnswers = compulsionQuestionIds.map((questionId, i) => ({
       questionId,
       questionType: 'COMPULSIONS' as const,
-      response: Math.min(4, Math.floor(compulsionScore / 5) + (i < compulsionScore % 5 ? 1 : 0)),
+      response: Math.max(1, Math.min(4, Math.floor(compulsionScore / 5) + (i < compulsionScore % 5 ? 1 : 0))),
       timestamp: new Date().toISOString()
     }));
     
@@ -548,6 +549,13 @@ export default function UserCentricOCDDashboard({
             await ybocsAnalysisService.initialize();
             // Convert onboarding data to Y-BOCS answers format for analysis
             const mockAnswers = createMockYBOCSAnswers(onboardingYBOCS.score);
+            console.log('🧪 Mock Y-BOCS Answers for validation:', {
+              totalScore: onboardingYBOCS.score,
+              answersCount: mockAnswers.length,
+              sampleAnswers: mockAnswers.slice(0, 3),
+              allQuestionIds: mockAnswers.map(a => a.questionId),
+              allResponses: mockAnswers.map(a => a.response)
+            });
             const ybocsAI = await ybocsAnalysisService.analyzeResponses(mockAnswers);
             setYBOCSAIAnalysis(ybocsAI);
           } catch (error) {
@@ -562,6 +570,13 @@ export default function UserCentricOCDDashboard({
             // Use the latest Y-BOCS entry from history
             const latestEntry = ybocsHistory[ybocsHistory.length - 1];
             const mockAnswers = createMockYBOCSAnswers(latestEntry.totalScore || 0);
+            console.log('🧪 Mock Y-BOCS Answers from history:', {
+              historyScore: latestEntry.totalScore || 0,
+              answersCount: mockAnswers.length,
+              sampleAnswers: mockAnswers.slice(0, 3),
+              allQuestionIds: mockAnswers.map(a => a.questionId),
+              allResponses: mockAnswers.map(a => a.response)
+            });
             const ybocsAI = await ybocsAnalysisService.analyzeResponses(mockAnswers);
             setYBOCSAIAnalysis(ybocsAI);
           } catch (error) {
