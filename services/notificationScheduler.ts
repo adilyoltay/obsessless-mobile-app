@@ -8,7 +8,7 @@ const isExpoGo = Constants.appOwnership === 'expo';
 
 export interface NotificationSchedule {
   id: string;
-  type: 'erp_reminder' | 'daily_tracking' | 'motivation' | 'milestone';
+  type: 'daily_tracking' | 'motivation' | 'milestone';
   title: string;
   body: string;
   scheduledTime: Date;

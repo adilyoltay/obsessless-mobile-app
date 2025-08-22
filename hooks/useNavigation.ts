@@ -96,9 +96,7 @@ export function useDeepLinking() {
       case '/tracking':
         router.push('/(tabs)/tracking');
         break;
-      case '/erp':
-        router.push('/(tabs)/erp');
-        break;
+      // case '/erp': // Removed ERP
       case '/settings':
         router.push('/(tabs)/settings');
         break;

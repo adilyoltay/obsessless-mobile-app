@@ -113,44 +113,13 @@ BEGIN
 END $$;
 
 -- 3. Create erp_sessions table if it doesn't exist
-CREATE TABLE IF NOT EXISTS erp_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  exercise_id TEXT,
-  notes TEXT,
-  difficulty INTEGER CHECK (difficulty >= 1 AND difficulty <= 10),
-  anxiety_before INTEGER CHECK (anxiety_before >= 0 AND anxiety_before <= 100),
-  anxiety_after INTEGER CHECK (anxiety_after >= 0 AND anxiety_after <= 100),
-  completed BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- (Removed) ERP sessions table creation
 
--- Add missing columns if table exists
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
-    ALTER TABLE erp_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-    ALTER TABLE erp_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-  END IF;
-END $$;
+-- (Removed) ERP sessions table column additions
 
--- Enable RLS on erp_sessions
-ALTER TABLE erp_sessions ENABLE ROW LEVEL SECURITY;
+-- (Removed) Enable RLS on erp_sessions
 
--- Create RLS policy for erp_sessions (if it doesn't exist)
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE tablename = 'erp_sessions' 
-    AND policyname = 'Users can only access their own erp sessions'
-  ) THEN
-    CREATE POLICY "Users can only access their own erp sessions" 
-    ON erp_sessions FOR ALL 
-    USING (auth.uid() = user_id);
-  END IF;
-END $$;
+-- (Removed) Create RLS policy for erp_sessions
 
 -- Create basic indexes (check if columns exist first)
 DO $$ 

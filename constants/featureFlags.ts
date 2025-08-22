@@ -106,7 +106,7 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_LLM_GATING: true, // LLM gating logic (ACTIVATED)
   AI_PROGRESSIVE: true, // Progressive UI updates (ACTIVATED)
   AI_ONBOARDING_REFINE: true, // Onboarding skeleton->refine (ACTIVATED)
-  AI_ERP_STAIRCASE: true, // Deterministic ERP difficulty (ACTIVATED)
+  AI_THERAPY_STAIRCASE: true, // Deterministic therapy difficulty (ACTIVATED)
   
   // 🎯 Unified AI Pipeline flags (NEW - Jan 2025) - ACTIVATED
   AI_UNIFIED_PIPELINE: true, // Master toggle for unified pipeline (ACTIVATED)
@@ -154,8 +154,8 @@ const featureFlagState: Record<string, boolean | number> = {
   CONTENT_FILTERING: true,
   RATE_LIMITING: true,
   
-  // 🛡️ ERP Module Feature Flag - Store'dan dinamik olarak alınır
-  ERP_MODULE_ENABLED: false, // Default: kapalı, runtime'da store'dan güncellenir
+  // 🛡️ (Removed) ERP Module Feature Flag
+  // ERP_MODULE_ENABLED: false, // Removed ERP module
 };
 
 // Feature flag logging için

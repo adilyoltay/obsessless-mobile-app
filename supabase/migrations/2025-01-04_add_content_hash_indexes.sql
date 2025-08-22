@@ -57,8 +57,7 @@ DO $$
 BEGIN
   -- (Removed) ERP sessions table check
     -- Add created_at column if it doesn't exist
-    -- (Removed) erp_sessions ALTER TABLE 
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+    -- (Removed) erp_sessions ALTER TABLE commands
     
     -- Add updated_at column if it doesn't exist
     -- (Removed) erp_sessions ALTER TABLE 
