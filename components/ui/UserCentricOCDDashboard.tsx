@@ -98,9 +98,36 @@ export default function UserCentricOCDDashboard({
   const [selectedTab, setSelectedTab] = useState<'journey' | 'patterns' | 'assessment' | 'triggers'>('journey');
   const [ocdJourney, setOCDJourney] = useState<OCDJourney | null>(null);
 
+  // DEBUG: Log incoming props
+  useEffect(() => {
+    console.log('🔍 UserCentricOCDDashboard Props Debug:');
+    console.log('- compulsions:', compulsions?.length || 0, 'entries');
+    console.log('- ybocsHistory:', ybocsHistory?.length || 0, 'assessments');
+    console.log('- userId:', userId || 'NO USER ID');
+    console.log('- First compulsion sample:', compulsions?.[0]);
+  }, [compulsions, ybocsHistory, userId]);
+
   // Generate dynamic OCD journey data
   const generateOCDJourneyData = useMemo(() => {
-    if (!compulsions.length) return null;
+    // Always return some data, even with empty compulsions
+    if (!compulsions.length) {
+      return {
+        recoveryStory: {
+          daysInRecovery: 0,
+          compulsionsTracked: 0,
+          resistanceGrowth: 'başlangıç' as const,
+          currentStreak: 0,
+          ybocsImprovement: 0,
+        },
+        personalInsights: {
+          dominantCategory: 'Henüz veri yok',
+          resistanceProgress: 'Takibe başlamak için ilk kaydınızı girin',
+          nextMilestone: 'İlk kaydınızı oluşturun'
+        },
+        achievements: [],
+        encouragement: 'Hoş geldiniz! OKB recovery journey'nize başlamak için harika bir adım attınız. 💪'
+      };
+    }
 
     // Calculate recovery metrics
     const firstEntry = compulsions[0];
@@ -319,7 +346,20 @@ export default function UserCentricOCDDashboard({
   );
 
   const renderJourneyTab = () => {
-    if (!ocdJourney) return null;
+    // Show loading or empty state if no data
+    if (!ocdJourney) {
+      return (
+        <ScrollView style={styles.tabContent}>
+          <View style={styles.comingSoonCard}>
+            <MaterialCommunityIcons name="chart-timeline-variant" size={48} color={COLORS.whisperGray} />
+            <Text style={styles.comingSoonTitle}>Recovery Journey Yükleniyor...</Text>
+            <Text style={styles.comingSoonText}>
+              Verileriniz analiz ediliyor, lütfen bekleyin...
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
 
     return (
       <ScrollView style={styles.tabContent}>
