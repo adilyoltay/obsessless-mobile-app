@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+// ✅ REMOVED: LinearGradient moved to dashboard
 import * as Haptics from 'expo-haptics';
 
 
@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import FAB from '@/components/ui/FAB';
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
+import UserCentricMoodDashboard from '@/components/ui/UserCentricMoodDashboard';
 
 // Services & Hooks
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -29,7 +30,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
 import moodTracker from '@/services/moodTrackingService';
-import { moodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
+// ✅ REMOVED: moodPatternAnalysisService moved to dashboard
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
 import { MoodGamificationService } from '@/features/ai/services/moodGamificationService';
@@ -63,20 +64,15 @@ export default function MoodScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [showMoodDashboard, setShowMoodDashboard] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [displayLimit, setDisplayLimit] = useState(5);
   
-  // 🎭 Advanced Pattern Analysis State
-  const [moodPatterns, setMoodPatterns] = useState<any[]>([]);
-  const [patternsLoading, setPatternsLoading] = useState(false);
-  const [showPatterns, setShowPatterns] = useState(false);
-  
-  // 🔮 Predictive Mood Intervention State
-  const [predictiveInsights, setPredictiveInsights] = useState<any>(null);
-  const [showPredictive, setShowPredictive] = useState(false);
-  const [predictiveLoading, setPredictiveLoading] = useState(false);
+  // ✅ REMOVED: Pattern analysis and predictive insights state moved to dashboard
+  const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
+  const [predictiveInsights, setPredictiveInsights] = useState<any>(null); // Still needed for dashboard data generation
 
   // Pre-fill from voice trigger if available
   useEffect(() => {
@@ -93,13 +89,7 @@ export default function MoodScreen() {
     }
   }, [user?.id, selectedTimeRange]);
 
-  // 🔮 Auto-trigger predictive mood intervention when mood data is available
-  useEffect(() => {
-    if (user?.id && moodEntries.length >= 3 && !predictiveLoading && !predictiveInsights) {
-      console.log('🔮 Auto-triggering predictive mood intervention...');
-      runPredictiveMoodIntervention();
-    }
-  }, [moodEntries, user?.id]);
+  // ✅ REMOVED: Auto-trigger predictive mood intervention moved to dashboard
 
   const loadMoodEntries = async () => {
     if (!user?.id) return;
@@ -143,335 +133,11 @@ export default function MoodScreen() {
     setRefreshing(false);
   };
 
-  /**
-   * 🎭 Advanced Mood Pattern Analysis via UnifiedAIPipeline
-   * Analyzes mood patterns for temporal, trigger, and MEA correlations
-   */
-  const analyzeMoodPatterns = async () => {
-    if (!user?.id || moodEntries.length < 3) {
-      setToastMessage('En az 3 mood kaydı gerekli');
-      setShowToast(true);
-      return;
-    }
+    // ✅ REMOVED: analyzeMoodPatterns function moved to dashboard
 
-    try {
-      setPatternsLoading(true);
-      console.log('🎭 Starting mood pattern analysis via UnifiedAIPipeline...');
+    // ✅ REMOVED: runPredictiveMoodIntervention function moved to dashboard
 
-      // 🔒 Convert and sanitize mood entries for privacy-compliant analysis
-      const serviceMoodEntries: ServiceMoodEntry[] = moodEntries.map(entry => ({
-        id: entry.id,
-        user_id: entry.user_id,
-        mood_score: entry.mood_score,
-        energy_level: entry.energy_level,
-        anxiety_level: entry.anxiety_level,
-        notes: entry.notes ? sanitizePII(entry.notes) : entry.notes, // 🔒 Sanitize notes
-        triggers: entry.trigger ? [sanitizePII(entry.trigger)] : [], // 🔒 Sanitize triggers
-        activities: [], // Not available in current interface
-        timestamp: entry.created_at,
-        synced: true,
-        sync_attempts: 0
-      }));
-
-            // 🔒 Encrypt sensitive mood data for privacy-first analysis
-      const sensitivePayload = {
-        moods: serviceMoodEntries,
-        compulsions: [],
-      };
-      
-      const encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
-      console.log('🔐 Mood pattern analysis - sensitive data encrypted for privacy');
-      
-      // Use UnifiedAIPipeline for comprehensive analysis with encrypted data
-      const pipelineResult = await unifiedPipeline.process({
-        userId: user.id,
-        content: encryptedPayload,
-        type: 'data' as const,
-        context: {
-          source: 'mood' as const,
-          timestamp: Date.now(),
-          metadata: {
-            analysisType: 'full',
-            privacy: {
-              encrypted: true,
-              encryptionLevel: encryptedPayload.algorithm === 'SHA256_FALLBACK' ? 'sha256' : 'aes256',
-              sanitized: true
-            }
-          }
-        }
-      });
-
-      console.log('🎯 UnifiedAIPipeline Pattern Result:', pipelineResult);
-
-      // Extract patterns from pipeline result
-      let patterns: any[] = [];
-      
-      // 🔄 FIXED: Handle UnifiedAIPipeline patterns object format (temporal/behavioral/environmental/mea/correlations)
-      if (pipelineResult.patterns && typeof pipelineResult.patterns === 'object') {
-        const patternsObj = pipelineResult.patterns as any; // Allow mea/correlations fields
-        
-        // Convert UnifiedAIPipeline patterns object to flat array for UI
-        const flatPatterns: any[] = [];
-        
-        // Add temporal patterns
-        if (patternsObj.temporal && Array.isArray(patternsObj.temporal)) {
-          patternsObj.temporal.forEach((pattern: any) => {
-            flatPatterns.push({
-              type: 'temporal',
-              title: `${pattern.type} (${pattern.trend})`,
-              description: `Saat: ${pattern.timeOfDay || 'Belirsiz'}, Sıklık: ${pattern.frequency}`,
-              suggestion: `${pattern.trend === 'increasing' ? 'Artış eğilimi' : pattern.trend === 'decreasing' ? 'Azalış eğilimi' : 'Stabil'} tespit edildi`,
-              actionable: true,
-              severity: pattern.frequency > 5 ? 'high' : 'medium'
-            });
-          });
-        }
-        
-        // Add behavioral patterns  
-        if (patternsObj.behavioral && Array.isArray(patternsObj.behavioral)) {
-          patternsObj.behavioral.forEach((pattern: any) => {
-            flatPatterns.push({
-              type: 'behavioral',
-              title: `Tetikleyici: ${pattern.trigger}`,
-              description: `Tepki: ${pattern.response}, Sıklık: ${pattern.frequency}`,
-              suggestion: `Bu tetikleyici için alternatif tepkiler geliştirebilirsiniz`,
-              actionable: true,
-              severity: pattern.severity > 7 ? 'high' : pattern.severity > 4 ? 'medium' : 'low'
-            });
-          });
-        }
-        
-        // Add environmental patterns
-        if (patternsObj.environmental && Array.isArray(patternsObj.environmental)) {
-          patternsObj.environmental.forEach((pattern: any) => {
-            flatPatterns.push({
-              type: 'environmental',
-              title: `Çevresel Faktör: ${pattern.context}`,
-              description: `Korelasyon: ${pattern.correlation.toFixed(2)}${pattern.location ? `, Yer: ${pattern.location}` : ''}`,
-              suggestion: `Bu çevresel faktöre dikkat edin`,
-              actionable: Math.abs(pattern.correlation) > 0.5,
-              severity: Math.abs(pattern.correlation) > 0.7 ? 'high' : 'medium'
-            });
-          });
-        }
-        
-        // 🔄 FIXED: Add MEA correlation patterns (Mood-Energy-Anxiety)
-        if (patternsObj.mea && Array.isArray(patternsObj.mea)) {
-          patternsObj.mea.forEach((pattern: any) => {
-            flatPatterns.push({
-              type: 'mea_correlation',
-              title: `${pattern.primary}-${pattern.secondary} Korelasyonu`,
-              description: `Korelasyon: ${pattern.correlation?.toFixed(2) || 'N/A'}, Güven: ${pattern.confidence?.toFixed(2) || 'N/A'}`,
-              suggestion: pattern.correlation > 0.7 
-                ? `Güçlü pozitif ilişki: ${pattern.primary} arttıkça ${pattern.secondary} da artıyor`
-                : pattern.correlation < -0.7 
-                ? `Güçlü negatif ilişki: ${pattern.primary} arttıkça ${pattern.secondary} azalıyor`
-                : `Orta düzey ilişki tespit edildi`,
-              actionable: Math.abs(pattern.correlation) > 0.5,
-              severity: Math.abs(pattern.correlation) > 0.7 ? 'high' : 'medium'
-            });
-          });
-        }
-        
-        // 🔄 FIXED: Add correlation patterns (alternative key)
-        if (patternsObj.correlations && Array.isArray(patternsObj.correlations)) {
-          patternsObj.correlations.forEach((pattern: any) => {
-            flatPatterns.push({
-              type: 'correlation',
-              title: `Korelasyon: ${pattern.factor1} ↔ ${pattern.factor2}`,
-              description: `R=${pattern.r?.toFixed(2) || pattern.correlation?.toFixed(2)}, p=${pattern.p?.toFixed(3) || 'N/A'}`,
-              suggestion: pattern.interpretation || 'Anlamlı bir ilişki tespit edildi',
-              actionable: Math.abs(pattern.r || pattern.correlation) > 0.5,
-              severity: Math.abs(pattern.r || pattern.correlation) > 0.7 ? 'high' : 'medium'
-            });
-          });
-        }
-        
-        patterns = flatPatterns;
-        console.log(`🎯 UnifiedAIPipeline patterns mapped: ${patterns.length} total (${patternsObj.temporal?.length || 0} temporal, ${patternsObj.behavioral?.length || 0} behavioral, ${patternsObj.environmental?.length || 0} environmental, ${patternsObj.mea?.length || 0} MEA, ${patternsObj.correlations?.length || 0} correlations)`);
-        
-      } else if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
-        // Legacy array format support (just in case)
-        patterns = pipelineResult.patterns;
-        console.log(`🎯 UnifiedAIPipeline found ${patterns.length} patterns (legacy array format)`);
-      } else {
-        // Fallback to direct service call if pipeline doesn't have patterns
-        console.log('📝 Fallback: Using direct moodPatternAnalysisService');
-        const servicePatterns = await moodPatternAnalysisService.analyzeMoodPatterns(
-          serviceMoodEntries,
-          user.id,
-          'full'
-        );
-        
-        // 🔄 FIXED: Map service pattern types (trigger & weekly_cycle) to UI-compatible format
-        patterns = servicePatterns.map((pattern: any) => {
-          // Handle different pattern types from service
-          if (pattern.type === 'trigger') {
-            return {
-              type: 'trigger',
-              title: `Tetikleyici Pattern: ${pattern.trigger || pattern.name}`,
-              description: `Mood etkisi: ${pattern.impact || pattern.averageImpact || 'Belirsiz'}, Sıklık: ${pattern.frequency || pattern.count || 0}`,
-              suggestion: pattern.suggestion || `${pattern.trigger || pattern.name} tetikleyicisine dikkat edin`,
-              actionable: true,
-              severity: (pattern.impact || pattern.averageImpact || 0) < -20 ? 'high' : 'medium'
-            };
-          } else if (pattern.type === 'weekly_cycle') {
-            return {
-              type: 'weekly_cycle',
-              title: `Haftalık Cycle: ${pattern.day || pattern.dayOfWeek || 'Belirsiz gün'}`,
-              description: `Ortalama mood: ${pattern.averageMood || pattern.mood || 'N/A'}, Pattern: ${pattern.pattern || pattern.trend || 'Stabil'}`,
-              suggestion: pattern.suggestion || 'Haftalık mood patternınızı takip edin',
-              actionable: true,
-              severity: (pattern.averageMood || pattern.mood || 50) < 40 ? 'high' : 'medium'
-            };
-          } else {
-            // Keep existing pattern format for backwards compatibility
-            return pattern;
-          }
-        });
-        
-        console.log(`📝 Service patterns mapped: ${patterns.length} total (${servicePatterns.filter((p: any) => p.type === 'trigger').length} trigger, ${servicePatterns.filter((p: any) => p.type === 'weekly_cycle').length} weekly_cycle, ${servicePatterns.filter((p: any) => !['trigger', 'weekly_cycle'].includes(p.type)).length} other)`);
-      }
-
-      setMoodPatterns(patterns);
-      setShowPatterns(true);
-
-      if (patterns.length === 0) {
-        setToastMessage('Henüz belirgin pattern bulunamadı');
-        setShowToast(true);
-      } else {
-        console.log(`✅ Found ${patterns.length} mood patterns via UnifiedAIPipeline`);
-      }
-
-    } catch (error) {
-      console.error('❌ Mood pattern analysis failed:', error);
-      setToastMessage('Pattern analizi başarısız oldu');
-      setShowToast(true);
-    } finally {
-      setPatternsLoading(false);
-    }
-  };
-
-  /**
-   * 🔮 Predictive Mood Intervention Analysis
-   * Analyzes mood drop risk and suggests proactive interventions
-   */
-  const runPredictiveMoodIntervention = async () => {
-    if (!user?.id || moodEntries.length < 3) {
-      setToastMessage('Predictive analiz için en az 3 mood kaydı gerekli');
-      setShowToast(true);
-      return;
-    }
-
-    try {
-      setPredictiveLoading(true);
-      console.log('🔮 Starting predictive mood intervention analysis...');
-
-      // 🔒 Convert and sanitize mood entries for privacy-compliant predictive analysis
-      const serviceMoodEntries = moodEntries.map(entry => ({
-        id: entry.id,
-        user_id: entry.user_id,
-        mood_score: entry.mood_score,
-        energy_level: entry.energy_level,
-        anxiety_level: entry.anxiety_level,
-        notes: entry.notes ? sanitizePII(entry.notes) : entry.notes, // 🔒 Sanitize notes
-        triggers: entry.trigger ? [sanitizePII(entry.trigger)] : [], // 🔒 Sanitize triggers
-        activities: [],
-        timestamp: entry.created_at,
-        synced: true,
-        sync_attempts: 0
-      }));
-
-      // Get current mood state (most recent entry)
-      const currentMoodState = moodEntries.length > 0 ? {
-        mood: moodEntries[0].mood_score,
-        energy: moodEntries[0].energy_level,
-        anxiety: moodEntries[0].anxiety_level,
-        timestamp: moodEntries[0].created_at
-      } : undefined;
-
-      // 🔒 Call UnifiedAIPipeline predictive intervention with privacy-compliant data
-      console.log('🔐 Predictive mood intervention - using sanitized data for privacy compliance');
-      const interventionResult = await unifiedPipeline.predictMoodIntervention(
-        user.id,
-        serviceMoodEntries.slice(-10), // Last 10 entries for trend analysis (already sanitized)
-        currentMoodState // Only contains numerical mood/energy/anxiety data
-      );
-
-      console.log('🔮 Predictive intervention result:', interventionResult);
-      setPredictiveInsights(interventionResult);
-      setShowPredictive(true);
-
-    } catch (error) {
-      console.error('❌ Predictive mood intervention failed:', error);
-      setToastMessage('Predictive mood analizi başarısız oldu');
-      setShowToast(true);
-    } finally {
-      setPredictiveLoading(false);
-    }
-  };
-
-  // Helper function to get week days
-  const getWeekDays = () => {
-    const days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    
-    return days.map((day, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
-      return {
-        label: day,
-        date: date
-      };
-    });
-  };
-
-  // Helper function to get today hours
-  const getTodayHours = () => {
-    const hours = [];
-    for (let i = 6; i <= 23; i++) {
-      hours.push({
-        label: `${i.toString().padStart(2, '0')}:00`,
-        hour: i
-      });
-    }
-    return hours;
-  };
-
-  // Helper function to get month days
-  const getMonthDays = () => {
-    const days = [];
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay();
-    
-    // Pazartesi'den başlamak için boş günler ekle (0=Pazar, 1=Pazartesi)
-    const emptyDays = firstDay === 0 ? 6 : firstDay - 1;
-    for (let i = 0; i < emptyDays; i++) {
-      days.push({ label: '', date: null });
-    }
-    
-    // Gerçek günleri ekle
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(year, month, i);
-      days.push({
-        label: i.toString(),
-        date: date
-      });
-    }
-    
-    // Son haftayı tamamlamak için boş günler ekle
-    while (days.length % 7 !== 0) {
-      days.push({ label: '', date: null });
-    }
-    
-    return days;
-  };
+  // ✅ MOVED TO DASHBOARD: Helper functions moved to UserCentricMoodDashboard
 
   // Helper function to get mood color based on score
   const getMoodColor = (score: number): string => {
@@ -717,6 +383,255 @@ export default function MoodScreen() {
 
   const stats = calculateStats();
 
+  // ✅ NEW: Generate User-Centric Mood Journey Data from entries and patterns
+  const generateMoodJourneyData = (entries: MoodEntry[], patterns: any[], predictiveInsights: any) => {
+    const today = new Date();
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Calculate tracking days
+    const firstEntry = entries.length > 0 ? new Date(entries[entries.length - 1].created_at) : today;
+    const daysTracking = Math.max(1, Math.ceil((today.getTime() - firstEntry.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    // Calculate emotional growth level
+    const avgMood = entries.length > 0 
+      ? entries.reduce((sum, e) => sum + e.mood_score, 0) / entries.length 
+      : 50;
+    
+    const recentEntries = entries.slice(0, 5);
+    const olderEntries = entries.slice(5, 10);
+    const recentAvg = recentEntries.length > 0 
+      ? recentEntries.reduce((sum, e) => sum + e.mood_score, 0) / recentEntries.length 
+      : avgMood;
+    const olderAvg = olderEntries.length > 0 
+      ? olderEntries.reduce((sum, e) => sum + e.mood_score, 0) / olderEntries.length 
+      : avgMood;
+    
+    let emotionalGrowth: 'başlangıç' | 'gelişiyor' | 'stabil' | 'uzman' = 'başlangıç';
+    if (entries.length >= 30) {
+      if (recentAvg >= 70) emotionalGrowth = 'uzman';
+      else if (recentAvg >= 60) emotionalGrowth = 'stabil';
+      else if (recentAvg > olderAvg + 5) emotionalGrowth = 'gelişiyor';
+    } else if (entries.length >= 10) {
+      if (recentAvg > olderAvg + 5) emotionalGrowth = 'gelişiyor';
+      else if (recentAvg >= 60) emotionalGrowth = 'stabil';
+    }
+
+    const moodTrend: 'yükseliyor' | 'stabil' | 'düşüyor' = 
+      recentAvg > olderAvg + 5 ? 'yükseliyor' : 
+      recentAvg < olderAvg - 5 ? 'düşüyor' : 'stabil';
+
+    // Generate emotion distribution
+    const emotionDistribution = [
+      { emotion: 'Mutlu', percentage: Math.round((entries.filter(e => e.mood_score >= 70).length / Math.max(entries.length, 1)) * 100), color: '#4CAF50' },
+      { emotion: 'Sakin', percentage: Math.round((entries.filter(e => e.mood_score >= 60 && e.mood_score < 70).length / Math.max(entries.length, 1)) * 100), color: '#26A69A' },
+      { emotion: 'Normal', percentage: Math.round((entries.filter(e => e.mood_score >= 40 && e.mood_score < 60).length / Math.max(entries.length, 1)) * 100), color: '#66BB6A' },
+      { emotion: 'Endişeli', percentage: Math.round((entries.filter(e => e.mood_score >= 30 && e.mood_score < 40).length / Math.max(entries.length, 1)) * 100), color: '#FFA726' },
+      { emotion: 'Üzgün', percentage: Math.round((entries.filter(e => e.mood_score < 30).length / Math.max(entries.length, 1)) * 100), color: '#FF7043' }
+    ].filter(emotion => emotion.percentage > 0);
+
+    const dominantEmotion = emotionDistribution.length > 0 
+      ? emotionDistribution.reduce((max, current) => current.percentage > max.percentage ? current : max).emotion
+      : 'Normal';
+
+    // Generate weekly colors
+    const weekDays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    const weeklyColors = weekDays.map((day, index) => {
+      const dayEntries = entries.filter(entry => {
+        const entryDate = new Date(entry.created_at);
+        const targetDate = new Date(oneWeekAgo);
+        targetDate.setDate(oneWeekAgo.getDate() + index);
+        return entryDate.getDate() === targetDate.getDate() && 
+               entryDate.getMonth() === targetDate.getMonth();
+      });
+      
+      const avgMood = dayEntries.length > 0 
+        ? Math.round(dayEntries.reduce((sum, e) => sum + e.mood_score, 0) / dayEntries.length)
+        : 50;
+      
+      return {
+        day,
+        color: getMoodColor(avgMood),
+        mood: avgMood,
+        highlight: avgMood >= 80 ? 'Harika gün!' : undefined
+      };
+    });
+
+    // ✅ DYNAMIC: Generate personalized encouragement based on actual mood data
+    const generatePersonalizedEncouragement = () => {
+      if (entries.length === 0) {
+        return 'Mood takip yolculuğuna hoş geldin. Bu ilk adımın cesaret ister ve değerli.';
+      }
+      
+      const recentEntries = entries.slice(0, 5);
+      const avgRecentMood = recentEntries.length > 0 
+        ? recentEntries.reduce((sum, e) => sum + e.mood_score, 0) / recentEntries.length 
+        : 50;
+      
+      if (entries.length >= 30) {
+        return `${entries.length} kayıtla düzenli takip yapıyorsun. Bu istikrar, duygusal farkındalığının ne kadar geliştiğini gösteriyor.`;
+      } else if (entries.length >= 14) {
+        return `${entries.length} kayıt tamamladın. İki haftadır sürdürdüğün bu takip, harika bir alışkanlık oluşturuyor.`;
+      } else if (avgRecentMood >= 70) {
+        return `Son kayıtlarda mood ortalaması ${Math.round(avgRecentMood)}. Pozitif bir dönemdesin ve bunu fark etmek güzel.`;
+      } else if (avgRecentMood <= 40) {
+        return `Zorlu bir dönemde ${entries.length} kayıt yapmışsın. Bu kendine olan saygının göstergesi.`;
+      } else {
+        return `${entries.length} mood kaydıyla duygularını gözlemleme becerilerin gelişiyor. Bu süreç zaman alır, sabırlı ol.`;
+      }
+    };
+
+    const currentEncouragement = generatePersonalizedEncouragement();
+
+    return {
+      moodStory: {
+        daysTracking,
+        entriesCount: entries.length,
+        emotionalGrowth,
+        currentStreak: (() => {
+          // ✅ DYNAMIC: Calculate actual streak based on consecutive days with mood entries
+          if (entries.length === 0) return 0;
+          
+          let streak = 0;
+          const today = new Date();
+          
+          // Check each day backwards from today
+          for (let i = 0; i < 30; i++) { // Check last 30 days max
+            const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+            const dayStart = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+            const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+            
+            // Check if there's an entry for this day
+            const hasEntryThisDay = entries.some(entry => {
+              const entryDate = new Date(entry.created_at);
+              return entryDate >= dayStart && entryDate < dayEnd;
+            });
+            
+            if (hasEntryThisDay) {
+              streak++;
+            } else {
+              // If no entry for a day, streak breaks
+              break;
+            }
+          }
+          
+          return streak;
+        })(),
+        averageMood: Math.round(avgMood),
+        moodTrend
+      },
+      personalInsights: {
+        strongestPattern: patterns.length > 0 
+          ? patterns[0].title 
+          : 'Henüz yeterli veri yok',
+        challengeArea: patterns.find(p => p.severity === 'high')?.title || 'Devam ettiğin şekilde iyi',
+        nextMilestone: entries.length < 10 
+          ? '10 mood kaydı tamamlama' 
+          : entries.length < 30 
+          ? '30 günlük mood takibi'
+          : 'İleri düzey pattern analizi',
+        encouragement: currentEncouragement,
+        actionableStep: entries.length < 5 
+          ? 'İstersen bugün bir mood kaydı daha yapabilirsin. Düzenli takip pattern\'lerin ortaya çıkmasına yardımcı olur.'
+          : 'Geçmiş kayıtlarına göz atarsan hangi tetikleyicilerin hangi duygulara yol açtığını fark edebilirsin.'
+      },
+      emotionalSpectrum: {
+        dominantEmotion,
+        emotionDistribution,
+        weeklyColors
+      },
+      patterns: patterns.map(pattern => ({
+        type: pattern.type || 'temporal',
+        title: pattern.title || 'Pattern',
+        description: pattern.description || '',
+        suggestion: pattern.suggestion || '',
+        severity: pattern.severity || 'low',
+        actionable: pattern.actionable || false
+      })),
+      prediction: {
+        riskLevel: predictiveInsights?.riskLevel || 'low',
+        earlyWarning: predictiveInsights?.earlyWarning || undefined,
+        interventions: predictiveInsights?.interventions || [],
+        recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+      },
+      achievements: (() => {
+        const achievements = [];
+        
+        // ✅ DYNAMIC: Generate achievements based on actual user progress
+        if (entries.length > 0) {
+          achievements.push({
+            title: 'Mood Takip Yolculuğu Başladı',
+            description: `${new Date(firstEntry).toLocaleDateString('tr-TR')} tarihinde ilk mood kaydını yaptın`,
+            date: firstEntry,
+            celebration: '🌟',
+            impact: 'Duygusal farkındalık yolculuğunda cesaret gösterdin'
+          });
+        }
+        
+        // Progressive achievements based on actual entry count
+        if (entries.length >= 7) {
+          achievements.push({
+            title: 'Haftalık Mood Uzmanı',
+            description: `${entries.length} mood kaydı ile bir haftalık veri topladın`,
+            date: today,
+            celebration: '📊',
+            impact: 'Tutarlı takip alışkanlığı oluşturmaya başladın'
+          });
+        }
+        
+        if (entries.length >= 30) {
+          achievements.push({
+            title: 'Aylık Mood Takipçisi',
+            description: `${entries.length} kayıt ile bir aylık mood pattern\'in oluştu`,
+            date: today,
+            celebration: '📈',
+            impact: 'Uzun vadeli duygusal pattern\'lerin görünür hale geldi'
+          });
+        }
+        
+        // Mood level achievement based on actual average
+        if (avgMood >= 70 && entries.length >= 5) {
+          achievements.push({
+            title: 'Pozitif Mood Seviyesi',
+            description: `Ortalama mood seviyesi ${Math.round(avgMood)} - harika bir durumdayın`,
+            date: today,
+            celebration: '☀️',
+            impact: 'İyi duygusal durumunu fark edip değerlendiriyorsun'
+          });
+        }
+        
+        // High energy achievement
+        const avgEnergy = entries.length > 0 
+          ? entries.reduce((sum, e) => sum + e.energy_level, 0) / entries.length 
+          : 50;
+        if (avgEnergy >= 70 && entries.length >= 5) {
+          achievements.push({
+            title: 'Yüksek Enerji',
+            description: `Ortalama enerji seviyen ${Math.round(avgEnergy)} - enerjik günler geçiriyorsun`,
+            date: today,
+            celebration: '⚡',
+            impact: 'Yüksek enerji seviyeni fark etmek motivasyon artırıyor'
+          });
+        }
+        
+        // Anxiety management achievement
+        const avgAnxiety = entries.length > 0 
+          ? entries.reduce((sum, e) => sum + e.anxiety_level, 0) / entries.length 
+          : 50;
+        if (avgAnxiety <= 30 && entries.length >= 7) {
+          achievements.push({
+            title: 'Kaygı Yönetimi',
+            description: `Ortalama kaygı seviyesi ${Math.round(avgAnxiety)} - güzel bir yönetim sergiliyor`,
+            date: today,
+            celebration: '🧘',
+            impact: 'Kaygı seviyen kontrol altında ve bunun farkındasın'
+          });
+        }
+        
+        return achievements;
+      })()
+    };
+  };
+
   // Calculate progress percentage
   const calculateProgress = () => {
     const goalCount = selectedTimeRange === 'today' ? 3 : 
@@ -748,8 +663,9 @@ export default function MoodScreen() {
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
-              // Graph/Stats action
+              console.log('🎭 Opening Mood Dashboard');
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowMoodDashboard(true);
             }}
           >
             <MaterialCommunityIcons name="chart-line" size={24} color="#EC4899" />
@@ -863,435 +779,11 @@ export default function MoodScreen() {
           </View>
         </View>
 
-        {/* 🔮 Predictive Mood Intervention Card */}
-        {predictiveInsights && (
-          <View style={styles.predictiveCard}>
-            <View style={styles.predictiveHeader}>
-              <MaterialCommunityIcons 
-                name="crystal-ball" 
-                size={24} 
-                color={predictiveInsights.riskLevel === 'high' ? '#EF4444' : 
-                       predictiveInsights.riskLevel === 'medium' ? '#F59E0B' : '#10B981'} 
-              />
-              <Text style={styles.predictiveTitle}>Mood Öngörüsü</Text>
-              <Text style={[styles.riskBadge, {
-                backgroundColor: predictiveInsights.riskLevel === 'high' ? '#FEF2F2' : 
-                                predictiveInsights.riskLevel === 'medium' ? '#FFFBEB' : '#F0FDF4',
-                color: predictiveInsights.riskLevel === 'high' ? '#EF4444' : 
-                       predictiveInsights.riskLevel === 'medium' ? '#F59E0B' : '#10B981'
-              }]}>
-                {predictiveInsights.riskLevel === 'high' ? 'Yüksek Risk' : 
-                 predictiveInsights.riskLevel === 'medium' ? 'Orta Risk' : 'Düşük Risk'}
-              </Text>
-            </View>
-            
-            {predictiveInsights.earlyWarning?.triggered && (
-              <View style={styles.warningSection}>
-                <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
-                <Text style={styles.warningText}>{predictiveInsights.earlyWarning.message}</Text>
-              </View>
-            )}
-            
-            {predictiveInsights.interventions?.slice(0, 2).map((intervention: any, index: number) => (
-              <View key={index} style={styles.interventionItem}>
-                <MaterialCommunityIcons 
-                  name={intervention.type === 'immediate' ? 'lightning-bolt' : 
-                        intervention.type === 'preventive' ? 'shield-check' : 'hospital-box'} 
-                  size={16} 
-                  color="#3B82F6" 
-                />
-                <Text style={styles.interventionText}>{intervention.action}</Text>
-              </View>
-            ))}
-            
-            <Pressable 
-              style={styles.refreshPredictiveButton}
-              onPress={runPredictiveMoodIntervention}
-              disabled={predictiveLoading}
-            >
-              <MaterialCommunityIcons 
-                name={predictiveLoading ? "loading" : "refresh"} 
-                size={16} 
-                color="#EC4899" 
-              />
-              <Text style={styles.refreshPredictiveText}>
-                {predictiveLoading ? 'Analiz ediliyor...' : 'Yenile'}
-              </Text>
-            </Pressable>
-          </View>
-        )}
 
-        {/* Spectrum Mood Tracker - Lindsay Braman Style */}
-        {moodEntries.length > 0 && (
-          <View style={styles.chartSection}>
-            <Text style={styles.sectionTitle}>Duygu Spektrumu</Text>
-            <View style={styles.spectrumContainer}>
-                <View style={styles.spectrumHeader}>
-                  <View>
-                    <Text style={styles.spectrumTitle}>
-                      {selectedTimeRange === 'today' ? 'Saatlik Görünüm' : 
-                       selectedTimeRange === 'week' ? 'Haftalık Görünüm' : 
-                       'Aylık Takvim'}
-                    </Text>
-                    <Text style={styles.spectrumSubtitle}>
-                      {filteredEntries.length > 0 
-                        ? `${filteredEntries.length} duygu kaydı`
-                        : 'Henüz kayıt yok'}
-                    </Text>
-                  </View>
-                  <MaterialCommunityIcons name="palette" size={20} color="#EC4899" />
-                </View>
-                
-                {/* Renk Spektrumu */}
-                <LinearGradient
-                  colors={['#EF4444', '#F97316', '#EAB308', '#84CC16', '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.spectrumBar}
-                />
-                
-                {/* Spektrum Etiketleri */}
-                <View style={styles.spectrumLabels}>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.spectrumLabel}>Kızgın</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#F97316' }]} />
-                    <Text style={styles.spectrumLabel}>Sinirli</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#EAB308' }]} />
-                    <Text style={styles.spectrumLabel}>Endişeli</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#84CC16' }]} />
-                    <Text style={styles.spectrumLabel}>Normal</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#10B981' }]} />
-                    <Text style={styles.spectrumLabel}>Mutlu</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#06B6D4' }]} />
-                    <Text style={styles.spectrumLabel}>Sakin</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#3B82F6' }]} />
-                    <Text style={styles.spectrumLabel}>Üzgün</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#8B5CF6' }]} />
-                    <Text style={styles.spectrumLabel}>Enerjik</Text>
-                  </View>
-                  <View style={styles.spectrumLabelItem}>
-                    <View style={[styles.spectrumDot, { backgroundColor: '#EC4899' }]} />
-                    <Text style={styles.spectrumLabel}>Heyecanlı</Text>
-                  </View>
-                </View>
-                
-                {/* Dinamik İçerik - Günlük/Haftalık/Aylık */}
-                {selectedTimeRange === 'today' && (
-                  <>
-                    {/* Günlük Saatler ve Duygular */}
-                    {getTodayHours().map((hour) => {
-                      const hourEntries = filteredEntries.filter(entry => {
-                        const entryDate = new Date(entry.created_at);
-                        return entryDate.getHours() === hour.hour;
-                      });
-                      
-                      return (
-                        <View key={hour.label} style={styles.dayRow}>
-                          <Text style={[styles.dayLabel, { width: 50 }]}>{hour.label}</Text>
-                          <View style={styles.dayMoods}>
-                            {hourEntries.length > 0 ? (
-                              hourEntries.map((entry, index) => {
-                                const moodColor = getMoodColor(entry.mood_score);
-                                const moodLabel = getMoodLabel(entry.mood_score);
-                                const intensity = Math.round((entry.mood_score / 100) * 5);
-                                const minute = new Date(entry.created_at).getMinutes();
-                                const minuteStr = minute.toString().padStart(2, '0');
-                                
-                                return (
-                                  <Pressable
-                                    key={`${hour.label}-${index}`} 
-                                    style={[styles.moodBubble, { backgroundColor: moodColor }]}
-                                    onPress={() => {
-                                      if (entry.notes) {
-                                        Alert.alert(
-                                          `${hour.hour}:${minuteStr} - ${moodLabel}`,
-                                          entry.notes,
-                                          [{ text: 'Tamam' }]
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <Text style={styles.moodBubbleText}>:{minuteStr}</Text>
-                                    <Text style={styles.moodIntensity}>●{intensity}</Text>
-                                  </Pressable>
-                                );
-                              })
-                            ) : (
-                              <View style={{ height: 20 }} />
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </>
-                )}
 
-                {selectedTimeRange === 'week' && (
-                  <>
-                    {/* Haftalık Günler ve Duygular */}
-                    {getWeekDays().map((day) => {
-                      const dayEntries = filteredEntries.filter(entry => {
-                        const entryDate = new Date(entry.created_at);
-                        const dayDate = day.date;
-                        return entryDate.getDate() === dayDate.getDate() && 
-                               entryDate.getMonth() === dayDate.getMonth() &&
-                               entryDate.getFullYear() === dayDate.getFullYear();
-                      });
-                      
-                      return (
-                        <View key={day.label} style={styles.dayRow}>
-                          <Text style={styles.dayLabel}>{day.label}</Text>
-                          <View style={styles.dayMoods}>
-                            {dayEntries.length > 0 ? (
-                              dayEntries.map((entry, index) => {
-                                const moodColor = getMoodColor(entry.mood_score);
-                                const moodLabel = getMoodLabel(entry.mood_score);
-                                const intensity = Math.round((entry.mood_score / 100) * 5);
-                                const time = new Date(entry.created_at).toLocaleTimeString('tr-TR', { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                });
-                                
-                                return (
-                                  <Pressable
-                                    key={`${day.label}-${index}`} 
-                                    style={[styles.moodBubble, { backgroundColor: moodColor }]}
-                                    onPress={() => {
-                                      if (entry.notes) {
-                                        Alert.alert(
-                                          `${time} - ${moodLabel}`,
-                                          entry.notes,
-                                          [{ text: 'Tamam' }]
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <Text style={styles.moodBubbleText}>{time}</Text>
-                                    <Text style={styles.moodIntensity}>●{intensity}</Text>
-                                  </Pressable>
-                                );
-                              })
-                            ) : (
-                              <Text style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>
-                                Kayıt yok
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </>
-                )}
+        {/* ✅ MOVED TO DASHBOARD: Spectrum, Patterns, Prediction features now in UserCentricMoodDashboard */}
 
-                {selectedTimeRange === 'month' && (
-                  <View style={styles.monthContainer}>
-                    {/* Aylık görünüm - Hafta başlıkları */}
-                    <View style={styles.monthWeekHeaders}>
-                      {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map(day => (
-                        <Text key={day} style={styles.monthWeekHeader}>{day}</Text>
-                      ))}
-                    </View>
-                    {/* Aylık günler grid */}
-                    <View style={styles.monthGrid}>
-                      {[0, 1, 2, 3, 4, 5].map(weekIndex => {
-                        const weekDays = getMonthDays().slice(weekIndex * 7, (weekIndex + 1) * 7);
-                        if (weekDays.length === 0) return null;
-                        
-                        return (
-                          <View key={weekIndex} style={styles.monthWeek}>
-                            {weekDays.map((day, dayIndex) => {
-                              // Boş günler için boş alan
-                              if (!day.date) {
-                                return (
-                                  <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.monthDay} />
-                                );
-                              }
-                              
-                              const dayEntries = filteredEntries.filter(entry => {
-                                const entryDate = new Date(entry.created_at);
-                                const dayDate = day.date;
-                                return entryDate.getDate() === dayDate.getDate() && 
-                                       entryDate.getMonth() === dayDate.getMonth() &&
-                                       entryDate.getFullYear() === dayDate.getFullYear();
-                              });
-                              
-                              // Günün baskın duygu rengi
-                              const dominantColor = dayEntries.length > 0 
-                                ? getMoodColor(
-                                    Math.round(dayEntries.reduce((sum, e) => sum + e.mood_score, 0) / dayEntries.length)
-                                  )
-                                : '#E5E7EB';
-                              
-                              return (
-                                <Pressable
-                                  key={`day-${day.label}`}
-                                  style={[
-                                    styles.monthDay,
-                                    { 
-                                      backgroundColor: dominantColor,
-                                      opacity: dayEntries.length > 0 ? 1 : 0.3,
-                                    }
-                                  ]}
-                                  onPress={() => {
-                                    if (dayEntries.length > 0) {
-                                      Alert.alert(
-                                        `${day.label}. ${new Date(day.date).toLocaleDateString('tr-TR', { month: 'long' })}`,
-                                        `${dayEntries.length} kayıt\nOrtalama ruh hali: ${Math.round(dayEntries.reduce((sum, e) => sum + e.mood_score, 0) / dayEntries.length)}%`,
-                                        [{ text: 'Tamam' }]
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Text style={styles.monthDayText}>
-                                    {day.label}
-                                  </Text>
-                                  {dayEntries.length > 0 && (
-                                    <Text style={styles.monthDayCount}>
-                                      {dayEntries.length}
-                                    </Text>
-                                  )}
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-            </View>
-          </View>
-        )}
 
-        {/* 🎭 Advanced Mood Pattern Analysis Section */}
-        <View style={styles.patternAnalysisCard}>
-          <View style={styles.patternAnalysisHeader}>
-            <View style={styles.patternAnalysisHeaderLeft}>
-              <MaterialCommunityIcons name="brain" size={24} color="#8B5CF6" />
-              <Text style={styles.patternAnalysisTitle}>AI Pattern Analizi</Text>
-            </View>
-            <Pressable
-              style={[styles.analysisButton, patternsLoading && styles.analysisButtonDisabled]}
-              onPress={analyzeMoodPatterns}
-              disabled={patternsLoading || moodEntries.length < 3}
-            >
-              <MaterialCommunityIcons 
-                name={patternsLoading ? "loading" : "chart-timeline-variant"} 
-                size={16} 
-                color="white" 
-              />
-              <Text style={styles.analysisButtonText}>
-                {patternsLoading ? 'Analiz Ediliyor...' : 'Analiz Et'}
-              </Text>
-            </Pressable>
-          </View>
-          
-          <Text style={styles.patternAnalysisDescription}>
-            Mood pattern'lerinizi keşfedin: saatlik/günlük döngüler, tetikleyici korelasyonları, MEA analizi
-          </Text>
-
-          {moodEntries.length < 3 && (
-            <View style={styles.patternRequirement}>
-              <MaterialCommunityIcons name="information-outline" size={16} color="#F59E0B" />
-              <Text style={styles.patternRequirementText}>
-                En az 3 mood kaydı gerekli ({moodEntries.length}/3)
-              </Text>
-            </View>
-          )}
-
-          {/* Pattern Results */}
-          {showPatterns && moodPatterns.length > 0 && (
-            <View style={styles.patternsContainer}>
-              <Text style={styles.patternsHeader}>
-                🔍 {moodPatterns.length} Pattern Keşfedildi
-              </Text>
-              
-              {moodPatterns.slice(0, 3).map((pattern, index) => (
-                <View key={index} style={styles.patternCard}>
-                  <View style={styles.patternHeader}>
-                    <Text style={styles.patternTitle}>{pattern.title}</Text>
-                    <View style={[
-                      styles.patternSeverityBadge,
-                      {
-                        backgroundColor: 
-                          pattern.severity === 'high' ? '#FEE2E2' :
-                          pattern.severity === 'medium' ? '#FEF3C7' :
-                          pattern.severity === 'critical' ? '#FECACA' : '#F0F9FF'
-                      }
-                    ]}>
-                      <Text style={[
-                        styles.patternSeverityText,
-                        {
-                          color:
-                            pattern.severity === 'high' ? '#DC2626' :
-                            pattern.severity === 'medium' ? '#D97706' :
-                            pattern.severity === 'critical' ? '#B91C1C' : '#1E40AF'
-                        }
-                      ]}>
-                        {Math.round(pattern.confidence * 100)}%
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.patternDescription}>
-                    {pattern.description}
-                  </Text>
-                  
-                  {pattern.actionable && pattern.suggestion && (
-                    <View style={styles.patternSuggestion}>
-                      <MaterialCommunityIcons name="lightbulb-on-outline" size={14} color="#8B5CF6" />
-                      <Text style={styles.patternSuggestionText}>
-                        {pattern.suggestion}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))}
-
-              {moodPatterns.length > 3 && (
-                <Pressable 
-                  style={styles.showMorePatternsButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Tüm Pattern\'ler',
-                      moodPatterns.map((p, i) => `${i+1}. ${p.title}: ${p.description}`).join('\n\n'),
-                      [{ text: 'Tamam', style: 'default' }]
-                    );
-                  }}
-                >
-                  <Text style={styles.showMorePatternsText}>
-                    +{moodPatterns.length - 3} pattern daha göster
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          )}
-
-          {showPatterns && moodPatterns.length === 0 && (
-            <View style={styles.noPatternsFound}>
-              <MaterialCommunityIcons name="chart-line-variant" size={24} color="#9CA3AF" />
-              <Text style={styles.noPatternsText}>
-                Henüz belirgin pattern bulunamadı.{'\n'}
-                Daha fazla veri toplandıkça pattern'ler ortaya çıkacak.
-              </Text>
-            </View>
-          )}
-        </View>
 
         {/* Mood Entries List - Matching OCD Design */}
         <View style={styles.listSection}>
@@ -1418,6 +910,22 @@ export default function MoodScreen() {
         message={toastMessage}
         onHide={() => setShowToast(false)}
         type={toastMessage.includes('✅') ? 'success' : 'info'}
+      />
+
+      {/* ✅ NEW: User-Centric Mood Dashboard */}
+      <UserCentricMoodDashboard
+        visible={showMoodDashboard}
+        onClose={() => setShowMoodDashboard(false)}
+        moodJourney={generateMoodJourneyData(moodEntries, moodPatterns, predictiveInsights)}
+        moodEntries={moodEntries}
+        onStartAction={(actionId) => {
+          console.log('🎭 User started mood action:', actionId);
+          // Handle specific actions (e.g., start a new mood entry)
+          if (actionId === 'next_mood_step') {
+            setShowMoodDashboard(false);
+            setShowQuickEntry(true);
+          }
+        }}
       />
     </ScreenLayout>
   );
@@ -1693,251 +1201,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EC4899',
     borderRadius: 4,
   },
-
-  // 🔮 Predictive Mood Intervention Card Styles
-  predictiveCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  predictiveHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  predictiveTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-    flex: 1,
-    marginLeft: 8,
-  },
-  riskBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-  warningSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  warningText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#92400E',
-    fontFamily: 'Inter',
-  },
-  interventionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  interventionText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  refreshPredictiveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    marginTop: 8,
-  },
-  refreshPredictiveText: {
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#EC4899',
-    fontFamily: 'Inter',
-  },
   
-  // Chart Section
-  chartSection: {
-    marginHorizontal: 16,
-    marginTop: 24,
-  },
+  // ✅ REMOVED: Predictive mood intervention styles moved to dashboard
   
-  // Spectrum Mood Tracker Styles
-  spectrumContainer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  spectrumHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  spectrumTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  spectrumSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-    fontFamily: 'Inter',
-  },
-  spectrumBar: {
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 8,
-    flexDirection: 'row',
-  },
-  spectrumLabels: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    marginTop: 4,
-  },
-  spectrumLabelItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '30%',
-    marginBottom: 8,
-  },
-  spectrumDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  spectrumLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    fontFamily: 'Inter',
-  },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dayLabel: {
-    width: 40,
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  dayMoods: {
-    flex: 1,
-    marginLeft: 12,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  moodBubble: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 4,
-    marginBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  moodBubbleText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    fontFamily: 'Inter',
-  },
-  moodIntensity: {
-    marginLeft: 4,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'Inter',
-  },
-  
-  // Monthly View Styles
-  monthContainer: {
-    paddingTop: 8,
-  },
-  monthWeekHeaders: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  monthWeekHeader: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#6B7280',
-    fontFamily: 'Inter',
-    width: 40,
-    textAlign: 'center',
-  },
-  monthGrid: {
-    flexDirection: 'column',
-  },
-  monthWeek: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  monthDay: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  monthDayText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-  monthDayCount: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 8,
-    fontFamily: 'Inter',
-    marginTop: 1,
-  },
+  // ✅ REMOVED: Spectrum, monthly view styles moved to dashboard
   
   // List Section - Matching OCD/ERP
   listSection: {
@@ -2066,170 +1333,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
 
-  // 🎭 Pattern Analysis Styles
-  patternAnalysisCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  patternAnalysisHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  patternAnalysisHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  patternAnalysisTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 8,
-    fontFamily: 'Inter',
-  },
-  analysisButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#8B5CF6',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  analysisButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  analysisButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 6,
-    fontFamily: 'Inter',
-  },
-  patternAnalysisDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 12,
-    lineHeight: 20,
-    fontFamily: 'Inter',
-  },
-  patternRequirement: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  patternRequirementText: {
-    fontSize: 12,
-    color: '#92400E',
-    marginLeft: 6,
-    fontFamily: 'Inter',
-  },
-  patternsContainer: {
-    marginTop: 12,
-  },
-  patternsHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-    fontFamily: 'Inter',
-  },
-  patternCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  patternHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  patternTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    flex: 1,
-    marginRight: 8,
-    fontFamily: 'Inter',
-  },
-  patternSeverityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 44,
-    alignItems: 'center',
-  },
-  patternSeverityText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-  },
-  patternDescription: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 18,
-    marginBottom: 8,
-    fontFamily: 'Inter',
-  },
-  patternSuggestion: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F3F4F6',
-    padding: 8,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#8B5CF6',
-  },
-  patternSuggestionText: {
-    fontSize: 12,
-    color: '#374151',
-    marginLeft: 6,
-    flex: 1,
-    fontStyle: 'italic',
-    lineHeight: 16,
-    fontFamily: 'Inter',
-  },
-  showMorePatternsButton: {
-    alignItems: 'center',
-    marginTop: 8,
-    padding: 8,
-  },
-  showMorePatternsText: {
-    fontSize: 12,
-    color: '#8B5CF6',
-    fontWeight: '500',
-    fontFamily: 'Inter',
-  },
-  noPatternsFound: {
-    alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
-  },
-  noPatternsText: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 18,
-    fontFamily: 'Inter',
-  },
+  // ✅ REMOVED: Pattern analysis styles moved to dashboard
   
   bottomSpacing: {
     height: 100,

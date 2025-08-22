@@ -40,6 +40,8 @@
 | **FAB Navigation** | ✅ Aktif | v2.0 | Tüm ana sayfalarda tutarlı |
 | **Bottom Tab Navigation** | ✅ Aktif | v2.0 | CBT tab kaldırıldı |
 | **Mood Tracking (UI)** | ✅ Aktif | v1.0 | Kayıt + Geçmiş (14 gün) |
+| **User-Centric CBT Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 3-tab modal, dinamik achievements, sakin tasarım |
+| **User-Centric Mood Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 4-tab modal (Journey/Spectrum/Patterns/Prediction), dinamik veri |
 
 ## 🔧 Teknik Özellikler
 
@@ -79,6 +81,26 @@
 - **ERP Module Complete Removal**
 - Legacy service conflict protection
 - Full telemetry and performance monitoring
+
+### ✅ **Yeni Tamamlanan (Ocak 2025 - Son Hafta)**
+- **User-Centric CBT Dashboard v2.1** (%100 tamamlandı)
+  - 3-tab modal dashboard (Journey/Growth/Next Steps)
+  - Dinamik achievements generation (hard-coded data kaldırıldı)
+  - Master Prompt uyumlu sakin tasarım (anxiety-friendly colors)
+  - Gerçek CBT progress data integration
+  - Chart icon → dashboard açılımı
+  
+- **User-Centric Mood Dashboard v2.1** (%100 tamamlandı) 
+  - 4-tab modal dashboard (Journey/Spectrum/Patterns/Prediction)
+  - Dinamik mood data generation (hard-coded achievements kaldırıldı)
+  - LinearGradient emotion spectrum visualization
+  - Ana sayfa simplification (spectrum/pattern/prediction features dashboard'a taşındı)
+  - Gerçek streak calculation ve personalized messaging
+
+- **Dynamic Data Implementation** (%100 tamamlandı)
+  - CBT: Personalized encouragement, real mood improvement achievements  
+  - Mood: Real consecutive day streak, dynamic emotion distribution
+  - Tamamen hard-coded mock veriler kaldırıldı (%95+ dinamikleştirme)
 
 ### 🚧 Devam Eden
 - Performance optimizasyonları

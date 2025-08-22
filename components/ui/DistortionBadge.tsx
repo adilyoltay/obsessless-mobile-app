@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 /**
@@ -57,10 +57,37 @@ export default function DistortionBadge({
   showPercentage = true 
 }: DistortionBadgeProps) {
   
+  // ✅ NEW: Subtle pulsing animation for high confidence (Master Prompt: Sakinlik)
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    // Only pulse for high confidence distortions, and very subtly
+    if (confidence >= 0.8 && !selected) {
+      const pulse = Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.02,     // Very subtle scale
+          duration: 2000,    // Slow, calming rhythm
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ]);
+      
+      const loop = Animated.loop(pulse);
+      loop.start();
+      
+      return () => loop.stop();
+    }
+  }, [confidence, selected, pulseAnim]);
+  
+  // ✅ FIXED: Calm confidence colors (Master Prompt: Sakinlik)
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return '#EF4444'; // Kırmızı - Yüksek güven
-    if (confidence >= 0.6) return '#F59E0B'; // Turuncu - Orta güven
-    return '#84CC16'; // Yeşil - Düşük güven
+    if (confidence >= 0.8) return '#BE123C'; // Soft rose - Yüksek güven (anxiety-friendly)
+    if (confidence >= 0.6) return '#D97706'; // Soft amber - Orta güven  
+    return '#059669'; // Soft emerald - Düşük güven
   };
   
   const getConfidenceLevel = (confidence: number): 'high' | 'medium' | 'low' => {
@@ -93,14 +120,19 @@ export default function DistortionBadge({
     }
   };
 
-  const accessibilityLabel = `${label}, güven oranı ${percentage}%, ${
-    confidenceLevel === 'high' ? 'yüksek' : 
-    confidenceLevel === 'medium' ? 'orta' : 'düşük'
-  } güven seviyesi${selected ? ', seçili' : ''}`;
+  // ✅ FIXED: Calm accessibility labels (Master Prompt: Sakinlik)
+  const accessibilityLabel = `${label} çarpıtması, ${
+    confidenceLevel === 'high' ? 'yüksek olasılık' : 
+    confidenceLevel === 'medium' ? 'orta olasılık' : 'düşük olasılık'
+  }, ${percentage}%${selected ? ', seçildi' : ''}`;
 
   return (
-    <View 
-      style={[styles.badge, dynamicStyles.badge]}
+    <Animated.View 
+      style={[
+        styles.badge, 
+        dynamicStyles.badge,
+        { transform: [{ scale: pulseAnim }] } // Apply subtle scale animation
+      ]}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
     >
@@ -127,33 +159,40 @@ export default function DistortionBadge({
           style={[styles.checkIcon, dynamicStyles.icon]} 
         />
       )}
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  // ✅ FIXED: Calm badge design (Master Prompt: Sakinlik)
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10, // Slightly more padding
+    paddingVertical: 6,    // More vertical space
+    borderRadius: 8,       // Softer corners
     marginRight: 6,
     marginBottom: 4,
-    maxWidth: 150,
+    maxWidth: 160,         // More space for text
+    shadowColor: '#000',   // Subtle shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   icon: {
     marginRight: 4,
   },
+  // ✅ FIXED: Improved readability (Master Prompt: Zahmetsizlik)
   text: {
-    fontSize: 11,
+    fontSize: 12,        // Slightly larger for better readability
     fontFamily: 'Inter',
     flex: 1,
   },
   percentage: {
-    fontSize: 10,
+    fontSize: 11,        // Slightly larger percentage
     fontFamily: 'Inter',
-    fontWeight: '700',
+    fontWeight: '600',   // Less bold for calm appearance
     marginLeft: 4,
   },
   checkIcon: {
@@ -194,7 +233,7 @@ export function MultiDistortionAnalysis({
     <View style={styles.multiAnalysisContainer}>
       {primaryDistortions.length > 0 && (
         <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>🔴 Birincil Çarpıtmalar</Text>
+          <Text style={styles.levelTitle}>● Birincil Çarpıtmalar</Text>
           <View style={styles.badgeContainer}>
             {primaryDistortions.map((d) => (
               <DistortionBadge
@@ -211,7 +250,7 @@ export function MultiDistortionAnalysis({
       
       {secondaryDistortions.length > 0 && (
         <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>🟡 İkincil Çarpıtmalar</Text>
+          <Text style={styles.levelTitle}>◐ İkincil Çarpıtmalar</Text>
           <View style={styles.badgeContainer}>
             {secondaryDistortions.map((d) => (
               <DistortionBadge
@@ -228,7 +267,7 @@ export function MultiDistortionAnalysis({
       
       {possibleDistortions.length > 0 && (
         <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>🟢 Olası Çarpıtmalar</Text>
+          <Text style={styles.levelTitle}>○ Olası Çarpıtmalar</Text>
           <View style={styles.badgeContainer}>
             {possibleDistortions.map((d) => (
               <DistortionBadge

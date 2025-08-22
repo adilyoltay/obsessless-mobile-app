@@ -28,6 +28,7 @@ import supabaseService from '@/services/supabase';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import UserCentricCBTDashboard from '@/components/ui/UserCentricCBTDashboard';
 
 interface ThoughtRecord {
   id: string;
@@ -52,6 +53,7 @@ export default function CBTScreen() {
   // States
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [showProgressDashboard, setShowProgressDashboard] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [thoughtRecords, setThoughtRecords] = useState<ThoughtRecord[]>([]);
   const [displayLimit, setDisplayLimit] = useState(5);
@@ -346,6 +348,219 @@ export default function CBTScreen() {
     });
   };
 
+  // ✅ NEW: Generate User-Centric Journey Data from AI Analytics
+  const generateUserJourneyData = (records: ThoughtRecord[], aiInsights: any) => {
+    const today = new Date();
+    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Calculate days on journey
+    const firstRecord = records.length > 0 ? new Date(records[records.length - 1].created_at) : today;
+    const daysOnJourney = Math.max(1, Math.ceil((today.getTime() - firstRecord.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    // Recent mood data for timeline
+    const recentRecords = records.slice(0, 7).reverse();
+    const recentMood = recentRecords.map((record, index) => {
+      const date = new Date(record.created_at);
+      const dayNames = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+      return {
+        day: dayNames[date.getDay()],
+        mood: record.mood_after,
+        highlight: record.mood_after - record.mood_before >= 3 ? 'Harika gün!' : undefined
+      };
+    });
+    
+    // Calculate emotional growth level
+    const avgImprovement = records.length > 0 
+      ? records.reduce((sum, r) => sum + (r.mood_after - r.mood_before), 0) / records.length 
+      : 0;
+    
+    let emotionalGrowth: 'başlangıç' | 'gelişiyor' | 'güçlü' | 'uzman' = 'başlangıç';
+    if (avgImprovement >= 3) emotionalGrowth = 'uzman';
+    else if (avgImprovement >= 2) emotionalGrowth = 'güçlü';
+    else if (avgImprovement >= 1) emotionalGrowth = 'gelişiyor';
+    
+    // Find biggest win
+    const bestRecord = records.reduce((best, current) => 
+      (current.mood_after - current.mood_before) > (best.mood_after - best.mood_before) ? current : best, 
+      records[0] || { mood_before: 5, mood_after: 5, thought: 'Yolculuğun henüz başlangıcında' }
+    );
+    
+    // ✅ FIXED: Calm biggest win message (Master Prompt: Sakinlik)
+    const biggestWin = bestRecord 
+      ? `"${bestRecord.thought?.substring(0, 80)}..." düşüncesinde ${bestRecord.mood_after - bestRecord.mood_before} puanlık bir iyileşme sağladın`
+      : 'CBT yolculuğun başladı - bu anlamlı bir adım';
+    
+    // ✅ DYNAMIC: Generate personalized encouragement based on actual progress
+    const generatePersonalizedEncouragement = () => {
+      if (records.length === 0) {
+        return 'CBT yolculuğuna hoş geldin. İlk adımı attın, bu cesaret ister.';
+      }
+      
+      const recentProgress = records.slice(0, 5);
+      const avgMoodImprovement = recentProgress.length > 0 
+        ? recentProgress.reduce((sum, r) => sum + (r.mood_after - r.mood_before), 0) / recentProgress.length 
+        : 0;
+      
+      if (avgMoodImprovement >= 3) {
+        return `Son kayıtlarda ortalama ${avgMoodImprovement.toFixed(1)} puanlık iyileşme. CBT becerilerinin etkisini görüyorsun.`;
+      } else if (avgMoodImprovement >= 1) {
+        return `${records.length} kayıtla istikrarlı bir ilerleme var. Ortalama ${avgMoodImprovement.toFixed(1)} puanlık iyileşme sağlıyorsun.`;
+      } else if (records.length >= 10) {
+        return `${records.length} kayıt tamamladın! Bu tutarlılık, zorlu dönemlerden güç çıkarabildiğini gösteriyor.`;
+      } else {
+        return `${records.length}. kaydın bu. Her kayıt, düşüncelerini daha iyi anlaman için atılmış değerli bir adım.`;
+      }
+    };
+    
+    const currentEncouragement = generatePersonalizedEncouragement();
+    
+    return {
+      progressStory: {
+        daysOnJourney,
+        thoughtsProcessed: records.length,
+        emotionalGrowth,
+        currentStreak: (() => {
+          // ✅ DYNAMIC: Calculate actual CBT streak based on consecutive days with thought records
+          if (records.length === 0) return 0;
+          
+          let streak = 0;
+          const today = new Date();
+          
+          // Check each day backwards from today
+          for (let i = 0; i < 30; i++) { // Check last 30 days max
+            const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+            const dayStart = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+            const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+            
+            // Check if there's a thought record for this day
+            const hasRecordThisDay = records.some(record => {
+              const recordDate = new Date(record.created_at);
+              return recordDate >= dayStart && recordDate < dayEnd;
+            });
+            
+            if (hasRecordThisDay) {
+              streak++;
+            } else {
+              // If no record for a day, streak breaks
+              break;
+            }
+          }
+          
+          return streak;
+        })(),
+        biggestWin
+      },
+      personalInsights: {
+        strongestSkill: aiInsights.distortionTrends.length > 0 
+          ? `${aiInsights.distortionTrends[0]?.distortion} çarpıtmasını fark etme` 
+          : 'Düşüncelerini analiz etme',
+        growthArea: 'Reframe tekniklerini geliştirme',
+        nextMilestone: records.length < 10 
+          ? '10 düşünce kaydı tamamlama' 
+          : 'İleri seviye CBT tekniklerini öğrenme',
+        encouragement: currentEncouragement,
+        actionableStep: records.length < 5 
+          ? 'İstersen bugün bir düşünceni daha kaydedebilirsin. Alıştırma yapmak becerileri geliştirmeye yardımcı olur.'
+          : 'Geçmiş kayıtlarına göz atarsan hangi çarpıtmaların azaldığını fark edebilirsin. İlerleme alanlarını görmek motivasyon verebilir.'
+      },
+      emotionalWellbeing: {
+        beforeCBT: 4, // Mock data - could be from onboarding
+        currentLevel: Math.min(10, Math.max(1, Math.round(
+          records.length > 0 
+            ? records.slice(0, 5).reduce((sum, r) => sum + r.mood_after, 0) / Math.min(5, records.length)
+            : 5
+        ))),
+        weeklyTrend: (avgImprovement > 1 ? 'yükseliyor' : avgImprovement > 0 ? 'stabil' : 'düşüyor') as 'yükseliyor' | 'stabil' | 'düşüyor',
+        recentMood: recentMood.length > 0 ? recentMood : [
+          { day: 'Bugün', mood: 6, highlight: 'Başlangıç!' }
+        ]
+      },
+      achievements: (() => {
+        const achievements = [];
+        
+        // ✅ DYNAMIC: Generate achievements based on actual user progress
+        if (records.length > 0) {
+          achievements.push({
+            title: 'CBT Yolculuğu Başladı',
+            description: `${new Date(firstRecord).toLocaleDateString('tr-TR')} tarihinde ilk adımını attın`,
+            date: firstRecord,
+            celebration: '🌟',
+            impact: 'Mental sağlık yolculuğunda cesaret gösterdin'
+          });
+        }
+        
+        // Progressive achievements based on real data
+        if (records.length >= 3) {
+          achievements.push({
+            title: 'Düşünce Farkındalığı',
+            description: `${records.length} düşünce kaydı ile pattern'lerin görünmeye başladı`,
+            date: today,
+            celebration: '🧠',
+            impact: 'Düşüncelerini gözlemleme becerilerin gelişiyor'
+          });
+        }
+        
+        if (records.length >= 10) {
+          achievements.push({
+            title: 'CBT Tutarlılığı',
+            description: `${records.length} kayıt ile istikrarlı bir uygulama sergiledın`,
+            date: today,
+            celebration: '💪',
+            impact: 'CBT konusunda disiplinli bir yaklaşım geliştirdin'
+          });
+        }
+        
+        // Mood improvement based on actual data
+        if (avgImprovement >= 1.5 && records.length >= 5) {
+          achievements.push({
+            title: 'Duygusal İyileşme Sağlandı',
+            description: `Son kayıtlarda ortalama ${avgImprovement.toFixed(1)} puanlık iyileşme`,
+            date: today,
+            celebration: '☀️',
+            impact: 'CBT tekniklerinin etkisini hissediyorsun'
+          });
+        }
+        
+        // High mood improvement achievement 
+        const highImprovementRecords = records.filter(r => (r.mood_after - r.mood_before) >= 3).length;
+        if (highImprovementRecords >= 3) {
+          achievements.push({
+            title: 'Etkili Çözüm Bulma',
+            description: `${highImprovementRecords} kayıtta 3+ puanlık mood iyileşmesi sağladın`,
+            date: today,
+            celebration: '🎯',
+            impact: 'CBT tekniklerini etkili bir şekilde uyguluyorsun'
+          });
+        }
+        
+        return achievements;
+      })(),
+      recommendations: [
+        {
+          title: 'Düşünce Gözlemi',
+          description: 'İstersen günlük yaşamında olumsuz bir düşünceni fark edip kaydedebilirsin',
+          difficulty: 'kolay' as const,
+          timeToComplete: '5-10 dakika',
+          benefits: 'Çarpıtmaları fark etme becerilerin gelişir'
+        },
+        {
+          title: 'Perspektif Geliştirme',
+          description: 'Düşüncen hakkında hem destekleyici hem karşıt görüşleri inceleyebilirsin',
+          difficulty: 'orta' as const,
+          timeToComplete: '10-15 dakika',
+          benefits: 'Daha geniş bir perspektif kazanabilirsin'
+        },
+        {
+          title: 'Alternatif Düşünce Geliştirme',
+          description: 'Farklı bakış açıları geliştirebilir, alternatif yorumlar keşfedebilirsin',
+          difficulty: 'ileri' as const,
+          timeToComplete: '15-20 dakika',
+          benefits: 'Düşünme esnekliğin artar'
+        }
+      ]
+    };
+  };
+
   // ✅ NEW: AI Analytics Helper Functions
   const analyzeDistortionTrends = (records: ThoughtRecord[], distortionCounts: Record<string, number>) => {
     const trends = [];
@@ -562,7 +777,8 @@ export default function CBTScreen() {
             style={styles.headerRight}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // TODO: Navigate to insights/stats
+              console.log('📊 Opening CBT Progress Dashboard');
+              setShowProgressDashboard(true);
             }}
           >
             <MaterialCommunityIcons name="chart-line" size={24} color="#3B82F6" />
@@ -809,6 +1025,21 @@ export default function CBTScreen() {
         type="success"
         visible={showToast}
         onHide={() => setShowToast(false)}
+      />
+
+      {/* ✅ NEW: User-Centric CBT Progress Dashboard */}
+      <UserCentricCBTDashboard
+        visible={showProgressDashboard}
+        onClose={() => setShowProgressDashboard(false)}
+        userJourney={generateUserJourneyData(thoughtRecords, stats.aiInsights)}
+        onStartAction={(actionId) => {
+          console.log('🎯 User started action:', actionId);
+          // Handle specific actions (e.g., start a new thought record, practice a technique)
+          if (actionId === 'next_step') {
+            setShowProgressDashboard(false);
+            setShowQuickEntry(true);
+          }
+        }}
       />
     </ScreenLayout>
   );

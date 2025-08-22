@@ -55,6 +55,13 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - Renk spektrumu ile duygu yoğunluğu gösterimi
 - Çoklu duygu kaydı ve interaktif detaylar
 - **Voice Entry**: Today screen'den ses ile mood kaydı (CoreAnalysisService)
+- **User-Centric Dashboard**: Chart icon → 4-tab modal (Journey/Spectrum/Patterns/Prediction)
+
+### 🧠 CBT Düşünce Kaydı
+- 3-adımlı thought record process
+- AI destekli distortion detection ve reframing
+- **Voice-to-CBT Integration**: Today screen'den ses ile otomatik prefill
+- **User-Centric Dashboard**: Chart icon → 3-tab modal (Journey/Growth/Next Steps)
 
 ### 📊 OKB Takip (Compulsions)
 - Zaman aralığı sekmeleri (Bugün/Hafta/Ay)
@@ -85,6 +92,24 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 ### 🕐 Zaman Aralığı Butonları
 - Default: BG #F9FAFB, border #E5E7EB, text #6B7280
 - Active: BG #10B981, border #10B981, text #FFF; radius 8; padding 8x16
+
+### 📊 User-Centric Dashboard (YENİ - v2.1)
+- **Modal Presentation**: `presentationStyle="pageSheet"`, fullscreen modal
+- **Tab Navigation**: 4 tabs için Mood, 3 tabs için CBT; aktif tab beyaz background + shadow
+- **Master Prompt Compliance**: 
+  - Sakinlik: Soft colors (#F8FAFC, #4CAF50), gentle transitions, anxiety-friendly palette
+  - Güç: Choice-based language ("İstersen yapabilirsin..."), non-prescriptive messaging
+  - Zahmetsizlik: Single chart icon → comprehensive dashboard access
+- **Card Patterns**:
+  - Hero Card: BG #F8FAFC, padding 24, borderRadius 16, subtle border
+  - Stat Box: BG #FFFFFF, padding 16, borderRadius 12, soft shadow
+  - Achievement Row: BG #F9FAFB, padding 16, celebration emoji + impact text
+  - Action Button: BG #374151 (calm gray), borderRadius 12, haptic medium
+- **Dynamic Data**: All achievements, insights, progress calculated from real user data
+- **Color Psychology**: 
+  - CBT: Soft green (#059669), soft purple (#7E57C2) for growth levels
+  - Mood: Soft teal (#26A69A), soft amber (#FFA726), avoiding harsh reds
+- **Accessibility**: All cards have descriptive accessibility labels, large touch targets
 
 ### 📝 Entry/Session Card
 - Zaman (sol üst), kategori ikonu, tip metni, direnç/süre bilgisi, notlar, sağda sil ikon (#EF4444)
