@@ -242,15 +242,15 @@ SELECT
 FROM public.compulsions
 GROUP BY user_id, DATE(timestamp);
 
--- Weekly ERP stats view
-CREATE VIEW public.weekly_erp_stats AS
+-- Weekly therapy stats view
+CREATE VIEW public.weekly_therapy_stats AS
 SELECT 
   user_id,
   DATE_TRUNC('week', timestamp) as week,
   COUNT(*) as total_sessions,
   AVG(duration_seconds) as avg_duration,
   AVG(anxiety_initial - anxiety_final) as avg_anxiety_reduction
-FROM public.erp_sessions
+FROM public.therapy_sessions
 GROUP BY user_id, DATE_TRUNC('week', timestamp);
 
 -- ================================

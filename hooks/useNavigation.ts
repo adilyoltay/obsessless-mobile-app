@@ -74,28 +74,8 @@ export function useTrackingNavigation() {
   };
 }
 
-// ERP navigation hook'u
-export function useERPNavigation() {
-  const { router } = useAppNavigation();
 
-  const navigateToERPDetail = useCallback((id: string) => {
-    router.push(`/erp/erp-detail?id=${id}` as any);
-  }, [router]);
-
-  const navigateToERPTimer = useCallback((exerciseId: string) => {
-    router.push(`/erp/erp-timer?exerciseId=${exerciseId}` as any);
-  }, [router]);
-
-  const navigateToCreateERP = useCallback(() => {
-    router.push('/erp/create-erp' as any);
-  }, [router]);
-
-  return {
-    navigateToERPDetail,
-    navigateToERPTimer,
-    navigateToCreateERP,
-  };
-}
+// (Removed) ERP navigation hook
 
 // Deep linking utilities
 export function useDeepLinking() {
