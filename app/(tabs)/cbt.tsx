@@ -26,6 +26,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
 import { useGamificationStore } from '@/store/gamificationStore';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 interface ThoughtRecord {
   id: string;
@@ -56,7 +58,7 @@ export default function CBTScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   
-  // Stats
+  // ✅ FIXED: Enhanced AI-driven stats
   const [stats, setStats] = useState({
     todayCount: 0,
     weekCount: 0,
@@ -64,7 +66,16 @@ export default function CBTScreen() {
     avgMoodImprovement: 0,
     mostCommonDistortion: '',
     totalRecords: 0,
-    successRate: 0
+    successRate: 0,
+    // AI-driven insights
+    aiInsights: {
+      distortionTrends: [] as Array<{distortion: string; trend: 'improving' | 'declining' | 'stable'; change: number}>,
+      techniqueEffectiveness: [] as Array<{technique: string; effectiveness: number; confidence: number}>,
+      progressAnalysis: '' as string,
+      recommendations: [] as string[],
+      riskLevel: 'low' as 'low' | 'medium' | 'high',
+      nextFocus: '' as string
+    }
   });
 
   // Voice trigger'dan gelindiyse otomatik aç
@@ -135,7 +146,7 @@ export default function CBTScreen() {
           
           // Filter by selected time range
           records = allRecords.filter((r: ThoughtRecord) => {
-            const recordDate = new Date(r.created_at || r.timestamp);
+            const recordDate = new Date(r.created_at);
             if (selectedTimeRange === 'today') {
               return recordDate >= today;
             } else if (selectedTimeRange === 'week') {
@@ -150,19 +161,20 @@ export default function CBTScreen() {
       
       // Sort by date (newest first)
       records.sort((a, b) => 
-        new Date(b.created_at || b.timestamp).getTime() - 
-        new Date(a.created_at || a.timestamp).getTime()
+        new Date(b.created_at).getTime() - 
+        new Date(a.created_at).getTime()
       );
       
       setThoughtRecords(records);
-      calculateStats(records);
+      await calculateStats(records);
       
     } catch (error) {
       console.error('❌ Error loading CBT data:', error);
     }
   };
 
-  const calculateStats = (records: ThoughtRecord[]) => {
+  // ✅ FIXED: AI-powered analytics instead of basic counters
+  const calculateStats = async (records: ThoughtRecord[]) => {
     if (records.length === 0) {
       setStats({
         todayCount: 0,
@@ -171,10 +183,20 @@ export default function CBTScreen() {
         avgMoodImprovement: 0,
         mostCommonDistortion: '',
         totalRecords: 0,
-        successRate: 0
+        successRate: 0,
+        aiInsights: {
+          distortionTrends: [],
+          techniqueEffectiveness: [],
+          progressAnalysis: 'Henüz yeterli veri yok. Düşünce kayıtları oluşturmaya başlayın.',
+          recommendations: ['Düşünce kayıtları tutmaya başlayın', 'Çarpıtmaları fark etmeyi öğrenin'],
+          riskLevel: 'low',
+          nextFocus: 'Temel CBT becerilerini geliştirin'
+        }
       });
       return;
     }
+
+    console.log('📊 Calculating AI-driven CBT stats for', records.length, 'records');
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -185,7 +207,7 @@ export default function CBTScreen() {
     const monthAgo = new Date(today);
     monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-    // Count records by time period
+    // Basic counters (kept for compatibility)
     let todayCount = 0;
     let weekCount = 0;
     let monthCount = 0;
@@ -196,7 +218,7 @@ export default function CBTScreen() {
     const distortionCounts: Record<string, number> = {};
     
     records.forEach(record => {
-      const recordDate = new Date(record.created_at || record.timestamp);
+      const recordDate = new Date(record.created_at);
       
       if (recordDate >= today) todayCount++;
       if (recordDate >= weekAgo) weekCount++;
@@ -216,6 +238,97 @@ export default function CBTScreen() {
     // Find most common distortion
     const mostCommon = Object.entries(distortionCounts)
       .sort(([,a], [,b]) => b - a)[0];
+
+    // ✅ NEW: AI-driven analytics
+    let aiInsights = {
+      distortionTrends: [] as any[],
+      techniqueEffectiveness: [] as any[],
+      progressAnalysis: '',
+      recommendations: [] as string[],
+      riskLevel: 'low' as 'low' | 'medium' | 'high',
+      nextFocus: ''
+    };
+
+    // Generate AI analytics if we have enough data
+    if (records.length >= 3 && user?.id) {
+      try {
+        console.log('🧠 Generating AI-driven CBT progress analytics...');
+        
+        // Track AI analytics request
+        await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+          userId: user.id,
+          source: 'cbt_screen',
+          dataType: 'progress_analytics',
+          recordCount: records.length
+        });
+
+        // Prepare data for AI analysis
+        const analysisData = records.map(record => ({
+          timestamp: record.created_at,
+          distortions: record.distortions,
+          moodBefore: record.mood_before,
+          moodAfter: record.mood_after,
+          moodImprovement: record.mood_after - record.mood_before,
+          thought: record.thought?.substring(0, 100), // Truncate for privacy
+          reframe: record.reframe?.substring(0, 100),
+          evidenceFor: record.evidence_for?.length || 0,
+          evidenceAgainst: record.evidence_against?.length || 0,
+          trigger: record.trigger
+        }));
+
+        // Use UnifiedAIPipeline for comprehensive progress analysis
+        const pipelineResult = await unifiedPipeline.process({
+          userId: user.id,
+          content: {
+            thoughtRecords: analysisData,
+            timeframe: selectedTimeRange,
+            analysisRequest: 'comprehensive_cbt_progress_analytics'
+          },
+          type: 'data' as const,
+          context: {
+            source: 'cbt' as const,
+            timestamp: Date.now(),
+            metadata: {
+              analysisType: 'progress_analytics',
+              sessionId: `cbt_analytics_${Date.now()}`,
+              recordCount: records.length,
+              timeRange: selectedTimeRange
+            }
+          }
+        });
+
+        console.log('🎯 AI Progress Analytics Result:', pipelineResult);
+
+        // Extract AI insights from pipeline result
+        if (pipelineResult.insights?.therapeutic) {
+          const therapeuticInsights = pipelineResult.insights.therapeutic;
+          
+          aiInsights = {
+            distortionTrends: analyzeDistortionTrends(records, distortionCounts),
+            techniqueEffectiveness: analyzeTechniqueEffectiveness(records),
+            progressAnalysis: therapeuticInsights[0]?.text || generateProgressAnalysis(records, totalMoodImprovement),
+            recommendations: therapeuticInsights.filter(i => i.actionable).map(i => i.text).slice(0, 3),
+            riskLevel: calculateRiskLevel(records),
+            nextFocus: therapeuticInsights.find(i => i.priority === 'high')?.text || 'CBT becerilerinizi geliştirmeye devam edin'
+          };
+        } else {
+          // Fallback to enhanced heuristic analysis
+          aiInsights = generateHeuristicInsights(records, distortionCounts, totalMoodImprovement);
+        }
+
+        // Track successful AI analytics
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          userId: user.id,
+          source: 'cbt_screen',
+          insightsCount: aiInsights.recommendations.length,
+          riskLevel: aiInsights.riskLevel
+        });
+
+      } catch (error) {
+        console.error('❌ AI progress analytics failed, using heuristic fallback:', error);
+        aiInsights = generateHeuristicInsights(records, distortionCounts, totalMoodImprovement);
+      }
+    }
     
     setStats({
       todayCount,
@@ -228,8 +341,128 @@ export default function CBTScreen() {
       totalRecords: records.length,
       successRate: records.length > 0 
         ? Math.round((successfulRecords / records.length) * 100) 
-        : 0
+        : 0,
+      aiInsights
     });
+  };
+
+  // ✅ NEW: AI Analytics Helper Functions
+  const analyzeDistortionTrends = (records: ThoughtRecord[], distortionCounts: Record<string, number>) => {
+    const trends = [];
+    const sortedDistortions = Object.entries(distortionCounts).sort(([,a], [,b]) => b - a);
+    
+    for (const [distortion, count] of sortedDistortions.slice(0, 5)) {
+      // Calculate trend over time (simple approach)
+      const distortionRecords = records.filter(r => r.distortions?.includes(distortion));
+      const recentCount = distortionRecords.filter(r => {
+        const recordDate = new Date(r.created_at);
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        return recordDate >= threeDaysAgo;
+      }).length;
+      
+      const olderCount = distortionRecords.length - recentCount;
+      const trendDirection = recentCount > olderCount ? 'declining' : 
+                           recentCount < olderCount ? 'improving' : 'stable';
+      
+      trends.push({
+        distortion,
+        trend: trendDirection,
+        change: recentCount - olderCount,
+        frequency: count
+      });
+    }
+    
+    return trends;
+  };
+
+  const analyzeTechniqueEffectiveness = (records: ThoughtRecord[]) => {
+    const techniques = [
+      { name: 'Evidence Analysis', effectiveness: 0, count: 0 },
+      { name: 'Reframing', effectiveness: 0, count: 0 },
+      { name: 'Thought Challenging', effectiveness: 0, count: 0 }
+    ];
+    
+    records.forEach(record => {
+      const moodImprovement = record.mood_after - record.mood_before;
+      
+      // Evidence analysis technique
+      if (record.evidence_for && record.evidence_against) {
+        techniques[0].effectiveness += moodImprovement;
+        techniques[0].count++;
+      }
+      
+      // Reframing technique
+      if (record.reframe && record.reframe.length > 20) {
+        techniques[1].effectiveness += moodImprovement;
+        techniques[1].count++;
+      }
+      
+      // Thought challenging (has distortions identified)
+      if (record.distortions && record.distortions.length > 0) {
+        techniques[2].effectiveness += moodImprovement;
+        techniques[2].count++;
+      }
+    });
+    
+    return techniques.map(tech => ({
+      technique: tech.name,
+      effectiveness: tech.count > 0 ? Math.round((tech.effectiveness / tech.count) * 10) / 10 : 0,
+      confidence: Math.min(tech.count / 5, 1) // Confidence increases with more data
+    })).filter(tech => tech.confidence > 0);
+  };
+
+  const generateProgressAnalysis = (records: ThoughtRecord[], totalMoodImprovement: number) => {
+    const avgImprovement = records.length > 0 ? totalMoodImprovement / records.length : 0;
+    
+    if (avgImprovement >= 2.5) {
+      return 'Harika ilerleme kaydediyorsunuz! CBT tekniklerini etkili şekilde kullanıyorsunuz.';
+    } else if (avgImprovement >= 1.5) {
+      return 'İyi bir ilerleme gösteriyorsunuz. Düşünce kayıtlarınız mood\'unuzu iyileştirmeye yardımcı oluyor.';
+    } else if (avgImprovement >= 0.5) {
+      return 'Düzenli kayıt tutmaya devam edin. Küçük iyileşmeler uzun vadede büyük fark yaratır.';
+    } else {
+      return 'CBT tekniklerini daha etkili kullanmak için rehberlik almayı düşünebilirsiniz.';
+    }
+  };
+
+  const calculateRiskLevel = (records: ThoughtRecord[]): 'low' | 'medium' | 'high' => {
+    const recentRecords = records.slice(0, 5); // Last 5 records
+    
+    if (recentRecords.length === 0) return 'low';
+    
+    const avgMoodBefore = recentRecords.reduce((sum, r) => sum + r.mood_before, 0) / recentRecords.length;
+    const avgImprovement = recentRecords.reduce((sum, r) => sum + (r.mood_after - r.mood_before), 0) / recentRecords.length;
+    
+    if (avgMoodBefore <= 3 || avgImprovement <= 0) return 'high';
+    if (avgMoodBefore <= 5 || avgImprovement <= 1) return 'medium';
+    return 'low';
+  };
+
+  const generateHeuristicInsights = (records: ThoughtRecord[], distortionCounts: Record<string, number>, totalMoodImprovement: number) => {
+    const avgImprovement = records.length > 0 ? totalMoodImprovement / records.length : 0;
+    const topDistortion = Object.entries(distortionCounts).sort(([,a], [,b]) => b - a)[0];
+    
+    const recommendations = [];
+    
+    if (avgImprovement < 1) {
+      recommendations.push('Kanıt analizi aşamasına daha çok zaman ayırın');
+    }
+    
+    if (topDistortion && topDistortion[1] > records.length * 0.5) {
+      recommendations.push(`${topDistortion[0]} çarpıtmasına odaklanın - en sık karşılaştığınız pattern`);
+    }
+    
+    recommendations.push('Düşünce kaydı tutmaya devam edin - tutarlılık iyileşmenin anahtarı');
+    
+    return {
+      distortionTrends: analyzeDistortionTrends(records, distortionCounts),
+      techniqueEffectiveness: analyzeTechniqueEffectiveness(records),
+      progressAnalysis: generateProgressAnalysis(records, totalMoodImprovement),
+      recommendations: recommendations.slice(0, 3),
+      riskLevel: calculateRiskLevel(records),
+      nextFocus: recommendations[0] || 'CBT becerilerinizi geliştirmeye devam edin'
+    };
   };
 
   const onRefresh = async () => {
@@ -462,7 +695,7 @@ export default function CBTScreen() {
                     <View style={styles.recordContent}>
                       <View style={styles.recordHeader}>
                         <Text style={styles.recordTime}>
-                          {new Date(record.created_at || record.timestamp).toLocaleTimeString('tr-TR', {
+                          {new Date(record.created_at).toLocaleTimeString('tr-TR', {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}

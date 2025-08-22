@@ -254,6 +254,8 @@ export default function CheckinBottomSheet({
             route: 'AUTO_SAVE',
             screen: voiceResult.category?.toLowerCase(),
             params: voiceResult.extractedData || {},
+            // ✅ FIXED: Keep the full pipeline result for CBT distortion access
+            pipelineResult: pipelineResult,
           };
         } else {
           // Fallback to legacy analysis if no voice result
@@ -746,18 +748,40 @@ export default function CheckinBottomSheet({
           });
           break;
 
-        case 'CBT':
-          // Navigate to CBT with pre-filled thought
+        case 'CBT': {
+          console.log('🧠 CBT routing with analysis:', analysis);
+          
+          // Extract CBT distortion data if available from UnifiedAIPipeline
+          let cbtDistortions: string[] = [];
+          let cbtConfidence = analysis.confidence || 0.5;
+          
+          // Try to get CBT analysis from the pipeline result
+          if (analysis.pipelineResult?.cbt) {
+            console.log('🎯 CBT data found in pipeline result:', analysis.pipelineResult.cbt);
+            cbtDistortions = analysis.pipelineResult.cbt.distortions || [];
+            cbtConfidence = analysis.pipelineResult.cbt.confidence || analysis.confidence || 0.5;
+          }
+          
+          console.log('🔄 Passing CBT data to screen:', { 
+            distortions: cbtDistortions, 
+            confidence: cbtConfidence,
+            text 
+          });
+          
+          // Navigate to CBT with pre-filled thought and distortion suggestions
           router.push({
             pathname: '/(tabs)/cbt',
             params: { 
               text: text || '', 
               trigger: 'voice',
-              confidence: analysis.confidence,
+              confidence: cbtConfidence.toString(),
+              distortions: JSON.stringify(cbtDistortions),
+              analysisSource: analysis.pipelineResult?.cbt ? 'pipeline' : 'heuristic',
               prefill: 'true'
             },
           });
           break;
+        }
 
         case 'OCD':
           // Navigate to tracking with category pre-selected

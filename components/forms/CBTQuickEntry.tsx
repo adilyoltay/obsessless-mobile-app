@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams } from 'expo-router';
 
 // UI Components removed - using Pressable instead
 
@@ -34,10 +35,11 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
-// CBT Engine & UI Components
+// CBT Engine & AI Services & UI Components
 import { cbtEngine } from '@/features/ai/engines/cbtEngine';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { turkishCBTService } from '@/features/ai/services/turkishCBTService';
 import DistortionBadge, { MultiDistortionAnalysis } from '@/components/ui/DistortionBadge';
 import SocraticQuestions, { InlineSocraticQuestions } from '@/components/ui/SocraticQuestions';
 
@@ -131,6 +133,9 @@ export default function CBTQuickEntry({
   const { user } = useAuth();
   const { t } = useTranslation();
   const { awardMicroReward, updateStreak } = useGamificationStore();
+  
+  // ✅ FIXED: Get voice routing params for distortions
+  const params = useLocalSearchParams();
 
   // Form states
   const [step, setStep] = useState<'thought' | 'distortions' | 'evidence' | 'reframe'>('thought');
@@ -177,6 +182,37 @@ export default function CBTQuickEntry({
             console.log('🎯 Auto-selected distortions:', highConfidenceDistortions);
           }
         }
+        // ✅ FIXED: Handle distortions from voice routing params
+        else if (params.distortions) {
+          try {
+            const voiceDistortions = JSON.parse(params.distortions as string) as string[];
+            console.log('🎤 Voice-detected distortions:', voiceDistortions);
+            
+            // Map Turkish distortion names to component IDs
+            const mappedDistortions = voiceDistortions.map(distortionName => {
+              const mapping: Record<string, string> = {
+                'Felaketleştirme': 'catastrophizing',
+                'Ya Hep Ya Hiç': 'blackWhite', 
+                'Aşırı Genelleme': 'overgeneralization',
+                'Zihin Okuma': 'mindReading',
+                'Etiketleme': 'labeling',
+                'Falcılık': 'fortune_telling',
+                'Kişiselleştirme': 'personalization',
+                'Zihinsel Filtre': 'mentalFilter',
+                'Duygusal Akıl Yürütme': 'emotional_reasoning',
+                '-Meli/-Malı İfadeleri': 'should_statements'
+              };
+              return mapping[distortionName] || distortionName.toLowerCase().replace(/\s+/g, '_');
+            }).filter(id => COGNITIVE_DISTORTIONS.find(d => d.id === id));
+            
+            if (mappedDistortions.length > 0) {
+              setSelectedDistortions(mappedDistortions);
+              console.log('🎯 Auto-selected voice distortions:', mappedDistortions);
+            }
+          } catch (error) {
+            console.warn('Failed to parse voice distortions:', error);
+          }
+        }
         
         // Set mood based on analysis confidence
         if (voiceAnalysisData.confidence) {
@@ -200,71 +236,304 @@ export default function CBTQuickEntry({
     }
   }, [visible, initialThought, initialTrigger, voiceAnalysisData]);
 
-  // Analyze thought for distortions
+  // ✅ FIXED: Analyze thought using Turkish NLP + UnifiedAIPipeline
   const analyzeThought = async () => {
-    if (!thought.trim()) return;
+    if (!thought.trim() || !user?.id) return;
     
     try {
-      // Basit bir analiz yapalım - gerçek AI analizi için CBT Engine'in güncellenmesi gerekir
-      // Şimdilik bazı anahtar kelimelere bakarak çarpıtmaları tespit edebiliriz
-      const lowerThought = thought.toLowerCase();
-      const detectedDistortions: string[] = [];
+      console.log('🧠 Analyzing thought with Turkish NLP + UnifiedAIPipeline:', thought);
       
-      if (lowerThought.includes('her zaman') || lowerThought.includes('hiçbir zaman')) {
-        detectedDistortions.push('overgeneralization');
-      }
-      if (lowerThought.includes('herkes') || lowerThought.includes('kimse')) {
-        detectedDistortions.push('overgeneralization');
-      }
-      if (lowerThought.includes('kesin') || lowerThought.includes('mutlaka')) {
-        detectedDistortions.push('mindReading');
-      }
-      if (lowerThought.includes('felaket') || lowerThought.includes('mahvoldum')) {
-        detectedDistortions.push('catastrophizing');
-      }
-      if (lowerThought.includes('ya hep ya hiç') || lowerThought.includes('tamamen')) {
-        detectedDistortions.push('blackWhite');
-      }
-      if (lowerThought.includes('benim yüzümden') || lowerThought.includes('suçluyum')) {
-        detectedDistortions.push('personalization');
+      // ✅ FIXED: Turkish NLP preprocessing for morphological analysis
+      const turkishAnalysis = turkishCBTService.preprocessTurkishText(thought.trim());
+      console.log('🇹🇷 Turkish NLP Analysis:', turkishAnalysis);
+      
+      // Use UnifiedAIPipeline for comprehensive CBT analysis with Turkish context
+      const pipelineResult = await unifiedPipeline.process({
+        userId: user.id,
+        content: {
+          originalText: thought.trim(),
+          processedText: turkishAnalysis.processedText,
+          turkishPatterns: turkishAnalysis.detectedPatterns,
+          morphology: turkishAnalysis.morphologicalInfo,
+          sentiment: turkishAnalysis.sentiment,
+          intensity: turkishAnalysis.intensity
+        },
+        type: 'data' as const,
+        context: {
+          source: 'cbt' as const,
+          timestamp: Date.now(),
+          metadata: {
+            analysisType: 'thought_analysis',
+            sessionId: `cbt_thought_${Date.now()}`,
+            language: 'tr',
+            turkishNLP: true,
+            morphologicalFeatures: turkishAnalysis.morphologicalInfo
+          }
+        }
+      });
+      
+      console.log('🎯 CBT Pipeline Analysis Result:', pipelineResult);
+      
+      // Extract distortions from pipeline result
+      if (pipelineResult.cbt?.distortions && pipelineResult.cbt.distortions.length > 0) {
+        const detectedDistortions = pipelineResult.cbt.distortions;
+        console.log('✅ AI-detected distortions:', detectedDistortions);
+        
+        // Map pipeline distortions to component IDs (similar to voice mapping)
+        const mappedDistortions = detectedDistortions.map(distortionName => {
+          const mapping: Record<string, string> = {
+            'Felaketleştirme': 'catastrophizing',
+            'catastrophizing': 'catastrophizing',
+            'Ya Hep Ya Hiç': 'blackWhite',
+            'all_or_nothing': 'blackWhite', 
+            'Aşırı Genelleme': 'overgeneralization',
+            'overgeneralization': 'overgeneralization',
+            'Zihin Okuma': 'mindReading',
+            'mind_reading': 'mindReading',
+            'Etiketleme': 'labeling',
+            'labeling': 'labeling',
+            'Falcılık': 'fortune_telling',
+            'fortune_telling': 'jumping_conclusions',
+            'Kişiselleştirme': 'personalization',
+            'personalization': 'personalization',
+            'Zihinsel Filtre': 'mentalFilter',
+            'mental_filter': 'mentalFilter',
+            'Duygusal Akıl Yürütme': 'emotional_reasoning',
+            'emotional_reasoning': 'emotional_reasoning',
+            '-Meli/-Malı İfadeleri': 'should_statements',
+            'should_statements': 'should_statements'
+          };
+          return mapping[distortionName] || distortionName.toLowerCase().replace(/\s+/g, '_');
+        }).filter(id => COGNITIVE_DISTORTIONS.find(d => d.id === id));
+        
+        if (mappedDistortions.length > 0) {
+          setSelectedDistortions(mappedDistortions);
+          console.log('🎯 Auto-selected AI distortions:', mappedDistortions);
+        }
+      } else {
+        console.log('❌ No distortions detected by AI, keeping current selection');
+        // Don't clear existing selections if AI doesn't detect anything
       }
       
-      if (detectedDistortions.length > 0) {
-        setSelectedDistortions(detectedDistortions);
-      }
     } catch (error) {
-      console.warn('CBT analysis failed:', error);
+      console.error('❌ UnifiedAIPipeline CBT analysis failed:', error);
+      
+      // ✅ FIXED: Enhanced Turkish NLP fallback instead of basic heuristic
+      console.log('🔄 Falling back to Turkish NLP-enhanced analysis');
+      
+      let detectedDistortions: string[] = [];
+      
+      try {
+        // Use Turkish NLP preprocessing even in fallback
+        const turkishAnalysis = turkishCBTService.preprocessTurkishText(thought.trim());
+        console.log('🇹🇷 Turkish NLP Fallback Analysis:', turkishAnalysis);
+        
+        // Map Turkish pattern names to component IDs
+        detectedDistortions = turkishAnalysis.detectedPatterns.map(pattern => {
+          const mapping: Record<string, string> = {
+            'catastrophizing': 'catastrophizing',
+            'allOrNothing': 'blackWhite',
+            'shouldStatements': 'should_statements',
+            'overgeneralization': 'overgeneralization',
+            'personalization': 'personalization',
+            'mindReading': 'mindReading',
+            'labeling': 'labeling',
+            'mentalFilter': 'mentalFilter',
+            'emotionalReasoning': 'emotional_reasoning'
+          };
+          return mapping[pattern] || pattern;
+        }).filter(id => COGNITIVE_DISTORTIONS.find(d => d.id === id));
+        
+        // If Turkish NLP detected patterns, use them
+        if (detectedDistortions.length > 0) {
+          console.log('✅ Turkish NLP detected patterns:', detectedDistortions);
+        } else {
+          // Ultimate fallback: basic keyword patterns with Turkish morphology awareness
+          const lowerThought = turkishAnalysis.processedText;
+          
+          // Enhanced patterns considering Turkish morphology
+          const morphologyInfo = turkishAnalysis.morphologicalInfo;
+          
+          // Check for negation patterns (Turkish-specific)
+          const hasNegation = morphologyInfo.negationFound || 
+            ['değil', 'yok', 'olmaz'].some(neg => lowerThought.includes(neg));
+          
+          // Catastrophizing with Turkish intensity
+          if ((lowerThought.includes('felaket') || lowerThought.includes('mahvoldum') || 
+               lowerThought.includes('korkunç') || lowerThought.includes('berbat')) ||
+              (hasNegation && turkishAnalysis.intensity > 0.7)) {
+            detectedDistortions.push('catastrophizing');
+          }
+          
+          // All-or-nothing with Turkish absolute terms
+          if (lowerThought.includes('her zaman') || lowerThought.includes('hiçbir zaman') ||
+              lowerThought.includes('hep') || lowerThought.includes('hiç') ||
+              lowerThought.includes('asla') || lowerThought.includes('mutlaka')) {
+            detectedDistortions.push('overgeneralization');
+            detectedDistortions.push('blackWhite');
+          }
+          
+          // Personalization with Turkish self-blame patterns
+          if (lowerThought.includes('benim yüzümden') || lowerThought.includes('suçluyum') ||
+              lowerThought.includes('kabahat bende') || 
+              (morphologyInfo.selfReferential && hasNegation)) {
+            detectedDistortions.push('personalization');
+          }
+          
+          // Should statements with Turkish modal suffixes
+          if (morphologyInfo.modalSuffixes.length > 0 ||
+              lowerThought.includes('malıyım') || lowerThought.includes('meliyim') ||
+              lowerThought.includes('gerek') || lowerThought.includes('lazım')) {
+            detectedDistortions.push('should_statements');
+          }
+          
+          console.log('🎯 Enhanced Turkish heuristic patterns:', detectedDistortions);
+        }
+        
+      } catch (turkishError) {
+        console.warn('Turkish NLP fallback failed, using basic patterns:', turkishError);
+        
+        // Basic fallback if Turkish NLP also fails
+        const lowerThought = thought.toLowerCase();
+        if (lowerThought.includes('felaket')) detectedDistortions.push('catastrophizing');
+        if (lowerThought.includes('her zaman')) detectedDistortions.push('overgeneralization');
+        if (lowerThought.includes('benim yüzümden')) detectedDistortions.push('personalization');
+      }
+      
+      // Apply detected distortions
+      if (detectedDistortions.length > 0) {
+        // Remove duplicates
+        const uniqueDistortions = [...new Set(detectedDistortions)];
+        setSelectedDistortions(uniqueDistortions);
+        console.log('🎯 Final fallback distortions:', uniqueDistortions);
+      }
     }
   };
 
-  // Generate reframe suggestions
+  // ✅ FIXED: Generate AI-powered reframe suggestions instead of static ones
   const generateReframeSuggestions = async () => {
-    if (!thought.trim()) return;
+    if (!thought.trim() || !user?.id) return;
     
     try {
-      // Basit reframe önerileri
-      const suggestions = [
-        'Bu duruma başka bir açıdan bakmaya ne dersin?',
-        'Kanıtlar gerçekten bu düşünceyi destekliyor mu?',
-        'Bir arkadaşın bu durumda olsaydı ona ne söylerdin?',
-        'Bu düşünce sana yardımcı mı oluyor yoksa engelliyor mu?',
-        'Daha dengeli bir bakış açısı geliştirebilir misin?'
-      ];
+      console.log('🎯 Generating AI reframes for thought:', thought);
       
-      // Çarpıtmalara özel öneriler
-      if (selectedDistortions.includes('overgeneralization')) {
-        suggestions.push('Bu gerçekten HER ZAMAN böyle mi? İstisnaları düşün.');
-      }
-      if (selectedDistortions.includes('catastrophizing')) {
-        suggestions.push('En kötü senaryo gerçekleşme olasılığı nedir?');
-      }
-      if (selectedDistortions.includes('personalization')) {
-        suggestions.push('Bu durumda başka faktörler de rol oynuyor olabilir mi?');
+      let reframeSuggestions: string[] = [];
+      
+      // 1. Try to get reframes from UnifiedAIPipeline (if CBT analysis was done)
+      try {
+        const pipelineResult = await unifiedPipeline.process({
+          userId: user.id,
+          content: {
+            originalThought: thought.trim(),
+            detectedDistortions: selectedDistortions,
+            evidenceFor: evidenceFor.trim(),
+            evidenceAgainst: evidenceAgainst.trim()
+          },
+          type: 'data' as const,
+          context: {
+            source: 'cbt' as const,
+            timestamp: Date.now(),
+            metadata: {
+              analysisType: 'reframe_generation',
+              sessionId: `cbt_reframe_${Date.now()}`,
+              distortionCount: selectedDistortions.length
+            }
+          }
+        });
+        
+        console.log('🎯 Pipeline Reframe Result:', pipelineResult);
+        
+        if (pipelineResult.cbt?.reframes && pipelineResult.cbt.reframes.length > 0) {
+          reframeSuggestions = pipelineResult.cbt.reframes;
+          console.log('✅ AI-generated reframes from pipeline:', reframeSuggestions);
+        }
+      } catch (pipelineError) {
+        console.warn('Pipeline reframe generation failed, trying reframeService:', pipelineError);
       }
       
-      setAiSuggestions(suggestions.slice(0, 3));
+      // 2. Fallback to dedicated reframe service
+      if (reframeSuggestions.length === 0) {
+        try {
+          const { generateReframes } = await import('@/features/ai/services/reframeService');
+          const reframeResults = await generateReframes({ 
+            text: `${thought.trim()}. Çarpıtmalar: ${selectedDistortions.join(', ')}`, 
+            lang: 'tr' 
+          });
+          
+          reframeSuggestions = reframeResults.map(r => r.text);
+          console.log('✅ AI-generated reframes from reframeService:', reframeSuggestions);
+        } catch (serviceError) {
+          console.warn('ReframeService failed, using enhanced heuristic:', serviceError);
+        }
+      }
+      
+      // 3. Enhanced heuristic fallback with distortion-specific reframes
+      if (reframeSuggestions.length === 0) {
+        console.log('🔄 Using enhanced heuristic reframes');
+        
+        const baseReframes = [
+          'Bu düşünceyi destekleyen somut kanıtlar neler?',
+          'Bu durumu başka nasıl yorumlayabilirim?',
+          'En yakın arkadaşım bu durumda ne derdi?'
+        ];
+        
+        // Add distortion-specific reframes
+        const distortionReframes: Record<string, string[]> = {
+          'catastrophizing': [
+            'En kötü senaryo gerçekten bu kadar olası mı?',
+            'Daha az dramatik bir sonuç ne olabilir?'
+          ],
+          'overgeneralization': [
+            'Bu gerçekten HER ZAMAN böyle mi? İstisnaları var mı?',
+            'Geçmişte farklı sonuçlar da yaşadım mı?'
+          ],
+          'blackWhite': [
+            'Bu konuda ara tonlar, gri alanlar olabilir mi?',
+            'Tam karşıtı yerine orta yol ne olabilir?'
+          ],
+          'personalization': [
+            'Bu durumda benden bağımsız faktörler neler?',
+            'Tüm sorumluluk gerçekten bende mi?'
+          ],
+          'mindReading': [
+            'Bu düşünceyi gerçekten bildiğime dair kanıtım var mı?',
+            'Başka açıklamalar da mümkün mü?'
+          ]
+        };
+        
+        selectedDistortions.forEach(distortion => {
+          const specificReframes = distortionReframes[distortion];
+          if (specificReframes) {
+            baseReframes.push(...specificReframes);
+          }
+        });
+        
+        reframeSuggestions = baseReframes.slice(0, 3);
+      }
+      
+      // Ensure we have suggestions and they're properly formatted
+      if (reframeSuggestions.length > 0) {
+        // Limit to 140 characters and ensure Turkish compatibility
+        const formattedSuggestions = reframeSuggestions
+          .slice(0, 3)
+          .map(suggestion => suggestion.length > 140 
+            ? suggestion.substring(0, 137) + '...' 
+            : suggestion)
+          .filter(Boolean);
+        
+        setAiSuggestions(formattedSuggestions);
+        console.log('🎯 Final AI suggestions set:', formattedSuggestions);
+      }
+      
     } catch (error) {
-      console.warn('Reframe generation failed:', error);
+      console.error('❌ All reframe generation methods failed:', error);
+      
+      // Ultimate fallback
+      setAiSuggestions([
+        'Bu düşüncemi daha dengeli nasıl ifade edebilirim?',
+        'Bu durumda objektif kanıtlar neler?',
+        'Kendime nasıl şefkatle yaklaşabilirim?'
+      ]);
     }
   };
 
