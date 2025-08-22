@@ -27,6 +27,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
+import { ocdTriggerDetectionService } from '@/features/ai/services/ocdTriggerDetectionService';
+import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 
 // Types
 interface CompulsionEntry {
@@ -109,6 +111,9 @@ export default function UserCentricOCDDashboard({
 }: UserCentricOCDDashboardProps) {
   const [selectedTab, setSelectedTab] = useState<'journey' | 'patterns' | 'assessment' | 'triggers'>('journey');
   const [ocdJourney, setOCDJourney] = useState<OCDJourney | null>(null);
+  const [triggerAnalysis, setTriggerAnalysis] = useState<any>(null);
+  const [ybocsAIAnalysis, setYBOCSAIAnalysis] = useState<any>(null);
+  const [culturalEncouragement, setCulturalEncouragement] = useState<string>('');
 
   // DEBUG: Log incoming props
   useEffect(() => {
@@ -328,16 +333,66 @@ export default function UserCentricOCDDashboard({
     };
   }, [compulsions, ybocsHistory]);
 
+  // Load real data from services
   useEffect(() => {
-    const journeyData = generateOCDJourneyData;
-    console.log('🎯 Setting OCD Journey Data:', {
-      hasData: !!journeyData,
-      recoveryDays: journeyData?.recoveryStory?.daysInRecovery,
-      compulsionsTracked: journeyData?.recoveryStory?.compulsionsTracked,
-      resistanceGrowth: journeyData?.recoveryStory?.resistanceGrowth
-    });
-    setOCDJourney(journeyData);
-  }, [generateOCDJourneyData]);
+    const loadAllData = async () => {
+      try {
+        // 1. Generate Journey Data
+        const journeyData = generateOCDJourneyData;
+        console.log('🎯 Setting OCD Journey Data:', {
+          hasData: !!journeyData,
+          recoveryDays: journeyData?.recoveryStory?.daysInRecovery,
+          compulsionsTracked: journeyData?.recoveryStory?.compulsionsTracked,
+          resistanceGrowth: journeyData?.recoveryStory?.resistanceGrowth
+        });
+        setOCDJourney(journeyData);
+
+        // 2. Load Trigger Analysis if we have enough data
+        if (compulsions.length >= 2) {
+          console.log('🎯 Loading trigger analysis...');
+          const triggerResult = await ocdTriggerDetectionService.getInstance().detectTriggers(
+            compulsions,
+            userId,
+            'full'
+          );
+          setTriggerAnalysis(triggerResult);
+        }
+
+        // 3. Load Y-BOCS AI Analysis if we have assessments
+        if (ybocsHistory.length > 0) {
+          console.log('📊 Loading Y-BOCS AI analysis...');
+          const ybocsAI = await ybocsAnalysisService.getInstance().analyzeYBOCSHistory(
+            userId,
+            ybocsHistory
+          );
+          setYBOCSAIAnalysis(ybocsAI);
+        }
+
+        // 4. Get culturally adapted encouragement
+        if (compulsions.length > 0) {
+          console.log('🇹🇷 Loading cultural encouragement...');
+          const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
+            userId,
+            compulsions
+          );
+          
+          if (culturalAnalysis.religiousAnalysis.isPresent) {
+            const religiousEncouragement = await turkishOCDCulturalService.generateReligiouslyAdaptedEncouragement(
+              journeyData.recoveryStory,
+              culturalAnalysis
+            );
+            setCulturalEncouragement(religiousEncouragement);
+          } else {
+            setCulturalEncouragement(journeyData.encouragement);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading dashboard data:', error);
+      }
+    };
+
+    loadAllData();
+  }, [generateOCDJourneyData, compulsions, ybocsHistory, userId]);
 
   const renderTabButton = (tab: typeof selectedTab, label: string, icon: string) => (
     <Pressable
@@ -451,7 +506,9 @@ export default function UserCentricOCDDashboard({
             style={styles.encouragementGradient}
           >
             <MaterialCommunityIcons name="heart" size={24} color={COLORS.softAmber} />
-            <Text style={styles.encouragementText}>{ocdJourney.encouragement}</Text>
+            <Text style={styles.encouragementText}>
+              {culturalEncouragement || ocdJourney.encouragement}
+            </Text>
           </LinearGradient>
         </View>
       </ScrollView>
@@ -521,7 +578,8 @@ export default function UserCentricOCDDashboard({
   );
 
   const renderAssessmentTab = () => (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* Y-BOCS History */}
       <View style={styles.assessmentCard}>
         <Text style={styles.assessmentTitle}>📋 Y-BOCS Geçmişi</Text>
         {ybocsHistory.length > 0 ? (
@@ -546,18 +604,164 @@ export default function UserCentricOCDDashboard({
           </Text>
         )}
       </View>
+
+      {/* AI-Enhanced Y-BOCS Analysis */}
+      {ybocsAIAnalysis && (
+        <View style={styles.ybocsAICard}>
+          <Text style={styles.ybocsAITitle}>🧠 Y-BOCS AI Analizi</Text>
+          
+          {/* Progress Trend */}
+          {ybocsAIAnalysis.progressAnalysis && (
+            <View style={styles.progressTrendCard}>
+              <Text style={styles.progressTrendTitle}>📈 İlerleme Trendi</Text>
+              <Text style={styles.progressTrendText}>
+                {ybocsAIAnalysis.progressAnalysis.trend === 'improving' ? '✅' : 
+                 ybocsAIAnalysis.progressAnalysis.trend === 'stable' ? '➡️' : '⚠️'}
+                {' '}
+                {ybocsAIAnalysis.progressAnalysis.description}
+              </Text>
+              {ybocsAIAnalysis.progressAnalysis.improvementRate && (
+                <Text style={styles.improvementRate}>
+                  İyileşme oranı: {ybocsAIAnalysis.progressAnalysis.improvementRate}%
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Cultural Insights */}
+          {ybocsAIAnalysis.culturalInsights && (
+            <View style={styles.culturalInsightsCard}>
+              <Text style={styles.culturalInsightsTitle}>🇹🇷 Kültürel Analiz</Text>
+              <Text style={styles.culturalInsightsText}>
+                {ybocsAIAnalysis.culturalInsights.religiousContext || 
+                 ybocsAIAnalysis.culturalInsights.familyContext || 
+                 'Kişisel durumunuza özel analiz hazırlanıyor...'}
+              </Text>
+            </View>
+          )}
+
+          {/* Severity Patterns */}
+          {ybocsAIAnalysis.severityPatterns?.length > 0 && (
+            <View style={styles.severityPatternsCard}>
+              <Text style={styles.severityPatternsTitle}>📊 Şiddet Desenleri</Text>
+              {ybocsAIAnalysis.severityPatterns.slice(0, 2).map((pattern: any, index: number) => (
+                <Text key={index} style={styles.severityPatternText}>
+                  • {pattern.description || pattern.pattern}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* Next Assessment Recommendation */}
+          {ybocsAIAnalysis.nextAssessmentRecommendation && (
+            <View style={styles.nextAssessmentCard}>
+              <MaterialCommunityIcons name="calendar-clock" size={20} color={COLORS.gentleBlue} />
+              <Text style={styles.nextAssessmentText}>
+                {ybocsAIAnalysis.nextAssessmentRecommendation}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Empty State for Y-BOCS */}
+      {ybocsHistory.length === 0 && (
+        <View style={styles.ybocsEmptyState}>
+          <MaterialCommunityIcons name="clipboard-pulse-outline" size={48} color={COLORS.whisperGray} />
+          <Text style={styles.emptyStateTitle}>İlk Y-BOCS Değerlendirmenizi Yapın</Text>
+          <Text style={styles.emptyStateText}>
+            Standardize Y-BOCS değerlendirmesi ile OKB şiddetinizi takip edin. 
+            AI destekli analiz ile kişiselleştirilmiş insights alın.
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 
   const renderTriggersTab = () => (
-    <ScrollView style={styles.tabContent}>
-      <View style={styles.comingSoonCard}>
-        <MaterialCommunityIcons name="target" size={48} color={COLORS.whisperGray} />
-        <Text style={styles.comingSoonTitle}>Trigger Management</Text>
-        <Text style={styles.comingSoonText}>
-          Trigger analizi ve yönetimi yakında geliyor...
-        </Text>
-      </View>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {triggerAnalysis && triggerAnalysis.triggers?.length > 0 ? (
+        <View style={styles.triggersSection}>
+          <Text style={styles.aiSectionTitle}>🎯 Tespit Edilen Tetikleyiciler</Text>
+          
+          {/* Top Triggers */}
+          <View style={styles.triggerAnalysisContainer}>
+            {triggerAnalysis.triggers.slice(0, 5).map((trigger: any, index: number) => (
+              <View key={index} style={styles.triggerCard}>
+                <View style={styles.triggerHeader}>
+                  <MaterialCommunityIcons 
+                    name="target-variant" 
+                    size={20} 
+                    color={
+                      trigger.impactScore > 7 ? COLORS.softRose :
+                      trigger.impactScore > 4 ? COLORS.softAmber :
+                      COLORS.gentleBlue
+                    } 
+                  />
+                  <View style={styles.triggerInfo}>
+                    <Text style={styles.triggerTitle}>{trigger.trigger}</Text>
+                    <Text style={styles.triggerCategory}>{trigger.category}</Text>
+                  </View>
+                  <View style={styles.triggerStats}>
+                    <Text style={styles.triggerFrequency}>{trigger.frequency}x</Text>
+                    <Text style={styles.triggerImpact}>
+                      İmpact: {trigger.impactScore.toFixed(1)}
+                    </Text>
+                  </View>
+                </View>
+                
+                {trigger.interventionSuggestions?.length > 0 && (
+                  <Text style={styles.triggerSuggestion}>
+                    💡 {trigger.interventionSuggestions[0]}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+
+          {/* Risk Assessment */}
+          {triggerAnalysis.riskAssessment && (
+            <View style={styles.riskAssessmentCard}>
+              <Text style={styles.riskTitle}>⚠️ Risk Değerlendirmesi</Text>
+              <Text style={styles.riskLevel}>
+                Risk Seviyesi: {triggerAnalysis.riskAssessment.riskLevel.toUpperCase()}
+              </Text>
+              <Text style={styles.riskDescription}>
+                {triggerAnalysis.riskAssessment.riskDescription}
+              </Text>
+            </View>
+          )}
+
+          {/* Intervention Recommendations */}
+          {triggerAnalysis.interventionRecommendations?.length > 0 && (
+            <View style={styles.interventionCard}>
+              <Text style={styles.interventionTitle}>🛡️ Önerilen Müdahaleler</Text>
+              {triggerAnalysis.interventionRecommendations.slice(0, 3).map((rec: any, index: number) => (
+                <Text key={index} style={styles.interventionText}>
+                  • {rec.description}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : compulsions.length >= 2 ? (
+        <View style={styles.comingSoonCard}>
+          <MaterialCommunityIcons name="brain" size={48} color={COLORS.whisperGray} />
+          <Text style={styles.comingSoonTitle}>Tetikleyiciler Analiz Ediliyor</Text>
+          <Text style={styles.comingSoonText}>
+            Kompülsiyon verileriniz trigger pattern'leri için analiz ediliyor...
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.comingSoonCard}>
+          <MaterialCommunityIcons name="target" size={48} color={COLORS.whisperGray} />
+          <Text style={styles.comingSoonTitle}>Daha Fazla Veri Gerekli</Text>
+          <Text style={styles.comingSoonText}>
+            Trigger analizi için en az 2 kompülsiyon kaydı gerekiyor. 
+            Takipte kaldıkça desenler ortaya çıkacak!
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 
@@ -933,6 +1137,248 @@ const styles = StyleSheet.create({
     color: COLORS.whisperGray,
     textAlign: 'center',
     marginTop: 8,
+    fontFamily: 'Inter',
+  },
+
+  // Triggers Tab Styles
+  triggersSection: {
+    marginBottom: 24,
+  },
+  triggerAnalysisContainer: {
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  triggerCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.gentleBlue,
+    shadowColor: COLORS.gentleBlue,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  triggerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  triggerInfo: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  triggerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.gentleBlue,
+    fontFamily: 'Inter',
+  },
+  triggerCategory: {
+    fontSize: 12,
+    color: COLORS.whisperGray,
+    fontFamily: 'Inter',
+    textTransform: 'capitalize',
+  },
+  triggerStats: {
+    alignItems: 'flex-end',
+  },
+  triggerFrequency: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.softAmber,
+    fontFamily: 'Inter',
+  },
+  triggerImpact: {
+    fontSize: 11,
+    color: COLORS.whisperGray,
+    fontFamily: 'Inter',
+  },
+  triggerSuggestion: {
+    fontSize: 13,
+    color: COLORS.softEmerald,
+    fontStyle: 'italic',
+    fontFamily: 'Inter',
+    marginTop: 4,
+  },
+  riskAssessmentCard: {
+    backgroundColor: COLORS.warmBeige,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.softAmber,
+  },
+  riskTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.softAmber,
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  riskLevel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  riskDescription: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    lineHeight: 20,
+    fontFamily: 'Inter',
+  },
+  interventionCard: {
+    backgroundColor: COLORS.mintGreen,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.softEmerald,
+  },
+  interventionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.softEmerald,
+    fontFamily: 'Inter',
+    marginBottom: 12,
+  },
+  interventionText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+
+  // Y-BOCS AI Analysis Styles
+  ybocsAICard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  ybocsAITitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.gentleBlue,
+    marginBottom: 16,
+    fontFamily: 'Inter',
+  },
+  progressTrendCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.softEmerald,
+  },
+  progressTrendTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  progressTrendText: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    lineHeight: 20,
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  improvementRate: {
+    fontSize: 13,
+    color: COLORS.softEmerald,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  culturalInsightsCard: {
+    backgroundColor: COLORS.lavenderMist,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.gentleBlue,
+  },
+  culturalInsightsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.gentleBlue,
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  culturalInsightsText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    fontFamily: 'Inter',
+  },
+  severityPatternsCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.softAmber,
+  },
+  severityPatternsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.softAmber,
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  severityPatternText: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    lineHeight: 20,
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  nextAssessmentCard: {
+    backgroundColor: COLORS.therapeuticBlue,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nextAssessmentText: {
+    fontSize: 14,
+    color: COLORS.gentleBlue,
+    fontWeight: '500',
+    fontFamily: 'Inter',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 20,
+  },
+  ybocsEmptyState: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: COLORS.cloudGray,
+    borderStyle: 'dashed',
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+    fontFamily: 'Inter',
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    textAlign: 'center',
+    lineHeight: 20,
     fontFamily: 'Inter',
   },
 });
