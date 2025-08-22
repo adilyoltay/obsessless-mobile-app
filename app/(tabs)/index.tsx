@@ -519,7 +519,7 @@ export default function TodayScreen() {
       
       setTodayStats({
         compulsions: todayCompulsions.length,
-        erpSessions: todayErpSessions.length,
+        // erpSessions: 0, // Removed ERP
         healingPoints: profile.healingPointsToday,
         resistanceWins
       });
@@ -529,7 +529,7 @@ export default function TodayScreen() {
       
       console.log('📊 Today stats updated:', {
         compulsions: todayCompulsions.length,
-        erpSessions: todayErpSessions.length,
+        // erpSessions: 0, // Removed ERP
         healingPoints: profile.healingPointsToday,
         resistanceWins
       });
