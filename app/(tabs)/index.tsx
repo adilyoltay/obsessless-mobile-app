@@ -55,7 +55,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 // import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
 import { BreathworkSuggestionService } from '@/features/ai/services/breathworkSuggestionService';
-import { DynamicGamificationService, DynamicMission } from '@/features/ai/services/dynamicGamificationService';
+import { unifiedGamificationService, UnifiedMission } from '@/features/ai/services/unifiedGamificationService';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -123,7 +123,7 @@ export default function TodayScreen() {
   });
 
   // ✅ AI-Generated Daily Missions State
-  const [aiMissions, setAiMissions] = useState<DynamicMission[]>([]);
+  const [aiMissions, setAiMissions] = useState<UnifiedMission[]>([]);
   const [missionsLoading, setMissionsLoading] = useState(false);
 
 
@@ -314,8 +314,7 @@ export default function TodayScreen() {
 
     try {
       setMissionsLoading(true);
-      const dynamicService = DynamicGamificationService.getInstance();
-      const missions = await dynamicService.generateDailyMissions(user.id);
+      const missions = await unifiedGamificationService.generateUnifiedMissions(user.id);
       setAiMissions(missions);
 
       await trackAIInteraction(AIEventType.GAMIFICATION_MISSIONS_GENERATED, {
