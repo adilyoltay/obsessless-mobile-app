@@ -6,7 +6,7 @@
  * 
  * Cache layers:
  * - Insights: 24 hours
- * - ERP Plans: 12 hours
+
  * - Voice Analysis: 1 hour
  * - Today Digest: 12 hours
  * 

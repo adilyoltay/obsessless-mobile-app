@@ -52,36 +52,36 @@ BEGIN
   END IF;
 END $$;
 
--- 3. Add content_hash column to erp_sessions (if table exists)
+-- 3. (Removed) ERP table content hash index
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions') THEN
+  -- (Removed) ERP sessions table check
     -- Add created_at column if it doesn't exist
-    ALTER TABLE erp_sessions 
+    -- (Removed) erp_sessions ALTER TABLE 
     ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
     
     -- Add updated_at column if it doesn't exist
-    ALTER TABLE erp_sessions 
+    -- (Removed) erp_sessions ALTER TABLE 
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     
     -- Add content_hash column
-    ALTER TABLE erp_sessions 
+    -- (Removed) erp_sessions ALTER TABLE 
     ADD COLUMN IF NOT EXISTS content_hash TEXT;
     
     -- Check if constraint doesn't exist before adding
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'erp_sessions_user_content_unique') THEN
-      ALTER TABLE erp_sessions
-      ADD CONSTRAINT erp_sessions_user_content_unique 
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '(removed)_erp_sessions_user_content_unique') THEN
+      -- (Removed) erp_sessions ALTER TABLE
+      ADD CONSTRAINT (removed)_erp_sessions_user_content_unique 
       UNIQUE (user_id, content_hash);
     END IF;
     
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_hash 
-    ON erp_sessions (content_hash);
+    CREATE INDEX IF NOT EXISTS idx_(removed)_erp_sessions_hash 
+    -- (Removed) ON erp_sessions (content_hash);
     
     -- Index for user and created_at (will be used for date range queries)
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
-      CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_created 
-      ON erp_sessions (user_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_(removed)_erp_sessions_user_created 
+      -- (Removed) ON erp_sessions (user_id, created_at);
     END IF;
   END IF;
 END $$;
@@ -358,7 +358,7 @@ BEGIN
      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'content_hash')
      AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'erp_sessions_content_hash_trigger') THEN
     CREATE TRIGGER erp_sessions_content_hash_trigger
-    BEFORE INSERT OR UPDATE ON erp_sessions
+    BEFORE INSERT OR UPDATE -- (Removed) ON erp_sessions
     FOR EACH ROW
     EXECUTE FUNCTION auto_compute_content_hash();
   END IF;
@@ -436,16 +436,16 @@ BEGIN
   
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'erp_sessions')
      AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user_recent 
-    ON erp_sessions (user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_(removed)_erp_sessions_user_recent 
+    -- (Removed) ON erp_sessions (user_id, created_at DESC);
     
     -- Partial indexes for active/completed sessions
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_active 
-    ON erp_sessions (user_id, created_at DESC) 
+    CREATE INDEX IF NOT EXISTS idx_(removed)_erp_sessions_active 
+    -- (Removed) ON erp_sessions (user_id, created_at DESC) 
     WHERE completed = false;
     
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_completed 
-    ON erp_sessions (user_id, created_at DESC) 
+    CREATE INDEX IF NOT EXISTS idx_(removed)_erp_sessions_completed 
+    -- (Removed) ON erp_sessions (user_id, created_at DESC) 
     WHERE completed = true;
   END IF;
 END $$;

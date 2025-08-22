@@ -2,7 +2,7 @@
  * 📝 Therapeutic Prompts - Advanced Prompt Engineering for Mental Health
  * 
  * Bu sistem, OKB tedavisinde kullanılan kanıta dayalı terapötik yaklaşımları
- * AI prompt'larına dönüştürür. CBT, ERP, mindfulness ve diğer evidence-based
+ * AI prompt'larına dönüştürür. CBT, mindfulness ve diğer evidence-based
  * teknikleri kullanarak context-aware, kişiselleştirilmiş prompt'lar üretir.
  * 
  * ⚠️ CRITICAL: Tüm prompt'lar klinik rehberlere dayalıdır

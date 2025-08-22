@@ -6,7 +6,7 @@
  * 
  * Invalidation triggers:
  * - CBT_THOUGHT_CREATED/UPDATED
- * - ERP_SESSION_COMPLETED
+
  * - YBOCS_UPDATED
  * - ONBOARDING_FINALIZED
  * 

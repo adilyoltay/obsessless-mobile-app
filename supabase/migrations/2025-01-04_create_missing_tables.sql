@@ -1,6 +1,6 @@
 -- Migration: Create missing tables for CoreAnalysisService
 -- Date: 2025-01-04
--- Purpose: Create all necessary tables if they don't exist (voice_checkins, thought_records, erp_sessions, mood_entries, compulsion_records)
+-- Purpose: Create all necessary tables if they don't exist (voice_checkins, thought_records, mood_entries, compulsion_records)
 
 -- 1. Create voice_checkins table if it doesn't exist
 CREATE TABLE IF NOT EXISTS voice_checkins (
