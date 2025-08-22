@@ -110,7 +110,7 @@ describe('DailyJobsManager', () => {
         metrics: {
           compulsionTrend: -0.3, // Decreasing (good)
           moodTrend: 0.2,
-          erpComplianceTrend: 0.6,
+
           resistanceTrend: 0.4, // Increasing (good)
         },
         insights: [],

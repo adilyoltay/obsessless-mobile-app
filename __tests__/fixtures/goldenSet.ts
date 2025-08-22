@@ -8,7 +8,7 @@
 export interface GoldenSetItem {
   id: string;
   input: string;
-  expectedClass: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK' | 'OTHER';
+  expectedClass: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'OTHER';
   expectedConfidence: number; // Expected minimum confidence
   expectedNeedsLLM: boolean;
   expectedRoute: 'OPEN_SCREEN' | 'AUTO_SAVE' | 'SUGGEST_BREATHWORK';
@@ -168,52 +168,11 @@ export const goldenSet: GoldenSetItem[] = [
   },
 
   // ============= ERP Examples =============
-  {
-    id: 'erp-001',
-    input: 'ERP egzersizinde 15 dakika dayandım anksiyetem düştü',
-    expectedClass: 'ERP',
-    expectedConfidence: 0.9,
-    expectedNeedsLLM: false,
-    expectedRoute: 'OPEN_SCREEN',
-    tags: ['success', 'habituation'],
-  },
-  {
-    id: 'erp-002',
-    input: 'Maruz bırakma egzersizini tamamladım çok zorlandım ama başardım',
-    expectedClass: 'ERP',
-    expectedConfidence: 0.85,
-    expectedNeedsLLM: false,
-    expectedRoute: 'OPEN_SCREEN',
-    tags: ['exposure', 'completed'],
-  },
-  {
-    id: 'erp-003',
-    input: 'ERP seansını erken bıraktım dayanamadım',
-    expectedClass: 'ERP',
-    expectedConfidence: 0.8,
-    expectedNeedsLLM: true,
-    expectedRoute: 'OPEN_SCREEN',
-    context: 'Early termination',
-    tags: ['dropout', 'incomplete'],
-  },
-  {
-    id: 'erp-004',
-    input: 'Terapi ödevimi yaptım kirli yüzeye dokundum el yıkamadım',
-    expectedClass: 'ERP',
-    expectedConfidence: 0.75,
-    expectedNeedsLLM: true,
-    expectedRoute: 'OPEN_SCREEN',
-    tags: ['homework', 'contamination'],
-  },
-  {
-    id: 'erp-005',
-    input: 'Bugünkü ERP hedefim kapıyı bir kez kontrol etmek',
-    expectedClass: 'ERP',
-    expectedConfidence: 0.7,
-    expectedNeedsLLM: false,
-    expectedRoute: 'OPEN_SCREEN',
-    tags: ['planning', 'goal'],
-  },
+
+
+
+
+
 
   // ============= BREATHWORK Examples =============
   {
