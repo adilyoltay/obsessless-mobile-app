@@ -25,7 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { turkishOCDCulturalService } from '@/features/ai/services/turkishOCDCulturalService';
+import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
 
 // Types
 interface CompulsionEntry {
