@@ -4,7 +4,7 @@ import { safeStorageKey } from '@/lib/queryClient';
 import NetInfo from '@react-native-community/netinfo';
 import { apiService } from './api';
 import supabaseService from '@/services/supabase';
-import conflictResolver, { DataConflict } from './conflictResolution';
+import { unifiedConflictResolver, UnifiedDataConflict, EntityType } from './unifiedConflictResolver';
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { syncCircuitBreaker } from '@/utils/circuitBreaker';
 import batchOptimizer from '@/services/sync/batchOptimizer';
@@ -206,8 +206,14 @@ export class OfflineSyncService {
       }
     } catch {}
 
-    // Resolve conflicts
-    const resolved = await conflictResolver.resolveConflict('compulsion', item.data, remote);
+          // Resolve conflicts using unified resolver
+      const conflictResult = await unifiedConflictResolver.resolveConflict(
+        'compulsion', 
+        item.data, 
+        remote, 
+        item.data.user_id
+      );
+      const resolved = conflictResult.resultData;
 
     const { default: svc } = await import('@/services/supabase');
     switch (item.type) {
@@ -236,7 +242,13 @@ export class OfflineSyncService {
         try {
           remote = await (svc as any).getERPSession(item.data.id);
         } catch {}
-        const resolved = await conflictResolver.resolveConflict('erp_session', item.data, remote);
+        const conflictResult = await unifiedConflictResolver.resolveConflict(
+          'erp_session', 
+          item.data, 
+          remote, 
+          item.data.user_id
+        );
+        const resolved = conflictResult.resultData;
         await (svc as any).saveERPSession(resolved);
         break;
       }

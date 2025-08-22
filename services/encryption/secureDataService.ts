@@ -105,6 +105,106 @@ class SecureDataService {
     const decoder = new TextDecoder();
     return decoder.decode(buffer);
   }
+  
+  /**
+   * Enhanced encryption with integrity metadata (from dataEncryption.ts)
+   */
+  async encryptSensitiveData(data: any): Promise<{ 
+    encrypted: string; 
+    iv: string; 
+    algorithm: string; 
+    version: number; 
+    hash: string; 
+    timestamp: number 
+  }> {
+    const timestamp = Date.now();
+    
+    try {
+      // Use proper AES-256-GCM encryption
+      const encryptedResult = await this.encryptData(data);
+      
+      // Generate integrity hash for auditability
+      const { SHA } = await import('react-native-simple-crypto');
+      const json = JSON.stringify(data);
+      const integrityHash = await SHA.sha256(json);
+      
+      return {
+        encrypted: encryptedResult.ciphertext,
+        iv: encryptedResult.iv,
+        algorithm: encryptedResult.algorithm,
+        version: encryptedResult.version,
+        hash: integrityHash,
+        timestamp: timestamp
+      };
+      
+    } catch (error) {
+      console.error('❌ AES-256 encryption failed:', error);
+      
+      // Generate fallback hash instead of storing plaintext
+      const { SHA } = await import('react-native-simple-crypto');
+      const json = JSON.stringify(data);
+      const fallbackHash = await SHA.sha256(json);
+      
+      return {
+        encrypted: fallbackHash,
+        iv: '',
+        algorithm: 'SHA256_FALLBACK',
+        version: 0,
+        hash: fallbackHash,
+        timestamp: timestamp
+      };
+    }
+  }
+  
+  /**
+   * Decrypt sensitive data (reverse of encryptSensitiveData)
+   */
+  async decryptSensitiveData(encryptedData: { 
+    encrypted: string; 
+    iv: string; 
+    algorithm: string; 
+    version: number; 
+    hash?: string; 
+    timestamp?: number 
+  }): Promise<any> {
+    if (encryptedData.algorithm === 'SHA256_FALLBACK') {
+      throw new Error('Cannot decrypt hashed data - use SHA256_FALLBACK only as last resort');
+    }
+    
+    try {
+      return await this.decryptData({
+        ciphertext: encryptedData.encrypted,
+        iv: encryptedData.iv,
+        algorithm: encryptedData.algorithm as 'AES-256-GCM',
+        version: encryptedData.version
+      });
+    } catch (error) {
+      console.error('❌ AES-256 decryption failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mask PII data for logging/display (from dataEncryption.ts)
+   */
+  maskPII<T extends Record<string, any>>(data: T): T {
+    const masked: any = { ...data };
+    
+    if (masked.email && typeof masked.email === 'string') {
+      const [local, domain] = masked.email.split('@');
+      masked.email = `${String(local || '').slice(0, 2)}***@${domain || ''}`;
+    }
+    
+    if (masked.name && typeof masked.name === 'string') {
+      masked.name = `${masked.name.slice(0, 1)}***`;
+    }
+    
+    if (masked.phone && typeof masked.phone === 'string') {
+      masked.phone = masked.phone.slice(0, 3) + '****' + masked.phone.slice(-2);
+    }
+    
+    return masked as T;
+  }
 }
 
 export const secureDataService = SecureDataService.getInstance();

@@ -11,10 +11,10 @@ import {
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
 import { 
-  dynamicGamificationService, 
-  DynamicPointsCalculation, 
-  DynamicMission 
-} from '@/features/ai/services/dynamicGamificationService';
+  unifiedGamificationService, 
+  UnifiedPointsCalculation, 
+  UnifiedMission 
+} from '@/features/ai/services/unifiedGamificationService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Achievement definitions based on documentation
@@ -174,8 +174,8 @@ interface GamificationState {
   profile: UserGamificationProfile;
   achievements: AchievementDefinition[];
   lastMicroReward?: MicroReward;
-  lastPointsCalculation?: DynamicPointsCalculation;
-  currentMissions: DynamicMission[];
+  lastPointsCalculation?: UnifiedPointsCalculation;
+  currentMissions: UnifiedMission[];
   isLoading: boolean;
   currentUserId?: string;
   
@@ -186,11 +186,11 @@ interface GamificationState {
   checkAchievements: (type: 'compulsion' | 'erp', data?: any) => Promise<AchievementDefinition[]>;
   awardMicroReward: (trigger: MicroRewardTrigger) => Promise<void>;
   
-  // Dynamic Gamification (NEW - Week 2)
-  awardDynamicPoints: (action: string, context?: any) => Promise<DynamicPointsCalculation>;
-  generateDailyMissions: () => Promise<DynamicMission[]>;
+  // Unified Gamification
+  awardUnifiedPoints: (action: string, context?: any, moduleData?: any) => Promise<UnifiedPointsCalculation>;
+  generateUnifiedMissions: () => Promise<UnifiedMission[]>;
   updateMissionProgress: (missionId: string, increment?: number) => Promise<boolean>;
-  getMissionsForToday: () => DynamicMission[];
+  getMissionsForToday: () => UnifiedMission[];
   
   getStreakInfo: () => StreakInfo;
   saveProfile: () => Promise<void>;
@@ -463,11 +463,11 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
   // DYNAMIC GAMIFICATION METHODS (Week 2)
   // =============================================================================
 
-  awardDynamicPoints: async (action: string, context: any = {}) => {
+  awardUnifiedPoints: async (action: string, context: any = {}, moduleData?: any) => {
     const { currentUserId } = get();
     if (!currentUserId) {
-      console.warn('No userId to award dynamic points.');
-      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['No user ID'] } as DynamicPointsCalculation;
+      console.warn('No userId to award unified points.');
+      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['No user ID'] } as UnifiedPointsCalculation;
     }
 
     if (!FEATURE_FLAGS.isEnabled('AI_DYNAMIC_GAMIFICATION')) {
@@ -479,20 +479,33 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
           basePoints: staticReward.points,
           contextMultipliers: {
             difficultyBonus: 1, streakMultiplier: 1, progressBonus: 1,
-            timingBonus: 1, consistencyBonus: 1, achievementMultiplier: 1
+            timingBonus: 1, consistencyBonus: 1, achievementMultiplier: 1,
+            honestyBonus: 1, improvementBonus: 1, detailBonus: 1
           },
           totalPoints: staticReward.points,
-          reasoning: [`Static reward: ${staticReward.points} points`]
+          reasoning: [`Static reward: ${staticReward.points} points`],
+          breakdown: [{ reason: `Static ${action}`, points: staticReward.points }]
         };
       }
-      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['Feature disabled'] } as DynamicPointsCalculation;
+      return { 
+        basePoints: 0, 
+        contextMultipliers: {
+          difficultyBonus: 1, streakMultiplier: 1, progressBonus: 1,
+          timingBonus: 1, consistencyBonus: 1, achievementMultiplier: 1,
+          honestyBonus: 1, improvementBonus: 1, detailBonus: 1
+        }, 
+        totalPoints: 0, 
+        reasoning: ['Feature disabled'],
+        breakdown: []
+      } as UnifiedPointsCalculation;
     }
 
     try {
-      const pointsCalculation = await dynamicGamificationService.awardDynamicPoints(
+      const pointsCalculation = await unifiedGamificationService.awardUnifiedPoints(
         currentUserId,
         action,
-        context
+        context,
+        moduleData
       );
 
       // Update local state with calculation
@@ -517,15 +530,25 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
 
       return pointsCalculation;
     } catch (error) {
-      console.error('Dynamic points award failed:', error);
-      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['Error occurred'] } as DynamicPointsCalculation;
+      console.error('Unified points award failed:', error);
+      return { 
+        basePoints: 0, 
+        contextMultipliers: {
+          difficultyBonus: 1, streakMultiplier: 1, progressBonus: 1,
+          timingBonus: 1, consistencyBonus: 1, achievementMultiplier: 1,
+          honestyBonus: 1, improvementBonus: 1, detailBonus: 1
+        }, 
+        totalPoints: 0, 
+        reasoning: ['Error occurred'],
+        breakdown: []
+      } as UnifiedPointsCalculation;
     }
   },
 
-  generateDailyMissions: async () => {
+  generateUnifiedMissions: async () => {
     const { currentUserId } = get();
     if (!currentUserId) {
-      console.warn('No userId to generate daily missions.');
+      console.warn('No userId to generate unified missions.');
       return [];
     }
 
@@ -534,14 +557,14 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     }
 
     try {
-      const missions = await dynamicGamificationService.generateDailyMissions(currentUserId);
+      const missions = await unifiedGamificationService.generateUnifiedMissions(currentUserId);
       
       // Update local state with missions
       set({ currentMissions: missions });
 
       return missions;
     } catch (error) {
-      console.error('Daily mission generation failed:', error);
+      console.error('Unified mission generation failed:', error);
       return [];
     }
   },
@@ -554,7 +577,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     }
 
     try {
-      const success = await dynamicGamificationService.updateMissionProgress(
+      const success = await unifiedGamificationService.updateUnifiedMissionProgress(
         currentUserId,
         missionId,
         increment
@@ -575,7 +598,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
             }
           }
           return mission;
-        }).filter(Boolean) as DynamicMission[];
+        }).filter(Boolean) as UnifiedMission[];
 
         set({ currentMissions: updatedMissions });
 
