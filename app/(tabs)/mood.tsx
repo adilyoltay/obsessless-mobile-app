@@ -36,6 +36,8 @@ import { MoodGamificationService } from '@/features/ai/services/moodGamification
 import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
+import { sanitizePII } from '@/utils/privacy';
+import { dataEncryption } from '@/services/dataEncryption';
 
 const { width } = Dimensions.get('window');
 
@@ -156,35 +158,45 @@ export default function MoodScreen() {
       setPatternsLoading(true);
       console.log('🎭 Starting mood pattern analysis via UnifiedAIPipeline...');
 
-      // Convert local MoodEntry to service MoodEntry format
+      // 🔒 Convert and sanitize mood entries for privacy-compliant analysis
       const serviceMoodEntries: ServiceMoodEntry[] = moodEntries.map(entry => ({
         id: entry.id,
         user_id: entry.user_id,
         mood_score: entry.mood_score,
         energy_level: entry.energy_level,
         anxiety_level: entry.anxiety_level,
-        notes: entry.notes,
-        triggers: entry.trigger ? [entry.trigger] : [],
+        notes: entry.notes ? sanitizePII(entry.notes) : entry.notes, // 🔒 Sanitize notes
+        triggers: entry.trigger ? [sanitizePII(entry.trigger)] : [], // 🔒 Sanitize triggers
         activities: [], // Not available in current interface
         timestamp: entry.created_at,
         synced: true,
         sync_attempts: 0
       }));
 
-      // Use UnifiedAIPipeline for comprehensive analysis
+            // 🔒 Encrypt sensitive mood data for privacy-first analysis
+      const sensitivePayload = {
+        moods: serviceMoodEntries,
+        compulsions: [],
+      };
+      
+      const encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+      console.log('🔐 Mood pattern analysis - sensitive data encrypted for privacy');
+      
+      // Use UnifiedAIPipeline for comprehensive analysis with encrypted data
       const pipelineResult = await unifiedPipeline.process({
         userId: user.id,
-        content: {
-          moods: serviceMoodEntries,
-          compulsions: [],
-
-        },
+        content: encryptedPayload,
         type: 'data' as const,
         context: {
           source: 'mood' as const,
           timestamp: Date.now(),
           metadata: {
-            analysisType: 'full'
+            analysisType: 'full',
+            privacy: {
+              encrypted: true,
+              encryptionLevel: encryptedPayload.algorithm === 'SHA256_FALLBACK' ? 'sha256' : 'aes256',
+              sanitized: true
+            }
           }
         }
       });
@@ -194,9 +206,9 @@ export default function MoodScreen() {
       // Extract patterns from pipeline result
       let patterns: any[] = [];
       
-      // 🔄 FIXED: Handle UnifiedAIPipeline patterns object format (temporal/behavioral/environmental)
+      // 🔄 FIXED: Handle UnifiedAIPipeline patterns object format (temporal/behavioral/environmental/mea/correlations)
       if (pipelineResult.patterns && typeof pipelineResult.patterns === 'object') {
-        const patternsObj = pipelineResult.patterns;
+        const patternsObj = pipelineResult.patterns as any; // Allow mea/correlations fields
         
         // Convert UnifiedAIPipeline patterns object to flat array for UI
         const flatPatterns: any[] = [];
@@ -243,8 +255,40 @@ export default function MoodScreen() {
           });
         }
         
+        // 🔄 FIXED: Add MEA correlation patterns (Mood-Energy-Anxiety)
+        if (patternsObj.mea && Array.isArray(patternsObj.mea)) {
+          patternsObj.mea.forEach((pattern: any) => {
+            flatPatterns.push({
+              type: 'mea_correlation',
+              title: `${pattern.primary}-${pattern.secondary} Korelasyonu`,
+              description: `Korelasyon: ${pattern.correlation?.toFixed(2) || 'N/A'}, Güven: ${pattern.confidence?.toFixed(2) || 'N/A'}`,
+              suggestion: pattern.correlation > 0.7 
+                ? `Güçlü pozitif ilişki: ${pattern.primary} arttıkça ${pattern.secondary} da artıyor`
+                : pattern.correlation < -0.7 
+                ? `Güçlü negatif ilişki: ${pattern.primary} arttıkça ${pattern.secondary} azalıyor`
+                : `Orta düzey ilişki tespit edildi`,
+              actionable: Math.abs(pattern.correlation) > 0.5,
+              severity: Math.abs(pattern.correlation) > 0.7 ? 'high' : 'medium'
+            });
+          });
+        }
+        
+        // 🔄 FIXED: Add correlation patterns (alternative key)
+        if (patternsObj.correlations && Array.isArray(patternsObj.correlations)) {
+          patternsObj.correlations.forEach((pattern: any) => {
+            flatPatterns.push({
+              type: 'correlation',
+              title: `Korelasyon: ${pattern.factor1} ↔ ${pattern.factor2}`,
+              description: `R=${pattern.r?.toFixed(2) || pattern.correlation?.toFixed(2)}, p=${pattern.p?.toFixed(3) || 'N/A'}`,
+              suggestion: pattern.interpretation || 'Anlamlı bir ilişki tespit edildi',
+              actionable: Math.abs(pattern.r || pattern.correlation) > 0.5,
+              severity: Math.abs(pattern.r || pattern.correlation) > 0.7 ? 'high' : 'medium'
+            });
+          });
+        }
+        
         patterns = flatPatterns;
-        console.log(`🎯 UnifiedAIPipeline patterns mapped: ${patterns.length} total (${patternsObj.temporal?.length || 0} temporal, ${patternsObj.behavioral?.length || 0} behavioral, ${patternsObj.environmental?.length || 0} environmental)`);
+        console.log(`🎯 UnifiedAIPipeline patterns mapped: ${patterns.length} total (${patternsObj.temporal?.length || 0} temporal, ${patternsObj.behavioral?.length || 0} behavioral, ${patternsObj.environmental?.length || 0} environmental, ${patternsObj.mea?.length || 0} MEA, ${patternsObj.correlations?.length || 0} correlations)`);
         
       } else if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
         // Legacy array format support (just in case)
@@ -253,11 +297,40 @@ export default function MoodScreen() {
       } else {
         // Fallback to direct service call if pipeline doesn't have patterns
         console.log('📝 Fallback: Using direct moodPatternAnalysisService');
-        patterns = await moodPatternAnalysisService.analyzeMoodPatterns(
+        const servicePatterns = await moodPatternAnalysisService.analyzeMoodPatterns(
           serviceMoodEntries,
           user.id,
           'full'
         );
+        
+        // 🔄 FIXED: Map service pattern types (trigger & weekly_cycle) to UI-compatible format
+        patterns = servicePatterns.map((pattern: any) => {
+          // Handle different pattern types from service
+          if (pattern.type === 'trigger') {
+            return {
+              type: 'trigger',
+              title: `Tetikleyici Pattern: ${pattern.trigger || pattern.name}`,
+              description: `Mood etkisi: ${pattern.impact || pattern.averageImpact || 'Belirsiz'}, Sıklık: ${pattern.frequency || pattern.count || 0}`,
+              suggestion: pattern.suggestion || `${pattern.trigger || pattern.name} tetikleyicisine dikkat edin`,
+              actionable: true,
+              severity: (pattern.impact || pattern.averageImpact || 0) < -20 ? 'high' : 'medium'
+            };
+          } else if (pattern.type === 'weekly_cycle') {
+            return {
+              type: 'weekly_cycle',
+              title: `Haftalık Cycle: ${pattern.day || pattern.dayOfWeek || 'Belirsiz gün'}`,
+              description: `Ortalama mood: ${pattern.averageMood || pattern.mood || 'N/A'}, Pattern: ${pattern.pattern || pattern.trend || 'Stabil'}`,
+              suggestion: pattern.suggestion || 'Haftalık mood patternınızı takip edin',
+              actionable: true,
+              severity: (pattern.averageMood || pattern.mood || 50) < 40 ? 'high' : 'medium'
+            };
+          } else {
+            // Keep existing pattern format for backwards compatibility
+            return pattern;
+          }
+        });
+        
+        console.log(`📝 Service patterns mapped: ${patterns.length} total (${servicePatterns.filter((p: any) => p.type === 'trigger').length} trigger, ${servicePatterns.filter((p: any) => p.type === 'weekly_cycle').length} weekly_cycle, ${servicePatterns.filter((p: any) => !['trigger', 'weekly_cycle'].includes(p.type)).length} other)`);
       }
 
       setMoodPatterns(patterns);
@@ -294,15 +367,15 @@ export default function MoodScreen() {
       setPredictiveLoading(true);
       console.log('🔮 Starting predictive mood intervention analysis...');
 
-      // Convert to service format for UnifiedAIPipeline
+      // 🔒 Convert and sanitize mood entries for privacy-compliant predictive analysis
       const serviceMoodEntries = moodEntries.map(entry => ({
         id: entry.id,
         user_id: entry.user_id,
         mood_score: entry.mood_score,
         energy_level: entry.energy_level,
         anxiety_level: entry.anxiety_level,
-        notes: entry.notes,
-        triggers: entry.trigger ? [entry.trigger] : [],
+        notes: entry.notes ? sanitizePII(entry.notes) : entry.notes, // 🔒 Sanitize notes
+        triggers: entry.trigger ? [sanitizePII(entry.trigger)] : [], // 🔒 Sanitize triggers
         activities: [],
         timestamp: entry.created_at,
         synced: true,
@@ -317,11 +390,12 @@ export default function MoodScreen() {
         timestamp: moodEntries[0].created_at
       } : undefined;
 
-      // Call UnifiedAIPipeline predictive intervention
+      // 🔒 Call UnifiedAIPipeline predictive intervention with privacy-compliant data
+      console.log('🔐 Predictive mood intervention - using sanitized data for privacy compliance');
       const interventionResult = await unifiedPipeline.predictMoodIntervention(
         user.id,
-        serviceMoodEntries.slice(-10), // Last 10 entries for trend analysis
-        currentMoodState
+        serviceMoodEntries.slice(-10), // Last 10 entries for trend analysis (already sanitized)
+        currentMoodState // Only contains numerical mood/energy/anxiety data
       );
 
       console.log('🔮 Predictive intervention result:', interventionResult);
