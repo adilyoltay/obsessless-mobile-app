@@ -590,7 +590,7 @@ export default function MoodScreen() {
           })}
         </Text>
 
-        {/* Summary Stats Card - Matching OCD/ERP Design */}
+        {/* Summary Stats Card - Matching OCD Design */}
         <View style={styles.weekStatsCard}>
           <View style={styles.weekStatsHeader}>
             <View>

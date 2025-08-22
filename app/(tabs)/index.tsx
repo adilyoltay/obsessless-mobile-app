@@ -294,7 +294,7 @@ export default function TodayScreen() {
         content: {
           compulsions: allCompulsions,
           moods: [], // Will be loaded if needed
-          erpSessions: [], // Will be loaded if needed  
+          // erpSessions: [], // Removed ERP  
         },
         type: 'mixed',
         context: {

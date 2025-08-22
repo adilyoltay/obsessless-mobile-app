@@ -6,7 +6,7 @@ export type CheckinRecord = {
   lang: 'tr' | 'en';
   inputType: 'stt' | 'keyboard';
   nlu: { mood: number; trigger: string; confidence: number };
-  route: 'ERP' | 'REFRAME';
+  route: 'REFRAME';
   meta?: { durationSec?: number; wordsCount?: number; sttConfidence?: number };
 };
 

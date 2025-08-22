@@ -113,10 +113,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const scheduleERPReminder = async (): Promise<void> => {
-    if (!isEnabled) return;
-    await messagingService.sendERPReminder();
-  };
+  // (Removed) scheduleERPReminder function
 
   const scheduleDailyReminder = async (hour: number = 20, minute: number = 0): Promise<void> => {
     if (!isEnabled) return;
