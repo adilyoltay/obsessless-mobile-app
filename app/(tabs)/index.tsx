@@ -43,7 +43,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 // Storage utility & Privacy & Encryption
 import { StorageKeys } from '@/utils/storage';
 import { sanitizePII } from '@/utils/privacy';
-import { dataEncryption } from '@/services/dataEncryption';
+import { secureDataService } from '@/services/encryption/secureDataService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // AI Integration - Sprint 7 via Context
@@ -387,7 +387,7 @@ export default function TodayScreen() {
       
       let encryptedPayload;
       try {
-        encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+        encryptedPayload = await secureDataService.encryptSensitiveData(sensitivePayload);
         
         // ✅ FIXED: Log integrity metadata for auditability (as promised in docs)
         console.log('🔐 Sensitive AI payload encrypted with AES-256');
