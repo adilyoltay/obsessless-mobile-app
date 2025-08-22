@@ -279,7 +279,7 @@ const processOCDAnalysis = async (compulsionData: any[]) => {
   const sanitizedData = sanitizePII(compulsionData);
   
   // AES-256 Encryption
-  const encryptedPayload = await dataEncryption.encrypt(sanitizedData);
+  const encryptedPayload = await secureDataService.encryptSensitiveData(sanitizedData);
   
   // UnifiedAIPipeline call
   const analysis = await unifiedPipeline.process({
