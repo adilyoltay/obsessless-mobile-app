@@ -1520,7 +1520,7 @@ export class UnifiedAIPipeline {
   private getEnabledModules(): string[] {
     const modules = [];
     if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) modules.push('voice');
-    if (FEATURE_FLAGS.isEnabled('AI_PATTERN_RECOGNITION')) modules.push('patterns');
+    if (FEATURE_FLAGS.isEnabled('AI_PATTERN_RECOGNITION_V2')) modules.push('patterns');
     if (FEATURE_FLAGS.isEnabled('AI_INSIGHTS_ENGINE_V2')) modules.push('insights');
     if (FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE')) modules.push('cbt');
     return modules;
@@ -1699,8 +1699,8 @@ export class UnifiedAIPipeline {
       this.invalidateUserCache('patterns');
     });
     
-    // Hook: Terapi session completed
-    this.invalidationHooks.set('therapy_completed', () => {
+    // Hook: CBT thought record created/updated
+    this.invalidationHooks.set('cbt_record_added', () => {
       this.invalidateUserCache('insights');
     });
     
@@ -1713,6 +1713,9 @@ export class UnifiedAIPipeline {
     this.invalidationHooks.set('manual_refresh', () => {
       this.cache.clear();
     });
+    
+    // REMOVED: therapy_completed - ERP module deleted
+    // REMOVED: erp_completed - ERP module deleted
   }
   
   public triggerInvalidation(hook: string, userId?: string): void {

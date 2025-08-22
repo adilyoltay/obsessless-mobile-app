@@ -21,7 +21,6 @@ import { Card } from '@/components/ui/Card';
 import { Toast } from '@/components/ui/Toast';
 
 // Services
-import { unifiedVoiceAnalysis } from '@/features/ai/services/checkinService';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -39,6 +38,73 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 import { prepareAutoRecord, saveAutoRecord, shouldShowAutoRecord } from '@/services/autoRecordService';
 
 const { width } = Dimensions.get('window');
+
+/**
+ * Generate basic heuristic analysis when UnifiedAIPipeline fails
+ */
+function generateHeuristicAnalysis(text: string) {
+  const lowerText = text.toLowerCase();
+  
+  // Simple keyword-based classification
+  const moodKeywords = ['mutlu', 'üzgün', 'yorgun', 'iyi', 'kötü', 'harika', 'berbat', 'mükemmel', 'mood', 'hissediyorum'];
+  const ocdKeywords = ['kompulsiyon', 'takıntı', 'kontrol', 'temizlik', 'yıkama', 'sayma', 'düzen', 'simetri'];
+  const cbtKeywords = ['düşünce', 'olumsuz', 'kaygı', 'endişe', 'korku', 'çarpıtma', 'yanlış', 'doğru'];
+  const breathworkKeywords = ['nefes', 'sakin', 'rahatlama', 'stres', 'gergin', 'soluk'];
+  
+  // Count keyword matches
+  const moodCount = moodKeywords.filter(keyword => lowerText.includes(keyword)).length;
+  const ocdCount = ocdKeywords.filter(keyword => lowerText.includes(keyword)).length;
+  const cbtCount = cbtKeywords.filter(keyword => lowerText.includes(keyword)).length;
+  const breathworkCount = breathworkKeywords.filter(keyword => lowerText.includes(keyword)).length;
+  
+  // Determine type based on highest count
+  let type = 'MOOD'; // default
+  let confidence = 0.3; // low confidence for heuristic
+  let maxCount = moodCount;
+  
+  if (ocdCount > maxCount) {
+    type = 'OCD';
+    maxCount = ocdCount;
+  }
+  if (cbtCount > maxCount) {
+    type = 'CBT';
+    maxCount = cbtCount;
+  }
+  if (breathworkCount > maxCount) {
+    type = 'BREATHWORK';
+    maxCount = breathworkCount;
+  }
+  
+  // Adjust confidence based on matches
+  confidence = Math.min(0.6, 0.3 + (maxCount * 0.1));
+  
+  // Generate basic mood score (neutral default)
+  const mood = Math.max(1, Math.min(10, 5 + (maxCount - 2))); // 1-10 range, neutral=5
+  
+  // Generate simple trigger text
+  let trigger = 'general';
+  if (type === 'OCD') trigger = 'compulsion_detected';
+  else if (type === 'CBT') trigger = 'negative_thought';
+  else if (type === 'BREATHWORK') trigger = 'anxiety_detected';
+  else if (type === 'MOOD') trigger = 'mood_expression';
+  
+  return {
+    type,
+    confidence,
+    mood,
+    trigger,
+    route: 'SUGGEST_SCREEN',
+    params: { 
+      source: 'voice_heuristic_fallback',
+      text: text.substring(0, 100) // Truncate for safety
+    },
+    metadata: {
+      source: 'heuristic_fallback',
+      processingTime: 0,
+      keywordMatches: { moodCount, ocdCount, cbtCount, breathworkCount }
+    }
+  };
+}
 
 interface CheckinBottomSheetProps {
   isVisible: boolean;
@@ -193,15 +259,22 @@ export default function CheckinBottomSheet({
           throw new Error('No voice analysis result from UnifiedAIPipeline');
         }
       } catch (error) {
-        console.warn('🚨 UnifiedAIPipeline failed, using legacy analysis:', error);
-        console.log('📝 Using legacy unifiedVoiceAnalysis');
-        try {
-          // unifiedVoiceAnalysis sadece text parametresi alıyor
-          analysis = await unifiedVoiceAnalysis(res.text || '');
-        } catch (analysisError) {
-          console.error('🔴 unifiedVoiceAnalysis failed:', analysisError);
-          throw analysisError;
-        }
+        console.error('🚨 UnifiedAIPipeline failed:', error);
+        
+        // UnifiedAIPipeline ONLY - no legacy fallback
+        // Generate minimal heuristic analysis as fallback
+        console.log('📝 Generating heuristic fallback analysis');
+        
+        const fallbackAnalysis = generateHeuristicAnalysis(res.text || '');
+        analysis = fallbackAnalysis;
+        
+        // Track pipeline failure
+        await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
+          userId: user?.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          fallbackUsed: true,
+          timestamp: Date.now()
+        });
       }
       
       console.log('🎯 Voice Analysis Result:', JSON.stringify(analysis, null, 2));

@@ -29,7 +29,7 @@
   - **24 Saat Cache**: TTL bazlı önbellekleme
   - **Paralel İşleme**: Tüm analizler paralel
   - **Invalidation Hooks**: Akıllı cache temizleme
-  - **Gradual Rollout**: %10→%50→%100 kademeli açılım
+  - **Full Rollout**: %100 aktif - tüm kullanıcılar
 - **Performans**: %80 daha az API çağrısı, %85 daha hızlı yanıt
 
 ### 📊 Insights Coordinator (Orchestration Hub)
@@ -227,7 +227,7 @@ Legacy categories removed from runtime and codebase:
    - Assessments
 
 2. **Behavioral Data**
-   - ERP sessions
+   - CBT sessions
    - Resistance wins
    - App interactions
    - Time patterns
@@ -273,11 +273,11 @@ Legacy categories removed from runtime and codebase:
    - Trend indicators
    - Achievements
 
-3. **ERP Section**
-   - Exercise recommendations
-   - Difficulty indicators
-   - Personalized instructions
-   - Progress tracking
+3. **~~ERP Section~~ (REMOVED)**
+   - ~~Exercise recommendations~~
+   - ~~Difficulty indicators~~
+   - ~~Personalized instructions~~
+   - ~~Progress tracking~~
 
 4. **Notifications**
    - System notifications (non-crisis)
@@ -379,7 +379,7 @@ Legacy categories removed from runtime and codebase:
 | **Today Screen** | Insights, Pattern Recognition, Breathwork Suggestions | Orta (3-4s) | Yüksek |
 | **CBT** | Cognitive Distortion Detection, Reframing, External AI | Orta (2-3s) | Yüksek |
 | **OCD/Tracking** | Pattern Recognition v2, Trend Analysis | Düşük (1-2s) | Orta |
-| **ERP** | Recommendations, Adaptive Sessions, Progress Tracking | Yüksek (3-4s) | Yüksek |
+| **~~ERP~~** | ~~Recommendations, Adaptive Sessions, Progress Tracking~~ | ~~Yüksek (3-4s)~~ | **REMOVED** |
 | **Breathwork** | Smart Triggering, Protocol Selection | Düşük (<1s) | Düşük |
 
 ## Summary of Changes Made

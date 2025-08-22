@@ -57,10 +57,10 @@ graph TB
         
         subgraph "📚 Therapy Recommendation - Working"
             THERAPY_REC["Therapy<br/>Recommendations"]
-            ERP_REC --> USER_PROFILE["User Profile<br/>Analysis"]
-            ERP_REC --> TREATMENT_PLAN["Treatment Plan<br/>Alignment"]
-            ERP_REC --> DIFFICULTY_CALC["Difficulty<br/>Calculation"]
-            ERP_REC --> PERSONALIZATION["Exercise<br/>Personalization"]
+            THERAPY_REC --> USER_PROFILE["User Profile<br/>Analysis"]
+            THERAPY_REC --> TREATMENT_PLAN["Treatment Plan<br/>Alignment"]
+            THERAPY_REC --> DIFFICULTY_CALC["Difficulty<br/>Calculation"]
+            THERAPY_REC --> PERSONALIZATION["Exercise<br/>Personalization"]
         end
         
         subgraph "🧬 Treatment Planning - Working"
@@ -75,14 +75,14 @@ graph TB
         end
         
         ADAPTIVE_INT --> SMART_NOTIF
-        ERP_REC --> TREATMENT_PLAN_ENG
+        THERAPY_REC --> TREATMENT_PLAN_ENG
         TREATMENT_PLAN_ENG --> ADAPTIVE_INT
         
         subgraph "📊 Data Flow - Working"
             USER_DATA["User Data<br/>(Compulsions, Moods, etc.)"]
             USER_DATA --> AI_CONTEXT
             
-            BEHAVIORAL_DATA["Behavioral Data<br/>(ERP, Resistance)"]
+            BEHAVIORAL_DATA["Behavioral Data<br/>(CBT, Resistance)"]
             BEHAVIORAL_DATA --> INSIGHTS_COORD
             
             TELEMETRY["AI Telemetry<br/>(Background)"]
@@ -97,11 +97,11 @@ graph TB
             
             
             ADAPTIVE_INT --> INTERVENTION_CARDS["Intervention<br/>Cards"]
-            ERP_REC --> EXERCISE_LIST["Exercise<br/>Recommendations"]
+            THERAPY_REC --> EXERCISE_LIST["Exercise<br/>Recommendations"]
         end
         
         subgraph "🚀 Status Summary & Performance"
-            STATUS["✅ UnifiedAIPipeline: ACTIVE v1.0<br/>✅ LLM Gating: %70 API reduction<br/>✅ Progressive UI: <500ms → 3s<br/>✅ Cache Hit Rate: %45<br/>✅ Token Savings: %60<br/>❌ AI Chat: DISABLED<br/>❌ Crisis: REMOVED<br/>🔒 Art Therapy: Disabled<br/>❌ CoreAnalysisService: DEPRECATED<br/><br/>✅ PERFORMANS İYİLEŞTİRMELERİ:<br/>• İlk yanıt: <500ms (was 3-5s)<br/>• API çağrıları: -%70<br/>• Token tasarrufu: %60<br/>• Alakalı insights: %50+<br/>• Tek giriş noktası: 100% unified"]
+            STATUS["✅ UnifiedAIPipeline: ACTIVE v1.0 (100% rollout)<br/>✅ CoreAnalysisService: ACTIVE v1.0<br/>✅ LLM Gating: %70 API reduction<br/>✅ Progressive UI: <500ms → 3s<br/>✅ Cache Hit Rate: %45<br/>✅ Token Savings: %60<br/>❌ AI Chat: DISABLED<br/>❌ Crisis: REMOVED<br/>🔒 Art Therapy: Disabled<br/>❌ ERP Module: REMOVED<br/><br/>✅ PERFORMANS İYİLEŞTİRMELERİ:<br/>• İlk yanıt: <500ms (was 3-5s)<br/>• API çağrıları: -%70<br/>• Token tasarrufu: %60<br/>• Alakalı insights: %50+<br/>• Tek giriş noktası: 100% unified"]
         end
     end
     

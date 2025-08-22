@@ -40,9 +40,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
 
-// Storage utility & Privacy
+// Storage utility & Privacy & Encryption
 import { StorageKeys } from '@/utils/storage';
 import { sanitizePII } from '@/utils/privacy';
+import { dataEncryption } from '@/services/dataEncryption';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // AI Integration - Sprint 7 via Context
@@ -74,8 +75,11 @@ export default function TodayScreen() {
   // Breathwork suggestion state
   const [breathworkSuggestion, setBreathworkSuggestion] = useState<{
     show: boolean;
-    trigger: 'morning' | 'evening' | 'high_anxiety' | 'post_compulsion' | 'general';
+    trigger: string;
+    protocol?: string;
+    urgency?: string;
     anxietyLevel?: number;
+    originalSuggestion?: any; // Store the full BreathworkSuggestion for advanced features
   } | null>(null);
   const [snoozedUntil, setSnoozedUntil] = useState<Date | null>(null);
   
@@ -235,22 +239,29 @@ export default function TodayScreen() {
       const breathworkService = new BreathworkSuggestionService(user.id);
       const suggestion = await breathworkService.generateSuggestion(contextData);
       
-      if (suggestion && suggestion.show) {
-        console.log('🌬️ AI Breathwork suggestion generated:', suggestion.trigger);
+      if (suggestion) {
+        // Convert BreathworkSuggestion to UI-compatible format
+        const triggerType = suggestion.trigger?.type || 'general';
+        const displayTrigger = suggestion.trigger?.reason || triggerType;
+        
+        console.log('🌬️ AI Breathwork suggestion generated:', displayTrigger);
         
         setBreathworkSuggestion({
-          show: true,
-          trigger: suggestion.trigger as any,
-          anxietyLevel: suggestion.anxietyLevel,
+          show: true, // If suggestion exists, show it
+          trigger: displayTrigger,
+          protocol: suggestion.protocol?.name,
+          urgency: suggestion.urgency,
+          anxietyLevel: contextData.anxietyLevel,
+          originalSuggestion: suggestion, // Store full object for advanced features
         });
         
         // Track AI breathwork suggestion
         await trackAIInteraction(AIEventType.BREATHWORK_SUGGESTION_GENERATED, {
           userId: user.id,
-          trigger: suggestion.trigger,
-          anxietyLevel: suggestion.anxietyLevel,
-          confidence: suggestion.confidence,
-          protocol: suggestion.protocol
+          trigger: triggerType,
+          urgency: suggestion.urgency,
+          protocol: suggestion.protocol?.name || 'unknown',
+          anxietyLevel: contextData.anxietyLevel || 0,
         });
       } else {
         console.log('🚫 No breathwork suggestion needed at this time');
@@ -301,21 +312,34 @@ export default function TodayScreen() {
         category: c.category
       }));
       
-      // Call Unified Pipeline with sanitized data
+      // ✅ ENCRYPT sensitive AI payload data (not just sanitize)
+      const sensitivePayload = {
+        compulsions: sanitizedCompulsions,
+        moods: [], // Will be loaded if needed (also sanitized)
+        // erpSessions: [], // Removed ERP module
+      };
+      
+      let encryptedPayload;
+      try {
+        encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+        console.log('🔐 Sensitive AI payload encrypted with AES-256');
+      } catch (error) {
+        console.warn('⚠️ Encryption failed, using sanitized data:', error);
+        encryptedPayload = sensitivePayload; // fallback to sanitized data
+      }
+      
+      // Call Unified Pipeline with encrypted data
       const result = await unifiedPipeline.process({
         userId: user.id, // User ID is hashed in pipeline for privacy
-        content: {
-          compulsions: sanitizedCompulsions,
-          moods: [], // Will be loaded if needed (also sanitized)
-          // erpSessions: [], // Removed ERP module
-        },
+        content: encryptedPayload,
         type: 'mixed',
         context: {
           source: 'today',
           timestamp: Date.now(),
           privacy: {
             piiSanitized: true,
-            encryptionLevel: 'standard'
+            encryptionLevel: encryptedPayload.algorithm ? 'aes256' : 'sanitized',
+            encrypted: !!encryptedPayload.algorithm
           }
         }
       });
@@ -355,18 +379,94 @@ export default function TodayScreen() {
   };
 
   /**
-   * 🤖 Load AI Insights with Progressive UI
+   * 🤖 Load AI Insights with Progressive UI (Restored)
    */
   const loadAIInsights = async () => {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
       return;
     }
     
-    // Always use Unified Pipeline (100% rollout - Jan 2025)
-    await loadUnifiedPipelineData();
-    return;
+    if (!FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE')) {
+      // Fall back to single call if Progressive UI disabled
+      await loadUnifiedPipelineData();
+      return;
+    }
+
+    try {
+      setAiInsightsLoading(true);
+      
+      // PHASE 1: Immediate Insights (<500ms)
+      // Load from cache or generate quick heuristic insights
+      const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
+      
+      try {
+        // Try to get cached insights first
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          setAiInsights(cachedData.insights || []);
+          setInsightsSource('cache');
+          setInsightsConfidence(cachedData.confidence || 0.7);
+          console.log('✅ Phase 1: Loaded insights from cache');
+        } else {
+          // Generate immediate heuristic insights
+          const quickInsights = await generateQuickInsights();
+          setAiInsights(quickInsights);
+          setInsightsSource('heuristic');
+          setInsightsConfidence(0.6);
+          console.log('✅ Phase 1: Generated heuristic insights');
+        }
+      } catch (error) {
+        console.warn('⚠️ Phase 1 failed, continuing to Phase 2:', error);
+      }
+      
+      // PHASE 2: Deep Analysis (Background, 3s delay)
+      setTimeout(async () => {
+        try {
+          console.log('🚀 Phase 2: Starting deep analysis...');
+          await loadUnifiedPipelineData();
+          setHasDeepInsights(true);
+          console.log('✅ Phase 2: Deep insights loaded');
+        } catch (error) {
+          console.warn('⚠️ Phase 2 deep analysis failed:', error);
+        }
+      }, 3000);
+      
+    } finally {
+      setAiInsightsLoading(false);
+    }
+  };
+  
+  /**
+   * Generate quick heuristic insights for Phase 1
+   */
+  const generateQuickInsights = async (): Promise<any[]> => {
+    const quickInsights = [];
     
-    // Legacy Progressive UI code removed - UnifiedAIPipeline handles all cases now
+    // Basic motivation message
+    quickInsights.push({
+      text: "Bugün mücadelene devam etmeye hazır mısın? Güçlü olduğunu unutma!",
+      category: 'motivation',
+      priority: 'medium'
+    });
+    
+    // Time-based insights
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      quickInsights.push({
+        text: "Günaydın! Bugünü güçlü bir başlangıçla karşılıyorsun.",
+        category: 'daily',
+        priority: 'low'
+      });
+    } else if (hour > 18) {
+      quickInsights.push({
+        text: "Bugün nasıl geçti? Nefes alma egzersizleri rahatlatabilir.",
+        category: 'evening',
+        priority: 'medium'
+      });
+    }
+    
+    return quickInsights;
   };
 
   const onRefresh = async () => {
@@ -929,6 +1029,8 @@ export default function TodayScreen() {
         {breathworkSuggestion?.show && (
           <BreathworkSuggestionCard
             trigger={breathworkSuggestion.trigger}
+            protocol={breathworkSuggestion.protocol}
+            urgency={breathworkSuggestion.urgency}
             anxietyLevel={breathworkSuggestion.anxietyLevel}
             onDismiss={() => setBreathworkSuggestion(null)}
             onSnooze={() => {
