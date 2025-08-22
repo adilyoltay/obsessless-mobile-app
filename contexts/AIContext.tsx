@@ -776,24 +776,25 @@ export function AIProvider({ children }: AIProviderProps) {
       const allCompulsions = compulsionsRaw ? JSON.parse(compulsionsRaw) : [];
       const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
 
-      const erpKey = `erp_sessions_${safeStorageKey(user.id)}_${today}`;
-      const erpRaw = await AsyncStorage.getItem(erpKey);
-      const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
+      // ERP sessions removed - no longer needed
+      // const erpKey = `erp_sessions_${safeStorageKey(user.id)}_${today}`;
+      // const erpRaw = await AsyncStorage.getItem(erpKey);
+      // const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
 
       const compulsions = dbCompulsions.length ? dbCompulsions : todayCompulsions;
-      const erpSessions = dbErpSessions.length ? dbErpSessions : todayErpSessions;
+      // ERP sessions removed - no longer using erpSessions
 
       const behavioralData = {
         compulsions,
         moods: [],
-        exercises: erpSessions,
+        exercises: [], // ERP sessions removed
         achievements: [],
         assessments: []
       };
 
       // Veri yeterlilik guard'ı
       const hasProfile = !!userProfile;
-      const interactionsCount = (compulsions?.length || 0) + (erpSessions?.length || 0);
+      const interactionsCount = (compulsions?.length || 0); // ERP sessions removed
       if (!hasProfile || interactionsCount === 0) {
         try {
           await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
