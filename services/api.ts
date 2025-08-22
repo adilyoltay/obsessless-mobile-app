@@ -91,25 +91,7 @@ export const apiService = {
     },
   },
 
-  // ERP exercises endpoints
-  erp: {
-    getExercises: async () => {
-      const response = await api.get('/erp-exercises');
-      return response.data;
-    },
-    createExercise: async (data: any) => {
-      const response = await api.post('/erp-exercises', data);
-      return response.data;
-    },
-    startSession: async (exerciseId: string) => {
-      const response = await api.post(`/erp-exercises/${exerciseId}/start`);
-      return response.data;
-    },
-    completeSession: async (sessionId: string, data: any) => {
-      const response = await api.post(`/erp-sessions/${sessionId}/complete`, data);
-      return response.data;
-    },
-  },
+  // (Removed) ERP exercises endpoints
 };
 
 export default api;

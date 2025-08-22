@@ -81,7 +81,7 @@ const PHASE_ICONS = {
 // Intervention Type Colors
 const INTERVENTION_COLORS = {
   cbt: '#3b82f6',
-  erp: '#10b981',
+  therapy: '#10b981',
   mindfulness: '#8b5cf6',
   lifestyle: '#f59e0b',
   medication: '#ef4444',

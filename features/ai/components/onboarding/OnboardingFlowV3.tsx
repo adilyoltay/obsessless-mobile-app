@@ -591,8 +591,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       try {
         const ybocsScorePreview = calculateYBOCSScore();
         const baseInterventions = ybocsScorePreview >= 20
-          ? [{ type: 'erp', title: 'İleri Düzey ERP', description: 'Yoğun maruz bırakma ve tepki önleme egzersizleri', frequency: 'daily', duration: 45 }]
-          : [{ type: 'erp', title: 'Temel ERP', description: 'Aşamalı maruz bırakma egzersizleri', frequency: 'daily', duration: 30 }];
+          ? [{ type: 'therapy', title: 'İleri Düzey Terapi', description: 'Yoğun maruz bırakma ve tepki önleme egzersizleri', frequency: 'daily', duration: 45 }]
+          : [{ type: 'therapy', title: 'Temel Terapi', description: 'Aşamalı maruz bırakma egzersizleri', frequency: 'daily', duration: 30 }];
         const plan = {
           id: `plan_preview_${userId}_${Date.now()}`,
           userId,

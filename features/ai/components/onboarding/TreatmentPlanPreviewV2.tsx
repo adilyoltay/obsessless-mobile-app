@@ -78,7 +78,7 @@ export const TreatmentPlanPreviewV2: React.FC<TreatmentPlanPreviewV2Props> = ({
       },
       {
         id: 'phase-2',
-        name: 'Temel ERP Egzersizleri',
+        name: 'Temel Terapi Egzersizleri',
         weekNumber: 2,
         goals: [
           'Hafif tetikleyicilere maruz kalma',

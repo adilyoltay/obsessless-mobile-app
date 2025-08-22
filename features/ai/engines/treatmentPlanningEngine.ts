@@ -63,7 +63,7 @@ const EVIDENCE_BASED_PROTOCOLS = {
     evidenceLevel: EvidenceLevel.GRADE_A,
     effectivenessRate: 0.80,
     duration: { min: 16, max: 24 },
-    description: 'Maruz Bırakma ve Tepki Önleme - ERP',
+    description: 'Maruz Bırakma ve Tepki Önleme Terapisi',
     culturalAdaptations: {
       turkish: {
         graduatedExposure: true,
