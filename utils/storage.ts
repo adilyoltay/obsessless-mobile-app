@@ -13,9 +13,9 @@ export const StorageKeys = {
   // Compulsions
   COMPULSIONS: (userId: string) => `compulsions_${userId}`,
   
-  // ERP Sessions
-  ERP_SESSIONS: (userId: string, date?: string) => 
-    date ? `erp_sessions_${userId}_${date}` : `erp_sessions_${userId}`,
+  // Terapi Sessions
+  Terapi_SESSIONS: (userId: string, date?: string) => 
+    date ? `therapy_sessions_${userId}_${date}` : `therapy_sessions_${userId}`,
   
   // Breathwork Sessions
   BREATH_SESSIONS: (userId: string, date?: string) =>
@@ -30,7 +30,7 @@ export const StorageKeys = {
   
   // Last used items (for smart suggestions)
   LAST_COMPULSION: (userId: string) => `last_compulsion_${userId}`,
-  LAST_ERP_EXERCISE: (userId: string) => `last_erp_${userId}`,
+  LAST_Terapi_EXERCISE: (userId: string) => `last_therapy_${userId}`,
 
   // Voice & Check-in
   CHECKINS: (userId: string) => `checkins_${userId}`,

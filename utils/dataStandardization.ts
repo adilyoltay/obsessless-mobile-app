@@ -99,7 +99,7 @@ class DataStandardizationService {
     return schema.parse(data);
   }
 
-  standardizeERPSessionData(data: any): any {
+  standardizeTerapiSessionData(data: any): any {
     const schema = z.object({
       user_id: z.string(),
       exercise_id: z.string().optional(),
@@ -150,10 +150,10 @@ class DataStandardizationService {
     return schema.parse(data);
   }
 
-  async migrateDataFormat(oldData: any[], entityType: 'compulsion' | 'erp_session' | 'mood_entry'): Promise<any[]> {
+  async migrateDataFormat(oldData: any[], entityType: 'compulsion' | 'therapy_session' | 'mood_entry'): Promise<any[]> {
     const map = {
       compulsion: this.standardizeCompulsionData,
-      erp_session: this.standardizeERPSessionData,
+      therapy_session: this.standardizeTerapiSessionData,
       mood_entry: this.standardizeMoodData,
     } as const;
     const standardizer = (map as any)[entityType];

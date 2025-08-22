@@ -1010,7 +1010,7 @@ export default function MoodScreen() {
           )}
         </View>
 
-        {/* Mood Entries List - Matching OCD/ERP Design */}
+        {/* Mood Entries List - Matching OCD Design */}
         <View style={styles.listSection}>
 
           {filteredEntries.length === 0 ? (

@@ -115,7 +115,7 @@ export const DebugHelper = {
         compulsions: userData[`compulsions_${userId}`]?.length || 0,
         gamificationProfile: userData[`gamification_${userId}`] ? '✅' : '❌',
         settings: userData[`settings_${userId}`] ? '✅' : '❌',
-        erpSessionsToday: userData[`erp_sessions_${userId}_${new Date().toDateString()}`]?.length || 0,
+        erpSessionsToday: userData[`therapy_sessions_${userId}_${new Date().toDateString()}`]?.length || 0,
       };
       
       console.log('📊 User Summary:', summary);

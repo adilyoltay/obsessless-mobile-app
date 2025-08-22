@@ -37,7 +37,7 @@ export class SecureStorageMigration {
 
     // 3) Compulsions ve therapy sessions (toplu anahtarlar)
     await this.migrateArrayKey(`compulsions_${userId}`);
-    // await this.migrateArrayKey(`erp_sessions_${userId}`); // Removed ERP
+    // await this.migrateArrayKey(`therapy_sessions_${userId}`); // Removed Terapi
 
     await AsyncStorage.setItem(this.VERSION_KEY, String(this.CURRENT_VERSION));
   }

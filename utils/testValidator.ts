@@ -72,9 +72,9 @@ export const TestValidator = {
           new Date(c.timestamp).toDateString() === today
         ) : [];
       
-      // ERP oturumlarını kontrol et
-      const erpSessions = await AsyncStorage.getItem(`erp_sessions_${userId}_${today}`);
-      const todayERP = erpSessions ? JSON.parse(erpSessions) : [];
+      // Terapi oturumlarını kontrol et
+      const erpSessions = await AsyncStorage.getItem(`therapy_sessions_${userId}_${today}`);
+      const todayTerapi = erpSessions ? JSON.parse(erpSessions) : [];
       
       // Ortalama direnç hesapla
       const avgResistance = todayCompulsions.length > 0 ?
@@ -83,7 +83,7 @@ export const TestValidator = {
       
       console.log('📊 Günlük Özet:');
       console.log(`- Kompulsiyon Sayısı: ${todayCompulsions.length}`);
-      console.log(`- ERP Oturumu Sayısı: ${todayERP.length}`);
+      console.log(`- Terapi Oturumu Sayısı: ${todayTerapi.length}`);
       console.log(`- Ortalama Direnç: ${avgResistance.toFixed(1)}/10`);
       
       // Günlük hedef kontrolü
@@ -92,7 +92,7 @@ export const TestValidator = {
       
       return {
         compulsionCount: todayCompulsions.length,
-        erpCount: todayERP.length,
+        erpCount: todayTerapi.length,
         avgResistance,
         dailyGoalMet
       };

@@ -386,7 +386,7 @@ export default function TodayScreen() {
             {
               type: 'tip',
               title: 'Öneri',
-              message: todayStats.erpSessions === 0 ? 'Bugün bir ERP egzersizi deneyelim' : 'ERP pratiğine devam et',
+              message: todayStats.erpSessions === 0 ? 'Bugün bir Terapi egzersizi deneyelim' : 'ERP pratiğine devam et',
               confidence: 0.5,
             }
           ];

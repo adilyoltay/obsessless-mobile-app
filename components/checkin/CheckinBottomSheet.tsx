@@ -568,7 +568,7 @@ export default function CheckinBottomSheet({
           autoRecord.type === 'OCD' ? 'OKB Kaydı' : autoRecord.type === 'CBT' ? 'CBT Kaydı' : autoRecord.type === 'MOOD' ? 'Mood Kaydı' : 'Önerisi',
           message,
           [
-            autoRecord.type !== 'ERP'
+            // autoRecord.type !== 'ERP' // Always true now (ERP removed)
               ? { 
                   text: 'Düzenle', 
                   onPress: () => {
@@ -802,11 +802,11 @@ export default function CheckinBottomSheet({
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onClose();
-              router.push('/(tabs)/erp');
+              // router.push('/(tabs)/erp'); // Removed ERP route
             }}
           >
             <MaterialCommunityIcons name="shield-check-outline" size={20} color="#9C27B0" />
-            <Text style={styles.quickButtonText}>ERP</Text>
+            <Text style={styles.quickButtonText}>Terapi</Text>
           </Pressable>
 
           <Pressable
