@@ -4,8 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
+// import * as TaskManager from 'expo-task-manager'; // DISABLED: Not available in development
+// import * as BackgroundFetch from 'expo-background-fetch'; // DISABLED: Not available in development
 import { Platform } from 'react-native';
 import { StorageKeys } from '@/utils/storage';
 import { unifiedPipeline } from '../core/UnifiedAIPipeline';
@@ -79,15 +79,15 @@ export class DailyJobsManager {
     }
 
     try {
-      // Check if already registered
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BATCH_TASK_NAME);
+      // DISABLED IN DEVELOPMENT: Check if already registered
+      // const isRegistered = await TaskManager.isTaskRegisteredAsync(BATCH_TASK_NAME);
       
-      if (!isRegistered) {
+      if (false) { // DISABLED: Background tasks
         // Register the background task
-        await BackgroundFetch.registerTaskAsync(BATCH_TASK_NAME, {
-          minimumInterval: 60 * 60 * 12, // 12 hours minimum
-          stopOnTerminate: false,
-          startOnBoot: true,
+        // await BackgroundFetch.registerTaskAsync(BATCH_TASK_NAME, {
+        //   minimumInterval: 60 * 60 * 12, // 12 hours minimum
+        //   stopOnTerminate: false,
+        //   startOnBoot: true,
         });
         console.log('✅ Daily batch jobs registered');
       }
