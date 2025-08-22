@@ -190,11 +190,16 @@ export class DailyJobsManager {
       });
 
     } catch (error) {
-      console.error('❌ Batch jobs failed:', error);
-      await trackAIInteraction(AIEventType.BATCH_JOB_FAILED, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        userId,
-      });
+      // 🔇 SILENCED: Development batch job errors (normal in dev mode)
+      console.warn('⚠️ Batch jobs skipped:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Only track if we have a valid userId (production scenario)
+      if (userId) {
+        await trackAIInteraction(AIEventType.BATCH_JOB_FAILED, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          userId,
+        });
+      }
     } finally {
       this.isRunning = false;
     }
