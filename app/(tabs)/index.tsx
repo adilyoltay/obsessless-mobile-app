@@ -94,6 +94,9 @@ export default function TodayScreen() {
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   const insightsPromiseRef = useRef<Promise<any[]> | null>(null);
   
+  // ✅ FIXED: Progressive UI Timer Management - prevent overlapping pipeline runs
+  const deepAnalysisTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Progressive UI State
   const [insightsSource, setInsightsSource] = useState<'cache' | 'heuristic' | 'llm'>('cache');
   const [hasDeepInsights, setHasDeepInsights] = useState(false);
@@ -142,6 +145,16 @@ export default function TodayScreen() {
       }),
     ]).start();
   }, [user?.id]);
+
+  // ✅ FIXED: Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (deepAnalysisTimerRef.current) {
+        clearTimeout(deepAnalysisTimerRef.current);
+        console.log('🧹 Cleaned up deep analysis timer on unmount');
+      }
+    };
+  }, []);
 
   // Refresh stats when screen is focused (after returning from other screens)
   useFocusEffect(
@@ -232,7 +245,11 @@ export default function TodayScreen() {
         currentTime: new Date(),
         moodScore,
         recentCompulsions: todayStats.compulsions,
-        anxietyLevel: moodScore ? Math.max(1, Math.min(10, 10 - moodScore/10)) : undefined,
+        // ✅ FIXED: Clarify mood-to-anxiety conversion with proper scaling
+        // moodScore is 0-100 scale: 0=terrible mood, 100=excellent mood
+        // anxietyLevel is 1-10 scale: 1=low anxiety, 10=high anxiety  
+        // Formula: high mood = low anxiety, low mood = high anxiety
+        anxietyLevel: moodScore ? Math.max(1, Math.min(10, Math.round(11 - moodScore/10))) : undefined,
       };
       
       // ✅ FIXED: Use singleton instead of creating new instance  
@@ -422,7 +439,13 @@ export default function TodayScreen() {
       }
       
       // PHASE 2: Deep Analysis (Background, 3s delay)
-      setTimeout(async () => {
+      // ✅ FIXED: Clear existing timer to prevent overlapping runs
+      if (deepAnalysisTimerRef.current) {
+        clearTimeout(deepAnalysisTimerRef.current);
+        console.log('🔄 Cleared existing deep analysis timer');
+      }
+      
+      deepAnalysisTimerRef.current = setTimeout(async () => {
         try {
           console.log('🚀 Phase 2: Starting deep analysis...');
           await loadUnifiedPipelineData();
@@ -430,6 +453,9 @@ export default function TodayScreen() {
           console.log('✅ Phase 2: Deep insights loaded');
         } catch (error) {
           console.warn('⚠️ Phase 2 deep analysis failed:', error);
+        } finally {
+          // Clear timer ref when done
+          deepAnalysisTimerRef.current = null;
         }
       }, 3000);
       
