@@ -122,7 +122,7 @@ Sistem mimariden kaldırıldı. Runtime entegrasyonu ve protokoller bulunmuyor.
 - In-app prompts
 - Gentle reminders
 
-## 📚 ERP Recommendation Service
+## 📚 Therapy Recommendation Service
 
 ### Recommendation Logic
 1. **User Profile Analysis**

@@ -17,7 +17,7 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 - **Mood**: #F472B6 (Pembe)
 - **CBT**: #A78BFA (Mor)
 - **OCD**: #34D399 (Yeşil)
-- **ERP**: #67E8F9 (Cyan)
+- **Terapi**: #67E8F9 (Cyan)
 - **Ayarlar**: #9CA3AF (Gri)
 - **Pasif**: #9CA3AF (Açık gri)
 
@@ -30,7 +30,7 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 ## 🧭 Ana Kullanıcı Akışları
 - Uygulama Açılışı → Auth Check → Onboarding (Hızlı Başlangıç + opsiyonel profil adımları) → Today
 - Quick Entry (Kompulsiyon) → AsyncStorage yaz → Supabase senkron → Gamification
-- ERP Sihirbazı: Kategori (6 ana kategori) → Egzersiz seçimi + Ayarlar → Oturum
+- Terapi Sihirbazı: Kategori (6 ana kategori) → Egzersiz seçimi + Ayarlar → Oturum
 
 ## 🧭 Bottom Tab Navigation
 - **Bugün** → **Mood** → **CBT** → **OCD** → **ERP** → **Ayarlar**

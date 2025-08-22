@@ -11,7 +11,7 @@
 | **Unified Voice Analysis** | ✅ Aktif | v2.0 | Merkezi ses analizi sistemi - Gemini API entegrasyonu |
 | **CBT Düşünce Kaydı** | ✅ Aktif | v2.0 | 4-adımlı form, BottomSheet, Master Prompt uyumlu |
 | **OCD Tracking** | ✅ Aktif | v2.0 | Orijinal tasarım korundu, ses check-in kaldırıldı |
-| **ERP Sessions** | ✅ Aktif | v2.0 | FAB butonu, AI önerileri, ses check-in kaldırıldı |
+| **Therapy Sessions** | ✅ Aktif | v2.0 | FAB butonu, AI önerileri, ses check-in kaldırıldı |
 | **Breathwork** | ✅ Aktif | v2.0 | Akıllı tetikleme sistemi, contextual öneriler, protokol seçimi |
 | **Today Screen** | ✅ Aktif | v2.0 | Merkezi ses girişi, otomatik yönlendirme |
 

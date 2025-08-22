@@ -942,7 +942,7 @@ interface ClinicalComplianceFeatures {
 ### 🎯 **Q2 2025:**
 - [ ] **Therapist Dashboard**: Klinisyen için analiz ve rapor modülü
 - [ ] **Peer Support Network**: Anonim OKB topluluk desteği
-- [ ] **Advanced ERP Integration**: OKB-ERP senkronizasyonu
+- [ ] **Advanced Therapy Integration**: OKB-Terapi senkronizasyonu
 
 ---
 

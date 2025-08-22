@@ -54,7 +54,7 @@ Uygulamanın başarısı, bu yedi temel yeteneğin AI desteğiyle kusursuz enteg
     3.  **AI Pattern Analizi:** Otomatik tetikleyici tespiti
     4.  **Anlık AI Önerisi:** Bağlama uygun müdahale önerisi
 
-### **PİLLAR 3: AI-Guided ERP & Adaptive Interventions**
+### **PİLLAR 3: AI-Guided Therapy & Adaptive Interventions**
 *Bu, uygulamanın kalbidir. AI, kullanıcının konumuna, zamanına ve durumuna göre kişiselleştirilmiş müdahaleler sunar.*
 
 *   **Kullanıcı Hikayesi:** "Kullanıcı ERP yaparken, AI'nın anksiyete seviyesini takip edip, gerektiğinde destekleyici müdahalelerde bulunmasını istiyor."

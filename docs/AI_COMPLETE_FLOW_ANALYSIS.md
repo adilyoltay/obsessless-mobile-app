@@ -12,7 +12,7 @@ ObsessLess uygulaması, **UnifiedAIPipeline v1.0** ile konsolide edilmiş AI mim
 - **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token) ve rate limiting
 - **Similarity Dedup**: Tekrarlayan istekleri önleyen deduplication
 - **Progressive UI**: Immediate → Deep analiz ile hızlı yanıt (300ms → 3s)
-- **Deterministik Cache**: TTL yönetimi (24h insights, 12h ERP, 1h voice)
+- **Deterministik Cache**: TTL yönetimi (24h insights, 1h voice)
 - **Hybrid Batch Jobs**: Günlük @03:05 trend/mood/risk analizleri
 
 ### 📊 Performans İyileştirmeleri:
@@ -37,7 +37,7 @@ AIManager (aiManager.ts)
 │   ├── AI_LLM_GATING (LLM filtreleme)
 │   ├── AI_PROGRESSIVE (Progressive UI)
 │   ├── AI_ONBOARDING_REFINE (Skeleton→Refine)
-│   └── AI_ERP_STAIRCASE (Deterministik zorluk)
+│   └── AI_THERAPY_STAIRCASE (Deterministik zorluk)
 ├── Health Monitoring
 └── Telemetry Collection (Enhanced)
     ├── Cache Events (hit/miss)

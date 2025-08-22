@@ -11,7 +11,7 @@ graph TB
     Today --> P[Pattern Recognition]
     Today --> I[Insights Engine]
     Today --> C[CBT Engine]
-    Today --> E[ERP Service]
+    Today --> T[Therapy Service]
     Today --> M[Mood Service]
     Today --> N[Notifications]
     Today --> A[Adaptive Interventions]
@@ -74,7 +74,7 @@ const result = await unifiedPipeline.process({
 ```typescript
 // Otomatik cache temizleme tetikleyicileri
 - compulsion_added → patterns yenile
-- erp_completed → insights yenile  
+- therapy_completed → insights yenile  
 - mood_added → tümünü yenile
 - manual_refresh → full clear
 ```
