@@ -644,7 +644,7 @@ Lütfen JSON formatında şu bilgileri ver:
       [OCDCategory.HARM]: [
         'Profesyonel destek alın',
         'Güvenlik davranışlarını azaltın',
-        'ERP terapisi çok önemli'
+        'Maruz bırakma terapisi çok önemli'
       ],
       [OCDCategory.SEXUAL]: [
         'Düşünce kayıtları tutun',

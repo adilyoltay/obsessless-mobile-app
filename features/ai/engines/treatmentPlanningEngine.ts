@@ -114,8 +114,8 @@ const INTERVENTION_LIBRARY = {
         culturalNotes: 'Dini temizlik ile OKB ayrımı yapılır'
       },
       {
-        name: 'Mikrop Endişesi ERP',
-        description: 'Hastalık bulaştırma korkuları için ERP',
+        name: 'Mikrop Endişesi Terapi',
+        description: 'Hastalık bulaştırma korkuları için Terapi',
         duration: '30-45 dakika',
         frequency: 'Günlük',
         culturalNotes: 'Aile sağlığı endişeleri dikkate alınır'
@@ -1108,7 +1108,7 @@ class AdaptiveTreatmentPlanningEngine {
             {
               id: 'phase_2',
               name: 'Maruz Kalma ve Tepki Önleme',
-              description: 'ERP tekniklerinin uygulanması',
+              description: 'Terapi tekniklerinin uygulanması',
               estimatedDuration: lowCompliance ? 6 : 8,
               objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
               interventions: [],
@@ -1146,7 +1146,7 @@ class AdaptiveTreatmentPlanningEngine {
             {
               id: 'phase_2',
               name: 'Maruz Kalma ve Tepki Önleme',
-              description: 'ERP tekniklerinin uygulanması',
+              description: 'Terapi tekniklerinin uygulanması',
               estimatedDuration: 8,
               objectives: ['Kompülsiyon azaltma', 'Kaygı toleransı geliştirme'],
               interventions: [],

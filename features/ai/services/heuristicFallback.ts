@@ -7,13 +7,13 @@ const TEMPLATES: Record<Lang, Record<Scenario, string>> = {
   tr: {
     anxiety: 'Şu an zor bir an olabilir. Beraber kısa bir nefes çalışması yapalım: 4 saniye al, 4 saniye tut, 6 saniye ver. Hazır olduğunda düşünceni günlüğe not edebilirsin.',
     sleep: 'Dinlenmekte zorlanıyorsan, ekran parlaklığını azalt ve 4-7-8 nefes tekniğini dene. Kısa bir gevşeme ile uykuya hazırlanabiliriz.',
-    erp: 'ERP hedefin için küçük bir adım seç: 1) Tetikleyiciyi tanımla, 2) 2-3 dakika maruz kal, 3) Ritüeli ertele. Hazır olduğunda deneyimini not et.',
+    erp: 'Terapi hedefin için küçük bir adım seç: 1) Tetikleyiciyi tanımla, 2) 2-3 dakika maruz kal, 3) Ritüeli ertele. Hazır olduğunda deneyimini not et.',
     generic: 'Şu an dış servisler yanıt veremiyor ama beraberiz. Kısa bir nefes egzersizi deneyelim: 4-4-6. İstersen günlüğe kısa bir not ekleyebilirsin.'
   },
   en: {
     anxiety: "This might be a hard moment. Let's try a short breathing: inhale 4s, hold 4s, exhale 6s. When ready, jot a quick note in your journal.",
     sleep: 'If sleep is difficult, dim your screen and try 4-7-8 breathing. A short relaxation can help prepare for rest.',
-    erp: 'For ERP, pick a tiny step: 1) define the trigger, 2) expose for 2–3 minutes, 3) delay rituals. When ready, note your experience.',
+    erp: 'For Terapi, pick a tiny step: 1) define the trigger, 2) expose for 2–3 minutes, 3) delay rituals. When ready, note your experience.',
     generic: "External AI is unavailable for now, but I'm here. Try 4-4-6 breathing. You can also add a short journal note."
   }
 };

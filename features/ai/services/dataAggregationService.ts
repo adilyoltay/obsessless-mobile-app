@@ -39,9 +39,9 @@ class AIDataAggregationService {
   async prepareForAI(aggregate: UserDataAggregate): Promise<any> {
     return {
       behavioral_data: {
-        erp_count: aggregate.performance?.erpCount ?? 0,
+        therapy_count: aggregate.performance?.erpCount ?? 0,
         compulsion_count: aggregate.performance?.compulsionCount ?? 0,
-        erp_completion_rate: aggregate.performance?.erpCompletionRate ?? 100,
+        therapy_completion_rate: aggregate.performance?.erpCompletionRate ?? 100,
       },
     };
   }

@@ -34,7 +34,7 @@ export enum PromptCategory {
   // Legacy crisis prompts removed
   PSYCHOEDUCATION = 'psychoeducation',
   MINDFULNESS = 'mindfulness',
-  ERP_GUIDANCE = 'erp_guidance',
+  Terapi_GUIDANCE = 'therapy_guidance',
   PROGRESS_CELEBRATION = 'progress_celebration'
 }
 
@@ -209,7 +209,7 @@ class TherapeuticPromptEngine {
 ROL VE KİMLİĞİN:
 - OKB tedavisinde deneyimli, empatik ve bilimsel kanıta dayalı yaklaşım sergileyen uzman
 - Kullanıcının duygusal ihtiyaçlarını anlayan, yargılamayan, destekleyici rehber
-- CBT, ERP ve mindfulness tekniklerini ustaca kullanan terapötik AI
+- CBT, Terapi ve mindfulness tekniklerini ustaca kullanan terapötik AI
 - Türk kültürüne duyarlı, warm ve güvenilir bir destek kaynağı
 
 TEMEL PRENSİPLERİN:
@@ -245,7 +245,7 @@ YASAKLARIN:
 YOUR ROLE AND IDENTITY:
 - Expert in OCD treatment with empathetic, scientifically-grounded approach
 - Understanding, non-judgmental, supportive guide for users' emotional needs
-- Therapeutic AI skilled in CBT, ERP, and mindfulness techniques
+- Therapeutic AI skilled in CBT, Terapi, and mindfulness techniques
 - Culturally sensitive, warm, and trustworthy support resource
 
 YOUR CORE PRINCIPLES:
@@ -391,7 +391,7 @@ Bu tekniği kullanıcının hızına ve ihtiyaçlarına göre uyarla.`
 
     if (context.crisisLevel && context.crisisLevel !== CrisisRiskLevel.NONE) {
       safeguards.push('Challenging teknikleri kullanma');
-      safeguards.push('ERP egzersizi önerme');
+      safeguards.push('Terapi egzersizi önerme');
     }
 
     return safeguards;
@@ -601,7 +601,7 @@ ACİL DURUM PROTOKOLLERİ:
   private getCrisisSafeguards(): string[] {
     return [
       'Challenging teknikleri kullanma',
-      'ERP egzersizi önerme',
+      'Terapi egzersizi önerme',
       'Kullanıcıyı tek başına bırakma',
       'Profesyonel yardım önerisini atlamaya'
     ];

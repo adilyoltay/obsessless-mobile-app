@@ -646,7 +646,7 @@ class OCDGamificationService {
           unlockFeatures: ['resistance_tracking_advanced']
         },
         supportResources: {
-          educationalContent: ['Direnç teknikleri', 'ERP temelleri'],
+          educationalContent: ['Direnç teknikleri', 'Terapi temelleri'],
           celebrationActivities: ['Aile ile paylaşım', 'Kişisel kutlama'],
           familySharingOptions: ['Başarı hikayesi paylaşımı']
         }
@@ -722,7 +722,7 @@ class OCDGamificationService {
         id: 'resistance_mastery',
         name: 'Direnç Ustası',
         description: 'Ortalama 8+ direnç seviyesi (30 gün)',
-        clinicalSignificance: 'Resistance mastery - advanced ERP skills',
+        clinicalSignificance: 'Resistance mastery - advanced Terapi skills',
         requirements: {
           resistanceImprovement: 8,
           consistencyDays: 30
@@ -731,11 +731,11 @@ class OCDGamificationService {
           points: 2000,
           badge: '🏆',
           celebrationMessage: 'Dirençte ustalik! Kompülsiyonlara karşı güçlü duruş.',
-          clinicalAcknowledgment: 'İleri düzey ERP becerileri geliştirildi',
+          clinicalAcknowledgment: 'İleri düzey Terapi becerileri geliştirildi',
           unlockFeatures: ['mentor_program', 'advanced_erp', 'peer_teaching']
         },
         supportResources: {
-          educationalContent: ['Advanced ERP techniques', 'Mentoring basics'],
+          educationalContent: ['Advanced Terapi techniques', 'Mentoring basics'],
           celebrationActivities: ['Başarı hikayesi yazma', 'Deneyim paylaşımı'],
           familySharingOptions: ['Uzmanlık hikayesi']
         }

@@ -1065,7 +1065,7 @@ class OCDTriggerDetectionService {
     }
 
     // General long-term recommendations
-    longTerm.push('Kapsamlı ERP (Maruz Kalma ve Tepki Önleme) terapisi');
+    longTerm.push('Kapsamlı Terapi (Maruz Kalma ve Tepki Önleme) terapisi');
     longTerm.push('Trigger günlüğü tutma ve pattern analizi');
     longTerm.push('Aile eğitimi ve destek sistemi güçlendirme');
 

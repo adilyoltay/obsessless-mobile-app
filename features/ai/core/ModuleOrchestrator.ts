@@ -115,10 +115,7 @@ export class ModuleOrchestrator {
     // Register OCD handler
     this.registerModule('ocd', new OCDHandler());
 
-    // Register ERP handler
-    if (FEATURE_FLAGS.isEnabled('AI_TREATMENT_PLANNING')) {
-      this.registerModule('erp', new ERPHandler());
-    }
+    // (Removed) Register Terapi handler
 
     // Register BREATHWORK handler
     this.registerModule('breathwork', new BreathworkHandler());
@@ -379,13 +376,13 @@ class OCDHandler implements IModuleHandler {
 }
 
 /**
- * ERP module handler
+ * Terapi module handler
  */
-class ERPHandler implements IModuleHandler {
-  name = 'ERPHandler';
+class TerapiHandler implements IModuleHandler {
+  name = 'TerapiHandler';
 
   canHandle(quickClass: QuickClass): boolean {
-    return quickClass === 'ERP';
+    return quickClass === 'Terapi';
   }
 
   async process(result: AnalysisResult): Promise<ModuleResponse> {
@@ -399,7 +396,7 @@ class ERPHandler implements IModuleHandler {
           category: result.payload?.category,
           text: result.payload?.originalText,
         },
-        message: 'ERP egzersizi başlatılıyor',
+        message: 'Terapi egzersizi başlatılıyor',
         processed: true,
       },
     };

@@ -103,11 +103,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+10 ✨',
     trigger: 'compulsion_recorded'
   },
-  erp_completed: {
-    points: 20,
-    message: '+20 ✨',
-    trigger: 'erp_completed'
-  },
+  // erp_completed: { // Removed ERP micro reward
+  //   points: 20,
+  //   message: '+20 ✨',
+  //   trigger: 'erp_completed'
+  // },
   high_resistance: {
     points: 15,
     message: '+15 ✨ Güçlü direnç!',

@@ -737,13 +737,9 @@ class CoreAnalysisService implements ICoreAnalysisService {
   }
 
   /**
-   * 🛡️ (Removed) ERP Pattern Analysis - Exposure themes detection
+   * 🛡️ (Removed) Terapi Pattern Analysis - Exposure themes detection
    */
-  private analyzeERPPatterns(content: string): {
-    quickClass: QuickClass;
-    confidence: number;
-    route: RouteAction;
-    payload: any;
+  // (Removed) private analyzeTerapiPatterns function start
     matchedPatterns: string[];
   } {
     let score = 0;
@@ -789,14 +785,14 @@ class CoreAnalysisService implements ICoreAnalysisService {
     });
     
     return {
-      quickClass: 'ERP',
+      quickClass: 'Terapi',
       confidence: Math.min(score, 0.95),
       route: score > 0.2 ? 'OPEN_SCREEN' : 'AUTO_SAVE',
       payload: {
         screen: 'erp',
         exposureType: this.determineExposureType(matchedPatterns),
         readinessLevel: score > 0.4 ? 'high' : score > 0.2 ? 'medium' : 'low',
-        suggestedDifficulty: this.calculateERPDifficulty(score, matchedPatterns)
+        suggestedDifficulty: this.calculateTerapiDifficulty(score, matchedPatterns)
       },
       matchedPatterns
     };

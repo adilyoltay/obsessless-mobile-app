@@ -342,10 +342,10 @@ export class UnifiedAIPipeline {
           patterns.metadata.dataPoints += content.moods.length;
         }
         
-        if (content.erpSessions && Array.isArray(content.erpSessions)) {
-          patterns.temporal.push(...this.extractERPTemporalPatterns(content.erpSessions));
-          patterns.metadata.dataPoints += content.erpSessions.length;
-        }
+        // if (content.erpSessions && Array.isArray(content.erpSessions)) { // Removed Terapi
+          // patterns.temporal.push(...this.extractTerapiTemporalPatterns(content.erpSessions)); // Removed Terapi
+          // patterns.metadata.dataPoints += content.erpSessions.length; // Removed Terapi
+        // } // Removed Terapi
         
         // 2. BEHAVIORAL PATTERNS (Davranışsal kalıplar)
         if (content.compulsions) {
@@ -932,10 +932,10 @@ export class UnifiedAIPipeline {
             });
           }
           break;
-        case 'erp_progress':
+        case 'therapy_progress':
           if (pattern.direction === 'improving') {
             insights.push({
-              text: 'ERP seanslarınızda ilerleme kaydediyorsunuz! Mevcut yaklaşımınızı sürdürün.',
+              text: 'Terapi seanslarınızda ilerleme kaydediyorsunuz! Mevcut yaklaşımınızı sürdürün.',
               category: 'progress',
               priority: 'high',
               actionable: false,
@@ -1699,8 +1699,8 @@ export class UnifiedAIPipeline {
       this.invalidateUserCache('patterns');
     });
     
-    // Hook: ERP session completed
-    this.invalidationHooks.set('erp_completed', () => {
+    // Hook: Terapi session completed
+    this.invalidationHooks.set('therapy_completed', () => {
       this.invalidateUserCache('insights');
     });
     

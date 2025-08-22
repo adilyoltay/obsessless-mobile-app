@@ -26,9 +26,9 @@ const CONFIG = {
     insightsHours: parseInt(
       Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_INSIGHTS_HOURS || '24'
     ),
-    erpPlanHours: parseInt(
-      Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_ERP_PLAN_HOURS || '12'
-    ),
+    // erpPlanHours: parseInt( // Removed Terapi cache
+    //   Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_Terapi_PLAN_HOURS || '12'
+    // ),
     voiceHours: parseInt(
       Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_VOICE_HOURS || '1'
     ),

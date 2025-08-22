@@ -146,8 +146,8 @@ export function makeGatingDecision(params: LLMGatingParams): GatingDecision {
     }
   }
   
-  // Rule 5: CBT, OCD, ERP with medium confidence need LLM
-  if (['CBT', 'OCD', 'ERP'].includes(params.quickClass)) {
+  // Rule 5: CBT, OCD, Terapi with medium confidence need LLM
+  if (['CBT', 'OCD', 'Terapi'].includes(params.quickClass)) {
     if (params.heuristicConfidence < THRESHOLDS.llmComplex) {
       return {
         needsLLM: true,
@@ -270,7 +270,7 @@ export function isTimeSensitive(quickClass: QuickClass, keywords: string[]): boo
   const urgentKeywords = ['acil', 'hemen', 'şimdi', 'yardım', 'panik'];
   const hasUrgentKeyword = keywords.some(k => urgentKeywords.includes(k.toLowerCase()));
   
-  const urgentClasses: QuickClass[] = ['ERP', 'BREATHWORK'];
+  const urgentClasses: QuickClass[] = ['Terapi', 'BREATHWORK'];
   const isUrgentClass = urgentClasses.includes(quickClass);
   
   return hasUrgentKeyword || isUrgentClass;

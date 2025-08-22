@@ -899,7 +899,7 @@ class OCDPatternAnalysisService {
     
     // Severity recommendations
     if (severityProgression.overall.trend === 'worsening') {
-      recommendations.push('ERP egzersizlerini artırın');
+      recommendations.push('Terapi egzersizlerini artırın');
       recommendations.push('Profesyonel destek almayı düşünün');
     } else if (severityProgression.overall.trend === 'improving') {
       recommendations.push('Mevcut stratejileri sürdürün');

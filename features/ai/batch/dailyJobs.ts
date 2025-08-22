@@ -221,8 +221,8 @@ export class DailyJobsManager {
       ]);
 
       const [erp7d, erp28d] = await Promise.all([
-        this.fetchERPData(userId, 7),
-        this.fetchERPData(userId, 28),
+        this.fetchTerapiData(userId, 7),
+        this.fetchTerapiData(userId, 28),
       ]);
 
       // Calculate trends
@@ -256,7 +256,7 @@ export class DailyJobsManager {
         trends7d.insights.push('Direnç gücün artıyor, bu çok değerli bir ilerleme');
       }
       if (trends28d.metrics.erpComplianceTrend > 0.5) {
-        trends28d.insights.push('ERP egzersizlerine düzenli devam ediyorsun, tedavi uyumun mükemmel');
+        trends28d.insights.push('Terapi egzersizlerine düzenli devam ediyorsun, tedavi uyumun mükemmel');
       }
 
       // Store trends in cache
@@ -373,7 +373,7 @@ export class DailyJobsManager {
 
       // Calculate risk delta based on recent data
       const recentCompulsions = await this.fetchCompulsionData(userId, 3);
-      const recentERP = await this.fetchERPData(userId, 3);
+      const recentTerapi = await this.fetchTerapiData(userId, 3);
       
       let riskDelta = 0;
       
@@ -382,8 +382,8 @@ export class DailyJobsManager {
       if (compulsionTrend > 0.3) riskDelta += 0.05;
       if (compulsionTrend < -0.3) riskDelta -= 0.05;
       
-      // Decrease risk if ERP compliance is good
-      const erpCompliance = recentERP.filter(e => e.completed).length / Math.max(recentERP.length, 1);
+      // Decrease risk if Terapi compliance is good
+      const erpCompliance = recentTerapi.filter(e => e.completed).length / Math.max(recentTerapi.length, 1);
       if (erpCompliance > 0.7) riskDelta -= 0.05;
       if (erpCompliance < 0.3) riskDelta += 0.05;
       
@@ -439,12 +439,12 @@ export class DailyJobsManager {
       // Gather today's data
       const todayCompulsions = await this.fetchCompulsionData(userId, 1);
       const todayMoods = await this.fetchMoodData(userId, 1);
-      const todayERP = await this.fetchERPData(userId, 1);
+      const todayTerapi = await this.fetchTerapiData(userId, 1);
       
       // Calculate metrics
       const totalCompulsions = todayCompulsions[0]?.count || 0;
       const avgResistance = todayCompulsions[0]?.avgResistance || 0;
-      const erpSessions = todayERP.filter(e => e.completed).length;
+      const erpSessions = todayTerapi.filter(e => e.completed).length;
       const moodValues = todayMoods.map(m => m.value);
       const moodRange = {
         min: moodValues.length > 0 ? Math.min(...moodValues) : 50,
@@ -475,7 +475,7 @@ export class DailyJobsManager {
         digest.summary.highlights.push('Güçlü direnç gösterdin! 💪');
       }
       if (erpSessions > 0) {
-        digest.summary.highlights.push(`${erpSessions} ERP egzersizi tamamladın`);
+        digest.summary.highlights.push(`${erpSessions} Terapi egzersizi tamamladın`);
       }
       if (totalCompulsions === 0) {
         digest.summary.highlights.push('Kompulsiyonsuz bir gün! 🌟');
@@ -491,7 +491,7 @@ export class DailyJobsManager {
 
       // Generate recommendations
       if (erpSessions === 0) {
-        digest.summary.recommendations.push('Bugün bir ERP egzersizi denemelisin');
+        digest.summary.recommendations.push('Bugün bir Terapi egzersizi denemelisin');
       }
       if (avgResistance < 5) {
         digest.summary.recommendations.push('Direnç tekniklerini gözden geçir');
@@ -689,7 +689,7 @@ export class DailyJobsManager {
     return data.reverse();
   }
 
-  private async fetchERPData(userId: string, days: number) {
+  private async fetchTerapiData(userId: string, days: number) {
     const data = [];
     const now = new Date();
     
@@ -698,7 +698,7 @@ export class DailyJobsManager {
       date.setDate(date.getDate() - i);
       const dateStr = date.toDateString();
       
-      const key = StorageKeys.ERP_SESSIONS(userId, dateStr);
+      const key = StorageKeys.Terapi_SESSIONS(userId, dateStr);
       const stored = await AsyncStorage.getItem(key);
       const sessions = stored ? JSON.parse(stored) : [];
       

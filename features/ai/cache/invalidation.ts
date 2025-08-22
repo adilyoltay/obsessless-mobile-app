@@ -26,7 +26,7 @@ import { ResultCache } from './resultCache';
 export enum InvalidationTrigger {
   CBT_THOUGHT_CREATED = 'CBT_THOUGHT_CREATED',
   CBT_THOUGHT_UPDATED = 'CBT_THOUGHT_UPDATED',
-  ERP_SESSION_COMPLETED = 'ERP_SESSION_COMPLETED',
+  // Terapi_SESSION_COMPLETED = 'Terapi_SESSION_COMPLETED', // Removed Terapi
   YBOCS_UPDATED = 'YBOCS_UPDATED',
   ONBOARDING_FINALIZED = 'ONBOARDING_FINALIZED',
   COMPULSION_RECORDED = 'COMPULSION_RECORDED',
@@ -135,9 +135,9 @@ export class CacheInvalidation {
       cascadeInvalidation: true,
     });
 
-    // ERP session completion invalidates ERP plan and insights
-    this.strategies.set(InvalidationTrigger.ERP_SESSION_COMPLETED, {
-      trigger: InvalidationTrigger.ERP_SESSION_COMPLETED,
+    // Terapi session completion invalidates Terapi plan and insights
+    this.strategies.set(InvalidationTrigger.Terapi_SESSION_COMPLETED, {
+      trigger: InvalidationTrigger.Terapi_SESSION_COMPLETED,
       patterns: [
         'ai:{userId}:{dayKey}:erp:plan',
         'ai:{userId}:{dayKey}:insights',
@@ -198,7 +198,7 @@ export class CacheInvalidation {
       cascadeInvalidation: true,
     });
 
-    // Treatment plan update invalidates ERP and insights
+    // Treatment plan update invalidates Terapi and insights
     this.strategies.set(InvalidationTrigger.TREATMENT_PLAN_UPDATED, {
       trigger: InvalidationTrigger.TREATMENT_PLAN_UPDATED,
       patterns: [
@@ -430,10 +430,10 @@ export class CacheInvalidation {
         break;
 
       case InvalidationTrigger.TREATMENT_PLAN_UPDATED:
-        // Cascade to ERP
+        // Cascade to Terapi
         await this.invalidate({
           ...context,
-          trigger: InvalidationTrigger.ERP_SESSION_COMPLETED,
+          trigger: InvalidationTrigger.Terapi_SESSION_COMPLETED,
         });
         break;
     }

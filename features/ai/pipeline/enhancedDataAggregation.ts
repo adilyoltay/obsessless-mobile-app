@@ -23,7 +23,7 @@ class EnhancedAIDataAggregationService {
   async aggregateComprehensiveData(userId: string): Promise<EnhancedUserDataAggregate> {
     const [compulsions, erpSessions, moodEntries, profile] = await Promise.all([
       this.fetchCompulsions(userId, 30),
-      this.fetchERPSessions(userId, 30),
+      this.fetchTerapiSessions(userId, 30),
       this.fetchMoodEntries(userId, 30),
       this.fetchUserProfile(userId)
     ]);
@@ -48,14 +48,14 @@ class EnhancedAIDataAggregationService {
     }
     return [];
   }
-  private async fetchERPSessions(userId: string, days: number): Promise<any[]> {
+  private async fetchTerapiSessions(userId: string, days: number): Promise<any[]> {
     try {
       const svc: any = supabaseService as any;
-      if (svc && typeof svc.getERPSessions === 'function') {
-        return await svc.getERPSessions.call(svc, userId);
+      if (svc && typeof svc.getTerapiSessions === 'function') {
+        return await svc.getTerapiSessions.call(svc, userId);
       }
     } catch (e) {
-      try { trackAIInteraction(AIEventType.API_ERROR, { scope: 'fetchERPSessions', error: String(e) } as any); } catch {}
+      try { trackAIInteraction(AIEventType.API_ERROR, { scope: 'fetchTerapiSessions', error: String(e) } as any); } catch {}
     }
     return [];
   }
@@ -226,8 +226,8 @@ class EnhancedAIDataAggregationService {
       erpCompletionRate,
       anxietyReduction: Math.round(anxietyReduction),
       streakDays,
-      totalERPSessions: total,
-      completedERPSessions: completed.length,
+      totalTerapiSessions: total,
+      completedTerapiSessions: completed.length,
       resistanceImprovement: Math.round(resistanceImprovement),
       weeklyActivity: Math.round((activityDates.size / 7) * 100),
     };
@@ -242,9 +242,9 @@ class EnhancedAIDataAggregationService {
     const insights = { key_findings: [] as string[], improvement_areas: [] as string[], strengths: [] as string[], warnings: [] as string[] };
     if (symptoms.severityTrend === 'improving') insights.key_findings.push('Kompulsiyon direncinde iyileşme gözleniyor');
     if (performance.streakDays >= 7) insights.key_findings.push(`${performance.streakDays} gündür düzenli aktivite`);
-    if (performance.anxietyReduction > 30) insights.key_findings.push('ERP egzersizlerinde anlamlı anksiyete azalması');
+    if (performance.anxietyReduction > 30) insights.key_findings.push('Terapi egzersizlerinde anlamlı anksiyete azalması');
 
-    if (performance.erpCompletionRate < 50) insights.improvement_areas.push('ERP egzersizi tamamlama oranını artırın');
+    if (performance.erpCompletionRate < 50) insights.improvement_areas.push('Terapi egzersizi tamamlama oranını artırın');
     if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) insights.improvement_areas.push(`${symptoms.primaryCategories[0]} kompulsiyonlarına odaklanın`);
 
     if (performance.streakDays > 0) insights.strengths.push('Düzenli kullanım alışkanlığı');
@@ -262,7 +262,7 @@ class EnhancedAIDataAggregationService {
       recommendations.immediate.push({ type: 'timing', title: 'Kritik Saat Uyarısı', description: `Kompulsiyonlar genelde ${peak}:00 civarında artıyor`, action: 'Hatırlatıcı kur' });
     }
     if (performance.erpCompletionRate < 50) {
-      recommendations.immediate.push({ type: 'erp', title: 'ERP Egzersizi Önerisi', description: 'Bugün kısa bir ERP egzersizi deneyin', action: 'Egzersize başla' });
+      recommendations.immediate.push({ type: 'erp', title: 'Terapi Egzersizi Önerisi', description: 'Bugün kısa bir Terapi egzersizi deneyin', action: 'Egzersize başla' });
     }
     if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) {
       const top = symptoms.primaryCategories[0];

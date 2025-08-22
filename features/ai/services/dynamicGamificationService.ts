@@ -126,9 +126,9 @@ export class DynamicPointsEngine {
     const basePointsMap: Record<string, number> = {
       'compulsion_recorded': 8,
       'compulsion_resisted': 25,
-      'erp_started': 15,
-      'erp_completed': 30,
-      'erp_breakthrough': 50,
+      'therapy_started': 15,
+      'therapy_completed': 30,
+      'therapy_breakthrough': 50,
       'mood_checkin': 5,
       'breathwork_completed': 20,
       'daily_goal_achieved': 100,
@@ -206,7 +206,7 @@ export class DynamicPointsEngine {
     // 4. TIMING BONUS
     const hour = new Date().getHours();
     if (action.includes('erp') && (hour >= 8 && hour <= 10)) {
-      multipliers.timingBonus = 1.15; // Morning ERP bonus
+      multipliers.timingBonus = 1.15; // Morning Terapi bonus
     }
     if (action.includes('breathwork') && (hour >= 21 || hour <= 6)) {
       multipliers.timingBonus = 1.1; // Evening/night breathwork bonus
@@ -238,8 +238,8 @@ export class DynamicPointsEngine {
     const baseCaps: Record<string, number> = {
       'compulsion_recorded': 20,
       'compulsion_resisted': 60,
-      'erp_completed': 80,
-      'erp_breakthrough': 150,
+      'therapy_completed': 80,
+      'therapy_breakthrough': 150,
       'daily_goal_achieved': 300,
       'weekly_consistency': 500
     };
@@ -326,10 +326,10 @@ export class AIMissionGenerator {
       commonCompulsions: patterns.commonCompulsionTypes || [],
       recentCompulsionTrend: this.analyzeCompulsionTrend(recentActivity.compulsions),
       
-      // ERP patterns
-      erpConsistency: this.calculateERPConsistency(recentActivity.erpSessions),
-      preferredERPTypes: patterns.erpPreferences || [],
-      erpSuccessRate: this.calculateERPSuccessRate(recentActivity.erpSessions),
+      // Terapi patterns
+      erpConsistency: this.calculateTerapiConsistency(recentActivity.erpSessions),
+      preferredTerapiTypes: patterns.erpPreferences || [],
+      erpSuccessRate: this.calculateTerapiSuccessRate(recentActivity.erpSessions),
       
       // Mood & engagement patterns
       lowMoodTimes: this.identifyLowMoodPatterns(recentActivity.moodEntries),
@@ -356,7 +356,7 @@ export class AIMissionGenerator {
     const missionTypes = [
       'consistency_challenge',
       'resistance_building', 
-      'erp_progression',
+      'therapy_progression',
       'pattern_awareness',
       'mood_improvement',
       'breakthrough_attempt'
@@ -372,8 +372,8 @@ export class AIMissionGenerator {
       case 'resistance_building':
         return this.generateResistanceMission(context, analysis);
       
-      case 'erp_progression':
-        return this.generateERPMission(context, analysis);
+      case 'therapy_progression':
+        return this.generateTerapiMission(context, analysis);
       
       case 'pattern_awareness':
         return this.generatePatternAwarenessMission(context, analysis);
@@ -483,12 +483,12 @@ export class AIMissionGenerator {
     };
   }
   
-  private static generateERPMission(context: MissionGenerationContext, analysis: any): DynamicMission {
+  private static generateTerapiMission(context: MissionGenerationContext, analysis: any): DynamicMission {
     const successRate = analysis.erpSuccessRate;
     const consistency = analysis.erpConsistency;
     const userLevel = context.userProfile.currentLevel;
     
-    // Adapt ERP challenge based on success patterns
+    // Adapt Terapi challenge based on success patterns
     let targetValue = 1;
     let difficulty: DynamicMission['difficulty'] = 'medium';
     let missionFocus = 'completion';
@@ -505,19 +505,19 @@ export class AIMissionGenerator {
     const healingPoints = this.calculateMissionPoints('erp', difficulty, userLevel);
     
     const titles = {
-      attempt: '🌱 ERP Denemesi',
-      completion: '🛡️ ERP Ustası', 
-      advanced: '⚡ ERP Kahramanı'
+      attempt: '🌱 Terapi Denemesi',
+      completion: '🛡️ Terapi Ustası', 
+      advanced: '⚡ Terapi Kahramanı'
     };
     
     const descriptions = {
-      attempt: 'Bir ERP egzersizini deneyerek korku zincirininde bir halka kır.',
-      completion: 'Bir ERP egzersizini başarıyla tamamla ve habitüasyonu gözlemle.',
-      advanced: `${targetValue} farklı ERP egzersizi yaparak cesaret sınırlarını zorla.`
+      attempt: 'Bir Terapi egzersizini deneyerek korku zincirininde bir halka kır.',
+      completion: 'Bir Terapi egzersizini başarıyla tamamla ve habitüasyonu gözlemle.',
+      advanced: `${targetValue} farklı Terapi egzersizi yaparak cesaret sınırlarını zorla.`
     };
     
     return {
-      id: `erp_${Date.now()}`,
+      id: `therapy_${Date.now()}`,
       title: titles[missionFocus],
       description: descriptions[missionFocus],
       category: 'erp',
@@ -527,14 +527,14 @@ export class AIMissionGenerator {
       healingPoints,
       bonusMultiplier: missionFocus === 'attempt' ? 1.3 : 1.0,
       expiresAt: Date.now() + (2 * 24 * 60 * 60 * 1000), // 2 days
-      generatedFrom: `ERP success rate: ${successRate.toFixed(2)}, consistency: ${consistency.toFixed(2)}`,
+      generatedFrom: `Terapi success rate: ${successRate.toFixed(2)}, consistency: ${consistency.toFixed(2)}`,
       personalizedMessage: successRate < 0.4 ? 
-        'ERP zor gelebilir, ama her deneme bir zafer! Adım adım ilerle.' :
-        'ERP konusunda başarılısın! Bu güçlü yanını daha da geliştir.',
+        'Terapi zor gelebilir, ama her deneme bir zafer! Adım adım ilerle.' :
+        'Terapi konusunda başarılısın! Bu güçlü yanını daha da geliştir.',
       aiGenerated: true,
       metadata: {
         generatedAt: Date.now(),
-        basePattern: 'erp_performance',
+        basePattern: 'therapy_performance',
         userLevel,
         contextFactors: ['success_rate', 'consistency'],
         expectedDifficulty: missionFocus === 'attempt' ? 0.3 : missionFocus === 'completion' ? 0.6 : 0.8,
@@ -644,12 +644,12 @@ export class AIMissionGenerator {
   
   // Helper methods
   private static selectMissionType(analysis: any, missionIndex: number): string {
-    const types = ['consistency_challenge', 'resistance_building', 'erp_progression', 'pattern_awareness', 'mood_improvement', 'breakthrough_attempt'];
+    const types = ['consistency_challenge', 'resistance_building', 'therapy_progression', 'pattern_awareness', 'mood_improvement', 'breakthrough_attempt'];
     
     // Intelligent selection based on user needs
     if (analysis.consistency < 0.4) return 'consistency_challenge';
     if (analysis.recentCompulsionTrend === 'increasing') return 'resistance_building';
-    if (analysis.erpConsistency < 0.5) return 'erp_progression';
+    if (analysis.erpConsistency < 0.5) return 'therapy_progression';
     if (analysis.challengeCompletion > 0.8 && analysis.currentLevel > 20) return 'breakthrough_attempt';
     
     // Fallback to round-robin
@@ -740,14 +740,14 @@ export class AIMissionGenerator {
     return 'stable';
   }
   
-  private static calculateERPConsistency(erpSessions: any[]): number {
+  private static calculateTerapiConsistency(erpSessions: any[]): number {
     if (!erpSessions || erpSessions.length === 0) return 0;
     
     const completedSessions = erpSessions.filter(session => session.completed).length;
     return completedSessions / erpSessions.length;
   }
   
-  private static calculateERPSuccessRate(erpSessions: any[]): number {
+  private static calculateTerapiSuccessRate(erpSessions: any[]): number {
     if (!erpSessions || erpSessions.length === 0) return 0;
     
     const successfulSessions = erpSessions.filter(session => 
@@ -1004,7 +1004,7 @@ export class DynamicGamificationService {
   private awardStaticPoints(action: string): DynamicPointsCalculation {
     const staticPoints = {
       'compulsion_recorded': 10,
-      'erp_completed': 20,
+      'therapy_completed': 20,
       'mood_checkin': 5
     };
     
