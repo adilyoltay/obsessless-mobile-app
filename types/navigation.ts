@@ -11,7 +11,7 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   index: undefined;        // Today/Dashboard
   tracking: undefined;     // Kompulsiyon takibi
-  erp: undefined;         // ERP egzersizleri
+
   settings: undefined;    // Ayarlar
 };
 
@@ -23,14 +23,7 @@ export type TrackingStackParamList = {
   'compulsion-history': { compulsionId: string };
 };
 
-// ERP Stack - ERP alt navigasyonu
-export type ERPStackParamList = {
-  'erp-list': undefined;
-  'erp-detail': { id: string };
-  'erp-timer': { exerciseId: string };
-  'create-erp': undefined;
-  'erp-progress': undefined;
-};
+
 
 // Settings Stack - Ayarlar alt navigasyonu
 export type SettingsStackParamList = {

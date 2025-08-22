@@ -12,10 +12,10 @@ export interface UserGamificationProfile {
 }
 
 export interface AchievementDefinition {
-  id: string; // 'first_erp', 'habituation_observer', etc.
+  id: string; // 'first_session', 'habituation_observer', etc.
   title: string;
   description: string;
-  category: 'ERP' | 'Resistance' | 'Mindfulness';
+  category: 'Resistance' | 'Mindfulness';
   icon: string; // MaterialCommunityIcons name
   rarity: 'Common' | 'Rare' | 'Epic';
   criteria: {

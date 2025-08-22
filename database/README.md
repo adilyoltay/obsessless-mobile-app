@@ -21,7 +21,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 - `users` - User accounts (from auth.users)
 - `user_profiles` - Onboarding data (Y-BOCS, symptoms, goals)
 - `compulsions` - OCD compulsion records
-- `erp_sessions` - ERP exercise sessions
+
 - `gamification_profiles` - User progress & achievements
 
 #### **Relationships**
@@ -30,7 +30,7 @@ auth.users (Supabase Auth)
     ↓ (trigger)
 public.users
     ↓ (foreign key)
-user_profiles, compulsions, erp_sessions, gamification_profiles
+user_profiles, compulsions, gamification_profiles
 ```
 
 ### **3. Auto-Triggers**
@@ -63,7 +63,7 @@ user_profiles, compulsions, erp_sessions, gamification_profiles
 #### **User Actions**
 ```
 1. OCD Compulsion → AsyncStorage + Database
-2. ERP Session → AsyncStorage + Database
+2. Session → AsyncStorage + Database
 3. Onboarding Complete → AsyncStorage + Database
 4. Gamification Update → AsyncStorage + Database
 ```
@@ -100,7 +100,7 @@ WHERE trigger_schema = 'public' OR event_object_schema = 'auth';
 DELETE FROM gamification_profiles WHERE user_id = 'test_user_id';
 DELETE FROM user_profiles WHERE user_id = 'test_user_id';
 DELETE FROM compulsions WHERE user_id = 'test_user_id';
-DELETE FROM erp_sessions WHERE user_id = 'test_user_id';
+
 DELETE FROM users WHERE id = 'test_user_id';
 ```
 
@@ -116,12 +116,12 @@ All tables have RLS enabled with policies:
 - `users(id)` - Primary key
 - `user_profiles(user_id)` - Foreign key
 - `compulsions(user_id, timestamp)` - Queries
-- `erp_sessions(user_id, timestamp)` - Queries
+
 - `gamification_profiles(user_id)` - Foreign key
 
 #### **Views**
 - `daily_compulsion_stats` - Daily summaries
-- `weekly_erp_stats` - Weekly ERP analytics
+
 
 ### **8. Backup & Migration**
 
@@ -131,7 +131,7 @@ All tables have RLS enabled with policies:
 COPY (SELECT * FROM users) TO 'users.csv' CSV HEADER;
 COPY (SELECT * FROM user_profiles) TO 'profiles.csv' CSV HEADER;
 COPY (SELECT * FROM compulsions) TO 'compulsions.csv' CSV HEADER;
-COPY (SELECT * FROM erp_sessions) TO 'erp_sessions.csv' CSV HEADER;
+
 ```
 
 #### **Schema Migrations**
