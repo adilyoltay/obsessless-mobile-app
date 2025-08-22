@@ -942,11 +942,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     return 'diğer';
   }
 
-  private determineExposureType(patterns: string[]): string {
-    if (patterns.includes('avoidance')) return 'avoided_situation';
-    if (patterns.includes('safety_behaviors')) return 'safety_behavior_elimination';
-    return 'general_exposure';
-  }
+
 
 
 
