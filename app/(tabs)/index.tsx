@@ -745,7 +745,7 @@ export default function TodayScreen() {
     return (
     <View style={styles.missionsSection}>
       <View style={styles.sectionHeader}>
-        <MaterialCommunityIcons name="sparkles" size={20} color="#10B981" />
+        <MaterialCommunityIcons name="auto-fix" size={20} color="#10B981" />
         <Text style={styles.sectionTitle}>
           {aiMissions.length > 0 ? 'AI Kişisel Öneriler' : 'Bugün için öneriler'}
         </Text>
