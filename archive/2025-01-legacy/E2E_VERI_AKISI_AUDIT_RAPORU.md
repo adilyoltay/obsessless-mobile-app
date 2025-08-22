@@ -201,7 +201,7 @@ await trackAIInteraction(AIEventType.INSIGHTS_GENERATED, { userId, insightCount:
 - Kompulsiyon ve Terapi Supabase’ten; mood son 30 gün yerel depodan toplanıyor.
 
 ```40:56:features/ai/pipeline/enhancedDataAggregation.ts
-const [compulsions, erpSessions, moodEntries, profile] = await Promise.all([
+const [compulsions, therapySessions, moodEntries, profile] = await Promise.all([
   this.fetchCompulsions(userId, 30),
   this.fetchERPSessions(userId, 30),
   this.fetchMoodEntries(userId, 30),

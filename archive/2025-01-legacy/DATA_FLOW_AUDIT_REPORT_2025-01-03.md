@@ -356,7 +356,7 @@ class AIDataAggregationService {
       // Paralel veri toplama
       const [
         profile,
-        erpSessions,
+        therapySessions,
         compulsions,
         achievements,
         moodData
@@ -370,14 +370,14 @@ class AIDataAggregationService {
 
       // Veri analizi ve pattern çıkarma
       const patterns = await this.extractPatterns({
-        erpSessions,
+        therapySessions,
         compulsions,
         moodData
       });
 
       // Performans metrikleri hesapla
       const performance = this.calculatePerformanceMetrics({
-        erpSessions,
+        therapySessions,
         compulsions,
         achievements
       });
@@ -386,7 +386,7 @@ class AIDataAggregationService {
       const symptoms = await this.analyzeSymptoms({
         profile,
         compulsions,
-        erpSessions
+        therapySessions
       });
 
       return {
@@ -426,7 +426,7 @@ class AIDataAggregationService {
     // Direnç pattern'leri
     const resistanceAnalysis = this.analyzeResistancePatterns(
       data.compulsions,
-      data.erpSessions
+      data.therapySessions
     );
     patterns.resistancePatterns = resistanceAnalysis;
 
@@ -458,16 +458,16 @@ class AIDataAggregationService {
    * Performans metrikleri hesaplama
    */
   private calculatePerformanceMetrics(data: any): any {
-    const { erpSessions, compulsions, achievements } = data;
+    const { therapySessions, compulsions, achievements } = data;
     
     // Terapi tamamlama oranı
-    const completedSessions = erpSessions.filter(s => s.completed).length;
-    const completionRate = erpSessions.length > 0 
-      ? (completedSessions / erpSessions.length) * 100 
+    const completedSessions = therapySessions.filter(s => s.completed).length;
+    const completionRate = therapySessions.length > 0 
+      ? (completedSessions / therapySessions.length) * 100 
       : 0;
 
     // Ortalama anksiyete azalması
-    const anxietyReductions = erpSessions
+    const anxietyReductions = therapySessions
       .filter(s => s.completed)
       .map(s => s.anxiety_initial - s.anxiety_final);
     
@@ -476,7 +476,7 @@ class AIDataAggregationService {
       : 0;
 
     // Streak hesaplama
-    const streakDays = this.calculateStreak(erpSessions);
+    const streakDays = this.calculateStreak(therapySessions);
 
     return {
       erpCompletionRate: Math.round(completionRate),

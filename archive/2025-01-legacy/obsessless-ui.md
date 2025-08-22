@@ -1650,7 +1650,7 @@ const HapticFeedback = {
 🎮 Micro-reward awarded: therapy_completed (+20 points)
 📊 Today page Terapi sessions: [{id: "123", name: "El Yıkama"...}]
 📊 Today page Terapi count: 2
-📊 Today stats updated: {compulsions: 3, erpSessions: 2...}
+📊 Today stats updated: {compulsions: 3, therapySessions: 2...}
 ```
 
 ### 🛠️ **Real-time Error Handling**

@@ -50,7 +50,7 @@ interface UnifiedAnalysisInput {
   data: {
     compulsions?: any[];
     moods?: any[];
-    erpSessions?: any[];
+    therapySessions?: any[];
     voiceCheckins?: any[];
   };
   context: {

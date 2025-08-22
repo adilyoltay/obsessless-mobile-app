@@ -247,7 +247,7 @@ const distortionEducation: DistortionEducation[] = [
 - [x] Organik, el çizimi görünümlü SVG tasarım
 - [x] Pastel renk paleti ve yumuşak geçişler
 - [x] Terapi kategori illüstrasyonları (6 kategori)
-- [x] ERPQuickStart'a görsel entegrasyonu
+- [x] TherapyQuickStart'a görsel entegrasyonu
 - [x] OCD/Compulsion formlara aynı görseller eklendi
 - [x] Art Therapy Engine reaktive edildi
 - [x] Lindsay Braman tarzı 5 çizim şablonu eklendi
@@ -469,10 +469,10 @@ const getIllustrationSize = (screenWidth: number) => {
 - **Mimari:** Ana Mood sayfasından kaldırıldı, sadece Quick Entry'de
 
 #### 3. ERP/OCD Kategori Görselleri
-- **Dosya:** `components/illustrations/ERPIllustrations.tsx`
+- **Dosya:** `components/illustrations/TherapyIllustrations.tsx`
 - **İçerik:** 6 kanonik OCD kategorisi için illüstrasyonlar
 - **Entegrasyon:** 
-  - `ERPQuickStart.tsx` - Terapi egzersiz sihirbazında
+  - `TherapyQuickStart.tsx` - Terapi egzersiz sihirbazında
   - `CompulsionQuickEntry.tsx` - Kompulsiyon kaydında
 
 #### 4. Art Therapy Çizim Şablonları
@@ -532,7 +532,7 @@ const getIllustrationSize = (screenWidth: number) => {
   
 - **Belirtiler Sayfası:**
   - MaterialCommunityIcons yerine Lindsay Braman SVG illüstrasyonları
-  - ERPIllustrations componentinden ikonlar kullanıldı
+  - TherapyIllustrations componentinden ikonlar kullanıldı
   - Renk teması yeşile güncellendi
   
 - **Genel Renk Değişiklikleri:**
