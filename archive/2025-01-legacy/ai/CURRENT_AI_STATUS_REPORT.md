@@ -4,7 +4,7 @@ Son güncelleme: 2025-08-10
 
 ## 🎯 EXECUTIVE SUMMARY
 - ✅ AI altyapısı production-ready (Gemini-only)
-- ✅ Çekirdek servisler çalışır: Onboarding, Profil, Tedavi Planlama, ERP Önerileri, Risk (krizsiz), Y‑BOCS
+- ✅ Çekirdek servisler çalışır: Onboarding, Profil, Tedavi Planlama, Terapi Önerileri, Risk (krizsiz), Y‑BOCS
 - 🔄 Insights/Progress/Pattern: veri yeterliliğine bağlı; telemetri tamamlandı
 - ❌ Kriz Tespiti: runtime’dan kaldırıldı (flag varsayılan kapalı, init edilmez)
 
@@ -19,7 +19,7 @@ Son güncelleme: 2025-08-10
 - TreatmentPlanningEngine: gerçek LLM planları (Gemini), onboarding’de aktif
 - CBT Engine: bilişsel çarpıtma tespiti ve teknik önerileri
 - Y‑BOCS Analysis: LLM destekli geliştirme
-- ERP Recommendation Service: LLM + cache, fallback’li
+- Terapi Recommendation Service: LLM + cache, fallback’li
 - RiskAssessmentService: kriz modülleri olmadan risk değerlendirme + telemetri
 
 ## 🔍 Insights & Analytics

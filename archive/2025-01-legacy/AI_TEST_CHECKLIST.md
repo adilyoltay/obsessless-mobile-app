@@ -16,18 +16,18 @@ Test Kapsam Notu (Ağustos 2025)\n\n- AI Chat: kapsam dışı (kod yok).\n- Cris
 ## AIContext Senkronizasyonu
 - [ ] `contexts/AIContext.tsx` Supabase’den `ai_profiles.profile_data` ve `ai_treatment_plans.plan_data` çekiyor
 - [ ] Cihazlar arası profil/plan güncellemeleri UI’a yansıyor (pull → persist local)
-- [ ] ERP ekranında plan/profil AIContext’ten gelmezse AsyncStorage fallback ile görüntülenir
+- [ ] Terapi ekranında plan/profil AIContext’ten gelmezse AsyncStorage fallback ile görüntülenir
 
 ## Treatment Planning Engine (Gerçek AI)
 - [ ] `treatmentPlanningEngine` externalAIService ile plan metnini/amaçlarını rafine ediyor
 - [ ] Telemetry’de `AI_RESPONSE_GENERATED` event’inde provider/model/latency/token raporlanıyor
 - [ ] Hata durumunda graceful fallback var
 
-## ERP Önerileri (Gerçek AI)
+## Terapi Önerileri (Gerçek AI)
 - [ ] `erpRecommendationService` externalAIService ile aday egzersizleri rafine ediyor
 - [ ] Başarısızlıkta heuristik fallback devrede
 - [ ] Öneri kartları yalnızca öneri sayısı > 0 olduğunda görünür
-- [ ] Log’da “AI ERP recommendations loaded: N” doğrulanır (N > 0 beklenir)
+- [ ] Log’da “AI Terapi recommendations loaded: N” doğrulanır (N > 0 beklenir)
 
 ## Telemetry & Güvenlik
 - [ ] Sağlayıcı health check event’leri: `AI_PROVIDER_HEALTH_CHECK`, başarısızlık: `AI_PROVIDER_FAILED`
@@ -36,7 +36,7 @@ Test Kapsam Notu (Ağustos 2025)\n\n- AI Chat: kapsam dışı (kod yok).\n- Cris
 
 ## Insights Engine V2
 - [ ] 60 saniye cooldown uygulanır; bu sürede gelen çağrılar cache’den döner
-- [ ] Veri gereksinimi: Bugüne ait en az 1 ERP oturumu ve birkaç kompulsiyon kaydı içgörü üretimini artırır
+- [ ] Veri gereksinimi: Bugüne ait en az 1 Terapi oturumu ve birkaç kompulsiyon kaydı içgörü üretimini artırır
 - [ ] Veri azsa “0 insights” normaldir; hata değildir (telemetri `success` fakat içerik 0)
 - [ ] Telemetri: `INSIGHTS_REQUESTED`, `INSIGHTS_DELIVERED` olayları userId ve counts ile görünür
 
@@ -47,7 +47,7 @@ Test Kapsam Notu (Ağustos 2025)\n\n- AI Chat: kapsam dışı (kod yok).\n- Cris
 
 ## Sonuç
 - [ ] Y-BOCS yorumları ve tedavi planı metinleri LLM’den geliyor (demo değil)
-- [ ] ERP ekranında AI önerileri görünüyor ve seçilebiliyor
+- [ ] Terapi ekranında AI önerileri görünüyor ve seçilebiliyor
  - [ ] Today ekranında içgörüler veri yeterliyse görünür; 60 sn kuralı ve cache çalışır
 
 # ✅ **AI ÖZELLİKLERİ TEST CHECKLIST**

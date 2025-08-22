@@ -91,8 +91,8 @@ async saveCompulsion(...){
 
 Durum: Supabase hatasında kuyruklama yapılmıyor (eksik). Aşağıda “Boşluklar” bölümünde detaylandırıldı.
 
-### ERP Oturumu
-- Tasarım: Oturum bittiğinde local kalıcı kayıt + Supabase `erp_sessions` upsert (dup. önleme).
+### Terapi Oturumu
+- Tasarım: Oturum bittiğinde local kalıcı kayıt + Supabase `therapy_sessions` upsert (dup. önleme).
 
 ```223:266:store/erpSessionStore.ts
 const dbSession = dataStandardizer.standardizeERPSessionData({...});
@@ -159,7 +159,7 @@ async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'
 private async syncItem(item: SyncQueueItem): Promise<void> {
   switch (item.entity) {
     case 'compulsion': await this.syncCompulsion(item); break;
-    case 'erp_session': await this.syncERPSession(item); break;
+    case 'therapy_session': await this.syncERPSession(item); break;
     case 'achievement': await this.syncAchievement(item); break;
     case 'mood_entry': await this.syncMoodEntry(item); break;
   }
@@ -168,7 +168,7 @@ private async syncItem(item: SyncQueueItem): Promise<void> {
 
 ### Tespit
 - Kompulsiyon için `syncCompulsion` şu anda `apiService` üzerinden REST çağrıları yapıyor; proje prensibine aykırı (Supabase tek backend).
-- ERP için offline kuyruk bağlanmış; kompulsiyon için yerel yazım var ancak kuyruk eklenmiyor.
+- Terapi için offline kuyruk bağlanmış; kompulsiyon için yerel yazım var ancak kuyruk eklenmiyor.
 - `currentUserId` set edilmediği için local kuyruğun anahtarları `anon` olarak oluşabilir.
 
 > Not (mimari dokümantasyon uyumu): `docs/ARCHITECTURE_OVERVIEW.md` içinde "`services/offlineSync.ts` kullanıcı kimliğini Supabase’ten çeker (AsyncStorage fallback)" denmektedir. Kaynak koda göre `loadSyncQueue/saveSyncQueue` aşamasında Supabase’tan kullanıcı ID’sini okumaya teşebbüs var; ancak `storeCompulsionLocally/storeERPSessionLocally` doğrudan `AsyncStorage.getItem('currentUserId')` kullanıyor. `currentUserId` set edilmediğinde fallback `anon` olur.
@@ -185,7 +185,7 @@ const [compList, erpList] = await Promise.all([
   supabaseService.getCompulsions(user.id, startISO, endISO),
   supabaseService.getERPSessions(user.id, startISO, endISO),
 ]);
-// Local fallbacks: AsyncStorage compulsions/erp_sessions_{userId}
+// Local fallbacks: AsyncStorage compulsions/therapy_sessions_{userId}
 ```
 
 ```870:879:contexts/AIContext.tsx
@@ -198,7 +198,7 @@ await trackAIInteraction(AIEventType.INSIGHTS_GENERATED, { userId, insightCount:
 ```
 
 ### Veri Birleştirme (Aggregator)
-- Kompulsiyon ve ERP Supabase’ten; mood son 30 gün yerel depodan toplanıyor.
+- Kompulsiyon ve Terapi Supabase’ten; mood son 30 gün yerel depodan toplanıyor.
 
 ```40:56:features/ai/pipeline/enhancedDataAggregation.ts
 const [compulsions, erpSessions, moodEntries, profile] = await Promise.all([
@@ -231,7 +231,7 @@ standardizeERPSessionData(schema: zod) // duration_seconds, anxiety_* sınırlar
 
 ## 7) Supabase Şeması ve RLS
 
-- `compulsions`, `erp_sessions`, `user_profiles`, `gamification_profiles`, `mood_tracking`, `voice_checkins`, `thought_records`, `ai_profiles`, `ai_treatment_plans`, `ai_insights` tabloları mevcut; RLS etkin ve kullanıcının sadece kendi verilerini görmesine/işlemesine izin veriyor.
+- `compulsions`, `therapy_sessions`, `user_profiles`, `gamification_profiles`, `mood_tracking`, `voice_checkins`, `thought_records`, `ai_profiles`, `ai_treatment_plans`, `ai_insights` tabloları mevcut; RLS etkin ve kullanıcının sadece kendi verilerini görmesine/işlemesine izin veriyor.
 
 ```56:85:database/schema.sql
 CREATE TABLE public.compulsions (...);
@@ -240,9 +240,9 @@ CREATE POLICY "Users can manage own compulsions" ON public.compulsions FOR ALL U
 ```
 
 ```87:113:database/schema.sql
-CREATE TABLE public.erp_sessions (...);
-ALTER TABLE public.erp_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage own erp sessions" ON public.erp_sessions FOR ALL USING (auth.uid() = user_id);
+CREATE TABLE public.therapy_sessions (...);
+ALTER TABLE public.therapy_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own erp sessions" ON public.therapy_sessions FOR ALL USING (auth.uid() = user_id);
 ```
 
 ```1:33:supabase/migrations/2025-08-12_app_add_voice_and_thought_records.sql
@@ -266,7 +266,7 @@ ALTER TABLE ... ENABLE ROW LEVEL SECURITY; CREATE POLICY ...
 - (A) `currentUserId` set edilmiyor → offline anahtarlar `anon`’a düşebilir → çoklu kullanıcı/veri karışma riski.
 - (B) Kompulsiyon kayıtlarında Supabase hatasında kuyruklama yok → çevrimiçi olunca otomatik senkron garantisi yok.
 - (C) OfflineSync Supabase yerine `apiService` ile REST çağrısı yapıyor → mimari kurala aykırı ve şema/standardizasyon tutarlılığı riski.
-- (D) ERP standardizasyonu ile DB min sınırları arasında küçük uyumsuzluk (min değerler).
+- (D) Terapi standardizasyonu ile DB min sınırları arasında küçük uyumsuzluk (min değerler).
 
 ---
 
@@ -278,7 +278,7 @@ ALTER TABLE ... ENABLE ROW LEVEL SECURITY; CREATE POLICY ...
   - `hooks/useCompulsions.ts` catch bloğunda: `offlineSyncService.addToSyncQueue({ type: 'CREATE', entity: 'compulsion', data: {...}})`.
 - (C) OfflineSync’i Supabase’e bağla:
   - `services/offlineSync.ts` içindeki `syncCompulsion`/`syncERPSession` ‘da `apiService` yerine `supabaseService.saveCompulsion/saveERPSession` kullan.
-- (D) ERP standardizasyonu min değerleri DB ile hizala:
+- (D) Terapi standardizasyonu min değerleri DB ile hizala:
   - `utils/dataStandardization.ts`: `duration_seconds.min(1)`, `anxiety_initial/final.min(1)`.
 - (E) (Opsiyonel) Idempotency:
   - `compulsions` için `(user_id, timestamp, category, coalesce(subcategory,''))` üzerinde unique index ile tekrar kayıtların önüne geç.
@@ -289,14 +289,14 @@ ALTER TABLE ... ENABLE ROW LEVEL SECURITY; CREATE POLICY ...
 ## 10) Doğrulama Senaryoları (E2E Test)
 
 - Senaryo 1: Offline kayıt → Online senkron
-  - Uçak modunda 2 kompulsiyon + 1 ERP kaydı oluştur.
+  - Uçak modunda 2 kompulsiyon + 1 Terapi kaydı oluştur.
   - Online olunca OfflineSync kuyruğu boşalmalı; Supabase tablolarında kayıtlar görünmeli.
 - Senaryo 2: Supabase hatası → Kuyruklama
-  - API cevaplarını mock ederek 500/429 döndür; kompulsiyon/ERP kayıtları kuyruklanmalı, backoff + retry çalışmalı, DLQ sayaçları oluşmalı.
+  - API cevaplarını mock ederek 500/429 döndür; kompulsiyon/Terapi kayıtları kuyruklanmalı, backoff + retry çalışmalı, DLQ sayaçları oluşmalı.
 - Senaryo 3: Çoklu cihaz tutarlılık
   - Cihaz A’da kayıt ekle; cihaz B’de aynı kullanıcı ile giriş → son 24 saatin verisi ve içgörüler yüklenmeli (AIContext). Cache hit/miss telemetrisi kontrol.
 - Senaryo 4: Veri standardizasyonu sınırları
-  - ERP min değerleri (duration=1, anxiety=1) ile gönder; DB kabul ve Supabase kayıt doğrulaması.
+  - Terapi min değerleri (duration=1, anxiety=1) ile gönder; DB kabul ve Supabase kayıt doğrulaması.
 - Senaryo 5: Gizlilik
   - Voice/Thought metinlerinde email/telefon/kart/TC içeren örnekler PII maskesi ile `saveVoiceCheckin/saveThoughtRecord`’da maskelenmeli.
 

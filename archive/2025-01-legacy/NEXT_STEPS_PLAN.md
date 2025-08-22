@@ -7,7 +7,7 @@ Güncelleme Notu\n\n- Priority 2: Crisis Detection Enhancement kaldırıldı; al
 ### ✅ **Tamamlanan Kritik Görevler:**
 - 7 Sprint backend infrastructure 
 - AI Context Provider ile merkezi yönetim
-- Home/Settings/ERP ekranları AI entegrasyonu
+- Home/Settings/Terapi ekranları AI entegrasyonu
 - Feature-gated navigation
 - Production-ready güvenlik sistemleri
 

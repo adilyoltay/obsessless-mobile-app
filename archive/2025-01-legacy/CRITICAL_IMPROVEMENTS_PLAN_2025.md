@@ -33,7 +33,7 @@ Sistemin detaylı analizi sonucunda tespit edilen kritik eksiklikler ve bunları
 // services/offlineSync.ts - Satır 15'e eklenecek
 export interface SyncQueueItem {
   // ...
-  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 
+  entity: 'compulsion' | 'therapy_session' | 'achievement' | 'mood_entry' | 
           'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record'; // YENİ
   // ...
 }

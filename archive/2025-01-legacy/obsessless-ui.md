@@ -346,7 +346,7 @@
 │ └─────────────────────────────────┘ │
 │                                     │
 │ 📅 0    🔥 0    ✅ 0              │ Quick Stats
-│ Today  Streak  ERP                  │ (Horizontal)
+│ Today  Streak  Terapi                  │ (Horizontal)
 │                                     │
 │ ❤️ Bugün için öneriler              │ Suggestions
 │                                     │ Header
@@ -427,13 +427,13 @@
 └─────────────────────────────────────┘
 ```
 
-### 🛡️ ERP Tracking Page (Consistent Design)
+### 🛡️ Terapi Tracking Page (Consistent Design)
 
 ```
 ┌─────────────────────────────────────┐
 │  ⬤ ⬤ ⬤ ⬤               60          │ Status Bar
 ├─────────────────────────────────────┤
-│ ERP Takip                  🛡️       │ Header
+│ Terapi Takip                  🛡️       │ Header
 │                                     │
 │ ┌─────┐ ┌─────┐ ┌─────┐           │ Time
 │ │Bugün│ │Hafta│ │ Ay  │           │ Range
@@ -551,7 +551,7 @@ FAB Specifications:
 │ ✅ FIXED POSITIONING:               │
 │ - Always above tab bar              │
 │ - Not affected by scroll            │
-│ - Consistent across ERP & OCD pages │
+│ - Consistent across Terapi & OCD pages │
 │                                ┌─┐  │
 │                                │+│  │ FAB
 │                                └─┘  │
@@ -881,7 +881,7 @@ queryClient.invalidateQueries(['compulsions'])
 const StorageKeys = {
   // User-specific keys
   COMPULSIONS: (userId: string) => `compulsions_${userId}`,
-  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  ERP_SESSIONS: (userId: string, date: string) => `therapy_sessions_${userId}_${date}`,
   GAMIFICATION: (userId: string) => `gamification_${userId}`,
   ONBOARDING: (userId: string) => `onboardingCompleted_${userId}`,
   
@@ -941,7 +941,7 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 - **Sorun:** Onboarding sonrası navigation loop
 - **Çözüm:** NavigationGuard'da AsyncStorage öncelikli kontrol eklendi
 
-#### **4. ERP Session Duplicates** ✅
+#### **4. Terapi Session Duplicates** ✅
 - **Sorun:** Aynı session birden fazla kez kaydediliyordu
 - **Çözüm:** Session ID ile duplicate check eklendi
 
@@ -952,7 +952,7 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 | User Auth | ✅ Token | ✅ Session | Çalışıyor |
 | Onboarding | ✅ Profile | ✅ user_profiles | Çalışıyor |
 | Compulsions | ✅ AsyncStorage | ✅ compulsions | Çalışıyor |
-| ERP Sessions | ✅ AsyncStorage | ✅ erp_sessions | Çalışıyor |
+| Terapi Sessions | ✅ AsyncStorage | ✅ therapy_sessions | Çalışıyor |
 | Gamification | ✅ AsyncStorage | ✅ gamification_profiles | Çalışıyor |
 
 ### 🎯 **Production Readiness Checklist:**
@@ -960,7 +960,7 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 - [x] Authentication Flow (Email + Google OAuth)
 - [x] Onboarding Completion
 - [x] Compulsion Recording with Category Mapping
-- [x] ERP Session Management
+- [x] Terapi Session Management
 - [x] Gamification System
 - [x] Offline-First Architecture
 - [x] User-Specific Data Isolation
@@ -980,7 +980,7 @@ Bu UI dokümantasyonu, ObsessLess uygulamasının **Master Prompt ilkelerine** t
 
 ---
 
-## 🛡️ **ERP MODÜLÜ - AMİRAL GEMİSİ ÖZELLİKLERİ**
+## 🛡️ **Terapi MODÜLÜ - AMİRAL GEMİSİ ÖZELLİKLERİ**
 
 ### 🧙‍♂️ **Smart Wizard Flow UI Specifications**
 
@@ -1617,7 +1617,7 @@ const HapticFeedback = {
 
 ### 📊 **Comprehensive Logging Framework**
 
-#### **ERP Session Tracking:**
+#### **Terapi Session Tracking:**
 ```typescript
 // Session lifecycle tracking
 🎯 handleComplete called for user: [userId]
@@ -1627,15 +1627,15 @@ const HapticFeedback = {
 ✅ Session saved to storage. Total sessions today: 2
 🔄 Attempting to save to database...
 📤 Database payload: {user_id, exercise_id, category...}
-✅ ERP session saved to database
+✅ Terapi session saved to database
 🏆 Gamification updates completed
 ```
 
 #### **Stats Loading & Refresh:**
 ```typescript
 // Automatic refresh system
-🔄 ERP screen focused, refreshing stats...
-📈 Loading ERP stats for user: [userId]
+🔄 Terapi screen focused, refreshing stats...
+📈 Loading Terapi stats for user: [userId]
 📅 Today key: [dateString]
 🔑 Today storage key: ERP_SESSIONS_[userId]_[date]
 📊 Today sessions data: [{session1}, {session2}...]
@@ -1647,9 +1647,9 @@ const HapticFeedback = {
 ```typescript
 // Achievement tracking
 🏆 Achievement unlocked: first_erp
-🎮 Micro-reward awarded: erp_completed (+20 points)
-📊 Today page ERP sessions: [{id: "123", name: "El Yıkama"...}]
-📊 Today page ERP count: 2
+🎮 Micro-reward awarded: therapy_completed (+20 points)
+📊 Today page Terapi sessions: [{id: "123", name: "El Yıkama"...}]
+📊 Today page Terapi count: 2
 📊 Today stats updated: {compulsions: 3, erpSessions: 2...}
 ```
 
@@ -1679,7 +1679,7 @@ const HapticFeedback = {
 ```typescript
 // Automatic UI updates
 🔄 Today screen focused, refreshing stats...
-🔄 ERP screen focused, refreshing stats...
+🔄 Terapi screen focused, refreshing stats...
 // Ensures real-time data consistency across screens
 ```
 
@@ -1688,7 +1688,7 @@ const HapticFeedback = {
 // User interaction tracking
 🏆 Achievement badge pressed: first_erp
 🔒 Locked achievement info: "Henüz açılmadı"
-✨ Toast displayed: "🏆 İlk Adım - İlk ERP egzersizini tamamla..."
+✨ Toast displayed: "🏆 İlk Adım - İlk Terapi egzersizini tamamla..."
 ```
 
 ### 🔧 **Development Tools**
@@ -1698,7 +1698,7 @@ const HapticFeedback = {
 // User-specific data isolation
 const StorageKeys = {
   COMPULSIONS: (userId: string) => `compulsions_${userId}`,
-  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  ERP_SESSIONS: (userId: string, date: string) => `therapy_sessions_${userId}_${date}`,
   GAMIFICATION: (userId: string) => `gamification_${userId}`,
   // Ensures complete data separation between users
 };

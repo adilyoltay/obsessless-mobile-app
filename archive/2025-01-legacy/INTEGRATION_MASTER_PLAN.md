@@ -171,7 +171,7 @@ Durum Notu\n\n- AI Chat System: Not Implemented – future work.\n- Crisis Detec
 
 #### **5.3 Treatment Plan Integration**
 ```typescript
-// ERP screen enhancement
+// Terapi screen enhancement
 // Adaptive treatment recommendations
 // Progress tracking integration
 ```

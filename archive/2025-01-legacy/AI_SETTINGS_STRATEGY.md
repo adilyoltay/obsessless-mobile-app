@@ -272,7 +272,7 @@ FEATURE_FLAGS.AI_ART_THERAPY = false; // FAZ 1'de aktive edilecek
 1. **Voice Interface**
    - Speech recognition
    - Natural language processing
-   - Hands-free ERP guidance
+   - Hands-free Terapi guidance
 
 2. **Advanced Analytics**
    - Usage pattern analysis

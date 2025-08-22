@@ -95,10 +95,10 @@ features/ai/services/voiceRecognition.ts         ⚠️ PARTIAL
 - Needs completion for full voice chat
 ```
 
-#### **⚡ ERP Integration**
+#### **⚡ Terapi Integration**
 ```typescript
 features/ai/erp/adaptiveErp.ts            🔄 NEEDS REVIEW
-- ERP adaptation logic
+- Terapi adaptation logic
 - May need modernization
 ```
 

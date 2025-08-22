@@ -35,7 +35,7 @@ ObsessLess uygulamasının veri yönetim altyapısı kapsamlı olarak incelenmi�
 ✅ Session resume özelliği
 ```
 
-#### 3. ERP Egzersiz Takibi
+#### 3. Terapi Egzersiz Takibi
 ```typescript
 // services/erpService.ts
 ✅ Offline-first yaklaşım
@@ -302,7 +302,7 @@ class EnhancedOfflineSyncService extends OfflineSyncService {
 
 ### Problem Analizi
 - Kullanıcı profil verileri AI analizlerde kullanılmıyor
-- ERP performans geçmişi tedavi planlarına yansıtılmıyor
+- Terapi performans geçmişi tedavi planlarına yansıtılmıyor
 - Kompulsiyon patterns AI tarafından analiz edilmiyor
 
 ### 📝 Detaylı Çözüm: AI Veri Aggregation Pipeline
@@ -460,7 +460,7 @@ class AIDataAggregationService {
   private calculatePerformanceMetrics(data: any): any {
     const { erpSessions, compulsions, achievements } = data;
     
-    // ERP tamamlama oranı
+    // Terapi tamamlama oranı
     const completedSessions = erpSessions.filter(s => s.completed).length;
     const completionRate = erpSessions.length > 0 
       ? (completedSessions / erpSessions.length) * 100 
@@ -503,7 +503,7 @@ class AIDataAggregationService {
         symptom_trend: aggregate.symptoms.severityTrend
       },
       behavioral_data: {
-        erp_compliance: aggregate.performance.erpCompletionRate,
+        therapy_compliance: aggregate.performance.erpCompletionRate,
         anxiety_management: aggregate.performance.averageAnxietyReduction,
         consistency_score: aggregate.performance.streakDays,
         peak_difficulty_times: aggregate.patterns.peakAnxietyTimes,
@@ -852,16 +852,16 @@ class EnhancedAchievementService {
   private getAchievementConditions(): Map<string, Function> {
     return new Map([
       ['first_erp', async (userId, event, data) => {
-        return event === 'erp_completed' && data.isFirst;
+        return event === 'therapy_completed' && data.isFirst;
       }],
       ['week_streak', async (userId, event, data) => {
         return event === 'daily_check' && data.streakDays >= 7;
       }],
       ['anxiety_reducer', async (userId, event, data) => {
-        return event === 'erp_completed' && data.anxietyReduction >= 3;
+        return event === 'therapy_completed' && data.anxietyReduction >= 3;
       }],
       ['morning_warrior', async (userId, event, data) => {
-        return event === 'erp_completed' && new Date(data.timestamp).getHours() < 9;
+        return event === 'therapy_completed' && new Date(data.timestamp).getHours() < 9;
       }],
       // Daha fazla achievement koşulu...
     ]);
@@ -898,7 +898,7 @@ class EnhancedAchievementService {
         const currentStreak = await this.getCurrentStreak(userId);
         return Math.min(100, (currentStreak / 7) * 100);
       
-      case 'erp_master':
+      case 'therapy_master':
         const erpCount = await this.getERPCount(userId);
         return Math.min(100, (erpCount / 50) * 100);
       
@@ -1064,7 +1064,7 @@ class DataStandardizationService {
   }
 
   /**
-   * ERP session verisi standardizasyonu
+   * Terapi session verisi standardizasyonu
    */
   standardizeERPSessionData(data: any): any {
     const schema = z.object({
@@ -1087,8 +1087,8 @@ class DataStandardizationService {
     try {
       return schema.parse(data);
     } catch (error) {
-      console.error('ERP session data validation failed:', error);
-      throw new Error('Invalid ERP session data format');
+      console.error('Terapi session data validation failed:', error);
+      throw new Error('Invalid Terapi session data format');
     }
   }
 
@@ -1142,11 +1142,11 @@ class DataStandardizationService {
    */
   async migrateDataFormat(
     oldData: any[],
-    entityType: 'compulsion' | 'erp_session' | 'mood_entry'
+    entityType: 'compulsion' | 'therapy_session' | 'mood_entry'
   ): Promise<any[]> {
     const standardizer = {
       'compulsion': this.standardizeCompulsionData,
-      'erp_session': this.standardizeERPSessionData,
+      'therapy_session': this.standardizeERPSessionData,
       'mood_entry': this.standardizeMoodData
     }[entityType];
 

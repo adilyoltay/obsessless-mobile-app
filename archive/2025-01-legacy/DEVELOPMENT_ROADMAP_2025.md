@@ -24,7 +24,7 @@ Bu yol haritası, 2025 için yakın ve orta vadeli hedefleri konsolide eder (Oca
 
 ## 🎯 Mart 2025 (Planlanan)
 - **Advanced CBT Features**: AI destekli reframe önerileri iyileştirme
-- **ERP Enhancements**: Daha akıllı egzersiz önerileri
+- **Terapi Enhancements**: Daha akıllı egzersiz önerileri
 - **Progress Analytics**: CBT progress tracking ve insights
 - **Voice Analysis v2**: Daha gelişmiş NLP ve context understanding
 - **Mobile Optimizations**: Performance ve battery usage optimizasyonları

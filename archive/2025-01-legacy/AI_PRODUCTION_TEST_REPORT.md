@@ -188,7 +188,7 @@ WARN 🎯 JITAI timing optimization failed: {"code": "feature_disabled", "messag
 ### 3. **Low Priority - Enhanced Testing**
 - Cross-device synchronization test
 - Offline/online transition testing
-- ERP AI recommendations verification
+- Terapi AI recommendations verification
 
 ---
 
@@ -224,7 +224,7 @@ Once real API keys are configured:
    - Test latency and error handling
    - Validate content filtering
 
-2. **ERP AI Recommendations**
+2. **Terapi AI Recommendations**
    - Test personalized exercise suggestions
    - Verify recommendation quality
    - Measure user satisfaction

@@ -33,7 +33,7 @@ Bu belge, CoreAnalysisService v1 ile optimize edilmiş AI sistemini, merkezi ana
 
 ### 💾 Multi-layer Cache
 - **Insights**: 24 hour TTL
-- **ERP Plans**: 12 hour TTL  
+- **Terapi Plans**: 12 hour TTL  
 - **Voice Analysis**: 1 hour TTL
 - **Today Digest**: 12 hour TTL
 - **Key format**: `ai:{userId}:{dayKey}:{type}:{hash}`
@@ -69,10 +69,10 @@ Bu belge, CoreAnalysisService v1 ile optimize edilmiş AI sistemini, merkezi ana
 
 ### Pattern Recognition v2
 - AI-assisted basitleştirilmiş akış
-- Compulsion ve ERP pattern analizi
+- Compulsion ve Terapi pattern analizi
 - **Telemetry**: `PATTERN_ANALYSIS_COMPLETED`
 
-### ERP Önerileri
+### Terapi Önerileri
 - AI tabanlı egzersiz önerileri (in_vivo/imaginal/interoceptive/response_prevention)
 - Kullanıcı profiline göre kişiselleştirme
 - **Telemetry**: `INTERVENTION_RECOMMENDED`
@@ -140,7 +140,7 @@ BREATHWORK ise: Protokol seçimi + AutoStart
 ```
 Tetikleme Noktaları:
 ├── Check-in Analizi → BREATHWORK kategorisi
-├── ERP Oturumu → Anksiyete ≥ 7
+├── Terapi Oturumu → Anksiyete ≥ 7
 ├── Today Ekranı → Contextual öneriler
 │   ├── Sabah (7-9) → Morning routine
 │   ├── Akşam (21-23) → Sleep prep

@@ -116,7 +116,7 @@ console.log(stats); // { AI_CHAT: 15, AI_INSIGHTS: 8, ... }
 
 ### 🧪 Experimental Features
 - `AI_ART_THERAPY` - Sanat terapisi (FAZ 1)
-- `AI_VOICE_ERP` - Sesli ERP rehberliği (FAZ 2)
+- `AI_VOICE_ERP` - Sesli Terapi rehberliği (FAZ 2)
 - `AI_CONTEXT_INTELLIGENCE` - Bağlamsal zeka (FAZ 3)
 - `AI_PREDICTIVE_INTERVENTION` - Tahmine dayalı müdahale (FAZ 3)
 
@@ -193,7 +193,7 @@ Bu feature flag sistemi, yol haritasındaki gelecek fazlar için hazır:
 - `AI_CHAT`, `AI_INSIGHTS` özellikleri için hazır
 - `AI_ART_THERAPY` experimental flag mevcut
 
-### FAZ 2: Sesli ERP Koçu ve Gerçek Zamanlı Destek
+### FAZ 2: Sesli Terapi Koçu ve Gerçek Zamanlı Destek
 - `AI_VOICE_ERP` flag tanımlı
 - Biometric integration için genişletilebilir
 

@@ -7,9 +7,9 @@ Bu belge, Q4 2025 için planlanan geliştirmeleri özetler. Eski sprint planlar�
 - FEATURE_STATUS_MATRIX.md oluştur
 - Flag ve env kontrolü (production)
 
-## Hafta 2 (AI ve ERP Odaklı)
+## Hafta 2 (AI ve Terapi Odaklı)
 - AI_MODULE_GUIDE.md (aktif modüller)
-- ERP öneri kalitesi iyileştirmeleri (heuristics + telemetry değerlendirmesi)
+- Terapi öneri kalitesi iyileştirmeleri (heuristics + telemetry değerlendirmesi)
 - Insights v2 stabilizasyon (60s kural/telemetry)
 
 ## Hafta 3 (Test ve Katkı)

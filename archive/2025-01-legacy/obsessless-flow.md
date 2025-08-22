@@ -59,7 +59,7 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 - **useFocusEffect**: Sayfa odaklandığında otomatik refresh sistemi
 
 #### 🎮 **Gamification System - ENHANCED**
-- **Healing Points**: Kompulsiyon ve ERP için puan sistemi
+- **Healing Points**: Kompulsiyon ve Terapi için puan sistemi
 - **Streak Counter**: Günlük seri takibi
 - **Achievement Badges**: Başarımlar Today sayfasında görüntüleniyor
 - **UPSERT Operations**: Duplicate key error'ları çözüldü
@@ -68,7 +68,7 @@ ObsessLess, OKB ile yaşayan bireyler için tasarlanmış bir **"dijital sığı
 - **Progress Counter**: (açılan/toplam) format ile ilerleme takibi
 
 #### 🔍 **Comprehensive Debug System**
-- **ERP Session Tracking**: Detaylı console log'ları ile session completion takibi
+- **Terapi Session Tracking**: Detaylı console log'ları ile session completion takibi
 - **Storage Verification**: User-specific storage key'lerinin doğrulanması
 - **Database Payload Monitoring**: Supabase save işlemlerinin izlenmesi
 - **Stats Refresh Tracking**: Automatic refresh system ile real-time updates
@@ -136,7 +136,7 @@ EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
 #### **User Experience**
 - ✅ **Onboarding**: 5-step flow completing properly
 - ✅ **Compulsion Recording**: Toast notifications working
-- ✅ **ERP Sessions**: Exercise timer and anxiety tracking
+- ✅ **Terapi Sessions**: Exercise timer and anxiety tracking
 - ✅ **FAB Buttons**: Fixed positioning above tab bar (bottom: 90px, zIndex: 999)
 - ✅ **Achievement Badges**: Interactive badges with progress counter
 - ✅ **Auto Refresh**: useFocusEffect ile sayfa odaklandığında otomatik güncelleme
@@ -145,7 +145,7 @@ EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
 #### **Database Operations**
 - ✅ **User Profiles**: Automatic creation via triggers
 - ✅ **Compulsion Sync**: AsyncStorage + Supabase dual write
-- ✅ **ERP Sessions**: Anxiety data points storage with debug logging
+- ✅ **Terapi Sessions**: Anxiety data points storage with debug logging
 - ✅ **Gamification**: Points and streaks updating with real-time sync
  - ✅ **AI Onboarding Senkronu**: Onboarding biter bitmez Supabase upsert; hata halinde RetryQueue ile arka planda tekrar
 
@@ -180,7 +180,7 @@ EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
 - ❌ **useFocusEffect Import**: Fixed duplicate import syntax error
 
 #### **Data Issues**
-- ❌ **ERP Session Not Saving**: Comprehensive debug logging implemented
+- ❌ **Terapi Session Not Saving**: Comprehensive debug logging implemented
 - ❌ **Storage Key Conflicts**: User-specific storage keys enforced
 - ❌ **Stats Not Refreshing**: Auto-refresh system with useFocusEffect
 
@@ -459,7 +459,7 @@ interface CompulsionStats {
 │ └─────────────────────────────────┘ │
 │                                     │
 │ 📅 0    🔥 0    ✅ 0              │ Quick Stats
-│ Today  Streak  ERP                  │ (Horizontal)
+│ Today  Streak  Terapi                  │ (Horizontal)
 │                                     │
 │ ❤️ Bugün için öneriler              │ Suggestions
 │                                     │ Header
@@ -548,9 +548,9 @@ interface CompulsionStats {
 
 ---
 
-## 🛡️ PİLLAR 3: ERP MODÜLÜ - "AKILLI VE EMPATİK YÜZLEŞME KOÇU" (Enhanced)
+## 🛡️ PİLLAR 3: Terapi MODÜLÜ - "AKILLI VE EMPATİK YÜZLEŞME KOÇU" (Enhanced)
 
-### 🎯 **Gelişmiş ERP Akış Sistemi**
+### 🎯 **Gelişmiş Terapi Akış Sistemi**
 
 #### **✨ Yeni Özellik: Akıllı Hazırlık Sihirbazı**
 
@@ -565,7 +565,7 @@ interface CompulsionStats {
 
 **Comprehensive Debug System:**
 ```typescript
-// ERP Session Completion Tracking
+// Terapi Session Completion Tracking
 console.log('🎯 handleComplete called for user:', user?.id);
 console.log('📊 Session log received:', sessionLog);
 console.log('💾 Saving to storage key:', storageKey);
@@ -578,7 +578,7 @@ console.log('🏆 Gamification updates completed');
 ```typescript
 // Enhanced storage key management
 const StorageKeys = {
-  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  ERP_SESSIONS: (userId: string, date: string) => `therapy_sessions_${userId}_${date}`,
   LAST_ERP_EXERCISE: (userId: string) => `lastERPExercise_${userId}`,
   ERP_PREFERENCES: (userId: string) => `erpPreferences_${userId}`,
 };
@@ -590,7 +590,7 @@ const StorageKeys = {
 useFocusEffect(
   React.useCallback(() => {
     if (user?.id) {
-      console.log('🔄 ERP screen focused, refreshing stats...');
+      console.log('🔄 Terapi screen focused, refreshing stats...');
       loadAllStats();
     }
   }, [user?.id])
@@ -601,7 +601,7 @@ useFocusEffect(
 
 ```mermaid
 flowchart TD
-    subgraph "Basitleştirilmiş ERP Sihirbaz Akışı"
+    subgraph "Basitleştirilmiş Terapi Sihirbaz Akışı"
         A[FAB Butonuna Dokun] --> B[1️⃣ Kategori Grid Seçimi<br/>(6 Ana Kategori)]
         B --> C[2️⃣ Egzersiz Seçimi + Ayarlar<br/>(Aynı Sayfada)]
         C --> D[🚀 Oturumu Başlat]
@@ -613,7 +613,7 @@ flowchart TD
     style D fill:#059669,color:#fff
 ```
 
-#### **📱 Enhanced ERP Quick Start Flow**
+#### **📱 Enhanced Terapi Quick Start Flow**
 
 **1️⃣ Tek Adım: Kategori Grid**
 ```
@@ -696,7 +696,7 @@ interface ERPSessionLog {
 **Enhanced Stats Calculation:**
 ```typescript
 const loadAllStats = async () => {
-  console.log('📈 Loading ERP stats for user:', user.id);
+  console.log('📈 Loading Terapi stats for user:', user.id);
   console.log('📅 Today key:', todayKey);
   console.log('🔑 Today storage key:', todayStorageKey);
   
@@ -723,7 +723,7 @@ const loadAllStats = async () => {
 **Micro-Reward System:**
 ```typescript
 // Session completion rewards
-await awardMicroReward('erp_completed'); // +20 points
+await awardMicroReward('therapy_completed'); // +20 points
 
 // Anxiety reduction bonus
 if (anxietyReduction >= 30) {
@@ -790,7 +790,7 @@ interface ERPExerciseConfig {
 ```typescript
 try {
   await supabaseService.saveERPSession(dbSession);
-  console.log('✅ ERP session saved to database');
+  console.log('✅ Terapi session saved to database');
 } catch (dbError) {
   console.error('❌ Database save failed (offline mode):', dbError);
   // Continue with offline mode - data is already in AsyncStorage
@@ -841,8 +841,8 @@ const StorageKeys = {
   DAILY_COMPULSIONS: (userId: string, date: string) => `dailyCompulsions_${userId}_${date}`,
   COMPULSION_STATS: (userId: string) => `compulsionStats_${userId}`,
   
-  // ERP Sessions  
-  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  // Terapi Sessions  
+  ERP_SESSIONS: (userId: string, date: string) => `therapy_sessions_${userId}_${date}`,
   LAST_ERP_EXERCISE: (userId: string) => `lastERPExercise_${userId}`,
   ERP_STATS: (userId: string) => `erpStats_${userId}`,
   
@@ -870,9 +870,9 @@ CREATE TABLE compulsions (
 );
 ```
 
-**ERP Sessions Table:**
+**Terapi Sessions Table:**
 ```sql
-CREATE TABLE erp_sessions (
+CREATE TABLE therapy_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id),
   exercise_id VARCHAR(50),
@@ -935,7 +935,7 @@ interface DetailedGamificationProfile {
 
 #### **Advanced Features**
 - [ ] **Data insights**: Weekly/monthly progress reports
-- [ ] **ERP suggestions**: AI-powered exercise recommendations
+- [ ] **Terapi suggestions**: AI-powered exercise recommendations
 - [ ] **Social features**: Anonymous community support
 - [ ] **Professional tools**: Therapist dashboard and progress sharing
 
@@ -946,7 +946,7 @@ interface DetailedGamificationProfile {
 | App Launch Time | ~2s | <1.5s | Q1 2025 |
 | Daily Active Users | - | Track | Q1 2025 |
 | Onboarding Completion | ~90s | <60s | Q2 2025 |
-| ERP Session Success | ~80% | >90% | Q2 2025 |
+| Terapi Session Success | ~80% | >90% | Q2 2025 |
 | User Retention (7-day) | - | >40% | Q2 2025 |
 
 ---
@@ -980,7 +980,7 @@ flowchart TB
     
     subgraph "Data Operations"
         C1[Compulsion Recording]
-        C2[ERP Sessions]
+        C2[Terapi Sessions]
         C3[User Profiles]
         C4[Gamification]
     end
@@ -1063,12 +1063,12 @@ sequenceDiagram
     UI-->>U: Toast Notification
 ```
 
-#### **3. ERP Session Veri Akışı**
+#### **3. Terapi Session Veri Akışı**
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant ERP as ERP Screen
-    participant Store as ERP Store
+    participant Terapi as Terapi Screen
+    participant Store as Terapi Store
     participant AS as AsyncStorage
     participant DB as Supabase
     participant GAM as Gamification
@@ -1098,7 +1098,7 @@ const StorageKeys = {
   // User Data
   OCD_PROFILE: (userId: string) => `ocd_profile_${userId}`,
   COMPULSIONS: (userId: string) => `compulsions_${userId}`,
-  ERP_SESSIONS: (userId: string, date: string) => `erp_sessions_${userId}_${date}`,
+  ERP_SESSIONS: (userId: string, date: string) => `therapy_sessions_${userId}_${date}`,
   GAMIFICATION: (userId: string) => `gamification_${userId}`,
   
   // Preferences
@@ -1151,7 +1151,7 @@ const StorageKeys = {
 └─────────────────────────────────────────────┘
           ↓ 1:N
 ┌─────────────────────────────────────────────┐
-│ public.erp_sessions                        │
+│ public.therapy_sessions                        │
 │ ├── id (UUID)                              │
 │ ├── user_id (UUID) [FK: users.id]         │
 │ ├── exercise_id                           │
@@ -1188,7 +1188,7 @@ const StorageKeys = {
    - NavigationGuard optimizasyonu
 
 4. **Duplicate Prevention (✅ Eklendi)**
-   - ERP Sessions için duplicate check
+   - Terapi Sessions için duplicate check
    - Session ID ile tekrar kayıt önleme
 
 ## 🌟 Sonuç
@@ -1256,7 +1256,7 @@ sequenceDiagram
     participant H as Haptic System
     participant G as Gamification
     
-    Note over U,G: ERP oturumu devam ederken...
+    Note over U,G: Terapi oturumu devam ederken...
     
     U->>S: "Kompulsiyon dürtüsü" butonuna bas
     S->>H: Warning haptic (titreşim)
@@ -1296,7 +1296,7 @@ sequenceDiagram
 │  • Dürtü Direnci: 3/4         │ ⚠️ YENİ
 │                                 │
 │  🎮 Kazanılan Ödüller           │
-│  ✨ +20 ERP Tamamlama           │
+│  ✨ +20 Terapi Tamamlama           │
 │  ✨ +25 Anksiyete Azaltma       │
 │  ✨ +15 Dürtü Direnci (x3)     │ ⚠️ YENİ
 │                                 │
@@ -1337,7 +1337,7 @@ interface EnhancedERPSessionLog {
 ```typescript
 type MicroRewardTrigger = 
   | 'urge_resistance'  // ⚠️ YENİ: +15 puan
-  | 'erp_completed'    // Mevcut triggers...
+  | 'therapy_completed'    // Mevcut triggers...
   | 'anxiety_reduced'
   // ... diğer triggers
 ```
@@ -1374,7 +1374,7 @@ const HapticResponses = {
 3. **Zahmetsizlik**: 2 dokunuşta (buton + response) kayıt tamamlanıyor
 
 **User Experience Benefits:**
-- **Real-time ERP Enhancement**: Dürtüler anında kaydediliyor
+- **Real-time Terapi Enhancement**: Dürtüler anında kaydediliyor
 - **Pattern Recognition**: Kullanıcı dürtü-anksiyete ilişkisini gözlemliyor
 - **Motivational**: Direnç başarıları anında ödüllendiriliyor
 - **Non-punitive**: Başarısızlık anında empati gösteriliyor

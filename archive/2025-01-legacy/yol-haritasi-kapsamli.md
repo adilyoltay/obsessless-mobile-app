@@ -638,7 +638,7 @@ Technical implementation:
 
 ---
 
-### **FAZ 2: Sesli ERP Koçu ve Gerçek Zamanlı Destek (Ay 5-7)**
+### **FAZ 2: Sesli Terapi Koçu ve Gerçek Zamanlı Destek (Ay 5-7)**
 
 #### **🎙️ Sprint 11-12: Voice Infrastructure**
 
@@ -667,13 +667,13 @@ Technical features:
 - Integration with smart home devices"
 ```
 
-**Görev 5.2: Voice-Based ERP Guidance**
+**Görev 5.2: Voice-Based Terapi Guidance**
 ```typescript
 // Cursor Prompt:
-"@file features/ai/voice/erpVoiceGuide.ts Implement voice-guided ERP sessions:
+"@file features/ai/voice/erpVoiceGuide.ts Implement voice-guided Terapi sessions:
 
-ERP Voice features:
-- Step-by-step ERP exercise guidance
+Terapi Voice features:
+- Step-by-step Terapi exercise guidance
 - Real-time anxiety monitoring through voice analysis
 - Adaptive pacing based on user response
 - Calming breathing exercise guidance
@@ -683,14 +683,14 @@ ERP Voice features:
 - Progress celebration and encouragement"
 ```
 
-#### **⚡ Sprint 13-14: Adaptive ERP Sessions**
+#### **⚡ Sprint 13-14: Adaptive Terapi Sessions**
 
-**Hedef:** Kullanıcının durumuna göre kendini uyarlayan ERP sistemi
+**Hedef:** Kullanıcının durumuna göre kendini uyarlayan Terapi sistemi
 
-**Görev 6.1: Dynamic ERP Adaptation**
+**Görev 6.1: Dynamic Terapi Adaptation**
 ```typescript
 // Cursor Prompt:
-"@file features/ai/erp/adaptiveErp.ts Build adaptive ERP session management:
+"@file features/ai/erp/adaptiveErp.ts Build adaptive Terapi session management:
 
 Adaptation features:
 - Real-time difficulty adjustment based on anxiety levels and biometric data
@@ -1144,7 +1144,7 @@ Fallback Mechanisms:
 
 ### **Year 2: Advanced AI and Real-time Support**
 - **Q1**: FAZ 2 Sprint 11-12 (Voice Infrastructure)
-- **Q2**: FAZ 2 Sprint 13-14 (Adaptive ERP Sessions)
+- **Q2**: FAZ 2 Sprint 13-14 (Adaptive Terapi Sessions)
 - **Q3**: FAZ 3 Sprint 15-16 (Context Intelligence)
 - **Q4**: FAZ 3 Sprint 17-18 (Predictive Intervention)
 

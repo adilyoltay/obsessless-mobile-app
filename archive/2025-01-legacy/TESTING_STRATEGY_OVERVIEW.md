@@ -6,7 +6,7 @@ Bu belge, geçerli test stratejisini ve hangi kontrol listelerinin kullanılaca�
 - Voice Mood Check‑in
 - CBT Thought Record
 - Breathwork
-- ERP Önerileri / ERP Oturum Akışı
+- Terapi Önerileri / Terapi Oturum Akışı
 - Insights v2 (Progress Tracking Insights; Progress Analytics sınırlı kapsam)
 - Progress Analytics (sınırlı): 7/30/90 trend + temel pattern
 - Telemetry (privacy-first)

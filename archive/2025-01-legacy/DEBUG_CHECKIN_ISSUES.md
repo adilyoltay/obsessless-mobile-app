@@ -87,9 +87,9 @@ EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
 - "Çok yorgunum ve mutsuzum"
 - "Normal bir gün, idare eder"
 
-### ERP Testi
+### Terapi Testi
 Şunları söyle:
-- "ERP egzersizi yapmak istiyorum"
+- "Terapi egzersizi yapmak istiyorum"
 - "Maruz kalma çalışması yapacağım"
 - "Kompulsiyonuma direnmeye çalışacağım"
 

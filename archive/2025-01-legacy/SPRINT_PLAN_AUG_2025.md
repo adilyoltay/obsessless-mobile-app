@@ -10,7 +10,7 @@ Bu plan, mevcut kod tabanına (Expo Router, Supabase, TanStack Query, Zustand, P
     - UI: `features/ai/components/voice/VoiceInterface.tsx` mevcut; durum/animasyon/erişilebilirlik tamam.
     - STT: `features/ai/services/voiceRecognition.ts` içinde `transcribeAudio` gerçek servis ile değiştirilecek (şimdilik mock + düşük güven etiketi).
     - NLU (deterministik): mood 0–100, trigger: {ev, temizlik, kontrol, sosyal, vb.}, bağlam: saat/konum yoksa `null`.
-    - Rota: Heuristik → ERP veya Reframe. ERP için `features/ai/services/erpRecommendationService.ts` kullanılacak; Reframe için `LLM_REFRAME` açık ise kısa alternatifler, değilse deterministik şablon.
+    - Rota: Heuristik → Terapi veya Reframe. Terapi için `features/ai/services/erpRecommendationService.ts` kullanılacak; Reframe için `LLM_REFRAME` açık ise kısa alternatifler, değilse deterministik şablon.
   - Edge-case’ler: 0–5 sn → "yetersiz veri" + klavye fallback; gürültü/düşük güven → rozet; >90 sn → otomatik durdur + özetleme.
   - Telemetri: `checkin_started/completed`, `stt_failed`, `route_suggested`.
   - DoR/DoD: İzin metinleri ve sözlük hazır; yukarıdaki kabul senaryoları çalışır + i18n (TR/EN).
@@ -23,29 +23,29 @@ Bu plan, mevcut kod tabanına (Expo Router, Supabase, TanStack Query, Zustand, P
 
 - **3) Breathwork Kitaplığı**
   - Bağımlılıklar: Protokoller: Box(4-4-4-4), 4-7-8, Paced(6/6); TTS TR/EN; haptik fallback.
-  - Uygulama: `components/breathwork/BreathworkPlayer.tsx` + `expo-speech`/haptik; ERP ekranından modal kısayol.
+  - Uygulama: `components/breathwork/BreathworkPlayer.tsx` + `expo-speech`/haptik; Terapi ekranından modal kısayol.
   - Telemetri: `breath_started/paused/resumed/completed`.
   - DoR/DoD: Üç protokol sorunsuz; erişilebilirlik destekleri; kısayol çalışır.
 
 - **4) Kliniğe Hazır PDF Raporu (MVP)**
-  - Bağımlılıklar: `services/dataExportService.ts` genişletme; Y-BOCS trend, ERP log (son 5), tetikleyici istatistikleri.
+  - Bağımlılıklar: `services/dataExportService.ts` genişletme; Y-BOCS trend, Terapi log (son 5), tetikleyici istatistikleri.
   - Uygulama: `expo-print` ile HTML→PDF; rıza modalı; ≤1 MB uyarı.
   - Telemetri: `pdf_generated/shared/cancelled/error`.
   - DoR/DoD: Offline üretim; i18n; dosya boyutu sınırı.
 
 ## Sprint 2 – JITAI ve Klinik Derinleştirme
 
-- **5) JITAI Tabanlı Sesli ERP Koçu**
+- **5) JITAI Tabanlı Sesli Terapi Koçu**
   - Bağımlılıklar: Zaman tetikleyici (`services/notificationScheduler.ts`); geofence (hafta 4); guardrail sözlükleri.
   - Uygulama: `features/ai/jitai/jitaiEngine.ts` mevcut → `JITAI_TIME` ve `JITAI_GEOFENCE` flag’leri; guardrail tetiklenince güvenli çıkış + kriz kaynakları.
-  - Telemetri: `jitai_trigger_fired`, `erp_session_started/finished`, `guardrail_triggered{type}`.
+  - Telemetri: `jitai_trigger_fired`, `therapy_session_started/finished`, `guardrail_triggered{type}`.
   - DoR/DoD: Zaman tetikleyicileri 24s stabil; güvenli çıkış çalışır; loglar PDF’e uygun.
 
 - **6) JITAI Kompulsiyon Kaydı**
   - Bağımlılıklar: Hızlı form `components/forms/CompulsionQuickEntry.tsx` mevcut; zaman/konum hatırlatıcıları.
   - Uygulama: Prompt → form aç; sessize alma 24s; 15 dk tek seferlik hatırlatma opsiyonu.
   - Telemetri: `compulsion_prompted/logged/dismissed/snoozed`.
-  - DoR/DoD: 30 sn’de kayıt tamam; ERP planında ilişki gösterimi.
+  - DoR/DoD: 30 sn’de kayıt tamam; Terapi planında ilişki gösterimi.
 
 - **7) Relapse (Nüks) Penceresi Analizi**
   - Bağımlılıklar: 14 gün / 10+ kayıt; gün×saat ısı haritası ve eşikler.
@@ -55,7 +55,7 @@ Bu plan, mevcut kod tabanına (Expo Router, Supabase, TanStack Query, Zustand, P
 
 - **8) Mikro Dersler ve Psychoeducation**
   - Bağımlılıklar: Markdown TR/EN; TTS opsiyonu; davranış görevi şablonu.
-  - Uygulama: `components/lessons/MicroLessonPlayer.tsx`; ilerleme + ERP görev bağlantısı.
+  - Uygulama: `components/lessons/MicroLessonPlayer.tsx`; ilerleme + Terapi görev bağlantısı.
   - Telemetri: `micro_lesson_started/completed/abandoned`.
   - DoR/DoD: Oynatıcı akışı + i18n + görev bağlama.
 
@@ -70,7 +70,7 @@ Bu plan, mevcut kod tabanına (Expo Router, Supabase, TanStack Query, Zustand, P
 
 ```
 checkin_started, checkin_completed, stt_failed, route_suggested,
-jitai_trigger_fired, erp_session_started, erp_session_finished, guardrail_triggered,
+jitai_trigger_fired, therapy_session_started, therapy_session_finished, guardrail_triggered,
 compulsion_prompted, compulsion_logged, compulsion_dismissed, compulsion_snoozed,
 relapse_window_detected, proactive_prompt_clicked,
 pdf_generated, pdf_shared, pdf_cancelled, pdf_error

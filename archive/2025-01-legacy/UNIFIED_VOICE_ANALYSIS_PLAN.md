@@ -12,7 +12,7 @@ graph TD
     C --> D{Tip Tespiti}
     D -->|CBT| E[CBT Sayfası]
     D -->|OCD| F[OCD Tracking]
-    D -->|ERP| G[ERP Sayfası]
+    D -->|ERP| G[Terapi Sayfası]
     D -->|MOOD| H[Today - Mood Kaydı]
     D -->|BREATHWORK| I[Nefes Egzersizi]
 ```
@@ -26,7 +26,7 @@ graph TD
 ## 🔐 Data Handling (Güncel)
 - VoiceCheckin: `sanitizePII(text)` ve `created_at` ile Supabase `voice_checkins` tablosuna yazılır; offline kuyruğa aynı temizlikle eklenir
 - AutoRecord (online): OCD/CBT/Mood metin alanları `sanitizePII` ile temizlenir; idempotency anahtarı ile çift kayıt engellenir
-- AutoRecord (offline): Kuyruğa eklenen veriler için camelCase → snake_case mapping ve `sanitizePII` uygulanır; ERP için `erp_session` minimal mapping kullanılır
+- AutoRecord (offline): Kuyruğa eklenen veriler için camelCase → snake_case mapping ve `sanitizePII` uygulanır; Terapi için `therapy_session` minimal mapping kullanılır
 - CrossDeviceSync: Tüm metin alanlarında `sanitizePII`; yalnız `!synced && !id` nesneler yüklenir
 
 ## 📝 Uygulama Adımları
@@ -127,7 +127,7 @@ class UnifiedVoiceAnalysisService {
        Örnekler: "Ellerimi 5 kez yıkadım", "Kapıyı 3 kez kontrol ettim"
        Kategoriler: Temizlik, Kontrol, Sayma, Düzen/Simetri, Zihinsel
     
-    4. ERP - Maruz bırakma egzersizi niyeti
+    4. Terapi - Maruz bırakma egzersizi niyeti
        Örnekler: "Bugün kapıyı kontrol etmemeye çalışacağım", "Kirli yüzeye dokunma egzersizi yapacağım"
     
     5. BREATHWORK - Nefes/rahatlama ihtiyacı
@@ -156,7 +156,7 @@ class UnifiedVoiceAnalysisService {
     Analiz kriterlerin:
     - Bilişsel çarpıtmaları tespit et (CBT)
     - Kompulsif davranışları tanımla (OCD)
-    - ERP egzersiz niyetlerini anla
+    - Terapi egzersiz niyetlerini anla
     - Panik/anksiyete durumlarını fark et (Breathwork)
     - Genel mood ifadelerini ayırt et
     
@@ -357,7 +357,7 @@ export default function CBTScreen() {
 - `VoiceMoodCheckin` component'ini kaldır
 - Sadece FAB butonu ile manuel giriş bırak
 
-#### 3.2 ERP Sayfası  
+#### 3.2 Terapi Sayfası  
 - Ses check-in bölümünü kaldır
 - Otomatik yönlendirme parametrelerini ekle
 
@@ -410,7 +410,7 @@ const testCases = [
 
 ### Hafta 2  
 - [ ] CBT sayfası yeniden tasarım
-- [ ] OCD/ERP sayfalarından ses kaldırma
+- [ ] OCD/Terapi sayfalarından ses kaldırma
 - [ ] Test senaryoları
 
 ### Hafta 3

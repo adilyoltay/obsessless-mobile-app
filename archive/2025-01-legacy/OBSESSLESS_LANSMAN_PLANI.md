@@ -60,7 +60,7 @@ Güncel Durum Notu\n\n- AI Chat System: Gelecek özellik (şu an devre dışı).
 1. Onboarding → AI Assessment → Profile Creation (< 15 min)
 2. Daily Usage → Compulsion Tracking → AI Insights (< 5 min)
 3. Crisis Detection → Immediate Support → Resource Access (< 30 sec)
-4. ERP Session → AI Guidance → Progress Tracking (Real-time)
+4. Terapi Session → AI Guidance → Progress Tracking (Real-time)
 ```
 
 ### **Öncelik 1.2: Beta Testing Program (7-10 Gün)**

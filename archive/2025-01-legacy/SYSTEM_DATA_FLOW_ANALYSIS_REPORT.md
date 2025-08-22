@@ -9,7 +9,7 @@
 ObsessLess mobil uygulamasının veri akışı zinciri ve AI analiz pipeline'ı derinlemesine incelenmiştir. Sistem **%70 oranında fonksiyonel** durumda olup, kritik noktalarda veri akışı kopuklukları tespit edilmiştir.
 
 ### Kritik Bulgular
-- ✅ **Çalışan**: Authentication, Kompulsiyon/ERP kayıt, Mood check-in, Güvenlik altyapısı
+- ✅ **Çalışan**: Authentication, Kompulsiyon/Terapi kayıt, Mood check-in, Güvenlik altyapısı
 - ⚠️ **Kısmen Çalışan**: Onboarding, AI analiz pipeline, Veri standardizasyonu, Offline sync mekanizması
 - ❌ **Çalışmayan**: Supabase AI profil senkronizasyonu, Cross-device veri senkronizasyonu, currentUserId persistency
 
@@ -123,11 +123,11 @@ Kompulsiyon Girişi → AsyncStorage (Offline-first)
 ### Tespit Edilen Sorun
 - **Kompulsiyon Kuyruklama YOK**: `hooks/useCompulsions.ts` line 162-165'te Supabase hatası durumunda sadece console.warn yapılıyor
 - Offline sync queue'ya ekleme YAPILMIYOR (sadece yorum satırında belirtilmiş)
-- ERP sessions için kuyruklama VAR ama compulsions için YOK
+- Terapi sessions için kuyruklama VAR ama compulsions için YOK
 
 ---
 
-## 4️⃣ ERP SESSION VERİ YÖNETİMİ
+## 4️⃣ Terapi SESSION VERİ YÖNETİMİ
 
 ### Durum: ✅ **TAM ÇALIŞIYOR**
 
@@ -139,7 +139,7 @@ Kompulsiyon Girişi → AsyncStorage (Offline-first)
 
 ### Veri Akışı
 ```
-ERP Session → AsyncStorage → Supabase
+Terapi Session → AsyncStorage → Supabase
            ↓ (Offline)
       Sync Queue → Batch Sync
 ```
@@ -242,7 +242,7 @@ private async fetchUserProfile(userId: string): Promise<any> {
 StorageKeys = {
   PROFILE: (userId) => `ocd_profile_${userId}`,
   COMPULSIONS: (userId) => `compulsions_${userId}`,
-  ERP_SESSIONS: (userId, date) => `erp_sessions_${userId}_${date}`,
+  ERP_SESSIONS: (userId, date) => `therapy_sessions_${userId}_${date}`,
   // ...
 }
 ```
@@ -338,7 +338,7 @@ catch (supabaseError) {
 |---------|----------|-----------|---------|
 | Authentication | %100 ✅ | Yüksek | - |
 | Kompulsiyon Kayıt | %95 ✅ | Yüksek | Düşük |
-| ERP Sessions | %95 ✅ | Yüksek | Düşük |
+| Terapi Sessions | %95 ✅ | Yüksek | Düşük |
 | Mood Check-in | %90 ✅ | Orta | Düşük |
 | Onboarding | %60 ⚠️ | Kritik | **YÜKSEK** |
 | AI Pipeline | %65 ⚠️ | Kritik | **YÜKSEK** |
@@ -382,7 +382,7 @@ catch (supabaseError) {
 - `public.ai_profiles` - AI onboarding profilleri
 - `public.ai_treatment_plans` - Tedavi planları
 - `public.compulsions` - Kompulsiyon kayıtları
-- `public.erp_sessions` - ERP oturum verileri
+- `public.therapy_sessions` - Terapi oturum verileri
 - `public.mood_tracking` - Mood check-in verileri
 - `public.voice_checkins` - Ses kayıt analizleri
 - `public.thought_records` - CBT düşünce kayıtları
@@ -430,14 +430,14 @@ Bu düzeltmeler yapıldığında sistem **%95+ verimlilikle** çalışacaktır.
 - ✅ OfflineSync apiService kullanıyor (offlineSync.ts lines 186-231)
 - ✅ Kompulsiyon hata durumunda queue'ya eklenmiyor (useCompulsions.ts line 162-165)
 - ✅ OnboardingFlowV3'te Supabase sync yok
-- ✅ ERP sessions için offline queue var, compulsions için yok
+- ✅ Terapi sessions için offline queue var, compulsions için yok
 
 ### Kod Tabanı Referansları
 - `contexts/SupabaseAuthContext.tsx:218` - setUserId çağrısı var ama AsyncStorage.setItem yok
 - `services/offlineSync.ts:55-60` - currentUserId okuma denemesi
 - `services/offlineSync.ts:186-210` - apiService.compulsions kullanımı
 - `hooks/useCompulsions.ts:162-165` - Hata durumunda sadece console.warn
-- `store/erpSessionStore.ts:249-265` - ERP için offline queue implementasyonu (doğru örnek)
+- `store/erpSessionStore.ts:249-265` - Terapi için offline queue implementasyonu (doğru örnek)
 
 ### Veri Standardizasyonu Uyumsuzlukları
 - DB Schema: `duration_seconds > 0`, `anxiety_* 1..10`

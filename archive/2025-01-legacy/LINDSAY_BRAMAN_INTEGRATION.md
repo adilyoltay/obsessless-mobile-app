@@ -246,7 +246,7 @@ const distortionEducation: DistortionEducation[] = [
 - [x] Enerji ve Anksiyete seviyeleri için slider kontrolü
 - [x] Organik, el çizimi görünümlü SVG tasarım
 - [x] Pastel renk paleti ve yumuşak geçişler
-- [x] ERP kategori illüstrasyonları (6 kategori)
+- [x] Terapi kategori illüstrasyonları (6 kategori)
 - [x] ERPQuickStart'a görsel entegrasyonu
 - [x] OCD/Compulsion formlara aynı görseller eklendi
 - [x] Art Therapy Engine reaktive edildi
@@ -258,7 +258,7 @@ const distortionEducation: DistortionEducation[] = [
 - [ ] Performans optimizasyonu
 
 ### 📋 Sonraki Adımlar
-- [x] ERP kategori görselleri (Tamamlandı - 15 Ocak 2025)
+- [x] Terapi kategori görselleri (Tamamlandı - 15 Ocak 2025)
 - [x] Art Therapy Engine reaktivasyonu (Tamamlandı - 15 Ocak 2025)
 - [ ] Breathwork görsel metaforları
 - [ ] CBT Engine AI fonksiyonları
@@ -279,7 +279,7 @@ const distortionEducation: DistortionEducation[] = [
 - Animasyon FPS > 55
 - Memory footprint < 5MB artış
 
-## 🎯 ERP Kategori Görselleri (15 Ocak 2025)
+## 🎯 Terapi Kategori Görselleri (15 Ocak 2025)
 
 ### Tasarlanan İllüstrasyonlar
 
@@ -435,7 +435,7 @@ const getIllustrationSize = (screenWidth: number) => {
 - Renk-duygu spektrumu
 - Günlük mood pattern'leri
 
-### Faz 3: ERP Sihirbazı (3-4 Hafta)
+### Faz 3: Terapi Sihirbazı (3-4 Hafta)
 - Kategori illüstrasyonları
 - Egzersiz rehber görselleri
 - Progress visualizations
@@ -472,7 +472,7 @@ const getIllustrationSize = (screenWidth: number) => {
 - **Dosya:** `components/illustrations/ERPIllustrations.tsx`
 - **İçerik:** 6 kanonik OCD kategorisi için illüstrasyonlar
 - **Entegrasyon:** 
-  - `ERPQuickStart.tsx` - ERP egzersiz sihirbazında
+  - `ERPQuickStart.tsx` - Terapi egzersiz sihirbazında
   - `CompulsionQuickEntry.tsx` - Kompulsiyon kaydında
 
 #### 4. Art Therapy Çizim Şablonları
@@ -562,7 +562,7 @@ const getIllustrationSize = (screenWidth: number) => {
   - Kişiselleştirilmiş tedavi planı
   - Belirtilere göre öneriler
   - Hedef bazlı yaklaşım
-  - Şiddet seviyesine göre ERP programı önerisi
+  - Şiddet seviyesine göre Terapi programı önerisi
   - CBT entegrasyonu
 
 #### 12. Responsive Optimizasyonları (Ocak 2025)

@@ -72,7 +72,7 @@ ETKİ: Düşük kullanıcı memnuniyeti
 ```typescript
 // 5 çekirdek servis
 - CoreAnalysisService.ts      // Pattern + Insights + CBT
-- RecommendationService.ts     // ERP + Treatment + Interventions
+- RecommendationService.ts     // Terapi + Treatment + Interventions
 - NotificationService.ts       // Smart + JITAI + Context
 - DataService.ts              // Aggregation + Storage
 - ExternalAIService.ts        // Gemini + Fallbacks
