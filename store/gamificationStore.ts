@@ -19,12 +19,12 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Achievement definitions based on documentation
 const ACHIEVEMENTS: AchievementDefinition[] = [
-  // ERP Kahramanı 🛡️
+  // Terapi Kahramanı 🛡️
   {
-    id: 'first_erp',
+    id: 'first_session',
     title: 'İlk Adım',
-    description: 'İlk ERP egzersizini tamamla. En zor olan ilk adımı attın. Bu cesaretin bir sembolüdür.',
-    category: 'ERP',
+    description: 'İlk terapi egzersizini tamamla. En zor olan ilk adımı attın. Bu cesaretin bir sembolüdür.',
+    category: 'Resistance',
     icon: 'trophy',
     rarity: 'Common',
     criteria: { type: 'milestone', target: 1 },
@@ -33,18 +33,18 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'habituation_observer',
     title: 'Habitüasyon Gözlemcisi',
-    description: 'Bir ERP seansında anksiyeteyi %50\'den fazla düşür. Kaygının doğal olarak azaldığını gözlemledin. Bu, OKB tedavisinin temelidir.',
-    category: 'ERP',
+    description: 'Bir terapi seansında anksiyeteyi %50\'den fazla düşür. Kaygının doğal olarak azaldığını gözlemledin. Bu, OKB tedavisinin temelidir.',
+    category: 'Resistance',
     icon: 'shield-check',
     rarity: 'Rare',
     criteria: { type: 'percentage', target: 50 },
     healingPoints: 50,
   },
   {
-    id: 'erp_warrior',
-    title: 'ERP Savaşçısı',
-    description: '10 ERP egzersizi tamamla. Zorluklarla yüzleşme konusunda ustalaşıyorsun.',
-    category: 'ERP',
+    id: 'therapy_warrior',
+    title: 'Terapi Savaşçısı',
+    description: '10 terapi egzersizi tamamla. Zorluklarla yüzleşme konusunda ustalaşıyorsun.',
+    category: 'Resistance',
     icon: 'sword-cross',
     rarity: 'Epic',
     criteria: { type: 'count', target: 10 },

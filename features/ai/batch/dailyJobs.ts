@@ -47,7 +47,7 @@ export interface TodayDigest {
   metrics: {
     totalCompulsions: number;
     avgResistance: number;
-    erpSessions: number;
+
     moodRange: { min: number; max: number };
   };
   generatedAt: number;

@@ -232,7 +232,7 @@ export default function TrackingScreen() {
         type: 'warning_pattern',
         title: 'Düşük Direnç Uyarısı',
         description: `Son kompülsiyonlarda ortalama ${avgResistance.toFixed(1)} direnç seviyesi`,
-        suggestion: 'ERP egzersizleri ve mindfulness teknikleri deneyin',
+        suggestion: 'Terapi egzersizleri ve mindfulness teknikleri deneyin',
         confidence: 0.85,
         severity: 'warning'
       });

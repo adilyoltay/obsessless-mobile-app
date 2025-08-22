@@ -149,7 +149,7 @@ export default function MoodScreen() {
         content: {
           moods: serviceMoodEntries,
           compulsions: [],
-          erpSessions: []
+
         },
         type: 'data' as const,
         context: {
@@ -513,7 +513,7 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
-      {/* Header - Matching OCD/ERP Design */}
+      {/* Header - Matching OCD Design */}
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />

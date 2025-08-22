@@ -31,8 +31,8 @@ export default function AchievementsScreen() {
 
   const getCategoryInfo = (category: string) => {
     switch (category) {
-      case 'ERP':
-        return { title: 'ERP Kahramanı 🛡️', color: Colors.status.error };
+      case 'Resistance':
+        return { title: 'Terapi Kahramanı 🛡️', color: Colors.status.error };
       case 'Resistance':
         return { title: 'Direnç Ustası 💪', color: Colors.primary.green };
       case 'Mindfulness':
