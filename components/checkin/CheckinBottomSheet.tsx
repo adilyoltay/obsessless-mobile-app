@@ -605,8 +605,8 @@ export default function CheckinBottomSheet({
                       });
                     }
                   }
-                }
-              : { text: 'İptal', style: 'cancel' },
+                },
+            { text: 'İptal', style: 'cancel' },
             { text: 'Kaydet', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.type as any, autoRecord.data) },
           ],
         );
