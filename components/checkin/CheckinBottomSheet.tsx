@@ -39,72 +39,7 @@ import { prepareAutoRecord, saveAutoRecord, shouldShowAutoRecord } from '@/servi
 
 const { width } = Dimensions.get('window');
 
-/**
- * Generate basic heuristic analysis when UnifiedAIPipeline fails
- */
-function generateHeuristicAnalysis(text: string) {
-  const lowerText = text.toLowerCase();
-  
-  // Simple keyword-based classification
-  const moodKeywords = ['mutlu', 'üzgün', 'yorgun', 'iyi', 'kötü', 'harika', 'berbat', 'mükemmel', 'mood', 'hissediyorum'];
-  const ocdKeywords = ['kompulsiyon', 'takıntı', 'kontrol', 'temizlik', 'yıkama', 'sayma', 'düzen', 'simetri'];
-  const cbtKeywords = ['düşünce', 'olumsuz', 'kaygı', 'endişe', 'korku', 'çarpıtma', 'yanlış', 'doğru'];
-  const breathworkKeywords = ['nefes', 'sakin', 'rahatlama', 'stres', 'gergin', 'soluk'];
-  
-  // Count keyword matches
-  const moodCount = moodKeywords.filter(keyword => lowerText.includes(keyword)).length;
-  const ocdCount = ocdKeywords.filter(keyword => lowerText.includes(keyword)).length;
-  const cbtCount = cbtKeywords.filter(keyword => lowerText.includes(keyword)).length;
-  const breathworkCount = breathworkKeywords.filter(keyword => lowerText.includes(keyword)).length;
-  
-  // Determine type based on highest count
-  let type = 'MOOD'; // default
-  let confidence = 0.3; // low confidence for heuristic
-  let maxCount = moodCount;
-  
-  if (ocdCount > maxCount) {
-    type = 'OCD';
-    maxCount = ocdCount;
-  }
-  if (cbtCount > maxCount) {
-    type = 'CBT';
-    maxCount = cbtCount;
-  }
-  if (breathworkCount > maxCount) {
-    type = 'BREATHWORK';
-    maxCount = breathworkCount;
-  }
-  
-  // Adjust confidence based on matches
-  confidence = Math.min(0.6, 0.3 + (maxCount * 0.1));
-  
-  // Generate basic mood score (neutral default)
-  const mood = Math.max(1, Math.min(10, 5 + (maxCount - 2))); // 1-10 range, neutral=5
-  
-  // Generate simple trigger text
-  let trigger = 'general';
-  if (type === 'OCD') trigger = 'compulsion_detected';
-  else if (type === 'CBT') trigger = 'negative_thought';
-  else if (type === 'BREATHWORK') trigger = 'anxiety_detected';
-  else if (type === 'MOOD') trigger = 'mood_expression';
-  
-  return {
-    type,
-    confidence,
-    mood,
-    trigger,
-    route: 'SUGGEST_SCREEN',
-    params: { 
-      source: 'voice_heuristic_fallback',
-      text: text.substring(0, 100) // Truncate for safety
-    },
-    metadata: {
-      source: 'heuristic_fallback',
-      processingTime: 0,
-      keywordMatches: { moodCount, ocdCount, cbtCount, breathworkCount }
-    }
-  };
-}
+// ✅ REMOVED: Heuristic fallback moved to UnifiedAIPipeline for centralized handling
 
 interface CheckinBottomSheetProps {
   isVisible: boolean;
@@ -259,20 +194,27 @@ export default function CheckinBottomSheet({
           throw new Error('No voice analysis result from UnifiedAIPipeline');
         }
       } catch (error) {
-        console.error('🚨 UnifiedAIPipeline failed:', error);
+        console.error('🚨 UnifiedAIPipeline failed completely (no fallback available):', error);
         
-        // UnifiedAIPipeline ONLY - no legacy fallback
-        // Generate minimal heuristic analysis as fallback
-        console.log('📝 Generating heuristic fallback analysis');
+        // ✅ FIXED: No fallback needed here - UnifiedAIPipeline handles heuristic fallback internally
+        // If we reach this point, even the heuristic fallback failed
+        console.log('📝 Complete pipeline failure - using minimal default analysis');
         
-        const fallbackAnalysis = generateHeuristicAnalysis(res.text || '');
-        analysis = fallbackAnalysis;
+        analysis = {
+          type: 'MOOD',
+          confidence: 0.1,
+          mood: 5, // neutral
+          trigger: 'pipeline_failure',
+          route: 'AUTO_SAVE',
+          params: { source: 'complete_failure' }
+        };
         
-        // Track pipeline failure
+        // Track complete pipeline failure (rare case)
         await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
           userId: user?.id,
           error: error instanceof Error ? error.message : 'Unknown error',
-          fallbackUsed: true,
+          fallbackUsed: false,
+          completePipelineFailure: true,
           timestamp: Date.now()
         });
       }

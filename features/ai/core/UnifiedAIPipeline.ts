@@ -295,9 +295,10 @@ export class UnifiedAIPipeline {
       // Import lazily for better performance
       const { unifiedVoiceAnalysis } = await import('../services/checkinService');
       
+      // ✅ FIXED: Pass userId string instead of object to unifiedVoiceAnalysis 
       const analysis = await unifiedVoiceAnalysis(
         typeof input.content === 'string' ? input.content : JSON.stringify(input.content),
-        { source: input.context?.source || 'today' }
+        input.userId  // Correct parameter: userId string, not object
       );
       
       return {
@@ -307,8 +308,12 @@ export class UnifiedAIPipeline {
         route: analysis.route
       };
     } catch (error) {
-      console.warn('Voice analysis failed:', error);
-      return null;
+      console.warn('Voice analysis failed, using heuristic fallback:', error);
+      
+      // ✅ FIXED: Centralized heuristic fallback (moved from UI layer)
+      return this.generateHeuristicVoiceAnalysis(
+        typeof input.content === 'string' ? input.content : JSON.stringify(input.content)
+      );
     }
   }
   
@@ -761,6 +766,65 @@ export class UnifiedAIPipeline {
     const lengthBonus = Math.min(textLength / 100, 0.2); // Bonus for longer text
     
     return Math.min(avgDistortionConfidence + lengthBonus, 0.95);
+  }
+
+  /**
+   * ✅ FIXED: Centralized heuristic voice fallback (moved from UI layer)
+   * Generate basic heuristic analysis when sophisticated voice analysis fails
+   */
+  private generateHeuristicVoiceAnalysis(text: string): any {
+    const lowerText = text.toLowerCase();
+    
+    // Simple keyword-based classification
+    const moodKeywords = ['mutlu', 'üzgün', 'yorgun', 'iyi', 'kötü', 'harika', 'berbat', 'mükemmel', 'mood', 'hissediyorum'];
+    const ocdKeywords = ['kompulsiyon', 'takıntı', 'kontrol', 'temizlik', 'yıkama', 'sayma', 'düzen', 'simetri'];
+    const cbtKeywords = ['düşünce', 'olumsuz', 'kaygı', 'endişe', 'korku', 'çarpıtma', 'yanlış', 'doğru'];
+    const breathworkKeywords = ['nefes', 'sakin', 'rahatlama', 'stres', 'gergin', 'soluk'];
+    
+    // Count keyword matches
+    const moodCount = moodKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    const ocdCount = ocdKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    const cbtCount = cbtKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    const breathworkCount = breathworkKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    
+    // Determine category based on highest count
+    let category = 'MOOD'; // default
+    let confidence = 0.3; // low confidence for heuristic
+    let maxCount = moodCount;
+    
+    if (ocdCount > maxCount) {
+      category = 'OCD';
+      maxCount = ocdCount;
+    }
+    if (cbtCount > maxCount) {
+      category = 'CBT';
+      maxCount = cbtCount;
+    }
+    if (breathworkCount > maxCount) {
+      category = 'BREATHWORK';
+      maxCount = breathworkCount;
+    }
+    
+    // Adjust confidence based on matches
+    confidence = Math.min(0.6, 0.3 + (maxCount * 0.1));
+    
+    return {
+      category,
+      confidence,
+      suggestion: 'Heuristic analysis tamamlandı',
+      route: 'SUGGEST_SCREEN',
+      extractedData: {
+        mood: Math.max(1, Math.min(10, 5 + (maxCount - 2))), // 1-10 range, neutral=5
+        trigger: category === 'OCD' ? 'compulsion_detected' :
+                category === 'CBT' ? 'negative_thought' :
+                category === 'BREATHWORK' ? 'anxiety_detected' : 'mood_expression'
+      },
+      metadata: {
+        source: 'unified_heuristic_fallback',
+        processingTime: 0,
+        keywordMatches: { moodCount, ocdCount, cbtCount, breathworkCount }
+      }
+    };
   }
 
   private extractEmotionFromText(text: string): string {
@@ -1519,10 +1583,11 @@ export class UnifiedAIPipeline {
   
   private getEnabledModules(): string[] {
     const modules = [];
+    // ✅ FIXED: Use dedicated unified pipeline flags instead of legacy component flags
     if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) modules.push('voice');
-    if (FEATURE_FLAGS.isEnabled('AI_PATTERN_RECOGNITION_V2')) modules.push('patterns');
-    if (FEATURE_FLAGS.isEnabled('AI_INSIGHTS_ENGINE_V2')) modules.push('insights');
-    if (FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE')) modules.push('cbt');
+    if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS')) modules.push('patterns');
+    if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS')) modules.push('insights');
+    if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_CBT')) modules.push('cbt');
     return modules;
   }
   
