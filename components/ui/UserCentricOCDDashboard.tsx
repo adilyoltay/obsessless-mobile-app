@@ -439,12 +439,25 @@ export default function UserCentricOCDDashboard({
         // 2. Load Trigger Analysis if we have enough data
         if (compulsions.length >= 2) {
           console.log('🎯 Loading trigger analysis...');
-          const triggerResult = await ocdTriggerDetectionService.detectTriggers(
-            compulsions,
-            userId,
-            'full'
-          );
-          setTriggerAnalysis(triggerResult);
+          
+          // ✅ CRITICAL: Initialize service before use
+          try {
+            await ocdTriggerDetectionService.initialize();
+            const triggerResult = await ocdTriggerDetectionService.detectTriggers(
+              compulsions,
+              userId,
+              'full'
+            );
+            setTriggerAnalysis(triggerResult);
+          } catch (error) {
+            console.error('❌ Trigger analysis failed:', error);
+            // Set empty result so UI doesn't break
+            setTriggerAnalysis({
+              topTriggers: [],
+              riskAssessment: { overallRisk: 0, peakRiskPeriods: [], protectiveFactors: [] },
+              interventionRecommendations: []
+            });
+          }
         }
 
         // 3. Load Y-BOCS AI Analysis - use ONBOARDING data not history
@@ -465,37 +478,59 @@ export default function UserCentricOCDDashboard({
             }
           };
 
-          const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
-            userId,
-            [onboardingYBOCS] // Use onboarding data as "history"
-          );
-          setYBOCSAIAnalysis(ybocsAI);
+          // ✅ CRITICAL: Initialize Y-BOCS service before use
+          try {
+            await ybocsAnalysisService.initialize();
+            const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
+              userId,
+              [onboardingYBOCS] // Use onboarding data as "history"
+            );
+            setYBOCSAIAnalysis(ybocsAI);
+          } catch (error) {
+            console.error('❌ Y-BOCS AI analysis failed:', error);
+            setYBOCSAIAnalysis(null);
+          }
         } else if (ybocsHistory.length > 0) {
           // Fallback to actual history if onboarding data not found
           console.log('📊 Loading Y-BOCS AI analysis from history...');
-          const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
-            userId,
-            ybocsHistory
-          );
-          setYBOCSAIAnalysis(ybocsAI);
+          try {
+            await ybocsAnalysisService.initialize();
+            const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
+              userId,
+              ybocsHistory
+            );
+            setYBOCSAIAnalysis(ybocsAI);
+          } catch (error) {
+            console.error('❌ Y-BOCS AI history analysis failed:', error);
+            setYBOCSAIAnalysis(null);
+          }
         }
 
         // 4. Get culturally adapted encouragement
         if (compulsions.length > 0) {
           console.log('🇹🇷 Loading cultural encouragement...');
-          const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
-            userId,
-            compulsions
-          );
-          
-          if (culturalAnalysis.religiousAnalysis.isPresent) {
-            const religiousEncouragement = await turkishOCDCulturalService.generateReligiouslyAdaptedEncouragement(
-              journeyData.recoveryStory,
-              culturalAnalysis
+          try {
+            // ✅ CRITICAL: Initialize Turkish cultural service before use
+            await turkishOCDCulturalService.initialize();
+            
+            const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
+              userId,
+              compulsions
             );
-            setCulturalEncouragement(religiousEncouragement);
-          } else {
-            setCulturalEncouragement(journeyData.encouragement);
+            
+            if (culturalAnalysis.religiousAnalysis.isPresent) {
+              const religiousEncouragement = await turkishOCDCulturalService.generateReligiouslyAdaptedEncouragement(
+                journeyData.recoveryStory,
+                culturalAnalysis
+              );
+              setCulturalEncouragement(religiousEncouragement);
+            } else {
+              setCulturalEncouragement(journeyData.encouragement);
+            }
+          } catch (error) {
+            console.error('❌ Cultural analysis failed:', error);
+            // Fallback to journey encouragement
+            setCulturalEncouragement(journeyData?.encouragement || 'Güzel ilerleme! Devam et! 💪');
           }
         }
       } catch (error) {
