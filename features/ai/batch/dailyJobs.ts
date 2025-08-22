@@ -88,8 +88,8 @@ export class DailyJobsManager {
         //   minimumInterval: 60 * 60 * 12, // 12 hours minimum
         //   stopOnTerminate: false,
         //   startOnBoot: true,
-        });
-        console.log('✅ Daily batch jobs registered');
+        // });
+        console.log('✅ Daily batch jobs registered (DISABLED)');
       }
 
       // Load last run time
