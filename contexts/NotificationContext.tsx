@@ -212,29 +212,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // (Removed) scheduleERPReminderInternal function
 
-    try {
-      const [hours, minutes] = time.split(':').map(Number);
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'ERP Egzersizi 🧘‍♀️',
-          body: `${exerciseName} egzersizini yapma zamanı`,
-          sound: 'default',
-          data: { type: 'erp_reminder', exerciseName },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-          hour: hours,
-          minute: minutes,
-          repeats: true,
-        } as Notifications.CalendarTriggerInput,
-      });
-
-    } catch (error) {
-      console.error('Schedule ERP reminder error:', error);
-    }
-  };
-
   const sendMotivationalNotification = async () => {
     if (!notificationEnabled || Platform.OS === 'web') return;
 
