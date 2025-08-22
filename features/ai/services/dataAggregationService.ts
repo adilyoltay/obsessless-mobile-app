@@ -39,9 +39,10 @@ class AIDataAggregationService {
   async prepareForAI(aggregate: UserDataAggregate): Promise<any> {
     return {
       behavioral_data: {
-        therapy_count: aggregate.performance?.erpCount ?? 0,
+        // ✅ REMOVED: therapy_count, therapy_completion_rate - ERP module deleted
         compulsion_count: aggregate.performance?.compulsionCount ?? 0,
-        therapy_completion_rate: aggregate.performance?.erpCompletionRate ?? 100,
+        mood_entry_count: aggregate.performance?.moodCount ?? 0,
+        consistency_rate: aggregate.performance?.overallCompletionRate ?? 100,
       },
     };
   }
@@ -100,16 +101,18 @@ class AIDataAggregationService {
     };
   }
 
-  private calculatePerformanceMetrics(erpSessions: any[], compulsions: any[], moods: any[]) {
-    const erpCount = Array.isArray(erpSessions) ? erpSessions.length : 0;
+  private calculatePerformanceMetrics(compulsions: any[], moods: any[]) {
+    // ✅ REMOVED: erpSessions parameter and ERP calculations - ERP module deleted
     const compulsionCount = Array.isArray(compulsions) ? compulsions.length : 0;
-    let erpCompletionRate = 100;
+    const moodCount = Array.isArray(moods) ? moods.length : 0;
+    let overallCompletionRate = 100;
     try {
-      const total = erpCount;
-      const completed = erpSessions.filter((s: any) => s?.completed === true).length;
-      erpCompletionRate = total > 0 ? Math.round((completed / total) * 100) : 100;
+      // Calculate completion based on data consistency
+      const totalExpected = 30; // Days in month
+      const actualEntries = compulsionCount + moodCount;
+      overallCompletionRate = Math.min(100, Math.round((actualEntries / totalExpected) * 100));
     } catch {}
-    return { erpCount, compulsionCount, erpCompletionRate };
+    return { compulsionCount, moodCount, overallCompletionRate };
   }
 }
 

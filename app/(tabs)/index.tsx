@@ -397,19 +397,19 @@ export default function TodayScreen() {
         encryptedPayload = sensitivePayload; // fallback to sanitized data
       }
       
-      // Call Unified Pipeline with encrypted data
+      // Call Unified Pipeline with sanitized (not encrypted) data for analysis
+      // Encryption is only used for storage/telemetry, not for AI processing
       const result = await unifiedPipeline.process({
         userId: user.id, // User ID is hashed in pipeline for privacy
-        content: encryptedPayload,
+        content: sensitivePayload, // ✅ FIX: Use sanitized but unencrypted data for AI analysis
         type: 'mixed',
         context: {
           source: 'today',
           timestamp: Date.now(),
           privacy: {
             piiSanitized: true,
-            encryptionLevel: encryptedPayload.algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 
-                           encryptedPayload.algorithm ? 'aes256' : 'sanitized',
-            encrypted: encryptedPayload.algorithm && encryptedPayload.algorithm !== 'SHA256_FALLBACK'
+            encryptionLevel: 'sanitized_plaintext', // For AI processing
+            dataEncrypted: encryptedPayload // Store encrypted version for telemetry/audit
           }
         }
       });

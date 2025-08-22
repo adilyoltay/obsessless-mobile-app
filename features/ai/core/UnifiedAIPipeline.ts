@@ -1725,7 +1725,7 @@ export class UnifiedAIPipeline {
         key,
         JSON.stringify({
           result,
-          expires: Date.now() + this.DEFAULT_TTL
+          expires: Date.now() + this.MODULE_TTLS.default
         })
       );
     } catch (error) {
@@ -1777,7 +1777,7 @@ export class UnifiedAIPipeline {
     try {
       // Extract userId from key for proper RLS
       const userId = key.split(':')[1];
-      const ttlHours = this.DEFAULT_TTL / (1000 * 60 * 60); // Convert ms to hours
+      const ttlHours = this.MODULE_TTLS.default / (1000 * 60 * 60); // Convert ms to hours
       
       // ✅ FIXED: Use correct column names from ai_cache table schema
       const { error } = await supabaseService.client

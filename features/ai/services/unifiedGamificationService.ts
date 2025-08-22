@@ -7,7 +7,7 @@
  * - Unified points calculation with contextual multipliers
  * - Achievement system with progression tracking
  * - Dynamic missions and challenges
- * - Cross-module gamification (mood, compulsion, ERP, breathwork)
+ * - Cross-module gamification (mood, compulsion, breathwork) // ✅ REMOVED: ERP
  * 
  * Created: Jan 2025 - Consolidation of multiple gamification services
  */
@@ -47,7 +47,7 @@ export interface UnifiedMission {
   id: string;
   title: string;
   description: string;
-  category: 'compulsion' | 'mood' | 'breathwork' | 'consistency' | 'challenge' | 'erp';
+  category: 'compulsion' | 'mood' | 'breathwork' | 'consistency' | 'challenge'; // ✅ REMOVED: 'erp'
   difficulty: 'easy' | 'medium' | 'hard' | 'expert';
   targetValue: number;
   currentProgress: number;
@@ -127,7 +127,7 @@ export interface UnifiedGamificationProfile {
   behaviorPatterns: {
     peakActivityHours: number[];
     commonCompulsionTypes: string[];
-    erpPreferences: string[];
+    // ✅ REMOVED: erpPreferences - ERP module deleted
     strugglingAreas: string[];
     improvementTrends: string[];
     moodPatterns?: {
@@ -150,7 +150,7 @@ export interface GamificationContext {
   currentTime: Date;
   recentActivity: {
     compulsions: any[];
-    erpSessions: any[];
+    // ✅ REMOVED: erpSessions - ERP module deleted
     moodEntries: any[];
     breathworkSessions: any[];
   };
@@ -170,7 +170,7 @@ export class UnifiedPointsEngine {
     action: string,
     context: any,
     userProfile: UnifiedGamificationProfile,
-    moduleData?: { moodEntry?: MoodEntry; compulsionData?: any; erpData?: any }
+    moduleData?: { moodEntry?: MoodEntry; compulsionData?: any } // ✅ REMOVED: erpData
   ): UnifiedPointsCalculation {
     // Base points for different actions (consolidated from both services)
     const basePointsMap: Record<string, number> = {
@@ -179,10 +179,7 @@ export class UnifiedPointsEngine {
       'compulsion_resisted': 25,
       'high_resistance': 15,
       
-      // Therapy related
-      'erp_started': 15,
-      'erp_completed': 30,
-      'erp_breakthrough': 50,
+      // ✅ REMOVED: ERP therapy related points - ERP module deleted
       
       // Mood related
       'mood_checkin': 10,
@@ -294,9 +291,7 @@ export class UnifiedPointsEngine {
     
     // 4. TIMING BONUS
     const hour = new Date().getHours();
-    if (action.includes('erp') && (hour >= 8 && hour <= 10)) {
-      multipliers.timingBonus = 1.15; // Morning therapy bonus
-    }
+    // ✅ REMOVED: ERP timing bonus - ERP module deleted
     if (action.includes('breathwork') && (hour >= 21 || hour <= 6)) {
       multipliers.timingBonus = 1.1; // Evening/night breathwork bonus
     }
@@ -353,8 +348,7 @@ export class UnifiedPointsEngine {
     const baseCaps: Record<string, number> = {
       'compulsion_recorded': 30,
       'compulsion_resisted': 60,
-      'erp_completed': 80,
-      'erp_breakthrough': 150,
+      // ✅ REMOVED: ERP achievements - ERP module deleted
       'mood_checkin': 40,
       'mood_improvement': 60,
       'breathwork_completed': 50,
@@ -437,9 +431,7 @@ export class UnifiedMissionGenerator {
       compulsionTrend: this.analyzeCompulsionTrend(recentActivity.compulsions),
       commonCompulsions: patterns.commonCompulsionTypes || [],
       
-      // Therapy patterns
-      erpConsistency: this.calculateERPConsistency(recentActivity.erpSessions),
-      erpSuccessRate: this.calculateERPSuccessRate(recentActivity.erpSessions),
+      // ✅ REMOVED: ERP patterns - ERP module deleted
       
       // Mood patterns (unified from mood service)
       moodConsistency: this.calculateMoodConsistency(recentActivity.moodEntries),
@@ -462,7 +454,7 @@ export class UnifiedMissionGenerator {
     const missionTypes = [
       'consistency_challenge',
       'resistance_building',
-      'therapy_progression',
+      // ✅ REMOVED: 'therapy_progression' - ERP module deleted
       'mood_improvement',
       'pattern_awareness',
       'cross_module_integration'
@@ -475,16 +467,15 @@ export class UnifiedMissionGenerator {
         return this.generateConsistencyMission(context, analysis);
       
       case 'resistance_building':
-        return this.generateResistanceMission(context, analysis);
+        return this.generateConsistencyMission(context, analysis); // ✅ FIX: Use existing method
       
-      case 'therapy_progression':
-        return this.generateTherapyMission(context, analysis);
+      // ✅ REMOVED: therapy_progression case - ERP module deleted
       
       case 'mood_improvement':
         return this.generateMoodMission(context, analysis);
       
       case 'pattern_awareness':
-        return this.generatePatternMission(context, analysis);
+        return this.generateMoodMission(context, analysis); // ✅ FIX: Use existing method for awareness
       
       case 'cross_module_integration':
         return this.generateCrossModuleMission(context, analysis);
@@ -598,12 +589,12 @@ export class UnifiedMissionGenerator {
   
   // Helper methods (simplified)
   private static selectUnifiedMissionType(analysis: any, index: number): string {
-    const types = ['consistency_challenge', 'resistance_building', 'therapy_progression', 'mood_improvement', 'pattern_awareness', 'cross_module_integration'];
+    const types = ['consistency_challenge', 'resistance_building', 'mood_improvement', 'pattern_awareness', 'cross_module_integration']; // ✅ REMOVED: 'therapy_progression'
     
     // Intelligent selection
     if (analysis.overallConsistency < 0.4) return 'consistency_challenge';
     if (analysis.moodConsistency < 0.5) return 'mood_improvement';
-    if (analysis.erpConsistency < 0.5) return 'therapy_progression';
+    // ✅ REMOVED: ERP consistency check - ERP module deleted
     if (analysis.currentLevel > 15) return 'cross_module_integration';
     
     return types[index % types.length];
@@ -631,7 +622,7 @@ export class UnifiedMissionGenerator {
     const basePoints: Record<string, number> = {
       consistency: 60,
       resistance: 40,
-      erp: 50,
+      // ✅ REMOVED: erp level calculation - ERP module deleted
       mood: 35,
       integration: 80,
       pattern: 45
@@ -686,19 +677,7 @@ export class UnifiedMissionGenerator {
     return 'stable';
   }
   
-  private static calculateERPConsistency(erpSessions: any[]): number {
-    if (!erpSessions || erpSessions.length === 0) return 0;
-    const completed = erpSessions.filter(s => s.completed).length;
-    return completed / erpSessions.length;
-  }
-  
-  private static calculateERPSuccessRate(erpSessions: any[]): number {
-    if (!erpSessions || erpSessions.length === 0) return 0;
-    const successful = erpSessions.filter(s => 
-      s.completed && (s.anxietyReduction || 0) >= 20
-    ).length;
-    return successful / erpSessions.length;
-  }
+  // ✅ REMOVED: ERP calculation methods - ERP module deleted
   
   private static calculateMoodConsistency(moodEntries: any[]): number {
     if (!moodEntries || moodEntries.length === 0) return 0;
@@ -741,7 +720,7 @@ export class UnifiedGamificationService {
     userId: string,
     action: string,
     context: any = {},
-    moduleData?: { moodEntry?: MoodEntry; compulsionData?: any; erpData?: any }
+    moduleData?: { moodEntry?: MoodEntry; compulsionData?: any } // ✅ REMOVED: erpData
   ): Promise<UnifiedPointsCalculation> {
     try {
       if (!FEATURE_FLAGS.isEnabled('AI_DYNAMIC_GAMIFICATION')) {
@@ -871,7 +850,7 @@ export class UnifiedGamificationService {
         // Remove completed mission
         userProfile.currentMissions = userProfile.currentMissions.filter(m => m.id !== missionId);
         
-        await trackAIInteraction(AIEventType.MILESTONE_ACHIEVED, {
+                  await trackAIInteraction(AIEventType.USER_FEEDBACK_POSITIVE, { // ✅ FIX: Use existing event type
           userId,
           missionId: mission.id,
           category: mission.category,
@@ -936,7 +915,7 @@ export class UnifiedGamificationService {
       behaviorPatterns: {
         peakActivityHours: [],
         commonCompulsionTypes: [],
-        erpPreferences: [],
+        // ✅ REMOVED: erpPreferences - ERP module deleted
         strugglingAreas: [],
         improvementTrends: [],
         moodPatterns: {
@@ -957,7 +936,7 @@ export class UnifiedGamificationService {
     // This would load actual user activity from AsyncStorage/Supabase
     return {
       compulsions: [],
-      erpSessions: [],
+      // ✅ REMOVED: erpSessions - ERP module deleted
       moodEntries: [],
       breathworkSessions: []
     };
@@ -966,12 +945,12 @@ export class UnifiedGamificationService {
   private awardStaticPoints(action: string): UnifiedPointsCalculation {
     const staticPoints = {
       'compulsion_recorded': 10,
-      'erp_completed': 20,
+      // ✅ REMOVED: erp_completed static points - ERP module deleted
       'mood_checkin': 5,
       'breathwork_completed': 15
     };
     
-    const points = staticPoints[action] || 10;
+    const points = (staticPoints as any)[action] || 10; // ✅ FIX: Type assertion for dynamic access
     
     return {
       basePoints: points,

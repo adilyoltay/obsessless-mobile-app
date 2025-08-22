@@ -45,7 +45,7 @@ const CONFIG = {
 /**
  * Cache entry types
  */
-export type CacheType = 'insights' | 'erp' | 'voice' | 'digest' | 'general';
+export type CacheType = 'insights' | 'voice' | 'digest' | 'general'; // ✅ REMOVED: 'erp' - ERP module deleted
 
 /**
  * Cached entry structure

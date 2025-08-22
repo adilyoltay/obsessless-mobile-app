@@ -135,17 +135,7 @@ export class CacheInvalidation {
       cascadeInvalidation: true,
     });
 
-    // Terapi session completion invalidates Terapi plan and insights
-    this.strategies.set(InvalidationTrigger.Terapi_SESSION_COMPLETED, {
-      trigger: InvalidationTrigger.Terapi_SESSION_COMPLETED,
-      patterns: [
-        'ai:{userId}:{dayKey}:erp:plan',
-        'ai:{userId}:{dayKey}:insights',
-        'ai:{userId}:*:erp',
-      ],
-      cascadeInvalidation: true,
-      delay: 1000, // Wait 1 second for session data to be saved
-    });
+    // ✅ REMOVED: Terapi session completion - ERP module deleted
 
     // YBOCS update invalidates treatment plan and all analyses
     this.strategies.set(InvalidationTrigger.YBOCS_UPDATED, {
