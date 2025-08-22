@@ -920,91 +920,11 @@ export default function TrackingScreen() {
           </View>
         </View>
 
-        {/* User-Centric Recovery Dashboard Card */}
-        <View style={styles.recoveryDashboardCard}>
-          <View style={styles.recoveryDashboardHeader}>
-            <View style={styles.recoveryDashboardInfo}>
-              <MaterialCommunityIcons name="heart-pulse" size={24} color="#059669" />
-              <View style={styles.recoveryDashboardTextContainer}>
-                <Text style={styles.recoveryDashboardTitle}>Recovery Dashboard</Text>
-                <Text style={styles.recoveryDashboardSubtitle}>
-                  Kişisel journey'n ve pattern analiz
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              style={styles.recoveryDashboardButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowUserCentricDashboard(true);
-              }}
-            >
-              <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </View>
+        {/* Removed: Recovery Dashboard Card - moved to header chart icon only */}
 
 
 
-        {/* AI Pattern Recognition & Insights */}
-        {aiInitialized && availableFeatures.includes('AI_INSIGHTS') && (aiPatterns.length > 0 || aiInsights.length > 0) && (
-          <View style={styles.aiSection}>
-            <View style={styles.sectionHeader}>
-              <MaterialCommunityIcons name="brain" size={24} color="#3b82f6" />
-              <Text style={styles.sectionHeaderTitle}>AI Analizleri</Text>
-              {isLoadingAI && (
-                <MaterialCommunityIcons name="loading" size={16} color="#6b7280" />
-              )}
-            </View>
-
-            {/* AI Patterns */}
-            {aiPatterns.length > 0 && (
-              <View style={styles.aiPatternsContainer}>
-                {aiPatterns.map((pattern, index) => (
-                  <View key={index} style={[
-                    styles.aiPatternCard,
-                    pattern.severity === 'positive' && styles.aiPatternPositive,
-                    pattern.severity === 'warning' && styles.aiPatternWarning
-                  ]}>
-                    <View style={styles.aiPatternHeader}>
-                      <MaterialCommunityIcons 
-                        name={
-                          pattern.type === 'time_pattern' ? 'clock-outline' :
-                          pattern.type === 'progress_pattern' ? 'trending-up' :
-                          'alert-outline'
-                        }
-                        size={20} 
-                        color={
-                          pattern.severity === 'positive' ? '#10b981' :
-                          pattern.severity === 'warning' ? '#f59e0b' :
-                          '#3b82f6'
-                        }
-                      />
-                      <Text style={styles.aiPatternTitle}>{pattern.title}</Text>
-                      <Text style={styles.aiPatternConfidence}>
-                        {Math.round(pattern.confidence * 100)}%
-                      </Text>
-                    </View>
-                    <Text style={styles.aiPatternDescription}>{pattern.description}</Text>
-                    <Text style={styles.aiPatternSuggestion}>💡 {pattern.suggestion}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* AI Insights */}
-            {aiInsights.length > 0 && (
-              <View style={styles.aiInsightsContainer}>
-                <Text style={styles.aiInsightsTitle}>📊 Kişisel İçgörüler</Text>
-                {aiInsights.slice(0, 2).map((insight, index) => (
-                  <View key={index} style={styles.aiInsightCard}>
-                    <Text style={styles.aiInsightText}>{insight.message || insight.content}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
+        {/* Removed: AI Pattern Recognition & Insights - moved to dashboard */}
 
         {/* Recordings List */}
         <View style={styles.listSection}>
@@ -1109,6 +1029,8 @@ export default function TrackingScreen() {
         compulsions={allCompulsions}
         ybocsHistory={ybocsHistory}
         userId={user?.id || ''}
+        aiPatterns={aiPatterns}
+        aiInsights={aiInsights}
         onStartAction={(actionId) => {
           console.log('🌿 OCD Recovery action:', actionId);
           if (actionId === 'start_tracking') {
@@ -1550,80 +1472,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-  aiPatternsContainer: {
-    gap: 12,
-  },
-  aiPatternCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  aiPatternPositive: {
-    borderLeftColor: '#10b981',
-    backgroundColor: '#f0fdf4',
-  },
-  aiPatternWarning: {
-    borderLeftColor: '#f59e0b',
-    backgroundColor: '#fffbeb',
-  },
-  aiPatternHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  aiPatternTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 8,
-    flex: 1,
-  },
-  aiPatternConfidence: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  aiPatternDescription: {
-    fontSize: 14,
-    color: '#4b5563',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  aiPatternSuggestion: {
-    fontSize: 13,
-    color: '#059669',
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  aiInsightsContainer: {
-    marginTop: 16,
-  },
-  aiInsightsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  aiInsightCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  aiInsightText: {
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
-  },
+  // Removed: AI Patterns & Insights Styles - moved to dashboard
   
   // Dashboard Overlay Styles
   dashboardOverlay: {
@@ -1764,57 +1613,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
 
-  // Recovery Dashboard Styles
-  recoveryDashboardCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#059669',
-  },
-  recoveryDashboardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  recoveryDashboardInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  recoveryDashboardTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  recoveryDashboardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  recoveryDashboardSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-    fontFamily: 'Inter',
-  },
-  recoveryDashboardButton: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 44,
-    minHeight: 36,
-  },
+  // Removed: Recovery Dashboard Styles - moved to header chart icon only
   
   // Dashboard Content
   dashboardContent: {

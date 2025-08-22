@@ -73,6 +73,8 @@ interface UserCentricOCDDashboardProps {
   compulsions: CompulsionEntry[];
   ybocsHistory: any[];
   userId: string;
+  aiPatterns?: any[];
+  aiInsights?: any[];
   onStartAction?: (actionId: string) => void;
 }
 
@@ -101,6 +103,8 @@ export default function UserCentricOCDDashboard({
   compulsions,
   ybocsHistory,
   userId,
+  aiPatterns = [],
+  aiInsights = [],
   onStartAction
 }: UserCentricOCDDashboardProps) {
   const [selectedTab, setSelectedTab] = useState<'journey' | 'patterns' | 'assessment' | 'triggers'>('journey');
@@ -455,14 +459,64 @@ export default function UserCentricOCDDashboard({
   };
 
   const renderPatternsTab = () => (
-    <ScrollView style={styles.tabContent}>
-      <View style={styles.comingSoonCard}>
-        <MaterialCommunityIcons name="chart-line" size={48} color={COLORS.whisperGray} />
-        <Text style={styles.comingSoonTitle}>Pattern Analysis</Text>
-        <Text style={styles.comingSoonText}>
-          Gelişmiş pattern analizi yakında geliyor...
-        </Text>
-      </View>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* AI Patterns from Main Screen */}
+      {aiPatterns.length > 0 ? (
+        <View style={styles.aiPatternsSection}>
+          <Text style={styles.aiSectionTitle}>🧠 AI Pattern Analizleri</Text>
+          <View style={styles.aiPatternsContainer}>
+            {aiPatterns.map((pattern, index) => (
+              <View key={index} style={[
+                styles.aiPatternCard,
+                pattern.severity === 'positive' && styles.aiPatternPositive,
+                pattern.severity === 'warning' && styles.aiPatternWarning
+              ]}>
+                <View style={styles.aiPatternHeader}>
+                  <MaterialCommunityIcons 
+                    name={
+                      pattern.type === 'time_pattern' ? 'clock-outline' :
+                      pattern.type === 'progress_pattern' ? 'trending-up' :
+                      'alert-outline'
+                    }
+                    size={20} 
+                    color={
+                      pattern.severity === 'positive' ? COLORS.softEmerald :
+                      pattern.severity === 'warning' ? COLORS.softAmber :
+                      COLORS.gentleBlue
+                    }
+                  />
+                  <Text style={styles.aiPatternTitle}>{pattern.title}</Text>
+                  <Text style={styles.aiPatternConfidence}>
+                    {Math.round(pattern.confidence * 100)}%
+                  </Text>
+                </View>
+                <Text style={styles.aiPatternDescription}>{pattern.description}</Text>
+                <Text style={styles.aiPatternSuggestion}>💡 {pattern.suggestion}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* AI Insights */}
+          {aiInsights.length > 0 && (
+            <View style={styles.aiInsightsSection}>
+              <Text style={styles.aiSectionTitle}>📊 Kişisel İçgörüler</Text>
+              {aiInsights.map((insight, index) => (
+                <View key={index} style={styles.aiInsightCard}>
+                  <Text style={styles.aiInsightText}>{insight.message || insight.content}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.comingSoonCard}>
+          <MaterialCommunityIcons name="brain" size={48} color={COLORS.whisperGray} />
+          <Text style={styles.comingSoonTitle}>AI Desenler Yükleniyor</Text>
+          <Text style={styles.comingSoonText}>
+            Verileriniz analiz edilip desenler tespit edilecek...
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 
