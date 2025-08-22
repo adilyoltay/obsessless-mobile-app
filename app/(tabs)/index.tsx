@@ -55,6 +55,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 // import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
 import { BreathworkSuggestionService } from '@/features/ai/services/breathworkSuggestionService';
+import { DynamicGamificationService, DynamicMission } from '@/features/ai/services/dynamicGamificationService';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -117,10 +118,13 @@ export default function TodayScreen() {
   // Today's stats
   const [todayStats, setTodayStats] = useState({
     compulsions: 0,
-
     healingPoints: 0,
     resistanceWins: 0
   });
+
+  // ✅ AI-Generated Daily Missions State
+  const [aiMissions, setAiMissions] = useState<DynamicMission[]>([]);
+  const [missionsLoading, setMissionsLoading] = useState(false);
 
 
 
@@ -297,6 +301,35 @@ export default function TodayScreen() {
           trigger: hour < 12 ? 'morning' : 'evening',
         });
       }
+    }
+  };
+
+  /**
+   * 🎯 Load AI-Generated Daily Missions
+   */
+  const loadAIMissions = async () => {
+    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_DYNAMIC_MISSIONS')) {
+      return;
+    }
+
+    try {
+      setMissionsLoading(true);
+      const dynamicService = DynamicGamificationService.getInstance();
+      const missions = await dynamicService.generateDailyMissions(user.id);
+      setAiMissions(missions);
+
+      await trackAIInteraction(AIEventType.GAMIFICATION_MISSIONS_GENERATED, {
+        userId: user.id,
+        missionCount: missions.length,
+        aiGenerated: missions.filter(m => m.aiGenerated).length,
+        timestamp: Date.now()
+      });
+
+    } catch (error) {
+      console.warn('⚠️ Failed to load AI missions:', error);
+      setAiMissions([]); // Clear on error
+    } finally {
+      setMissionsLoading(false);
     }
   };
 
@@ -535,6 +568,9 @@ export default function TodayScreen() {
       // Load AI Insights if enabled
       await loadAIInsights();
       
+      // ✅ Load AI-Generated Daily Missions
+      await loadAIMissions();
+      
       console.log('📊 Today stats updated:', {
         compulsions: todayCompulsions.length,
         // erpSessions: 0, // Removed ERP
@@ -682,157 +718,136 @@ export default function TodayScreen() {
     );
   };
 
-  const renderDailyMissions = () => (
+  const renderDailyMissions = () => {
+    // ✅ FIXED: Use AI-Generated Daily Missions instead of hard-coded ones
+    const missionsToRender = aiMissions.length > 0 ? aiMissions : [];
+
+    return (
     <View style={styles.missionsSection}>
       <View style={styles.sectionHeader}>
-        <MaterialCommunityIcons name="heart-outline" size={20} color="#10B981" />
-        <Text style={styles.sectionTitle}>Bugün için öneriler</Text>
+        <MaterialCommunityIcons name="sparkles" size={20} color="#10B981" />
+        <Text style={styles.sectionTitle}>
+          {aiMissions.length > 0 ? 'AI Kişisel Öneriler' : 'Bugün için öneriler'}
+        </Text>
       </View>
 
-      <View style={styles.missionsList}>
-        {/* Mission 1: Compulsion Tracking */}
-        <Pressable 
-          style={styles.missionCard}
-          onPress={() => router.push('/(tabs)/tracking')}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name={todayStats.compulsions >= 3 ? "heart" : "heart-outline"} 
-              size={30} 
-              color={todayStats.compulsions >= 3 ? "#10B981" : "#D1D5DB"} 
-            />
+        {missionsLoading ? (
+          <View style={[styles.missionCard, { justifyContent: 'center', alignItems: 'center', height: 80 }]}>
+            <MaterialCommunityIcons name="loading" size={24} color="#10B981" />
+            <Text style={[styles.missionProgressText, { marginTop: 8 }]}>Kişiselleştirilmiş öneriler hazırlanıyor...</Text>
           </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>Bugünkü Yolculuğun</Text>
-            <View style={styles.missionProgress}>
-              <View style={styles.missionProgressBar}>
-                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.compulsions / 3) * 100, 100)}%` }]} />
+        ) : missionsToRender.length > 0 ? (
+          <View style={styles.missionsList}>
+            {missionsToRender.slice(0, 3).map((mission, index) => (
+              <Pressable 
+                key={mission.id}
+                style={[
+                  styles.missionCard,
+                  mission.currentProgress >= mission.targetValue && styles.missionCardCompleted
+                ]}
+                onPress={() => {
+                  // Navigate based on mission category
+                  switch (mission.category) {
+                    case 'compulsion':
+                      router.push('/(tabs)/tracking');
+                      break;
+                    case 'mood':
+                      setCheckinSheetVisible(true);
+                      break;
+                    case 'breathwork':
+                      router.push('/(tabs)/breathwork');
+                      break;
+                    case 'consistency':
+                      router.push('/(tabs)/tracking');
+                      break;
+                    case 'challenge':
+                      router.push('/(tabs)/cbt');
+                      break;
+                    default:
+                      router.push('/(tabs)/tracking');
+                  }
+                }}
+              >
+                <View style={styles.missionIcon}>
+                  <MaterialCommunityIcons 
+                    name={mission.currentProgress >= mission.targetValue ? "check-circle" : 
+                          mission.category === 'compulsion' ? "heart-outline" :
+                          mission.category === 'mood' ? "emoticon-happy-outline" :
+                          mission.category === 'breathwork' ? "meditation" :
+                          mission.category === 'consistency' ? "calendar-check" :
+                          mission.category === 'challenge' ? "trophy-outline" :
+                          "target"}
+                    size={30} 
+                    color={mission.currentProgress >= mission.targetValue ? "#10B981" : "#D1D5DB"} 
+                  />
+                </View>
+                <View style={styles.missionContent}>
+                  <Text style={styles.missionTitle}>{mission.title}</Text>
+                  <Text style={styles.missionDescription} numberOfLines={1}>
+                    {mission.personalizedMessage}
+                  </Text>
+                  <View style={styles.missionProgress}>
+                    <View style={styles.missionProgressBar}>
+                      <View style={[
+                        styles.missionProgressFill, 
+                        { width: `${Math.min((mission.currentProgress / mission.targetValue) * 100, 100)}%` }
+                      ]} />
+                    </View>
+                    <Text style={styles.missionProgressText}>
+                      {mission.currentProgress}/{mission.targetValue}
+                    </Text>
+                  </View>
+                  {mission.aiGenerated && (
+                    <View style={styles.missionTags}>
+                      <Text style={[styles.missionTag, { backgroundColor: '#E0F2FE', color: '#0EA5E9' }]}>
+                        AI Önerisi
+                      </Text>
+                      <Text style={[styles.missionTag, { backgroundColor: '#FEF3C7', color: '#F59E0B' }]}>
+                        {mission.difficulty.toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.missionReward}>
+                  <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+                  <Text style={styles.missionRewardText}>+{mission.healingPoints}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          // Fallback to static missions if AI missions unavailable
+          <View style={styles.missionsList}>
+            <Pressable 
+              style={styles.missionCard}
+              onPress={() => router.push('/(tabs)/tracking')}
+            >
+              <View style={styles.missionIcon}>
+                <MaterialCommunityIcons 
+                  name={todayStats.compulsions >= 3 ? "heart" : "heart-outline"} 
+                  size={30} 
+                  color={todayStats.compulsions >= 3 ? "#10B981" : "#D1D5DB"} 
+                />
               </View>
-              <Text style={styles.missionProgressText}>{todayStats.compulsions}/3 kayıt</Text>
-            </View>
-          </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+50</Text>
-          </View>
-        </Pressable>
-
-        {/* Mission 2: REMOVED - ERP Session module deleted */}
-
-        {/* Mission 3: Resistance */}
-        <Pressable 
-          style={styles.missionCard}
-          onPress={() => router.push('/(tabs)/tracking')}
-        >
-          <View style={styles.missionIconCircle}>
-            <View style={[styles.missionCircle, todayStats.resistanceWins >= 2 && styles.missionCircleCompleted]} />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>Direnç Zaferi</Text>
-            <Text style={styles.missionDescription}>2 kez yüksek direnç göster</Text>
-            <View style={styles.missionProgress}>
-              <View style={styles.missionProgressBar}>
-                <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.resistanceWins / 2) * 100, 100)}%` }]} />
+              <View style={styles.missionContent}>
+                <Text style={styles.missionTitle}>Bugünkü Yolculuğun</Text>
+                <View style={styles.missionProgress}>
+                  <View style={styles.missionProgressBar}>
+                    <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.compulsions / 3) * 100, 100)}%` }]} />
+                  </View>
+                  <Text style={styles.missionProgressText}>{todayStats.compulsions}/3 kayıt</Text>
+                </View>
               </View>
-              <Text style={styles.missionProgressText}>{todayStats.resistanceWins}/2</Text>
-            </View>
+              <View style={styles.missionReward}>
+                <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
+                <Text style={styles.missionRewardText}>+50</Text>
+              </View>
+            </Pressable>
           </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+75</Text>
-          </View>
-        </Pressable>
-
-        {/* Mission 4: CBT - Düşünce Kaydı */}
-        <Pressable 
-          style={[styles.missionCard, styles.missionCardOutlined]}
-          onPress={() => router.push('/(tabs)/cbt')}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name="head-cog-outline" 
-              size={30} 
-              color="#8B5CF6" 
-            />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>Düşünce Kaydı</Text>
-            <Text style={styles.missionDescription}>Bir olumsuz düşünceyi dönüştür</Text>
-            <View style={styles.missionTags}>
-              <Text style={styles.missionTag}>CBT</Text>
-              <Text style={styles.missionTag}>Bilişsel</Text>
-            </View>
-          </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+60</Text>
-          </View>
-        </Pressable>
-
-        {/* Mission 5: MOOD - Ruh Hali Check-in */}
-        <Pressable 
-          style={[styles.missionCard, styles.missionCardOutlined]}
-          onPress={() => router.push('/(tabs)/mood')}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name="emoticon-happy-outline" 
-              size={30} 
-              color="#EC4899" 
-            />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>Ruh Hali Kaydı</Text>
-            <Text style={styles.missionDescription}>Bugünkü duygularını kaydet</Text>
-            <View style={styles.missionTags}>
-              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>MOOD</Text>
-              <Text style={[styles.missionTag, { backgroundColor: '#FDF2F8', color: '#EC4899' }]}>Duygu</Text>
-            </View>
-          </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+40</Text>
-          </View>
-        </Pressable>
-
-        {/* Mission 6: BREATHWORK - Nefes Egzersizi */}
-        <Pressable 
-          style={[styles.missionCard, styles.missionCardOutlined]}
-          onPress={() => {
-            console.log('🌬️ Breathwork mission pressed!');
-            router.push({
-              pathname: '/(tabs)/breathwork',
-              params: { 
-                protocol: 'box',
-                autoStart: 'false',
-                source: 'mission'
-              }
-            });
-          }}
-        >
-          <View style={styles.missionIcon}>
-            <MaterialCommunityIcons 
-              name="meditation" 
-              size={30} 
-              color="#06B6D4" 
-            />
-          </View>
-          <View style={styles.missionContent}>
-            <Text style={styles.missionTitle}>60 Saniye Nefes</Text>
-            <Text style={styles.missionDescription}>Sakinleşmek için mini mola</Text>
-            <View style={styles.missionTags}>
-              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Nefes</Text>
-              <Text style={[styles.missionTag, { backgroundColor: '#E0F7FA', color: '#06B6D4' }]}>Sakinlik</Text>
-            </View>
-          </View>
-          <View style={styles.missionReward}>
-            <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-            <Text style={styles.missionRewardText}>+30</Text>
-          </View>
-        </Pressable>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   /**
    * 🤖 Render AI Insights Widget
@@ -1053,27 +1068,37 @@ export default function TodayScreen() {
         {renderHeroSection()}
         
         {/* Breathwork Suggestion Card */}
-        {breathworkSuggestion?.show && user?.id && (
+        {breathworkSuggestion?.show && (
           <BreathworkSuggestionCard
-            userId={user.id}
-            suggestion={breathworkSuggestion.originalSuggestion}
-            context={{
-              moodScore: breathworkSuggestion.originalSuggestion?.trigger?.contextData?.moodScore,
-              anxietyLevel: breathworkSuggestion.anxietyLevel,
-              recentCompulsions: todayStats.compulsions,
-            }}
-            onDismiss={() => setBreathworkSuggestion(null)}
-            onAccept={(suggestion) => {
-              // Navigate to breathwork with accepted suggestion
+            trigger={breathworkSuggestion.trigger}
+            anxietyLevel={breathworkSuggestion.anxietyLevel}
+            onAccept={() => {
+              // Navigate to breathwork as documented
               router.push({
                 pathname: '/(tabs)/breathwork',
                 params: {
-                  protocol: suggestion.protocol.name,
-                  duration: String(suggestion.protocol.duration),
+                  protocol: breathworkSuggestion.anxietyLevel && breathworkSuggestion.anxietyLevel >= 7 ? '4-7-8' : 'box',
                   autoStart: 'true',
-                  source: 'ai_suggestion',
+                  source: 'today_suggestion',
                 }
               });
+            }}
+            onSnooze={() => {
+              // 15 dakika erteleme as documented
+              setSnoozedUntil(new Date(Date.now() + 15 * 60 * 1000));
+              setBreathworkSuggestion(null);
+            }}
+            onDismiss={() => {
+              // Bu oturum için kapat as documented
+              setBreathworkSuggestion(null);
+            }}
+            
+            {/* Optional advanced props for enhanced functionality */}
+            userId={user?.id}
+            suggestion={breathworkSuggestion.originalSuggestion}
+            context={{
+              moodScore: breathworkSuggestion.originalSuggestion?.trigger?.contextData?.moodScore,
+              recentCompulsions: todayStats.compulsions,
             }}
             onGenerate={(suggestion) => {
               // Update state when new suggestion is generated
@@ -1217,6 +1242,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FAFAFA',
+  },
+  missionCardCompleted: {
+    borderWidth: 2,
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
   },
   missionIcon: {
     marginRight: 16,

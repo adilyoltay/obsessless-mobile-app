@@ -18,16 +18,21 @@ import { breathworkSuggestionService, BreathworkSuggestion } from '@/features/ai
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 interface BreathworkSuggestionCardProps {
-  userId: string;
+  // ✅ FIXED: API aligned with documentation
+  trigger: string;
+  anxietyLevel?: number;
+  onAccept?: () => void;
+  onSnooze?: () => void;
+  onDismiss?: () => void;
+  
+  // Optional advanced props for internal usage
+  userId?: string;
   suggestion?: BreathworkSuggestion;
   context?: {
     moodScore?: number;
-    anxietyLevel?: number;
     recentCompulsions?: number;
     userInput?: string;
   };
-  onDismiss?: () => void;
-  onAccept?: (suggestion: BreathworkSuggestion) => void;
   onGenerate?: (suggestion: BreathworkSuggestion) => void;
 }
 
@@ -93,11 +98,17 @@ const getDynamicTriggerConfig = (suggestion: BreathworkSuggestion) => {
 };
 
 export default function BreathworkSuggestionCard({
+  // ✅ FIXED: Primary API props from documentation
+  trigger,
+  anxietyLevel,
+  onAccept,
+  onSnooze,
+  onDismiss,
+  
+  // Optional advanced props for internal usage
   userId,
   suggestion: propSuggestion,
   context,
-  onDismiss,
-  onAccept,
   onGenerate,
 }: BreathworkSuggestionCardProps) {
   const router = useRouter();
@@ -107,12 +118,56 @@ export default function BreathworkSuggestionCard({
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(50)).current;
 
-  // Generate suggestion if not provided
+  // ✅ FIXED: Create simple suggestion from trigger and anxietyLevel if not provided
   useEffect(() => {
-    if (!suggestion && context && userId) {
-      generateSuggestion();
+    if (!suggestion) {
+      if (propSuggestion) {
+        setSuggestion(propSuggestion);
+      } else if (trigger) {
+        // Create a basic suggestion from trigger and anxietyLevel props
+        const simpleSuggestion: BreathworkSuggestion = {
+          id: `simple_${Date.now()}`,
+          protocol: {
+            name: anxietyLevel && anxietyLevel >= 7 ? '4-7-8' : 'box',
+            duration: 180, // 3 minutes
+            description: 'AI-recommended protocol',
+            effectiveness: { anxiety: 0.8, stress: 0.7, focus: 0.6 }
+          },
+          trigger: {
+            type: trigger.includes('anxiety') ? 'anxiety' : 
+                  trigger.includes('mood') ? 'low_mood' :
+                  trigger.includes('morning') ? 'morning_routine' :
+                  trigger.includes('evening') ? 'sleep_prep' : 'maintenance',
+            confidence: 0.8,
+            reason: trigger,
+            contextData: {
+              anxietyLevel: anxietyLevel || 5,
+              moodScore: context?.moodScore
+            }
+          },
+          urgency: anxietyLevel && anxietyLevel >= 8 ? 'critical' : 
+                   anxietyLevel && anxietyLevel >= 6 ? 'high' : 'medium',
+          customization: {},
+          timing: {
+            suggestedAt: Date.now(),
+            expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+            canDelay: true,
+            delayOptions: [15, 30, 60],
+            currentDelays: 0
+          },
+          metadata: {
+            source: 'simple_trigger',
+            expectedCompletion: 3,
+            category: 'stress_relief'
+          },
+          aiGenerated: false
+        };
+        setSuggestion(simpleSuggestion);
+      } else if (context && userId) {
+        generateSuggestion();
+      }
     }
-  }, [context, userId]);
+  }, [trigger, anxietyLevel, context, userId, propSuggestion]);
 
   // Entrance animation
   useEffect(() => {
@@ -185,22 +240,25 @@ export default function BreathworkSuggestionCard({
       urgency: suggestion.urgency
     });
     
-    onAccept?.(suggestion);
-    
-    // Navigate with comprehensive params
-    router.push({
-      pathname: '/(tabs)/breathwork',
-      params: {
-        protocol: suggestion.protocol.name,
-        duration: String(suggestion.protocol.duration),
-        autoStart: 'true',
-        source: 'ai_suggestion',
-        suggestionId: suggestion.id,
-        urgency: suggestion.urgency,
-        customization: JSON.stringify(suggestion.customization),
-        anxietyLevel: String(suggestion.trigger.contextData.anxietyLevel || 5),
-      },
-    });
+    // ✅ FIXED: Call onAccept callback as per documentation API
+    if (onAccept) {
+      onAccept(); // Documentation expects no parameters
+    } else {
+      // Default behavior: Navigate to breathwork screen
+      router.push({
+        pathname: '/(tabs)/breathwork',
+        params: {
+          protocol: suggestion.protocol.name,
+          duration: String(suggestion.protocol.duration),
+          autoStart: 'true',
+          source: 'ai_suggestion',
+          suggestionId: suggestion.id,
+          urgency: suggestion.urgency,
+          customization: JSON.stringify(suggestion.customization),
+          anxietyLevel: String(suggestion.trigger.contextData.anxietyLevel || anxietyLevel || 5),
+        },
+      });
+    }
     
     handleDismiss();
   };
@@ -210,22 +268,29 @@ export default function BreathworkSuggestionCard({
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    const delayOptions = suggestion.timing.delayOptions;
-    const delayTexts = delayOptions.map(minutes => 
-      minutes < 60 ? `${minutes} dakika` : `${minutes / 60} saat`
-    );
-    
-    Alert.alert(
-      'Nefes egzersizini ertele',
-      'Ne kadar süre sonra hatırlatayım?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        ...delayOptions.map((minutes, index) => ({
-          text: delayTexts[index],
-          onPress: () => handleDelaySelection(minutes)
-        }))
-      ]
-    );
+    // ✅ FIXED: Call onSnooze callback as per documentation API
+    if (onSnooze) {
+      onSnooze(); // Documentation expects no parameters
+      handleDismiss();
+    } else {
+      // Default behavior: Show delay options
+      const delayOptions = suggestion.timing.delayOptions;
+      const delayTexts = delayOptions.map(minutes => 
+        minutes < 60 ? `${minutes} dakika` : `${minutes / 60} saat`
+      );
+      
+      Alert.alert(
+        'Nefes egzersizini ertele',
+        'Ne kadar süre sonra hatırlatayım?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          ...delayOptions.map((minutes, index) => ({
+            text: delayTexts[index],
+            onPress: () => handleDelaySelection(minutes)
+          }))
+        ]
+      );
+    }
   };
 
   const handleDelaySelection = async (delayMinutes: number) => {
@@ -397,7 +462,7 @@ export default function BreathworkSuggestionCard({
               </Text>
             </Pressable>
 
-            {suggestion.timing.canDelay && (
+            {(suggestion.timing.canDelay || onSnooze) && (
               <Pressable
                 style={[styles.actionButton, styles.snoozeButton]}
                 onPress={handleSnooze}

@@ -7,7 +7,11 @@
  * - Insights Generation
  * - CBT Analysis
  * 
- * Today sayfası sadece bu servisi çağırır, sonuçlar 24 saat cache'lenir.
+ * ✅ FIXED: Module-specific cache TTLs implemented:
+ * - Voice Analysis: 1h TTL
+ * - Pattern Recognition: 12h TTL  
+ * - Insights Generation: 24h TTL
+ * - CBT Analysis: 24h TTL
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -119,7 +123,17 @@ export interface UnifiedPipelineResult {
 export class UnifiedAIPipeline {
   private static instance: UnifiedAIPipeline;
   private cache: Map<string, { result: UnifiedPipelineResult; expires: number }> = new Map();
-  private readonly DEFAULT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+  
+  // ✅ FIXED: Module-specific cache TTLs as per specification  
+  private readonly MODULE_TTLS = {
+    insights: 24 * 60 * 60 * 1000,    // 24 hours
+    patterns: 12 * 60 * 60 * 1000,    // 12 hours  
+    voice: 1 * 60 * 60 * 1000,        // 1 hour
+    progress: 6 * 60 * 60 * 1000,     // 6 hours
+    cbt: 24 * 60 * 60 * 1000,         // 24 hours (same as insights)
+    default: 24 * 60 * 60 * 1000      // 24 hours fallback
+  };
+  
   private invalidationHooks: Map<string, () => void> = new Map();
   
   private constructor() {
@@ -134,6 +148,32 @@ export class UnifiedAIPipeline {
     return UnifiedAIPipeline.instance;
   }
   
+  // ============================================================================
+  // CACHE TTL MANAGEMENT
+  // ============================================================================
+  
+  /**
+   * Get module-specific TTL based on input type and content
+   */
+  private getModuleTTL(input: UnifiedPipelineInput): number {
+    // Determine primary module based on input type
+    switch (input.type) {
+      case 'voice':
+        return this.MODULE_TTLS.voice;
+      case 'data':
+        // For data inputs, determine by context source
+        if (input.context?.source === 'mood') return this.MODULE_TTLS.patterns;
+        if (input.context?.source === 'cbt') return this.MODULE_TTLS.cbt;
+        if (input.context?.source === 'tracking') return this.MODULE_TTLS.patterns;
+        return this.MODULE_TTLS.insights; // Default for data
+      case 'mixed':
+        // Mixed inputs typically generate insights
+        return this.MODULE_TTLS.insights;
+      default:
+        return this.MODULE_TTLS.default;
+    }
+  }
+
   // ============================================================================
   // MAIN PROCESSING METHOD
   // ============================================================================
@@ -199,8 +239,9 @@ export class UnifiedAIPipeline {
     // 2. Process through pipeline
     const result = await this.executePipeline(input);
     
-    // 3. Cache the result
-    this.setCache(cacheKey, result);
+    // 3. Cache the result with module-specific TTL
+    const moduleTTL = this.getModuleTTL(input);
+    this.setCache(cacheKey, result, moduleTTL);
     
     // 4. Track pipeline completion telemetry
     const processingTime = Date.now() - startTime;
@@ -228,13 +269,16 @@ export class UnifiedAIPipeline {
   // ============================================================================
   
   private async executePipeline(input: UnifiedPipelineInput): Promise<UnifiedPipelineResult> {
+    const startTime = Date.now();
+    const moduleTTL = this.getModuleTTL(input);
+    
     const result: UnifiedPipelineResult = {
       metadata: {
         pipelineVersion: '1.0.0',
         processedAt: Date.now(),
-        cacheTTL: this.DEFAULT_TTL,
+        cacheTTL: moduleTTL,
         source: 'fresh',
-        processingTime: 0
+        processingTime: 0 // Will be updated by main process method
       }
     };
     
@@ -1624,10 +1668,10 @@ export class UnifiedAIPipeline {
     try {
       const supabaseCached = await this.getFromSupabaseCache(key);
       if (supabaseCached) {
-        // Restore to memory cache for faster future access
+        // Restore to memory cache for faster future access (use default TTL for restored cache)
         this.cache.set(key, {
           result: supabaseCached,
-          expires: Date.now() + this.DEFAULT_TTL
+          expires: Date.now() + this.MODULE_TTLS.default
         });
         
         console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
@@ -1656,11 +1700,14 @@ export class UnifiedAIPipeline {
     return null;
   }
   
-  private setCache(key: string, result: UnifiedPipelineResult): void {
+  private setCache(key: string, result: UnifiedPipelineResult, ttl?: number): void {
+    // ✅ FIXED: Use module-specific TTL instead of single DEFAULT_TTL
+    const cacheTTL = ttl || this.MODULE_TTLS.default;
+    
     // 1. Store in memory cache (fastest access)
     this.cache.set(key, {
       result,
-      expires: Date.now() + this.DEFAULT_TTL
+      expires: Date.now() + cacheTTL
     });
     
     // 2. Persist to Supabase (shared across devices)
@@ -1668,6 +1715,8 @@ export class UnifiedAIPipeline {
     
     // 3. Also persist to AsyncStorage for offline
     this.persistToStorage(key, result);
+    
+    console.log(`📦 Cache set with ${Math.round(cacheTTL / (60 * 60 * 1000))}h TTL:`, key.substring(0, 30) + '...');
   }
   
   private async persistToStorage(key: string, result: UnifiedPipelineResult): Promise<void> {
