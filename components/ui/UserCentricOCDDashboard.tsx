@@ -29,6 +29,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
 import { ocdTriggerDetectionService } from '@/features/ai/services/ocdTriggerDetectionService';
 import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+import supabaseService from '@/services/supabase';
 
 // Types
 interface CompulsionEntry {
@@ -114,6 +115,8 @@ export default function UserCentricOCDDashboard({
   const [triggerAnalysis, setTriggerAnalysis] = useState<any>(null);
   const [ybocsAIAnalysis, setYBOCSAIAnalysis] = useState<any>(null);
   const [culturalEncouragement, setCulturalEncouragement] = useState<string>('');
+  const [onboardingProfile, setOnboardingProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // DEBUG: Log incoming props
   useEffect(() => {
@@ -333,7 +336,58 @@ export default function UserCentricOCDDashboard({
     };
   }, [compulsions, ybocsHistory]);
 
-  // Load real data from services
+  // Load onboarding profile first, then other data
+  useEffect(() => {
+    const loadOnboardingProfile = async () => {
+      if (!userId) return;
+      
+      setIsLoadingProfile(true);
+      try {
+        console.log('📋 Loading onboarding profile...');
+        
+        // Try AsyncStorage first (local cache)
+        const localProfile = await AsyncStorage.getItem(`ocd_profile_${userId}`);
+        if (localProfile) {
+          const profile = JSON.parse(localProfile);
+          console.log('✅ Found local onboarding profile:', {
+            ybocsScore: profile.ybocsLiteScore,
+            symptoms: profile.primarySymptoms?.length || 0,
+            onboardingCompleted: profile.onboardingCompleted
+          });
+          setOnboardingProfile(profile);
+        }
+        
+        // Also try to get from Supabase (in case of sync)
+        const supabaseProfile = await supabaseService.getUserProfile(userId);
+        if (supabaseProfile) {
+          console.log('✅ Found Supabase profile:', {
+            ybocsScore: supabaseProfile.ybocs_score,
+            symptoms: supabaseProfile.ocd_symptoms?.length || 0,
+            onboardingCompleted: supabaseProfile.onboarding_completed
+          });
+          
+          // Use Supabase data if more recent or if local doesn't exist
+          const supabaseNormalized = {
+            ybocsLiteScore: supabaseProfile.ybocs_score,
+            ybocsSeverity: supabaseProfile.ybocs_severity,
+            primarySymptoms: supabaseProfile.ocd_symptoms,
+            dailyGoal: supabaseProfile.daily_goal,
+            onboardingCompleted: supabaseProfile.onboarding_completed,
+            createdAt: supabaseProfile.created_at
+          };
+          setOnboardingProfile(supabaseNormalized);
+        }
+      } catch (error) {
+        console.error('❌ Error loading onboarding profile:', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadOnboardingProfile();
+  }, [userId]);
+
+  // Load AI data after profile is loaded
   useEffect(() => {
     const loadAllData = async () => {
       try {
@@ -358,9 +412,32 @@ export default function UserCentricOCDDashboard({
           setTriggerAnalysis(triggerResult);
         }
 
-        // 3. Load Y-BOCS AI Analysis if we have assessments
-        if (ybocsHistory.length > 0) {
-          console.log('📊 Loading Y-BOCS AI analysis...');
+        // 3. Load Y-BOCS AI Analysis - use ONBOARDING data not history
+        if (onboardingProfile && onboardingProfile.ybocsLiteScore) {
+          console.log('📊 Loading Y-BOCS AI analysis from ONBOARDING data...');
+          
+          // Create mock Y-BOCS history from onboarding data for AI analysis
+          const onboardingYBOCS = {
+            id: 'onboarding',
+            user_id: userId,
+            totalScore: onboardingProfile.ybocsLiteScore,
+            severityLevel: onboardingProfile.ybocsSeverity,
+            timestamp: onboardingProfile.createdAt || new Date().toISOString(),
+            answers: [], // We don't have individual answers, but we have the total
+            metadata: {
+              source: 'onboarding',
+              culturalContext: 'turkish'
+            }
+          };
+
+          const ybocsAI = await ybocsAnalysisService.getInstance().analyzeYBOCSHistory(
+            userId,
+            [onboardingYBOCS] // Use onboarding data as "history"
+          );
+          setYBOCSAIAnalysis(ybocsAI);
+        } else if (ybocsHistory.length > 0) {
+          // Fallback to actual history if onboarding data not found
+          console.log('📊 Loading Y-BOCS AI analysis from history...');
           const ybocsAI = await ybocsAnalysisService.getInstance().analyzeYBOCSHistory(
             userId,
             ybocsHistory
@@ -391,8 +468,11 @@ export default function UserCentricOCDDashboard({
       }
     };
 
-    loadAllData();
-  }, [generateOCDJourneyData, compulsions, ybocsHistory, userId]);
+    // Only load after onboarding profile is available
+    if (!isLoadingProfile) {
+      loadAllData();
+    }
+  }, [generateOCDJourneyData, compulsions, ybocsHistory, userId, onboardingProfile, isLoadingProfile]);
 
   const renderTabButton = (tab: typeof selectedTab, label: string, icon: string) => (
     <Pressable
@@ -579,28 +659,38 @@ export default function UserCentricOCDDashboard({
 
   const renderAssessmentTab = () => (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-      {/* Y-BOCS History */}
+      {/* Y-BOCS from Onboarding */}
       <View style={styles.assessmentCard}>
-        <Text style={styles.assessmentTitle}>📋 Y-BOCS Geçmişi</Text>
-        {ybocsHistory.length > 0 ? (
-          ybocsHistory.slice(-3).map((assessment, index) => (
-            <View key={assessment.id} style={styles.assessmentRow}>
-              <View style={styles.assessmentDate}>
-                <Text style={styles.assessmentDateText}>
-                  {new Date(assessment.timestamp).toLocaleDateString('tr-TR')}
-                </Text>
-              </View>
-              <View style={styles.assessmentScore}>
-                <Text style={styles.assessmentScoreText}>{assessment.totalScore}</Text>
-                <Text style={styles.assessmentSeverityText}>
-                  {assessment.severityLevel}
-                </Text>
-              </View>
+        <Text style={styles.assessmentTitle}>📋 Y-BOCS Değerlendirmeniz</Text>
+        {onboardingProfile && onboardingProfile.ybocsLiteScore ? (
+          <View style={styles.onboardingYBOCSCard}>
+            <View style={styles.ybocsMainScore}>
+              <Text style={styles.ybocsScoreNumber}>{onboardingProfile.ybocsLiteScore}</Text>
+              <Text style={styles.ybocsMaxScore}>/40</Text>
             </View>
-          ))
+            <View style={styles.ybocsSeverityBadge}>
+              <Text style={styles.ybocsSeverityText}>
+                {onboardingProfile.ybocsSeverity?.toUpperCase() || 'DEĞERLENDIRME'}
+              </Text>
+            </View>
+            <Text style={styles.ybocsSource}>📝 Onboarding'de tamamlandı</Text>
+            
+            {onboardingProfile.primarySymptoms && onboardingProfile.primarySymptoms.length > 0 && (
+              <View style={styles.primarySymptomsContainer}>
+                <Text style={styles.primarySymptomsTitle}>Ana Semptomlar:</Text>
+                <View style={styles.symptomsGrid}>
+                  {onboardingProfile.primarySymptoms.slice(0, 3).map((symptom: string, index: number) => (
+                    <View key={index} style={styles.symptomBadge}>
+                      <Text style={styles.symptomText}>{symptom}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
         ) : (
           <Text style={styles.noAssessmentText}>
-            Henüz Y-BOCS değerlendirmesi yapılmamış
+            Onboarding Y-BOCS verileri yüklenemiyor...
           </Text>
         )}
       </View>
@@ -1380,5 +1470,85 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     fontFamily: 'Inter',
+  },
+
+  // Onboarding Y-BOCS Display Styles
+  onboardingYBOCSCard: {
+    backgroundColor: COLORS.therapeuticBlue,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.gentleBlue + '40',
+  },
+  ybocsMainScore: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  ybocsScoreNumber: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: COLORS.gentleBlue,
+    fontFamily: 'Inter',
+  },
+  ybocsMaxScore: {
+    fontSize: 18,
+    color: COLORS.whisperGray,
+    fontFamily: 'Inter',
+    marginLeft: 4,
+  },
+  ybocsSeverityBadge: {
+    backgroundColor: COLORS.gentleBlue,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  ybocsSeverityText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    letterSpacing: 0.5,
+  },
+  ybocsSource: {
+    fontSize: 12,
+    color: COLORS.whisperGray,
+    fontFamily: 'Inter',
+    marginBottom: 16,
+  },
+  primarySymptomsContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  primarySymptomsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.gentleBlue,
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  symptomsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  symptomBadge: {
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gentleBlue + '30',
+  },
+  symptomText: {
+    fontSize: 12,
+    color: COLORS.gentleBlue,
+    fontWeight: '500',
+    fontFamily: 'Inter',
+    textTransform: 'capitalize',
   },
 });
