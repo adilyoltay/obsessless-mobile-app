@@ -346,7 +346,7 @@ class YBOCSAnalysisService {
         break;
       case OCDSeverityLevel.MODERATE:
         interventions.push(
-          'Maruz Bırakma ve Tepki Önleme (ERP)',
+          'Maruz Bırakma ve Tepki Önleme Terapisi',
           'Haftalık terapi seansları',
           'Destek grubu katılımı'
         );
@@ -354,7 +354,7 @@ class YBOCSAnalysisService {
       case OCDSeverityLevel.SEVERE:
       case OCDSeverityLevel.EXTREME:
         interventions.push(
-          'Yoğun ERP terapisi',
+          'Yoğun terapi',
           'Psikiyatrik değerlendirme',
           'İlaç tedavisi değerlendirmesi',
           'Aile terapisi'
@@ -393,8 +393,8 @@ class YBOCSAnalysisService {
       case OCDSeverityLevel.SEVERE:
         recommendations.push({
           priority: 'high',
-          title: 'Maruz Bırakma ve Tepki Önleme (ERP)',
-          description: 'Yoğun ERP terapisi şiddetle tavsiye edilir',
+          title: 'Maruz Bırakma ve Tepki Önleme Terapisi',
+          description: 'Yoğun terapi şiddetle tavsiye edilir',
           culturallyAdapted: true
         });
         recommendations.push({
@@ -824,11 +824,11 @@ class YBOCSAnalysisService {
 
     // Severity-based recommendations
     if (baseScore.total >= 24) {
-      recommendations.push('Yoğun CBT ve ERP terapisi önerilir');
+      recommendations.push('Yoğun CBT terapisi önerilir');
       recommendations.push('Psikiyatrist konsültasyonu düşünülebilir');
     } else if (baseScore.total >= 16) {
       recommendations.push('Düzenli CBT seansları önerilir');
-      recommendations.push('ERP egzersizleri planlanmalı');
+      recommendations.push('Terapi egzersizleri planlanmalı');
     } else if (baseScore.total >= 8) {
       recommendations.push('Haftalık terapi seansları yeterli olabilir');
       recommendations.push('Öz-yardım teknikleri öğretilmeli');

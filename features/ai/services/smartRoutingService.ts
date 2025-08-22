@@ -49,7 +49,7 @@ export interface UserRoutingPreferences {
 }
 
 export interface AnalysisResult {
-  type: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK' | 'MIXED';
+  type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'MIXED';
   confidence: number;
   extractedData: Record<string, any>;
   urgency?: 'low' | 'medium' | 'high' | 'critical';
@@ -105,29 +105,7 @@ const SCREEN_CONFIGS = {
       duration: (val: any) => typeof val === 'number' && val > 0
     }
   },
-  
-  'erp': {
-    path: '/(tabs)/erp',
-    supportedParams: ['prefill', 'text', 'category', 'exerciseType', 'difficulty', 'targetDuration', 'personalGoal'],
-    requiredForPrefill: ['category'],
-    validation: {
-      category: (val: any) => typeof val === 'string',
-      exerciseType: (val: any) => ['exposure', 'response_prevention', 'combined'].includes(val),
-      difficulty: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
-      targetDuration: (val: any) => typeof val === 'number' && val > 0
-    }
-  },
-  
-  'erp-session': {
-    path: '/erp-session',
-    supportedParams: ['exerciseId', 'exerciseName', 'targetDuration', 'exerciseType', 'initialAnxiety', 'personalGoal', 'category', 'categoryName'],
-    requiredForPrefill: ['exerciseId'],
-    validation: {
-      exerciseId: (val: any) => typeof val === 'string' && val.length > 0,
-      targetDuration: (val: any) => typeof val === 'number' && val > 0,
-      initialAnxiety: (val: any) => typeof val === 'number' && val >= 1 && val <= 10
-    }
-  },
+
   
   'breathwork': {
     path: '/(tabs)/breathwork',
@@ -174,11 +152,7 @@ class DataExtractionEngine {
         extracted.location = this.extractLocation(text);
         break;
         
-      case 'erp':
-        extracted.category = this.extractERPCategory(text);
-        extracted.difficulty = this.extractDifficulty(text);
-        extracted.personalGoal = this.extractPersonalGoal(text);
-        break;
+
         
       case 'breathwork':
         extracted.anxietyLevel = this.extractAnxietyLevel(text);
@@ -367,7 +341,7 @@ class DataExtractionEngine {
     return 'other';
   }
   
-  private static extractERPCategory(text: string): string {
+  private static extractCategory(text: string): string {
     const categories = {
       'contamination': /mikrop|temiz|kirli|hastalık/i,
       'harm': /zarar|kaza|yaralanma|ölüm/i,
@@ -641,12 +615,7 @@ export class SmartRoutingService {
         reasoning.push(`OCD patterns detected with ${Math.round(confidence * 100)}% confidence`);
         break;
         
-      case 'ERP':
-        targetScreen = urgency === 'high' ? 'erp-session' : 'erp';
-        priority = urgency === 'high' ? 9 : 6;
-        routeConfidence = confidence;
-        reasoning.push(`ERP need identified (urgency: ${urgency})`);
-        break;
+
         
       case 'MOOD':
         targetScreen = 'mood';
@@ -775,7 +744,7 @@ export class SmartRoutingService {
     const fallbackScreens = {
       'CBT': 'cbt',
       'OCD': 'tracking',
-      'ERP': 'erp',
+
       'MOOD': 'mood',
       'BREATHWORK': 'breathwork'
     };

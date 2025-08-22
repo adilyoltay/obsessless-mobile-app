@@ -61,7 +61,7 @@ const getDifficultyConfig = (difficulty: DynamicMission['difficulty']) => {
 const getCategoryIcon = (category: DynamicMission['category']) => {
   const icons = {
     compulsion: 'shield-check',
-    erp: 'sword-cross',
+
     mood: 'weather-cloudy',
     breathwork: 'meditation',
     consistency: 'calendar-check',

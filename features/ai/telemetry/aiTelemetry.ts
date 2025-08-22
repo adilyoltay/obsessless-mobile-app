@@ -184,10 +184,8 @@ export enum AIEventType {
   STT_FAILED = 'stt_failed',
   ROUTE_SUGGESTED = 'route_suggested',
   
-  // Sprint 2: JITAI + ERP coach
+  // Sprint 2: JITAI
   JITAI_TRIGGER_FIRED = 'jitai_trigger_fired',
-  ERP_SESSION_STARTED = 'erp_session_started',
-  ERP_SESSION_FINISHED = 'erp_session_finished',
   GUARDRAIL_TRIGGERED = 'guardrail_triggered',
   
   // Sprint 2: Compulsion quick entry
@@ -232,7 +230,7 @@ export enum AIEventType {
   TOKEN_USAGE_RECORDED = 'token_usage_recorded',
   SIMILARITY_DEDUP_HIT = 'similarity_dedup_hit',
   PROGRESSIVE_UI_UPDATE = 'progressive_ui_update',
-  ERP_STAIRCASE_ADJUSTMENT = 'erp_staircase_adjustment',
+
   
   // Unified AI Pipeline events (NEW - Jan 2025)
   UNIFIED_PIPELINE_STARTED = 'unified_pipeline_started',
@@ -1087,21 +1085,7 @@ export const trackGatingDecision = async (
   });
 };
 
-/**
- * Track ERP difficulty adjustments
- */
-export const trackERPStaircase = async (
-  adjustment: number,
-  newDifficulty: number,
-  userId?: string
-): Promise<void> => {
-  return trackAIInteraction(AIEventType.ERP_STAIRCASE_ADJUSTMENT, {
-    adjustment,
-    newDifficulty,
-    userId,
-    timestamp: new Date().toISOString(),
-  });
-};
+
 
 /**
  * User data export (GDPR)

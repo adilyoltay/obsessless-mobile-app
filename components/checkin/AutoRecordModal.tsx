@@ -17,7 +17,7 @@ interface AutoRecordModalProps {
   onClose: () => void;
   onConfirm: (data: any) => void;
   onEdit: (data: any) => void;
-  recordType: 'OCD' | 'CBT' | 'MOOD' | 'ERP';
+  recordType: 'OCD' | 'CBT' | 'MOOD';
   recordData: any;
   originalText: string;
 }
@@ -44,8 +44,7 @@ export function AutoRecordModal({
         return 'head-cog-outline';
       case 'MOOD':
         return 'emoticon-outline';
-      case 'ERP':
-        return 'shield-check-outline';
+
       default:
         return 'help-circle-outline';
     }
@@ -59,8 +58,7 @@ export function AutoRecordModal({
         return 'Düşünce Kaydı Oluştur';
       case 'MOOD':
         return 'Mood Kaydı Oluştur';
-      case 'ERP':
-        return 'ERP Egzersizine Başla';
+
       default:
         return 'Kayıt Oluştur';
     }
@@ -81,8 +79,7 @@ export function AutoRecordModal({
         return `Bilişsel çarpıtma tespit edildi: ${recordData.distortionType || 'Genel'}. Düşünce kaydı oluşturmak ister misin?`;
       case 'MOOD':
         return `Mood seviyesi: ${Math.round(recordData.mood || 50)}/100. Mood kaydını oluşturmak ister misin?`;
-      case 'ERP':
-        return 'Maruz kalma egzersizi başlatmak ister misin?';
+
       default:
         return '';
     }
@@ -264,18 +261,7 @@ export function AutoRecordModal({
     </View>
   );
 
-  const renderERPInfo = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.infoText}>
-        {recordData.category ? 
-          `${recordData.category} kategorisinde bir ERP egzersizi öneriyoruz.` :
-          'Size uygun bir ERP egzersizi öneriyoruz.'}
-      </Text>
-      <Text style={styles.infoText}>
-        Egzersiz seçim ekranına yönlendirileceksiniz.
-      </Text>
-    </View>
-  );
+
 
   const handleConfirm = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -316,7 +302,7 @@ export function AutoRecordModal({
                 {recordType === 'OCD' && renderOCDForm()}
                 {recordType === 'CBT' && renderCBTForm()}
                 {recordType === 'MOOD' && renderMoodForm()}
-                {recordType === 'ERP' && renderERPInfo()}
+
               </>
             )}
           </ScrollView>
@@ -330,7 +316,7 @@ export function AutoRecordModal({
               İptal
             </Button>
             
-            {recordType !== 'ERP' && !isEditing && (
+            {!isEditing && (
               <Button
                 variant="secondary"
                 onPress={() => {
@@ -348,7 +334,7 @@ export function AutoRecordModal({
               onPress={handleConfirm}
               style={styles.button}
             >
-              {recordType === 'ERP' ? 'Egzersize Git' : 'Kaydet'}
+              Kaydet
             </Button>
           </View>
         </View>

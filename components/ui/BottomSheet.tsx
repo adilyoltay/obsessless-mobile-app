@@ -15,7 +15,7 @@ interface BottomSheetProps {
   isVisible: boolean;
   onClose: () => void;
   children: ReactNode;
-  edgeToEdge?: boolean; // Ekranı enine tam kapla (OKB/ERP sheet'leri gibi)
+  edgeToEdge?: boolean; // Ekranı enine tam kapla (OKB sheet'leri gibi)
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
