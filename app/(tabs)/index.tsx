@@ -513,14 +513,9 @@ export default function TodayScreen() {
       const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
       
       // (Removed) Load today's ERP sessions
-      const erpKey = StorageKeys.ERP_SESSIONS(user.id, today);
-      console.log('🔑 Today page loading ERP with key:', erpKey);
+      // (Removed) ERP session loading code
       
-      const erpData = await AsyncStorage.getItem(erpKey);
-      const todayErpSessions = erpData ? JSON.parse(erpData) : [];
-      
-      console.log('📊 Today page ERP sessions:', todayErpSessions);
-      console.log('📊 Today page ERP count:', todayErpSessions.length);
+      // (Removed) ERP session logs
       
       setTodayStats({
         compulsions: todayCompulsions.length,
