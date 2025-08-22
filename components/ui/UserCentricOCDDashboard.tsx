@@ -118,6 +118,15 @@ export default function UserCentricOCDDashboard({
   const [onboardingProfile, setOnboardingProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
+  // Helper function to calculate Y-BOCS severity from score
+  const calculateYbocsSeverity = (score: number): string => {
+    if (score >= 32) return 'Severe';
+    if (score >= 24) return 'Moderate';
+    if (score >= 16) return 'Mild';
+    if (score >= 8) return 'Subclinical';
+    return 'Minimal';
+  };
+
   // DEBUG: Log incoming props
   useEffect(() => {
     console.log('🔍 UserCentricOCDDashboard Props Debug:');
@@ -347,22 +356,29 @@ export default function UserCentricOCDDashboard({
       try {
         console.log('📋 Loading onboarding profile...');
         
-        // ENHANCED DEBUG: Try AsyncStorage first (local cache)
-        console.log('🔍 Checking AsyncStorage key:', `ocd_profile_${userId}`);
-        const localProfile = await AsyncStorage.getItem(`ocd_profile_${userId}`);
+        // 🎯 FIXED: Use correct AsyncStorage key from onboarding flow
+        console.log('🔍 Checking AsyncStorage key:', `user_profile_${userId}`);
+        const localProfile = await AsyncStorage.getItem(`user_profile_${userId}`);
         if (localProfile) {
           const profile = JSON.parse(localProfile);
-          console.log('✅ Found local onboarding profile:', profile);
-          console.log('📊 Local profile structure:', {
-            hasYbocsLiteScore: !!profile.ybocsLiteScore,
-            hasYbocsSeverity: !!profile.ybocsSeverity,
-            hasPrimarySymptoms: !!profile.primarySymptoms,
-            onboardingCompleted: profile.onboardingCompleted,
-            allKeys: Object.keys(profile)
-          });
-          setOnboardingProfile(profile);
+          console.log('✅ Found onboarding profile in user_profile key:', profile);
+          
+          // 🔄 Map the correct field names from onboarding structure
+          const mappedProfile = {
+            ybocsLiteScore: profile.ybocsScore,           // ybocsScore → ybocsLiteScore
+            ybocsSeverity: calculateYbocsSeverity(profile.ybocsScore), // Calculate from score
+            primarySymptoms: profile.symptomTypes,        // symptomTypes → primarySymptoms
+            dailyGoal: profile.goals?.[0] || 'improve_daily_life',
+            onboardingCompleted: !!profile.onboardingCompletedAt,
+            createdAt: profile.createdAt,
+            // Keep original data for reference
+            originalProfile: profile
+          };
+          
+          console.log('🔄 Mapped onboarding profile:', mappedProfile);
+          setOnboardingProfile(mappedProfile);
         } else {
-          console.log('❌ No local profile found in AsyncStorage');
+          console.log('❌ No user profile found in AsyncStorage');
         }
         
         // ENHANCED DEBUG: Try Supabase with full data inspection
@@ -394,20 +410,8 @@ export default function UserCentricOCDDashboard({
           console.log('❌ No Supabase profile found');
         }
         
-        // ALSO CHECK: Alternative AsyncStorage keys
-        const alternativeKeys = [
-          `user_profile_${userId}`,
-          `profile_${userId}`,
-          `onboarding_${userId}`,
-          'profileCompleted'
-        ];
-        
-        for (const key of alternativeKeys) {
-          const altData = await AsyncStorage.getItem(key);
-          if (altData) {
-            console.log(`📋 Found data in alternative key "${key}":`, JSON.parse(altData));
-          }
-        }
+        // 📝 Note: Found the correct key is user_profile_${userId}
+        // Other patterns like ocd_profile_ were not used by onboarding
       } catch (error) {
         console.error('❌ Error loading onboarding profile:', error);
       } finally {
