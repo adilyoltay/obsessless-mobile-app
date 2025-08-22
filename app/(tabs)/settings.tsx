@@ -38,7 +38,7 @@ import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useRouter } from 'expo-router';
 import { Modal } from 'react-native';
-import gdprService from '@/services/compliance/gdprService';
+import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 import SecureStorageMigration from '@/utils/secureStorageMigration';
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
@@ -108,11 +108,11 @@ export default function SettingsScreen() {
   const loadConsents = async () => {
     try {
       if (!user?.id) return;
-      const c = await gdprService.getConsents(user.id);
+      const c = await unifiedComplianceService.getConsents(user.id);
       setConsents(c);
-      const ds = await gdprService.getDeletionStatus(user.id);
+      const ds = await unifiedComplianceService.getDeletionStatus(user.id);
       setDeletionStatus(ds);
-      const ch = await gdprService.getConsentHistory(user.id, 180);
+      const ch = await unifiedComplianceService.getConsentHistory(user.id, 180);
       setConsentHistory(ch);
     } catch {}
   };
@@ -176,7 +176,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               if (!user?.id) return;
-              const json = await gdprService.exportUserData(user.id);
+              const json = await unifiedComplianceService.exportUserData(user.id);
               await Share.share({
                 title: 'ObsessLess Veri İndirimi',
                 message: json,
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               if (!user?.id) return;
-              const json = await gdprService.exportUserData(user.id);
+              const json = await unifiedComplianceService.exportUserData(user.id);
               const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
               const fileName = `obsessless_export_${dateStr}.json`;
               const fileUri = FileSystem.documentDirectory + fileName;
@@ -227,7 +227,7 @@ export default function SettingsScreen() {
   const toggleConsent = async (type: 'data_processing' | 'analytics' | 'ai_processing' | 'marketing', value: boolean) => {
     try {
       if (!user?.id) return;
-      await gdprService.recordConsent(user.id, type, value);
+      await unifiedComplianceService.recordConsent(user.id, type, value);
       setConsents(prev => ({ ...prev, [type]: value }));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -242,7 +242,7 @@ export default function SettingsScreen() {
         { text: 'Onayla', style: 'destructive', onPress: async () => {
           try {
             if (!user?.id) return;
-            await gdprService.deleteAllUserData(user.id);
+            await unifiedComplianceService.deleteAllUserData(user.id);
             Alert.alert('Talep Alındı', 'Silme talebiniz alındı. 30 gün sonra kalıcı silme planlandı.');
           } catch {
             Alert.alert('Hata', 'İşlem tamamlanamadı.');
@@ -255,7 +255,7 @@ export default function SettingsScreen() {
   const openAuditLogs = async () => {
     try {
       if (!user?.id) return;
-      const logs = await gdprService.getAuditLogs(user.id, 14);
+      const logs = await unifiedComplianceService.getAuditLogs(user.id, 14);
       setAuditLogs(logs);
       setAuditVisible(true);
     } catch {
