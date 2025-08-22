@@ -82,7 +82,7 @@ describe('CoreAnalysisService', () => {
       expect(result.route).toBe('AUTO_SAVE');
     });
 
-    it('should classify ERP-related text correctly', async () => {
+    it('should classify therapy-related text correctly', async () => {
       const input = {
         kind: 'TEXT' as const,
         content: 'ERP egzersizinde 10 dakika dayandım',

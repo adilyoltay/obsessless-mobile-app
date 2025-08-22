@@ -104,8 +104,8 @@ describe('ResultCache', () => {
       expect(parsed.expiresAt).toBeGreaterThan(Date.now());
     });
 
-    it('should respect TTL for ERP plans (12h)', async () => {
-      const key = 'ai:user123:2024-01-04:erp:plan';
+    it('should respect TTL for therapy plans (12h)', async () => {
+      const key = 'ai:user123:2024-01-04:therapy:plan';
       const value = {
         quickClass: 'ERP' as const,
         confidence: 0.9,

@@ -21,7 +21,7 @@ jest.mock('@/services/supabase', () => ({
     { id: 'c1', category: 'contamination', timestamp: new Date().toISOString(), resistance_level: 4 },
     { id: 'c2', category: 'checking', timestamp: new Date().toISOString(), resistance_level: 5 },
   ]),
-  getERPSessions: jest.fn(async (_userId: string) => [
+  getTherapySessions: jest.fn(async (_userId: string) => [
     { id: 'e1', timestamp: new Date().toISOString(), completed: true, anxiety_initial: 6, anxiety_final: 3 },
   ]),
 }));

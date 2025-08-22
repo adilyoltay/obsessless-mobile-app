@@ -35,9 +35,9 @@ export class SecureStorageMigration {
     // 2) Mood entries (son 90 gün)
     await this.migrateMoodEntries(userId, 90);
 
-    // 3) Compulsions ve ERP sessions (toplu anahtarlar)
+    // 3) Compulsions ve therapy sessions (toplu anahtarlar)
     await this.migrateArrayKey(`compulsions_${userId}`);
-    await this.migrateArrayKey(`erp_sessions_${userId}`);
+    // await this.migrateArrayKey(`erp_sessions_${userId}`); // Removed ERP
 
     await AsyncStorage.setItem(this.VERSION_KEY, String(this.CURRENT_VERSION));
   }

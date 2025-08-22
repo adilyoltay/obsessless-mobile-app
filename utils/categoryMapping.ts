@@ -48,7 +48,7 @@ const legacyToCanonicalMap: Record<string, CanonicalCategory> = {
   avoidance: 'other',
   other: 'other',
   
-  // ERP domain legacy IDs mapped to closest canonical OCD category
+  // Therapy domain legacy IDs mapped to closest canonical OCD category
   harm: 'other',
   sexual: 'other',
 };
