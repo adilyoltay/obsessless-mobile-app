@@ -1689,10 +1689,10 @@ export class UnifiedAIPipeline {
    */
   private async getFromSupabaseCache(key: string): Promise<UnifiedPipelineResult | null> {
     try {
-      // Use ai_cache table for persistent storage
+      // ✅ FIXED: Use correct column names from ai_cache table schema
       const { data, error } = await supabaseService.client
         .from('ai_cache')
-        .select('cached_result, expires_at')
+        .select('content, expires_at')  // 'content' not 'cached_result'
         .eq('cache_key', key)
         .maybeSingle();
       
@@ -1717,7 +1717,7 @@ export class UnifiedAIPipeline {
         return null;
       }
       
-      return data.cached_result as UnifiedPipelineResult;
+      return data.content as UnifiedPipelineResult;  // Use 'content' column
     } catch (error) {
       console.warn('⚠️ Supabase cache read failed:', error);
       return null;
@@ -1728,18 +1728,18 @@ export class UnifiedAIPipeline {
     try {
       // Extract userId from key for proper RLS
       const userId = key.split(':')[1];
-      const expiresAt = new Date(Date.now() + this.DEFAULT_TTL);
+      const ttlHours = this.DEFAULT_TTL / (1000 * 60 * 60); // Convert ms to hours
       
-      // Upsert to ai_cache table
+      // ✅ FIXED: Use correct column names from ai_cache table schema
       const { error } = await supabaseService.client
         .from('ai_cache')
         .upsert({
           cache_key: key,
           user_id: userId,
-          cached_result: result,
-          expires_at: expiresAt.toISOString(),
-          cache_type: 'unified_pipeline',
-          created_at: new Date().toISOString()
+          content: result,  // Use 'content' column
+          computed_at: new Date().toISOString(),
+          ttl_hours: Math.round(ttlHours),  // TTL in hours
+          // expires_at is calculated automatically by trigger
         }, {
           onConflict: 'cache_key'
         });

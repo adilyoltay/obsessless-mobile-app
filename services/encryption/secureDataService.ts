@@ -29,34 +29,32 @@ class SecureDataService {
     if (this.keyCache) return this.keyCache;
     let stored = await SecureStore.getItemAsync(SecureDataService.KEY_ID);
     if (!stored) {
-      const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
-      // Generate random 32 bytes key via AES helper (fallback: use random values)
+      // Generate random 32 bytes key
       const randomBytes = new Uint8Array(32);
       for (let i = 0; i < randomBytes.length; i++) randomBytes[i] = Math.floor(Math.random() * 256);
       const keyBytes = randomBytes.buffer as ArrayBuffer;
-      stored = CryptoUtils.convertArrayBufferToBase64(keyBytes);
+      stored = this.arrayBufferToBase64(keyBytes);
       await SecureStore.setItemAsync(SecureDataService.KEY_ID, stored);
       this.keyCache = keyBytes;
       return keyBytes;
     }
-    const { utils: CryptoUtils } = await import('react-native-simple-crypto');
-    const ab = CryptoUtils.convertBase64ToArrayBuffer(stored);
+    const ab = this.base64ToArrayBuffer(stored);
     this.keyCache = ab;
     return ab;
   }
 
   async encryptData(data: unknown): Promise<EncryptedData> {
     const key = await this.getOrCreateKey();
-    const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
+    const { AES } = await import('react-native-simple-crypto');
     const ivArr = new Uint8Array(12);
     for (let i = 0; i < ivArr.length; i++) ivArr[i] = Math.floor(Math.random() * 256);
     const iv = ivArr.buffer as ArrayBuffer; // 96-bit IV for GCM
     const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
-    const ptBytes = CryptoUtils.convertUtf8ToArrayBuffer(plaintext);
+    const ptBytes = this.utf8ToArrayBuffer(plaintext);
     const ct = await AES.encrypt(ptBytes, key, iv);
     return {
-      ciphertext: CryptoUtils.convertArrayBufferToBase64(ct),
-      iv: CryptoUtils.convertArrayBufferToBase64(iv),
+      ciphertext: this.arrayBufferToBase64(ct),
+      iv: this.arrayBufferToBase64(iv),
       algorithm: 'AES-256-GCM',
       version: 1,
     };
@@ -67,16 +65,45 @@ class SecureDataService {
       throw new Error('Unsupported encryption algorithm');
     }
     const key = await this.getOrCreateKey();
-    const { utils: CryptoUtils, AES } = await import('react-native-simple-crypto');
-    const iv = CryptoUtils.convertBase64ToArrayBuffer(payload.iv);
-    const ct = CryptoUtils.convertBase64ToArrayBuffer(payload.ciphertext);
+    const { AES } = await import('react-native-simple-crypto');
+    const iv = this.base64ToArrayBuffer(payload.iv);
+    const ct = this.base64ToArrayBuffer(payload.ciphertext);
     const pt = await AES.decrypt(ct, key, iv);
-    const text = CryptoUtils.convertArrayBufferToUtf8(pt);
+    const text = this.arrayBufferToUtf8(pt);
     try {
       return JSON.parse(text);
     } catch {
       return text;
     }
+  }
+
+  // ✅ FIXED: Custom utility methods to replace undefined library functions
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  private base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  private utf8ToArrayBuffer(str: string): ArrayBuffer {
+    const encoder = new TextEncoder();
+    return encoder.encode(str).buffer;
+  }
+
+  private arrayBufferToUtf8(buffer: ArrayBuffer): string {
+    const decoder = new TextDecoder();
+    return decoder.decode(buffer);
   }
 }
 
