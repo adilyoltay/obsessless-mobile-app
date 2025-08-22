@@ -10,7 +10,7 @@
 |---|---|---|---|
 | **Unified Voice Analysis** | ✅ Aktif | v2.0 | Merkezi ses analizi sistemi - Gemini API entegrasyonu |
 | **CBT Düşünce Kaydı** | ✅ Aktif | v2.0 | 4-adımlı form, BottomSheet, Master Prompt uyumlu |
-| **OCD Tracking** | ✅ Aktif | v2.0 | Orijinal tasarım korundu, ses check-in kaldırıldı |
+| **OCD Tracking** | ✅ Aktif | v2.1 | **ENHANCED!** Voice severity prefill, Y-BOCS integration, User-Centric Dashboard, automated triggers, Turkish cultural adaptations, privacy-first |
 | ~~**Therapy Sessions**~~ | ❌ REMOVED | - | **ERP module tamamen kaldırıldı** |
 | **Breathwork** | ✅ Aktif | v2.0 | Akıllı tetikleme sistemi, contextual öneriler, protokol seçimi |
 | **Today Screen** | ✅ Aktif | v2.0 | Merkezi ses girişi, otomatik yönlendirme |
@@ -42,6 +42,7 @@
 | **Mood Tracking (UI)** | ✅ Aktif | v1.0 | Kayıt + Geçmiş (14 gün) |
 | **User-Centric CBT Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 3-tab modal, dinamik achievements, sakin tasarım |
 | **User-Centric Mood Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 4-tab modal (Journey/Spectrum/Patterns/Prediction), dinamik veri |
+| **User-Centric OCD Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 4-tab recovery journey (Journey/Patterns/Assessment/Triggers), dinamik achievements |
 
 ## 🔧 Teknik Özellikler
 
