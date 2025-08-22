@@ -124,15 +124,7 @@ END $$;
 -- Create basic indexes (check if columns exist first)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'user_id') THEN
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_user 
-    ON erp_sessions (user_id);
-  END IF;
-  
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'erp_sessions' AND column_name = 'created_at') THEN
-    CREATE INDEX IF NOT EXISTS idx_erp_sessions_created 
-    ON erp_sessions (created_at DESC);
-  END IF;
+  -- (Removed) erp_sessions index creation commands
 END $$;
 
 -- 4. Create mood_entries table if it doesn't exist

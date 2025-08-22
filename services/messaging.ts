@@ -236,8 +236,8 @@ export class MessagingService {
     await this.scheduleLocalNotification(
       {
         type: 'reminder',
-        title: 'ERP Egzersizi Zamanı! 💪',
-        body: 'Planlanan ERP egzersiznizi yapmaya hazır mısınız?',
+        title: 'Terapi Egzersizi Zamanı! 💪',
+        body: 'Planlanan terapi egzersiznizi yapmaya hazır mısınız?',
       },
       { seconds: 60 } as any
     );

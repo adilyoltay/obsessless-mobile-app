@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'erp_session' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record';
+  entity: 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record';
   data: any;
   timestamp: number;
   retryCount: number;

@@ -85,30 +85,30 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     points: 100,
   },
 
-  // ERP Exercise Achievements
+  // (Removed) ERP Exercise Achievements
   {
-    id: 'first_erp',
+    id: 'first_therapy',
     title: 'Cesur Başlangıç',
     titleEn: 'Brave Beginning',
-    description: 'İlk ERP egzersizinizi tamamladınız',
-    descriptionEn: 'Completed your first ERP exercise',
+    description: 'İlk terapi egzersizinizi tamamladınız',
+    descriptionEn: 'Completed your first therapy exercise',
     icon: '🦸',
     color: '#EF4444',
-    category: 'erp',
+    category: 'therapy',
     type: 'milestone',
     target: 1,
     rarity: 'common',
     points: 20,
   },
   {
-    id: 'erp_warrior',
+    id: 'therapy_warrior',
     title: 'ERP Savaşçısı',
     titleEn: 'ERP Warrior',
-    description: '10 ERP egzersizi tamamladınız',
+    description: '10 Terapi egzersizi tamamladınız',
     descriptionEn: 'Completed 10 ERP exercises',
     icon: '⚔️',
     color: '#F59E0B',
-    category: 'erp',
+    category: 'therapy',
     type: 'count',
     target: 10,
     rarity: 'rare',
@@ -122,7 +122,7 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     descriptionEn: 'Completed a 60-minute ERP session',
     icon: '⏰',
     color: '#06B6D4',
-    category: 'erp',
+    category: 'therapy',
     type: 'milestone',
     target: 60,
     rarity: 'epic',
@@ -208,7 +208,7 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     id: 'anxiety_reducer',
     title: 'Kaygı Azaltıcı',
     titleEn: 'Anxiety Reducer',
-    description: 'ERP egzersizlerinde %50 kaygı azalması sağladınız',
+    description: 'Terapi egzersizlerinde %50 kaygı azalması sağladınız',
     descriptionEn: 'Achieved 50% anxiety reduction in ERP exercises',
     icon: '📉',
     color: '#0EA5E9',
@@ -407,8 +407,8 @@ class AchievementService {
 
     // Count-based achievements
     const totalERPs = await this.getTotalERPSessions();
-    if (await this.updateProgress('erp_warrior', totalERPs)) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'erp_warrior')!);
+    if (await this.updateProgress('therapy_warrior', totalERPs)) {
+      unlockedAchievements.push(this.achievements.find(a => a.id === 'therapy_warrior')!);
     }
 
     // Long session achievement

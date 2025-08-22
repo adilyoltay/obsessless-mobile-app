@@ -186,30 +186,10 @@ function detectDistortionType(text: string): string {
   return 'other';
 }
 
-/**
- * ERP kategorisini tespit eder
- */
-function detectERPCategory(text: string): string {
-  const lower = text.toLowerCase();
-  
-  if (/temiz|mikrop|kirli|bulaş|yıka/i.test(lower)) {
-    return 'contamination';
-  }
-  
-  if (/kontrol|emin|kapat|kilitle/i.test(lower)) {
-    return 'checking';
-  }
-  
-  if (/simetri|düzen|yerleştir/i.test(lower)) {
-    return 'symmetry';
-  }
-  
-  return 'general';
-}
+// (Removed) ERP kategorisini tespit eder
+// (Removed) detectERPCategory function
 
-/**
- * ERP egzersizi önerir
- */
+// (Removed) Terapi egzersizi önerir
 function suggestERPExercise(text: string): string {
   const category = detectERPCategory(text);
   
