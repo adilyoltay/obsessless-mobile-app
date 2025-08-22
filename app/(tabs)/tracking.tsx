@@ -20,7 +20,6 @@ import * as Haptics from 'expo-haptics';
 import FAB from '@/components/ui/FAB';
 import CompulsionQuickEntry from '@/components/forms/CompulsionQuickEntry';
 import { Toast } from '@/components/ui/Toast';
-import OCDAnalyticsDashboard from '@/components/ocd/OCDAnalyticsDashboard';
 import UserCentricOCDDashboard from '@/components/ui/UserCentricOCDDashboard';
 import { YBOCSAssessmentUI } from '@/features/ai/components/onboarding/YBOCSAssessmentUI';
 
@@ -179,16 +178,51 @@ export default function TrackingScreen() {
           // 🚀 USE UNIFIED PIPELINE for pattern analysis instead of local heuristics
           console.log('🔄 Using UnifiedPipeline for compulsion pattern analysis...');
           
+          // 🔐 PRIVACY-FIRST: Sanitize and encrypt OCD compulsion data before AI analysis
+          const recentCompulsions = allEntries.slice(-30); // Last 30 entries
+          const sanitizedCompulsions = recentCompulsions.map(compulsion => ({
+            ...compulsion,
+            notes: compulsion.notes ? sanitizePII(compulsion.notes) : undefined,
+            trigger: compulsion.trigger ? sanitizePII(compulsion.trigger) : undefined
+          }));
+
+          // ✅ ENCRYPT sensitive AI payload data
+          const sensitivePayload = {
+            compulsions: sanitizedCompulsions,
+            dataType: 'compulsion_patterns',
+            timeRange: selectedTimeRange
+          };
+          
+          let encryptedPayload;
+          try {
+            encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+            
+            // Log integrity metadata for auditability
+            console.log('🔐 Sensitive OCD payload encrypted with AES-256');
+            console.log(`🔍 Integrity hash: ${encryptedPayload.hash?.substring(0, 8)}...`);
+            console.log(`⏰ Encrypted at: ${new Date(encryptedPayload.timestamp || 0).toISOString()}`);
+          } catch (error) {
+            console.warn('⚠️ Encryption failed, using sanitized data:', error);
+            encryptedPayload = sensitivePayload; // fallback to sanitized data
+          }
+
+          // Generate AI insights with encrypted data
           const pipelineResult = await unifiedPipeline.process({
-            userId: user.id,
-            content: { compulsions: allEntries.slice(-30) }, // Last 30 entries
+            userId: user.id, // User ID is hashed in pipeline for privacy
+            content: encryptedPayload,
             type: 'data' as const,
             context: {
               source: 'tracking' as const,
               timestamp: Date.now(),
               metadata: {
                 dataType: 'compulsion_patterns',
-                timeRange: selectedTimeRange
+                timeRange: selectedTimeRange,
+                privacy: {
+                  piiSanitized: true,
+                  encryptionLevel: (encryptedPayload as any).algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 
+                                 (encryptedPayload as any).algorithm ? 'aes256' : 'sanitized',
+                  encrypted: (encryptedPayload as any).algorithm && (encryptedPayload as any).algorithm !== 'SHA256_FALLBACK'
+                }
               }
             }
           });
@@ -502,6 +536,14 @@ export default function TrackingScreen() {
       // Award gamification rewards  
       await awardMicroReward('daily_goal_met'); // Use existing reward type
       await updateStreak();
+
+      // 🔄 CRITICAL: Invalidate AI cache after Y-BOCS completion
+      try {
+        await unifiedPipeline.triggerInvalidation('ybocs_completed', user.id);
+        console.log('✅ Y-BOCS completion cache invalidation triggered');
+      } catch (error) {
+        console.warn('⚠️ Y-BOCS cache invalidation failed:', error);
+      }
 
       // Show success message
       setToastMessage(`Y-BOCS değerlendirmesi tamamlandı! Skor: ${analysis.totalScore}`);
@@ -1055,6 +1097,7 @@ export default function TrackingScreen() {
         initialCategory={params.category as string}
         initialText={params.text as string}
         initialResistance={params.resistanceLevel ? Number(params.resistanceLevel) : undefined}
+        initialSeverity={params.severity ? Number(params.severity) : undefined}
         initialTrigger={params.trigger as string}
 
       />

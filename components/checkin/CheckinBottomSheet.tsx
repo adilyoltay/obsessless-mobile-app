@@ -456,11 +456,20 @@ export default function CheckinBottomSheet({
       const analysis = analysisResult;
       switch (analysis.type) {
         case 'OCD':
+          // 🔧 FIX: Add severity and trigger params for AutoRecord close
+          const estimatedSeverity = (analysis as any).severity || 
+                                    (analysis as any).params?.severity || 
+                                    (analysis as any).extractedData?.severity ||
+                                    extractSeverityFromText(lastTranscript);
+          
           router.push({
             pathname: '/(tabs)/tracking',
             params: {
               text: lastTranscript,
               category: analysis.category || 'genel',
+              trigger: analysis.trigger || '',
+              severity: estimatedSeverity,
+              prefill: 'true'
             },
           });
           break;

@@ -36,6 +36,7 @@ interface CompulsionQuickEntryProps {
   initialText?: string;
   initialResistance?: number;
   initialTrigger?: string;
+  initialSeverity?: number;
 }
 
 const { width } = Dimensions.get('window');
@@ -50,10 +51,12 @@ export function CompulsionQuickEntry({
   initialText,
   initialResistance,
   initialTrigger,
+  initialSeverity,
 }: CompulsionQuickEntryProps) {
   const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('');
   const [resistanceLevel, setResistanceLevel] = useState<number>(5);
+  const [severity, setSeverity] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
   const [trigger, setTrigger] = useState<string>('');
   const [lastCompulsion, setLastCompulsion] = useState<any | null>(null);
@@ -86,6 +89,9 @@ export function CompulsionQuickEntry({
       if (initialResistance !== undefined) {
         setResistanceLevel(initialResistance);
       }
+      if (initialSeverity !== undefined) {
+        setSeverity(initialSeverity);
+      }
       
       // Load smart data if no initial values
       if (!initialCategory) {
@@ -93,7 +99,7 @@ export function CompulsionQuickEntry({
       }
       awardMicroReward('compulsion_quick_entry');
     }
-  }, [visible, initialCategory, initialText, initialResistance, initialTrigger]);
+  }, [visible, initialCategory, initialText, initialResistance, initialTrigger, initialSeverity]);
 
   // Auto-detect triggers when notes change
   useEffect(() => {
@@ -165,6 +171,7 @@ export function CompulsionQuickEntry({
       // Reset form when closed
       setSelectedType('');
       setResistanceLevel(5);
+      setSeverity(5);
       setNotes('');
       setTrigger('');
       setSuggestedTriggers([]);
@@ -235,6 +242,7 @@ export function CompulsionQuickEntry({
       const entry = {
         type: selectedType,
         resistanceLevel,
+        severity,
         trigger: trigger.trim() ? sanitizePII(trigger.trim()) : undefined,
         notes: notes.trim() ? sanitizePII(notes.trim()) : '',
       };
@@ -245,6 +253,7 @@ export function CompulsionQuickEntry({
           await submitCompulsion({
             type: selectedType,
             resistanceLevel,
+            severity,
             trigger: trigger.trim() ? sanitizePII(trigger.trim()) : undefined,
             notes: notes.trim() ? sanitizePII(notes.trim()) : undefined,
           });
@@ -906,6 +915,68 @@ const styles = StyleSheet.create({
   },
   suggestionTextSelected: {
     color: '#FFFFFF',
+  },
+
+  // Severity Section Styles
+  severitySection: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  severityTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+  },
+  severityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  severityIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  severityEmoji: {
+    fontSize: 28,
+  },
+  severityValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+  },
+  severityControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  severityButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  severityDisplayValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#EF4444',
+    fontFamily: 'Inter',
+  },
+  severityLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  severityLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontFamily: 'Inter',
   },
 
   // Action Buttons
