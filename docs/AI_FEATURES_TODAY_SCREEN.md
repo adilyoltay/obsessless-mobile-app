@@ -31,13 +31,11 @@ graph LR
     I --> J1[🎭 MOOD] 
     I --> J2[🧠 CBT]
     I --> J3[🔄 OCD]
-
-    I --> J5[🌬️ BREATHWORK]
+    I --> J4[🌬️ BREATHWORK]
     J1 --> K[🎯 Smart Routing]
     J2 --> K
     J3 --> K
     J4 --> K
-    J5 --> K
     K --> L[📝 Form Prefill]
 ```
 
@@ -132,7 +130,7 @@ graph TB
 |-----|----------|--------|---------|
 | **Progress** 📈 | İlerleme metrikleri | "7 günlük streak! Harika gidiyorsun" | High |
 | **Pattern** 🔍 | Davranış örüntüleri | "Pazartesi sabahları daha çok kompulsiyon yaşıyorsun" | High |
-| **Therapeutic** 💡 | Terapötik öneriler | "ERP'de zorluk seviyesini artırma vakti geldi" | Medium |
+| **Therapeutic** 💡 | Terapötik öneriler | "CBT thought record kaliteni artırma vakti geldi" | Medium |
 | **Motivational** ⭐ | Motivasyon desteği | "Bu ay 15 kez kompulsiyona direndin!" | Medium |
 | **Contextual** 🎯 | Durumsal öneriler | "Stresli gün öncesi nefes egzersizi yap" | Low |
 
@@ -198,7 +196,7 @@ const dataDrivenTriggers = {
     message: "Sakinleşme vakti, birlikte nefes alalım 🕊️"
   },
   highAnxiety: {
-    condition: 'erp_anxiety_level >= 7',
+    condition: 'anxiety_level >= 7',
     immediate: true,
     protocol: '4-7-8',
     message: "Anksiyete yüksek, acil nefes desteği 🚨"
@@ -263,10 +261,10 @@ const healingPointsCalculation = {
     multiplier: difficultyLevel,
     bonus: streakBonus
   },
-  erp_completed: {
-    basePoints: 25,
-    multiplier: anxietyLevel * completionRate,
-    bonus: newDifficultyBonus
+  breathwork_completed: {
+    basePoints: 20,
+    multiplier: sessionDuration * consistency,
+    bonus: protocolDifficultyBonus
   },
   cbt_thought_record: {
     basePoints: 15,
@@ -320,11 +318,11 @@ const generateDailyMissions = (userProfile, recentActivity) => {
   }
   
   // Progress based mission  
-  if (userProfile.erpProgress < 0.7) {
+  if (userProfile.cbtProgress < 0.7) {
     missions.push({
-      type: 'erp_session',
-      description: 'Bugün bir ERP egzersizi tamamla',
-      points: 50,
+      type: 'cbt_thought_record',
+      description: 'Bugün bir CBT düşünce kaydı yap',
+      points: 45,
       difficulty: 'medium'
     })
   }
@@ -380,14 +378,7 @@ const routeMapping = {
       trigger: extractedTrigger
     }
   },
-  ERP: {
-    path: '/erp-session',
-    prefill: {
-      exposureType: recommendedExposure,
-      difficultyLevel: calculatedDifficulty,
-      preparationNotes: extractedContext
-    }
-  },
+
   BREATHWORK: {
     path: '/(tabs)/breathwork',
     params: {
