@@ -26,13 +26,13 @@ Dokümanda tanımlanan **8 temel OKB AI özelliği** tamamen implement edildi ve
 - `features/ai/core/CoreAnalysisService.ts` (enhanced OCD patterns)
 
 ### 2. 🧠 **Intelligent Compulsion Pattern Recognition**
-**Status**: ✅ COMPLETE (Brand New Service)
+**Status**: ✅ MIGRATED TO UNIFIED PIPELINE
 
 **What's Implemented:**
-- **File**: `features/ai/services/ocdPatternAnalysisService.ts`
-- Temporal pattern detection (daily/weekly cycles)
-- Trigger-compulsion correlation analysis
-- Category distribution analysis  
+- **Legacy Service Removed**: `ocdPatternAnalysisService.ts` (replaced by UnifiedAIPipeline)
+- Temporal pattern detection now handled by UnifiedAIPipeline
+- Trigger-compulsion correlation via `ocdTriggerDetectionService.ts`
+- Category distribution analysis integrated into UserCentricOCDDashboard  
 - Severity progression tracking
 - Predictive insights for next week risk
 - Cultural factor detection
@@ -44,13 +44,14 @@ Dokümanda tanımlanan **8 temel OKB AI özelliği** tamamen implement edildi ve
 - Risk assessment with clinical recommendations
 
 ### 3. 📊 **Progressive OCD Analytics Dashboard**
-**Status**: ✅ COMPLETE (Brand New Component)
+**Status**: ✅ REPLACED WITH USER-CENTRIC DESIGN
 
 **What's Implemented:**
-- **File**: `components/ocd/OCDAnalyticsDashboard.tsx`  
-- Interactive analytics dashboard with tabs (Overview/Patterns/Trends/Insights)
-- Real-time data visualization with charts
-- Time range filtering (7d/30d/90d/1y)
+- **Legacy Component Removed**: `OCDAnalyticsDashboard.tsx` (replaced by UserCentricOCDDashboard)
+- **Current File**: `components/ui/UserCentricOCDDashboard.tsx`
+- 4-tab user-centric design (Journey/Patterns/Assessment/Triggers)
+- Real-time data from onboarding and AI services
+- Anxiety-friendly design following Master Prompt principles
 - AI-powered insights and recommendations
 - Performance optimized with animations
 

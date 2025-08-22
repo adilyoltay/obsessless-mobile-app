@@ -2,7 +2,7 @@
   "navigation": {
     "today": "Bugün",
     "tracking": "Takip",
-    "therapy": "Terapi",
+
     "settings": "Ayarlar",
     "back": "Geri",
     "home": "Ana Sayfa",
@@ -69,7 +69,6 @@
     "tipOfTheDay": "Günün İpucu",
     "logCompulsion": "Kompülsiyon Kaydet",
     "ybocs": "Y-BOCS Testi",
-    "therapyExercise": "Terapi Egzersizi",
     "viewHistory": "Geçmişi Görüntüle",
     "motivation": {
       "focus": "Odaklan",
@@ -205,25 +204,6 @@
     "retakeTest": "Testi Tekrar Al",
     "disclaimer": "Bu test tanı amaçlı değildir. Profesyonel yardım alınması önerilir."
   },
-  "erp": {
-    "title": "ERP Egzersizleri",
-    "subtitle": "Maruz Kalma ve Tepki Önleme",
-    "startExercise": "Egzersizi Başlat",
-    "stopExercise": "Egzersizi Durdur",
-    "pauseExercise": "Duraklat",
-    "resumeExercise": "Devam Et",
-    "completeExercise": "Egzersizi Tamamla",
-    "anxietyLevel": "Kaygı Seviyesi",
-    "duration": "Süre",
-    "targetDuration": "Hedef Süre",
-    "currentAnxiety": "Mevcut Kaygı",
-    "exerciseComplete": "Egzersiz Tamamlandı",
-    "sessionSummary": "Seans Özeti",
-    "totalTime": "Toplam Süre",
-    "peakAnxiety": "En Yüksek Kaygı",
-    "finalAnxiety": "Son Kaygı",
-    "improvement": "İyileşme"
-  },
   "assessment": {
     "ocdProfile": "OKB Profili",
     "createProfile": "Profil Oluştur",
@@ -274,7 +254,7 @@
   "tips": {
     "tip1": "Kompülsiyonlarınızla başa çıkarken, küçük adımlar atmanın büyük değişimler yaratabileceğini unutmayın.",
     "tip2": "Her direnişiniz bir başarıdır! Kendinizi tebrik etmeyi unutmayın.",
-    "tip3": "ERP egzersizlerini düzenli yapmak, zamanla kaygı seviyenizi azaltacaktır.",
+    "tip3": "Nefes egzersizlerini düzenli yapmak, zamanla kaygı seviyenizi azaltacaktır.",
     "tip4": "Kompülsiyonları takip etmek, tetikleyicilerinizi anlamanıza yardımcı olur.",
     "tip5": "Sabır gösterin - iyileşme zaman alır ve her küçük adım önemlidir."
   },
@@ -322,28 +302,6 @@
       "retake": "Yeniden Yap",
       "yourScore": "Skorunuz"
     },
-    "erp": {
-      "title": "ERP Egzersizleri",
-      "targetDuration": "Hedef Süre",
-      "initialAnxiety": "Başlangıç Kaygısı",
-      "currentAnxiety": "Şu Anki Kaygı",
-      "anxietyCheck": "Kaygı Kontrolü",
-      "rateCurrentAnxiety": "Şu anki kaygı seviyenizi değerlendirin",
-      "keepGoing": "Devam Et!",
-      "motivationMessage1": "Harika gidiyorsun! Kaygı geçici, güçlülük kalıcıdır.",
-      "motivationMessage2": "Her saniye daha güçlü oluyorsun. Pes etme!",
-      "motivationMessage3": "Bu zorluk seni daha güçlü yapacak. Devam et!",
-      "motivationMessage4": "Sen bu mücadeleyi kazanabilirsin. İnanıyorum!",
-      "startSession": "Oturumu Başlat",
-      "complete": "Tamamla",
-      "recordResistance": "Direnç Kaydet",
-      "resistanceRecorded": "Direnç Kaydedildi",
-      "stayStrong": "Güçlü kal! Bu geçici bir his.",
-      "target": "Hedef",
-      "peak": "Pik",
-      "current": "Şu An",
-      "resistances": "Dirençler"
-    },
     "achievements": {
       "title": "Başarılar",
       "level": "Seviye",
@@ -368,18 +326,6 @@
       "track30Days": {
         "title": "Aylık Şampiyon",
         "desc": "30 gün boyunca takip yap"
-      },
-      "firstERP": {
-        "title": "ERP Başlangıcı",
-        "desc": "İlk ERP egzersizini tamamla"
-      },
-      "erp10Sessions": {
-        "title": "ERP Ustası",
-        "desc": "10 ERP oturumu tamamla"
-      },
-      "erp100Minutes": {
-        "title": "Dayanıklılık Uzmanı",
-        "desc": "Toplam 100 dakika ERP yap"
       },
       "streak3": {
         "title": "Tutarlılık",

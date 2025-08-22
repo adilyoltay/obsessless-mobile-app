@@ -90,11 +90,13 @@ export default function TrackingScreen() {
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
   
   // OCD Analytics Dashboard State
-  const [showOCDDashboard, setShowOCDDashboard] = useState(false);
   const [showUserCentricDashboard, setShowUserCentricDashboard] = useState(false);
   const [allCompulsions, setAllCompulsions] = useState<CompulsionEntry[]>([]);
   
-  // Removed: Y-BOCS Assessment State - using onboarding data
+  // Y-BOCS & Onboarding Integration State
+  const [onboardingProfile, setOnboardingProfile] = useState<any>(null);
+  const [ybocsHistory, setYbocsHistory] = useState<any[]>([]);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -111,6 +113,75 @@ export default function TrackingScreen() {
       // İlk yüklemede Supabase'den de çek
       loadCompulsionsFromSupabase();
     }
+  }, [user?.id]);
+
+  // Load onboarding profile for Y-BOCS history
+  useEffect(() => {
+    const loadOnboardingProfile = async () => {
+      if (!user?.id) return;
+      
+      setIsLoadingProfile(true);
+      try {
+        console.log('📋 Loading onboarding profile for Y-BOCS history...');
+        
+        const localProfile = await AsyncStorage.getItem(`user_profile_${user.id}`);
+        if (localProfile) {
+          const profile = JSON.parse(localProfile);
+          console.log('✅ Found onboarding profile:', profile);
+          
+          // Helper function to calculate Y-BOCS severity from score
+          const calculateYbocsSeverity = (score: number): string => {
+            if (score >= 32) return 'Severe';
+            if (score >= 24) return 'Moderate';
+            if (score >= 16) return 'Mild';
+            if (score >= 8) return 'Subclinical';
+            return 'Minimal';
+          };
+          
+          // Map the profile structure
+          const mappedProfile = {
+            ybocsLiteScore: profile.ybocsScore,
+            ybocsSeverity: calculateYbocsSeverity(profile.ybocsScore),
+            primarySymptoms: profile.symptomTypes,
+            dailyGoal: profile.goals?.[0] || 'improve_daily_life',
+            onboardingCompleted: !!profile.onboardingCompletedAt,
+            createdAt: profile.createdAt,
+            originalProfile: profile
+          };
+          
+          setOnboardingProfile(mappedProfile);
+          
+          // Create Y-BOCS history from onboarding data
+          if (profile.ybocsScore) {
+            const ybocsHistoryEntry = {
+              id: 'onboarding',
+              user_id: user.id,
+              totalScore: profile.ybocsScore,
+              severityLevel: calculateYbocsSeverity(profile.ybocsScore),
+              timestamp: profile.createdAt || new Date().toISOString(),
+              answers: [], // We don't have individual answers, but we have the total
+              metadata: {
+                source: 'onboarding',
+                culturalContext: 'turkish'
+              }
+            };
+            
+            setYbocsHistory([ybocsHistoryEntry]);
+            console.log('✅ Y-BOCS history created from onboarding:', ybocsHistoryEntry);
+          }
+        } else {
+          console.log('ℹ️ No onboarding profile found');
+          setYbocsHistory([]);
+        }
+      } catch (error) {
+        console.error('❌ Error loading onboarding profile:', error);
+        setYbocsHistory([]);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadOnboardingProfile();
   }, [user?.id]);
 
   // Voice trigger'dan gelindiyse otomatik aç (pre-filled data ile)
@@ -150,21 +221,28 @@ export default function TrackingScreen() {
       return;
     }
 
-    try {
-      setIsInsightsRunning(true);
-      setIsLoadingAI(true);
+            try {
+          setIsInsightsRunning(true);
+          setIsLoadingAI(true);
 
-      // Track AI pattern analysis request
-      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-        userId: user.id,
-        source: 'tracking_screen',
-        dataType: 'compulsion_patterns'
-      });
+          // ✅ ENHANCED: Track analysis start time for performance metrics
+          const analysisStartTime = Date.now();
+
+          // Track AI pattern analysis request
+          await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+            userId: user.id,
+            source: 'tracking_screen',
+            dataType: 'compulsion_patterns',
+            analysisStartTime
+          });
 
       // Get compulsion data for analysis
       const storageKey = StorageKeys.COMPULSIONS(user.id);
       const allEntriesData = await AsyncStorage.getItem(storageKey);
       const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
+
+      // ✅ Initialize pipelineResult in broader scope for telemetry
+      let pipelineResult: any = null;
 
       if (allEntries.length > 0) {
         try {
@@ -199,10 +277,11 @@ export default function TrackingScreen() {
             encryptedPayload = sensitivePayload; // fallback to sanitized data
           }
 
-          // Generate AI insights with encrypted data
-          const pipelineResult = await unifiedPipeline.process({
+          // ✅ FIXED: Send sanitized (not encrypted) data to pipeline for AI analysis
+          // Encryption metadata is kept for audit/telemetry purposes
+          pipelineResult = await unifiedPipeline.process({
             userId: user.id, // User ID is hashed in pipeline for privacy
-            content: encryptedPayload,
+            content: sensitivePayload, // ✅ Use sanitized, unencrypted payload for analysis
             type: 'data' as const,
             context: {
               source: 'tracking' as const,
@@ -214,7 +293,10 @@ export default function TrackingScreen() {
                   piiSanitized: true,
                   encryptionLevel: (encryptedPayload as any).algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 
                                  (encryptedPayload as any).algorithm ? 'aes256' : 'sanitized',
-                  encrypted: (encryptedPayload as any).algorithm && (encryptedPayload as any).algorithm !== 'SHA256_FALLBACK'
+                  encrypted: (encryptedPayload as any).algorithm && (encryptedPayload as any).algorithm !== 'SHA256_FALLBACK',
+                  // Store encryption details for audit trail
+                  encryptionHash: (encryptedPayload as any).hash?.substring(0, 8),
+                  encryptionTimestamp: (encryptedPayload as any).timestamp
                 }
               }
             }
@@ -250,18 +332,43 @@ export default function TrackingScreen() {
         }
       }
 
-      // Generate AI insights for UI
-      const insights = await generateInsights();
-      setAiInsights(insights || []);
+                // Generate AI insights for UI
+          const insights = await generateInsights();
+          setAiInsights(insights || []);
 
-      // Track successful analysis
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        userId: user.id,
-        insightsCount: insights?.length || 0,
-        patternsFound: aiPatterns.length,
-        source: 'tracking_screen',
-        usedUnifiedPipeline: true
-      });
+          // ✅ ENHANCED: Calculate processing time and track comprehensive metrics
+          const processingTime = Date.now() - analysisStartTime;
+          const usedFallback = !pipelineResult.patterns || !Array.isArray(pipelineResult.patterns);
+          
+          // Track successful analysis with enhanced telemetry
+          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+            userId: user.id,
+            source: 'tracking_screen',
+            insightsCount: insights?.length || 0,
+            patternsCount: aiPatterns.length,
+            processingTime,
+            analysisSource: usedFallback ? 'fallback' : 'pipeline',
+            cacheHit: pipelineResult.fromCache || false,
+            dataQuality: allEntries.length >= 5 ? 1.0 : (allEntries.length / 5),
+            modules: ['ocd_pattern_analysis', 'compulsion_trends'],
+            performance: {
+              responseTime: processingTime,
+              targetTime: 2000, // 2s target for OCD analysis
+              withinTarget: processingTime <= 2000
+            }
+          });
+
+          // Track UnifiedPipeline completion metrics
+          if (!usedFallback) {
+            await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+              userId: user.id,
+              source: 'tracking_screen',
+              cacheHit: pipelineResult.fromCache || false,
+              modules: ['ocd_analysis'],
+              resultSize: JSON.stringify(pipelineResult).length,
+              processingTime
+            });
+          }
 
     } catch (error) {
       console.error('❌ Error loading AI patterns:', error);
@@ -866,7 +973,7 @@ export default function TrackingScreen() {
         visible={showUserCentricDashboard}
         onClose={() => setShowUserCentricDashboard(false)}
         compulsions={allCompulsions}
-        ybocsHistory={[]}
+        ybocsHistory={ybocsHistory}
         userId={user?.id || ''}
         aiPatterns={aiPatterns}
         aiInsights={aiInsights}

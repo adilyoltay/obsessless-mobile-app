@@ -31,9 +31,9 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
     healingPoints: 20,
   },
   {
-    id: 'habituation_observer',
-    title: 'Habitüasyon Gözlemcisi',
-    description: 'Bir terapi seansında anksiyeteyi %50\'den fazla düşür. Kaygının doğal olarak azaldığını gözlemledin. Bu, OKB tedavisinin temelidir.',
+    id: 'anxiety_reducer',
+    title: 'Kaygı Azaltıcısı',
+    description: 'Kompulsiyonla başa çıkarken kaygını %50\'den fazla azalt. Kaygının doğal olarak azaldığını gözlemledin. Bu, OKB yönetiminin temelidir.',
     category: 'Resistance',
     icon: 'shield-check',
     rarity: 'Rare',
@@ -123,11 +123,7 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+50 ✨ Günlük hedef!',
     trigger: 'daily_goal_met'
   },
-  erp_quick_start: {
-    points: 5,
-    message: '+5 ✨ Hızlı başlangıç!',
-    trigger: 'erp_quick_start'
-  },
+
   planning_ahead: {
     points: 8,
     message: '+8 ✨ Planlama yapıyor!',
@@ -153,11 +149,7 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+22 ✨ Direnç gelişimi!',
     trigger: 'resistance_improvement'
   },
-  erp_wizard_start: {
-    points: 5,
-    message: '+5 ✨ Sihirbaz başlatıldı!',
-    trigger: 'erp_wizard_start'
-  },
+
   urge_resistance: {
     points: 15,
     message: '+15 ✨ Dürtüye direndi!',
@@ -183,7 +175,7 @@ interface GamificationState {
   setUserId: (userId: string) => void;
   initializeGamification: (userId?: string) => Promise<void>;
   updateStreak: () => Promise<void>;
-  checkAchievements: (type: 'compulsion' | 'erp', data?: any) => Promise<AchievementDefinition[]>;
+  checkAchievements: (type: 'compulsion', data?: any) => Promise<AchievementDefinition[]>;
   awardMicroReward: (trigger: MicroRewardTrigger) => Promise<void>;
   
   // Unified Gamification
@@ -299,7 +291,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     await get().saveProfile();
   },
 
-  checkAchievements: async (type: 'compulsion' | 'erp', data?: any) => {
+  checkAchievements: async (type: 'compulsion', data?: any) => {
     const { profile, achievements } = get();
     const newlyUnlocked: AchievementDefinition[] = [];
     
@@ -311,16 +303,6 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       let shouldUnlock = false;
       
       switch (achievement.id) {
-        case 'first_erp':
-          if (type === 'erp') shouldUnlock = true;
-          break;
-          
-        case 'habituation_observer':
-          if (type === 'erp' && data?.anxietyReduction >= 50) {
-            shouldUnlock = true;
-          }
-          break;
-          
         case 'resistance_wall':
           if (type === 'compulsion' && data?.dailyHighResistance >= 5) {
             shouldUnlock = true;
