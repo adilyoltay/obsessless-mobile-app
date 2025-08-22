@@ -736,67 +736,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     };
   }
 
-  /**
-   * 🛡️ (Removed) Terapi Pattern Analysis - Exposure themes detection
-   */
-  // (Removed) private analyzeTerapiPatterns function start
-    matchedPatterns: string[];
-  } {
-    let score = 0;
-    const matchedPatterns: string[] = [];
-    
-    // Avoidance patterns (kaçınma davranışları)
-    const avoidancePatterns = [
-      /kaçın.*?dım/i, /uzak.*?dur/i, /yaklaşa.*?mam/i, /cesaret.*?edemem/i,
-      /korku.*?yüzünden/i, /yapamam/i, /gidemem/i, /dokunamam/i
-    ];
-    
-    avoidancePatterns.forEach(pattern => {
-      if (pattern.test(content)) {
-        score += 0.2;
-        matchedPatterns.push('avoidance');
-      }
-    });
-    
-    // Exposure readiness (maruz kalma hazırlığı)
-    const exposurePatterns = [
-      /denemeye.*?hazır/i, /cesaret.*?topluyorum/i, /yapmaya.*?çalış/i,
-      /üstesinden.*?gel/i, /karşılaş/i, /mücadele.*?et/i, /yüzleş/i
-    ];
-    
-    exposurePatterns.forEach(pattern => {
-      if (pattern.test(content)) {
-        score += 0.25;
-        matchedPatterns.push('exposure_readiness');
-      }
-    });
-    
-    // Safety behaviors (güvenlik davranışları)
-    const safetyPatterns = [
-      /güvenlik.*?için/i, /emin.*?olmak/i, /zarar.*?verme/i,
-      /kontrol.*?altında/i, /risksiz/i, /garantili/i
-    ];
-    
-    safetyPatterns.forEach(pattern => {
-      if (pattern.test(content)) {
-        score += 0.18;
-        matchedPatterns.push('safety_behaviors');
-      }
-    });
-    
-    return {
-      quickClass: 'Terapi',
-      confidence: Math.min(score, 0.95),
-      route: score > 0.2 ? 'OPEN_SCREEN' : 'AUTO_SAVE',
-      payload: {
-        screen: 'erp',
-        exposureType: this.determineExposureType(matchedPatterns),
-        readinessLevel: score > 0.4 ? 'high' : score > 0.2 ? 'medium' : 'low',
-        suggestedDifficulty: this.calculateTerapiDifficulty(score, matchedPatterns)
-      },
-      matchedPatterns
-    };
-  }
+  // ❌ REMOVED: analyzeTerapiPatterns function - ERP module deleted
 
   /**
    * 🌬️ Breathwork Pattern Analysis - Anxiety & Relaxation needs
