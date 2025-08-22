@@ -664,7 +664,12 @@ export default function UserCentricOCDDashboard({
       {/* Y-BOCS from Onboarding */}
       <View style={styles.assessmentCard}>
         <Text style={styles.assessmentTitle}>📋 Y-BOCS Değerlendirmeniz</Text>
-        {onboardingProfile && onboardingProfile.ybocsLiteScore ? (
+        {isLoadingProfile ? (
+          <View style={styles.loadingCard}>
+            <MaterialCommunityIcons name="loading" size={24} color={COLORS.gentleBlue} />
+            <Text style={styles.loadingText}>Onboarding verileriniz yükleniyor...</Text>
+          </View>
+        ) : onboardingProfile && onboardingProfile.ybocsLiteScore ? (
           <View style={styles.onboardingYBOCSCard}>
             <View style={styles.ybocsMainScore}>
               <Text style={styles.ybocsScoreNumber}>{onboardingProfile.ybocsLiteScore}</Text>
@@ -691,9 +696,14 @@ export default function UserCentricOCDDashboard({
             )}
           </View>
         ) : (
-          <Text style={styles.noAssessmentText}>
-            Onboarding Y-BOCS verileri yüklenemiyor...
-          </Text>
+          <View style={styles.noDataCard}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={24} color={COLORS.whisperGray} />
+            <Text style={styles.noDataTitle}>Onboarding Verisi Bulunamadı</Text>
+            <Text style={styles.noDataText}>
+              Y-BOCS değerlendirmeniz onboarding sırasında tamamlanmış olmalı. 
+              Eğer onboarding'i tamamlamadıysanız, lütfen uygulamayı yeniden başlatın.
+            </Text>
+          </View>
         )}
       </View>
 
@@ -1552,5 +1562,45 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Inter',
     textTransform: 'capitalize',
+  },
+
+  // Loading & No Data States
+  loadingCard: {
+    backgroundColor: COLORS.therapeuticBlue,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.gentleBlue,
+    marginTop: 8,
+    fontFamily: 'Inter',
+  },
+  noDataCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cloudGray,
+    borderStyle: 'dashed',
+  },
+  noDataTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.whisperGray,
+    marginTop: 8,
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Inter',
   },
 });
