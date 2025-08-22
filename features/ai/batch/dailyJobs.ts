@@ -769,22 +769,23 @@ export class DailyJobsManager {
 /**
  * Task Manager Definition - Executed by Expo in background
  */
-TaskManager.defineTask(BATCH_TASK_NAME, async () => {
-  try {
-    console.log('📅 Background batch job triggered');
+// DISABLED IN DEVELOPMENT - Background tasks cause ExpoTaskManager errors
+// TaskManager.defineTask(BATCH_TASK_NAME, async () => {
+//   try {
+//     console.log('📅 Background batch job triggered');
     
-    const manager = DailyJobsManager.getInstance();
-    const results = await manager.runAllJobs();
+//     const manager = DailyJobsManager.getInstance();
+//     const results = await manager.runAllJobs();
     
-    return results.every(r => r.success)
-      ? BackgroundFetch.BackgroundFetchResult.NewData
-      : BackgroundFetch.BackgroundFetchResult.Failed;
+//     return results.every(r => r.success)
+//       ? BackgroundFetch.BackgroundFetchResult.NewData
+//       : BackgroundFetch.BackgroundFetchResult.Failed;
       
-  } catch (error) {
-    console.error('❌ Background batch job error:', error);
-    return BackgroundFetch.BackgroundFetchResult.Failed;
-  }
-});
+//   } catch (error) {
+//     console.error('❌ Background batch job error:', error);
+//     return BackgroundFetch.BackgroundFetchResult.Failed;
+//   }
+// });
 
 // Export singleton instance
 export const dailyJobsManager = DailyJobsManager.getInstance();
