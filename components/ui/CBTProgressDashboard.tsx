@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-// import { LineChart, BarChart } from 'react-native-chart-kit'; // TODO: Add chart dependency
 import { Dimensions } from 'react-native';
 
 /**
@@ -12,6 +11,187 @@ import { Dimensions } from 'react-native';
  */
 
 const screenWidth = Dimensions.get('window').width;
+
+// ============================================================================
+// SIMPLE CHART COMPONENTS
+// ============================================================================
+
+/**
+ * Simple Mood Chart - Line chart for mood improvement visualization
+ */
+const SimpleMoodChart = ({ beforeData, afterData, labels }: {
+  beforeData: number[];
+  afterData: number[];
+  labels: string[];
+}) => {
+  const maxValue = Math.max(...beforeData, ...afterData, 10);
+  const chartHeight = 150;
+  const chartWidth = screenWidth - 80; // Padding included
+  
+  const getYPosition = (value: number) => {
+    return chartHeight - (value / maxValue) * chartHeight;
+  };
+  
+  return (
+    <View style={styles.simpleChart}>
+      {/* Chart Area */}
+      <View style={[styles.chartArea, { height: chartHeight, width: chartWidth }]}>
+        {/* Grid Lines */}
+        {[0, 2, 4, 6, 8, 10].map(value => (
+          <View 
+            key={value}
+            style={[
+              styles.gridLine, 
+              { 
+                top: getYPosition(value),
+                width: chartWidth 
+              }
+            ]} 
+          />
+        ))}
+        
+        {/* Before Line (Red) */}
+        <View style={styles.lineContainer}>
+          {beforeData.map((value, index) => {
+            if (index === beforeData.length - 1) return null;
+            const nextValue = beforeData[index + 1];
+            const x1 = (index / (beforeData.length - 1)) * chartWidth;
+            const y1 = getYPosition(value);
+            const x2 = ((index + 1) / (beforeData.length - 1)) * chartWidth;
+            const y2 = getYPosition(nextValue);
+            
+            return (
+              <View 
+                key={`before-${index}`}
+                style={[
+                  styles.lineSegment,
+                  {
+                    position: 'absolute',
+                    left: x1,
+                    top: y1,
+                    width: Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
+                    backgroundColor: '#EF4444',
+                    transform: [
+                      { rotate: `${Math.atan2(y2 - y1, x2 - x1)}rad` }
+                    ]
+                  }
+                ]}
+              />
+            );
+          })}
+        </View>
+        
+        {/* After Line (Green) */}
+        <View style={styles.lineContainer}>
+          {afterData.map((value, index) => {
+            if (index === afterData.length - 1) return null;
+            const nextValue = afterData[index + 1];
+            const x1 = (index / (afterData.length - 1)) * chartWidth;
+            const y1 = getYPosition(value);
+            const x2 = ((index + 1) / (afterData.length - 1)) * chartWidth;
+            const y2 = getYPosition(nextValue);
+            
+            return (
+              <View 
+                key={`after-${index}`}
+                style={[
+                  styles.lineSegment,
+                  {
+                    position: 'absolute',
+                    left: x1,
+                    top: y1,
+                    width: Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2),
+                    backgroundColor: '#10B981',
+                    transform: [
+                      { rotate: `${Math.atan2(y2 - y1, x2 - x1)}rad` }
+                    ]
+                  }
+                ]}
+              />
+            );
+          })}
+        </View>
+        
+        {/* Data Points */}
+        {beforeData.map((value, index) => (
+          <View 
+            key={`point-before-${index}`}
+            style={[
+              styles.dataPoint,
+              {
+                position: 'absolute',
+                left: (index / (beforeData.length - 1)) * chartWidth - 4,
+                top: getYPosition(value) - 4,
+                backgroundColor: '#EF4444'
+              }
+            ]}
+          />
+        ))}
+        
+        {afterData.map((value, index) => (
+          <View 
+            key={`point-after-${index}`}
+            style={[
+              styles.dataPoint,
+              {
+                position: 'absolute',
+                left: (index / (afterData.length - 1)) * chartWidth - 4,
+                top: getYPosition(value) - 4,
+                backgroundColor: '#10B981'
+              }
+            ]}
+          />
+        ))}
+      </View>
+      
+      {/* Legend */}
+      <View style={styles.chartLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
+          <Text style={styles.legendText}>Önceki</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
+          <Text style={styles.legendText}>Sonraki</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+/**
+ * Simple Bar Chart - Horizontal bars for distortion patterns
+ */
+const SimpleBarChart = ({ data, labels }: {
+  data: number[];
+  labels: string[];
+}) => {
+  const maxValue = Math.max(...data, 1);
+  
+  return (
+    <View style={styles.simpleBarChart}>
+      {data.map((value, index) => (
+        <View key={index} style={styles.barRow}>
+          <Text style={styles.barLabel} numberOfLines={1}>
+            {labels[index]}
+          </Text>
+          <View style={styles.barContainer}>
+            <View 
+              style={[
+                styles.bar,
+                { 
+                  width: `${(value / maxValue) * 100}%`,
+                  backgroundColor: `hsl(${220 + index * 30}, 60%, 60%)`
+                }
+              ]}
+            />
+            <Text style={styles.barValue}>{value}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 interface CBTProgressMetrics {
   distortionAwareness: {
@@ -168,12 +348,11 @@ export default function CBTProgressDashboard({
       {moodChartData && (
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>🎯 Ruh Hali İyileşmesi</Text>
-          <View style={styles.chartPlaceholder}>
-            <MaterialCommunityIcons name="chart-line" size={48} color="#E5E7EB" />
-            <Text style={styles.chartPlaceholderText}>
-              Grafik görüntülenmesi için react-native-chart-kit kütüphanesi gerekli
-            </Text>
-          </View>
+          <SimpleMoodChart 
+            beforeData={moodChartData.beforeData}
+            afterData={moodChartData.afterData}
+            labels={moodChartData.labels}
+          />
         </View>
       )}
 
@@ -216,12 +395,10 @@ export default function CBTProgressDashboard({
       {distortionChartData && (
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>🔍 En Sık Çarpıtmalar</Text>
-          <View style={styles.chartPlaceholder}>
-            <MaterialCommunityIcons name="chart-bar" size={48} color="#E5E7EB" />
-            <Text style={styles.chartPlaceholderText}>
-              Bar grafik görüntülenmesi için react-native-chart-kit kütüphanesi gerekli
-            </Text>
-          </View>
+          <SimpleBarChart 
+            data={distortionChartData.data}
+            labels={distortionChartData.labels}
+          />
         </View>
       )}
     </ScrollView>
@@ -717,5 +894,96 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#6366F1',
     borderRadius: 3,
+  },
+  
+  // ============================================================================
+  // SIMPLE CHART STYLES
+  // ============================================================================
+  
+  simpleChart: {
+    paddingVertical: 16,
+  },
+  chartArea: {
+    position: 'relative',
+    backgroundColor: '#FAFBFC',
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  gridLine: {
+    position: 'absolute',
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    opacity: 0.5,
+  },
+  lineContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  lineSegment: {
+    height: 2,
+  },
+  dataPoint: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  simpleBarChart: {
+    paddingVertical: 16,
+    gap: 12,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  barLabel: {
+    fontSize: 12,
+    color: '#374151',
+    width: 80,
+    fontFamily: 'Inter',
+  },
+  barContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bar: {
+    height: 20,
+    borderRadius: 4,
+    minWidth: 4,
+  },
+  barValue: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    minWidth: 20,
+    textAlign: 'right',
+    fontFamily: 'Inter',
   },
 });

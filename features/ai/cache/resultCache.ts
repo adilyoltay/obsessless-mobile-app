@@ -217,7 +217,6 @@ export class ResultCache {
   getStats(): CacheStats {
     const entriesByType: Record<CacheType, number> = {
       insights: 0,
-      erp: 0,
       voice: 0,
       digest: 0,
       general: 0,
@@ -314,7 +313,6 @@ export class ResultCache {
   private getTTLForType(type: CacheType): number {
     const hours = {
       insights: CONFIG.ttl.insightsHours,
-      erp: CONFIG.ttl.erpPlanHours,
       voice: CONFIG.ttl.voiceHours,
       digest: CONFIG.ttl.todayDigestHours,
       general: 1, // Default 1 hour

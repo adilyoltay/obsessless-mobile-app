@@ -439,6 +439,11 @@ export class UnifiedAIPipeline {
   
   private async processCBTAnalysis(input: UnifiedPipelineInput): Promise<any> {
     try {
+      // ✅ FIXED: Check if this is a progress analytics request
+      if (typeof input.content === 'object' && input.content.analysisRequest === 'comprehensive_cbt_progress_analytics') {
+        return await this.processCBTProgressAnalytics(input);
+      }
+      
       const text = typeof input.content === 'string' 
         ? input.content 
         : input.content.description || input.content.notes || '';
@@ -2624,6 +2629,264 @@ export class UnifiedAIPipeline {
       console.warn('⚠️ Error analyzing severity progression:', error);
       return [];
     }
+  }
+
+  // ============================================================================
+  // CBT PROGRESS ANALYTICS
+  // ============================================================================
+  
+  /**
+   * ✅ NEW: Process CBT Progress Analytics
+   * Analyzes thought records to generate comprehensive progress insights
+   */
+  private async processCBTProgressAnalytics(input: UnifiedPipelineInput): Promise<any> {
+    try {
+      const content = input.content as any;
+      const thoughtRecords = content.thoughtRecords || [];
+      const timeframe = content.timeframe || 'month';
+      
+      console.log(`🧠 Processing CBT progress analytics for ${thoughtRecords.length} records`);
+      
+      if (thoughtRecords.length < 2) {
+        return {
+          distortionTrends: [],
+          techniqueEffectiveness: [],
+          progressAnalysis: 'Henüz yeterli veri yok. En az 2-3 düşünce kaydı gerekli.',
+          recommendations: ['Düzenli düşünce kaydı tutmaya devam et'],
+          riskLevel: 'low',
+          nextFocus: 'Daha fazla düşünce kaydı tut',
+          metadata: {
+            analysisTime: Date.now(),
+            recordCount: thoughtRecords.length,
+            confidence: 0.3
+          }
+        };
+      }
+      
+      // 1. DISTORTION TRENDS ANALYSIS
+      const distortionTrends = this.analyzeCBTDistortionTrends(thoughtRecords);
+      
+      // 2. TECHNIQUE EFFECTIVENESS
+      const techniqueEffectiveness = this.analyzeCBTTechniqueEffectiveness(thoughtRecords);
+      
+      // 3. PROGRESS ANALYSIS
+      const progressAnalysis = this.generateCBTProgressAnalysis(thoughtRecords, timeframe);
+      
+      // 4. RECOMMENDATIONS
+      const recommendations = this.generateCBTRecommendations(thoughtRecords, distortionTrends);
+      
+      // 5. RISK LEVEL ASSESSMENT
+      const riskLevel = this.assessCBTRiskLevel(thoughtRecords);
+      
+      // 6. NEXT FOCUS AREA
+      const nextFocus = this.determineCBTNextFocus(thoughtRecords, distortionTrends);
+      
+      return {
+        distortionTrends,
+        techniqueEffectiveness,
+        progressAnalysis,
+        recommendations,
+        riskLevel,
+        nextFocus,
+        metadata: {
+          analysisTime: Date.now(),
+          recordCount: thoughtRecords.length,
+          confidence: this.calculateCBTProgressConfidence(thoughtRecords)
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ CBT Progress Analytics failed:', error);
+      return {
+        distortionTrends: [],
+        techniqueEffectiveness: [],
+        progressAnalysis: 'Analiz sırasında bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
+        recommendations: ['Tekrar deneyebilirsin'],
+        riskLevel: 'low',
+        nextFocus: 'Sistem hatası nedeniyle belirlenemedi',
+        metadata: {
+          analysisTime: Date.now(),
+          recordCount: 0,
+          confidence: 0,
+          error: error.message
+        }
+      };
+    }
+  }
+  
+  // CBT Analytics Helper Methods
+  
+  private analyzeCBTDistortionTrends(records: any[]): Array<{distortion: string; trend: 'improving' | 'declining' | 'stable'; change: number}> {
+    const distortionCounts = new Map<string, number[]>();
+    
+    // Group by distortion type and time
+    records.forEach((record, index) => {
+      if (record.distortions && Array.isArray(record.distortions)) {
+        record.distortions.forEach((distortion: string) => {
+          if (!distortionCounts.has(distortion)) {
+            distortionCounts.set(distortion, []);
+          }
+          distortionCounts.get(distortion)!.push(index);
+        });
+      }
+    });
+    
+    const trends: Array<{distortion: string; trend: 'improving' | 'declining' | 'stable'; change: number}> = [];
+    
+    distortionCounts.forEach((occurrences, distortion) => {
+      if (occurrences.length >= 2) {
+        // Calculate frequency trend (early vs late records)
+        const totalRecords = records.length;
+        const midPoint = totalRecords / 2;
+        
+        const earlyOccurrences = occurrences.filter(idx => idx < midPoint).length;
+        const lateOccurrences = occurrences.filter(idx => idx >= midPoint).length;
+        
+        const earlyRate = earlyOccurrences / Math.ceil(midPoint);
+        const lateRate = lateOccurrences / Math.floor(totalRecords - midPoint);
+        
+        const change = lateRate - earlyRate;
+        
+        let trend: 'improving' | 'declining' | 'stable' = 'stable';
+        if (change < -0.1) trend = 'improving'; // Less frequent = improving
+        else if (change > 0.1) trend = 'declining'; // More frequent = declining
+        
+        trends.push({
+          distortion,
+          trend,
+          change: Math.round(change * 100) / 100
+        });
+      }
+    });
+    
+    // Sort by most significant changes
+    return trends.sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 5);
+  }
+  
+  private analyzeCBTTechniqueEffectiveness(records: any[]): Array<{technique: string; effectiveness: number; confidence: number}> {
+    const techniques: Array<{technique: string; effectiveness: number; confidence: number}> = [];
+    
+    // Calculate mood improvement as technique effectiveness
+    const avgMoodImprovement = records.length > 0 
+      ? records.reduce((sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0) / records.length 
+      : 0;
+    
+    if (avgMoodImprovement > 0) {
+      techniques.push({
+        technique: 'Düşünce Kaydı',
+        effectiveness: Math.min(10, Math.round(avgMoodImprovement * 10) / 10),
+        confidence: records.length >= 5 ? 0.9 : 0.6
+      });
+    }
+    
+    // Analyze evidence gathering technique
+    const evidenceRecords = records.filter(r => r.evidenceFor && r.evidenceAgainst);
+    if (evidenceRecords.length > 0) {
+      const evidenceAvgImprovement = evidenceRecords.reduce(
+        (sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0
+      ) / evidenceRecords.length;
+      
+      techniques.push({
+        technique: 'Kanıt Toplama',
+        effectiveness: Math.min(10, Math.round(evidenceAvgImprovement * 10) / 10),
+        confidence: evidenceRecords.length >= 3 ? 0.8 : 0.5
+      });
+    }
+    
+    return techniques.slice(0, 3);
+  }
+  
+  private generateCBTProgressAnalysis(records: any[], timeframe: string): string {
+    const recordCount = records.length;
+    const avgMoodImprovement = records.length > 0 
+      ? records.reduce((sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0) / records.length 
+      : 0;
+    
+    const recentRecords = records.slice(0, Math.min(5, records.length));
+    const recentAvgImprovement = recentRecords.length > 0
+      ? recentRecords.reduce((sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0) / recentRecords.length
+      : 0;
+    
+    if (recordCount < 5) {
+      return `${recordCount} düşünce kaydın var. CBT yolculuğunun başlangıcındasın ve ortalama ${avgMoodImprovement.toFixed(1)} puanlık mood iyileşmesi sağlıyorsun.`;
+    } else if (avgMoodImprovement >= 2) {
+      return `${recordCount} kayıtla güçlü bir ilerleme gösteriyorsun. Ortalama ${avgMoodImprovement.toFixed(1)} puanlık mood iyileşmesi, CBT tekniklerinin sana uygun olduğunu gösteriyor.`;
+    } else if (avgMoodImprovement >= 1) {
+      return `${recordCount} kayıtla istikrarlı bir gelişim süreci yaşıyorsun. ${avgMoodImprovement.toFixed(1)} puanlık ortalama iyileşme, düzenli pratikle artmaya devam edecek.`;
+    } else {
+      return `${recordCount} kayıt tamamladın. Mood iyileşmesi henüz beklenen seviyede değil ama bu normal - CBT becerileri zaman içinde gelişir.`;
+    }
+  }
+  
+  private generateCBTRecommendations(records: any[], distortionTrends: any[]): string[] {
+    const recommendations: string[] = [];
+    
+    // Based on record frequency
+    if (records.length < 10) {
+      recommendations.push('Daha sık düşünce kaydı tutarak pattern\'lerin daha net görünmesini sağla');
+    }
+    
+    // Based on mood improvement
+    const avgMoodImprovement = records.reduce((sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0) / records.length;
+    if (avgMoodImprovement < 1) {
+      recommendations.push('Kanıt toplama adımına daha fazla zaman ayırarak düşüncelerini daha objektif değerlendir');
+    }
+    
+    // Based on distortion trends
+    const decliningDistortions = distortionTrends.filter(d => d.trend === 'declining');
+    if (decliningDistortions.length > 0) {
+      recommendations.push(`${decliningDistortions[0].distortion} konusunda ekstra dikkat göster - sıklığı artış gösteriyor`);
+    }
+    
+    // Evidence quality
+    const evidenceRecords = records.filter(r => r.evidenceFor && r.evidenceAgainst);
+    if (evidenceRecords.length < records.length * 0.7) {
+      recommendations.push('Lehine ve aleyhine kanıtları daha düzenli doldurmaya odaklan');
+    }
+    
+    return recommendations.slice(0, 3);
+  }
+  
+  private assessCBTRiskLevel(records: any[]): 'low' | 'medium' | 'high' {
+    const recentRecords = records.slice(0, 5);
+    const avgMoodBefore = recentRecords.reduce((sum, r) => sum + (r.moodBefore || 5), 0) / recentRecords.length;
+    const avgMoodImprovement = recentRecords.reduce((sum, r) => sum + ((r.moodAfter || 5) - (r.moodBefore || 5)), 0) / recentRecords.length;
+    
+    if (avgMoodBefore <= 3 && avgMoodImprovement < 0.5) {
+      return 'high';
+    } else if (avgMoodBefore <= 4 || avgMoodImprovement < 1) {
+      return 'medium';
+    } else {
+      return 'low';
+    }
+  }
+  
+  private determineCBTNextFocus(records: any[], distortionTrends: any[]): string {
+    // Find most problematic distortion
+    const decliningDistortions = distortionTrends.filter(d => d.trend === 'declining');
+    if (decliningDistortions.length > 0) {
+      return `${decliningDistortions[0].distortion} çarpıtmasına odaklan`;
+    }
+    
+    // Based on evidence usage
+    const evidenceRecords = records.filter(r => r.evidenceFor && r.evidenceAgainst);
+    if (evidenceRecords.length < records.length * 0.5) {
+      return 'Kanıt toplama becerilerin geliştir';
+    }
+    
+    // Based on record frequency
+    if (records.length < 15) {
+      return 'Düzenli kayıt tutma alışkanlığın güçlendir';
+    }
+    
+    return 'Reframe tekniklerini çeşitlendir';
+  }
+  
+  private calculateCBTProgressConfidence(records: any[]): number {
+    if (records.length < 3) return 0.3;
+    if (records.length < 7) return 0.6;
+    if (records.length < 15) return 0.8;
+    return 0.9;
   }
 
 }
