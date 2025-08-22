@@ -122,11 +122,9 @@ const analyzeTemporalPatterns = (compulsions: CompulsionEntry[]) => {
 #### **B) Unified OCD Pattern Analysis:**
 ```mermaid
 graph TB
-    A[📅 30 Günlük Veri] --> B{🎲 Pipeline Route?}
-    B -->|25%| C[🚀 UnifiedAIPipeline]
-    B -->|75%| D[📊 Legacy Pattern Service]
+    A[📅 30 Günlük Veri] --> B[🚀 UnifiedAIPipeline ONLY]
     
-    C --> E[🧠 processPatternRecognition()]
+    B --> E[🧠 processPatternRecognition()]
     E --> F{Pattern Type?}
     F -->|Temporal| G[⏰ Time-based Analysis]
     F -->|Trigger| H[🎯 Trigger Correlation]  
@@ -149,7 +147,7 @@ graph TB
     J --> J2[Improvement Pattern]
     J --> J3[Plateau Detection]
     
-    style C fill:#e8f5e8
+    style B fill:#e8f5e8
     style E fill:#c8e6c9
 ```
 

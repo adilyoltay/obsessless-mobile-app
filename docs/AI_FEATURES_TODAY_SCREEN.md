@@ -143,10 +143,10 @@ const unifiedCacheConfig = {
   TTL: 24 * 60 * 60 * 1000,          // 24 hours (unified)
   invalidationHooks: [
     'compulsion_added',               // Yeni kompulsiyon → all cache clear
-    'erp_completed',                  // ERP tamamlandı → all cache clear
     'mood_added',                     // Mood kaydı → all cache clear
     'cbt_record_added',               // CBT kaydı → all cache clear
     'manual_refresh'                  // Kullanıcı yeniledi → all cache clear
+    // 'erp_completed' REMOVED - ERP module deleted
   ],
   
   // Cache key generation
@@ -615,19 +615,19 @@ const aiTelemetryEvents = {
 const rolloutStrategy = {
   unified_pipeline: {
     enabled: FEATURE_FLAGS.AI_UNIFIED_PIPELINE,     // Currently: true
-    percentage: FEATURE_FLAGS.AI_UNIFIED_PIPELINE_PERCENTAGE, // Currently: 25%
+    percentage: FEATURE_FLAGS.AI_UNIFIED_PIPELINE_PERCENTAGE, // Currently: 100%
     deterministic: true,   // Hash-based user selection
     function: shouldUseUnifiedPipeline(userId)
   },
   
-  // %25 kullanıcı yeni sistem, %75 legacy
+  // %100 kullanıcı yeni sistem - ROLLOUT COMPLETE
   currentStatus: {
-    unified_users: '25%',    // UnifiedAIPipeline.process()
-    legacy_users: '75%',     // Individual services
+    unified_users: '100%',    // UnifiedAIPipeline.process() - ACTIVE
+    legacy_users: '0%',       // Individual services - DEPRECATED
     rollout_plan: [
-      'Ocak 2025: 25%',     // Current
-      'Şubat 2025: 50%',    // Planned
-      'Mart 2025: 100%'     // Full rollout
+      'Ocak 2025: 100%',     // ✅ COMPLETED
+      'Şubat 2025: Legacy cleanup',    // Planned
+      'Mart 2025: Performance optimization'     // Planned
     ]
   }
 }

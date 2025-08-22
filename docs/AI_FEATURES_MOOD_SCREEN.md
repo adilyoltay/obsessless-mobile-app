@@ -158,11 +158,9 @@ const analyzeTimePatterns = (moodEntries) => {
 #### **B) Unified Pattern Recognition:**
 ```mermaid
 graph TB
-    A[📅 7 Günlük Data] --> B{🎲 Pipeline Route?}
-    B -->|25%| C[🚀 UnifiedAIPipeline]
-    B -->|75%| D[📊 Legacy Pattern Service]
+    A[📅 7 Günlük Data] --> B[🚀 UnifiedAIPipeline ONLY]
     
-    C --> E[🧠 processPatternRecognition()]
+    B --> E[🧠 processPatternRecognition()]
     E --> F{Pattern Detected?}
     F -->|Yes| G[🔍 Weekly Cycle Found]
     F -->|No| H[📈 Trend Analysis]
@@ -182,7 +180,8 @@ graph TB
     H2 --> I
     H3 --> I
     
-    D --> J[📊 Individual Analysis]
+    style B fill:#e8f5e8
+    style I fill:#c8e6c9
     
     style C fill:#e8f5e8
     style I fill:#c8e6c9
@@ -371,11 +370,9 @@ AI, kullanıcının mood journal'larını analiz ederek sentiment, emotion ve tr
 ### 🧠 **Unified Text Analysis Pipeline:**
 ```mermaid
 graph TB
-    A[📝 User Notes] --> B{🎲 Pipeline Route?}
-    B -->|25%| C[🚀 UnifiedAIPipeline]
-    B -->|75%| D[📊 Legacy NLP Service]
+    A[📝 User Notes] --> B[🚀 UnifiedAIPipeline ONLY]
     
-    C --> E[🧠 processInsightsGeneration()]
+    B --> E[🧠 processInsightsGeneration()]
     E --> F{🚪 LLM Gating?}
     F -->|Allow| G[🌐 Gemini NLP]
     F -->|Block| H[⚡ Heuristic NLP]
@@ -396,9 +393,6 @@ graph TB
     N --> O
     
     O --> P[💡 Personalized Insights]
-    
-    D --> Q[📊 Individual NLP Processing]
-    Q --> R[💡 Legacy Insights]
     
     style C fill:#e8f5e8
     style O fill:#c8e6c9

@@ -172,11 +172,9 @@ Gemini API kullanarak kullanıcının olumsuz düşüncelerini **şefkatli ve te
 ### �� **Reframe Generation Pipeline:**
 ```mermaid
 graph TB
-    A[📝 Negative Thought] --> B{🎲 Pipeline Check}
-    B -->|25% Unified| C[🚀 UnifiedAIPipeline]
-    B -->|75% Legacy| D[📊 reframeService]
+    A[📝 Negative Thought] --> B[🚀 UnifiedAIPipeline ONLY]
     
-    C --> E[🧠 processCBTAnalysis()]
+    B --> E[🧠 processCBTAnalysis()]
     E --> F{🚪 LLM Gating?}
     F -->|Allow| G[🌐 Gemini API Call]
     F -->|Block| H[⚡ Heuristic Reframes]
@@ -189,9 +187,6 @@ graph TB
     K --> L[💝 Compassionate Filter]
     L --> M[💾 Unified Cache]
     M --> N[📱 Display Results]
-    
-    D --> O[📊 Legacy generateReframes()]
-    O --> P[📱 Legacy Display]
     
     style C fill:#e8f5e8
     style I fill:#c8e6c9
@@ -372,11 +367,9 @@ enum CBTTechnique {
 ### 🎯 **Unified CBT Intervention Selection:**
 ```mermaid
 graph TB
-    A[📊 User Assessment] --> B{🎲 Pipeline Route?}
-    B -->|25% Unified| C[🚀 UnifiedAIPipeline]
-    B -->|75% Legacy| D[📊 CBTEngine]
+    A[📊 User Assessment] --> B[🚀 UnifiedAIPipeline ONLY]
     
-    C --> E[🧠 processCBTAnalysis()]
+    B --> E[🧠 processCBTAnalysis()]
     E --> F{Distortion Type?}
     F -->|Catastrophizing| G[🔍 Socratic Questions]
     F -->|All-or-Nothing| H[🌈 Spectrum Thinking]
@@ -392,8 +385,8 @@ graph TB
     L --> M[📈 Progress Tracking]
     M --> N[🔄 Technique Adjustment]
     
-    D --> O[📊 Legacy CBT Processing]
-    O --> P[📊 Individual Intervention]
+    style B fill:#e8f5e8
+    style L fill:#c8e6c9
 ```
 
 ### 🎯 **Smart Intervention Matching:**
@@ -697,21 +690,21 @@ const turkishNLPFeatures = {
 
 ## 🔮 **Current Rollout Status & Roadmap**
 
-### 🚀 **Ocak 2025 (Mevcut):**
-- ✅ **UnifiedAIPipeline v1.0**: 25% kullanıcı gradual rollout
-- ✅ **CoreAnalysisService + LLM Gating**: Token budget + similarity dedup
-- ✅ **Unified Cache**: 24h TTL, akıllı invalidation
-- 🔄 **Legacy + New Hybrid**: 75% legacy CBT services, 25% unified
+### 🚀 **Ocak 2025 (COMPLETED):**
+- ✅ **UnifiedAIPipeline v1.0**: **100% kullanıcı FULL ROLLOUT** 
+- ✅ **CoreAnalysisService + LLM Gating**: Token budget + similarity dedup ACTIVE
+- ✅ **Unified Cache**: 24h TTL, akıllı invalidation ACTIVE
+- ✅ **Full Unified System**: **100% unified CBT services, 0% legacy**
 
 ### 🎯 **Şubat 2025:**
-- [ ] **50% Unified Rollout**: Rollout percentage artışı
+- [ ] **Legacy System Cleanup**: Eski kod temizliği
 - [ ] **Advanced Distortion Patterns**: Composite pattern detection
 - [ ] **Real-time Thought Monitoring**: Background analysis
 
 ### 🎯 **Mart 2025:**
-- [ ] **100% Unified Pipeline**: Tam migration tamamlanır
-- [ ] **Legacy Services Removal**: Eski sistemlerin kaldırılması
-- [ ] **Performance Optimization**: Full unified benefits
+- [ ] **Performance Optimization**: Full unified system benefits
+- [ ] **Advanced Features**: Multi-modal CBT analysis
+- [ ] **Integration Enhancement**: Cross-module data sharing
 
 ---
 
