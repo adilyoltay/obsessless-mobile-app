@@ -26,7 +26,6 @@ import ConflictNotificationBanner from '@/components/ui/ConflictNotificationBann
 // Import debug helpers in development
 if (__DEV__) {
   require('@/utils/debugHelper');
-  require('@/utils/erpDebugHelper');
 }
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
