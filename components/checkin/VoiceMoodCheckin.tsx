@@ -326,25 +326,7 @@ export default function VoiceMoodCheckin({
 
   const handleSelect = async (route: 'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
-    if (route === 'ERP') {
-      try {
-        const { erpRecommendationService } = await import('@/features/ai/services/erpRecommendationService');
-        if (user?.id) {
-          const rec = await erpRecommendationService.getPersonalizedRecommendations(user.id);
-          const first = rec?.recommendedExercises?.[0]?.exerciseId;
-          await trackCheckinLifecycle('complete', { route: 'ERP', mood: nlu?.mood, trigger: nlu?.trigger, recommended: !!first });
-          if (first) {
-            router.push(`/erp-session?exerciseId=${encodeURIComponent(first)}`);
-            return;
-          }
-        }
-        const fallbackExercise = 'exposure_response_prevention';
-        router.push(`/erp-session?exerciseId=${fallbackExercise}`);
-      } catch {
-        await trackCheckinLifecycle('complete', { route: 'ERP', mood: nlu?.mood, trigger: nlu?.trigger, error: 'recommendation_failed' });
-        router.push('/erp-session?exerciseId=exposure_response_prevention');
-      }
-    } else {
+    {
       const suggestions = await generateReframes({ text: transcript, lang: (nlu?.lang || 'tr') as any });
       setReframes(suggestions.map(s => s.text));
       setShowReframe(true);
