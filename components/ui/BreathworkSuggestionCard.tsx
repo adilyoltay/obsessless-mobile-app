@@ -167,7 +167,7 @@ export default function BreathworkSuggestionCard({
         generateSuggestion();
       }
     }
-  }, [trigger, anxietyLevel, context, userId, propSuggestion]);
+  }, [trigger, anxietyLevel, context, userId]); // ✅ FIXED: Removed propSuggestion to prevent infinite loop
 
   // Entrance animation
   useEffect(() => {

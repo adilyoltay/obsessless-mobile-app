@@ -39,6 +39,72 @@ import { prepareAutoRecord, saveAutoRecord, shouldShowAutoRecord } from '@/servi
 
 const { width } = Dimensions.get('window');
 
+/**
+ * 🎯 Helper Functions for Energy/Anxiety Derivation from Voice Analysis
+ * Used when explicit energy/anxiety levels are not provided by AI analysis
+ */
+
+/**
+ * Derives energy level from mood score and text analysis
+ * @param moodScore - Mood score (0-100)
+ * @param text - Voice transcription text
+ * @returns Energy level (0-10)
+ */
+const derivEnergyFromMood = (moodScore: number, text: string = ''): number => {
+  let baseEnergy = Math.round((moodScore / 10)); // Convert 0-100 to 0-10
+  
+  // Text-based energy keywords
+  const energyKeywords = {
+    high: ['enerjik', 'dinamik', 'aktif', 'zinde', 'uyanık', 'canlı'],
+    low: ['yorgun', 'bitkin', 'uyuşuk', 'tembel', 'halsiz', 'güçsüz']
+  };
+  
+  const lowerText = text.toLowerCase();
+  
+  // Boost energy for high-energy keywords
+  if (energyKeywords.high.some(keyword => lowerText.includes(keyword))) {
+    baseEnergy = Math.min(10, baseEnergy + 2);
+  }
+  
+  // Reduce energy for low-energy keywords
+  if (energyKeywords.low.some(keyword => lowerText.includes(keyword))) {
+    baseEnergy = Math.max(1, baseEnergy - 2);
+  }
+  
+  return Math.max(1, Math.min(10, baseEnergy));
+};
+
+/**
+ * Derives anxiety level from mood score and text analysis
+ * @param moodScore - Mood score (0-100) 
+ * @param text - Voice transcription text
+ * @returns Anxiety level (0-10)
+ */
+const deriveAnxietyFromMood = (moodScore: number, text: string = ''): number => {
+  // Inverse relationship: lower mood often correlates with higher anxiety
+  let baseAnxiety = Math.round(10 - (moodScore / 10)); // Inverse mapping
+  
+  // Text-based anxiety keywords
+  const anxietyKeywords = {
+    high: ['gergin', 'endişeli', 'kaygılı', 'stresli', 'heyecanlı', 'tedirgin', 'panik'],
+    low: ['sakin', 'rahat', 'huzurlu', 'dingin', 'sükunet', 'rahatlamış']
+  };
+  
+  const lowerText = text.toLowerCase();
+  
+  // Increase anxiety for high-anxiety keywords  
+  if (anxietyKeywords.high.some(keyword => lowerText.includes(keyword))) {
+    baseAnxiety = Math.min(10, baseAnxiety + 2);
+  }
+  
+  // Reduce anxiety for low-anxiety keywords
+  if (anxietyKeywords.low.some(keyword => lowerText.includes(keyword))) {
+    baseAnxiety = Math.max(1, baseAnxiety - 2);
+  }
+  
+  return Math.max(1, Math.min(10, baseAnxiety));
+};
+
 // ✅ REMOVED: Heuristic fallback moved to UnifiedAIPipeline for centralized handling
 
 interface CheckinBottomSheetProps {
@@ -644,12 +710,36 @@ export default function CheckinBottomSheet({
       switch (analysis.type) {
         case 'MOOD':
           console.log('🌟 LEGACY ROUTING: MOOD case triggered');
-          // Navigate to mood page with pre-filled data
+          
+          // Extract energy and anxiety levels from analysis
+          const moodScore = analysis.mood || 50;
+          const extractedData = analysis.params || {};
+          
+          // 🎯 Energy Level Estimation (from voice analysis or derived from mood)
+          const energyLevel = extractedData.energyLevel || 
+                             extractedData.energy || 
+                             derivEnergyFromMood(moodScore, text);
+          
+          // 🎯 Anxiety Level Estimation (from voice analysis or derived from mood)
+          const anxietyLevel = extractedData.anxietyLevel || 
+                              extractedData.anxiety || 
+                              deriveAnxietyFromMood(moodScore, text);
+          
+          console.log('🎭 Voice-to-Mood prefill data:', {
+            mood: moodScore,
+            energy: energyLevel,
+            anxiety: anxietyLevel,
+            trigger: analysis.trigger
+          });
+          
+          // Navigate to mood page with comprehensive pre-filled data
           router.push({
             pathname: '/(tabs)/mood',
             params: {
               prefill: 'true',
-              mood: analysis.mood || 50,
+              mood: moodScore,
+              energy: energyLevel,
+              anxiety: anxietyLevel,
               text: text || '',
               trigger: analysis.trigger || ''
             },

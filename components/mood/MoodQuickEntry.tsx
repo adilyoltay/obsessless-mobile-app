@@ -45,10 +45,56 @@ export function MoodQuickEntry({
   const [notes, setNotes] = useState('');
   const [selectedTrigger, setSelectedTrigger] = useState('');
 
+  /**
+   * 🎯 Mood Score to Emotion Mapping (Aligned with EmotionWheel PRIMARY/SECONDARY sets)
+   * Maps numeric mood scores (0-100) to appropriate emotion wheel selections
+   * PRIMARY: mutlu, üzgün, kızgın, korkmuş, şaşkın, güvenli
+   */
+  const getEmotionFromMoodScore = (score: number): { primary: string; secondary?: string } | null => {
+    if (score === undefined || score === null) return null;
+    
+    // ✅ FIXED: All primary emotions now match EmotionWheel's PRIMARY_EMOTIONS
+    // ✅ FIXED: All secondary emotions now match EmotionWheel's SECONDARY_EMOTIONS
+    
+    // Map mood ranges to appropriate primary emotions (only valid EmotionWheel primaries)
+    if (score >= 85) {
+      return { primary: 'mutlu', secondary: 'Neşeli' }; // Very Happy + Cheerful
+    } else if (score >= 75) {
+      return { primary: 'mutlu', secondary: 'Huzurlu' }; // Happy + Peaceful
+    } else if (score >= 65) {
+      return { primary: 'güvenli', secondary: 'Rahat' }; // Secure + Comfortable
+    } else if (score >= 55) {
+      return { primary: 'güvenli', secondary: 'Desteklenmiş' }; // Safe + Supported
+    } else if (score >= 45) {
+      return { primary: 'şaşkın', secondary: 'Kafası karışık' }; // Surprised + Confused (neutral)
+    } else if (score >= 35) {
+      return { primary: 'şaşkın' }; // Surprised/Mixed feelings
+    } else if (score >= 25) {
+      return { primary: 'üzgün', secondary: 'Boşluk' }; // Sad + Empty
+    } else if (score >= 15) {
+      return { primary: 'üzgün', secondary: 'Yalnız' }; // Sad + Lonely
+    } else if (score >= 10) {
+      return { primary: 'korkmuş', secondary: 'Panik' }; // Afraid + Panic
+    } else if (score >= 5) {
+      return { primary: 'korkmuş', secondary: 'Kaygılı' }; // Afraid + Anxious
+    } else {
+      return { primary: 'kızgın', secondary: 'Hayal kırıklığı' }; // Angry + Disappointment
+    }
+  };
+
   // Set initial values when modal opens
   React.useEffect(() => {
     if (visible && initialData) {
-      // Mood artık emotion wheel ile seçilecek
+      // 🎭 Map numeric mood score to emotion wheel selection
+      if (initialData.mood !== undefined) {
+        const emotion = getEmotionFromMoodScore(initialData.mood);
+        setSelectedEmotion(emotion);
+        console.log('🎭 Voice prefill emotion mapping:', { 
+          inputMoodScore: initialData.mood, 
+          selectedEmotion: emotion 
+        });
+      }
+      
       setEnergy(initialData.energy || 5);
       setAnxiety(initialData.anxiety || 5);
       setNotes(initialData.notes || '');

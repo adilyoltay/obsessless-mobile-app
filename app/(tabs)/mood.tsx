@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
+import moodTracker from '@/services/moodTrackingService';
 import { moodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
@@ -69,6 +70,11 @@ export default function MoodScreen() {
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]);
   const [patternsLoading, setPatternsLoading] = useState(false);
   const [showPatterns, setShowPatterns] = useState(false);
+  
+  // 🔮 Predictive Mood Intervention State
+  const [predictiveInsights, setPredictiveInsights] = useState<any>(null);
+  const [showPredictive, setShowPredictive] = useState(false);
+  const [predictiveLoading, setPredictiveLoading] = useState(false);
 
   // Pre-fill from voice trigger if available
   useEffect(() => {
@@ -85,6 +91,14 @@ export default function MoodScreen() {
     }
   }, [user?.id, selectedTimeRange]);
 
+  // 🔮 Auto-trigger predictive mood intervention when mood data is available
+  useEffect(() => {
+    if (user?.id && moodEntries.length >= 3 && !predictiveLoading && !predictiveInsights) {
+      console.log('🔮 Auto-triggering predictive mood intervention...');
+      runPredictiveMoodIntervention();
+    }
+  }, [moodEntries, user?.id]);
+
   const loadMoodEntries = async () => {
     if (!user?.id) return;
     
@@ -95,8 +109,22 @@ export default function MoodScreen() {
       const periodDays = selectedTimeRange === 'today' ? 1 : 
                         selectedTimeRange === 'week' ? 7 : 30;
       
-      const entries = await supabaseService.getMoodEntries(user.id, periodDays);
-      setMoodEntries(entries || []);
+      // 🔄 Use intelligent merge service instead of direct Supabase calls
+      const rawEntries = await moodTracker.getMoodEntries(user.id, periodDays);
+      
+      // Map service MoodEntry to screen MoodEntry format
+      const entries = (rawEntries || []).map(entry => ({
+        id: entry.id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        notes: entry.notes || '',
+        trigger: entry.triggers && entry.triggers.length > 0 ? entry.triggers[0] : undefined,
+        created_at: entry.timestamp,
+        user_id: entry.user_id
+      }));
+      
+      setMoodEntries(entries);
     } catch (error) {
       console.error('Failed to load mood entries:', error);
       setToastMessage('Mood kayıtları yüklenemedi');
@@ -166,9 +194,62 @@ export default function MoodScreen() {
       // Extract patterns from pipeline result
       let patterns: any[] = [];
       
-      if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
+      // 🔄 FIXED: Handle UnifiedAIPipeline patterns object format (temporal/behavioral/environmental)
+      if (pipelineResult.patterns && typeof pipelineResult.patterns === 'object') {
+        const patternsObj = pipelineResult.patterns;
+        
+        // Convert UnifiedAIPipeline patterns object to flat array for UI
+        const flatPatterns: any[] = [];
+        
+        // Add temporal patterns
+        if (patternsObj.temporal && Array.isArray(patternsObj.temporal)) {
+          patternsObj.temporal.forEach((pattern: any) => {
+            flatPatterns.push({
+              type: 'temporal',
+              title: `${pattern.type} (${pattern.trend})`,
+              description: `Saat: ${pattern.timeOfDay || 'Belirsiz'}, Sıklık: ${pattern.frequency}`,
+              suggestion: `${pattern.trend === 'increasing' ? 'Artış eğilimi' : pattern.trend === 'decreasing' ? 'Azalış eğilimi' : 'Stabil'} tespit edildi`,
+              actionable: true,
+              severity: pattern.frequency > 5 ? 'high' : 'medium'
+            });
+          });
+        }
+        
+        // Add behavioral patterns  
+        if (patternsObj.behavioral && Array.isArray(patternsObj.behavioral)) {
+          patternsObj.behavioral.forEach((pattern: any) => {
+            flatPatterns.push({
+              type: 'behavioral',
+              title: `Tetikleyici: ${pattern.trigger}`,
+              description: `Tepki: ${pattern.response}, Sıklık: ${pattern.frequency}`,
+              suggestion: `Bu tetikleyici için alternatif tepkiler geliştirebilirsiniz`,
+              actionable: true,
+              severity: pattern.severity > 7 ? 'high' : pattern.severity > 4 ? 'medium' : 'low'
+            });
+          });
+        }
+        
+        // Add environmental patterns
+        if (patternsObj.environmental && Array.isArray(patternsObj.environmental)) {
+          patternsObj.environmental.forEach((pattern: any) => {
+            flatPatterns.push({
+              type: 'environmental',
+              title: `Çevresel Faktör: ${pattern.context}`,
+              description: `Korelasyon: ${pattern.correlation.toFixed(2)}${pattern.location ? `, Yer: ${pattern.location}` : ''}`,
+              suggestion: `Bu çevresel faktöre dikkat edin`,
+              actionable: Math.abs(pattern.correlation) > 0.5,
+              severity: Math.abs(pattern.correlation) > 0.7 ? 'high' : 'medium'
+            });
+          });
+        }
+        
+        patterns = flatPatterns;
+        console.log(`🎯 UnifiedAIPipeline patterns mapped: ${patterns.length} total (${patternsObj.temporal?.length || 0} temporal, ${patternsObj.behavioral?.length || 0} behavioral, ${patternsObj.environmental?.length || 0} environmental)`);
+        
+      } else if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
+        // Legacy array format support (just in case)
         patterns = pipelineResult.patterns;
-        console.log(`🎯 UnifiedAIPipeline found ${patterns.length} patterns`);
+        console.log(`🎯 UnifiedAIPipeline found ${patterns.length} patterns (legacy array format)`);
       } else {
         // Fallback to direct service call if pipeline doesn't have patterns
         console.log('📝 Fallback: Using direct moodPatternAnalysisService');
@@ -195,6 +276,64 @@ export default function MoodScreen() {
       setShowToast(true);
     } finally {
       setPatternsLoading(false);
+    }
+  };
+
+  /**
+   * 🔮 Predictive Mood Intervention Analysis
+   * Analyzes mood drop risk and suggests proactive interventions
+   */
+  const runPredictiveMoodIntervention = async () => {
+    if (!user?.id || moodEntries.length < 3) {
+      setToastMessage('Predictive analiz için en az 3 mood kaydı gerekli');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      setPredictiveLoading(true);
+      console.log('🔮 Starting predictive mood intervention analysis...');
+
+      // Convert to service format for UnifiedAIPipeline
+      const serviceMoodEntries = moodEntries.map(entry => ({
+        id: entry.id,
+        user_id: entry.user_id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        notes: entry.notes,
+        triggers: entry.trigger ? [entry.trigger] : [],
+        activities: [],
+        timestamp: entry.created_at,
+        synced: true,
+        sync_attempts: 0
+      }));
+
+      // Get current mood state (most recent entry)
+      const currentMoodState = moodEntries.length > 0 ? {
+        mood: moodEntries[0].mood_score,
+        energy: moodEntries[0].energy_level,
+        anxiety: moodEntries[0].anxiety_level,
+        timestamp: moodEntries[0].created_at
+      } : undefined;
+
+      // Call UnifiedAIPipeline predictive intervention
+      const interventionResult = await unifiedPipeline.predictMoodIntervention(
+        user.id,
+        serviceMoodEntries.slice(-10), // Last 10 entries for trend analysis
+        currentMoodState
+      );
+
+      console.log('🔮 Predictive intervention result:', interventionResult);
+      setPredictiveInsights(interventionResult);
+      setShowPredictive(true);
+
+    } catch (error) {
+      console.error('❌ Predictive mood intervention failed:', error);
+      setToastMessage('Predictive mood analizi başarısız oldu');
+      setShowToast(true);
+    } finally {
+      setPredictiveLoading(false);
     }
   };
 
@@ -296,13 +435,16 @@ export default function MoodScreen() {
     if (!user?.id) return;
 
     try {
-      const entry = {
+      // 🔄 FIXED: Use moodTracker for consistent table handling (mood_tracking + intelligent merge)
+      const moodEntry = {
         user_id: user.id,
         mood_score: data.mood,
         energy_level: data.energy,
         anxiety_level: data.anxiety,
         notes: data.notes,
-        trigger: data.trigger,
+        triggers: data.trigger ? [data.trigger] : [], // Convert single trigger to array format
+        activities: [], // Not collected in this interface yet
+        sync_attempts: 0
       };
 
       // 📝 SMART MOOD JOURNALING ANALYSIS
@@ -326,7 +468,17 @@ export default function MoodScreen() {
         }
       }
 
-      await supabaseService.saveMoodEntry(entry);
+      // 🔄 Save via moodTracker for intelligent sync + consistent table usage
+      const savedEntry = await moodTracker.saveMoodEntry(moodEntry);
+      
+      // 🔄 FIXED: Trigger cache invalidation after mood entry save
+      try {
+        await unifiedPipeline.triggerInvalidation('mood_added', user.id);
+        console.log('🔄 Cache invalidated after mood entry: patterns + insights + progress');
+      } catch (invalidationError) {
+        console.warn('⚠️ Cache invalidation failed (non-critical):', invalidationError);
+        // Don't block the user flow if cache invalidation fails
+      }
       
       // 🎮 MOOD GAMIFICATION & ACHIEVEMENT TRACKING
       let gamificationResult = null;
@@ -338,7 +490,8 @@ export default function MoodScreen() {
         const gamificationService = new MoodGamificationService();
         
         // Get user's mood history for point calculation
-        const userHistory = await supabaseService.getMoodEntries(user.id, 30); // Last 30 days
+        // 🔄 Use intelligent merge service for gamification history
+        const userHistory = await moodTracker.getMoodEntries(user.id, 30); // Last 30 days
         
         // Calculate mood points
         const moodEntryForPoints = {
@@ -636,7 +789,63 @@ export default function MoodScreen() {
           </View>
         </View>
 
-
+        {/* 🔮 Predictive Mood Intervention Card */}
+        {predictiveInsights && (
+          <View style={styles.predictiveCard}>
+            <View style={styles.predictiveHeader}>
+              <MaterialCommunityIcons 
+                name="crystal-ball" 
+                size={24} 
+                color={predictiveInsights.riskLevel === 'high' ? '#EF4444' : 
+                       predictiveInsights.riskLevel === 'medium' ? '#F59E0B' : '#10B981'} 
+              />
+              <Text style={styles.predictiveTitle}>Mood Öngörüsü</Text>
+              <Text style={[styles.riskBadge, {
+                backgroundColor: predictiveInsights.riskLevel === 'high' ? '#FEF2F2' : 
+                                predictiveInsights.riskLevel === 'medium' ? '#FFFBEB' : '#F0FDF4',
+                color: predictiveInsights.riskLevel === 'high' ? '#EF4444' : 
+                       predictiveInsights.riskLevel === 'medium' ? '#F59E0B' : '#10B981'
+              }]}>
+                {predictiveInsights.riskLevel === 'high' ? 'Yüksek Risk' : 
+                 predictiveInsights.riskLevel === 'medium' ? 'Orta Risk' : 'Düşük Risk'}
+              </Text>
+            </View>
+            
+            {predictiveInsights.earlyWarning?.triggered && (
+              <View style={styles.warningSection}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
+                <Text style={styles.warningText}>{predictiveInsights.earlyWarning.message}</Text>
+              </View>
+            )}
+            
+            {predictiveInsights.interventions?.slice(0, 2).map((intervention: any, index: number) => (
+              <View key={index} style={styles.interventionItem}>
+                <MaterialCommunityIcons 
+                  name={intervention.type === 'immediate' ? 'lightning-bolt' : 
+                        intervention.type === 'preventive' ? 'shield-check' : 'hospital-box'} 
+                  size={16} 
+                  color="#3B82F6" 
+                />
+                <Text style={styles.interventionText}>{intervention.action}</Text>
+              </View>
+            ))}
+            
+            <Pressable 
+              style={styles.refreshPredictiveButton}
+              onPress={runPredictiveMoodIntervention}
+              disabled={predictiveLoading}
+            >
+              <MaterialCommunityIcons 
+                name={predictiveLoading ? "loading" : "refresh"} 
+                size={16} 
+                color="#EC4899" 
+              />
+              <Text style={styles.refreshPredictiveText}>
+                {predictiveLoading ? 'Analiz ediliyor...' : 'Yenile'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Spectrum Mood Tracker - Lindsay Braman Style */}
         {moodEntries.length > 0 && (
@@ -1122,6 +1331,8 @@ export default function MoodScreen() {
         onSubmit={handleQuickEntry}
         initialData={params.prefill === 'true' ? {
           mood: params.mood ? Number(params.mood) : 50,
+          energy: params.energy ? Number(params.energy) : 5,
+          anxiety: params.anxiety ? Number(params.anxiety) : 5,
           notes: params.text as string || '',
           trigger: params.trigger as string || ''
         } : undefined}
@@ -1407,6 +1618,87 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#EC4899',
     borderRadius: 4,
+  },
+
+  // 🔮 Predictive Mood Intervention Card Styles
+  predictiveCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  predictiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  predictiveTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+    flex: 1,
+    marginLeft: 8,
+  },
+  riskBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  warningSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  warningText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#92400E',
+    fontFamily: 'Inter',
+  },
+  interventionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  interventionText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  refreshPredictiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  refreshPredictiveText: {
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EC4899',
+    fontFamily: 'Inter',
   },
   
   // Chart Section
