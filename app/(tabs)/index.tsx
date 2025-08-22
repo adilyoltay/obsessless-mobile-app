@@ -362,17 +362,37 @@ export default function TodayScreen() {
         category: c.category
       }));
       
+      // ✅ FIXED: Load and sanitize mood entries for unified pipeline analysis
+      const rawMoods = await moodTracker.getMoodEntries(user.id, 7); // Last 7 days
+      const sanitizedMoods = rawMoods.map((m: any) => ({
+        ...m,
+        notes: m.notes ? sanitizePII(m.notes) : m.notes,
+        // Keep structured data intact for pattern analysis
+        mood_score: m.mood_score,
+        energy_level: m.energy_level,
+        anxiety_level: m.anxiety_level,
+        timestamp: m.timestamp,
+        triggers: m.triggers,
+        activities: m.activities
+      }));
+      
+      console.log(`📊 Loaded ${sanitizedCompulsions.length} compulsions + ${sanitizedMoods.length} mood entries for AI analysis`);
+      
       // ✅ ENCRYPT sensitive AI payload data (not just sanitize)
       const sensitivePayload = {
         compulsions: sanitizedCompulsions,
-        moods: [], // Will be loaded if needed (also sanitized)
+        moods: sanitizedMoods, // ✅ FIXED: Include mood entries for pattern recognition
         // erpSessions: [], // Removed ERP module
       };
       
       let encryptedPayload;
       try {
         encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+        
+        // ✅ FIXED: Log integrity metadata for auditability (as promised in docs)
         console.log('🔐 Sensitive AI payload encrypted with AES-256');
+        console.log(`🔍 Integrity hash: ${encryptedPayload.hash?.substring(0, 8)}...`);
+        console.log(`⏰ Encrypted at: ${new Date(encryptedPayload.timestamp || 0).toISOString()}`);
       } catch (error) {
         console.warn('⚠️ Encryption failed, using sanitized data:', error);
         encryptedPayload = sensitivePayload; // fallback to sanitized data

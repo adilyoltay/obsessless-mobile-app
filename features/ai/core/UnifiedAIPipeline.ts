@@ -1810,7 +1810,11 @@ export class UnifiedAIPipeline {
   private setupInvalidationHooks(): void {
     // Hook: New compulsion recorded
     this.invalidationHooks.set('compulsion_added', () => {
+      // ✅ FIXED: Invalidate patterns, insights, AND progress as per specification
       this.invalidateUserCache('patterns');
+      this.invalidateUserCache('insights'); 
+      this.invalidateUserCache('progress');
+      console.log('🔄 Cache invalidated: patterns + insights + progress (compulsion_added)');
     });
     
     // Hook: CBT thought record created/updated
@@ -1846,7 +1850,7 @@ export class UnifiedAIPipeline {
     });
   }
   
-  private invalidateUserCache(type: 'patterns' | 'insights' | 'all', userId?: string): void {
+  private invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'cbt' | 'voice' | 'all', userId?: string): void {
     const keysToDelete: string[] = [];
     
     this.cache.forEach((_, key) => {

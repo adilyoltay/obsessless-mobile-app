@@ -138,25 +138,28 @@ graph TB
 
 ### 💾 **Unified Cache Stratejisi:**
 ```typescript
-// UnifiedAIPipeline tek cache sistemi kullanır
+// ✅ UPDATED: UnifiedAIPipeline module-specific cache TTLs implemented
 const unifiedCacheConfig = {
-  TTL: 24 * 60 * 60 * 1000,          // 24 hours (unified)
+  // Module-specific TTLs for optimal performance
+  MODULE_TTLS: {
+    insights: 24 * 60 * 60 * 1000,    // 24 hours - stable therapeutic insights
+    patterns: 12 * 60 * 60 * 1000,    // 12 hours - behavioral patterns 
+    voice: 1 * 60 * 60 * 1000,        // 1 hour - dynamic voice analysis
+    progress: 6 * 60 * 60 * 1000,     // 6 hours - progress metrics
+    cbt: 24 * 60 * 60 * 1000,         // 24 hours - CBT analysis
+    default: 24 * 60 * 60 * 1000      // 24 hours fallback
+  },
+  
   invalidationHooks: [
-    'compulsion_added',               // Yeni kompulsiyon → all cache clear
+    'compulsion_added',               // Yeni kompulsiyon → patterns + insights + progress clear
     'mood_added',                     // Mood kaydı → all cache clear
-    'cbt_record_added',               // CBT kaydı → all cache clear
+    'cbt_record_added',               // CBT kaydı → insights cache clear
     'manual_refresh'                  // Kullanıcı yeniledi → all cache clear
     // 'erp_completed' REMOVED - ERP module deleted
   ],
   
-  // Cache key generation
-  generateKey: (input) => `unified:${input.userId}:${simpleHash(input.content)}`,
-  
-  // Gradual rollout kullanıcıları farklı cache
-  legacyCache: {
-    insights: 12 * 60 * 60 * 1000,   // Legacy users: 12h TTL
-    individual: true                   // Ayrı cache systems
-  }
+  // Cache key generation with module-aware TTL selection
+  generateKey: (input) => `unified:${input.userId}:${simpleHash(input.content)}:${input.type}`,
 }
 ```
 
@@ -463,6 +466,7 @@ graph TB
 
 ### 🔄 **Invalidation Hooks:**
 ```typescript
+// ✅ UPDATED: Active invalidation hooks with module-specific clearing
 const cacheInvalidation = {
   // Yeni kompulsiyon kaydedildiğinde
   compulsion_added: {
@@ -470,10 +474,10 @@ const cacheInvalidation = {
     reason: 'New behavior data affects analysis'
   },
   
-  // ERP seansı tamamlandığında  
-  erp_completed: {
-    invalidate: ['progress', 'erp_recommendations'],
-    reason: 'Treatment progress updated'
+  // CBT kaydı eklendiğinde
+  cbt_record_added: {
+    invalidate: ['insights'],
+    reason: 'CBT data affects insight generation'
   },
   
   // Mood kaydı eklendiğinde
@@ -487,6 +491,8 @@ const cacheInvalidation = {
     invalidate: ['all'],
     reason: 'User requested fresh data'
   }
+  
+  // ❌ REMOVED: erp_completed - ERP module deleted
 }
 ```
 

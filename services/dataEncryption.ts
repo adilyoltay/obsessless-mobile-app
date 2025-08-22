@@ -3,34 +3,47 @@ import { secureDataService } from './encryption/secureDataService';
 
 class DataEncryptionService {
   /**
-   * ✅ FIXED: Proper AES-256 encryption instead of SHA-256 hash
+   * ✅ FIXED: Proper AES-256 encryption with integrity metadata as promised in docs
    */
-  async encryptSensitiveData(data: any): Promise<{ encrypted: string; iv: string; algorithm: string; version: number }> {
+  async encryptSensitiveData(data: any): Promise<{ encrypted: string; iv: string; algorithm: string; version: number; hash: string; timestamp: number }> {
+    const json = JSON.stringify(data);
+    const timestamp = Date.now();
+    
+    // Generate integrity hash for auditability (always computed regardless of encryption method)
+    const integrityHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, json, { encoding: Crypto.CryptoEncoding.HEX });
+    
     try {
       // Use proper AES-256-GCM encryption
       const encryptedResult = await secureDataService.encryptData(data);
-      return encryptedResult;
+      
+      // ✅ FIXED: Return with integrity metadata as promised in documentation
+      return {
+        ...encryptedResult,
+        hash: integrityHash,         // SHA-256 hash for data integrity verification
+        timestamp: timestamp         // Timestamp for auditability
+      };
     } catch (error) {
       console.error('❌ AES-256 encryption failed:', error);
       
       // Fallback to basic hash if secure encryption fails
       // This ensures we don't store plaintext data
-      const json = JSON.stringify(data);
-      const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, json, { encoding: Crypto.CryptoEncoding.BASE64 });
+      const fallbackHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, json, { encoding: Crypto.CryptoEncoding.BASE64 });
       
       return {
-        encrypted: hash,
+        encrypted: fallbackHash,
         iv: '',
         algorithm: 'SHA256_FALLBACK',
-        version: 0
+        version: 0,
+        hash: integrityHash,         // SHA-256 hash for data integrity verification
+        timestamp: timestamp         // Timestamp for auditability
       };
     }
   }
   
   /**
-   * ✅ NEW: Decrypt sensitive data (reverse of encryption)
+   * ✅ NEW: Decrypt sensitive data (reverse of encryption) - supports integrity verification
    */
-  async decryptSensitiveData(encryptedData: { encrypted: string; iv: string; algorithm: string; version: number }): Promise<any> {
+  async decryptSensitiveData(encryptedData: { encrypted: string; iv: string; algorithm: string; version: number; hash?: string; timestamp?: number }): Promise<any> {
     if (encryptedData.algorithm === 'SHA256_FALLBACK') {
       throw new Error('Cannot decrypt hashed data - use SHA256_FALLBACK only as last resort');
     }
