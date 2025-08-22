@@ -922,15 +922,7 @@ export default function UserCentricOCDDashboard({
               </View>
             </View>
             
-            {/* Cultural Adaptations */}
-            {treatmentPlan.culturalAdaptations && (
-              <View style={styles.culturalAdaptationsCard}>
-                <Text style={styles.culturalAdaptationsTitle}>🇹🇷 Kültürel Uyarlamalar</Text>
-                <Text style={styles.culturalAdaptationsText}>
-                  Planınız Türk kültürüne ve değerlerinize uygun olarak hazırlanmıştır
-                </Text>
-              </View>
-            )}
+
             
             <Text style={styles.treatmentPlanSource}>
               📅 {new Date(treatmentPlan.createdAt).toLocaleDateString('tr-TR')} tarihinde oluşturuldu
@@ -1862,27 +1854,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cloudGray,
     marginHorizontal: 8,
   },
-  culturalAdaptationsCard: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 3,
-    borderLeftColor: '#10B981',
-  },
-  culturalAdaptationsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#065F46',
-    marginBottom: 4,
-    fontFamily: 'Inter',
-  },
-  culturalAdaptationsText: {
-    fontSize: 13,
-    color: '#047857',
-    lineHeight: 18,
-    fontFamily: 'Inter',
-  },
+
   treatmentPlanSource: {
     fontSize: 12,
     color: COLORS.whisperGray,
