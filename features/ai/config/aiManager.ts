@@ -96,6 +96,12 @@ export class AIManager {
   private async initializeAIServices(): Promise<void> {
     console.log('🚀 AIManager: Initializing AI services...');
 
+    // 🎯 Check if UnifiedAIPipeline is active - Skip legacy overlapping services
+    const isUnifiedPipelineActive = FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE');
+    if (isUnifiedPipelineActive) {
+      console.log('🚀 UnifiedAIPipeline is ACTIVE - Legacy overlapping services will be skipped');
+    }
+
     // Phase 0: CoreAnalysisService (if enabled)
     if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
       try {
@@ -158,6 +164,27 @@ export class AIManager {
     this.healthStatus.set('insightsV2', true);
     this.healthStatus.set('patternV2', true);
     this.healthStatus.set('smartNotifications', true);
+
+    // 📊 Track UnifiedAIPipeline activation status
+    if (isUnifiedPipelineActive) {
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_STARTED, {
+          activatedAt: Date.now(),
+          environment: __DEV__ ? 'development' : 'production',
+          rolloutPercentage: FEATURE_FLAGS.AI_UNIFIED_PIPELINE_PERCENTAGE,
+          enabledModules: {
+            voice: FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE'),
+            patterns: FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS'), 
+            insights: FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS'),
+            cbt: FEATURE_FLAGS.isEnabled('AI_UNIFIED_CBT')
+          }
+        });
+        console.log('📊 UnifiedAIPipeline activation tracked');
+      } catch (error) {
+        console.warn('⚠️ UnifiedAIPipeline telemetry failed:', error);
+      }
+    }
   }
 
   /**

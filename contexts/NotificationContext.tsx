@@ -210,8 +210,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const scheduleERPReminderInternal = async (exerciseName: string, time: string) => {
-    if (!notificationEnabled || Platform.OS === 'web') return;
+  // (Removed) scheduleERPReminderInternal function
 
     try {
       const [hours, minutes] = time.split(':').map(Number);
@@ -287,14 +286,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     fcmToken,
     enableNotifications,
     disableNotifications,
-    scheduleERPReminder,
+    scheduleTherapyReminder: async () => {}, // Placeholder
     scheduleDailyReminder,
     sendProgressMilestone,
     // Internal helpers also exposed for existing usages
     notificationEnabled,
     dailyReminders,
     scheduleCompulsionReminder,
-    scheduleERPReminderInternal,
+    // scheduleERPReminderInternal, // Removed
     sendMotivationalNotification,
     cancelAllReminders,
     setupNotifications,

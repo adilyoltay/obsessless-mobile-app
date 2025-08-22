@@ -61,7 +61,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Feature flag değerlerini runtime'da değiştirmek için mutable obje
-const featureFlagState: Record<string, boolean> = {
+const featureFlagState: Record<string, boolean | number> = {
   // 🎯 MASTER AI SWITCH
   AI_ENABLED: AI_MASTER_ENABLED,
   // 🧩 AI RUNTIME MODULES: Onboarding’dan bağımsız ek analiz/telemetry modülleri
@@ -99,19 +99,18 @@ const featureFlagState: Record<string, boolean> = {
   AI_ART_THERAPY: AI_MASTER_ENABLED, // Reactivated with Lindsay Braman style
 
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
-  AI_UNIFIED_VOICE: AI_MASTER_ENABLED, // Merkezi ses analizi sistemi
   // KALDIRILDI: AI_CRISIS_DETECTION
   
     // 🚀 CoreAnalysisService v1 flags
-  AI_CORE_ANALYSIS: false, // Yeni CoreAnalysisService (default: off)
-  AI_LLM_GATING: false, // LLM gating logic (default: off)
-  AI_PROGRESSIVE: false, // Progressive UI updates (default: off)
-  AI_ONBOARDING_REFINE: false, // Onboarding skeleton->refine (default: off)
-  AI_ERP_STAIRCASE: false, // Deterministic ERP difficulty (default: off)
+  AI_CORE_ANALYSIS: true, // Yeni CoreAnalysisService (ACTIVATED)
+  AI_LLM_GATING: true, // LLM gating logic (ACTIVATED)
+  AI_PROGRESSIVE: true, // Progressive UI updates (ACTIVATED)
+  AI_ONBOARDING_REFINE: true, // Onboarding skeleton->refine (ACTIVATED)
+  AI_ERP_STAIRCASE: true, // Deterministic ERP difficulty (ACTIVATED)
   
-  // 🎯 Unified AI Pipeline flags (NEW - Jan 2025)
-  AI_UNIFIED_PIPELINE: false, // Master toggle for unified pipeline (default: off)
-  AI_UNIFIED_PIPELINE_PERCENTAGE: 25, // Gradual rollout percentage (25% as per documentation)
+  // 🎯 Unified AI Pipeline flags (NEW - Jan 2025) - ACTIVATED
+  AI_UNIFIED_PIPELINE: true, // Master toggle for unified pipeline (ACTIVATED)
+  AI_UNIFIED_PIPELINE_PERCENTAGE: 100, // Full rollout for activation (100%)
   AI_UNIFIED_VOICE: true, // Voice module in pipeline
   AI_UNIFIED_PATTERNS: true, // Pattern recognition in pipeline
   AI_UNIFIED_INSIGHTS: true, // Insights generation in pipeline
@@ -195,7 +194,13 @@ export const FEATURE_FLAGS = {
       return false;
     }
     
-    return featureFlagState[feature] || false;
+    // Handle number values (like percentages) - treat as enabled if > 0
+    const value = featureFlagState[feature];
+    if (typeof value === 'number') {
+      return value > 0;
+    }
+    
+    return !!value;
   },
   
   /**
@@ -232,7 +237,7 @@ export const FEATURE_FLAGS = {
    * 🔧 Runtime'da feature flag değiştirme (sadece development)
    * Master AI switch değiştirildiğinde tüm AI özellikleri etkilenir
    */
-  setFlag: (feature: keyof typeof featureFlagState, value: boolean): void => {
+  setFlag: (feature: keyof typeof featureFlagState, value: boolean | number): void => {
     if (!__DEV__) {
       console.warn('⚠️ Feature flag changes only allowed in development');
       return;

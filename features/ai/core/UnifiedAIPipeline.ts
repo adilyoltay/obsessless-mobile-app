@@ -140,6 +140,32 @@ export class UnifiedAIPipeline {
   
   async process(input: UnifiedPipelineInput): Promise<UnifiedPipelineResult> {
     const startTime = Date.now();
+    
+    // 🛡️ MASTER FEATURE FLAG CHECK - Critical: Pipeline must be enabled
+    if (!FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+      console.log('⚠️ UnifiedAIPipeline: Feature disabled, returning empty result');
+      
+      // Track disabled pipeline attempt
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_DISABLED, {
+        userId: input.userId,
+        inputType: input.type,
+        pipeline: 'unified',
+        reason: 'feature_flag_disabled',
+        timestamp: startTime
+      });
+      
+      // Return minimal empty result when disabled
+      return {
+        metadata: {
+          pipelineVersion: '1.0.0',
+          processedAt: Date.now(),
+          cacheTTL: 0,
+          source: 'disabled',
+          processingTime: Date.now() - startTime
+        }
+      };
+    }
+    
     const cacheKey = this.generateCacheKey(input);
     
     // 📊 Track pipeline start

@@ -237,6 +237,7 @@ export enum AIEventType {
   UNIFIED_PIPELINE_COMPLETED = 'unified_pipeline_completed',
   UNIFIED_PIPELINE_ERROR = 'unified_pipeline_error',
   UNIFIED_PIPELINE_CACHE_HIT = 'unified_pipeline_cache_hit',
+  UNIFIED_PIPELINE_DISABLED = 'unified_pipeline_disabled',
   CACHE_INVALIDATION = 'cache_invalidation',
   
   // Voice Analysis specific events
