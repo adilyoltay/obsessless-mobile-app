@@ -32,7 +32,7 @@ import { COMPULSION_CATEGORIES } from '@/constants/compulsions';
 // Storage utility & Privacy & Encryption  
 import { StorageKeys } from '@/utils/storage';
 import { sanitizePII } from '@/utils/privacy';
-import { dataEncryption } from '@/services/dataEncryption';
+import { secureDataService } from '@/services/encryption/secureDataService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 
@@ -188,7 +188,7 @@ export default function TrackingScreen() {
           
           let encryptedPayload;
           try {
-            encryptedPayload = await dataEncryption.encryptSensitiveData(sensitivePayload);
+            encryptedPayload = await secureDataService.encryptSensitiveData(sensitivePayload);
             
             // Log integrity metadata for auditability
             console.log('🔐 Sensitive OCD payload encrypted with AES-256');
