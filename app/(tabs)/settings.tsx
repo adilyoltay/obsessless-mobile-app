@@ -49,16 +49,7 @@ interface SettingsData {
   weeklyReports: boolean;
 }
 
-// Treatment Plan data structure
-interface TreatmentPlanSummary {
-  id: string;
-  currentPhase: string;
-  phaseName: string;
-  progress: number;
-  totalPhases: number;
-  estimatedWeeks: number;
-  lastUpdated: string;
-}
+
 
 const LANGUAGE_OPTIONS = [
   { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
@@ -95,16 +86,12 @@ export default function SettingsScreen() {
   });
 
   // AI Onboarding state removed - no longer needed
-  
-  // Treatment Plan
-  const [treatmentPlan, setTreatmentPlan] = useState<TreatmentPlanSummary | null>(null);
-  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+  // Treatment Plan removed - moved to OCD Dashboard Assessment tab
 
   useEffect(() => {
     loadSettings();
     loadConsents();
     loadMigrationAndMetrics();
-    loadTreatmentPlan();
   }, []);
 
   const loadSettings = async () => {
@@ -140,45 +127,7 @@ export default function SettingsScreen() {
     } catch {}
   };
 
-  const loadTreatmentPlan = async () => {
-    try {
-      setIsLoadingPlan(true);
-      // Önce AsyncStorage'dan kontrol et
-      const savedPlan = await AsyncStorage.getItem('treatment_plan_summary');
-      if (savedPlan) {
-        const planData = JSON.parse(savedPlan);
-        setTreatmentPlan(planData);
-      } else {
-        // Eğer yoksa onboarding'den gelen planı kontrol et
-        const userProfile = await AsyncStorage.getItem('ai_user_profile');
-        const fullPlan = await AsyncStorage.getItem('ai_treatment_plan');
-        
-        if (fullPlan) {
-          const planData = JSON.parse(fullPlan);
-          // Özet bilgileri çıkar
-          const summary: TreatmentPlanSummary = {
-            id: planData.id || 'plan_1',
-            currentPhase: planData.phases?.[0]?.type || 'assessment',
-            phaseName: planData.phases?.[0]?.name || 'Değerlendirme',
-            progress: 0.15,
-            totalPhases: planData.phases?.length || 5,
-            estimatedWeeks: Math.ceil(planData.estimatedDuration / 7) || 12,
-            lastUpdated: planData.createdAt || new Date().toISOString()
-          };
-          setTreatmentPlan(summary);
-          // Özeti kaydet
-          await AsyncStorage.setItem('treatment_plan_summary', JSON.stringify(summary));
-        } else {
-          // Demo veri göster - kullanıcı tıkladığında gerçek plan oluşturulacak
-          console.log('No treatment plan found, showing placeholder');
-        }
-      }
-    } catch (error) {
-      console.error('Error loading treatment plan:', error);
-    } finally {
-      setIsLoadingPlan(false);
-    }
-  };
+
 
   // handleContinueAIOnboarding function removed - AI onboarding section removed
 
@@ -369,94 +318,7 @@ export default function SettingsScreen() {
     </View>
   );
 
-  const renderTreatmentPlanSection = () => {
-    return (
-      <View style={styles.treatmentSection}>
-        <Pressable 
-          style={styles.treatmentCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push({
-              pathname: '/(auth)/onboarding',
-              params: {
-                fromSettings: 'true',
-                fromTreatmentPlan: 'true',
-                force: 'true',
-                redirect: '/treatment-plan'
-              }
-            });
-          }}
-        >
-          <View style={styles.treatmentHeader}>
-            <View style={styles.treatmentIconContainer}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={24} color="#3B82F6" />
-            </View>
-            <View style={styles.treatmentInfo}>
-              <Text style={styles.treatmentTitle}>Tedavi Planım</Text>
-              <Text style={styles.treatmentSubtitle}>Kişiselleştirilmiş tedavi yol haritanız</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
-          </View>
-          
-          {isLoadingPlan && (
-            <View style={styles.treatmentContent}>
-              <ActivityIndicator size="small" color="#3B82F6" />
-            </View>
-          )}
-          
-          {!isLoadingPlan && !treatmentPlan && (
-            <View style={styles.treatmentContent}>
-              <Text style={styles.treatmentEmptyText}>
-                Tedavi planınızı görüntülemek için tıklayın
-              </Text>
-            </View>
-          )}
-          
-          {treatmentPlan && (
-            <View style={styles.treatmentContent}>
-              <View style={styles.treatmentPhase}>
-                <Text style={styles.treatmentPhaseLabel}>Mevcut Faz</Text>
-                <Text style={styles.treatmentPhaseValue}>{treatmentPlan.phaseName}</Text>
-              </View>
-              
-              <View style={styles.treatmentProgress}>
-                <View style={styles.treatmentProgressHeader}>
-                  <Text style={styles.treatmentProgressLabel}>İlerleme</Text>
-                  <Text style={styles.treatmentProgressValue}>
-                    {Math.round(treatmentPlan.progress * 100)}%
-                  </Text>
-                </View>
-                <View style={styles.treatmentProgressBar}>
-                  <View 
-                    style={[
-                      styles.treatmentProgressFill, 
-                      { width: `${treatmentPlan.progress * 100}%` }
-                    ]} 
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.treatmentStats}>
-                <View style={styles.treatmentStat}>
-                  <MaterialCommunityIcons name="calendar-range" size={16} color="#6B7280" />
-                  <Text style={styles.treatmentStatText}>
-                    {treatmentPlan.estimatedWeeks} hafta
-                  </Text>
-                </View>
-                <View style={styles.treatmentStatDivider} />
-                <View style={styles.treatmentStat}>
-                  <MaterialCommunityIcons name="layers-outline" size={16} color="#6B7280" />
-                  <Text style={styles.treatmentStatText}>
-                    {treatmentPlan.totalPhases} aşama
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </Pressable>
-      </View>
-    );
-  };
+
 
   const renderSettingItem = (
     title: string,
@@ -522,7 +384,6 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {renderProfileSection()}
-        {renderTreatmentPlanSection()}
 
         {/* Notifications */}
         <View style={styles.section}>
@@ -849,119 +710,7 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: '#E5E7EB',
   },
-  treatmentSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  treatmentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  treatmentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  treatmentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  treatmentInfo: {
-    flex: 1,
-  },
-  treatmentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  treatmentSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  treatmentContent: {
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 12,
-  },
-  treatmentPhase: {
-    marginBottom: 12,
-  },
-  treatmentPhaseLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  treatmentPhaseValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  treatmentProgress: {
-    marginBottom: 12,
-  },
-  treatmentProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  treatmentProgressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  treatmentProgressValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3B82F6',
-  },
-  treatmentProgressBar: {
-    height: 6,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  treatmentProgressFill: {
-    height: '100%',
-    backgroundColor: '#3B82F6',
-    borderRadius: 3,
-  },
-  treatmentStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  treatmentStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  treatmentStatText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  treatmentStatDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: '#E5E7EB',
-  },
-  treatmentEmptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
+
   section: {
     marginBottom: 24,
     paddingHorizontal: 20,

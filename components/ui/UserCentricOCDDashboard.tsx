@@ -117,6 +117,8 @@ export default function UserCentricOCDDashboard({
   const [culturalEncouragement, setCulturalEncouragement] = useState<string>('');
   const [onboardingProfile, setOnboardingProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [treatmentPlan, setTreatmentPlan] = useState<any>(null);
+  const [isLoadingTreatmentPlan, setIsLoadingTreatmentPlan] = useState(false);
 
   // Helper function to calculate Y-BOCS severity from score
   const calculateYbocsSeverity = (score: number): string => {
@@ -420,6 +422,41 @@ export default function UserCentricOCDDashboard({
     };
 
     loadOnboardingProfile();
+  }, [userId]);
+
+  // Load Treatment Plan from onboarding
+  useEffect(() => {
+    const loadTreatmentPlan = async () => {
+      if (!userId) return;
+      
+      setIsLoadingTreatmentPlan(true);
+      try {
+        console.log('🎯 Loading treatment plan...');
+        
+        // Try AsyncStorage first (from onboarding completion)
+        const localPlan = await AsyncStorage.getItem(`ai_treatment_plan_${userId}`);
+        if (localPlan) {
+          const plan = JSON.parse(localPlan);
+          console.log('✅ Found treatment plan:', {
+            id: plan.id,
+            phases: plan.phases?.length || 0,
+            currentPhase: plan.currentPhase,
+            duration: plan.estimatedDuration
+          });
+          setTreatmentPlan(plan);
+        } else {
+          console.log('❌ No treatment plan found in AsyncStorage');
+          setTreatmentPlan(null);
+        }
+      } catch (error) {
+        console.error('❌ Error loading treatment plan:', error);
+        setTreatmentPlan(null);
+      } finally {
+        setIsLoadingTreatmentPlan(false);
+      }
+    };
+
+    loadTreatmentPlan();
   }, [userId]);
 
   // Load AI data after profile is loaded
@@ -833,6 +870,83 @@ export default function UserCentricOCDDashboard({
           )}
         </View>
       )}
+
+      {/* Treatment Plan from Onboarding */}
+      <View style={styles.assessmentCard}>
+        <Text style={styles.assessmentTitle}>📋 Tedavi Planınız</Text>
+        {isLoadingTreatmentPlan ? (
+          <View style={styles.loadingCard}>
+            <MaterialCommunityIcons name="loading" size={24} color={COLORS.gentleBlue} />
+            <Text style={styles.loadingText}>Tedavi planınız yükleniyor...</Text>
+          </View>
+        ) : treatmentPlan ? (
+          <View style={styles.treatmentPlanCard}>
+            {/* Plan Header */}
+            <View style={styles.treatmentHeader}>
+              <MaterialCommunityIcons name="clipboard-text-outline" size={24} color="#3B82F6" />
+              <Text style={styles.treatmentTitle}>Kişiselleştirilmiş OKB Tedavi Planı</Text>
+            </View>
+            
+            {/* Current Phase */}
+            <View style={styles.currentPhaseCard}>
+              <Text style={styles.currentPhaseLabel}>Şu Anki Aşama</Text>
+              <Text style={styles.currentPhaseValue}>
+                {treatmentPlan.currentPhase + 1}. Aşama / {treatmentPlan.phases?.length || 0} Aşama
+              </Text>
+              <Text style={styles.currentPhaseTitle}>
+                {treatmentPlan.phases?.[treatmentPlan.currentPhase]?.name || 
+                 treatmentPlan.phases?.[treatmentPlan.currentPhase]?.title || 
+                 'Başlangıç Aşaması'}
+              </Text>
+            </View>
+            
+            {/* Plan Stats */}
+            <View style={styles.planStatsRow}>
+              <View style={styles.planStat}>
+                <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.gentleBlue} />
+                <Text style={styles.planStatText}>
+                  {treatmentPlan.estimatedDuration} hafta
+                </Text>
+              </View>
+              <View style={styles.planStatDivider} />
+              <View style={styles.planStat}>
+                <MaterialCommunityIcons name="target" size={16} color={COLORS.gentleBlue} />
+                <Text style={styles.planStatText}>
+                  {treatmentPlan.evidenceBasedInterventions?.length || 0} müdahale
+                </Text>
+              </View>
+              <View style={styles.planStatDivider} />
+              <View style={styles.planStat}>
+                <MaterialCommunityIcons name="trending-up" size={16} color={COLORS.gentleBlue} />
+                <Text style={styles.planStatText}>Kişisel plan</Text>
+              </View>
+            </View>
+            
+            {/* Cultural Adaptations */}
+            {treatmentPlan.culturalAdaptations && (
+              <View style={styles.culturalAdaptationsCard}>
+                <Text style={styles.culturalAdaptationsTitle}>🇹🇷 Kültürel Uyarlamalar</Text>
+                <Text style={styles.culturalAdaptationsText}>
+                  Planınız Türk kültürüne ve değerlerinize uygun olarak hazırlanmıştır
+                </Text>
+              </View>
+            )}
+            
+            <Text style={styles.treatmentPlanSource}>
+              📅 {new Date(treatmentPlan.createdAt).toLocaleDateString('tr-TR')} tarihinde oluşturuldu
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.noDataCard}>
+            <MaterialCommunityIcons name="clipboard-outline" size={24} color={COLORS.whisperGray} />
+            <Text style={styles.noDataTitle}>Tedavi Planı Bulunamadı</Text>
+            <Text style={styles.noDataText}>
+              Tedavi planınız onboarding sırasında oluşturulmuş olmalı. 
+              Eğer onboarding'i tamamlamadıysanız, lütfen uygulamayı yeniden başlatın.
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* Empty State for Y-BOCS */}
       {ybocsHistory.length === 0 && (
@@ -1669,6 +1783,111 @@ const styles = StyleSheet.create({
     color: COLORS.whisperGray,
     textAlign: 'center',
     lineHeight: 20,
+    fontFamily: 'Inter',
+  },
+  
+  // Treatment Plan Styles
+  treatmentPlanCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  treatmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  treatmentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primaryText,
+    fontFamily: 'Inter',
+    marginLeft: 8,
+    flex: 1,
+  },
+  currentPhaseCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  currentPhaseLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 4,
+    fontFamily: 'Inter',
+  },
+  currentPhaseValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3B82F6',
+    fontFamily: 'Inter',
+    marginBottom: 4,
+  },
+  currentPhaseTitle: {
+    fontSize: 14,
+    color: COLORS.primaryText,
+    fontFamily: 'Inter',
+  },
+  planStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  planStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  planStatText: {
+    fontSize: 13,
+    color: COLORS.primaryText,
+    marginLeft: 4,
+    fontFamily: 'Inter',
+    fontWeight: '500',
+  },
+  planStatDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: COLORS.cloudGray,
+    marginHorizontal: 8,
+  },
+  culturalAdaptationsCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+  },
+  culturalAdaptationsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#065F46',
+    marginBottom: 4,
+    fontFamily: 'Inter',
+  },
+  culturalAdaptationsText: {
+    fontSize: 13,
+    color: '#047857',
+    lineHeight: 18,
+    fontFamily: 'Inter',
+  },
+  treatmentPlanSource: {
+    fontSize: 12,
+    color: COLORS.whisperGray,
+    textAlign: 'center',
+    marginTop: 8,
     fontFamily: 'Inter',
   },
 });
