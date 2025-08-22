@@ -871,7 +871,7 @@ export interface EvidenceBasedIntervention {
  * Intervention Types
  */
 export enum InterventionType {
-  EXPOSURE_RESPONSE_PREVENTION = 'erp',
+  // EXPOSURE_RESPONSE_PREVENTION = 'erp', // Removed
   COGNITIVE_RESTRUCTURING = 'cognitive_restructuring',
   MINDFULNESS_TRAINING = 'mindfulness_training',
   BEHAVIORAL_ACTIVATION = 'behavioral_activation',

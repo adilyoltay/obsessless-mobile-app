@@ -757,14 +757,14 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // DB'den davranışsal veriler (paralel)
       let dbCompulsions: any[] = [];
-      let dbErpSessions: any[] = [];
+      // let dbErpSessions: any[] = []; // Removed ERP sessions
       try {
-        const [compList, erpList] = await Promise.all([
+        const [compList] = await Promise.all([
           (async () => await (await import('@/services/supabase')).supabaseService.getCompulsions(user.id, startISO, endISO))(),
-          (async () => await (await import('@/services/supabase')).supabaseService.getERPSessions(user.id, startISO, endISO))()
+
         ]);
         dbCompulsions = compList || [];
-        dbErpSessions = erpList || [];
+        // dbErpSessions = erpList || []; // Removed ERP sessions
       } catch (e) {
         if (__DEV__) console.warn('⚠️ DB behavioral fetch failed, will use local fallbacks');
       }

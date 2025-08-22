@@ -737,7 +737,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
   }
 
   /**
-   * 🛡️ ERP Pattern Analysis - Exposure themes detection
+   * 🛡️ (Removed) ERP Pattern Analysis - Exposure themes detection
    */
   private analyzeERPPatterns(content: string): {
     quickClass: QuickClass;
