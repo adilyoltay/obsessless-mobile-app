@@ -1112,8 +1112,7 @@ export default function TodayScreen() {
               // Bu oturum için kapat as documented
               setBreathworkSuggestion(null);
             }}
-            
-            {/* Optional advanced props for enhanced functionality */}
+            // Optional advanced props for enhanced functionality
             userId={user?.id}
             suggestion={breathworkSuggestion.originalSuggestion}
             context={{
