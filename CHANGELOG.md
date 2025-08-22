@@ -7,7 +7,7 @@
 #### **Yeni Özellikler**
 - **Contextual Tetikleme**: Doğru zamanda, doğru protokolle nefes önerileri
   - Check-in analizi sonucu otomatik yönlendirme
-  - ERP sırasında anksiyete eşiği (≥7) tetiklemesi
+  - Terapi sırasında anksiyete eşiği (≥7) tetiklemesi
   - Today ekranında zaman tabanlı öneriler (sabah/akşam)
   - Kompulsiyon sonrası toparlanma nefesi
 
@@ -28,7 +28,7 @@
 
 #### **UI/UX İyileştirmeleri**
 - **BreathworkSuggestionCard**: Gradient tasarımlı öneri kartı
-- **Inline BottomSheet**: ERP içinde kesintisiz nefes deneyimi
+- **Inline BottomSheet**: Terapi içinde kesintisiz nefes deneyimi
 - **Toast bildirimleri**: Kullanıcı bilgilendirme
 
 #### **Teknik İyileştirmeler**

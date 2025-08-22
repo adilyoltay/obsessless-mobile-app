@@ -31,7 +31,7 @@ graph LR
     I --> J1[🎭 MOOD] 
     I --> J2[🧠 CBT]
     I --> J3[🔄 OCD]
-    I --> J4[🛡️ ERP]
+
     I --> J5[🌬️ BREATHWORK]
     J1 --> K[🎯 Smart Routing]
     J2 --> K
@@ -58,7 +58,7 @@ const heuristicAnalysis = {
   cbt: ['düşünce', 'korku', 'endişe', 'kaygı', 'olumsuz'],
   mood: ['keyifsiz', 'üzgün', 'mutlu', 'enerjik', 'yorgun'],
   breathwork: ['nefes', 'panik', 'gergin', 'sakin'],
-  erp: ['kaçınma', 'korku', 'cesaret', 'zorluk']
+
 }
 ```
 

@@ -7,7 +7,7 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
   - Dosya tabanlı yönlendirme (Expo Router)
   - Erişilebilir ve minimal UI bileşenleri (custom components)
 - State Yönetimi
-  - Global: Zustand (onboarding, ERP, gamification)
+  - Global: Zustand (onboarding, gamification)
   - Asenkron/Cache: TanStack Query (Supabase veri senkronu)
 - Veri Katmanı
   - Supabase (Auth, PostgreSQL, RLS, Triggers)

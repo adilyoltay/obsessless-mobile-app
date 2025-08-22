@@ -47,7 +47,7 @@ Tüm AI analizlerini tek pipeline'da toplayan yeni mimari devreye alındı:
 - **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token)
 - **Similarity Dedup**: Tekrarlayan istekleri otomatik önleme
 - **Progressive UI**: 300ms'de hızlı yanıt, 3s'de derin analiz
-- **Multi-layer Cache**: Optimize TTL (24h insights, 12h ERP, 1h voice)
+- **Multi-layer Cache**: Optimize TTL (24h insights, 1h voice)
 
 ### ✨ Diğer Yeni Özellikler
 - **🎤 Unified Voice Analysis**: CoreAnalysisService ile entegre ses analizi

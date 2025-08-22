@@ -109,7 +109,7 @@ export default function TodayScreen() {
   // Today's stats
   const [todayStats, setTodayStats] = useState({
     compulsions: 0,
-    erpSessions: 0,
+
     healingPoints: 0,
     resistanceWins: 0
   });
@@ -138,7 +138,7 @@ export default function TodayScreen() {
     ]).start();
   }, [user?.id]);
 
-  // Refresh stats when screen is focused (after returning from ERP session or other screens)
+  // Refresh stats when screen is focused (after returning from other screens)
   useFocusEffect(
     React.useCallback(() => {
       if (user?.id) {

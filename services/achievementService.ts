@@ -8,7 +8,7 @@ export interface Achievement {
   descriptionEn: string;
   icon: string;
   color: string;
-  category: 'compulsion' | 'erp' | 'assessment' | 'streak' | 'progress' | 'time';
+  category: 'compulsion' | 'assessment' | 'streak' | 'progress' | 'time';
   type: 'count' | 'streak' | 'milestone' | 'special';
   target: number;
   currentProgress: number;
@@ -34,7 +34,7 @@ export interface StreakData {
   lastActivity: Date;
   activities: {
     date: string;
-    type: 'compulsion' | 'erp' | 'assessment';
+    type: 'compulsion' | 'assessment';
     count: number;
   }[];
 }

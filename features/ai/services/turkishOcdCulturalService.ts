@@ -607,7 +607,7 @@ class TurkishOCDCulturalService {
     // Long-term interventions
     longTerm.culturalTherapyApproaches.push('Kültürel duyarlı CBT');
     if (religiousAnalysis.isPresent) {
-      longTerm.culturalTherapyApproaches.push('Religious accommodation ile ERP');
+      longTerm.culturalTherapyApproaches.push('Religious accommodation ile terapi');
     }
 
     longTerm.communityResources.push('Türkçe OKB destek grupları');
@@ -782,7 +782,7 @@ class TurkishOCDCulturalService {
         treatmentComplexity: 'complex',
         requiresSpecialist: true,
         culturallyAdaptedTreatments: [{
-          treatment: 'Dini danışmanlık ile ERP',
+          treatment: 'Dini danışmanlık ile terapi',
           culturalModification: 'İmam/vaiz işbirliği ile normal abdest vs OKB ayırımı',
           effectiveness: 'high'
         }],
@@ -832,7 +832,7 @@ class TurkishOCDCulturalService {
         treatmentComplexity: 'moderate',
         requiresSpecialist: false,
         culturallyAdaptedTreatments: [{
-          treatment: 'Family-based ERP',
+          treatment: 'Family-based terapi',
           culturalModification: 'Aile değerlerini koruyarak sorumluluk dengeleme',
           effectiveness: 'high'
         }],
