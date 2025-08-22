@@ -129,6 +129,30 @@ export default function UserCentricOCDDashboard({
     return 'Minimal';
   };
 
+  // Helper function to create mock Y-BOCS answers from total score
+  const createMockYBOCSAnswers = (totalScore: number) => {
+    // Split score equally between obsessions and compulsions (common pattern)
+    const obsessionScore = Math.floor(totalScore / 2);
+    const compulsionScore = totalScore - obsessionScore;
+    
+    // Create mock answers (5 questions each for obsessions and compulsions)
+    const obsessionAnswers = Array.from({ length: 5 }, (_, i) => ({
+      questionId: `obs_${i + 1}`,
+      questionType: 'OBSESSIONS' as const,
+      value: Math.floor(obsessionScore / 5) + (i < obsessionScore % 5 ? 1 : 0),
+      timestamp: new Date().toISOString()
+    }));
+    
+    const compulsionAnswers = Array.from({ length: 5 }, (_, i) => ({
+      questionId: `comp_${i + 1}`,
+      questionType: 'COMPULSIONS' as const,
+      value: Math.floor(compulsionScore / 5) + (i < compulsionScore % 5 ? 1 : 0),
+      timestamp: new Date().toISOString()
+    }));
+    
+    return [...obsessionAnswers, ...compulsionAnswers];
+  };
+
   // DEBUG: Log incoming props
   useEffect(() => {
     console.log('🔍 UserCentricOCDDashboard Props Debug:');
@@ -518,10 +542,9 @@ export default function UserCentricOCDDashboard({
           // ✅ CRITICAL: Initialize Y-BOCS service before use
           try {
             await ybocsAnalysisService.initialize();
-            const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
-              userId,
-              [onboardingYBOCS] // Use onboarding data as "history"
-            );
+            // Convert onboarding data to Y-BOCS answers format for analysis
+            const mockAnswers = createMockYBOCSAnswers(onboardingYBOCS.score);
+            const ybocsAI = await ybocsAnalysisService.analyzeResponses(mockAnswers);
             setYBOCSAIAnalysis(ybocsAI);
           } catch (error) {
             console.error('❌ Y-BOCS AI analysis failed:', error);
@@ -532,10 +555,10 @@ export default function UserCentricOCDDashboard({
           console.log('📊 Loading Y-BOCS AI analysis from history...');
           try {
             await ybocsAnalysisService.initialize();
-            const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
-              userId,
-              ybocsHistory
-            );
+            // Use the latest Y-BOCS entry from history
+            const latestEntry = ybocsHistory[ybocsHistory.length - 1];
+            const mockAnswers = createMockYBOCSAnswers(latestEntry.totalScore || 0);
+            const ybocsAI = await ybocsAnalysisService.analyzeResponses(mockAnswers);
             setYBOCSAIAnalysis(ybocsAI);
           } catch (error) {
             console.error('❌ Y-BOCS AI history analysis failed:', error);

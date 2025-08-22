@@ -2391,6 +2391,241 @@ export class UnifiedAIPipeline {
       .map(([trigger, _]) => trigger);
   }
 
+  // ============================================================================
+  // 🔧 MISSING PATTERN EXTRACTION METHODS
+  // ============================================================================
+
+  /**
+   * Extract temporal patterns from compulsions
+   */
+  private extractTemporalPatterns(compulsions: any[]): any[] {
+    try {
+      const patterns: any[] = [];
+      if (!compulsions || compulsions.length === 0) return patterns;
+
+      // Group by hour to find time-based patterns
+      const hourlyData: Record<number, number> = {};
+      compulsions.forEach(c => {
+        if (c.timestamp) {
+          const hour = new Date(c.timestamp).getHours();
+          hourlyData[hour] = (hourlyData[hour] || 0) + 1;
+        }
+      });
+
+      // Find peak hours
+      const peakHours = Object.entries(hourlyData)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([hour, count]) => ({
+          type: 'temporal',
+          description: `Peak activity at ${hour}:00`,
+          pattern: `${hour}:00 saati yoğunluk`,
+          confidence: Math.min(0.9, count / compulsions.length * 2)
+        }));
+
+      patterns.push(...peakHours);
+      return patterns;
+    } catch (error) {
+      console.warn('⚠️ Error extracting temporal patterns:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extract mood temporal patterns
+   */
+  private extractMoodTemporalPatterns(moods: any[]): any[] {
+    try {
+      const patterns: any[] = [];
+      if (!moods || moods.length === 0) return patterns;
+
+      // Group moods by day of week
+      const weeklyData: Record<number, { mood: number, count: number }> = {};
+      moods.forEach(m => {
+        if (m.timestamp && m.mood_score !== undefined) {
+          const dayOfWeek = new Date(m.timestamp).getDay();
+          if (!weeklyData[dayOfWeek]) {
+            weeklyData[dayOfWeek] = { mood: 0, count: 0 };
+          }
+          weeklyData[dayOfWeek].mood += m.mood_score;
+          weeklyData[dayOfWeek].count += 1;
+        }
+      });
+
+      // Find mood patterns by day
+      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      Object.entries(weeklyData).forEach(([day, data]) => {
+        const avgMood = data.mood / data.count;
+        if (data.count >= 2) {
+          patterns.push({
+            type: 'mood_temporal',
+            description: `${dayNames[parseInt(day)]} mood pattern`,
+            pattern: `${dayNames[parseInt(day)]} günü ortalama mood: ${avgMood.toFixed(1)}`,
+            confidence: Math.min(0.8, data.count / moods.length * 7)
+          });
+        }
+      });
+
+      return patterns;
+    } catch (error) {
+      console.warn('⚠️ Error extracting mood temporal patterns:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extract environmental triggers
+   */
+  private extractEnvironmentalTriggers(content: any): any[] {
+    try {
+      const triggers: any[] = [];
+      
+      // Environmental keywords
+      const environmentalKeywords = [
+        'ev', 'oda', 'mutfak', 'banyo', 'iş', 'okul', 'dışarı', 'araba', 'hastane', 'mağaza'
+      ];
+
+      // Check compulsions for environmental contexts
+      if (content.compulsions && Array.isArray(content.compulsions)) {
+        content.compulsions.forEach((c: any) => {
+          const text = (c.notes || c.trigger || '').toLowerCase();
+          environmentalKeywords.forEach(keyword => {
+            if (text.includes(keyword)) {
+              triggers.push({
+                type: 'environmental',
+                trigger: keyword,
+                context: c.category || 'unknown',
+                confidence: 0.7
+              });
+            }
+          });
+        });
+      }
+
+      // Check moods for environmental mentions
+      if (content.moods && Array.isArray(content.moods)) {
+        content.moods.forEach((m: any) => {
+          const triggers_array = m.triggers || [];
+          if (Array.isArray(triggers_array)) {
+            triggers_array.forEach((trigger: string) => {
+              const lowerTrigger = trigger.toLowerCase();
+              environmentalKeywords.forEach(keyword => {
+                if (lowerTrigger.includes(keyword)) {
+                  triggers.push({
+                    type: 'environmental',
+                    trigger: keyword,
+                    context: 'mood',
+                    confidence: 0.8
+                  });
+                }
+              });
+            });
+          }
+        });
+      }
+
+      return triggers;
+    } catch (error) {
+      console.warn('⚠️ Error extracting environmental triggers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extract behavioral patterns
+   */
+  private extractBehavioralPatterns(compulsions: any[]): any[] {
+    try {
+      const patterns: any[] = [];
+      if (!compulsions || compulsions.length === 0) return patterns;
+
+      // Group by category
+      const categoryData: Record<string, number> = {};
+      compulsions.forEach(c => {
+        if (c.type || c.category) {
+          const category = c.type || c.category;
+          categoryData[category] = (categoryData[category] || 0) + 1;
+        }
+      });
+
+      // Find most common patterns
+      Object.entries(categoryData)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .forEach(([category, count]) => {
+          patterns.push({
+            type: 'behavioral',
+            pattern: category,
+            frequency: count,
+            description: `${category} kategorisinde ${count} kayıt`,
+            confidence: Math.min(0.9, count / compulsions.length * 2)
+          });
+        });
+
+      return patterns;
+    } catch (error) {
+      console.warn('⚠️ Error extracting behavioral patterns:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Analyze triggers
+   */
+  private analyzeTriggers(content: any): any[] {
+    try {
+      const triggers: any[] = [];
+      
+      // Combine environmental and other triggers
+      const envTriggers = this.extractEnvironmentalTriggers(content);
+      triggers.push(...envTriggers);
+
+      return triggers;
+    } catch (error) {
+      console.warn('⚠️ Error analyzing triggers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Analyze severity progression
+   */
+  private analyzeSeverityProgression(content: any): any[] {
+    try {
+      const progression: any[] = [];
+      
+      if (content.compulsions && Array.isArray(content.compulsions)) {
+        // Calculate average severity/resistance over time
+        const sortedCompulsions = content.compulsions
+          .filter((c: any) => c.timestamp && c.resistanceLevel !== undefined)
+          .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        if (sortedCompulsions.length >= 3) {
+          const first = sortedCompulsions.slice(0, Math.floor(sortedCompulsions.length / 3));
+          const last = sortedCompulsions.slice(-Math.floor(sortedCompulsions.length / 3));
+
+          const firstAvg = first.reduce((sum: number, c: any) => sum + c.resistanceLevel, 0) / first.length;
+          const lastAvg = last.reduce((sum: number, c: any) => sum + c.resistanceLevel, 0) / last.length;
+
+          if (Math.abs(lastAvg - firstAvg) > 0.5) {
+            progression.push({
+              type: 'severity_progression',
+              trend: lastAvg > firstAvg ? 'improving' : 'declining',
+              change: lastAvg - firstAvg,
+              description: `Direnç seviyesi ${lastAvg > firstAvg ? 'artıyor' : 'azalıyor'}`,
+              confidence: 0.8
+            });
+          }
+        }
+      }
+
+      return progression;
+    } catch (error) {
+      console.warn('⚠️ Error analyzing severity progression:', error);
+      return [];
+    }
+  }
+
 }
 
 // ============================================================================
