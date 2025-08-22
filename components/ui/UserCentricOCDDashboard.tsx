@@ -439,7 +439,7 @@ export default function UserCentricOCDDashboard({
         // 2. Load Trigger Analysis if we have enough data
         if (compulsions.length >= 2) {
           console.log('🎯 Loading trigger analysis...');
-          const triggerResult = await ocdTriggerDetectionService.getInstance().detectTriggers(
+          const triggerResult = await ocdTriggerDetectionService.detectTriggers(
             compulsions,
             userId,
             'full'
@@ -465,7 +465,7 @@ export default function UserCentricOCDDashboard({
             }
           };
 
-          const ybocsAI = await ybocsAnalysisService.getInstance().analyzeYBOCSHistory(
+          const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
             userId,
             [onboardingYBOCS] // Use onboarding data as "history"
           );
@@ -473,7 +473,7 @@ export default function UserCentricOCDDashboard({
         } else if (ybocsHistory.length > 0) {
           // Fallback to actual history if onboarding data not found
           console.log('📊 Loading Y-BOCS AI analysis from history...');
-          const ybocsAI = await ybocsAnalysisService.getInstance().analyzeYBOCSHistory(
+          const ybocsAI = await ybocsAnalysisService.analyzeYBOCSHistory(
             userId,
             ybocsHistory
           );
