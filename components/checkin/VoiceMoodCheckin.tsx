@@ -14,12 +14,10 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 
-function SuggestionCard({ nlu, onSelect, lowConfidence, cbtSuggestion }: { nlu: NLUResult; onSelect: (route: 'ERP'|'REFRAME') => void; lowConfidence?: boolean; cbtSuggestion?: string; }) {
+function SuggestionCard({ nlu, onSelect, lowConfidence, cbtSuggestion }: { nlu: NLUResult; onSelect: (route: 'REFRAME') => void; lowConfidence?: boolean; cbtSuggestion?: string; }) {
   const route = decideRoute(nlu);
-  const title = route === 'ERP' ? (nlu.trigger === 'temizlik' ? 'ERP: Temizlik Tetkik' : 'ERP: Kontrol') : 'Bilişsel Çerçeveleme';
-  const description = route === 'ERP'
-    ? (nlu.trigger === 'temizlik' ? 'Kademeli maruz bırakma ile rahatlamayı erteleme pratiği' : 'Kontrol davranışını azaltma ve belirsizliğe tolerans')
-    : 'Düşünceyi yeniden çerçeveleme ile hızlı rahatlama önerisi';
+  const title = 'Bilişsel Çerçeveleme';
+  const description = 'Düşünceyi yeniden çerçeveleme ile hızlı rahatlama önerisi';
   return (
     <Card style={styles.card}>
       <Text style={styles.cardTitle}>{title} {lowConfidence && <Text style={styles.badge}>Düşük Güven</Text>}</Text>
@@ -326,7 +324,7 @@ export default function VoiceMoodCheckin({
     }
   };
 
-  const handleSelect = async (route: 'ERP'|'REFRAME') => {
+  const handleSelect = async (route: 'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
     if (route === 'ERP') {
       try {

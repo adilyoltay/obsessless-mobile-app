@@ -39,7 +39,7 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
-import { useERPSettingsStore } from '@/store/erpSettingsStore';
+
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -63,7 +63,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const erpStore = useERPSettingsStore();
+
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');

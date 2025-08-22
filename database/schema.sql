@@ -83,34 +83,7 @@ ALTER TABLE public.compulsions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage own compulsions" ON public.compulsions
   FOR ALL USING (auth.uid() = user_id);
 
--- ================================
--- ERP SESSIONS TABLE
--- ================================
-CREATE TABLE public.erp_sessions (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  exercise_id TEXT NOT NULL,
-  exercise_name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  duration_seconds INTEGER NOT NULL CHECK (duration_seconds > 0),
-  anxiety_initial INTEGER NOT NULL CHECK (anxiety_initial >= 1 AND anxiety_initial <= 10),
-  anxiety_final INTEGER NOT NULL CHECK (anxiety_final >= 1 AND anxiety_final <= 10),
-  anxiety_readings JSONB DEFAULT '[]'::jsonb,
-  completed BOOLEAN DEFAULT true,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
 
--- Create indexes
-CREATE INDEX idx_erp_sessions_user_id ON public.erp_sessions(user_id);
-CREATE INDEX idx_erp_sessions_timestamp ON public.erp_sessions(timestamp);
-CREATE INDEX idx_erp_sessions_category ON public.erp_sessions(category);
-
--- Enable RLS
-ALTER TABLE public.erp_sessions ENABLE ROW LEVEL SECURITY;
-
--- Users can only manage their own ERP sessions
-CREATE POLICY "Users can manage own erp sessions" ON public.erp_sessions
-  FOR ALL USING (auth.uid() = user_id);
 
 -- ================================
 -- GAMIFICATION PROFILES TABLE

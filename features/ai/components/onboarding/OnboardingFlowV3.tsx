@@ -58,8 +58,7 @@ import {
   CompletionIllustration 
 } from '@/components/illustrations/OnboardingIllustrations';
 
-// ERP/OCD İllüstrasyonları
-import * as ERPIllustrations from '@/components/illustrations/ERPIllustrations';
+// OCD İllüstrasyonları
 
 // Hedef İllüstrasyonları
 import * as GoalsIllustrations from '@/components/illustrations/GoalsIllustrations';
@@ -1280,15 +1279,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       case OnboardingStep.PROFILE_SYMPTOMS:
         // Lindsay Braman SVG illüstrasyonları
         const getSymptomIllustration = (id: string) => {
-          switch(id) {
-            case 'contamination': return ERPIllustrations.ContaminationIcon;
-            case 'checking': return ERPIllustrations.CheckingIcon;
-            case 'symmetry': return ERPIllustrations.SymmetryIcon;
-            case 'mental': return ERPIllustrations.MentalIcon;
-            case 'hoarding': return ERPIllustrations.HoardingIcon;
-            case 'other': return ERPIllustrations.OtherIcon;
-            default: return ERPIllustrations.OtherIcon;
-          }
+          // Illustrations removed, use default icon
+          return null;
         };
         
         const fallbackLabelMap: Record<string, string> = {
@@ -1337,10 +1329,12 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                       }
                     }}
                   >
-                    <IllustrationComponent 
-                      width={SCREEN_HEIGHT < 700 ? 32 : 40} 
-                      height={SCREEN_HEIGHT < 700 ? 32 : 40}
-                    />
+                    <View style={{ 
+                      width: SCREEN_HEIGHT < 700 ? 32 : 40,
+                      height: SCREEN_HEIGHT < 700 ? 32 : 40,
+                      backgroundColor: '#E5E7EB',
+                      borderRadius: 6
+                    }} />
                   <Text style={[
                     styles.symptomGridText,
                     symptomTypes.includes(symptom.id) && styles.symptomGridTextSelected
@@ -1456,10 +1450,12 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
                   >
                     <View style={styles.goalFullWidthContent}>
                       <View style={styles.goalIconContainer}>
-                        <IllustrationComponent 
-                          width={SCREEN_HEIGHT < 700 ? 36 : 45} 
-                          height={SCREEN_HEIGHT < 700 ? 36 : 45} 
-                        />
+                        <View style={{ 
+                          width: SCREEN_HEIGHT < 700 ? 36 : 45,
+                          height: SCREEN_HEIGHT < 700 ? 36 : 45,
+                          backgroundColor: '#E5E7EB',
+                          borderRadius: 8
+                        }} />
                       </View>
                       <Text style={[
                         styles.goalFullWidthText,

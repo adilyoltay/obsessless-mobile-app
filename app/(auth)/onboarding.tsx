@@ -231,7 +231,7 @@ export default function OnboardingScreen() {
           </View>
           <View style={styles.featureItem}>
             <Text style={styles.featureBullet}>✓</Text>
-            <Text style={styles.featureText}>ERP egzersizleri</Text>
+            <Text style={styles.featureText}>Terapi egzersizleri</Text>
           </View>
           <View style={styles.featureItem}>
             <Text style={styles.featureBullet}>✓</Text>

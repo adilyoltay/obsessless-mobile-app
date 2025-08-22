@@ -22,7 +22,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
-import { ERPIllustrations } from '@/components/illustrations/ERPIllustrations';
+
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 interface CompulsionQuickEntryProps {
@@ -295,15 +295,6 @@ export function CompulsionQuickEntry({
                 >
                   <View style={styles.categoryIconContainer}>
                     {(() => {
-                      const IllustrationComponent = ERPIllustrations[id];
-                      if (IllustrationComponent) {
-                        return (
-                          <IllustrationComponent 
-                            size={60}
-                            selected={isSelected}
-                          />
-                        );
-                      }
                       // Fallback to icon if no illustration
                       return (
                         <View style={[
