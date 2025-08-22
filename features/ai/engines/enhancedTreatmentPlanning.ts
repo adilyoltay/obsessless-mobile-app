@@ -22,14 +22,15 @@ class EnhancedTreatmentPlanningEngine {
       // Heuristic personalization using enhanced aggregate
       const triggers: string[] = Array.isArray(aggregate?.patterns?.commonTriggers) ? aggregate.patterns.commonTriggers : [];
       const peakTimes: string[] = Array.isArray(aggregate?.patterns?.peakAnxietyTimes) ? aggregate.patterns.peakAnxietyTimes : [];
-      const completionRate: number = Number(aggregate?.performance?.therapyCompletionRate ?? 100);
+      // ✅ REMOVED: therapyCompletionRate - ERP module deleted
+      const practiceConsistency: number = Number(aggregate?.performance?.weeklyActivity ?? 100);
       const priorityCategory: string | undefined = Array.isArray(aggregate?.symptoms?.primaryCategories) ? aggregate.symptoms.primaryCategories[0] : undefined;
       const personalized = {
         interventions: [
-          completionRate < 50 ? { type: 'therapy_micro', rationale: 'Düşük terapi sürekliliği - kısa ama sık pratik', priority: 'high' } : { type: 'therapy_standard', priority: 'medium' },
+          practiceConsistency < 50 ? { type: 'micro_interventions', rationale: 'Düşük aktivite sürekliliği - kısa ama sık pratik', priority: 'high' } : { type: 'behavioral_practice', priority: 'medium' },
           triggers[0] ? { type: 'trigger_exposure', trigger: triggers[0], priority: 'high' } : null,
         ].filter(Boolean),
-        schedule: peakTimes.slice(0, 2).map(t => ({ time: t, suggestion: 'nefes + mini terapi', durationMin: 5 })),
+        schedule: peakTimes.slice(0, 2).map(t => ({ time: t, suggestion: 'nefes + mindfulness', durationMin: 5 })),
         focus: priorityCategory,
       };
       return { ...personalized, meta: aiReady };

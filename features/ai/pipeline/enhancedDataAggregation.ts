@@ -21,16 +21,16 @@ class EnhancedAIDataAggregationService {
   }
 
   async aggregateComprehensiveData(userId: string): Promise<EnhancedUserDataAggregate> {
-    const [compulsions, erpSessions, moodEntries, profile] = await Promise.all([
+    const [compulsions, moodEntries, profile] = await Promise.all([
       this.fetchCompulsions(userId, 30),
-      this.fetchTerapiSessions(userId, 30),
+      // ✅ REMOVED: fetchTerapiSessions - ERP module deleted
       this.fetchMoodEntries(userId, 30),
       this.fetchUserProfile(userId)
     ]);
 
     const symptoms = await this.analyzeSymptoms(compulsions, moodEntries);
-    const performance = await this.calculateDetailedPerformance(erpSessions, compulsions);
-    const patterns = await this.extractAdvancedPatterns(compulsions, moodEntries, erpSessions);
+    const performance = await this.calculateDetailedPerformance(compulsions);
+    const patterns = await this.extractAdvancedPatterns(compulsions, moodEntries);
     const insights = await this.generateInsights(symptoms, performance, patterns);
     const recommendations = await this.generateRecommendations(insights, symptoms, performance);
 
@@ -48,17 +48,7 @@ class EnhancedAIDataAggregationService {
     }
     return [];
   }
-  private async fetchTerapiSessions(userId: string, days: number): Promise<any[]> {
-    try {
-      const svc: any = supabaseService as any;
-      if (svc && typeof svc.getTerapiSessions === 'function') {
-        return await svc.getTerapiSessions.call(svc, userId);
-      }
-    } catch (e) {
-      try { trackAIInteraction(AIEventType.API_ERROR, { scope: 'fetchTerapiSessions', error: String(e) } as any); } catch {}
-    }
-    return [];
-  }
+  // ✅ REMOVED: fetchTerapiSessions method - ERP module deleted
   private async fetchMoodEntries(userId: string, days: number): Promise<any[]> {
     // Prefer local cached by day, fallback remote
     const entries: any[] = [];
@@ -179,27 +169,14 @@ class EnhancedAIDataAggregationService {
     };
   }
 
-  private async calculateDetailedPerformance(erp: any[], comp: any[]): Promise<any> {
-    const total = erp.length;
-    const completed = erp.filter((e: any) => !!e.completed);
-    const erpCompletionRate = total === 0 ? 0 : Math.round((completed.length / total) * 100);
+  private async calculateDetailedPerformance(comp: any[]): Promise<any> {
+    // ✅ REMOVED: ERP sessions logic - ERP module deleted
 
-    // Anxiety reduction across completed
-    let anxietyReduction = 0;
-    if (completed.length > 0) {
-      const reductions = completed.map((s: any) => {
-        const initial = Number(s.anxiety_initial ?? 10);
-        const final = Number(s.anxiety_final ?? initial);
-        return ((initial - final) / initial) * 100;
-      });
-      anxietyReduction = reductions.reduce((a: number, b: number) => a + b, 0) / reductions.length;
-    }
-
-    // Streak calculation (activity per day)
+    // Streak calculation (activity per day) - only compulsions
     let streakDays = 0;
     const today = new Date();
     const activityDates = new Set<string>();
-    [...comp, ...erp].forEach((item: any) => {
+    comp.forEach((item: any) => {
       const ts = item.timestamp || item.created_at;
       if (!ts) return;
       activityDates.add(new Date(ts).toDateString());
@@ -223,17 +200,16 @@ class EnhancedAIDataAggregationService {
     }
 
     return {
-      erpCompletionRate,
-      anxietyReduction: Math.round(anxietyReduction),
+      // ✅ REMOVED: erpCompletionRate, anxietyReduction, totalTerapiSessions, completedTerapiSessions - ERP module deleted
       streakDays,
-      totalTerapiSessions: total,
-      completedTerapiSessions: completed.length,
       resistanceImprovement: Math.round(resistanceImprovement),
       weeklyActivity: Math.round((activityDates.size / 7) * 100),
+      totalCompulsions: comp.length,
     };
   }
 
-  private async extractAdvancedPatterns(compulsions: any[], moods: any[], erpSessions: any[]): Promise<any> {
+  private async extractAdvancedPatterns(compulsions: any[], moods: any[]): Promise<any> {
+    // ✅ REMOVED: erpSessions parameter - ERP module deleted
     // Placeholder for future advanced pattern mining; keep basic structure
     return { timeBasedPatterns: [], successFactors: [], riskPeriods: [] };
   }
@@ -242,9 +218,9 @@ class EnhancedAIDataAggregationService {
     const insights = { key_findings: [] as string[], improvement_areas: [] as string[], strengths: [] as string[], warnings: [] as string[] };
     if (symptoms.severityTrend === 'improving') insights.key_findings.push('Kompulsiyon direncinde iyileşme gözleniyor');
     if (performance.streakDays >= 7) insights.key_findings.push(`${performance.streakDays} gündür düzenli aktivite`);
-    if (performance.anxietyReduction > 30) insights.key_findings.push('Terapi egzersizlerinde anlamlı anksiyete azalması');
+    // ✅ REMOVED: Anxiety reduction finding - ERP module deleted
 
-    if (performance.erpCompletionRate < 50) insights.improvement_areas.push('Terapi egzersizi tamamlama oranını artırın');
+    // ✅ REMOVED: ERP completion rate check - ERP module deleted
     if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) insights.improvement_areas.push(`${symptoms.primaryCategories[0]} kompulsiyonlarına odaklanın`);
 
     if (performance.streakDays > 0) insights.strengths.push('Düzenli kullanım alışkanlığı');
@@ -261,9 +237,7 @@ class EnhancedAIDataAggregationService {
       const peak = symptoms.peakHours[0];
       recommendations.immediate.push({ type: 'timing', title: 'Kritik Saat Uyarısı', description: `Kompulsiyonlar genelde ${peak}:00 civarında artıyor`, action: 'Hatırlatıcı kur' });
     }
-    if (performance.erpCompletionRate < 50) {
-      recommendations.immediate.push({ type: 'erp', title: 'Terapi Egzersizi Önerisi', description: 'Bugün kısa bir Terapi egzersizi deneyin', action: 'Egzersize başla' });
-    }
+    // ✅ REMOVED: ERP completion rate recommendation - ERP module deleted
     if (symptoms.primaryCategories && symptoms.primaryCategories.length > 0) {
       const top = symptoms.primaryCategories[0];
       recommendations.weekly.push({ type: 'focus', title: `${top} kompulsiyonlarına odaklan`, description: `Bu hafta ${top} kategorisinde çalışın`, action: 'Plan oluştur' });

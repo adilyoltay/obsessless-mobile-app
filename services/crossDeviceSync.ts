@@ -174,19 +174,7 @@ class CrossDeviceSyncService {
         };
         await supabaseService.saveCompulsion(compulsionData);
         break;
-      case 'erp_sessions':
-        // Map field names if needed
-        const erpData = {
-          user_id: item.userId || item.user_id || userId,
-          category: item.category,
-          subcategory: item.subcategory || item.category,
-          duration: item.duration || 0,
-          anxiety_level_before: item.anxietyLevelBefore || item.anxiety_level_before || 0,
-          anxiety_level_after: item.anxietyLevelAfter || item.anxiety_level_after || 0,
-          notes: sanitizePII(item.notes || '')
-        };
-        await supabaseService.saveERPSession(erpData);
-        break;
+      // ✅ REMOVED: erp_sessions case - ERP module deleted
       case 'thought_records':
         if (item.thought && item.distortions) {
           // CBT record format - map field names

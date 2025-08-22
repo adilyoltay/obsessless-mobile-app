@@ -190,35 +190,8 @@ function detectDistortionType(text: string): string {
 // (Removed) detectERPCategory function
 
 // (Removed) Terapi egzersizi önerir
-function suggestERPExercise(text: string): string {
-  const category = detectERPCategory(text);
-  
-  const exercises: Record<string, string[]> = {
-    contamination: [
-      'Kirli yüzeye dokunma',
-      'El yıkamayı geciktirme',
-      'Dezenfektan kullanmama',
-    ],
-    checking: [
-      'Kapıyı kontrol etmeme',
-      'Ocağı bir kere kontrol',
-      'Telefonu kontrol etmeme',
-    ],
-    symmetry: [
-      'Eşyaları düzensiz bırakma',
-      'Asimetrik yerleştirme',
-      'Düzeni bozma',
-    ],
-    general: [
-      'Genel maruz kalma',
-      'Kompulsiyonu erteleme',
-      'Direnç gösterme',
-    ],
-  };
-  
-  const categoryExercises = exercises[category] || exercises.general;
-  return categoryExercises[Math.floor(Math.random() * categoryExercises.length)];
-}
+// ✅ REMOVED: suggestERPExercise function - ERP module deleted
+// ✅ REMOVED: suggestERPExercise function - ERP module deleted
 
 /**
  * Otomatik kaydı veritabanına kaydeder
@@ -363,18 +336,8 @@ export async function saveAutoRecord(
           trigger: data.trigger || ''
         };
       } else {
-        // ERP için offline queue: yönlendirme olduğu için minimal veri (kategori + timestamp)
-        entity = 'erp_session';
-        mapped = {
-          user_id: data.userId,
-          category: data.category || 'general',
-          subcategory: data.category || 'general',
-          duration: 0,
-          anxiety_level_before: 0,
-          anxiety_level_after: 0,
-          notes: '',
-          created_at: data.timestamp || new Date().toISOString()
-        };
+        // ✅ REMOVED: ERP auto record handling - ERP module deleted
+        throw new Error('Unsupported record type: ' + recordType);
       }
 
       await offlineSyncService.addToSyncQueue({
@@ -413,11 +376,7 @@ export function shouldShowAutoRecord(
     return false;
   }
   
-  // ERP her zaman göster (yönlendirme için)
-  if (analysis.type === 'ERP') {
-    console.log('📊 Showing auto record for ERP');
-    return true;
-  }
+  // ✅ REMOVED: ERP type check - ERP module deleted
   
   // Güven eşiği kontrolü - Production
   const SHOW_THRESHOLD = 0.8; // Üretim değeri

@@ -188,11 +188,11 @@ export class CacheInvalidation {
       cascadeInvalidation: true,
     });
 
-    // Treatment plan update invalidates Terapi and insights
+    // Treatment plan update invalidates insights only (ERP removed)
     this.strategies.set(InvalidationTrigger.TREATMENT_PLAN_UPDATED, {
       trigger: InvalidationTrigger.TREATMENT_PLAN_UPDATED,
       patterns: [
-        'ai:{userId}:*:erp',
+        // ✅ REMOVED: 'ai:{userId}:*:erp' - ERP module deleted
         'ai:{userId}:*:insights',
         'ai:{userId}:*:treatment',
       ],
@@ -420,11 +420,8 @@ export class CacheInvalidation {
         break;
 
       case InvalidationTrigger.TREATMENT_PLAN_UPDATED:
-        // Cascade to Terapi
-        await this.invalidate({
-          ...context,
-          trigger: InvalidationTrigger.Terapi_SESSION_COMPLETED,
-        });
+        // ✅ REMOVED: Cascade to Terapi - ERP module deleted
+        // No further cascade needed, just invalidates insights and treatment
         break;
     }
   }

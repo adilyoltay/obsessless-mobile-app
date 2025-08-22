@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record' | 'erp_session';
+  entity: 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record'; // ✅ REMOVED: 'erp_session'
   data: any;
   timestamp: number;
   retryCount: number;
@@ -169,9 +169,7 @@ export class OfflineSyncService {
       case 'compulsion':
         await this.syncCompulsion(item);
         break;
-      case 'erp_session':
-        await this.syncERPSession(item);
-        break;
+      // ✅ REMOVED: erp_session case - ERP module deleted
       case 'ai_profile':
         await this.syncAIProfile(item);
         break;
@@ -229,32 +227,7 @@ export class OfflineSyncService {
     }
   }
 
-  private async syncERPSession(item: SyncQueueItem): Promise<void> {
-    const { default: svc } = await import('@/services/supabase');
-    switch (item.type) {
-      case 'CREATE': {
-        await (svc as any).saveERPSession(item.data);
-        break;
-      }
-      case 'UPDATE': {
-        // Fetch + resolve
-        let remote: any = null;
-        try {
-          remote = await (svc as any).getERPSession(item.data.id);
-        } catch {}
-        const conflictResult = await unifiedConflictResolver.resolveConflict(
-          'erp_session', 
-          item.data, 
-          remote, 
-          item.data.user_id
-        );
-        const resolved = conflictResult.resultData;
-        await (svc as any).saveERPSession(resolved);
-        break;
-      }
-      // ERP sessions typically aren't deleted
-    }
-  }
+  // ✅ REMOVED: syncERPSession method - ERP module deleted
 
   private async syncAIProfile(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');

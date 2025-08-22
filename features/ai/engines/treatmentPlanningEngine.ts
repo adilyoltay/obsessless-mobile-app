@@ -919,9 +919,7 @@ class AdaptiveTreatmentPlanningEngine {
       );
     } else if (phaseType === 'active_treatment') {
       // Main interventions based on protocols
-      if (protocols.includes('exposure_response_prevention')) {
-        interventions.push({ type: 'erp', focus: 'symptom reduction' });
-      }
+      // ✅ REMOVED: ERP intervention type - ERP module deleted
       if (protocols.includes('cognitive_behavioral_therapy')) {
         interventions.push({ type: 'cbt', focus: 'cognitive restructuring' });
       }

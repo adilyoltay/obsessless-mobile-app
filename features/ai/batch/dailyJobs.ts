@@ -225,10 +225,7 @@ export class DailyJobsManager {
         this.fetchMoodData(userId, 28),
       ]);
 
-      const [erp7d, erp28d] = await Promise.all([
-        this.fetchTerapiData(userId, 7),
-        this.fetchTerapiData(userId, 28),
-      ]);
+      // ✅ REMOVED: ERP data fetching - ERP module deleted
 
       // Calculate trends
       const trends7d: TrendAnalysis = {
@@ -378,7 +375,7 @@ export class DailyJobsManager {
 
       // Calculate risk delta based on recent data
       const recentCompulsions = await this.fetchCompulsionData(userId, 3);
-      const recentTerapi = await this.fetchTerapiData(userId, 3);
+      // ✅ REMOVED: Recent ERP data - ERP module deleted
       
       let riskDelta = 0;
       
@@ -444,12 +441,12 @@ export class DailyJobsManager {
       // Gather today's data
       const todayCompulsions = await this.fetchCompulsionData(userId, 1);
       const todayMoods = await this.fetchMoodData(userId, 1);
-      const todayTerapi = await this.fetchTerapiData(userId, 1);
+      // ✅ REMOVED: Today ERP data - ERP module deleted
       
       // Calculate metrics
       const totalCompulsions = todayCompulsions[0]?.count || 0;
       const avgResistance = todayCompulsions[0]?.avgResistance || 0;
-      const erpSessions = todayTerapi.filter(e => e.completed).length;
+      // ✅ REMOVED: ERP sessions calculation - ERP module deleted
       const moodValues = todayMoods.map(m => m.value);
       const moodRange = {
         min: moodValues.length > 0 ? Math.min(...moodValues) : 50,
@@ -468,7 +465,7 @@ export class DailyJobsManager {
         metrics: {
           totalCompulsions,
           avgResistance,
-          erpSessions,
+          // ✅ REMOVED: erpSessions - ERP module deleted
           moodRange,
         },
         generatedAt: Date.now(),
@@ -479,9 +476,7 @@ export class DailyJobsManager {
       if (avgResistance > 7) {
         digest.summary.highlights.push('Güçlü direnç gösterdin! 💪');
       }
-      if (erpSessions > 0) {
-        digest.summary.highlights.push(`${erpSessions} Terapi egzersizi tamamladın`);
-      }
+      // ✅ REMOVED: ERP sessions highlights - ERP module deleted
       if (totalCompulsions === 0) {
         digest.summary.highlights.push('Kompulsiyonsuz bir gün! 🌟');
       }
@@ -495,9 +490,7 @@ export class DailyJobsManager {
       }
 
       // Generate recommendations
-      if (erpSessions === 0) {
-        digest.summary.recommendations.push('Bugün bir Terapi egzersizi denemelisin');
-      }
+      // ✅ REMOVED: ERP recommendations - ERP module deleted
       if (avgResistance < 5) {
         digest.summary.recommendations.push('Direnç tekniklerini gözden geçir');
       }
@@ -694,30 +687,7 @@ export class DailyJobsManager {
     return data.reverse();
   }
 
-  private async fetchTerapiData(userId: string, days: number) {
-    const data = [];
-    const now = new Date();
-    
-    for (let i = 0; i < days; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toDateString();
-      
-      const key = StorageKeys.Terapi_SESSIONS(userId, dateStr);
-      const stored = await AsyncStorage.getItem(key);
-      const sessions = stored ? JSON.parse(stored) : [];
-      
-      sessions.forEach((session: any) => {
-        data.push({
-          date: dateStr,
-          completed: session.completed || false,
-          difficulty: session.difficulty || 5,
-        });
-      });
-    }
-    
-    return data.reverse();
-  }
+  // ✅ REMOVED: fetchTerapiData method - ERP module deleted
 
   private calculateTrend(values: number[]): number {
     if (values.length < 2) return 0;
