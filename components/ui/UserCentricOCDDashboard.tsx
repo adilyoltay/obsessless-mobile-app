@@ -124,8 +124,10 @@ export default function UserCentricOCDDashboard({
     console.log('- compulsions:', compulsions?.length || 0, 'entries');
     console.log('- ybocsHistory:', ybocsHistory?.length || 0, 'assessments');
     console.log('- userId:', userId || 'NO USER ID');
+    console.log('- onboardingProfile:', onboardingProfile);
+    console.log('- isLoadingProfile:', isLoadingProfile);
     console.log('- First compulsion sample:', compulsions?.[0]);
-  }, [compulsions, ybocsHistory, userId]);
+  }, [compulsions, ybocsHistory, userId, onboardingProfile, isLoadingProfile]);
 
   // Generate dynamic OCD journey data
   const generateOCDJourneyData = useMemo(() => {

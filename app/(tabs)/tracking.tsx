@@ -21,7 +21,7 @@ import FAB from '@/components/ui/FAB';
 import CompulsionQuickEntry from '@/components/forms/CompulsionQuickEntry';
 import { Toast } from '@/components/ui/Toast';
 import UserCentricOCDDashboard from '@/components/ui/UserCentricOCDDashboard';
-import { YBOCSAssessmentUI } from '@/features/ai/components/onboarding/YBOCSAssessmentUI';
+// Removed: YBOCSAssessmentUI - using onboarding data instead
 
 // Gamification
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -45,10 +45,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
-// Y-BOCS AI Assessment Integration
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
-import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
-import type { YBOCSAnswer } from '@/features/ai/types';
+// Removed: Y-BOCS AI Assessment Integration - using onboarding data
 // VoiceMoodCheckin removed - using unified voice from Today page
 
 // Kanonik kategori eşlemesi
@@ -97,11 +94,7 @@ export default function TrackingScreen() {
   const [showUserCentricDashboard, setShowUserCentricDashboard] = useState(false);
   const [allCompulsions, setAllCompulsions] = useState<CompulsionEntry[]>([]);
   
-  // Y-BOCS Assessment State
-  const [showYBOCSAssessment, setShowYBOCSAssessment] = useState(false);
-  const [isYBOCSLoading, setIsYBOCSLoading] = useState(false);
-  const [lastYBOCSScore, setLastYBOCSScore] = useState<number | null>(null);
-  const [ybocsHistory, setYBOCSHistory] = useState<any[]>([]);
+  // Removed: Y-BOCS Assessment State - using onboarding data
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -437,136 +430,16 @@ export default function TrackingScreen() {
       // Load AI patterns after data loading
       await loadAIPatterns();
       
-      // Load Y-BOCS history
-      await loadYBOCSHistory();
+      // Removed: Load Y-BOCS history - using onboarding data
       
     } catch (error) {
       console.error('Error loading data:', error);
     }
   };
 
-  /**
-   * 📋 Load Y-BOCS Assessment History
-   */
-  const loadYBOCSHistory = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const storageKey = `ybocs_history_${user.id}`;
-      const historyData = await AsyncStorage.getItem(storageKey);
-      const history = historyData ? JSON.parse(historyData) : [];
-      
-      setYBOCSHistory(history);
-      
-      // Set last score for display
-      if (history.length > 0) {
-        setLastYBOCSScore(history[history.length - 1].totalScore);
-      }
-    } catch (error) {
-      console.error('Error loading Y-BOCS history:', error);
-    }
-  };
+  // Removed: loadYBOCSHistory function - using onboarding data
 
-  /**
-   * 📋 Handle Y-BOCS Assessment Completion
-   */
-  const handleYBOCSCompletion = async (answers: YBOCSAnswer[]) => {
-    if (!user?.id) {
-      Alert.alert('Hata', 'Kullanıcı oturumu bulunamadı');
-      return;
-    }
-
-    setIsYBOCSLoading(true);
-
-    try {
-      // Analyze Y-BOCS responses with AI enhancement and Turkish cultural adaptation
-      console.log('📊 Starting Y-BOCS AI analysis with Turkish cultural adaptation...');
-      
-      // First, analyze with Turkish cultural service
-      const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
-        user.id,
-        allCompulsions as any, // Type compatibility fix
-        { language: 'turkish', culturalBackground: 'turkish' }
-      );
-      
-      // Then run Y-BOCS analysis with cultural context
-      const analysis = await ybocsAnalysisService.analyzeYBOCS(answers, {
-        culturalContext: 'turkish',
-        enhanceWithAI: true,
-        personalizeRecommendations: true
-      });
-
-      // Save to history
-      const newAssessment = {
-        id: `ybocs_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        answers,
-        analysis,
-        totalScore: analysis.totalScore,
-        severityLevel: analysis.severityLevel,
-        dominantSymptoms: analysis.dominantSymptoms || [],
-        recommendations: analysis.recommendedInterventions || [],
-        culturalAnalysis: culturalAnalysis,
-        culturalAdaptations: culturalAnalysis?.interventionRecommendations?.immediate?.culturallyAdapted || []
-      };
-
-      const storageKey = `ybocs_history_${user.id}`;
-      const existingHistory = await AsyncStorage.getItem(storageKey);
-      const history = existingHistory ? JSON.parse(existingHistory) : [];
-      history.push(newAssessment);
-      
-      // Keep only last 10 assessments
-      const trimmedHistory = history.slice(-10);
-      await AsyncStorage.setItem(storageKey, JSON.stringify(trimmedHistory));
-
-      // Update state
-      setYBOCSHistory(trimmedHistory);
-      setLastYBOCSScore(analysis.totalScore);
-      setShowYBOCSAssessment(false);
-
-      // Track Y-BOCS completion
-      await trackAIInteraction(AIEventType.YBOCS_ANALYSIS_COMPLETED, {
-        userId: user.id,
-        totalScore: analysis.totalScore,
-        severityLevel: analysis.severityLevel,
-        dominantSymptoms: analysis.dominantSymptoms || [],
-        source: 'tracking_screen'
-      });
-
-      // Award gamification rewards  
-      await awardMicroReward('daily_goal_met'); // Use existing reward type
-      await updateStreak();
-
-      // 🔄 CRITICAL: Invalidate AI cache after Y-BOCS completion
-      try {
-        await unifiedPipeline.triggerInvalidation('ybocs_completed', user.id);
-        console.log('✅ Y-BOCS completion cache invalidation triggered');
-      } catch (error) {
-        console.warn('⚠️ Y-BOCS cache invalidation failed:', error);
-      }
-
-      // Show success message
-      setToastMessage(`Y-BOCS değerlendirmesi tamamlandı! Skor: ${analysis.totalScore}`);
-      setShowToast(true);
-      
-      // Haptic feedback
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Show analysis results
-      Alert.alert(
-        'Y-BOCS Analizi Tamamlandı',
-        `Toplam Skor: ${analysis.totalScore}\nŞiddet Seviyesi: ${analysis.severityLevel}\n\nDetaylar için dashboard'u kontrol edin`,
-        [{ text: 'Tamam' }]
-      );
-
-    } catch (error) {
-      console.error('Y-BOCS analysis error:', error);
-      setToastMessage('Y-BOCS analizi sırasında hata oluştu');
-      setShowToast(true);
-    } finally {
-      setIsYBOCSLoading(false);
-    }
-  };
+  // Removed: handleYBOCSCompletion function - using onboarding data
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -884,41 +757,7 @@ export default function TrackingScreen() {
           </View>
         </View>
 
-        {/* Y-BOCS Assessment Card */}
-        <View style={styles.ybocsCard}>
-          <View style={styles.ybocsHeader}>
-            <View style={styles.ybocsInfo}>
-              <MaterialCommunityIcons name="clipboard-text" size={24} color="#3B82F6" />
-              <View style={styles.ybocsTextContainer}>
-                <Text style={styles.ybocsTitle}>Y-BOCS Değerlendirmesi</Text>
-                <Text style={styles.ybocsSubtitle}>
-                  {lastYBOCSScore 
-                    ? `Son skor: ${lastYBOCSScore} • ${ybocsHistory.length} değerlendirme`
-                    : 'Henüz değerlendirme yapılmamış'
-                  }
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              style={styles.ybocsButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowYBOCSAssessment(true);
-              }}
-              disabled={isYBOCSLoading}
-            >
-              {isYBOCSLoading ? (
-                <MaterialCommunityIcons name="loading" size={20} color="#FFFFFF" />
-              ) : (
-                <MaterialCommunityIcons 
-                  name={lastYBOCSScore ? "refresh" : "play"} 
-                  size={20} 
-                  color="#FFFFFF" 
-                />
-              )}
-            </Pressable>
-          </View>
-        </View>
+        {/* Removed: Y-BOCS Assessment Card - using onboarding data in dashboard */}
 
         {/* Removed: Recovery Dashboard Card - moved to header chart icon only */}
 
@@ -1027,7 +866,7 @@ export default function TrackingScreen() {
         visible={showUserCentricDashboard}
         onClose={() => setShowUserCentricDashboard(false)}
         compulsions={allCompulsions}
-        ybocsHistory={ybocsHistory}
+        ybocsHistory={[]}
         userId={user?.id || ''}
         aiPatterns={aiPatterns}
         aiInsights={aiInsights}
@@ -1040,31 +879,7 @@ export default function TrackingScreen() {
         }}
       />
 
-      {/* Y-BOCS Assessment Modal */}
-      {showYBOCSAssessment && (
-        <View style={styles.ybocsModal}>
-          <View style={styles.ybocsModalContainer}>
-            <View style={styles.ybocsModalHeader}>
-              <Text style={styles.ybocsModalTitle}>Y-BOCS Değerlendirmesi</Text>
-              <Pressable 
-                onPress={() => setShowYBOCSAssessment(false)}
-                style={styles.ybocsModalClose}
-                disabled={isYBOCSLoading}
-              >
-                <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
-              </Pressable>
-            </View>
-            
-            <View style={styles.ybocsModalContent}>
-              <YBOCSAssessmentUI
-                onComplete={handleYBOCSCompletion}
-                isLoading={isYBOCSLoading}
-                userId={user?.id}
-              />
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Removed: Y-BOCS Assessment Modal - using onboarding data in dashboard */}
 
       {/* Toast */}
       <Toast
@@ -1515,103 +1330,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
 
-  // Y-BOCS Assessment Styles
-  ybocsCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  ybocsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  ybocsInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  ybocsTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  ybocsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  ybocsSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-    fontFamily: 'Inter',
-  },
-  ybocsButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 44,
-    minHeight: 36,
-  },
-  
-  // Y-BOCS Modal Styles
-  ybocsModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1001,
-    justifyContent: 'flex-start',
-    paddingTop: 50,
-  },
-  ybocsModalContainer: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginTop: 20,
-  },
-  ybocsModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  ybocsModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  ybocsModalClose: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  ybocsModalContent: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+  // Removed: Y-BOCS Assessment & Modal Styles - using onboarding data
 
   // Removed: Recovery Dashboard Styles - moved to header chart icon only
   

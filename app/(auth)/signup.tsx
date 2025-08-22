@@ -51,9 +51,16 @@ export default function SignupScreen() {
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Başarılı kayıt sonrası yönlendirme (eğer onboarding gerekiyorsa)
+        // router.push('/onboarding') veya ana sayfaya git
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Signup form error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      // Hata mesajını kullanıcıya göster
+      const errorMessage = error?.message || 'Kayıt işlemi başarısız oldu. Lütfen tekrar deneyin.';
+      Alert.alert('Kayıt Hatası', errorMessage);
     }
   };
 
@@ -61,7 +68,14 @@ export default function SignupScreen() {
     try {
       clearError();
       await signInWithGoogle();
-    } catch {}
+    } catch (error: any) {
+      console.error('❌ Google signup error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      // Hata mesajını kullanıcıya göster
+      const errorMessage = error?.message || 'Google ile kayıt başarısız oldu. Lütfen tekrar deneyin.';
+      Alert.alert('Google Kayıt Hatası', errorMessage);
+    }
   };
 
   const navigateToLogin = () => {
