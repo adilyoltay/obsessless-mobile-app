@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-12T18:35:35.301Z",
+  "timestamp": "2025-08-22T09:33:28.741Z",
   "tests": [
     {
       "name": "Production AI enabled",
@@ -58,7 +58,7 @@
     },
     {
       "name": "File: features/ai/coordinators/insightsCoordinator.ts",
-      "passed": true,
+      "passed": false,
       "details": ""
     },
     {
@@ -79,9 +79,9 @@
   ],
   "summary": {
     "totalTests": 15,
-    "passed": 14,
-    "failed": 1,
-    "passRate": "93.3%",
-    "recommendation": "READY FOR PRODUCTION"
+    "passed": 13,
+    "failed": 2,
+    "passRate": "86.7%",
+    "recommendation": "NEEDS MINOR FIXES"
   }
 }
