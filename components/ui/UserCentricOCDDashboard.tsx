@@ -347,25 +347,35 @@ export default function UserCentricOCDDashboard({
       try {
         console.log('📋 Loading onboarding profile...');
         
-        // Try AsyncStorage first (local cache)
+        // ENHANCED DEBUG: Try AsyncStorage first (local cache)
+        console.log('🔍 Checking AsyncStorage key:', `ocd_profile_${userId}`);
         const localProfile = await AsyncStorage.getItem(`ocd_profile_${userId}`);
         if (localProfile) {
           const profile = JSON.parse(localProfile);
-          console.log('✅ Found local onboarding profile:', {
-            ybocsScore: profile.ybocsLiteScore,
-            symptoms: profile.primarySymptoms?.length || 0,
-            onboardingCompleted: profile.onboardingCompleted
+          console.log('✅ Found local onboarding profile:', profile);
+          console.log('📊 Local profile structure:', {
+            hasYbocsLiteScore: !!profile.ybocsLiteScore,
+            hasYbocsSeverity: !!profile.ybocsSeverity,
+            hasPrimarySymptoms: !!profile.primarySymptoms,
+            onboardingCompleted: profile.onboardingCompleted,
+            allKeys: Object.keys(profile)
           });
           setOnboardingProfile(profile);
+        } else {
+          console.log('❌ No local profile found in AsyncStorage');
         }
         
-        // Also try to get from Supabase (in case of sync)
+        // ENHANCED DEBUG: Try Supabase with full data inspection
+        console.log('🔍 Checking Supabase profile...');
         const supabaseProfile = await supabaseService.getUserProfile(userId);
         if (supabaseProfile) {
-          console.log('✅ Found Supabase profile:', {
-            ybocsScore: supabaseProfile.ybocs_score,
-            symptoms: supabaseProfile.ocd_symptoms?.length || 0,
-            onboardingCompleted: supabaseProfile.onboarding_completed
+          console.log('✅ Found Supabase profile (RAW):', supabaseProfile);
+          console.log('📊 Supabase profile structure:', {
+            hasYbocsScore: !!supabaseProfile.ybocs_score,
+            hasYbocsSeverity: !!supabaseProfile.ybocs_severity,
+            hasOcdSymptoms: !!supabaseProfile.ocd_symptoms,
+            onboardingCompleted: supabaseProfile.onboarding_completed,
+            allKeys: Object.keys(supabaseProfile)
           });
           
           // Use Supabase data if more recent or if local doesn't exist
@@ -377,7 +387,26 @@ export default function UserCentricOCDDashboard({
             onboardingCompleted: supabaseProfile.onboarding_completed,
             createdAt: supabaseProfile.created_at
           };
+          
+          console.log('🔄 Normalized Supabase profile:', supabaseNormalized);
           setOnboardingProfile(supabaseNormalized);
+        } else {
+          console.log('❌ No Supabase profile found');
+        }
+        
+        // ALSO CHECK: Alternative AsyncStorage keys
+        const alternativeKeys = [
+          `user_profile_${userId}`,
+          `profile_${userId}`,
+          `onboarding_${userId}`,
+          'profileCompleted'
+        ];
+        
+        for (const key of alternativeKeys) {
+          const altData = await AsyncStorage.getItem(key);
+          if (altData) {
+            console.log(`📋 Found data in alternative key "${key}":`, JSON.parse(altData));
+          }
         }
       } catch (error) {
         console.error('❌ Error loading onboarding profile:', error);
