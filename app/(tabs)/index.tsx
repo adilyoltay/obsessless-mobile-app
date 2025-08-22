@@ -1053,18 +1053,38 @@ export default function TodayScreen() {
         {renderHeroSection()}
         
         {/* Breathwork Suggestion Card */}
-        {breathworkSuggestion?.show && (
+        {breathworkSuggestion?.show && user?.id && (
           <BreathworkSuggestionCard
-            trigger={breathworkSuggestion.trigger}
-            protocol={breathworkSuggestion.protocol}
-            urgency={breathworkSuggestion.urgency}
-            anxietyLevel={breathworkSuggestion.anxietyLevel}
+            userId={user.id}
+            suggestion={breathworkSuggestion.originalSuggestion}
+            context={{
+              moodScore: breathworkSuggestion.originalSuggestion?.trigger?.contextData?.moodScore,
+              anxietyLevel: breathworkSuggestion.anxietyLevel,
+              recentCompulsions: todayStats.compulsions,
+            }}
             onDismiss={() => setBreathworkSuggestion(null)}
-            onSnooze={() => {
-              setBreathworkSuggestion(null);
-              const snoozeTime = new Date();
-              snoozeTime.setMinutes(snoozeTime.getMinutes() + 15);
-              setSnoozedUntil(snoozeTime);
+            onAccept={(suggestion) => {
+              // Navigate to breathwork with accepted suggestion
+              router.push({
+                pathname: '/(tabs)/breathwork',
+                params: {
+                  protocol: suggestion.protocol.name,
+                  duration: String(suggestion.protocol.duration),
+                  autoStart: 'true',
+                  source: 'ai_suggestion',
+                }
+              });
+            }}
+            onGenerate={(suggestion) => {
+              // Update state when new suggestion is generated
+              setBreathworkSuggestion({
+                show: true,
+                trigger: suggestion.trigger.reason || suggestion.trigger.type,
+                protocol: suggestion.protocol.name,
+                urgency: suggestion.urgency,
+                anxietyLevel: suggestion.trigger.contextData.anxietyLevel,
+                originalSuggestion: suggestion,
+              });
             }}
           />
         )}
