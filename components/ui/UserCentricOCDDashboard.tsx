@@ -20,6 +20,7 @@ import {
   ScrollView,
   Dimensions,
   Pressable,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,33 +68,40 @@ interface Achievement {
 }
 
 interface UserCentricOCDDashboardProps {
+  visible: boolean;
+  onClose: () => void;
   compulsions: CompulsionEntry[];
   ybocsHistory: any[];
   userId: string;
+  onStartAction?: (actionId: string) => void;
 }
 
 const { width } = Dimensions.get('window');
 
-// Master Prompt Compliant Color Palette (Anxiety-Friendly)
+// Master Prompt Compliant Color Palette (Ultra Anxiety-Friendly & Calming)
 const COLORS = {
-  // Soft, calming colors to reduce anxiety
-  background: '#F9FAFB',
-  cardBackground: '#FFFFFF',
-  softEmerald: '#059669',      // Progress/positive
-  softAmber: '#D97706',        // Warning/attention  
-  softRose: '#DC2626',         // High severity (gentle)
-  gentleBlue: '#2563EB',       // Information
-  whisperGray: '#6B7280',      // Secondary text
-  cloudGray: '#E5E7EB',        // Borders
-  warmBeige: '#FEF7ED',        // Achievement backgrounds
-  mintGreen: '#ECFDF5',        // Success backgrounds
-  lavenderMist: '#F3E8FF',     // Assessment backgrounds
+  // Sakinlik: Extremely soft, therapeutic colors
+  background: '#FEFEFE',        // Pure, calming white
+  cardBackground: '#FBFCFD',    // Barely-there off-white
+  softEmerald: '#10B981',       // Gentle progress green (less intense)
+  softAmber: '#F59E0B',         // Warm, non-alarming amber
+  softRose: '#F87171',          // Gentle coral (not harsh red)
+  gentleBlue: '#60A5FA',        // Calm sky blue (less intense)
+  whisperGray: '#9CA3AF',       // Softer gray for secondary text
+  cloudGray: '#F3F4F6',         // Ultra-light borders
+  warmBeige: '#FFFBEB',         // Cream achievement backgrounds
+  mintGreen: '#F0FDF4',         // Whisper-soft success backgrounds
+  lavenderMist: '#FAF5FF',      // Ultra-gentle lavender
+  therapeuticBlue: '#EFF6FF',   // Calming therapy blue
 };
 
 export default function UserCentricOCDDashboard({
+  visible,
+  onClose,
   compulsions,
   ybocsHistory,
-  userId
+  userId,
+  onStartAction
 }: UserCentricOCDDashboardProps) {
   const [selectedTab, setSelectedTab] = useState<'journey' | 'patterns' | 'assessment' | 'triggers'>('journey');
   const [ocdJourney, setOCDJourney] = useState<OCDJourney | null>(null);
@@ -507,23 +515,41 @@ export default function UserCentricOCDDashboard({
   });
 
   return (
-    <View style={styles.container}>
-      {/* Tab Navigation */}
-      <View style={styles.tabNavigation}>
-        {renderTabButton('journey', 'Journey', 'map-marker-path')}
-        {renderTabButton('patterns', 'Patterns', 'chart-line')}
-        {renderTabButton('assessment', 'Assessment', 'clipboard-text')}
-        {renderTabButton('triggers', 'Triggers', 'target')}
-      </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={styles.container}>
+        {/* Header - Master Prompt Compliant */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>🌿 Recovery Dashboard</Text>
+            <Pressable onPress={onClose} style={styles.closeButton}>
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.whisperGray} />
+            </Pressable>
+          </View>
+          <Text style={styles.headerSubtitle}>Huzurlu iyileşme yolculuğunuz</Text>
+        </View>
 
-      {/* Tab Content with Debug */}
-      <View style={styles.tabContentContainer}>
-        {selectedTab === 'journey' && renderJourneyTab()}
-        {selectedTab === 'patterns' && renderPatternsTab()}
-        {selectedTab === 'assessment' && renderAssessmentTab()}
-        {selectedTab === 'triggers' && renderTriggersTab()}
+        {/* Tab Navigation - Calmer Design */}
+        <View style={styles.tabNavigation}>
+          {renderTabButton('journey', 'Yolculuk', 'map-marker-path')}
+          {renderTabButton('patterns', 'Desenler', 'chart-line-variant')}
+          {renderTabButton('assessment', 'Değerlendirme', 'clipboard-text-outline')}
+          {renderTabButton('triggers', 'Tetikleyiciler', 'target-variant')}
+        </View>
+
+        {/* Tab Content with Gentle Animation */}
+        <View style={styles.tabContentContainer}>
+          {selectedTab === 'journey' && renderJourneyTab()}
+          {selectedTab === 'patterns' && renderPatternsTab()}
+          {selectedTab === 'assessment' && renderAssessmentTab()}
+          {selectedTab === 'triggers' && renderTriggersTab()}
+        </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 
@@ -531,28 +557,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    minHeight: 500, // Ensure minimum height
+  },
+
+  // Modal Header - Master Prompt Compliant
+  header: {
+    backgroundColor: COLORS.cardBackground,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cloudGray,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: COLORS.softEmerald,
+    fontFamily: 'Inter',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.whisperGray,
+    fontFamily: 'Inter',
+    paddingHorizontal: 20,
+    textAlign: 'center',
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.cloudGray,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   tabContentContainer: {
     flex: 1,
-    minHeight: 400, // Ensure content area has height
   },
   
-  // Tab Navigation
+  // Tab Navigation - Calmer, More Therapeutic
   tabNavigation: {
     flexDirection: 'row',
-    backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    backgroundColor: COLORS.therapeuticBlue,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    borderRadius: 16,
+    shadowColor: COLORS.gentleBlue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
   },
   tabButton: {

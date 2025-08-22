@@ -1102,31 +1102,21 @@ export default function TrackingScreen() {
 
       />
 
-      {/* User-Centric OCD Dashboard Modal */}
-      {showUserCentricDashboard && (
-        <View style={styles.dashboardOverlay}>
-          <View style={styles.dashboardContainer}>
-            <View style={styles.dashboardHeader}>
-              <Text style={styles.dashboardTitle}>Recovery Dashboard</Text>
-              <Pressable 
-                onPress={() => setShowUserCentricDashboard(false)}
-                style={styles.dashboardCloseButton}
-              >
-                <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
-              </Pressable>
-            </View>
-            
-            {/* Dashboard Content - Fixed to ensure visibility */}
-            <View style={[styles.dashboardContent, { flex: 1 }]}>
-              <UserCentricOCDDashboard
-                compulsions={allCompulsions}
-                ybocsHistory={ybocsHistory}
-                userId={user?.id || ''}
-              />
-            </View>
-          </View>
-        </View>
-      )}
+      {/* User-Centric OCD Dashboard - Bottom Sheet Pattern */}
+      <UserCentricOCDDashboard
+        visible={showUserCentricDashboard}
+        onClose={() => setShowUserCentricDashboard(false)}
+        compulsions={allCompulsions}
+        ybocsHistory={ybocsHistory}
+        userId={user?.id || ''}
+        onStartAction={(actionId) => {
+          console.log('🌿 OCD Recovery action:', actionId);
+          if (actionId === 'start_tracking') {
+            setShowUserCentricDashboard(false);
+            setShowQuickEntry(true);
+          }
+        }}
+      />
 
       {/* Y-BOCS Assessment Modal */}
       {showYBOCSAssessment && (
