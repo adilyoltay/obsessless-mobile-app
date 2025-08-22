@@ -784,9 +784,29 @@ export function AIProvider({ children }: AIProviderProps) {
       const compulsions = dbCompulsions.length ? dbCompulsions : todayCompulsions;
       // ERP sessions removed - no longer using erpSessions
 
+      // 📊 FIXED: Fetch mood data for AI pipeline analysis
+      let moods: any[] = [];
+      try {
+        const moodTracker = (await import('@/services/moodTrackingService')).default;
+        const moodEntries = await moodTracker.getMoodEntries(user.id, 30); // Last 30 days
+        moods = moodEntries.map((entry: any) => ({
+          id: entry.id,
+          mood_score: entry.mood_score,
+          energy_level: entry.energy_level,
+          anxiety_level: entry.anxiety_level,
+          notes: entry.notes || '',
+          trigger: entry.trigger || '',
+          created_at: entry.timestamp || entry.created_at,
+          timestamp: entry.timestamp || new Date(entry.created_at || Date.now()).getTime()
+        }));
+        console.log(`📊 Loaded ${moods.length} mood entries for AI analysis`);
+      } catch (moodError) {
+        console.warn('⚠️ Failed to load mood data for AI analysis:', moodError);
+      }
+
       const behavioralData = {
         compulsions,
-        moods: [],
+        moods, // ✅ FIXED: Now populated with real mood data
         exercises: [], // ERP sessions removed
         achievements: [],
         assessments: []

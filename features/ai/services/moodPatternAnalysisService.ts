@@ -191,9 +191,15 @@ export class MoodPatternAnalysisService {
     const hourlyMoods: Record<number, number[]> = {};
     
     entries.forEach(entry => {
-      const hour = new Date(entry.timestamp).getHours();
-      if (!hourlyMoods[hour]) hourlyMoods[hour] = [];
-      hourlyMoods[hour].push(entry.mood_score);
+      // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
+      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const hour = new Date(dateValue).getHours();
+      
+      // Validate hour is a valid number
+      if (!isNaN(hour) && hour >= 0 && hour <= 23) {
+        if (!hourlyMoods[hour]) hourlyMoods[hour] = [];
+        hourlyMoods[hour].push(entry.mood_score);
+      }
     });
 
     // Calculate hourly averages
@@ -205,22 +211,31 @@ export class MoodPatternAnalysisService {
     // Find low mood hours (below 40)
     const lowMoodHours = Object.entries(hourlyAverages)
       .filter(([, avgMood]) => avgMood < 40)
-      .map(([hour, avgMood]) => ({ hour: parseInt(hour), avgMood }));
+      .map(([hour, avgMood]) => ({ 
+        hour: parseInt(hour), 
+        avgMood 
+      }))
+      .filter(item => !isNaN(item.hour)); // ✅ FIXED: Filter out NaN hours
 
     if (lowMoodHours.length > 0) {
       const lowestHour = lowMoodHours.reduce((prev, curr) => 
         prev.avgMood < curr.avgMood ? prev : curr
       );
 
+      // ✅ FIXED: Validate hour before using in title
+      const hourText = !isNaN(lowestHour.hour) ? `${lowestHour.hour}:00` : 'Bazı Saatlerde';
+      
       patterns.push({
         type: 'temporal',
         timeRange: 'hourly',
-        title: `${lowestHour.hour}:00 Civarında Düşük Mood`,
+        title: `${hourText} Civarında Düşük Mood`,
         description: `Bu saatlerde mood ortalamanız ${lowestHour.avgMood.toFixed(1)}/100`,
         confidence: Math.min(0.9, hourlyMoods[lowestHour.hour]?.length * 0.1 || 0.5),
         severity: lowestHour.avgMood < 25 ? 'high' : 'medium',
         actionable: true,
-        suggestion: `${lowestHour.hour}:00 civarında destekleyici aktiviteler planlayın (nefes egzersizi, müzik, kısa yürüyüş)`,
+        suggestion: !isNaN(lowestHour.hour) 
+          ? `${lowestHour.hour}:00 civarında destekleyici aktiviteler planlayın (nefes egzersizi, müzik, kısa yürüyüş)`
+          : 'Düşük mood anlarında destekleyici aktiviteler planlayın (nefes egzersizi, müzik, kısa yürüyüş)',
         lowHours: [lowestHour.hour],
         averageScore: lowestHour.avgMood,
         data: {
@@ -233,22 +248,28 @@ export class MoodPatternAnalysisService {
     // Find peak mood hours (above 70)
     const peakMoodHours = Object.entries(hourlyAverages)
       .filter(([, avgMood]) => avgMood > 70)
-      .map(([hour, avgMood]) => ({ hour: parseInt(hour), avgMood }));
+      .map(([hour, avgMood]) => ({ hour: parseInt(hour), avgMood }))
+      .filter(item => !isNaN(item.hour)); // ✅ FIXED: Filter out NaN hours
 
     if (peakMoodHours.length > 0) {
       const peakHour = peakMoodHours.reduce((prev, curr) => 
         prev.avgMood > curr.avgMood ? prev : curr
       );
 
+      // ✅ FIXED: Validate hour before using in title
+      const hourText = !isNaN(peakHour.hour) ? `${peakHour.hour}:00` : 'Bazı Saatlerde';
+      
       patterns.push({
         type: 'temporal',
         timeRange: 'hourly',
-        title: `${peakHour.hour}:00 Civarında Yüksek Enerji`,
+        title: `${hourText} Civarında Yüksek Enerji`,
         description: `Bu saatlerde mood ortalamanız ${peakHour.avgMood.toFixed(1)}/100`,
         confidence: Math.min(0.9, hourlyMoods[peakHour.hour]?.length * 0.1 || 0.5),
         severity: 'low',
         actionable: true,
-        suggestion: `${peakHour.hour}:00 civarında önemli görevlerinizi planlayın - en verimli olduğunuz saatler`,
+        suggestion: !isNaN(peakHour.hour)
+          ? `${peakHour.hour}:00 civarında önemli görevlerinizi planlayın - en verimli olduğunuz saatler`
+          : 'Yüksek mood anlarında önemli görevlerinizi planlayın - en verimli olduğunuz saatler',
         peakHours: [peakHour.hour],
         averageScore: peakHour.avgMood,
         data: {
@@ -269,10 +290,18 @@ export class MoodPatternAnalysisService {
     const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
     
     entries.forEach(entry => {
-      const dayOfWeek = new Date(entry.timestamp).getDay();
-      const dayName = dayNames[dayOfWeek];
-      if (!dailyMoods[dayName]) dailyMoods[dayName] = [];
-      dailyMoods[dayName].push(entry.mood_score);
+      // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
+      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const dayOfWeek = new Date(dateValue).getDay();
+      
+      // Validate dayOfWeek is a valid number
+      if (!isNaN(dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6) {
+        const dayName = dayNames[dayOfWeek];
+        if (dayName) {
+          if (!dailyMoods[dayName]) dailyMoods[dayName] = [];
+          dailyMoods[dayName].push(entry.mood_score);
+        }
+      }
     });
 
     // Calculate daily averages
@@ -467,10 +496,18 @@ export class MoodPatternAnalysisService {
     const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
     
     entries.forEach(entry => {
-      const dayOfWeek = new Date(entry.timestamp).getDay();
-      const dayName = dayNames[dayOfWeek];
-      if (!dayMoods[dayName]) dayMoods[dayName] = [];
-      dayMoods[dayName].push(entry.mood_score);
+      // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
+      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const dayOfWeek = new Date(dateValue).getDay();
+      
+      // Validate dayOfWeek is a valid number
+      if (!isNaN(dayOfWeek) && dayOfWeek >= 0 && dayOfWeek <= 6) {
+        const dayName = dayNames[dayOfWeek];
+        if (dayName) {
+          if (!dayMoods[dayName]) dayMoods[dayName] = [];
+          dayMoods[dayName].push(entry.mood_score);
+        }
+      }
     });
 
     // Calculate day averages
