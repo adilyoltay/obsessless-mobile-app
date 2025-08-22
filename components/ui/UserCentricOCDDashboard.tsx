@@ -135,18 +135,22 @@ export default function UserCentricOCDDashboard({
     const obsessionScore = Math.floor(totalScore / 2);
     const compulsionScore = totalScore - obsessionScore;
     
-    // Create mock answers (5 questions each for obsessions and compulsions)
-    const obsessionAnswers = Array.from({ length: 5 }, (_, i) => ({
-      questionId: `obs_${i + 1}`,
+    // Y-BOCS question IDs (from ybocsAnalysisService.ts)
+    const obsessionQuestionIds = ['obs_time', 'obs_interference', 'obs_distress', 'obs_resistance', 'obs_control'];
+    const compulsionQuestionIds = ['comp_time', 'comp_interference', 'comp_distress', 'comp_resistance', 'comp_control'];
+    
+    // Create mock answers with correct question IDs and response property
+    const obsessionAnswers = obsessionQuestionIds.map((questionId, i) => ({
+      questionId,
       questionType: 'OBSESSIONS' as const,
-      value: Math.floor(obsessionScore / 5) + (i < obsessionScore % 5 ? 1 : 0),
+      response: Math.min(4, Math.floor(obsessionScore / 5) + (i < obsessionScore % 5 ? 1 : 0)),
       timestamp: new Date().toISOString()
     }));
     
-    const compulsionAnswers = Array.from({ length: 5 }, (_, i) => ({
-      questionId: `comp_${i + 1}`,
+    const compulsionAnswers = compulsionQuestionIds.map((questionId, i) => ({
+      questionId,
       questionType: 'COMPULSIONS' as const,
-      value: Math.floor(compulsionScore / 5) + (i < compulsionScore % 5 ? 1 : 0),
+      response: Math.min(4, Math.floor(compulsionScore / 5) + (i < compulsionScore % 5 ? 1 : 0)),
       timestamp: new Date().toISOString()
     }));
     
