@@ -26,9 +26,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
-import { ocdTriggerDetectionService } from '@/features/ai/services/ocdTriggerDetectionService';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+import turkishOCDCulturalService from '@/features/ai/services/turkishOcdCulturalService';
+import ocdTriggerDetectionService from '@/features/ai/services/ocdTriggerDetectionService';
+import ybocsAnalysisService from '@/features/ai/services/ybocsAnalysisService';
 import supabaseService from '@/services/supabase';
 
 // Types

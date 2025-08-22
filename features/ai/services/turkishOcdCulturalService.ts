@@ -1086,6 +1086,7 @@ class TurkishOCDCulturalService {
 // =============================================================================
 
 export const turkishOCDCulturalService = TurkishOCDCulturalService.getInstance();
+export default turkishOCDCulturalService;
 export type { 
   TurkishCulturalOCDProfile, 
   TurkishOCDCulturalAnalysis, 

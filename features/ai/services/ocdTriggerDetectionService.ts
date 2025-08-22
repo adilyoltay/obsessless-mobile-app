@@ -1272,6 +1272,7 @@ class OCDTriggerDetectionService {
 // =============================================================================
 
 export const ocdTriggerDetectionService = OCDTriggerDetectionService.getInstance();
+export default ocdTriggerDetectionService;
 export type { 
   TriggerAnalysisResult, 
   DetectedTrigger, 
