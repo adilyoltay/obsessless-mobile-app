@@ -120,7 +120,7 @@ class CrossDeviceSyncService {
   }
 
   private async syncData(userId: string, result: SyncResult): Promise<void> {
-    const dataTypes = ['compulsions', 'erp_sessions', 'thought_records', 'voice_checkins', 'mood_entries'];
+    const dataTypes = ['compulsions', 'thought_records', 'voice_checkins', 'mood_entries'];
     
     for (const dataType of dataTypes) {
       try {

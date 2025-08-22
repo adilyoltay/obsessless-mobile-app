@@ -20,7 +20,7 @@ interface ExportOptions {
 
 interface ExportData {
   compulsions: CompulsionEntry[];
-  erpSessions: any[];
+  // erpSessions: any[]; // Removed ERP
   summary: {
     totalCompulsions: number;
     avgResistance: number;

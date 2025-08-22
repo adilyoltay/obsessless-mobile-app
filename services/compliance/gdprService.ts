@@ -78,7 +78,7 @@ class GDPRComplianceService {
       userId,
       profile: await this.exportProfile(userId),
       compulsions: await this.exportCompulsions(userId),
-      erpSessions: await this.exportERPSessions(userId),
+      // therapySessions: await this.exportTherapySessions(userId), // Removed ERP
       moodEntries: await this.exportMoodEntries(userId),
       consents: await this.getConsents(userId),
       metadata: { version: '1.0.0', format: 'json', gdprCompliant: true },

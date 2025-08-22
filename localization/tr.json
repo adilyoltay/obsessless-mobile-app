@@ -2,7 +2,7 @@
   "navigation": {
     "today": "Bugün",
     "tracking": "Takip",
-    "erp": "ERP",
+    "therapy": "Terapi",
     "settings": "Ayarlar",
     "back": "Geri",
     "home": "Ana Sayfa",
@@ -69,7 +69,7 @@
     "tipOfTheDay": "Günün İpucu",
     "logCompulsion": "Kompülsiyon Kaydet",
     "ybocs": "Y-BOCS Testi",
-    "erpExercise": "ERP Egzersizi",
+    "therapyExercise": "Terapi Egzersizi",
     "viewHistory": "Geçmişi Görüntüle",
     "motivation": {
       "focus": "Odaklan",

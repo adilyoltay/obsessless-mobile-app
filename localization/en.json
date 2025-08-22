@@ -2,7 +2,7 @@
   "navigation": {
     "today": "Today",
     "tracking": "Tracking",
-    "erp": "ERP",
+    "therapy": "Therapy",
     "settings": "Settings",
     "back": "Back",
     "home": "Home",
@@ -69,7 +69,7 @@
     "tipOfTheDay": "Tip of the Day",
     "logCompulsion": "Log Compulsion",
     "ybocs": "Y-BOCS Test",
-    "erpExercise": "ERP Exercise",
+    "therapyExercise": "Therapy Exercise",
     "viewHistory": "View History",
     "motivation": {
       "focus": "Focus",

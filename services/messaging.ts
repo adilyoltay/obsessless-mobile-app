@@ -232,7 +232,7 @@ export class MessagingService {
     }
   }
 
-  async sendERPReminder(): Promise<void> {
+  async sendTherapyReminder(): Promise<void> {
     await this.scheduleLocalNotification(
       {
         type: 'reminder',

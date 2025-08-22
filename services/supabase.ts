@@ -64,7 +64,7 @@ export interface CompulsionRecord {
 
 
 
-export interface ERPSession {
+export interface TherapySession {
   id: string;
   user_id: string;
   exercise_id: string;

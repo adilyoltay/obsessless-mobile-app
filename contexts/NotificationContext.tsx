@@ -11,7 +11,7 @@ interface NotificationContextType {
   fcmToken: string | null;
   enableNotifications: () => Promise<boolean>;
   disableNotifications: () => Promise<void>;
-  scheduleERPReminder: () => Promise<void>;
+  scheduleTherapyReminder: () => Promise<void>;
   scheduleDailyReminder: (hour?: number, minute?: number) => Promise<void>;
   sendProgressMilestone: (milestone: string) => Promise<void>;
 }

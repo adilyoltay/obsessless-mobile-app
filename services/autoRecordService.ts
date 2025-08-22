@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 interface AutoRecordData {
-  type: 'OCD' | 'CBT' | 'MOOD' | 'ERP';
+  type: 'OCD' | 'CBT' | 'MOOD';
   data: any;
   confidence: number;
   shouldAutoSave: boolean;
@@ -88,18 +88,7 @@ export function prepareAutoRecord(
         shouldAutoSave: analysis.confidence >= 0.8,
       };
 
-    case 'ERP':
-      return {
-        type: 'ERP',
-        data: {
-          userId,
-          category: analysis.category || detectERPCategory(analysis.originalText),
-          suggestedExercise: suggestERPExercise(analysis.originalText),
-          timestamp: new Date().toISOString(),
-        },
-        confidence: analysis.confidence,
-        shouldAutoSave: false, // ERP yönlendirme yapılacak
-      };
+    // Removed ERP case
 
     default:
       return null;
