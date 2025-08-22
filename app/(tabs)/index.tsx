@@ -40,8 +40,9 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Stores
 
-// Storage utility
+// Storage utility & Privacy
 import { StorageKeys } from '@/utils/storage';
+import { sanitizePII } from '@/utils/privacy';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // AI Integration - Sprint 7 via Context
@@ -49,9 +50,9 @@ import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 // Removed CoreAnalysisService - using UnifiedAIPipeline only
 
-// Unified AI Pipeline (NEW - Jan 2025)
+// Unified AI Pipeline (ACTIVE - Jan 2025)
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
-import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout';
+// import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
 import { BreathworkSuggestionService } from '@/features/ai/services/breathworkSuggestionService';
 
 // Art Therapy Integration - temporarily disabled
@@ -272,7 +273,7 @@ export default function TodayScreen() {
   };
 
   /**
-   * 🚀 Load data using Unified AI Pipeline (NEW)
+   * 🚀 Load data using Unified AI Pipeline with Privacy-First Processing
    */
   const loadUnifiedPipelineData = async () => {
     if (!user?.id) return;
@@ -281,25 +282,41 @@ export default function TodayScreen() {
       setAiInsightsLoading(true);
       const startTime = Date.now();
       
-      console.log('🚀 Using Unified AI Pipeline');
+      console.log('🚀 Using Unified AI Pipeline with Privacy-First Processing');
       
-      // Gather local data
+      // Gather and sanitize local data for privacy
       const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
       const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-      const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
+      const rawCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
       
-      // Call Unified Pipeline
+      // 🔒 Privacy-First: Sanitize compulsions before AI processing
+      const sanitizedCompulsions = rawCompulsions.map((c: any) => ({
+        ...c,
+        notes: c.notes ? sanitizePII(c.notes) : c.notes,
+        trigger: c.trigger ? sanitizePII(c.trigger) : c.trigger,
+        // Keep structured data intact, only sanitize text
+        timestamp: c.timestamp,
+        severity: c.severity,
+        resistanceLevel: c.resistanceLevel,
+        category: c.category
+      }));
+      
+      // Call Unified Pipeline with sanitized data
       const result = await unifiedPipeline.process({
-        userId: user.id,
+        userId: user.id, // User ID is hashed in pipeline for privacy
         content: {
-          compulsions: allCompulsions,
-          moods: [], // Will be loaded if needed
-          // erpSessions: [], // Removed ERP  
+          compulsions: sanitizedCompulsions,
+          moods: [], // Will be loaded if needed (also sanitized)
+          // erpSessions: [], // Removed ERP module
         },
         type: 'mixed',
         context: {
           source: 'today',
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          privacy: {
+            piiSanitized: true,
+            encryptionLevel: 'standard'
+          }
         }
       });
       
@@ -345,147 +362,11 @@ export default function TodayScreen() {
       return;
     }
     
-    // Check if user should use Unified Pipeline (NEW)
-    if (shouldUseUnifiedPipeline(user.id)) {
-      await loadUnifiedPipelineData();
-      return;
-    }
+    // Always use Unified Pipeline (100% rollout - Jan 2025)
+    await loadUnifiedPipelineData();
+    return;
     
-    // Progressive UI: Use CoreAnalysisService if enabled
-    if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
-      console.log('🚀 Using Progressive Insights Loading');
-      
-      // Step 1: Immediate - Load from cache or generate basic insights
-      try {
-        const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
-        // UnifiedAIPipeline has built-in caching
-        const cached = null; // Skip manual cache for now - UnifiedAIPipeline handles caching internally
-        
-        if (cached) {
-          console.log('✅ Loaded insights from cache');
-          setAiInsights([
-            {
-              type: 'info',
-              title: 'Bugünkü Özet',
-              message: cached.payload?.message || 'Günlük takibini sürdürüyorsun',
-              confidence: cached.confidence,
-            }
-          ]);
-          setInsightsSource('cache');
-          setInsightsConfidence(cached.confidence);
-        } else {
-          // Generate basic heuristic insights immediately
-          console.log('📝 Generating heuristic insights');
-          const basicInsights = [
-            {
-              type: 'progress',
-              title: 'İlerleme',
-              message: `${todayStats.compulsions} kompulsiyon, ${todayStats.resistanceWins} direnç kazancı`,
-              confidence: 0.6,
-            },
-            {
-              type: 'tip',
-              title: 'Öneri',
-              message: todayStats.erpSessions === 0 ? 'Bugün bir Terapi egzersizi deneyelim' : 'ERP pratiğine devam et',
-              confidence: 0.5,
-            }
-          ];
-          setAiInsights(basicInsights);
-          setInsightsSource('heuristic');
-          setInsightsConfidence(0.5);
-        }
-        
-        setAiInsightsLoading(false);
-        
-        // Step 2: Deep - Generate enhanced insights in background
-        setTimeout(async () => {
-          if (isInsightsRunning) return;
-          
-          try {
-            setIsInsightsRunning(true);
-            console.log('🔮 Generating deep insights in background');
-            
-            // Track insights request
-            await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-              userId: user.id,
-              source: 'home_screen_progressive',
-              timestamp: new Date().toISOString()
-            });
-            
-            // Generate deep insights
-            const deepInsights = await generateInsights();
-            
-            if (deepInsights && deepInsights.length > 0) {
-              setAiInsights(deepInsights);
-              setInsightsSource('llm');
-              setInsightsConfidence(0.9);
-              setHasDeepInsights(true);
-              
-              // UnifiedAIPipeline automatically caches insights
-              console.log('✅ Deep insights cached automatically by UnifiedAIPipeline');
-              
-              // Track insights delivered
-              await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-                userId: user.id,
-                insightsCount: deepInsights.length,
-                source: 'home_screen_progressive',
-                type: 'deep'
-              });
-            }
-          } catch (error) {
-            console.error('❌ Error generating deep insights:', error);
-          } finally {
-            setIsInsightsRunning(false);
-          }
-        }, 3000); // 3 second delay for deep insights
-        
-      } catch (error) {
-        console.error('❌ Error in progressive insights:', error);
-        setAiInsightsLoading(false);
-      }
-      
-    } else {
-      // Legacy insights loading
-      if (isInsightsRunning && insightsPromiseRef.current) {
-        if (__DEV__) console.log('⏳ Insights in progress – awaiting existing promise');
-        const existing = await insightsPromiseRef.current;
-        setAiInsights(existing || []);
-        return;
-      }
-
-      try {
-        setIsInsightsRunning(true);
-        setAiInsightsLoading(true);
-
-        // Track insights request
-        await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-          userId: user.id,
-          source: 'home_screen',
-          timestamp: new Date().toISOString()
-        });
-
-        // Generate insights using AI context
-        const running = generateInsights();
-        insightsPromiseRef.current = running;
-        const insights = await running;
-        setAiInsights(insights || []);
-
-        // Track insights delivered
-        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-          userId: user.id,
-          insightsCount: insights?.length || 0,
-          source: 'home_screen'
-        });
-
-      } catch (error) {
-        console.error('❌ Error loading AI insights:', error);
-        // Fail silently, don't impact main app functionality
-      } finally {
-        setAiInsightsLoading(false);
-        setIsInsightsRunning(false);
-        insightsPromiseRef.current = null;
-      }
-    }
+    // Legacy Progressive UI code removed - UnifiedAIPipeline handles all cases now
   };
 
   const onRefresh = async () => {
@@ -605,8 +486,43 @@ export default function TodayScreen() {
 
 
 
-  const handleCheckinComplete = () => {
-    // Refresh data after check-in
+  const handleCheckinComplete = (routingResult?: {
+    type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK';
+    confidence: number;
+    screen?: string;
+    params?: any;
+  }) => {
+    // 🎯 Enhanced Contextual Treatment Navigation
+    if (routingResult) {
+      console.log('🧭 Smart routing result:', routingResult);
+      
+      // Track successful routing
+      trackAIInteraction(AIEventType.ROUTE_FOLLOWED, {
+        userId: user?.id,
+        routeType: routingResult.type,
+        confidence: routingResult.confidence,
+        source: 'voice_checkin'
+      });
+      
+      // Auto-navigate based on AI analysis (optional - user can dismiss)
+      const shouldAutoNavigate = routingResult.confidence > 0.7;
+      
+      if (shouldAutoNavigate && routingResult.screen) {
+        setTimeout(() => {
+          // Give user a moment to see the analysis, then navigate
+          router.push({
+            pathname: `/(tabs)/${routingResult.screen}` as any,
+            params: {
+              ...routingResult.params,
+              source: 'ai_routing',
+              confidence: routingResult.confidence.toString()
+            }
+          });
+        }, 2000);
+      }
+    }
+    
+    // Always refresh data after check-in
     onRefresh();
   };
 
@@ -674,51 +590,7 @@ export default function TodayScreen() {
           </View>
         </Pressable>
 
-        {/* Mission 2: ERP Session - Store Kontrolü */}
-        {false ? (
-          <Pressable 
-            style={styles.missionCard}
-            onPress={() => router.push('/(tabs)/erp')}
-          >
-            <View style={styles.missionIcon}>
-              <MaterialCommunityIcons 
-                name={todayStats.erpSessions >= 1 ? "heart" : "heart-outline"} 
-                size={30} 
-                color={todayStats.erpSessions >= 1 ? "#10B981" : "#D1D5DB"} 
-              />
-            </View>
-            <View style={styles.missionContent}>
-              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
-              <View style={styles.missionProgress}>
-                <View style={styles.missionProgressBar}>
-                  <View style={[styles.missionProgressFill, { width: `${Math.min((todayStats.erpSessions / 1) * 100, 100)}%` }]} />
-                </View>
-                <Text style={styles.missionProgressText}>{todayStats.erpSessions}/1 oturum</Text>
-              </View>
-            </View>
-            <View style={styles.missionReward}>
-              <MaterialCommunityIcons name="star" size={14} color="#F59E0B" />
-              <Text style={styles.missionRewardText}>+100</Text>
-            </View>
-          </Pressable>
-        ) : (
-          <View style={[styles.missionCard, styles.missionCardDisabled]}>
-            <View style={styles.missionIcon}>
-              <MaterialCommunityIcons 
-                name="shield-off" 
-                size={30} 
-                color="#9CA3AF" 
-              />
-            </View>
-            <View style={styles.missionContent}>
-              <Text style={styles.missionTitle}>İyileşme Adımın</Text>
-              <Text style={styles.missionDescription}>Geçici olarak kapalı</Text>
-            </View>
-            <View style={styles.missionReward}>
-              <MaterialCommunityIcons name="lock" size={14} color="#9CA3AF" />
-            </View>
-          </View>
-        )}
+        {/* Mission 2: REMOVED - ERP Session module deleted */}
 
         {/* Mission 3: Resistance */}
         <Pressable 
@@ -949,19 +821,11 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      {false ? (
-        <View style={styles.quickStatCard}>
-          <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
-          <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
-          <Text style={styles.quickStatLabel}>ERP</Text>
-        </View>
-      ) : (
-        <View style={[styles.quickStatCard, styles.quickStatCardDisabled]}>
-          <MaterialCommunityIcons name="shield-off" size={30} color="#9CA3AF" />
-          <Text style={styles.quickStatValue}>-</Text>
-          <Text style={styles.quickStatLabel}>ERP</Text>
-        </View>
-      )}
+      <View style={[styles.quickStatCard, styles.quickStatCardDisabled]}>
+        <MaterialCommunityIcons name="shield-off" size={30} color="#9CA3AF" />
+        <Text style={styles.quickStatValue}>-</Text>
+        <Text style={styles.quickStatLabel}>Removed</Text>
+      </View>
     </View>
   );
 
