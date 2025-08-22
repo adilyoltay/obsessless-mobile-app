@@ -317,7 +317,14 @@ export default function UserCentricOCDDashboard({
   }, [compulsions, ybocsHistory]);
 
   useEffect(() => {
-    setOCDJourney(generateOCDJourneyData);
+    const journeyData = generateOCDJourneyData;
+    console.log('🎯 Setting OCD Journey Data:', {
+      hasData: !!journeyData,
+      recoveryDays: journeyData?.recoveryStory?.daysInRecovery,
+      compulsionsTracked: journeyData?.recoveryStory?.compulsionsTracked,
+      resistanceGrowth: journeyData?.recoveryStory?.resistanceGrowth
+    });
+    setOCDJourney(journeyData);
   }, [generateOCDJourneyData]);
 
   const renderTabButton = (tab: typeof selectedTab, label: string, icon: string) => (
@@ -346,10 +353,17 @@ export default function UserCentricOCDDashboard({
   );
 
   const renderJourneyTab = () => {
+    console.log('🎨 Rendering Journey Tab:', {
+      hasOcdJourney: !!ocdJourney,
+      selectedTab,
+      recoveryDays: ocdJourney?.recoveryStory?.daysInRecovery
+    });
+    
     // Show loading or empty state if no data
     if (!ocdJourney) {
+      console.log('⚠️ No OCD Journey data - showing loading state');
       return (
-        <ScrollView style={styles.tabContent}>
+        <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
           <View style={styles.comingSoonCard}>
             <MaterialCommunityIcons name="chart-timeline-variant" size={48} color={COLORS.whisperGray} />
             <Text style={styles.comingSoonTitle}>Recovery Journey Yükleniyor...</Text>
@@ -485,6 +499,13 @@ export default function UserCentricOCDDashboard({
     </ScrollView>
   );
 
+  console.log('🏗️ UserCentricOCDDashboard Render:', {
+    selectedTab,
+    hasOcdJourney: !!ocdJourney,
+    compulsionsCount: compulsions?.length,
+    currentTab: selectedTab
+  });
+
   return (
     <View style={styles.container}>
       {/* Tab Navigation */}
@@ -495,11 +516,13 @@ export default function UserCentricOCDDashboard({
         {renderTabButton('triggers', 'Triggers', 'target')}
       </View>
 
-      {/* Tab Content */}
-      {selectedTab === 'journey' && renderJourneyTab()}
-      {selectedTab === 'patterns' && renderPatternsTab()}
-      {selectedTab === 'assessment' && renderAssessmentTab()}
-      {selectedTab === 'triggers' && renderTriggersTab()}
+      {/* Tab Content with Debug */}
+      <View style={styles.tabContentContainer}>
+        {selectedTab === 'journey' && renderJourneyTab()}
+        {selectedTab === 'patterns' && renderPatternsTab()}
+        {selectedTab === 'assessment' && renderAssessmentTab()}
+        {selectedTab === 'triggers' && renderTriggersTab()}
+      </View>
     </View>
   );
 }
@@ -508,6 +531,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    minHeight: 500, // Ensure minimum height
+  },
+  
+  tabContentContainer: {
+    flex: 1,
+    minHeight: 400, // Ensure content area has height
   },
   
   // Tab Navigation

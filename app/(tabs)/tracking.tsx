@@ -1116,7 +1116,8 @@ export default function TrackingScreen() {
               </Pressable>
             </View>
             
-            <View style={styles.dashboardContent}>
+            {/* Dashboard Content - Fixed to ensure visibility */}
+            <View style={[styles.dashboardContent, { flex: 1 }]}>
               <UserCentricOCDDashboard
                 compulsions={allCompulsions}
                 ybocsHistory={ybocsHistory}
@@ -1648,10 +1649,11 @@ const styles = StyleSheet.create({
   },
   dashboardContainer: {
     width: '90%',
+    height: '80%', // FIXED: Added explicit height instead of just maxHeight
     maxHeight: '80%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
+    overflow: 'hidden', // Ensure content doesn't overflow
   },
   dashboardHeader: {
     flexDirection: 'row',
@@ -1827,6 +1829,8 @@ const styles = StyleSheet.create({
   // Dashboard Content
   dashboardContent: {
     flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 });
 
