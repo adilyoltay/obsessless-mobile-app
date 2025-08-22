@@ -32,6 +32,12 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - **Batch jobs**: Günlük trend analizi, mood smoothing, risk updates (03:05 Europe/Istanbul)
 - **Idempotent operations**: content_hash ile duplicate önleme
 - **Full telemetry**: Cache hit/miss, gating decisions, performance metrics
+- **Pattern Extraction Methods** (Ocak 2025 Added):
+  - `extractTemporalPatterns()` - Hourly compulsion analysis
+  - `extractMoodTemporalPatterns()` - Weekly mood patterns
+  - `extractEnvironmentalTriggers()` - Location-based trigger detection
+  - `extractBehavioralPatterns()` - Category-based pattern analysis
+  - `analyzeTriggers()` & `analyzeSeverityProgression()` - Comprehensive analysis
 
 ### 🎯 Unified AI Pipeline (ACTIVE - Ocak 2025)
 - **Tek Pipeline Architecture**: Voice + Pattern + Insights + CBT tek serviste
@@ -102,6 +108,33 @@ Notlar:
 ## Bilinen Kısıtlar
 - Gerçek AI cevapları için geçerli API anahtarı gerekir
 - AI Chat ve Crisis Detection kaldırıldı; ileride ihtiyaç olursa yeniden ele alınır
+
+## 🔧 **Recent Critical Updates (Ocak 2025)**
+
+### ✅ **User-Centric Dashboard Architecture**
+- **CBT Dashboard v2.1**: 3-tab modal (Journey/Growth/Next Steps) + dinamik data
+- **Mood Dashboard v2.1**: 4-tab modal (Journey/Spectrum/Patterns/Prediction) + bottom sheet
+- **OCD Dashboard v2.1**: 4-tab modal (Journey/Patterns/Assessment/Triggers) + treatment plan integration
+
+### ✅ **Treatment Plan Migration**
+- **Settings → OCD Dashboard**: Treatment plan access centralized in Assessment tab
+- **Information Architecture**: All OCD-related data (Y-BOCS, patterns, triggers, treatment plan) in single location
+- **User Experience**: Contextual access during OCD tracking workflow
+
+### ✅ **AI Service Bug Fixes**
+- **Y-BOCS Service**: `analyzeYBOCSHistory` → `analyzeResponses` method fix + validation error resolution
+- **UnifiedAIPipeline**: Missing pattern extraction methods added:
+  - Environmental trigger detection
+  - Temporal pattern analysis
+  - Mood pattern correlation
+  - Behavioral pattern recognition
+- **Service Initialization**: Import/export double reference errors resolved
+- **Type Safety**: All AI services properly initialized with error handling
+
+### ✅ **Privacy-First Implementation**
+- **PII Sanitization**: All user data sanitized before AI processing
+- **AES-256 Encryption**: Sensitive OCD payloads encrypted
+- **Cultural Adaptation**: Turkish cultural context integration (dini/ailesel faktörler)
 
 ## 📚 İlgili Dokümanlar
 

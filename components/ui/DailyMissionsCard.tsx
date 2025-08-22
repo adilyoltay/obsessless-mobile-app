@@ -16,14 +16,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useGamificationStore } from '@/store/gamificationStore';
-import { DynamicMission } from '@/features/ai/services/dynamicGamificationService';
+import { UnifiedMission } from '@/features/ai/services/unifiedGamificationService';
 
 interface DailyMissionsCardProps {
-  onMissionComplete?: (mission: DynamicMission) => void;
+  onMissionComplete?: (mission: UnifiedMission) => void;
   showGenerateButton?: boolean;
 }
 
-const getDifficultyConfig = (difficulty: DynamicMission['difficulty']) => {
+const getDifficultyConfig = (difficulty: UnifiedMission['difficulty']) => {
   const configs = {
     easy: {
       color: '#4CAF50',
@@ -58,7 +58,7 @@ const getDifficultyConfig = (difficulty: DynamicMission['difficulty']) => {
   return configs[difficulty];
 };
 
-const getCategoryIcon = (category: DynamicMission['category']) => {
+const getCategoryIcon = (category: UnifiedMission['category']) => {
   const icons = {
     compulsion: 'shield-check',
 
@@ -83,7 +83,7 @@ export default function DailyMissionsCard({
     currentUserId 
   } = useGamificationStore();
   
-  const [todayMissions, setTodayMissions] = useState<DynamicMission[]>([]);
+  const [todayMissions, setTodayMissions] = useState<UnifiedMission[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -129,7 +129,7 @@ export default function DailyMissionsCard({
     }
   };
 
-  const handleMissionAction = async (mission: DynamicMission) => {
+  const handleMissionAction = async (mission: UnifiedMission) => {
     if (mission.currentProgress >= mission.targetValue) return; // Already completed
     
     const success = await updateMissionProgress(mission.id, 1);

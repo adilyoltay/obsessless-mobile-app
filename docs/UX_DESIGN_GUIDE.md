@@ -65,9 +65,12 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 
 ### 📊 OKB Takip (Compulsions)
 - Zaman aralığı sekmeleri (Bugün/Hafta/Ay)
-- Günlük kayıt listesi kartları, “Daha Fazla Göster”
+- Günlük kayıt listesi kartları, "Daha Fazla Göster"
 - FAB ile hızlı giriş: kategori grid, direnç slider, not alanı, Kaydet
 - Kanonik kategori seti: contamination, checking, symmetry, mental, hoarding, other
+- **User-Centric Dashboard**: Chart icon → 4-tab modal (Journey/Patterns/Assessment/Triggers)
+- **Treatment Plan Integration**: Assessment tab içinde onboarding treatment plan gösterimi
+- **Y-BOCS Integration**: Onboarding'deki Y-BOCS verisi (32/40 Severe) dashboard'da analiz edilir
 
 ### 🛡️ ERP Takip ve Sihirbaz
 - Zaman aralığı sekmeleri ve özet istatistikler

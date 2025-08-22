@@ -61,22 +61,13 @@ Dokümanda tanımlanan **8 temel OKB AI özelliği** tamamen implement edildi ve
 - Real-time pattern insights display
 
 ### 4. 🏷️ **Smart Compulsion Categorization**
-**Status**: ✅ COMPLETE (Brand New Service)
+**Status**: 🔄 CONSOLIDATED into UnifiedGamificationService
 
 **What's Implemented:**
-- **File**: `features/ai/services/ocdCategorizationService.ts`
-- AI-powered multi-label classification
-- 10 OCD categories with Turkish cultural adaptations
-- Heuristic + AI hybrid approach
-- Confidence scoring and secondary categories
-- Cultural factor detection
-
-**Key Features:**
-- Advanced pattern matching for Turkish language
-- Religious OCD detection and cultural adjustments
-- Batch categorization support  
-- Clinical risk assessment
-- Treatment suggestions per category
+- Functionality merged into `features/ai/services/unifiedGamificationService.ts`
+- Core categorization logic preserved
+- AI-powered classification maintained
+- Cultural adaptations integrated into unified system
 
 ### 5. 🎯 **Smart OCD Triggers Detection**
 **Status**: ✅ COMPLETE (Brand New Service)
@@ -97,22 +88,21 @@ Dokümanda tanımlanan **8 temel OKB AI özelliği** tamamen implement edildi ve
 - Proactive intervention suggestions
 
 ### 6. 🎮 **OCD-Specific Gamification**
-**Status**: ✅ COMPLETE (Brand New Service)
+**Status**: 🔄 CONSOLIDATED into UnifiedGamificationService
 
 **What's Implemented:**
-- **File**: `features/ai/services/ocdGamificationService.ts`
-- 8 OCD-specific achievements with cultural relevance
-- 5 recovery milestones with clinical significance
-- Points system with honesty/resistance bonuses
-- Clinical safety checks and warnings
-- Turkish cultural achievement themes
+- Functionality merged into `features/ai/services/unifiedGamificationService.ts`
+- All OCD-specific achievements preserved
+- Clinical safety checks maintained
+- Points system and milestones integrated
+- Cultural themes preserved in unified system
 
 **Key Features:**
-- Evidence-based point calculation
+- Evidence-based point calculation maintained
 - Clinical milestone tracking (Y-BOCS improvements)
 - Safety alerts for concerning behavior patterns
 - Cultural achievements (family support, religious balance)
-- Recovery momentum tracking
+- Recovery momentum tracking via unified service
 
 ### 7. 🇹🇷 **Turkish Cultural OCD Adaptation**
 **Status**: ✅ COMPLETE (Brand New Service)

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { conflictResolver } from '@/services/conflictResolver';
+import { unifiedConflictResolver } from '@/services/unifiedConflictResolver';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -10,11 +10,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   }
 }));
 
-describe('conflictResolver', () => {
+describe('unifiedConflictResolver', () => {
   it('list returns [] when empty', async () => {
     // @ts-ignore
     AsyncStorage.getItem.mockResolvedValueOnce(null);
-    const res = await conflictResolver.list();
+    const res = await unifiedConflictResolver.list();
     expect(Array.isArray(res)).toBe(true);
   });
 });

@@ -200,8 +200,8 @@ interface OCDDashboardTabs {
   assessment: {
     title: 'Değerlendirme';
     icon: 'clipboard-check'; 
-    content: YBOCSData;
-    features: ['onboarding_ybocs', 'ai_enhanced_analysis', 'severity_tracking'];
+    content: YBOCSData + TreatmentPlan;
+    features: ['onboarding_ybocs', 'ai_enhanced_analysis', 'treatment_plan_integration', 'severity_tracking'];
   };
   
   triggers: {
@@ -504,6 +504,88 @@ const testingPriorities = {
   ]
 };
 ```
+
+---
+
+## 🚀 **Latest Updates (Ocak 2025 - Son Güncellemeler)**
+
+### ✅ **Treatment Plan Migration: Settings → OCD Dashboard** 
+**Tamamlanma Tarihi**: Ocak 2025
+
+#### **Problem Analizi:**
+- Kullanıcılar treatment plan'a erişmek için Settings → Tedavi Planım yolunu izlemek zorundaydı
+- OKB ile ilgili tüm bilgiler (Y-BOCS, patterns, triggers) farklı yerlerde dağınıktı
+- Information architecture tutarsızlığı vardı
+
+#### **Çözüm Implementation:**
+```typescript
+// ÖNCE: Settings sayfasında
+renderTreatmentPlanSection() → onboarding'e yönlendirme
+
+// SONRA: OCD Dashboard Assessment tab'ında
+<View style={styles.treatmentPlanCard}>
+  <Text style={styles.treatmentTitle}>Kişiselleştirilmiş OKB Tedavi Planı</Text>
+  <View style={styles.currentPhaseCard}>
+    <Text>{treatmentPlan.currentPhase + 1}. Aşama / {treatmentPlan.phases?.length}</Text>
+    <Text>{treatmentPlan.phases?.[treatmentPlan.currentPhase]?.name}</Text>
+  </View>
+  <View style={styles.planStatsRow}>
+    <Text>{treatmentPlan.estimatedDuration} hafta</Text>
+    <Text>{treatmentPlan.evidenceBasedInterventions?.length || 0} müdahale</Text>
+  </View>
+</View>
+```
+
+#### **User Benefits:**
+- ✅ **Single Source of Truth**: Tüm OKB bilgileri tek yerde (Dashboard)  
+- ✅ **Contextual Access**: Y-BOCS, AI analysis, treatment plan birlikte görüntülenebilir
+- ✅ **Better Information Architecture**: Settings sadece gerçek settings'e odaklanıyor
+- ✅ **Improved UX Flow**: OKB takibi sırasında treatment plan'a hızlı erişim
+
+---
+
+### ✅ **Critical AI Service Bug Fixes**
+**Tamamlanma Tarihi**: Ocak 2025
+
+#### **Y-BOCS Service Runtime Errors:**
+
+**1. Method Not Found Error:**
+```
+ERROR: analyzeYBOCSHistory is not a function (it is undefined)
+```
+**Fix:** `analyzeYBOCSHistory` → `analyzeResponses` method migration + mock data helper
+
+**2. Validation Error:**  
+```
+ERROR: Eksik yanıt: Soru 1
+```
+**Fix:** Mock Y-BOCS answers format correction:
+- ❌ Wrong: `questionId: 'obs_1', value: score`
+- ✅ Correct: `questionId: 'obs_time', response: Math.max(1, score)`
+
+**3. Falsy Response Error:**
+```
+ERROR: !answer.response validation fails when response = 0
+```
+**Fix:** `Math.max(1, ...)` ensures responses are never 0 (1-4 range)
+
+#### **UnifiedAIPipeline Missing Methods:**
+```
+ERROR: extractEnvironmentalTriggers is not a function
+ERROR: extractMoodTemporalPatterns is not a function
+```
+**Fix:** Added comprehensive pattern extraction methods:
+- `extractTemporalPatterns()` - Hourly compulsion analysis
+- `extractMoodTemporalPatterns()` - Weekly mood patterns  
+- `extractEnvironmentalTriggers()` - Location-based triggers
+- `extractBehavioralPatterns()` - Category-based analysis
+- `analyzeTriggers()` & `analyzeSeverityProgression()`
+
+#### **Runtime Error Resolution:**
+- ✅ **Y-BOCS AI Analysis**: Now works with onboarding data (32/40 Severe)
+- ✅ **Pattern Recognition**: Functional environmental/temporal analysis
+- ✅ **Service Initialization**: All AI services properly initialized
+- ✅ **Type Safety**: Import/export double reference errors resolved
 
 ---
 

@@ -98,10 +98,27 @@
   - Ana sayfa simplification (spectrum/pattern/prediction features dashboard'a taşındı)
   - Gerçek streak calculation ve personalized messaging
 
+- **User-Centric OCD Dashboard v2.1** (%100 tamamlandı)
+  - 4-tab modal dashboard (Journey/Patterns/Assessment/Triggers)
+  - Treatment Plan migration: Settings → OCD Dashboard Assessment tab
+  - Y-BOCS onboarding data integration (score: 32/40 Severe analysis)
+  - Dinamik AI pattern recognition, trigger detection, Turkish cultural analysis
+  - Privacy-first implementation: PII sanitization + AES-256 encryption
+  - Bottom sheet modal pattern matching CBT/Mood approach
+  - Master Prompt uyumlu sakin tasarım
+
 - **Dynamic Data Implementation** (%100 tamamlandı)
   - CBT: Personalized encouragement, real mood improvement achievements  
   - Mood: Real consecutive day streak, dynamic emotion distribution
+  - OCD: Real journey data, AI pattern analysis, cultural encouragement
   - Tamamen hard-coded mock veriler kaldırıldı (%95+ dinamikleştirme)
+
+- **Critical AI Service Bug Fixes** (%100 tamamlandı)
+  - Y-BOCS Service: analyzeYBOCSHistory → analyzeResponses method fix
+  - UnifiedAIPipeline: Missing pattern extraction methods added (extractEnvironmentalTriggers, extractMoodTemporalPatterns)
+  - Y-BOCS validation: Falsy response (0 değeri) validation error fix
+  - Service import/export: Double reference TypeError fixes
+  - AI service initialization: "not initialized" errors resolved
 
 ### 🚧 Devam Eden
 - Performance optimizasyonları
