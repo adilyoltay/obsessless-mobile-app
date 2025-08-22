@@ -10,7 +10,7 @@ export type CheckinRecord = {
   meta?: { durationSec?: number; wordsCount?: number; sttConfidence?: number };
 };
 
-export type ErpSessionLog = {
+// export type ErpSessionLog = { // Removed ERP
   id: string;
   startedAt: string; // ISO
   endedAt?: string;  // ISO

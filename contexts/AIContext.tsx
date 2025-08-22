@@ -807,7 +807,7 @@ export function AIProvider({ children }: AIProviderProps) {
         return [{
           id: 'data_insufficient_notice',
           type: 'system',
-          content: 'Daha anlamlı içgörüler için bugün en az bir kayıt ekleyin (kompulsiyon veya ERP).',
+          content: 'Daha anlamlı içgörüler için bugün en az bir kayıt ekleyin (kompulsiyon veya mood).',
           timestamp: new Date(),
           priority: 'low'
         }];

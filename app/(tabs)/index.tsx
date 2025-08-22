@@ -512,7 +512,7 @@ export default function TodayScreen() {
       // Calculate resistance wins
       const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
       
-      // Load today's ERP sessions
+      // (Removed) Load today's ERP sessions
       const erpKey = StorageKeys.ERP_SESSIONS(user.id, today);
       console.log('🔑 Today page loading ERP with key:', erpKey);
       

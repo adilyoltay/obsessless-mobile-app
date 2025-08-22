@@ -606,7 +606,7 @@ export default function SettingsScreen() {
 
         {/* Dil seçimi kaldırıldı */}
 
-        {/* ERP Modülü Ayarları */}
+        {/* (Removed) ERP Modülü Ayarları */}
 
 
         {/* AI Özellikleri - Varsayılan Aktif (Toggle Kaldırıldı) */}
