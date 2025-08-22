@@ -20,6 +20,9 @@ import * as Haptics from 'expo-haptics';
 import FAB from '@/components/ui/FAB';
 import CompulsionQuickEntry from '@/components/forms/CompulsionQuickEntry';
 import { Toast } from '@/components/ui/Toast';
+import OCDAnalyticsDashboard from '@/components/ocd/OCDAnalyticsDashboard';
+import UserCentricOCDDashboard from '@/components/ui/UserCentricOCDDashboard';
+import { YBOCSAssessmentUI } from '@/features/ai/components/onboarding/YBOCSAssessmentUI';
 
 // Gamification
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -27,8 +30,10 @@ import { useGamificationStore } from '@/store/gamificationStore';
 // Constants
 import { COMPULSION_CATEGORIES } from '@/constants/compulsions';
 
-// Storage utility
+// Storage utility & Privacy & Encryption  
 import { StorageKeys } from '@/utils/storage';
+import { sanitizePII } from '@/utils/privacy';
+import { dataEncryption } from '@/services/dataEncryption';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService from '@/services/supabase';
 
@@ -40,6 +45,11 @@ import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+
+// Y-BOCS AI Assessment Integration
+import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
+import type { YBOCSAnswer } from '@/features/ai/types';
 // VoiceMoodCheckin removed - using unified voice from Today page
 
 // Kanonik kategori eşlemesi
@@ -82,6 +92,17 @@ export default function TrackingScreen() {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [isInsightsRunning, setIsInsightsRunning] = useState(false);
+  
+  // OCD Analytics Dashboard State
+  const [showOCDDashboard, setShowOCDDashboard] = useState(false);
+  const [showUserCentricDashboard, setShowUserCentricDashboard] = useState(false);
+  const [allCompulsions, setAllCompulsions] = useState<CompulsionEntry[]>([]);
+  
+  // Y-BOCS Assessment State
+  const [showYBOCSAssessment, setShowYBOCSAssessment] = useState(false);
+  const [isYBOCSLoading, setIsYBOCSLoading] = useState(false);
+  const [lastYBOCSScore, setLastYBOCSScore] = useState<number | null>(null);
+  const [ybocsHistory, setYBOCSHistory] = useState<any[]>([]);
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -126,7 +147,7 @@ export default function TrackingScreen() {
   }, [selectedTimeRange]);
 
   /**
-   * 🤖 Load AI Pattern Recognition & Insights
+   * 🤖 Load AI Pattern Recognition & Insights - UnifiedPipeline Integration
    */
   const loadAIPatterns = async () => {
     if (!user?.id || !aiInitialized || !availableFeatures.includes('AI_INSIGHTS')) {
@@ -153,26 +174,66 @@ export default function TrackingScreen() {
       const allEntriesData = await AsyncStorage.getItem(storageKey);
       const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
 
-      // Generate AI insights for patterns
-      const patternData = {
-        compulsions: allEntries.slice(-50), // Last 50 entries for analysis
-        timeRange: selectedTimeRange,
-        userId: user.id
-      };
+      if (allEntries.length > 0) {
+        try {
+          // 🚀 USE UNIFIED PIPELINE for pattern analysis instead of local heuristics
+          console.log('🔄 Using UnifiedPipeline for compulsion pattern analysis...');
+          
+          const pipelineResult = await unifiedPipeline.process({
+            userId: user.id,
+            content: { compulsions: allEntries.slice(-30) }, // Last 30 entries
+            type: 'data' as const,
+            context: {
+              source: 'tracking' as const,
+              timestamp: Date.now(),
+              metadata: {
+                dataType: 'compulsion_patterns',
+                timeRange: selectedTimeRange
+              }
+            }
+          });
 
+          console.log('🎯 UnifiedPipeline pattern analysis result:', pipelineResult);
+
+          // Extract patterns from pipeline result
+          if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
+            const unifiedPatterns = pipelineResult.patterns.map((pattern: any) => ({
+              type: pattern.type || 'general_pattern',
+              title: pattern.title || 'Pattern Detected',
+              description: pattern.description || pattern.summary || 'No description available',
+              suggestion: pattern.intervention || pattern.suggestion || 'Consider consulting a therapist',
+              confidence: pattern.confidence || 0.5,
+              severity: pattern.severity || 'medium'
+            }));
+            
+            setAiPatterns(unifiedPatterns);
+            console.log('✅ UnifiedPipeline patterns loaded:', unifiedPatterns.length);
+          } else {
+            // Fallback to local heuristic analysis if no patterns from pipeline
+            console.log('🔄 No patterns from UnifiedPipeline, using fallback analysis');
+            const fallbackPatterns = analyzeTrends(allEntries);
+            setAiPatterns(fallbackPatterns);
+          }
+
+        } catch (pipelineError) {
+          console.error('❌ UnifiedPipeline pattern analysis failed, using fallback:', pipelineError);
+          // Fallback to local analysis
+          const fallbackPatterns = analyzeTrends(allEntries);
+          setAiPatterns(fallbackPatterns);
+        }
+      }
+
+      // Generate AI insights for UI
       const insights = await generateInsights();
       setAiInsights(insights || []);
-
-      // Mock pattern recognition (simulated AI analysis)
-      const patterns = analyzeTrends(allEntries);
-      setAiPatterns(patterns);
 
       // Track successful analysis
       await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         userId: user.id,
         insightsCount: insights?.length || 0,
-        patternsFound: patterns.length,
-        source: 'tracking_screen'
+        patternsFound: aiPatterns.length,
+        source: 'tracking_screen',
+        usedUnifiedPipeline: true
       });
 
     } catch (error) {
@@ -289,6 +350,9 @@ export default function TrackingScreen() {
       const allEntriesData = await AsyncStorage.getItem(storageKey);
       const allEntries: CompulsionEntry[] = allEntriesData ? JSON.parse(allEntriesData) : [];
       
+      // Set all compulsions for dashboard
+      setAllCompulsions(allEntries);
+      
       // Filter today's entries
       const todayKey = today.toDateString();
       const todayEntries = allEntries.filter(entry => 
@@ -339,8 +403,126 @@ export default function TrackingScreen() {
       // Load AI patterns after data loading
       await loadAIPatterns();
       
+      // Load Y-BOCS history
+      await loadYBOCSHistory();
+      
     } catch (error) {
       console.error('Error loading data:', error);
+    }
+  };
+
+  /**
+   * 📋 Load Y-BOCS Assessment History
+   */
+  const loadYBOCSHistory = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const storageKey = `ybocs_history_${user.id}`;
+      const historyData = await AsyncStorage.getItem(storageKey);
+      const history = historyData ? JSON.parse(historyData) : [];
+      
+      setYBOCSHistory(history);
+      
+      // Set last score for display
+      if (history.length > 0) {
+        setLastYBOCSScore(history[history.length - 1].totalScore);
+      }
+    } catch (error) {
+      console.error('Error loading Y-BOCS history:', error);
+    }
+  };
+
+  /**
+   * 📋 Handle Y-BOCS Assessment Completion
+   */
+  const handleYBOCSCompletion = async (answers: YBOCSAnswer[]) => {
+    if (!user?.id) {
+      Alert.alert('Hata', 'Kullanıcı oturumu bulunamadı');
+      return;
+    }
+
+    setIsYBOCSLoading(true);
+
+    try {
+      // Analyze Y-BOCS responses with AI enhancement and Turkish cultural adaptation
+      console.log('📊 Starting Y-BOCS AI analysis with Turkish cultural adaptation...');
+      
+      // First, analyze with Turkish cultural service
+      const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
+        user.id,
+        allCompulsions as any, // Type compatibility fix
+        { language: 'turkish', culturalBackground: 'turkish' }
+      );
+      
+      // Then run Y-BOCS analysis with cultural context
+      const analysis = await ybocsAnalysisService.analyzeYBOCS(answers, {
+        culturalContext: 'turkish',
+        enhanceWithAI: true,
+        personalizeRecommendations: true
+      });
+
+      // Save to history
+      const newAssessment = {
+        id: `ybocs_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        answers,
+        analysis,
+        totalScore: analysis.totalScore,
+        severityLevel: analysis.severityLevel,
+        dominantSymptoms: analysis.dominantSymptoms || [],
+        recommendations: analysis.recommendedInterventions || [],
+        culturalAnalysis: culturalAnalysis,
+        culturalAdaptations: culturalAnalysis?.interventionRecommendations?.immediate?.culturallyAdapted || []
+      };
+
+      const storageKey = `ybocs_history_${user.id}`;
+      const existingHistory = await AsyncStorage.getItem(storageKey);
+      const history = existingHistory ? JSON.parse(existingHistory) : [];
+      history.push(newAssessment);
+      
+      // Keep only last 10 assessments
+      const trimmedHistory = history.slice(-10);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(trimmedHistory));
+
+      // Update state
+      setYBOCSHistory(trimmedHistory);
+      setLastYBOCSScore(analysis.totalScore);
+      setShowYBOCSAssessment(false);
+
+      // Track Y-BOCS completion
+      await trackAIInteraction(AIEventType.YBOCS_ANALYSIS_COMPLETED, {
+        userId: user.id,
+        totalScore: analysis.totalScore,
+        severityLevel: analysis.severityLevel,
+        dominantSymptoms: analysis.dominantSymptoms || [],
+        source: 'tracking_screen'
+      });
+
+      // Award gamification rewards  
+      await awardMicroReward('daily_goal_met'); // Use existing reward type
+      await updateStreak();
+
+      // Show success message
+      setToastMessage(`Y-BOCS değerlendirmesi tamamlandı! Skor: ${analysis.totalScore}`);
+      setShowToast(true);
+      
+      // Haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Show analysis results
+      Alert.alert(
+        'Y-BOCS Analizi Tamamlandı',
+        `Toplam Skor: ${analysis.totalScore}\nŞiddet Seviyesi: ${analysis.severityLevel}\n\nDetaylar için dashboard'u kontrol edin`,
+        [{ text: 'Tamam' }]
+      );
+
+    } catch (error) {
+      console.error('Y-BOCS analysis error:', error);
+      setToastMessage('Y-BOCS analizi sırasında hata oluştu');
+      setShowToast(true);
+    } finally {
+      setIsYBOCSLoading(false);
     }
   };
 
@@ -557,8 +739,9 @@ export default function TrackingScreen() {
           <Pressable 
             style={styles.headerRight}
             onPress={() => {
-              // Graph/Stats action
+              // Open User-Centric OCD Dashboard
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowUserCentricDashboard(true);
             }}
           >
             <MaterialCommunityIcons name="chart-line" size={24} color="#10B981" />
@@ -656,6 +839,66 @@ export default function TrackingScreen() {
               <Text style={styles.statValue}>{calculateProgress()}%</Text>
               <Text style={styles.statLabel}>İlerleme</Text>
             </View>
+          </View>
+        </View>
+
+        {/* Y-BOCS Assessment Card */}
+        <View style={styles.ybocsCard}>
+          <View style={styles.ybocsHeader}>
+            <View style={styles.ybocsInfo}>
+              <MaterialCommunityIcons name="clipboard-text" size={24} color="#3B82F6" />
+              <View style={styles.ybocsTextContainer}>
+                <Text style={styles.ybocsTitle}>Y-BOCS Değerlendirmesi</Text>
+                <Text style={styles.ybocsSubtitle}>
+                  {lastYBOCSScore 
+                    ? `Son skor: ${lastYBOCSScore} • ${ybocsHistory.length} değerlendirme`
+                    : 'Henüz değerlendirme yapılmamış'
+                  }
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              style={styles.ybocsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowYBOCSAssessment(true);
+              }}
+              disabled={isYBOCSLoading}
+            >
+              {isYBOCSLoading ? (
+                <MaterialCommunityIcons name="loading" size={20} color="#FFFFFF" />
+              ) : (
+                <MaterialCommunityIcons 
+                  name={lastYBOCSScore ? "refresh" : "play"} 
+                  size={20} 
+                  color="#FFFFFF" 
+                />
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        {/* User-Centric Recovery Dashboard Card */}
+        <View style={styles.recoveryDashboardCard}>
+          <View style={styles.recoveryDashboardHeader}>
+            <View style={styles.recoveryDashboardInfo}>
+              <MaterialCommunityIcons name="heart-pulse" size={24} color="#059669" />
+              <View style={styles.recoveryDashboardTextContainer}>
+                <Text style={styles.recoveryDashboardTitle}>Recovery Dashboard</Text>
+                <Text style={styles.recoveryDashboardSubtitle}>
+                  Kişisel journey'n ve pattern analiz
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              style={styles.recoveryDashboardButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowUserCentricDashboard(true);
+              }}
+            >
+              <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
+            </Pressable>
           </View>
         </View>
 
@@ -813,7 +1056,59 @@ export default function TrackingScreen() {
         initialText={params.text as string}
         initialResistance={params.resistanceLevel ? Number(params.resistanceLevel) : undefined}
         initialTrigger={params.trigger as string}
+
       />
+
+      {/* User-Centric OCD Dashboard Modal */}
+      {showUserCentricDashboard && (
+        <View style={styles.dashboardOverlay}>
+          <View style={styles.dashboardContainer}>
+            <View style={styles.dashboardHeader}>
+              <Text style={styles.dashboardTitle}>Recovery Dashboard</Text>
+              <Pressable 
+                onPress={() => setShowUserCentricDashboard(false)}
+                style={styles.dashboardCloseButton}
+              >
+                <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
+              </Pressable>
+            </View>
+            
+            <View style={styles.dashboardContent}>
+              <UserCentricOCDDashboard
+                compulsions={allCompulsions}
+                ybocsHistory={ybocsHistory}
+                userId={user?.id || ''}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Y-BOCS Assessment Modal */}
+      {showYBOCSAssessment && (
+        <View style={styles.ybocsModal}>
+          <View style={styles.ybocsModalContainer}>
+            <View style={styles.ybocsModalHeader}>
+              <Text style={styles.ybocsModalTitle}>Y-BOCS Değerlendirmesi</Text>
+              <Pressable 
+                onPress={() => setShowYBOCSAssessment(false)}
+                style={styles.ybocsModalClose}
+                disabled={isYBOCSLoading}
+              >
+                <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
+              </Pressable>
+            </View>
+            
+            <View style={styles.ybocsModalContent}>
+              <YBOCSAssessmentUI
+                onComplete={handleYBOCSCompletion}
+                isLoading={isYBOCSLoading}
+                userId={user?.id}
+              />
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Toast */}
       <Toast
@@ -1294,6 +1589,201 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     lineHeight: 20,
+  },
+  
+  // Dashboard Overlay Styles
+  dashboardOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dashboardContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+  },
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  dashboardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  dashboardCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+
+  // Y-BOCS Assessment Styles
+  ybocsCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  ybocsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ybocsInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  ybocsTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  ybocsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  ybocsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+    fontFamily: 'Inter',
+  },
+  ybocsButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 36,
+  },
+  
+  // Y-BOCS Modal Styles
+  ybocsModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1001,
+    justifyContent: 'flex-start',
+    paddingTop: 50,
+  },
+  ybocsModalContainer: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    marginTop: 20,
+  },
+  ybocsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  ybocsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  ybocsModalClose: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  ybocsModalContent: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+
+  // Recovery Dashboard Styles
+  recoveryDashboardCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#059669',
+  },
+  recoveryDashboardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recoveryDashboardInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  recoveryDashboardTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  recoveryDashboardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  recoveryDashboardSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+    fontFamily: 'Inter',
+  },
+  recoveryDashboardButton: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
+    minHeight: 36,
+  },
+  
+  // Dashboard Content
+  dashboardContent: {
+    flex: 1,
   },
 });
 

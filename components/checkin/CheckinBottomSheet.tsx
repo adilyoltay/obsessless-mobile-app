@@ -376,6 +376,27 @@ export default function CheckinBottomSheet({
     return 5; // Default
   };
 
+  // Helper function to estimate severity level from text
+  const extractSeverityFromText = (text: string): number => {
+    const lower = text.toLowerCase();
+    if (/dayanılmaz|çıldıracağım|en kötü|dehşet verici/i.test(lower)) {
+      return 10; // Extreme severity
+    }
+    if (/çok kötü|berbat|korkunç|vahim/i.test(lower)) {
+      return 8; // High severity
+    }
+    if (/şiddetli|yoğun|güçlü|ağır/i.test(lower)) {
+      return 7; // Medium-high severity
+    }
+    if (/orta|normal|fena değil/i.test(lower)) {
+      return 5; // Medium severity
+    }
+    if (/hafif|az|biraz|küçük/i.test(lower)) {
+      return 3; // Low severity
+    }
+    return 5; // Default medium
+  };
+
   // Auto Record Handlers
   const handleAutoRecordConfirm = async (type: 'OCD' | 'CBT' | 'MOOD', data: any) => {
     setShowAutoRecord(false);
@@ -784,7 +805,12 @@ export default function CheckinBottomSheet({
         }
 
         case 'OCD':
-          // Navigate to tracking with category pre-selected
+          // Navigate to tracking with category pre-selected and severity
+          const estimatedSeverity = analysis.severity || 
+                                  analysis.params?.severity || 
+                                  analysis.extractedData?.severity ||
+                                  extractSeverityFromText(text);
+          
           router.push({
             pathname: '/(tabs)/tracking',
             params: {
@@ -793,7 +819,8 @@ export default function CheckinBottomSheet({
               trigger: analysis.trigger || '',
               confidence: analysis.confidence,
               prefill: 'true',
-              resistanceLevel: estimateResistanceFromText(text) || 5
+              resistanceLevel: estimateResistanceFromText(text) || 5,
+              severity: estimatedSeverity || 5
             },
           });
           break;

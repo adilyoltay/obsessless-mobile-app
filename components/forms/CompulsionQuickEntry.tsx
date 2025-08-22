@@ -22,8 +22,11 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import supabaseService, { CompulsionRecord } from '@/services/supabase';
 import { useStandardizedCompulsion } from '@/hooks/useStandardizedData';
+import { sanitizePII } from '@/utils/privacy';
 
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { ocdTriggerDetectionService } from '@/features/ai/services/ocdTriggerDetectionService';
+import { turkishOCDCulturalService } from '@/features/ai/services/turkishOcdCulturalService';
 
 interface CompulsionQuickEntryProps {
   visible: boolean;
@@ -52,9 +55,14 @@ export function CompulsionQuickEntry({
   const [selectedType, setSelectedType] = useState<string>('');
   const [resistanceLevel, setResistanceLevel] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
+  const [trigger, setTrigger] = useState<string>('');
   const [lastCompulsion, setLastCompulsion] = useState<any | null>(null);
   const [frequentTypes, setFrequentTypes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  
+  // Auto-trigger detection state
+  const [suggestedTriggers, setSuggestedTriggers] = useState<string[]>([]);
+  const [isDetectingTriggers, setIsDetectingTriggers] = useState<boolean>(false);
   
   const { awardMicroReward } = useGamificationStore();
   const { user } = useAuth();
@@ -72,6 +80,9 @@ export function CompulsionQuickEntry({
           : initialText;
         setNotes(combinedNotes);
       }
+      if (initialTrigger) {
+        setTrigger(initialTrigger);
+      }
       if (initialResistance !== undefined) {
         setResistanceLevel(initialResistance);
       }
@@ -84,12 +95,79 @@ export function CompulsionQuickEntry({
     }
   }, [visible, initialCategory, initialText, initialResistance, initialTrigger]);
 
+  // Auto-detect triggers when notes change
+  useEffect(() => {
+    const detectTriggersFromNotes = async () => {
+      if (!notes || notes.length < 10 || isDetectingTriggers) {
+        return;
+      }
+
+      try {
+        setIsDetectingTriggers(true);
+        
+        // Create a mock compulsion entry for trigger detection
+        const mockEntry = {
+          id: 'temp',
+          type: selectedType || 'other',
+          resistanceLevel,
+          timestamp: new Date(),
+          notes: notes
+        };
+
+        // Use existing service to detect triggers
+        const triggerAnalysis = await ocdTriggerDetectionService.detectTriggersFromText([mockEntry]);
+        
+        if (triggerAnalysis.triggers && triggerAnalysis.triggers.length > 0) {
+          // Extract top 3 trigger suggestions
+          let suggestions = triggerAnalysis.triggers
+            .sort((a, b) => b.confidence - a.confidence)
+            .slice(0, 3)
+            .map(t => t.trigger);
+
+          // Apply Turkish cultural adaptations to triggers
+          try {
+            const culturalAnalysis = await turkishOCDCulturalService.analyzeTurkishCulturalFactors(
+              user?.id || 'temp',
+              [mockEntry]
+            );
+            
+            // Filter and adapt triggers based on cultural context
+            if (culturalAnalysis.religiousAnalysis.isPresent) {
+              // Add culturally sensitive trigger options
+              const religiousContext = culturalAnalysis.religiousAnalysis.themes.map(t => t.theme);
+              suggestions = [...new Set([...suggestions, ...religiousContext])].slice(0, 3);
+            }
+          } catch (error) {
+            console.warn('Cultural analysis failed for trigger suggestions:', error);
+          }
+            
+          setSuggestedTriggers(suggestions);
+          
+          // Auto-fill first suggestion if no trigger is set
+          if (!trigger && suggestions.length > 0) {
+            setTrigger(suggestions[0]);
+          }
+        }
+      } catch (error) {
+        console.warn('Trigger detection failed:', error);
+      } finally {
+        setIsDetectingTriggers(false);
+      }
+    };
+
+    // Debounce trigger detection
+    const timeoutId = setTimeout(detectTriggersFromNotes, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [notes, selectedType, resistanceLevel]);
+
   useEffect(() => {
     if (!visible) {
       // Reset form when closed
       setSelectedType('');
       setResistanceLevel(5);
       setNotes('');
+      setTrigger('');
+      setSuggestedTriggers([]);
     }
   }, [visible]);
 
@@ -144,19 +222,21 @@ export function CompulsionQuickEntry({
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+      // 🔐 PRIVACY-FIRST: Sanitize PII from user input before storage
       const compulsionData: Omit<CompulsionRecord, 'id' | 'timestamp'> = {
         user_id: user.id,
         category: selectedType,
         subcategory: selectedType, // koru: orijinal etiket
         resistance_level: resistanceLevel,
-        notes: notes.trim() || undefined,
+        notes: notes.trim() ? sanitizePII(notes.trim()) : undefined,
       };
 
-      // Create entry for callbacks
+      // Create entry for callbacks (privacy-sanitized)
       const entry = {
         type: selectedType,
         resistanceLevel,
-        notes: notes.trim(),
+        trigger: trigger.trim() ? sanitizePII(trigger.trim()) : undefined,
+        notes: notes.trim() ? sanitizePII(notes.trim()) : '',
       };
 
       // Save to Supabase first (standardized)
@@ -165,8 +245,8 @@ export function CompulsionQuickEntry({
           await submitCompulsion({
             type: selectedType,
             resistanceLevel,
-            trigger: undefined,
-            notes: notes.trim() || undefined,
+            trigger: trigger.trim() ? sanitizePII(trigger.trim()) : undefined,
+            notes: notes.trim() ? sanitizePII(notes.trim()) : undefined,
           });
           return true;
         } catch (e) {
@@ -416,6 +496,64 @@ export function CompulsionQuickEntry({
               />
               <Text style={styles.charCount}>{notes.length}/200</Text>
             </View>
+          </View>
+
+          {/* Trigger Input with AI Auto-Detection */}
+          <View style={styles.triggerSection}>
+            <View style={styles.triggerHeader}>
+              <Text style={styles.triggerTitle}>🎯 Tetikleyici</Text>
+              {isDetectingTriggers && (
+                <View style={styles.detectingIndicator}>
+                  <MaterialCommunityIcons name="loading" size={16} color="#059669" />
+                  <Text style={styles.detectingText}>Analiz ediliyor...</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.triggerInputContainer}>
+              <TextInput
+                style={styles.triggerInput}
+                value={trigger}
+                onChangeText={setTrigger}
+                placeholder="Ne tetikledi bu kompülsiyonu?"
+                placeholderTextColor="#9CA3AF"
+                maxLength={200}
+              />
+            </View>
+
+            {/* Suggested Triggers */}
+            {suggestedTriggers.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsTitle}>💡 AI Önerileri:</Text>
+                <View style={styles.suggestionsList}>
+                  {suggestedTriggers.map((suggestion, index) => (
+                    <Pressable
+                      key={index}
+                      style={[
+                        styles.suggestionChip,
+                        trigger === suggestion && styles.suggestionChipSelected
+                      ]}
+                      onPress={() => {
+                        setTrigger(suggestion);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <MaterialCommunityIcons 
+                        name={trigger === suggestion ? "check" : "plus"} 
+                        size={12} 
+                        color={trigger === suggestion ? "#FFFFFF" : "#059669"} 
+                      />
+                      <Text style={[
+                        styles.suggestionText,
+                        trigger === suggestion && styles.suggestionTextSelected
+                      ]}>
+                        {suggestion}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -679,6 +817,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     fontFamily: 'Inter',
+  },
+
+  // Trigger Detection Styles
+  triggerSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  triggerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  triggerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    fontFamily: 'Inter',
+  },
+  detectingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detectingText: {
+    fontSize: 12,
+    color: '#059669',
+    marginLeft: 4,
+    fontWeight: '500',
+    fontFamily: 'Inter',
+  },
+  triggerInputContainer: {
+    position: 'relative',
+  },
+  triggerInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#1F2937',
+    fontFamily: 'Inter',
+    minHeight: 44,
+  },
+  suggestionsContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  suggestionsTitle: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '600',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  suggestionsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  suggestionChipSelected: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  suggestionText: {
+    fontSize: 12,
+    color: '#059669',
+    marginLeft: 4,
+    fontWeight: '500',
+    fontFamily: 'Inter',
+  },
+  suggestionTextSelected: {
+    color: '#FFFFFF',
   },
 
   // Action Buttons

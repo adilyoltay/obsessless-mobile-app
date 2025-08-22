@@ -96,12 +96,13 @@ const SCREEN_CONFIGS = {
   
   'tracking': {
     path: '/(tabs)/tracking',
-    supportedParams: ['prefill', 'text', 'category', 'trigger', 'confidence', 'resistanceLevel', 'intensity', 'duration', 'location'],
+    supportedParams: ['prefill', 'text', 'category', 'trigger', 'confidence', 'resistanceLevel', 'intensity', 'severity', 'duration', 'location'],
     requiredForPrefill: ['category'],
     validation: {
       category: (val: any) => typeof val === 'string' && val.length > 0,
       resistanceLevel: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
       intensity: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
+      severity: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
       duration: (val: any) => typeof val === 'number' && val > 0
     }
   },
@@ -149,6 +150,7 @@ class DataExtractionEngine {
         extracted.category = this.extractCompulsionCategory(text);
         extracted.resistanceLevel = this.extractResistanceLevel(text);
         extracted.intensity = this.extractIntensity(text);
+        extracted.severity = this.extractSeverity(text);
         extracted.location = this.extractLocation(text);
         break;
         
@@ -318,6 +320,29 @@ class DataExtractionEngine {
     for (const [intensity, pattern] of Object.entries(intensityPatterns)) {
       if (pattern.test(text)) {
         return parseInt(intensity);
+      }
+    }
+    
+    return 5; // Default medium
+  }
+
+  private static extractSeverity(text: string): number {
+    const severityPatterns = {
+      10: /dayanılmaz|çıldıracağım|en kötü|dehşet verici/i,
+      9: /çok kötü|berbat|korkunç|vahim/i,
+      8: /şiddetli|yoğun|güçlü|ağır/i,
+      7: /ciddi|önemli|belirgin/i,
+      6: /orta|normal|fena değil/i,
+      5: /ne çok ne az|kararsız|belirsiz/i,
+      4: /hafif|az|biraz|küçük/i,
+      3: /çok hafif|minimal|az/i,
+      2: /neredeyse yok|çok az/i,
+      1: /yok denecek kadar az|hiç yok/i
+    };
+    
+    for (const [severity, pattern] of Object.entries(severityPatterns)) {
+      if (pattern.test(text)) {
+        return parseInt(severity);
       }
     }
     
