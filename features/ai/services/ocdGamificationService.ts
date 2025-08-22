@@ -506,7 +506,7 @@ class OCDGamificationService {
           threshold: 20,
           customLogic: 'high_resistance_entries'
         },
-        clinicalSignificance: 'Resistance building - ERP terapisinin temel hedefi',
+        clinicalSignificance: 'Resistance building - terapinin temel hedefi',
         motivationalMessage: 'Kompülsiyonlara direnmek gerçek güç gösterisidir!',
         riskLevel: 'safe',
         culturalRelevance: {

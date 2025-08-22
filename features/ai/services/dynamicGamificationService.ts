@@ -23,7 +23,7 @@ export interface DynamicMission {
   id: string;
   title: string;
   description: string;
-  category: 'compulsion' | 'erp' | 'mood' | 'breathwork' | 'consistency' | 'challenge';
+  category: 'compulsion' | 'mood' | 'breathwork' | 'consistency' | 'challenge';
   difficulty: 'easy' | 'medium' | 'hard' | 'expert';
   targetValue: number;
   currentProgress: number;

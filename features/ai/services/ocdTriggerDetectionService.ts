@@ -905,7 +905,7 @@ class OCDTriggerDetectionService {
     };
 
     const defaultInterventions = {
-      immediate: ['ERP egzersizi yapın', 'Dikkat dağıtma', 'Nefes çalışması'],
+      immediate: ['Terapi egzersizi yapın', 'Dikkat dağıtma', 'Nefes çalışması'],
       longTerm: ['Profesyonel destek', 'Terapi programı', 'İlaç değerlendirmesi'],
       prevention: ['Tetikleyici günlüğü tutun', 'Erken uyarı işaretleri', 'Destek sistemi'],
       cultural: ['Kültürel duyarlı yaklaşım', 'Aile eğitimi']

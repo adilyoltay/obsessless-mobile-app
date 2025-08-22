@@ -19,13 +19,13 @@ class AIDataAggregationService {
 
   async aggregateUserData(userId: string): Promise<UserDataAggregate> {
     // Pull core sources
-    const [compulsions, erpSessions, moodEntries] = await Promise.all([
+    const [compulsions, moodEntries] = await Promise.all([
       supabaseService.getCompulsions(userId),
-      supabaseService.getERPSessions(userId),
-      this.readRecentMoodEntries(userId, 14),
+
+      this.readRecentMoodEntries(userId, 14)
     ]);
 
-    const performance = this.calculatePerformanceMetrics(erpSessions, compulsions, moodEntries);
+    const performance = this.calculatePerformanceMetrics(compulsions, moodEntries);
     const patterns = this.extractPatterns(compulsions, moodEntries);
 
     return {

@@ -608,7 +608,7 @@ Lütfen JSON formatında şu bilgileri ver:
     const baseSuggestions: Record<OCDCategory, string[]> = {
       [OCDCategory.CHECKING]: [
         'Kontrol davranışını sınırlandırmaya çalışın',
-        'ERP egzersizleri deneyin',
+        'Terapi egzersizleri deneyin',
         'Maruz kalma terapisi faydalı olabilir'
       ],
       [OCDCategory.CONTAMINATION]: [

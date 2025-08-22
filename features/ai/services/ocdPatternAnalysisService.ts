@@ -777,7 +777,7 @@ class OCDPatternAnalysisService {
         interventions.push('Günlük rutininizi optimize edin');
         break;
       default:
-        interventions.push('ERP egzersizleri deneyin');
+        interventions.push('Terapi egzersizleri deneyin');
         interventions.push('Terapist desteği alın');
     }
     

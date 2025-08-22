@@ -427,7 +427,7 @@ class VoiceRecognitionService {
       aliases: ['oturumu kapat', 'bitir'],
       action: async () => {
         aiLogger.ai?.info?.('Voice command: Stop session');
-        // ERP oturumunu bitir
+        // Oturumu bitir
       }
     });
 

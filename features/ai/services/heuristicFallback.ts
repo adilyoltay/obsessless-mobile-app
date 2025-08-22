@@ -1,7 +1,7 @@
 import type { AIMessage, ConversationContext } from '@/features/ai/types';
 
 type Lang = 'tr' | 'en';
-type Scenario = 'anxiety' | 'sleep' | 'erp' | 'generic';
+type Scenario = 'anxiety' | 'sleep' | 'generic';
 
 const TEMPLATES: Record<Lang, Record<Scenario, string>> = {
   tr: {
