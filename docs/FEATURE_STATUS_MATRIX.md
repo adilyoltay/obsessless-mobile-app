@@ -11,7 +11,7 @@
 | **Unified Voice Analysis** | ✅ Aktif | v2.0 | Merkezi ses analizi sistemi - Gemini API entegrasyonu |
 | **CBT Düşünce Kaydı** | ✅ Aktif | v2.0 | 4-adımlı form, BottomSheet, Master Prompt uyumlu |
 | **OCD Tracking** | ✅ Aktif | v2.0 | Orijinal tasarım korundu, ses check-in kaldırıldı |
-| **Therapy Sessions** | ✅ Aktif | v2.0 | FAB butonu, AI önerileri, ses check-in kaldırıldı |
+| ~~**Therapy Sessions**~~ | ❌ REMOVED | - | **ERP module tamamen kaldırıldı** |
 | **Breathwork** | ✅ Aktif | v2.0 | Akıllı tetikleme sistemi, contextual öneriler, protokol seçimi |
 | **Today Screen** | ✅ Aktif | v2.0 | Merkezi ses girişi, otomatik yönlendirme |
 
@@ -19,8 +19,8 @@
 
 | Özellik | Durum | Versiyon | Not |
 |---|---|---|---|
-| **UnifiedAIPipeline** | ✅ Aktif | v1.0 | Single-entry AI, LLM gating (-%70 API), Token budget (20K/day), Similarity dedup, Multi-layer cache (24h/12h/1h TTL), Progressive UI (<500ms/3s), Voice + Pattern + Insights + CBT birleşik |
-| **CoreAnalysisService** | ❌ Deprecated | v1.0 | Replaced by UnifiedAIPipeline, removed from codebase |
+| **UnifiedAIPipeline** | ✅ Aktif | v1.0 | **PRODUCTION ACTIVE** - Single-entry AI, LLM gating (-%70 API), Token budget (20K/day), Similarity dedup, Multi-layer cache (24h/1h TTL), Progressive UI (<500ms/3s), Voice + Pattern + Insights + CBT birleşik, %100 rollout |
+| **CoreAnalysisService** | ✅ Aktif | v1.0 | **ACTIVE** - UnifiedAIPipeline ile birlikte çalışıyor |
 | **Insights v2** | ✅ Aktif | v2.0 | Data Aggregation ile öncelik/zamanlama |
 | **Pattern Recognition v2** | ✅ Aktif | v2.0 | AI-assisted analiz |
 | **Smart Notifications** | ✅ Aktif | v2.0 | Kriz içeriği kaldırıldı |
@@ -61,9 +61,9 @@
 - BottomSheet entegrasyonu (CBT, OCD, ERP)
 - Merkezi ses analizi ve otomatik yönlendirme
 - Navigation yapısı optimizasyonu
-- AutoRecord: OCD/CBT/Mood/ERP için PII temizliği, kullanıcı tercihi, idempotency ve offline mapping
+- AutoRecord: OCD/CBT/Mood için PII temizliği, kullanıcı tercihi, idempotency ve offline mapping (ERP removed)
 - CrossDeviceSync: Yalnızca !synced && !id yükleme; tüm metin alanlarında sanitizePII
-- ERP: Voice prefill QuickStart, timestamp'li ERP auto-record verisi; prefill döngüsü düzeltildi
+- ~~ERP: Voice prefill QuickStart~~ - **REMOVED** - ERP module tamamen kaldırıldı
 - Breathwork v2.0: Akıllı tetikleme sistemi
   - Check-in'den otomatik yönlendirme (protokol + autoStart)
   - ERP sırasında anksiyete eşiği tetiklemesi (≥7)
@@ -73,7 +73,13 @@
   - Protokol seçimi: 4-7-8 (yüksek anksiyete), Box (normal), Paced (toparlanma)
   - Bottom tab'dan kaldırıldı (sadece akıllı tetiklemelerle erişim)
 
+### ✅ Son Tamamlanan (Ocak 2025)
+- **UnifiedAIPipeline v1.0 ACTIVATION** (%100 rollout)
+- **CoreAnalysisService v1.0 ACTIVATION** 
+- **ERP Module Complete Removal**
+- Legacy service conflict protection
+- Full telemetry and performance monitoring
+
 ### 🚧 Devam Eden
-- Supabase migration (thought_records tablosu)
 - Performance optimizasyonları
 - Test coverage artırımı

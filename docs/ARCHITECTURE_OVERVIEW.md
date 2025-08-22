@@ -21,8 +21,8 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
    - Safety: contentFilter (kriz tespiti ve kriz uyarıları kaldırıldı)
 
 ## Aktif/Pasif Modüller (Özet)
-- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, ERP önerileri, Telemetry, Content Filtering, **UnifiedAIPipeline v1.0 (GÜNCEL)**
-- Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı), CoreAnalysisService (deprecated)
+- Aktif: Onboarding (AI destekli), Insights v2, JITAI (temel), Voice Check‑in, Telemetry, Content Filtering, **UnifiedAIPipeline v1.0 (ACTIVE)**, **CoreAnalysisService v1.0 (ACTIVE)**
+- Pasif/Devre Dışı: AI Chat (UI/servis yok), Crisis Detection (kaldırıldı), Art Therapy (flag kapalı), **ERP Module (REMOVED)**
 
 ### 🚀 UnifiedAIPipeline v1.0 (GÜNCEL - Ocak 2025)
 - **Single-entry point architecture**: Tüm AI analizleri `unifiedPipeline.process()` üzerinden
@@ -33,13 +33,13 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - **Idempotent operations**: content_hash ile duplicate önleme
 - **Full telemetry**: Cache hit/miss, gating decisions, performance metrics
 
-### 🎯 Unified AI Pipeline (YENİ - Ocak 2025)
+### 🎯 Unified AI Pipeline (ACTIVE - Ocak 2025)
 - **Tek Pipeline Architecture**: Voice + Pattern + Insights + CBT tek serviste
 - **15→5 Servis İndirimi**: Sadece 5 core servis (Unified AI, Supabase, Gamification, Notifications, Telemetry)
 - **24 Saat Cache**: TTL bazlı önbellekleme, invalidation hooks
-- **Gradual Rollout**: %10→%50→%100 kademeli açılım
+- **Full Rollout**: %100 aktif - tüm kullanıcılar
 - **Paralel İşleme**: Tüm analizler paralel çalışır
-- **Cache Invalidation Hooks**: compulsion_added, erp_completed, mood_added, manual_refresh
+- **Cache Invalidation Hooks**: compulsion_added, mood_added, manual_refresh (ERP removed)
   
 Güncel yönlendirme:
 - Onboarding giriş rotası: `/(auth)/onboarding` (eski `/(auth)/ai-onboarding` kaldırıldı)
@@ -57,7 +57,7 @@ Notlar:
   - Harici AI hata telemetrisi: `trackAIError` çağrıları ve nazik fallback içerik döndürme.
   - Aynı kullanıcıdan eşzamanlı talepler: orchestrator’da kuyruklama (chained promise) ile deterministik işleyiş.
   - Cooldown/Rate limit telemetrisi: `INSIGHTS_RATE_LIMITED`; cache akışları: `INSIGHTS_CACHE_HIT` / `INSIGHTS_CACHE_MISS`; sıfır içgörü: `NO_INSIGHTS_GENERATED`.
-  - Data Aggregation: peakAnxietyTimes/commonTriggers/erpCompletionRate ile öncelik ve zamanlama ayarı; sıfır içgörüde aggregation‑tabanlı davranışsal fallback içgörü.
+  - Data Aggregation: peakAnxietyTimes/commonTriggers ile öncelik ve zamanlama ayarı; sıfır içgörüde aggregation‑tabanlı davranışsal fallback içgörü. (ERP metrics removed)
 - JITAI
   - `predictOptimalTiming` ve `normalizeContext` undefined‑güvenli; eksik bağlamlarda soft‑fail.
   - `generateTimingPrediction` başında guard: `currentContext.userState` eksikse normalize edilip güvenli varsayılanlarla ilerlenir.
@@ -65,7 +65,7 @@ Notlar:
 - Voice
   - LLM‑öncelikli unifiedVoiceAnalysis (Gemini 1.5 Flash), hata/kapalı durumda heuristik fallback.
   - `voice_checkins` kayıtları `sanitizePII(text)` ve `created_at` ile Supabase’e yazılır; offline kuyruğa aynı temizlikle eklenir.
-  - AutoRecord: kullanıcı tercihi (autoRecordEnabled) dikkate alınır; idempotency + UI guard ile çift kayıt önlenir; OCD/CBT/Mood/ERP için çevrimdışı mapping sağlanır.
+  - AutoRecord: kullanıcı tercihi (autoRecordEnabled) dikkate alınır; idempotency + UI guard ile çift kayıt önlenir; OCD/CBT/Mood için çevrimdışı mapping sağlanır. (ERP removed)
   - Breathwork yönlendirmesi: anksiyete seviyesine göre 4‑7‑8 veya box; `autoStart` parametresi ile başlatılır.
 - Storage
   - `StorageKeys.SETTINGS` eklendi; AsyncStorage wrapper anahtar doğrulaması yapar. Geçersiz anahtarlarda development modunda hata fırlatır (erken yakalama), production’da stack trace loglar. OfflineSync servisindeki tüm anahtarlar `safeStorageKey` ile güvenli hâle getirildi (`syncQueue_*`, `failedSyncItems_*`, `local*_*`).
@@ -85,18 +85,18 @@ Notlar:
 ## Veri Akışı (Örnekler)
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
-- ERP Oturumu: UI → Zustand (timer/anxiety, UUID id) → AsyncStorage (günlük anahtar) → Supabase (tamamlanınca; başarısızsa OfflineSync kuyruğu) → Zod standardizasyon + PII maskeleme → Gamification → Telemetry
+- ~~ERP Oturumu~~: **REMOVED** - ERP module kaldırıldı
 - Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
 - Breathwork: Contextual tetikleme → Protokol seçimi (anksiyete tabanlı) → AutoStart → Telemetry
 
 ## Kategori ve Tür Standartları
 - OCD Kategorileri (kanonik): contamination, checking, symmetry, mental, hoarding, other
-- ERP Egzersiz Türleri (kanonik): in_vivo, imaginal, interoceptive, response_prevention
+- ~~ERP Egzersiz Türleri~~: **REMOVED** - ERP module kaldırıldı
 
 ## Gizlilik ve Güvenlik
 - PII loglanmaz; telemetry metaveriyi sanitize eder
 - RLS aktif, kullanıcıya özel veri erişimi
-- Data Compliance: export (yerel mood + Supabase compulsion/ERP), soft delete işareti ve hard delete planlama anahtarları; Ayarlar’da silme talebi durumu/sayaç ve consent geçmişi görünümü; Senkronizasyon tanılama ekranı (Ayarlar > Tanılama) ve Tracking ekranında yalnızca anomali rozeti
+- Data Compliance: export (yerel mood + Supabase compulsion), soft delete işareti ve hard delete planlama anahtarları; Ayarlar'da silme talebi durumu/sayaç ve consent geçmişi görünümü; Senkronizasyon tanılama ekranı (Ayarlar > Tanılama) ve Tracking ekranında yalnızca anomali rozeti (ERP export removed)
 - Offline buffer şifreli saklama (platform yetenekleri dahilinde)
 
 ## Bilinen Kısıtlar
@@ -113,4 +113,4 @@ Notlar:
 - [Güvenlik Rehberi](./security-guide.md) - Güvenlik ve gizlilik prensipleri
 
 ---
-Son güncelleme: 2025-08 (Refactor: phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP UUID, AuthContext profil köprüsü, Sync tanılama UX, Breathwork v2.0 akıllı tetikleme)
+Son güncelleme: 2025-08 (Refactor: **UnifiedAIPipeline ACTIVATION**, phased init, flag temizliği, telemetry standardizasyonu, Data Aggregation entegrasyonu, OfflineSync batch/özet + DLQ + dinamik batch, Mood History, PII mask + Zod standardizasyon, günlük metrik kalıcılığı, ERP module removal, AuthContext profil köprüsü, Sync tanılama UX, Breathwork v2.0 akıllı tetikleme)

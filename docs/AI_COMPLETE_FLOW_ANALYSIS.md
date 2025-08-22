@@ -12,7 +12,7 @@ ObsessLess uygulaması, **UnifiedAIPipeline v1.0** ile konsolide edilmiş AI mim
 - **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token) ve rate limiting
 - **Similarity Dedup**: Tekrarlayan istekleri önleyen deduplication
 - **Progressive UI**: Immediate → Deep analiz ile hızlı yanıt (300ms → 3s)
-- **Deterministik Cache**: TTL yönetimi (24h insights, 1h voice)
+- **Deterministik Cache**: TTL yönetimi (24h insights, 1h voice) - ERP cache removed
 - **Hybrid Batch Jobs**: Günlük @03:05 trend/mood/risk analizleri
 
 ### 📊 Performans İyileştirmeleri:
@@ -37,7 +37,7 @@ AIManager (aiManager.ts)
 │   ├── AI_LLM_GATING (LLM filtreleme)
 │   ├── AI_PROGRESSIVE (Progressive UI)
 │   ├── AI_ONBOARDING_REFINE (Skeleton→Refine)
-│   └── AI_THERAPY_STAIRCASE (Deterministik zorluk)
+│   └── ~~AI_THERAPY_STAIRCASE~~ - **REMOVED** - ERP module deleted
 ├── Health Monitoring
 └── Telemetry Collection (Enhanced)
     ├── Cache Events (hit/miss)
@@ -75,13 +75,11 @@ graph TB
     ROUTER --> MOOD[Mood]
     ROUTER --> CBT[CBT]
     ROUTER --> OCD[OCD]
-    ROUTER --> ERP[ERP]
     ROUTER --> BREATH[Breathwork]
     
-    MOOD --> STORE[Result Cache<br/>TTL: 24h/12h/1h]
+    MOOD --> STORE[Result Cache<br/>TTL: 24h/1h]
     CBT --> STORE
     OCD --> STORE
-    ERP --> STORE
     BREATH --> STORE
 ```
 
@@ -128,17 +126,17 @@ interface AnalysisResult {
 
 ### 💾 Multi-Layer Cache
 - **Insights**: 24 saat TTL
-- **ERP Plans**: 12 saat TTL
 - **Voice Analysis**: 1 saat TTL
 - **Today Digest**: 12 saat TTL
+- **ERP Plans**: ~~REMOVED~~ - ERP module deleted
 - **Cache key format**: `ai:{userId}:{dayKey}:{type}:{hash}`
 
 ### 🔄 Cache Invalidation Triggers
 - `CBT_THOUGHT_CREATED/UPDATED` → Insights + Today Digest
-- `ERP_SESSION_COMPLETED` → ERP Plan + Insights
 - `YBOCS_UPDATED` → Tüm kullanıcı cache'i
 - `ONBOARDING_FINALIZED` → Full reset
 - `DAY_ROLLOVER` → Önceki gün cache'i
+- ~~`ERP_SESSION_COMPLETED`~~ → **REMOVED** - ERP module deleted
 
 ## 📊 Modül Bazlı AI Kullanımı (Güncellenmiş)
 
@@ -371,7 +369,7 @@ Tetikleyici → Protokol Seçimi → Auto-start
    ├── MOOD → mood_entries + content_hash
    ├── CBT → thought_records + idempotent
    ├── OCD → compulsion_records
-   ├── ERP → erp_sessions + staircase
+   ├── ~~ERP~~ → **REMOVED** - ERP module deleted
    └── BREATHWORK → breath_sessions
 
 5. BATCH PROCESSING (@03:05 daily)
@@ -390,7 +388,7 @@ BUDGET: TOKEN_BUDGET_EXCEEDED, USAGE_RECORDED
 DEDUP: SIMILARITY_DEDUP_HIT
 PROGRESSIVE: IMMEDIATE_SHOWN, DEEP_UPDATE
 BATCH: JOB_STARTED, JOB_COMPLETED, JOB_FAILED
-ERP: STAIRCASE_ADJUSTMENT (+1/-1 difficulty)
+~~ERP: STAIRCASE_ADJUSTMENT~~ - **REMOVED** - ERP module deleted
 ```
 
 ## ✅ Çözülen Sorunlar (CoreAnalysisService v1)
@@ -510,7 +508,7 @@ ERP: STAIRCASE_ADJUSTMENT (+1/-1 difficulty)
 
 ---
 
-*Bu doküman, UnifiedAIPipeline v1.0 migration sonrası güncellenmiştir (Ocak 2025). CoreAnalysisService'ten UnifiedAIPipeline'a geçiş tamamlanmış ve tek giriş noktası mimarisi başarıyla uygulanmıştır.*
+*Bu doküman, UnifiedAIPipeline v1.0 ACTIVATION sonrası güncellenmiştir (Ocak 2025). CoreAnalysisService ve UnifiedAIPipeline ACTIVE durumda çalışıyor ve tek giriş noktası mimarisi %100 rollout ile başarıyla uygulanmıştır. ERP modülü tamamen kaldırılmıştır.*
 
 ## 🔗 İlgili Dokümanlar
 - [AI Overview](./AI_OVERVIEW.md) - Genel AI mimarisi
