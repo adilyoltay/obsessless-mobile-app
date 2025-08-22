@@ -33,12 +33,12 @@ import moodTracker from '@/services/moodTrackingService';
 // ✅ REMOVED: moodPatternAnalysisService moved to dashboard
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
-import { MoodGamificationService } from '@/features/ai/services/moodGamificationService';
+import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
 import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 import { sanitizePII } from '@/utils/privacy';
-import { dataEncryption } from '@/services/dataEncryption';
+
 
 const { width } = Dimensions.get('window');
 
@@ -227,13 +227,12 @@ export default function MoodScreen() {
       
       try {
         console.log('🎮 Calculating mood points and achievements...');
-        const gamificationService = new MoodGamificationService();
         
         // Get user's mood history for point calculation
         // 🔄 Use intelligent merge service for gamification history
         const userHistory = await moodTracker.getMoodEntries(user.id, 30); // Last 30 days
         
-        // Calculate mood points
+        // Calculate mood points using unified gamification service
         const moodEntryForPoints = {
           id: `temp_${Date.now()}`,
           user_id: user.id,
@@ -249,19 +248,23 @@ export default function MoodScreen() {
           activities: []
         };
         
-        const pointsResult = await gamificationService.calculateMoodPoints(
+        const pointsResult = await unifiedGamificationService.awardUnifiedPoints(
           user.id,
-          moodEntryForPoints,
-          userHistory || []
+          'mood_entry',
+          {
+            mood_score: data.mood,
+            energy_level: data.energy,
+            anxiety_level: data.anxiety,
+            trigger: data.trigger
+          },
+          {
+            moodEntry: moodEntryForPoints
+          }
         );
         pointsEarned = pointsResult.totalPoints;
         
-        // Check for mood-specific achievements
-        const achievementsList = await gamificationService.checkAchievements(
-          user.id,
-          userHistory || [],
-          pointsEarned
-        );
+        // Check for mood-specific achievements (implemented in unified service)
+        const achievementsList: any[] = []; // Achievements are handled internally by unified service
         achievements = achievementsList;
         
         // Track activity in main achievement service
