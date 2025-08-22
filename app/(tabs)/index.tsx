@@ -235,8 +235,8 @@ export default function TodayScreen() {
         anxietyLevel: moodScore ? Math.max(1, Math.min(10, 10 - moodScore/10)) : undefined,
       };
       
-      // Use AI service to generate contextual suggestions
-      const breathworkService = new BreathworkSuggestionService(user.id);
+      // ✅ FIXED: Use singleton instead of creating new instance  
+      const breathworkService = BreathworkSuggestionService.getInstance();
       const suggestion = await breathworkService.generateSuggestion(contextData);
       
       if (suggestion) {
@@ -338,8 +338,9 @@ export default function TodayScreen() {
           timestamp: Date.now(),
           privacy: {
             piiSanitized: true,
-            encryptionLevel: encryptedPayload.algorithm ? 'aes256' : 'sanitized',
-            encrypted: !!encryptedPayload.algorithm
+            encryptionLevel: encryptedPayload.algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 
+                           encryptedPayload.algorithm ? 'aes256' : 'sanitized',
+            encrypted: encryptedPayload.algorithm && encryptedPayload.algorithm !== 'SHA256_FALLBACK'
           }
         }
       });

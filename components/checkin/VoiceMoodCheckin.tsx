@@ -11,6 +11,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { saveUserData, loadUserData, StorageKeys } from '@/utils/storage';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 
@@ -285,6 +286,12 @@ export default function VoiceMoodCheckin({
         const supabaseService = (await import('@/services/supabase')).default;
         const result = await supabaseService.saveCBTRecord(record);
         console.log('✅ CBT record saved to Supabase:', result?.id);
+        
+        // ✅ FIXED: Trigger cache invalidation for CBT insights
+        if (result?.id) {
+          unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
+          console.log('🔄 CBT cache invalidation triggered');
+        }
       } catch (error) {
         console.warn('⚠️ Supabase save failed, using local storage:', error);
       }

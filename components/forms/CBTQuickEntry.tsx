@@ -34,6 +34,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
+import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 // CBT Engine & UI Components
 import { cbtEngine } from '@/features/ai/engines/cbtEngine';
@@ -301,6 +302,12 @@ export default function CBTQuickEntry({
       try {
         const result = await supabaseService.saveCBTRecord(record);
         console.log('✅ CBT record saved to Supabase:', result?.id);
+        
+        // ✅ FIXED: Trigger cache invalidation for CBT insights
+        if (result?.id) {
+          unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
+          console.log('🔄 CBT cache invalidation triggered');
+        }
       } catch (error) {
         console.warn('⚠️ Supabase save failed, adding to offline queue:', error);
         

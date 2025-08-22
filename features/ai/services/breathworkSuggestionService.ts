@@ -31,6 +31,7 @@ export interface BreathworkSuggestion {
 export interface BreathworkTrigger {
   type: 'anxiety' | 'low_mood' | 'post_compulsion' | 'stress' | 'sleep_prep' | 'morning_routine' | 'panic_episode' | 'maintenance';
   confidence: number;
+  reason?: string; // ✅ FIXED: Added missing reason field for display purposes
   contextData: {
     moodScore?: number;
     anxietyLevel?: number;
@@ -276,6 +277,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'anxiety',
         confidence: Math.min(context.anxietyLevel / 10, 1),
+        reason: context.anxietyLevel >= 8 ? 'Yüksek anksiyete seviyesi tespit edildi' : 'Anksiyete artışı gözlendi',
         contextData: {
           anxietyLevel: context.anxietyLevel,
           timeOfDay: this.getTimeOfDay(hour),
@@ -289,6 +291,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'low_mood',
         confidence: Math.max((5 - context.moodScore) / 5, 0),
+        reason: context.moodScore <= 2 ? 'Çok düşük mood algılandı' : 'Mood düşüklüğü tespit edildi',
         contextData: {
           moodScore: context.moodScore,
           timeOfDay: this.getTimeOfDay(hour),
@@ -303,6 +306,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'post_compulsion',
         confidence: recency,
+        reason: `Son ${context.recentCompulsions} kompulsiyon sonrası rahatlama`,
         contextData: {
           recentCompulsions: context.recentCompulsions,
           timeOfDay: this.getTimeOfDay(hour)
@@ -315,6 +319,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'sleep_prep',
         confidence: 0.7,
+        reason: 'Uyku öncesi rahatlama zamanı',
         contextData: {
           timeOfDay: 'late_night',
           lastBreathworkSession: context.lastSession
@@ -327,6 +332,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'morning_routine',
         confidence: 0.6,
+        reason: 'Güne pozitif başlangıç için nefes egzersizi',
         contextData: {
           timeOfDay: 'morning',
           lastBreathworkSession: context.lastSession
@@ -341,6 +347,7 @@ export class BreathworkSuggestionService {
         triggers.push({
           type: 'stress',
           confidence: stressScore,
+          reason: 'Metinde stres belirtileri tespit edildi',
           contextData: {
             anxietyLevel: context.anxietyLevel,
             physicalSymptoms: this.extractPhysicalSymptoms(context.userInput)
@@ -354,6 +361,7 @@ export class BreathworkSuggestionService {
       triggers.push({
         type: 'panic_episode',
         confidence: 0.95,
+        reason: 'Panik atak belirtileri - acil sakinleştirme gerekli',
         contextData: {
           anxietyLevel: context.anxietyLevel,
           physicalSymptoms: this.extractPhysicalSymptoms(context.userInput),
