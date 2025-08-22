@@ -680,7 +680,7 @@ export default function TodayScreen() {
         </Pressable>
 
         {/* Mission 2: ERP Session - Store Kontrolü */}
-        {erpStore.isEnabled ? (
+        {false ? (
           <Pressable 
             style={styles.missionCard}
             onPress={() => router.push('/(tabs)/erp')}
@@ -954,7 +954,7 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      {erpStore.isEnabled ? (
+      {false ? (
         <View style={styles.quickStatCard}>
           <MaterialCommunityIcons name="check-circle" size={30} color="#3B82F6" />
           <Text style={styles.quickStatValue}>{todayStats.erpSessions}</Text>
