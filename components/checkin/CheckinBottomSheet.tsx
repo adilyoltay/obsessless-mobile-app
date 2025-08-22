@@ -568,11 +568,10 @@ export default function CheckinBottomSheet({
           autoRecord.type === 'OCD' ? 'OKB Kaydı' : autoRecord.type === 'CBT' ? 'CBT Kaydı' : autoRecord.type === 'MOOD' ? 'Mood Kaydı' : 'Önerisi',
           message,
           [
-            // autoRecord.type !== 'ERP' // Always true now (ERP removed)
-              ? { 
-                  text: 'Düzenle', 
-                  onPress: () => {
-                    // Düzenle'ye basıldığında ilgili form sayfasına git
+            { 
+              text: 'Düzenle', 
+              onPress: () => {
+                // Düzenle'ye basıldığında ilgili form sayfasına git
                     onClose();
                     if (autoRecord.type === 'OCD') {
                       router.push({
