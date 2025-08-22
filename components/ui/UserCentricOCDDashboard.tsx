@@ -125,7 +125,7 @@ export default function UserCentricOCDDashboard({
           nextMilestone: 'İlk kaydınızı oluşturun'
         },
         achievements: [],
-        encouragement: 'Hoş geldiniz! OKB recovery journey'nize başlamak için harika bir adım attınız. 💪'
+        encouragement: 'Hoş geldiniz! OKB recovery journey\'nize başlamak için harika bir adım attınız. 💪'
       };
     }
 
