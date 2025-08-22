@@ -69,7 +69,7 @@ export default function CheckinBottomSheet({
   // Auto Record Modal State
   const [showAutoRecord, setShowAutoRecord] = useState(false);
   const [autoRecordData, setAutoRecordData] = useState<any>(null);
-  const [autoRecordType, setAutoRecordType] = useState<'OCD' | 'CBT' | 'MOOD' | 'ERP'>('OCD');
+  const [autoRecordType, setAutoRecordType] = useState<'OCD' | 'CBT' | 'MOOD'>('OCD');
   const [isSavingAutoRecord, setIsSavingAutoRecord] = useState(false);
 
   // Animations
@@ -294,23 +294,12 @@ export default function CheckinBottomSheet({
   };
 
   // Auto Record Handlers
-  const handleAutoRecordConfirm = async (type: 'OCD' | 'CBT' | 'MOOD' | 'ERP', data: any) => {
+  const handleAutoRecordConfirm = async (type: 'OCD' | 'CBT' | 'MOOD', data: any) => {
     setShowAutoRecord(false);
     if (isSavingAutoRecord) return;
     setIsSavingAutoRecord(true);
     
-    if (type === 'ERP') {
-      // Navigate to ERP
-      onClose();
-      router.push({
-        pathname: '/(tabs)/erp',
-        params: { 
-          text: lastTranscript,
-          category: data.category 
-        },
-      });
-      setIsSavingAutoRecord(false);
-    } else {
+    {
       // Save the record
       const result = await saveAutoRecord(type as 'OCD' | 'CBT' | 'MOOD', data);
       
@@ -377,12 +366,7 @@ export default function CheckinBottomSheet({
             params: { text: lastTranscript, trigger: 'voice' },
           });
           break;
-        case 'ERP':
-          router.push({
-            pathname: '/(tabs)/erp',
-            params: { text: lastTranscript },
-          });
-          break;
+
       }
       onClose();
     }
@@ -578,10 +562,10 @@ export default function CheckinBottomSheet({
             ? `Düşünce: ${autoRecord.data.thought || text}\nÇarpıtma: ${autoRecord.data.distortionType || '-'}\n\nOnaylıyor musun?`
             : autoRecord.type === 'MOOD'
             ? `Mood: ${autoRecord.data.mood || 50}/100\nEnerji: ${autoRecord.data.energy || 5}/10\nAnksiyete: ${autoRecord.data.anxiety || 5}/10\n\nOnaylıyor musun?`
-            : `ERP önerisi: ${autoRecord.data.category || 'genel'}\n\nDevam edelim mi?`;
+            : `Önerisi: ${autoRecord.data.category || 'genel'}\n\nDevam edelim mi?`;
 
         Alert.alert(
-          autoRecord.type === 'OCD' ? 'OKB Kaydı' : autoRecord.type === 'CBT' ? 'CBT Kaydı' : autoRecord.type === 'MOOD' ? 'Mood Kaydı' : 'ERP Önerisi',
+          autoRecord.type === 'OCD' ? 'OKB Kaydı' : autoRecord.type === 'CBT' ? 'CBT Kaydı' : autoRecord.type === 'MOOD' ? 'Mood Kaydı' : 'Önerisi',
           message,
           [
             autoRecord.type !== 'ERP'
@@ -624,9 +608,7 @@ export default function CheckinBottomSheet({
                   }
                 }
               : { text: 'İptal', style: 'cancel' },
-            autoRecord.type !== 'ERP'
-              ? { text: 'Kaydet', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.type as any, autoRecord.data) }
-              : { text: 'Devam Et', style: 'default', onPress: () => handleAutoRecordConfirm('ERP', autoRecord.data) },
+            { text: 'Kaydet', style: 'default', onPress: () => handleAutoRecordConfirm(autoRecord.type as any, autoRecord.data) },
           ],
         );
 
@@ -688,17 +670,7 @@ export default function CheckinBottomSheet({
           });
           break;
 
-        case 'ERP':
-          // Navigate to ERP with suggested exercise
-          router.push({
-            pathname: '/(tabs)/erp',
-            params: { 
-              text: text || '',
-              category: analysis.category || '',
-              prefill: 'true'
-            },
-          });
-          break;
+
 
         case 'BREATHWORK': {
           console.log('🌬️ LEGACY ROUTING: BREATHWORK case triggered!');

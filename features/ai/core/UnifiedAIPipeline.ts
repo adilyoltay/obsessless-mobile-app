@@ -42,7 +42,7 @@ export interface UnifiedPipelineInput {
   content: string | any; // Voice text, user data, etc.
   type: 'voice' | 'data' | 'mixed';
   context?: {
-    source: 'today' | 'tracking' | 'erp' | 'cbt' | 'mood';
+    source: 'today' | 'tracking' | 'cbt' | 'mood';
     timestamp?: number;
     metadata?: Record<string, any>;
   };
@@ -51,7 +51,7 @@ export interface UnifiedPipelineInput {
 export interface UnifiedPipelineResult {
   // Voice Analysis Results
   voice?: {
-    category: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK' | 'OTHER';
+    category: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'OTHER';
     confidence: number;
     suggestion?: string;
     route?: string;

@@ -11,12 +11,12 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { aiSettingsUtils } from '@/store/aiSettingsStore';
-import { useERPSettingsStore } from '@/store/erpSettingsStore';
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
-  const erpStore = useERPSettingsStore();
+
   // AI Chat removed
 
   return (
@@ -115,33 +115,7 @@ export default function TabLayout() {
           tabBarActiveTintColor: '#34D399', // Daha sakin yeşil
         }}
       />
-      
-      {/* ERP Tab - Store ile dinamik olarak gösterilir */}
-      {erpStore.isEnabled ? (
-        <Tabs.Screen
-          name="erp"
-          options={{
-            title: 'ERP',
-            tabBarIcon: ({ focused }) => (
-              <TabBarIcon 
-                name={focused ? 'shield-check' : 'shield-outline'} 
-                color={focused ? '#67E8F9' : '#9CA3AF'} 
-                size={26} 
-              />
-            ),
-            tabBarActiveTintColor: '#67E8F9', // Daha sakin cyan
-          }}
-        />
-      ) : (
-        // ERP modülü kapalıyken tab'ı tamamen gizle
-        <Tabs.Screen
-          name="erp"
-          options={{
-            href: null, // Tab'da görünmez
-            title: 'ERP',
-          }}
-        />
-      )}
+
 
       <Tabs.Screen
         name="breathwork"

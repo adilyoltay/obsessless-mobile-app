@@ -31,7 +31,6 @@ export interface TrendAnalysis {
   metrics: {
     compulsionTrend: number; // -1 to 1 (decreasing to increasing)
     moodTrend: number; // -1 to 1
-    erpComplianceTrend: number; // -1 to 1
     resistanceTrend: number; // -1 to 1
   };
   insights: string[];

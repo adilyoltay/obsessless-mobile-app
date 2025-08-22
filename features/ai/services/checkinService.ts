@@ -12,10 +12,10 @@ export type NLUResult = {
   lang: 'tr' | 'en';
 };
 
-export type RouteDecision = 'ERP' | 'REFRAME';
+export type RouteDecision = 'REFRAME';
 
 export type UnifiedAnalysisResult = {
-  type: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK';
+  type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK';
   confidence: number;
   mood?: number;
   trigger?: string;
@@ -82,8 +82,7 @@ export function simpleNLU(text: string): NLUResult {
 }
 
 export function decideRoute(nlu: NLUResult): RouteDecision {
-  // Basit karar: düşük mood veya trigger teması belirgin → ERP, aksi → Reframe
-  if (nlu.mood <= 50 || ['temizlik','kontrol'].includes(nlu.trigger)) return 'ERP';
+  // Basit karar: Reframe yap
   return 'REFRAME';
 }
 
@@ -105,7 +104,7 @@ export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
 
 /**
  * Merkezi Ses Analizi - LLM Gating + Budget Control ile Gemini API
- * Ses girişini analiz edip MOOD, CBT, OCD, ERP veya BREATHWORK'e yönlendirir
+ * Ses girişini analiz edip MOOD, CBT, OCD veya BREATHWORK'e yönlendirir
  * 
  * v1.1: LLM Gating, Token Budget, Similarity Dedup eklendi
  */
@@ -536,24 +535,7 @@ function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
     };
   }
   
-  // ERP tetikleme: maruz kalma ve direnç
-  const erpPatterns = [
-    /maruz\s+kal/i,
-    /direnç\s+göster/i,
-    /erp\s+yap/i,
-    /egzersiz/i,
-    /pratik/i,
-    /alıştırma/i,
-    /yüzleş/i
-  ];
-  
-  if (erpPatterns.some(pattern => pattern.test(lower))) {
-    return {
-      type: 'ERP',
-      confidence: 0.7,
-      originalText: text
-    };
-  }
+
   
   // BREATHWORK patterns moved above OCD patterns for priority
   
@@ -847,12 +829,11 @@ Lütfen aşağıdaki kategorilerden BİRİNİ seç ve JSON formatında yanıtla:
 1. MOOD - Genel duygu durumu paylaşımı (günlük his, enerji seviyesi)
 2. CBT - Bilişsel çarpıtmalar içeren düşünceler (felaketleştirme, aşırı genelleme, zihin okuma vb.)
 3. OCD - Obsesyon veya kompulsiyon bildirimi (takıntılı düşünceler, kontrol etme, temizleme)
-4. ERP - Maruz kalma ve tepki önleme egzersizi talebi veya direnç gösterme
-5. BREATHWORK - Rahatlama, nefes egzersizi veya meditasyon ihtiyacı
+4. BREATHWORK - Rahatlama, nefes egzersizi veya meditasyon ihtiyacı
 
 Yanıt formatı:
 {
-  "type": "MOOD|CBT|OCD|ERP|BREATHWORK",
+  "type": "MOOD|CBT|OCD|BREATHWORK",
   "confidence": 0.0-1.0,
   "mood": 0-100 (sadece MOOD için),
   "category": "string (OCD için: temizlik/kontrol/simetri/sayma/diğer)",

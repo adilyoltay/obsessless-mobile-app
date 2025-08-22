@@ -24,7 +24,7 @@ rules:
   # 2.1. UnifiedAIPipeline Mimarisi - KESİN KURALLARI (Ocak 2025)
   # Bu kurallar ASLA ihlal edilmemelidir ve tüm AI işlemleri için zorunludur.
   - rule: "🚀 TEK GİRİŞ NOKTASI: Tüm AI analizleri SADECE 'unifiedPipeline.process()' üzerinden yapılmalıdır. CoreAnalysisService, coreAnalysisService.analyze(), veya herhangi başka AI servisi direkt kullanılmamalıdır."
-  - rule: "📝 PIPELINE INPUT FORMAT: Tüm unifiedPipeline.process() çağrıları şu formatta olmalıdır: { userId: string, content: string|object, type: 'voice'|'data'|'mixed', context: { source: 'today'|'mood'|'tracking'|'erp'|'cbt', timestamp?: number, metadata?: object } }"
+  - rule: "📝 PIPELINE INPUT FORMAT: Tüm unifiedPipeline.process() çağrıları şu formatta olmalıdır: { userId: string, content: string|object, type: 'voice'|'data'|'mixed', context: { source: 'today'|'mood'|'tracking'|'cbt', timestamp?: number, metadata?: object } }"
   - rule: "🔄 CACHE YÖNETİMİ: UnifiedAIPipeline'ın built-in cache'i kullanılmalıdır. Manuel cache yönetimi (AsyncStorage, coreAnalysisService.getCached vb.) YASAKTIR."
   - rule: "📊 TELEMETRY: Tüm AI işlemleri için trackAIInteraction ile uygun telemetry events (UNIFIED_PIPELINE_STARTED, UNIFIED_PIPELINE_COMPLETED, UNIFIED_PIPELINE_ERROR) kullanılmalıdır."
   - rule: "⚡ PROGRESSVE UI: AI işlemleri Progressive UI pattern ile yapılmalıdır: immediate response (heuristic) + background deep analysis (LLM)."

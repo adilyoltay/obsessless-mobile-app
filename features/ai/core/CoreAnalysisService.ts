@@ -31,7 +31,7 @@ export type InputKind = 'VOICE' | 'TEXT' | 'SENSOR';
 /**
  * Quick classification categories
  */
-export type QuickClass = 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK' | 'OTHER';
+export type QuickClass = 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'OTHER';
 
 /**
  * Routing actions based on analysis
@@ -134,9 +134,7 @@ const CONFIG = {
     insightsHours: parseInt(
       Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_INSIGHTS_HOURS || '24'
     ),
-    erpPlanHours: parseInt(
-      Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_ERP_PLAN_HOURS || '12'
-    ),
+
     voiceHours: parseInt(
       Constants.expoConfig?.extra?.EXPO_PUBLIC_CACHE_TTL_VOICE_HOURS || '1'
     ),
@@ -452,7 +450,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
 
   /**
    * Enhanced Heuristic Analysis with Comprehensive Pattern Matching
-   * v1.1: 200+ patterns across CBT, OCD, ERP, BREATHWORK, MOOD categories
+   * v1.1: 200+ patterns across CBT, OCD, BREATHWORK, MOOD categories
    */
   private async performHeuristicAnalysis(input: AnalysisInput): Promise<{
     quickClass: QuickClass;
@@ -469,8 +467,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     // 🔄 OCD PATTERN ANALYSIS (Obsessions & Compulsions)
     const ocdResults = this.analyzeOCDPatterns(content);
     
-    // 🛡️ ERP PATTERN ANALYSIS (Exposure & Response Prevention)
-    const erpResults = this.analyzeERPPatterns(content);
+
     
     // 🌬️ BREATHWORK PATTERN ANALYSIS (Relaxation & Anxiety)
     const breathworkResults = this.analyzeBreathworkPatterns(content);
@@ -479,7 +476,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     const moodResults = this.analyzeMoodPatterns(content);
     
     // 🏆 SCORE AGGREGATION & CONFIDENCE CALCULATION
-    const allResults = [cbtResults, ocdResults, erpResults, breathworkResults, moodResults];
+    const allResults = [cbtResults, ocdResults, breathworkResults, moodResults];
     const bestResult = allResults.reduce((best, current) => 
       current.confidence > best.confidence ? current : best
     );
@@ -951,10 +948,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     return 'general_exposure';
   }
 
-  private calculateERPDifficulty(score: number, patterns: string[]): number {
-    if (patterns.includes('exposure_readiness')) return Math.min(score * 10, 8);
-    return Math.min(score * 10, 5);
-  }
+
 
   private selectBreathworkProtocol(patterns: string[], score: number): string {
     // Enhanced protocol selection with comprehensive logic
@@ -1096,9 +1090,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
     
     // Determine TTL based on result type
     let ttlHours = CONFIG.cacheTTL.voiceHours;
-    if (result.quickClass === 'ERP') {
-      ttlHours = CONFIG.cacheTTL.erpPlanHours;
-    } else if (result.route === 'AUTO_SAVE') {
+    if (result.route === 'AUTO_SAVE') {
       ttlHours = CONFIG.cacheTTL.todayDigestHours;
     }
     

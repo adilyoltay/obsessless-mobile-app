@@ -30,7 +30,7 @@ export interface AIMessage {
  */
 export interface AIMessageMetadata {
   sessionId: string;
-  contextType: 'onboarding' | 'chat' | 'erp' | 'insights' | 'art_therapy';
+  contextType: 'onboarding' | 'chat' | 'insights' | 'art_therapy';
   
   // Therapeutic context
   therapeuticIntent?: string[];
@@ -1147,3 +1147,108 @@ export type TreatmentGoal = string;
 export type ProgressMilestone = Milestone;
 export type CulturalAdaptation = string;
 export type RiskFactors = RiskFactor[];
+
+// =============================================================================
+// 🧠 ADVANCED OCD PATTERN ANALYSIS TYPES (Ocak 2025)
+// =============================================================================
+
+export interface OCDTemporalPattern {
+  type: 'daily_cycle' | 'weekly_pattern' | 'situational_trigger' | 'stress_related';
+  peakTimes: string[];
+  frequency: number;
+  confidence: number;
+  trend: 'increasing' | 'stable' | 'decreasing' | 'fluctuating';
+  metadata: {
+    analysisDate: string;
+    dataPoints: number;
+    timeRange: string;
+  };
+}
+
+export interface OCDTriggerAnalysis {
+  triggers: {
+    trigger: string;
+    category: 'environmental' | 'emotional' | 'social' | 'physical' | 'temporal';
+    frequency: number;
+    impactScore: number;
+    associatedCategories: string[];
+    averageSeverity: number;
+    timePattern: {
+      peakHours: number[];
+      peakDays: string[];
+    };
+    emotionalContext: {
+      preTriggerAnxiety: number;
+      postCompulsionRelief: number;
+      emotionalIntensity: number;
+    };
+    interventionSuggestions: string[];
+  }[];
+  
+  triggerNetworks: {
+    primaryTrigger: string;
+    secondaryTriggers: string[];
+    cascadeEffect: boolean;
+    networkStrength: number;
+  }[];
+}
+
+export interface OCDCategoryDistribution {
+  distribution: {
+    category: string;
+    count: number;
+    percentage: number;
+    averageSeverity: number;
+    trend: 'increasing' | 'decreasing' | 'stable';
+    lastOccurrence: string;
+  }[];
+  dominantCategory: string;
+  diversity: number;
+  concentration: number;
+  emergingPatterns: string[];
+}
+
+export interface OCDSeverityProgression {
+  overall: {
+    currentAverage: number;
+    trend: 'improving' | 'worsening' | 'stable';
+    changeRate: number;
+    projectedNextWeek: number;
+  };
+  byCategory: Record<string, {
+    average: number;
+    trend: string;
+    samples: number;
+  }>;
+  riskFactors: {
+    factor: string;
+    correlation: number;
+    impact: 'low' | 'medium' | 'high';
+  }[];
+}
+
+export interface OCDPredictiveInsights {
+  nextWeekRisk: 'low' | 'medium' | 'high';
+  riskFactors: string[];
+  recommendations: string[];
+  confidence: number;
+}
+
+export interface OCDPatternAnalysisResult {
+  temporalPatterns: OCDTemporalPattern[];
+  triggerAnalysis: OCDTriggerAnalysis;
+  categoryDistribution: OCDCategoryDistribution;
+  severityProgression: OCDSeverityProgression;
+  predictiveInsights: OCDPredictiveInsights;
+  metadata: {
+    analysisDate: string;
+    dataPoints: number;
+    analysisType: string;
+    confidence: number;
+    culturalFactors: {
+      religiousComponent: boolean;
+      familialInfluence: boolean;
+      culturalNorms: boolean;
+    };
+  };
+}
