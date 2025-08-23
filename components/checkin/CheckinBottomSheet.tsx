@@ -473,10 +473,14 @@ export default function CheckinBottomSheet({
   // Helper function to save compulsion
   const saveCompulsion = async (data: any) => {
     try {
+      if (!user?.id) {
+        throw new Error('User not authenticated for compulsion save');
+      }
+      
       const { data: saved, error } = await supabase
         .from('compulsions')
         .insert({
-          user_id: user?.id,
+          user_id: user.id,
           category: data.category || data.type || 'contamination', // Use category instead of type
           subcategory: data.subcategory || null,
           notes: data.notes,
@@ -887,17 +891,35 @@ export default function CheckinBottomSheet({
         const result = await processSingleModule(singleAnalysis, text, true); // silent mode
         if (result) results.push(result);
       } catch (error) {
+        console.error(`❌ Failed to process ${module.module}:`, error);
         errors.push({ module: module.module, error });
       }
     }
     
-    // Show summary
-    if (results.length > 0) {
-      const summary = results.map(r => `✅ ${r.module}`).join('\n');
-      Alert.alert(
-        '🎉 Kayıtlar Oluşturuldu',
-        `${summary}\n\nToplam ${results.length} kayıt eklendi.\n\n⚡ Kayıtlar ilgili sayfalarda en üstte görünecek.`,
+    // Enhanced summary with both success and errors
+    console.log(`📊 Multi-module transaction completed: ${results.length} success, ${errors.length} errors`);
+    
+    if (results.length > 0 || errors.length > 0) {
+      const successSummary = results.map(r => `✅ ${r.module}`).join('\n');
+      const errorSummary = errors.map(e => `❌ ${e.module}: ${(e.error as any)?.message || 'Bilinmeyen hata'}`).join('\n');
+      
+      const fullSummary = [
+        successSummary,
+        errorSummary
+      ].filter(s => s.length > 0).join('\n');
+      
+      const title = errors.length > 0 ? '⚠️ Kayıt Sonuçları' : '🎉 Kayıtlar Oluşturuldu';
+      const message = `${fullSummary}\n\n📊 Toplam: ${results.length} başarılı, ${errors.length} hata${errors.length > 0 ? '\n\n🔧 Hatalı kayıtlar manuel olarak denenebilir.' : ''}\n\n⚡ Başarılı kayıtlar ilgili sayfalarda en üstte görünecek.`;
+      
+      Alert.alert(title, message,
         [
+          ...(errors.length > 0 && results.length === 0 ? [{
+            text: 'Tekrar Dene',
+            onPress: () => {
+              // Retry failed modules individually
+              console.log('🔄 User chose to retry failed modules');
+            }
+          }] : []),
           {
             text: 'Tamam',
             style: 'default',
@@ -935,10 +957,19 @@ export default function CheckinBottomSheet({
    * Process a single module (extracted for reuse)
    */
   const processSingleModule = async (analysis: any, text: string, silent: boolean = false) => {
-    console.log(`🔄 Processing single module: ${analysis.type}`, { silent, fields: Object.keys(analysis) });
+    console.log(`🔄 Processing single module: ${analysis.type}`, { 
+      silent, 
+      fields: Object.keys(analysis),
+      analysisFields: analysis.fields ? Object.keys(analysis.fields) : []
+    });
     
     try {
       if (analysis.type === 'OCD') {
+        // Validate user_id first
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
         const extractedData = extractDataFromVoice(text, 'OCD');
         const sufficientData = checkSufficientDataForAutoRecord(extractedData, 'OCD');
         
@@ -980,21 +1011,30 @@ export default function CheckinBottomSheet({
       } 
       else if (analysis.type === 'CBT') {
         // CBT kayıt logic - Align with thought_records schema
+        console.log('📝 CBT analysis fields:', analysis);
+        
+        // Validate user_id first
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
         const cbtData = {
-          user_id: user?.id,
+          user_id: user.id,
           thought: analysis.automatic_thought || analysis.thought || text,
           distortions: analysis.distortions || [],
           evidence_for: analysis.evidence_for || null,
           evidence_against: analysis.evidence_against || null,
-          reframe: analysis.reframe || `${text} - Yeniden çerçeveleme gerekli`,
-          mood_before: analysis.mood_before || 5,
-          mood_after: analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1), // Slight improvement default
+          reframe: analysis.reframe || 'Bu düşünceyi yeniden değerlendir', // Shorter reframe
+          mood_before: Math.max(1, Math.min(10, analysis.mood_before || 5)), // Ensure 1-10 range
+          mood_after: Math.max(1, Math.min(10, analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1))), // Ensure 1-10 range
           trigger: analysis.trigger || '',
           notes: analysis.notes || text
           // Removed: timestamp (uses created_at automatically)
           // Removed: synced (column doesn't exist)
           // Fixed: userId → user_id
         };
+        
+        console.log('📝 CBT data prepared:', cbtData);
         
         // Save CBT record to correct table
         const { data, error } = await supabase
@@ -1003,26 +1043,42 @@ export default function CheckinBottomSheet({
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('❌ CBT Supabase error:', error);
+          throw error;
+        }
         console.log('✅ CBT record auto-saved:', data);
         return { module: 'CBT', success: true, data };
       }
       else if (analysis.type === 'MOOD') {
+        console.log('💭 MOOD analysis fields:', analysis);
+        
+        // Validate user_id first
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
         const moodData = {
-          mood: analysis.mood_score || analysis.mood || 5,
-          energy: analysis.energy || 5,
-          anxiety: analysis.anxiety || 5,
+          mood: Math.max(1, Math.min(10, analysis.mood_score || analysis.mood || 5)),
+          energy: Math.max(1, Math.min(10, analysis.energy || 5)),
+          anxiety: Math.max(1, Math.min(10, analysis.anxiety || 5)),
           notes: analysis.notes || text,
           timestamp: new Date().toISOString(), // Convert to ISO string for moodTracker
-          userId: user?.id
+          userId: user.id
           // Removed: synced (handled by moodTracker service)
         };
         
-        // Save mood entry using moodTracker
-        await moodTracker.saveMoodEntry(moodData as any);
+        console.log('💭 MOOD data prepared:', moodData);
         
-        console.log('✅ MOOD record auto-saved:', moodData);
-        return { module: 'MOOD', success: true, data: moodData };
+        try {
+          // Save mood entry using moodTracker
+          await moodTracker.saveMoodEntry(moodData as any);
+          console.log('✅ MOOD record auto-saved:', moodData);
+          return { module: 'MOOD', success: true, data: moodData };
+        } catch (moodError) {
+          console.error('❌ MOOD moodTracker error:', moodError);
+          throw moodError;
+        }
       }
       else if (analysis.type === 'BREATHWORK') {
         // BREATHWORK suggestion
