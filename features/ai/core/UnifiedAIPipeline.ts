@@ -495,7 +495,9 @@ export class UnifiedAIPipeline {
           patterns.metadata.dataPoints += content.moods.length;
           
           // 📊 ENHANCED: Comprehensive mood analytics
+          console.log(`🎯 Starting mood analytics processing for ${content.moods.length} mood entries`);
           const moodAnalytics = this.processMoodAnalytics(content.moods);
+          console.log('📊 Mood analytics result:', moodAnalytics);
           if (moodAnalytics) {
             // Store analytics in result for dashboard consumption
             patterns.moodAnalytics = moodAnalytics;
@@ -4016,6 +4018,62 @@ export class UnifiedAIPipeline {
     });
     
     return patterns;
+  }
+
+  // ============================================================================
+  // 📊 MOOD ANALYTICS MAIN PROCESSOR
+  // ============================================================================
+  
+  /**
+   * 🎯 Main mood analytics processor - generates clinical-grade insights
+   */
+  private processMoodAnalytics(moods: any[]): any {
+    try {
+      console.log(`🧮 Processing mood analytics for ${moods.length} entries`);
+      
+      if (!moods || !Array.isArray(moods) || moods.length < 3) {
+        console.warn('⚠️ Insufficient mood data for analytics', moods?.length || 0);
+        return null;
+      }
+
+      // Limit to latest 50 entries for performance
+      const recentMoods = moods.slice(0, 50);
+      console.log(`📊 Using ${recentMoods.length} recent mood entries for analysis`);
+
+      // Calculate all clinical metrics
+      const weeklyDelta = this.calculateAnalyticsWeeklyDelta(recentMoods);
+      const volatility = this.calculateAnalyticsVolatility(recentMoods);
+      const baselines = this.calculateAnalyticsBaselines(recentMoods);
+      const correlations = this.calculateAnalyticsMEACorrelations(recentMoods);
+      const dataQuality = this.assessAnalyticsDataQuality(recentMoods);
+      const profile = this.classifyAnalyticsEmotionalProfile(recentMoods, baselines, weeklyDelta, volatility, correlations);
+      const bestTimes = this.analyzeAnalyticsBestTimes(recentMoods);
+      const confidence = this.calculateAnalyticsGlobalConfidence(recentMoods, dataQuality, profile);
+
+      const result = {
+        weeklyDelta: weeklyDelta,
+        volatility: volatility,
+        baselines: baselines,
+        correlations: correlations,
+        profile: profile,
+        bestTimes: bestTimes,
+        sampleSize: recentMoods.length,
+        dataQuality: dataQuality,
+        confidence: confidence
+      };
+
+      console.log('✅ Mood analytics completed:', {
+        weeklyDelta,
+        volatility,
+        profileType: profile?.type,
+        confidence
+      });
+
+      return result;
+    } catch (error) {
+      console.error('❌ Mood analytics processing failed:', error);
+      return null;
+    }
   }
 
   // ============================================================================
