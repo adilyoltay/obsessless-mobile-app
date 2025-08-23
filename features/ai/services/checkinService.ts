@@ -1644,7 +1644,41 @@ CRITICAL RULES:
       
       return enrichedResult;
     } catch (parseError) {
-      console.error('Gemini yanıtı parse edilemedi:', resultText);
+      console.error('🚨 JSON Parse Error Details:', {
+        error: parseError.message,
+        rawResponse: resultText.substring(0, 300),
+        cleanedAttempt: cleanedText.substring(0, 300),
+        startsWithJson: resultText.trim().startsWith('```json'),
+        hasJsonBraces: resultText.includes('{') && resultText.includes('}')
+      });
+      
+      // 🔄 LAST RESORT: Manual JSON extraction attempt
+      try {
+        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const extractedJson = jsonMatch[0];
+          console.log('🔧 Manual JSON extraction attempt:', extractedJson.substring(0, 200));
+          const manualParsed = JSON.parse(extractedJson);
+          console.log('✅ Manual extraction successful!');
+          
+          // Use the manually extracted JSON
+          if (manualParsed.modules && Array.isArray(manualParsed.modules)) {
+            const enrichedResult: UnifiedAnalysisResult = {
+              type: manualParsed.modules[0]?.module || 'MOOD',
+              confidence: manualParsed.modules[0]?.confidence || 0.8,
+              modules: manualParsed.modules,
+              originalText: text,
+              suggestion: manualParsed.suggestion || '',
+              ...((manualParsed.modules[0]?.fields || {}))
+            };
+            return enrichedResult;
+          }
+        }
+      } catch (manualError) {
+        console.error('💥 Manual extraction also failed:', manualError);
+      }
+      
+      console.error('❌ All JSON parsing methods failed. Using heuristic fallback.');
       return null;
     }
   } catch (error: any) {
