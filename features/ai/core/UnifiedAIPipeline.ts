@@ -4081,6 +4081,59 @@ export class UnifiedAIPipeline {
   // ============================================================================
 
   /**
+   * 📊 Calculate mood volatility using winsorized standard deviation
+   */
+  private calculateAnalyticsVolatility(moods: any[]): number {
+    try {
+      if (moods.length < 2) return 0;
+      
+      const scores = moods.map(m => m.mood_score).filter(s => s !== null && s !== undefined);
+      if (scores.length < 2) return 0;
+      
+      // Winsorize at 5th and 95th percentiles to reduce outlier impact
+      const sorted = [...scores].sort((a, b) => a - b);
+      const p5Index = Math.floor(sorted.length * 0.05);
+      const p95Index = Math.ceil(sorted.length * 0.95) - 1;
+      const p5Value = sorted[p5Index];
+      const p95Value = sorted[p95Index];
+      
+      const winsorized = scores.map(s => Math.min(Math.max(s, p5Value), p95Value));
+      
+      const mean = winsorized.reduce((sum, s) => sum + s, 0) / winsorized.length;
+      const variance = winsorized.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / winsorized.length;
+      
+      return Math.sqrt(variance);
+    } catch (error) {
+      console.warn('⚠️ Volatility calculation failed:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * 📊 Calculate 14-day baselines for mood, energy, anxiety
+   */
+  private calculateAnalyticsBaselines(moods: any[]): any {
+    try {
+      if (moods.length === 0) return { mood: 50, energy: 50, anxiety: 50 };
+      
+      const recent14Days = moods.slice(0, Math.min(50, moods.length)); // Use available data
+      
+      const moodScores = recent14Days.map(m => m.mood_score).filter(s => s !== null && s !== undefined);
+      const energyScores = recent14Days.map(m => m.energy_level).filter(s => s !== null && s !== undefined);
+      const anxietyScores = recent14Days.map(m => m.anxiety_level).filter(s => s !== null && s !== undefined);
+      
+      return {
+        mood: moodScores.length > 0 ? moodScores.reduce((sum, s) => sum + s, 0) / moodScores.length : 50,
+        energy: energyScores.length > 0 ? energyScores.reduce((sum, s) => sum + s, 0) / energyScores.length : 50,
+        anxiety: anxietyScores.length > 0 ? anxietyScores.reduce((sum, s) => sum + s, 0) / anxietyScores.length : 50
+      };
+    } catch (error) {
+      console.warn('⚠️ Baselines calculation failed:', error);
+      return { mood: 50, energy: 50, anxiety: 50 };
+    }
+  }
+
+  /**
    * 📈 Calculate weekly mood delta with fallback for limited data
    */
   private calculateAnalyticsWeeklyDelta(moods: any[]): number {
@@ -4466,6 +4519,220 @@ export class UnifiedAIPipeline {
       return Math.min(0.95, totalConfidence);
     } catch (error) {
       console.warn('⚠️ Global confidence calculation failed:', error);
+      return 0.3;
+    }
+  }
+  /**
+   * 📊 Assess data quality for analytics
+   */
+  private assessAnalyticsDataQuality(moods: any[]): number {
+    try {
+      if (moods.length === 0) return 0.1;
+      
+      let qualityScore = 0;
+      
+      // Sample size scoring
+      if (moods.length >= 30) qualityScore += 0.4;
+      else if (moods.length >= 14) qualityScore += 0.3;
+      else if (moods.length >= 7) qualityScore += 0.2;
+      else qualityScore += 0.1;
+      
+      // Missing data ratio
+      const validMoodScores = moods.filter(m => m.mood_score !== null && m.mood_score !== undefined);
+      const missingRatio = 1 - (validMoodScores.length / moods.length);
+      const missingScore = Math.max(0, 0.3 - missingRatio * 0.3);
+      qualityScore += missingScore;
+      
+      // Outlier detection
+      if (validMoodScores.length >= 5) {
+        const scores = validMoodScores.map(m => m.mood_score);
+        const mean = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+        const std = Math.sqrt(scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length);
+        const outliers = scores.filter(score => Math.abs(score - mean) > 2 * std);
+        const outlierRatio = outliers.length / scores.length;
+        const outlierScore = Math.max(0, 0.3 - outlierRatio * 0.3);
+        qualityScore += outlierScore;
+      }
+      
+      return Math.min(1, qualityScore);
+    } catch (error) {
+      console.warn('⚠️ Analytics data quality assessment failed:', error);
+      return 0.1;
+    }
+  }
+
+  /**
+   * 🧠 Classify analytics emotional profile (7 types with priority)
+   */
+  private classifyAnalyticsEmotionalProfile(
+    moods: any[],
+    baselines: { mood: number; energy: number; anxiety: number },
+    weeklyDelta: number,
+    volatility: number,
+    correlations: any
+  ): { type: string; confidence: number; rationale: string[] } {
+    try {
+      const rationale: string[] = [];
+      let profileType = 'stable';
+      let confidence = 0.5;
+      
+      // Priority order: stressed > volatile > fatigued > recovering > resilient > elevated > stable
+      
+      // 1. STRESSED: baseline.mood < 40 AND baseline.anxiety > 60
+      if (baselines.mood < 40 && baselines.anxiety > 60) {
+        profileType = 'stressed';
+        rationale.push(`Düşük mood (${baselines.mood.toFixed(1)}) ve yüksek anksiyete (${baselines.anxiety.toFixed(1)})`);
+        confidence = 0.8;
+      }
+      // 2. VOLATILE: volatility > 15
+      else if (volatility > 15) {
+        profileType = 'volatile';
+        rationale.push(`Yüksek mood volatilitesi (${volatility.toFixed(1)})`);
+        confidence = 0.7;
+      }
+      // 3. FATIGUED: baseline.energy < 40 AND baseline.mood < 55
+      else if (baselines.energy < 40 && baselines.mood < 55) {
+        profileType = 'fatigued';
+        rationale.push(`Düşük enerji (${baselines.energy.toFixed(1)}) ve orta-düşük mood (${baselines.mood.toFixed(1)})`);
+        confidence = 0.75;
+      }
+      // 4. RECOVERING: weeklyDelta > 8 AND 40 ≤ baseline.mood ≤ 60
+      else if (weeklyDelta > 8 && baselines.mood >= 40 && baselines.mood <= 60) {
+        profileType = 'recovering';
+        rationale.push(`Pozitif haftalık trend (+${weeklyDelta.toFixed(1)}) ve orta mood (${baselines.mood.toFixed(1)})`);
+        confidence = 0.6;
+      }
+      // 5. RESILIENT: baseline.mood ≥ 65 AND volatility ≤ 8 AND baseline.anxiety ≤ 40
+      else if (baselines.mood >= 65 && volatility <= 8 && baselines.anxiety <= 40) {
+        profileType = 'resilient';
+        rationale.push(`Yüksek mood (${baselines.mood.toFixed(1)}), düşük volatilite (${volatility.toFixed(1)}) ve düşük anksiyete (${baselines.anxiety.toFixed(1)})`);
+        confidence = 0.85;
+      }
+      // 6. ELEVATED: baseline.mood ≥ 70
+      else if (baselines.mood >= 70) {
+        profileType = 'elevated';
+        rationale.push(`Yüksek mood baseline (${baselines.mood.toFixed(1)})`);
+        confidence = 0.7;
+      }
+      // 7. STABLE: default case
+      else {
+        profileType = 'stable';
+        rationale.push(`Dengeli duygusal durum (mood: ${baselines.mood.toFixed(1)}, volatilite: ${volatility.toFixed(1)})`);
+        confidence = 0.5;
+      }
+      
+      return { type: profileType, confidence, rationale };
+    } catch (error) {
+      console.warn('⚠️ Analytics emotional profile classification failed:', error);
+      return { type: 'stable', confidence: 0.3, rationale: ['Analiz hatası nedeniyle varsayılan profil'] };
+    }
+  }
+
+  /**
+   * ⏰ Analyze best times for mood (day of week/time of day)
+   */
+  private analyzeAnalyticsBestTimes(moods: any[]): { dayOfWeek?: string; timeOfDay?: string; confidence: number } {
+    try {
+      if (moods.length < 7) return { confidence: 0.1 };
+      
+      const dayOfWeekCounts: { [key: string]: { count: number; avgMood: number } } = {};
+      const timeOfDayCounts: { [key: string]: { count: number; avgMood: number } } = {};
+      
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      
+      moods.forEach(mood => {
+        if (mood.mood_score && mood.created_at) {
+          const date = new Date(mood.created_at);
+          const dayOfWeek = dayNames[date.getDay()];
+          const hour = date.getHours();
+          const timeSlot = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+          
+          // Day of week analysis
+          if (!dayOfWeekCounts[dayOfWeek]) {
+            dayOfWeekCounts[dayOfWeek] = { count: 0, avgMood: 0 };
+          }
+          dayOfWeekCounts[dayOfWeek].count++;
+          dayOfWeekCounts[dayOfWeek].avgMood += mood.mood_score;
+          
+          // Time of day analysis
+          if (!timeOfDayCounts[timeSlot]) {
+            timeOfDayCounts[timeSlot] = { count: 0, avgMood: 0 };
+          }
+          timeOfDayCounts[timeSlot].count++;
+          timeOfDayCounts[timeSlot].avgMood += mood.mood_score;
+        }
+      });
+      
+      // Calculate averages and find best times
+      let bestDay = '';
+      let bestDayMood = 0;
+      Object.keys(dayOfWeekCounts).forEach(day => {
+        const avgMood = dayOfWeekCounts[day].avgMood / dayOfWeekCounts[day].count;
+        dayOfWeekCounts[day].avgMood = avgMood;
+        if (avgMood > bestDayMood && dayOfWeekCounts[day].count >= 2) {
+          bestDay = day;
+          bestDayMood = avgMood;
+        }
+      });
+      
+      let bestTime = '';
+      let bestTimeMood = 0;
+      Object.keys(timeOfDayCounts).forEach(time => {
+        const avgMood = timeOfDayCounts[time].avgMood / timeOfDayCounts[time].count;
+        timeOfDayCounts[time].avgMood = avgMood;
+        if (avgMood > bestTimeMood && timeOfDayCounts[time].count >= 2) {
+          bestTime = time;
+          bestTimeMood = avgMood;
+        }
+      });
+      
+      return {
+        dayOfWeek: bestDay || undefined,
+        timeOfDay: bestTime || undefined,
+        confidence: Math.min(0.8, moods.length / 20) // Confidence increases with more data
+      };
+    } catch (error) {
+      console.warn('⚠️ Analytics best times analysis failed:', error);
+      return { confidence: 0.1 };
+    }
+  }
+
+  /**
+   * 🎯 Calculate global confidence score for analytics
+   */
+  private calculateAnalyticsGlobalConfidence(moods: any[], dataQuality: number, profile: any): number {
+    try {
+      let confidence = 0;
+      
+      // Base confidence from data quality (40% weight)
+      confidence += dataQuality * 0.4;
+      
+      // Sample size confidence (30% weight)
+      const sampleSize = moods.length;
+      if (sampleSize >= 30) confidence += 0.3;
+      else if (sampleSize >= 14) confidence += 0.2;
+      else if (sampleSize >= 7) confidence += 0.1;
+      else confidence += 0.05;
+      
+      // Profile confidence (20% weight)
+      if (profile && profile.confidence) {
+        confidence += profile.confidence * 0.2;
+      }
+      
+      // Data recency boost (10% weight)
+      const now = Date.now();
+      const recentCount = moods.filter(m => {
+        const moodTime = new Date(m.created_at).getTime();
+        const daysDiff = (now - moodTime) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 7;
+      }).length;
+      
+      if (recentCount >= 3) confidence += 0.1;
+      else if (recentCount >= 1) confidence += 0.05;
+      
+      return Math.min(1, Math.max(0.1, confidence));
+    } catch (error) {
+      console.warn('⚠️ Analytics global confidence calculation failed:', error);
       return 0.3;
     }
   }
