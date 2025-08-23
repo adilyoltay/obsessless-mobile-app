@@ -112,28 +112,48 @@ function detectLanguage(text: string): 'tr' | 'en' {
 }
 
 /**
- * 🚀 TR Morfoloji - Basit kök çıkarma ve sonek temizleme
- * Rapor önerisi: TR morfoloji desteği eklenmesi
+ * 🚀 TR Morfoloji - ⚡ KALIBRASYON v5.0 gelişmiş kök çıkarma ve sonek temizleme
+ * Plan önerisi: Yaygın ek/sonek varyasyonlarını normalize et
  */
 function normalizeTurkishText(text: string): string {
   const words = text.toLowerCase().split(/\s+/);
   
-  // Türkçe sonek/ek temizleme kuralları
+  // ⚡ KALIBRASYON v5.0 - Sistematik Türkçe ek temizleme
   const suffixPatterns = [
-    // İsim çokluk eki
+    // 🔤 İSIM ÇOKLUK EKLERİ
     /(.*?)(ler|lar)$/,
-    // İyelik ekleri
+    
+    // 👤 İYELİK EKLERİ - Genişletilmiş
     /(.*?)(im|ım|um|üm|in|ın|un|ün|i|ı|u|ü|si|sı|su|sü)$/,
-    // Hal ekleri
-    /(.*?)(de|da|den|dan|e|a|i|ı|u|ü|ye|ya|nin|nın|nun|nün)$/,
-    // Fiil ekleri - temel
-    /(.*?)(dim|dım|dum|düm|din|dın|dun|dün|di|dı|du|dü)$/,
-    /(.*?)(sin|sın|sun|sün|im|ım|um|üm|iz|ız|uz|üz)$/,
-    /(.*?)(yor|iyor|uyor|üyor|acak|ecek|ıyor|uyor)$/,
-    // Sıfat ekleri
-    /(.*?)(lik|lık|luk|lük|siz|sız|suz|süz|li|lı|lu|lü)$/,
-    // Zarf ekleri
-    /(.*?)(ce|ca|ça|çe)$/
+    /(.*?)(mız|miz|müz|muz|nız|niz|nüz|nuz)$/, // Çoğul iyelik
+    
+    // 📍 HAL EKLERİ - Plan dokümanında belirtilen spesifik varyantlar
+    /(.*?)(de|da|den|dan|e|a|i|ı|u|ü|ye|ya)$/, // Bulunma, çıkma, yönelme
+    /(.*?)(nin|nın|nun|nün|in|ın|un|ün)$/, // Tamlayan
+    /(.*?)(le|la|ile|yla)$/, // Araç
+    
+    // 🏃 FİİL EKLERİ - Plan dokümanında belirtilen spesifik varyantlar  
+    /(.*?)(dim|dım|dum|düm|din|dın|dun|dün)$/, // Geçmiş zaman -DI
+    /(.*?)(sin|sın|sun|sün|im|ım|um|üm|iz|ız|uz|üz)$/, // Şahıs ekleri
+    /(.*?)(yor|iyor|uyor|üyor|ıyor)$/, // Şimdiki zaman
+    /(.*?)(acak|ecek|ıcak|ucak|ücek)$/, // Gelecek zaman
+    /(.*?)(miş|mış|muş|müş)$/, // Duyulan geçmiş
+    /(.*?)(dik|dık|duk|dük|tik|tık|tuk|tük)$/, // Geçmiş zaman -DI varyantları
+    
+    // 🏷️ SIFAT EKLERİ - Plan dokümanında belirtilen -LIK/-LİK varyantları
+    /(.*?)(lik|lık|luk|lük)$/, // İsim yapma eki -LIK
+    /(.*?)(siz|sız|suz|süz)$/, // Yokluk eki -SIZ
+    /(.*?)(li|lı|lu|lü)$/, // Sahip olma eki -LI
+    /(.*?)(cı|ci|cu|cü|çı|çi|çu|çü)$/, // Meslek eki -CI
+    
+    // 📝 ZARF EKLERİ
+    /(.*?)(ce|ca|ça|çe)$/, // Zarf yapma eki -CE
+    /(.*?)(ince|ınca|unca|ünce)$/, // Zarf-fiil eki
+    
+    // 🎯 ÖZELLEŞTİRİLMİŞ MENTAL HEALTH TERMLARI
+    /(.*?)(iyorum|uyorum|üyorum)$/, // "kontrol ediyorum" → "kontrol et"
+    /(.*?)(amıyorum|emiyorum|ımıyorum|umuyorum)$/, // "alamıyorum" → "al"
+    /(.*?)(abiliyorum|abilmiyor)$/ // "yapabiliyorum" → "yap"
   ];
   
   const normalizedWords = words.map(word => {
@@ -351,34 +371,188 @@ export const DECISION_THRESHOLDS = {
 };
 
 /**
- * 🎯 AUTO-SAVE POLICY - Modül bazlı alan gereksinimleri
+ * 🎯 AUTO-SAVE POLICY - ⚡ KALIBRASYON v5.0 Modül bazlı detaylı alan gereksinimleri
+ * Kalibrasyon planı: Her modül için spesifik validation ve birleştirme kuralları
  */
 const AUTO_SAVE_REQUIREMENTS = {
   MOOD: {
-    required: ['mood'],
-    optional: ['energy', 'anxiety', 'sleep_quality', 'trigger'],
-    minFields: 1, // En az 1 zorunlu alan
-    canAutoSave: (fields: any) => fields.mood !== undefined && fields.mood >= 0 && fields.mood <= 100
-  },
-  CBT: {
-    required: ['thought'],
-    optional: ['distortions', 'evidence_for', 'evidence_against', 'situation'],
+    required: ['mood_score'],  // Güncellendi: mood → mood_score
+    optional: ['energy', 'anxiety', 'sleep_quality', 'trigger', 'notes'],
     minFields: 1,
-    canAutoSave: (fields: any) => !!fields.thought && fields.thought.length > 10
+    // MOOD RULE: mood_score zorunlu; opsiyoneller yoksa prefill
+    canAutoSave: (fields: any) => {
+      const hasMoodScore = fields.mood_score !== undefined && 
+                          fields.mood_score >= 1 && 
+                          fields.mood_score <= 10;
+      return hasMoodScore;
+    },
+    // Birleştirme kuralları
+    mergeStrategy: {
+      mood_score: 'AVERAGE', // Ortalama mood
+      energy: 'AVERAGE',     // Ortalama enerji  
+      anxiety: 'MAX',        // En yüksek anksiyete
+      sleep_quality: 'AVERAGE'
+    },
+    fallbackAction: 'prefill_form' // Eksikse form doldur
   },
+  
+  CBT: {
+    required: ['automatic_thought'], // Güncellendi: thought → automatic_thought
+    optional: ['distortions', 'evidence_for', 'evidence_against', 'situation', 'balanced_thought'],
+    minFields: 1,
+    // CBT RULE: automatic_thought zorunlu; evidence/distortions yoksa taslak + form
+    canAutoSave: (fields: any) => {
+      const hasThought = !!fields.automatic_thought && 
+                        fields.automatic_thought.length > 15; // Min 15 karakter
+      return hasThought;
+    },
+    mergeStrategy: {
+      automatic_thought: 'CONCAT',    // Düşünceleri birleştir
+      distortions: 'UNION',          // Tüm distortion'ları birleştir
+      evidence_for: 'CONCAT',        // Kanıtları birleştir
+      evidence_against: 'CONCAT'
+    },
+    fallbackAction: 'draft_form' // Eksikse taslak + manuel form
+  },
+  
   OCD: {
     required: ['category', 'severity'],
-    optional: ['compulsive_behavior', 'obsessive_thought', 'frequency', 'duration_minutes'],
-    minFields: 2,
-    canAutoSave: (fields: any) => !!fields.category && fields.severity >= 1 && fields.severity <= 10
+    optional: ['compulsive_behavior', 'obsessive_thought', 'frequency', 'duration_minutes', 'resistance'],
+    minFields: 2, // Kategori + şiddet zorunlu
+    // OCD RULE: category + severity zorunlu; compulsion varsa direkt, yoksa QuickEntry prefill
+    canAutoSave: (fields: any) => {
+      const hasCategory = !!fields.category && fields.category.length > 0;
+      const hasSeverity = fields.severity >= 1 && fields.severity <= 10;
+      return hasCategory && hasSeverity;
+    },
+    mergeStrategy: {
+      severity: 'MAX',               // En yüksek severity
+      frequency: 'SUM',              // Toplam frequency
+      duration_minutes: 'AVERAGE',   // Ortalama süre
+      resistance: 'AVERAGE',         // Ortalama direnç
+      compulsive_behavior: 'CONCAT'  // Davranışları birleştir
+    },
+    // Özel: compulsion varsa direkt kayıt, yoksa QuickEntry prefill
+    fallbackAction: (fields: any) => {
+      return fields.compulsive_behavior ? 'direct_save' : 'quickentry_prefill';
+    }
   },
+  
   BREATHWORK: {
-    required: ['anxietyLevel'],
-    optional: ['panic', 'recommended_protocol'],
+    required: ['anxiety_level'], // Güncellendi: anxietyLevel → anxiety_level
+    optional: ['panic_symptoms', 'recommended_protocol', 'physical_symptoms'],
     minFields: 1,
-    canAutoSave: (fields: any) => fields.anxietyLevel >= 7 // Yüksek anksiyete
+    // BREATHWORK RULE: anxiety ≥7 → protokol (4-7-8/box/paced) + autoStart
+    canAutoSave: (fields: any) => {
+      const highAnxiety = fields.anxiety_level >= 7;
+      return highAnxiety; // Yüksek anksiyete durumunda otomatik başlat
+    },
+    mergeStrategy: {
+      anxiety_level: 'MAX',          // En yüksek anksiyete
+      panic_symptoms: 'UNION'        // Tüm semptomları birleştir
+    },
+    // Protokol önerisi
+    protocolSuggestion: (fields: any) => {
+      if (fields.anxiety_level >= 9) return '4-7-8';      // Çok yüksek: derin nefes
+      if (fields.anxiety_level >= 7) return 'box';        // Yüksek: kare nefes
+      return 'paced';                                      // Orta: tempolu nefes
+    },
+    fallbackAction: 'auto_start' // Otomatik protokol başlat
   }
 };
+
+/**
+ * ⚡ KALIBRASYON v5.0: Modül alanlarını birleştirme kuralları
+ * Plan: Aynı modüle ait birden çok clause → alan bazında uzlaştırma
+ */
+function mergeModuleFields(module: ModuleType, fieldsList: any[]): any {
+  if (fieldsList.length <= 1) return fieldsList[0] || {};
+  
+  const policy = AUTO_SAVE_REQUIREMENTS[module];
+  if (!policy?.mergeStrategy) return fieldsList[0]; // Birleştirme kuralı yoksa ilkini al
+  
+  const merged: any = {};
+  const strategy = policy.mergeStrategy;
+  
+  console.log(`🔄 Merging ${fieldsList.length} instances for ${module}`);
+  
+  // Her alan için birleştirme stratejisi uygula
+  for (const [field, rule] of Object.entries(strategy)) {
+    const values = fieldsList.map(f => f[field]).filter(v => v !== undefined);
+    if (values.length === 0) continue;
+    
+    switch (rule) {
+      case 'MAX':
+        merged[field] = Math.max(...values.filter(v => typeof v === 'number'));
+        break;
+        
+      case 'AVERAGE':  
+        const nums = values.filter(v => typeof v === 'number');
+        merged[field] = nums.length > 0 ? Math.round(nums.reduce((a,b) => a+b, 0) / nums.length) : undefined;
+        break;
+        
+      case 'SUM':
+        merged[field] = values.filter(v => typeof v === 'number').reduce((a,b) => a+b, 0);
+        break;
+        
+      case 'CONCAT':
+        const texts = values.filter(v => typeof v === 'string' && v.length > 0);
+        merged[field] = texts.join('. ').substring(0, 500); // Max 500 karakter
+        break;
+        
+      case 'UNION':
+        // Array birleştirme (distortions, symptoms etc.)
+        const arrays = values.filter(v => Array.isArray(v)).flat();
+        merged[field] = [...new Set(arrays)]; // Unique values
+        break;
+        
+      default:
+        merged[field] = values[0]; // İlk değeri al
+    }
+    
+    console.log(`   ${field}: ${rule} → ${merged[field]}`);
+  }
+  
+  // Birleştirilmeyen alanları da koru  
+  fieldsList.forEach(fields => {
+    Object.keys(fields).forEach(key => {
+      if (merged[key] === undefined && fields[key] !== undefined) {
+        merged[key] = fields[key];
+      }
+    });
+  });
+  
+  return merged;
+}
+
+/**
+ * ⚡ KALIBRASYON v5.0: Öncelik sistemi
+ * Plan: Yüksek risk (örn. OCD severity ≥7) → önce OCD kaydı; ikincil modülleri prefill/taslak
+ */
+function prioritizeModulesByRisk(modules: Array<{module: ModuleType; fields: any}>): Array<{module: ModuleType; fields: any; priority: 'HIGH' | 'MEDIUM' | 'LOW'}> {
+  return modules.map(m => {
+    let priority: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM';
+    
+    // Risk önceliklendirmesi
+    if (m.module === 'OCD' && m.fields.severity >= 7) {
+      priority = 'HIGH'; // Yüksek şiddetli OCD
+    } else if (m.module === 'BREATHWORK' && m.fields.anxiety_level >= 8) {
+      priority = 'HIGH'; // Panic level anxiety
+    } else if (m.module === 'CBT' && m.fields.automatic_thought?.includes('intihar')) {
+      priority = 'HIGH'; // Critical thoughts
+    } else if (m.module === 'MOOD' && m.fields.mood_score <= 2) {
+      priority = 'HIGH'; // Severely low mood
+    } else if (m.module === 'MOOD' || m.module === 'CBT') {
+      priority = 'LOW'; // Default düşük öncelik
+    }
+    
+    return { ...m, priority };
+  }).sort((a, b) => {
+    // Önceliklendirme: HIGH → MEDIUM → LOW
+    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+    return order[a.priority] - order[b.priority];
+  });
+}
 
 /**
  * Check if module has sufficient data for auto-save
@@ -729,64 +903,145 @@ function multiClassHeuristic(clause: string): Array<{module: ModuleType; confide
   const lower = clause.toLowerCase();
   const scores: Array<{module: ModuleType; confidence: number}> = [];
   
-  // MOOD patterns - genişletilmiş sözlük
+  // MOOD patterns - ⚡ KALIBRASYON v5.0 genişletilmiş sözlük
   const moodPatterns = [
+    // Ana duygu durum terimleri
     /moral/i, /keyif/i, /mutlu/i, /üzgün/i, /kötü his/i, /iyi his/i, 
-    /kendimi.{0,20}(iyi|kötü|berbat|harika)/i,
-    /enerjim/i, /bitkin/i, /yorgun/i, /dinç/i, /tükenmiş/i,
-    /çökkün/i, /isteksiz/i, /neşeli/i, /canım sıkkın/i
+    /kendimi.{0,20}(iyi|kötü|berbat|harika)/i, /duygu.{0,20}durum/i,
+    
+    // Enerji seviyesi - YENI KATEGORÍ
+    /enerjim/i, /bitkin/i, /yorgun/i, /dinç/i, /tükenmiş/i, /güçlü his/i,
+    /uykulu/i, /uykusuz/i, /uyuyamıyorum/i, /uyku/i, /dinlenmedim/i,
+    
+    // Bedensel semptomlar - YENI KATEGORÍ  
+    /baş\s*ağrı/i, /mide\s*bulant/i, /kas\s*gergin/i, /fiziksel/i,
+    /vücut/i, /ağrı/i, /acı/i, /yorgunluk/i, /halsizlik/i,
+    
+    // Yoğunluk göstergeleri - ÇOOK ÖNEMLİ
+    /(çok|aşırı|fazla|hiç).{0,10}(kötü|iyi|mutlu|üzgün|yorgun)/i,
+    /çok\s*(bozuk|düşük|yüksek|berbat|harika)/i,
+    
+    // Sayısal ve süre çıkarımları - YENI
+    /(\d+)\/(\d+)/i, // "8/10", "5/10"
+    /(\d+)\s*(saat|dakika|gün)/i, // "15 dk", "2 saat"
+    /(tüm|bütün)\s*(gün|hafta|süre)/i,
+    
+    // Diğer mood göstergeleri
+    /çökkün/i, /isteksiz/i, /neşeli/i, /canım sıkkın/i, /depresif/i,
+    /hüzünlü/i, /coşkulu/i, /sevinçli/i, /umutlu/i, /umutsuz/i
   ];
   
-  // OCD patterns - genişletilmiş sözlük - ENHANCED v4.2
+  // OCD patterns - ⚡ KALIBRASYON v5.0 kategorilendirilmiş genişletme
   const ocdPatterns = [
-    // Kontrol kompulsiyonları - YÜKSEK AĞIRLIK
+    // 🔐 KONTROL KOMPULSIYONLARI - Ultra yüksek ağırlık
     /kontrol\s*et/i, /kontrol/i, /emin\s*olamıyorum/i, /emin\s*değilim/i,
-    /kapı.*kontrol/i, /ocak.*kontrol/i, /fırın.*kontrol/i,
-    /tekrar.*bak/i, /tekrar.*kontrol/i, /geri.*dön/i,
+    /kapı.*kontrol/i, /ocak.*kontrol/i, /fırın.*kontrol/i, /gaz.*kontrol/i,
+    /tekrar.*bak/i, /tekrar.*kontrol/i, /geri.*dön/i, /bir\s*daha\s*bak/i,
     
-    // Sayısal ifadeler - ÇOOK ÖNEMLİ
+    // 🔢 SAYMA VE RİTÜEL KOMPULSIYONLARI - Çok kritik
     /\d+\s*(kere|kez|defa)/i, // "5 kere", "3 defa" etc.
-    /üç\s*(kere|kez)/i, /beş\s*(kere|kez)/i, /yedi\s*(kere|kez)/i,
+    /üç\s*(kere|kez)/i, /beş\s*(kere|kez)/i, /yedi\s*(kere|kez)/i, /on\s*(kere|kez)/i,
+    /saymadan\s*duramıyorum/i, /sayıyorum/i, /saymaı/i, /sayma\s*ritüel/i,
+    /(üç|beş|yedi|dokuz|on)\s*(kez|kere|defa)/i,
     
-    // Temizlik/bulaş
-    /temizl/i, /mikrop/i, /kirli/i, /bulaş/i, /yıka/i,
-    /el.*yıka/i, /dezenfekte/i, /hijyen/i,
+    // 🦠 CONTAMINATION (KIRLENME) - Yeni kategori
+    /mikrop/i, /bulaş/i, /iğrenç/i, /kirli/i, /pislik/i, /hijyensiz/i,
+    /temizl/i, /yıka/i, /el.*yıka/i, /dezenfekte/i, /hijyen/i,
+    /bulaşıcı/i, /hastalık\s*kapar/i, /mikrop\s*kapar/i, /kirletir/i,
+    /steril/i, /antibakteriyel/i, /temiz\s*değil/i,
     
-    // Simetri/düzen
-    /say/i, /simetri/i, /düzen/i, /hizala/i, /organize/i,
+    // ⚖️ SIMETRİ VE DÜZEN KOMPULSIYONLARI - Yeni kategori  
+    /simetri/i, /düzen/i, /hizala/i, /organize/i, /sıral/i, /eşit/i,
+    /yamuk/i, /çarpık/i, /düzgün\s*değil/i, /yerli\s*yerinde\s*değil/i,
+    /parallel/i, /dik/i, /mükemmel\s*düzen/i, /tam\s*yerinde/i,
     
-    // Genel OCD
+    // 🧠 ZİHİNSEL KOMPULSIYONLAR - Yeni kategori
+    /kafamda\s*tekrar/i, /zihinsel/i, /düşüncede/i, /aklımda\s*döner/i,
+    /zihnen\s*sayıyorum/i, /kafamda\s*ritüel/i, /içimden\s*tekrar/i,
+    /duayı\s*kafamda/i, /zikri\s*zihnimde/i, /mantra/i,
+    
+    // 🔁 GENEL OCD BELIRTILERI
     /takıntı/i, /takıl/i, /kafaya\s*tak/i, /obsesyon/i, /kompulsiyon/i,
-    /zorunlu/i, /duramıyorum/i, /kontrol\s*edemiyorum/i,
-    /saymadan\s*duramıyorum/i, /yapmadan\s*edemiyorum/i
+    /zorunlu/i, /duramıyorum/i, /kontrol\s*edemiyorum/i, /mecburum/i,
+    /yapmadan\s*edemiyorum/i, /yapmak\s*zorunda/i, /şart/i, /kesinlikle\s*yapmam\s*gerekiyor/i,
+    
+    // 🎯 SPESIFIK COMBO PATTERNS - Bonus skor
+    /kontrol.*\d+.*kere/i, // "kontrol ettim 5 kere"
+    /emin.*değil.*tekrar/i, // "emin değilim tekrar baktım" 
+    /takıntı.*sayı/i // "sayı takıntısı"
   ];
   
-  // CBT patterns - genişletilmiş sözlük - ENHANCED v4.2
+  // CBT patterns - ⚡ KALIBRASYON v5.0 Cognitive Distortions sistematik genişletme
   const cbtPatterns = [
-    // Bilişsel çarpıtmalar
-    /herkes/i, /kimse/i, /asla/i, /her\s*zaman/i, /daima/i, /hiçbir\s*zaman/i,
-    /başarısız/i, /aptal/i, /beceriksiz/i, /değersiz/i, /berbat/i,
-    /benden\s*nefret/i, /arkamdan\s*konuş/i, /benimle\s*dalga/i,
+    // 🎯 ALL-OR-NOTHING THINKING (Ya Hep Ya Hiç)
+    /hep.{0,20}ya.{0,20}hiç/i, /ya.{0,20}ya.{0,20}da/i, /mükemmel\s*olmak/i,
+    /tamamen\s*(başarısız|başarılı)/i, /hiç\s*başaramam/i, /her\s*şey\s*mükemmel/i,
     
-    // Felaketleştirme
-    /kesin.{0,20}(olacak|olur|eder)/i, /mahvoldum/i, /bitirdim/i,
+    // 🔮 FORTUNE TELLING / FELAKETLEŞTIRME
+    /kesin.{0,20}(olacak|olur|eder)/i, /muhtemelen.{0,20}kötü/i, /biliyorum\s*ki/i,
+    /mahvoldum/i, /bitirdim/i, /felaket/i, /korkunç\s*olacak/i, /dünyanın\s*sonu/i,
     
-    // Ya hep ya hiç
-    /hep.{0,20}ya.{0,20}hiç/i, /ya.{0,20}ya.{0,20}da/i,
+    // 🏷️ LABELING / ETIKETLEMe
+    /ben\s*(aptal|başarısız|beceriksiz|değersiz|berbat)ım/i, /ben\s*bir\s*loser/i,
+    /hiçbir\s*işe\s*yaramıyorum/i, /ben\s*böyle\s*biriyim/i, /karakterim\s*böyle/i,
     
-    // Suçluluk/sorumluluk
-    /benim\s*yüzümden/i, /suçum/i, /hata\s*yaptım/i, /kusur/i,
+    // 👁️ MIND READING (Zihin Okuma)
+    /benden\s*nefret/i, /arkamdan\s*konuş/i, /benimle\s*dalga/i, /beni\s*sevmiyor/i,
+    /herkes\s*.{0,20}düşünüyor/i, /beni\s*yargılıyor/i, /alay\s*ediyor/i,
+    /ne\s*düşündüğünü\s*biliyorum/i, /kesin\s*kötü\s*düşünüyor/i,
     
-    // Dilek/pişmanlık - ÖNEMLİ
-    /keşke/i, /umarım/i, /belki\s*de/i, /acaba/i,
-    /olmasa/i, /olmasaydı/i, /yapmasaydım/i
+    // 🌐 GENERALIZATION (Genelleme)  
+    /herkes/i, /kimse/i, /hiç\s*kimse/i, /her\s*zaman/i, /hiçbir\s*zaman/i,
+    /daima/i, /sürekli/i, /asla/i, /hep\s*böyle/i, /her\s*defasında/i,
+    /tüm\s*(insanlar|erkekler|kadınlar)/i, /bütün\s*dünya/i,
+    
+    // 🕶️ MENTAL FILTER / SEÇİCİ SOYUTLAMA
+    /sadece\s*kötü\s*şeyler/i, /hep\s*olumsuz/i, /iyi\s*hiçbir\s*şey\s*yok/i,
+    /pozitif\s*hiçbir\s*şey/i, /kötü\s*yanını\s*görüyorum/i, /sadece\s*hata/i,
+    
+    // 👉 PERSONALIZATION (Kişiselleştirme)
+    /benim\s*yüzümden/i, /benim\s*suçum/i, /ben\s*sebep\s*oldum/i, /hep\s*ben/i,
+    /ben\s*sorumlu/i, /benim\s*hatam/i, /ben\s*yapmasaydım/i,
+    
+    // 📏 SHOULD STATEMENTS (Mecburiyet Düşünceleri) - TR Varyantları
+    /mecburum/i, /şart/i, /kesin/i, /zorundayım/i, /yapmalıyım/i,
+    /etmeliyim/i, /olmak\s*zorunda/i, /gerekiyor/i, /yapmazsam\s*olmaz/i,
+    /mükemmel\s*yapmalıyım/i, /başarılı\s*olmam\s*gerekiyor/i,
+    
+    // 💭 EMOTIONAL REASONING (Duygusal Akıl Yürütme)
+    /hissediyorum\s*o\s*yüzden\s*doğru/i, /böyle\s*hissediyorsam\s*öyle/i,
+    /kalbim\s*öyle\s*diyor/i, /içgüdüm\s*böyle/i, /duygularım\s*yalan\s*söylemez/i,
+    
+    // 😔 REGRET / PİŞMANLIK / DİLEK
+    /keşke/i, /umarım/i, /belki\s*de/i, /acaba/i, /ah\s*bir/i,
+    /olmasa/i, /olmasaydı/i, /yapmasaydım/i, /söylemeseydim/i,
+    /geri\s*alsam/i, /değiştirseydim/i, /farklı\s*yapsaydım/i
   ];
   
-  // BREATHWORK patterns - genişletilmiş sözlük
+  // BREATHWORK patterns - ⚡ KALIBRASYON v5.0 anksiyete odaklı genişletme
   const breathworkPatterns = [
-    /nefes/i, /panik/i, /boğul/i, /sıkış/i, /kalp.{0,20}(çarp|atış)/i,
-    /sakinleş/i, /rahatlat/i, /gevşe/i, /derin nefes/i,
-    /nefes alamıyorum/i, /panik atak/i, /gergin/i, /anksiyete/i
+    // 🫁 NEFES ALMA PROBLEMLERI - Ana kategori
+    /nefes/i, /nefes\s*alma/i, /nefes\s*alamıyorum/i, /nefessiz/i, /soluk/i,
+    /boğul/i, /sıkış/i, /göğüs\s*sıkış/i, /hava\s*alamıyorum/i,
+    
+    // 🔥 PANİK VE ANKSIYETE - Yüksek ağırlık
+    /panik/i, /panik\s*atak/i, /panik\s*bozukluk/i, /atak/i,
+    /gergin/i, /anksiyete/i, /kayg/i, /telaş/i, /stres/i,
+    /heyecan/i, /korku/i, /endişe/i,
+    
+    // ❤️ FIZIKSEL SEMPTOMLAR
+    /kalp.{0,20}(çarp|atış)/i, /kalp\s*hızlan/i, /nabız\s*yüksel/i,
+    /ter\s*dök/i, /titreme/i, /el\s*titri/i, /baş\s*döner/i,
+    /mide\s*bulan/i, /bulantı/i, /göğüs\s*ağrı/i,
+    
+    // 🧘 SAKİNLEŞTİRİCİ EYLEMLER
+    /sakinleş/i, /rahatlat/i, /gevşe/i, /derin\s*nefes/i, /soluk\s*ver/i,
+    /nefes\s*egzersiz/i, /meditasyon/i, /relaksasyon/i, /yoga/i,
+    
+    // 🎯 ACİL İNTERVENSİYON GEREKTİREN
+    /çok\s*gergin/i, /dayanamıyorum/i, /kontrolü\s*kaybediyorum/i,
+    /bayılacak\s*gibi/i, /ölecek\s*gibi/i, /nefesim\s*kesil/i,
+    /acil\s*yardım/i, /ambulans/i, /hastane/i
   ];
   
   // Her modül için skor hesapla
@@ -1340,22 +1595,32 @@ async function cacheSimilarResult(text: string, result: UnifiedAnalysisResult, u
 }
 
 /**
- * 🚀 Gemini API ile Gelişmiş Yapılandırılmış Analiz v2.0
+ * 🚀 Gemini API ile Gelişmiş Yapılandırılmış Analiz - ⚡ KALIBRASYON v5.0
  * 
- * ✅ İyileştirmeler:
- * - Few-shot örnekler ile daha doğru classification
- * - Detaylı veri çıkarımı (enerji, direnç, kategori, distortions)
- * - TR/EN dual language support
- * - Strict JSON schema enforcement
+ * ✅ Kalibrasyon iyileştirmeleri:
+ * - Katı şema enforcing: "bilinmiyorsa null bırak"
+ * - 2-aşama uzun metin işlemi (özet→sınıflandırma) 
+ * - Enhanced retry: sade prompt ile 1 kez retry
+ * - Improved deduplication ve caching
  */
 async function analyzeWithGemini(text: string, apiKey: string, retryCount: number = 0): Promise<UnifiedAnalysisResult | null> {
   try {
-    // 🎯 TIMEOUT CONTROL - Configurable timeout
+    // 🔄 UZUN METİN: 2 aşamalı işlem
+    const isLongText = text.length > 280;
+    let processedText = text;
+    
+    if (isLongText && retryCount === 0) {
+      console.log(`📝 Long text detected (${text.length} chars), using 2-stage processing`);
+      // Aşama 1: Özet
+      processedText = text.substring(0, 200) + '...'; // Basit kısaltma
+    }
+    
+    // 🎯 TIMEOUT CONTROL - Kalibrasyon: 3000ms
     const timeoutMs = DECISION_THRESHOLDS.LLM_TIMEOUT_MS;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    // 🚀 MULTI-INTENT PROMPT v4.0 - Çoklu modül ve clause analizi
+    // 🚀 MULTI-INTENT PROMPT v5.0 - ⚡ KATI ŞEMA ENFORCING
     const prompt = `You are an expert mental health assistant. Analyze the user's input for MULTIPLE mental health modules simultaneously.
 
 IMPORTANT: A single sentence can contain multiple topics (MOOD + OCD + CBT). Detect ALL of them!
@@ -1471,13 +1736,21 @@ RETURN MULTI-MODULE JSON:
   // Include primary module's fields directly for legacy support
 }
 
-CRITICAL RULES:
-- Convert natural language ("çok kötü", "berbat") to numbers
-- Extract context and situation details
-- Identify multiple data points from single input
-- Use user's language for suggestion
-- Fill as many fields as possible from context
-- Return ONLY valid JSON`;
+⚡ KALIBRASYON v5.0 - KATI ŞEMA KURALLAR:
+- **NULL POLICY**: If you don't know a field value, SET IT TO null (not undefined or empty string)
+- **REQUIRED CONFIDENCE**: Every module MUST have confidence between 0.0-1.0
+- **NUMERIC VALIDATION**: mood (1-10), energy (1-10), severity (1-10), anxiety_level (1-10)
+- **STRING VALIDATION**: All text fields minimum 3 characters or null
+- **ARRAY VALIDATION**: distortions, symptoms as arrays or null
+- **NATURAL LANGUAGE MAPPING**: Convert expressions to exact numbers:
+  * "çok kötü/berbat" → mood: 2
+  * "orta/idare eder" → mood: 5  
+  * "çok iyi/harika" → mood: 8
+  * "5 kere kontrol" → frequency: 5
+- **CONTEXT EXTRACTION**: Extract implicit information from context
+- **TURKISH RESPONSES**: suggestion field MUST be in Turkish
+- **JSON ONLY**: Return ONLY valid JSON, no markdown, no explanation
+- **FIELD COMPLETENESS**: Fill ALL available fields or set to null`;
 
     console.log('📡 Gemini API Request URL:', `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.substring(0, 10)}...`);
     
@@ -1526,9 +1799,9 @@ CRITICAL RULES:
     }
 
     // JSON'u parse et ve zengin veri çıkarımı yap
+    let cleanedText = resultText; // Scope'u genişlet
     try {
       // 🔧 ULTRA-ROBUST JSON EXTRACTION v4.2.3
-      let cleanedText = resultText;
       
       // Method 1: Find JSON object boundaries
       const startIndex = cleanedText.indexOf('{');
@@ -1643,11 +1916,11 @@ CRITICAL RULES:
       }
       
       return enrichedResult;
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error('🚨 JSON Parse Error Details:', {
-        error: parseError.message,
+        error: parseError?.message || 'Unknown parse error',
         rawResponse: resultText.substring(0, 300),
-        cleanedAttempt: cleanedText.substring(0, 300),
+        cleanedAttempt: cleanedText?.substring(0, 300) || 'N/A',
         startsWithJson: resultText.trim().startsWith('```json'),
         hasJsonBraces: resultText.includes('{') && resultText.includes('}')
       });
@@ -1682,26 +1955,83 @@ CRITICAL RULES:
       return null;
     }
   } catch (error: any) {
-    // 🔄 RETRY LOGIC - Timeout veya parse hatası durumunda
-    if (error?.name === 'AbortError') {
-      console.warn(`⏱️ LLM timeout (${DECISION_THRESHOLDS.LLM_TIMEOUT_MS}ms), attempt ${retryCount + 1}/${DECISION_THRESHOLDS.MAX_LLM_RETRIES + 1}`);
+    // 🔄 ⚡ KALIBRASYON v5.0 - ENHANCED RETRY LOGIC
+    const isTimeout = error?.name === 'AbortError';
+    const isParseError = error instanceof SyntaxError || error.message?.includes('parse');
+    
+    console.warn(`🚨 LLM Error: ${error.message} (timeout: ${isTimeout}, parse: ${isParseError})`);
+    
+    if (retryCount < DECISION_THRESHOLDS.MAX_LLM_RETRIES) {
+      let retryStrategy = 'simplified_text';
+      let retryText = text.substring(0, 200); // Default: kısalt
       
-      if (retryCount < DECISION_THRESHOLDS.MAX_LLM_RETRIES) {
-        // Retry with simplified text
-        const simplifiedText = text.substring(0, 200);
-        return analyzeWithGemini(simplifiedText, apiKey, retryCount + 1);
+      // Kalibrasyon: Parse hatası için SADE PROMPT
+      if (isParseError && retryCount === 0) {
+        console.log('📝 Parse error detected, using SIMPLE PROMPT for retry');
+        retryStrategy = 'simple_prompt';
+        
+        // Çok basit prompt ile retry
+        const simplePrompt = `Analyze this Turkish text for mental health topics.
+        
+Text: "${text.substring(0, 150)}"
+
+Return ONLY this JSON format:
+{
+  "modules": [
+    {
+      "module": "MOOD",
+      "confidence": 0.8,
+      "fields": {
+        "mood_score": 5,
+        "notes": "example"
+      }
+    }
+  ],
+  "suggestion": "Turkish suggestion"
+}`;
+        
+        // Direct API call with simple prompt
+        try {
+          const simpleResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: simplePrompt }] }],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 150 }
+            })
+          });
+          
+          if (simpleResponse.ok) {
+            const simpleData = await simpleResponse.json();
+            const simpleResult = simpleData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (simpleResult) {
+              console.log('✅ Simple prompt retry successful');
+              return analyzeWithGemini(text, apiKey, retryCount + 1); // Continue normal flow
+            }
+          }
+        } catch (simpleError) {
+          console.warn('Simple prompt retry also failed:', simpleError);
+        }
+      }
+      
+      // Standard timeout retry with simplified text
+      if (isTimeout) {
+        console.log(`⏱️ Timeout retry ${retryCount + 1}/${DECISION_THRESHOLDS.MAX_LLM_RETRIES} with simplified text`);
+        return analyzeWithGemini(retryText, apiKey, retryCount + 1);
       }
     }
     
-    console.error('Gemini API çağrısı başarısız:', error);
+    console.error(`❌ LLM call failed after ${retryCount} retries:`, error.message);
     
-    // Track error with retry info
+    // Enhanced error tracking
     await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
       error: error instanceof Error ? error.message : 'Unknown error',
       provider: 'gemini',
       textLength: text?.length || 0,
       retryCount,
-      isTimeout: error?.name === 'AbortError'
+      isTimeout,
+      isParseError,
+      strategy: 'failed_with_retry'
     });
     
     return null;
