@@ -979,19 +979,26 @@ export default function CheckinBottomSheet({
         }
       } 
       else if (analysis.type === 'CBT') {
-        // CBT kayıt logic
+        // CBT kayıt logic - Align with thought_records schema
         const cbtData = {
+          user_id: user?.id,
           thought: analysis.automatic_thought || analysis.thought || text,
           distortions: analysis.distortions || [],
-          intensity: analysis.intensity || 5,
-          timestamp: new Date(),
-          synced: false,
-          userId: user?.id
+          evidence_for: analysis.evidence_for || null,
+          evidence_against: analysis.evidence_against || null,
+          reframe: analysis.reframe || `${text} - Yeniden çerçeveleme gerekli`,
+          mood_before: analysis.mood_before || 5,
+          mood_after: analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1), // Slight improvement default
+          trigger: analysis.trigger || '',
+          notes: analysis.notes || text
+          // Removed: timestamp (uses created_at automatically)
+          // Removed: synced (column doesn't exist)
+          // Fixed: userId → user_id
         };
         
-        // Save CBT record
+        // Save CBT record to correct table
         const { data, error } = await supabase
-          .from('cbt_thought_records')  
+          .from('thought_records')  // Fixed table name
           .insert(cbtData)
           .select()
           .single();
@@ -1006,16 +1013,13 @@ export default function CheckinBottomSheet({
           energy: analysis.energy || 5,
           anxiety: analysis.anxiety || 5,
           notes: analysis.notes || text,
-          timestamp: new Date(),
-          synced: false,
+          timestamp: new Date().toISOString(), // Convert to ISO string for moodTracker
           userId: user?.id
+          // Removed: synced (handled by moodTracker service)
         };
         
         // Save mood entry using moodTracker
-        await moodTracker.saveMoodEntry({
-          ...moodData,
-          timestamp: moodData.timestamp.toISOString(),
-        } as any);
+        await moodTracker.saveMoodEntry(moodData as any);
         
         console.log('✅ MOOD record auto-saved:', moodData);
         return { module: 'MOOD', success: true, data: moodData };
