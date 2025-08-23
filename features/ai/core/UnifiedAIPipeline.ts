@@ -61,13 +61,44 @@ export interface UnifiedPipelineResult {
     route?: string;
   };
   
-  // Pattern Recognition Results
+  // Pattern Recognition Results (Enhanced for Dashboard)
   patterns?: {
     temporal: Array<{
       type: string;
-      frequency: number;
+      frequency?: number;
       timeOfDay?: string;
-      trend: 'increasing' | 'decreasing' | 'stable';
+      trend?: 'increasing' | 'decreasing' | 'stable';
+      // Enhanced mood pattern fields
+      title?: string;
+      description?: string;
+      pattern?: string;
+      confidence?: number;
+      severity?: 'low' | 'medium' | 'high';
+      actionable?: boolean;
+      suggestion?: string;
+      source?: string;
+      // 🎯 Dashboard Ready Metrics
+      dashboardMetrics?: {
+        // Weekly Delta Metrics
+        weeklyDelta?: number;
+        currentWeekAvg?: number;
+        previousWeekAvg?: number;
+        trend?: 'improving' | 'declining' | 'stable';
+        // MEA Correlation Metrics
+        moodEnergyCorrelation?: number;
+        moodAnxietyCorrelation?: number;
+        energyAnxietyCorrelation?: number;
+        emotionalProfile?: string;
+        averageMood?: number;
+        averageEnergy?: number;
+        averageAnxiety?: number;
+        // Daily Pattern Metrics
+        dayOfWeek?: number;
+        dayName?: string;
+        significance?: 'positive' | 'negative' | 'neutral';
+        sampleSize?: number;
+        dataPoints?: number | { thisWeek: number; lastWeek: number };
+      };
     }>;
     behavioral: Array<{
       trigger: string;
@@ -80,7 +111,7 @@ export interface UnifiedPipelineResult {
       context: string;
       correlation: number;
     }>;
-  };
+  } | Array<any>; // Allow flexible array format for mood patterns
   
   // Insights Results
   insights?: {
@@ -2908,7 +2939,8 @@ export class UnifiedAIPipeline {
 
 
   /**
-   * Extract mood temporal patterns
+   * 📊 Extract enhanced mood temporal patterns with dashboard metrics
+   * Generates comprehensive mood analytics for direct dashboard consumption
    */
   private extractMoodTemporalPatterns(moods: any[]): any[] {
     try {
@@ -2918,48 +2950,304 @@ export class UnifiedAIPipeline {
       // 🚀 PERFORMANCE OPTIMIZATION: Sample recent mood entries only  
       const SAMPLE_SIZE = 30; // Process max 30 recent moods instead of all 78+
       const recentMoods = moods
-        .filter(m => m.timestamp && m.mood_score !== undefined) // Filter valid entries first
+        .filter(m => m.timestamp && m.mood_score !== undefined && m.energy_level !== undefined && m.anxiety_level !== undefined) // Filter valid MEA entries
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, SAMPLE_SIZE);
 
       if (recentMoods.length === 0) return patterns;
 
-      // Group moods by day of week
-      const weeklyData: Record<number, { mood: number, count: number }> = {};
+      // 📈 WEEKLY MOOD DELTA ANALYSIS
+      const weeklyMoodDelta = this.calculateWeeklyMoodDelta(recentMoods);
+      if (weeklyMoodDelta) {
+        patterns.push({
+          type: 'mood_weekly_delta',
+          title: 'Haftalık Mood Değişimi',
+          description: `Son hafta mood ortalaması: ${weeklyMoodDelta.thisWeek.toFixed(1)}, önceki hafta: ${weeklyMoodDelta.lastWeek.toFixed(1)}`,
+          pattern: `Haftalık delta: ${weeklyMoodDelta.delta > 0 ? '+' : ''}${weeklyMoodDelta.delta.toFixed(1)}`,
+          confidence: weeklyMoodDelta.confidence,
+          severity: weeklyMoodDelta.delta < -10 ? 'high' : weeklyMoodDelta.delta < -5 ? 'medium' : 'low',
+          actionable: Math.abs(weeklyMoodDelta.delta) > 5,
+          suggestion: weeklyMoodDelta.delta < -10 ? 'Mood düşüş trendi - destek almayı değerlendir' :
+                     weeklyMoodDelta.delta < -5 ? 'Hafif mood düşüşü - self-care rutinlerine odaklan' :
+                     weeklyMoodDelta.delta > 10 ? 'Güzel mood artışı - bu pozitif durumu sürdür' : 
+                     'Mood seviyesi stabil görünüyor',
+          // 🎯 DASHBOARD READY METRICS
+          dashboardMetrics: {
+            weeklyDelta: weeklyMoodDelta.delta,
+            currentWeekAvg: weeklyMoodDelta.thisWeek,
+            previousWeekAvg: weeklyMoodDelta.lastWeek,
+            trend: weeklyMoodDelta.delta > 5 ? 'improving' : weeklyMoodDelta.delta < -5 ? 'declining' : 'stable',
+            dataPoints: weeklyMoodDelta.dataPoints
+          },
+          source: 'unified_pipeline'
+        });
+      }
+
+      // 🔗 MEA CORRELATION ANALYSIS (Enhanced)
+      const meaCorrelation = this.calculateMEACorrelations(recentMoods);
+      if (meaCorrelation) {
+        patterns.push({
+          type: 'mood_mea_correlation',
+          title: 'Mood-Enerji-Anksiyete İlişkisi',
+          description: `MEA korelasyon analizi: ${meaCorrelation.profile}`,
+          pattern: `Mood-Enerji: ${meaCorrelation.moodEnergy.toFixed(2)}, Mood-Anksiyete: ${meaCorrelation.moodAnxiety.toFixed(2)}`,
+          confidence: meaCorrelation.confidence,
+          severity: meaCorrelation.severity,
+          actionable: meaCorrelation.actionable,
+          suggestion: meaCorrelation.suggestion,
+          // 🎯 DASHBOARD READY METRICS
+          dashboardMetrics: {
+            moodEnergyCorrelation: meaCorrelation.moodEnergy,
+            moodAnxietyCorrelation: meaCorrelation.moodAnxiety,
+            energyAnxietyCorrelation: meaCorrelation.energyAnxiety,
+            emotionalProfile: meaCorrelation.profileType,
+            averageMood: meaCorrelation.averages.mood,
+            averageEnergy: meaCorrelation.averages.energy,
+            averageAnxiety: meaCorrelation.averages.anxiety,
+            dataPoints: recentMoods.length
+          },
+          source: 'unified_pipeline'
+        });
+      }
+
+      // 📅 DAILY PATTERNS (Existing logic enhanced)
+      const weeklyData: Record<number, { mood: number, energy: number, anxiety: number, count: number }> = {};
       recentMoods.forEach(m => {
         const dayOfWeek = new Date(m.timestamp).getDay();
         if (!weeklyData[dayOfWeek]) {
-          weeklyData[dayOfWeek] = { mood: 0, count: 0 };
+          weeklyData[dayOfWeek] = { mood: 0, energy: 0, anxiety: 0, count: 0 };
         }
         weeklyData[dayOfWeek].mood += m.mood_score;
+        weeklyData[dayOfWeek].energy += m.energy_level;
+        weeklyData[dayOfWeek].anxiety += m.anxiety_level;
         weeklyData[dayOfWeek].count += 1;
       });
 
-      // Find mood patterns by day with early exit
+      // Find significant daily patterns with enhanced metrics
       const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-      const maxPatterns = 4; // Limit patterns to prevent over-processing
+      const maxDailyPatterns = 3; // Limit daily patterns
       
       Object.entries(weeklyData)
         .sort(([,a], [,b]) => (b.mood / b.count) - (a.mood / a.count)) // Sort by avg mood
         .forEach(([day, data]) => {
-          if (patterns.length >= maxPatterns) return; // Early exit
+          if (patterns.filter(p => p.type === 'mood_daily_pattern').length >= maxDailyPatterns) return; // Early exit
           const avgMood = data.mood / data.count;
-          if (data.count >= 2) {
+          const avgEnergy = data.energy / data.count;
+          const avgAnxiety = data.anxiety / data.count;
+          
+          if (data.count >= 2 && (avgMood > 70 || avgMood < 40)) { // Only significant patterns
             patterns.push({
-              type: 'mood_temporal',
-              description: `${dayNames[parseInt(day)]} mood pattern`,
-              pattern: `${dayNames[parseInt(day)]} günü ortalama mood: ${avgMood.toFixed(1)}`,
+              type: 'mood_daily_pattern',
+              title: `${dayNames[parseInt(day)]} Günü Pattern'i`,
+              description: `${dayNames[parseInt(day)]} günü mood ortalaması: ${avgMood.toFixed(1)}`,
+              pattern: `${dayNames[parseInt(day)]}: M${avgMood.toFixed(1)}/E${avgEnergy.toFixed(1)}/A${avgAnxiety.toFixed(1)}`,
               confidence: Math.min(0.8, data.count / recentMoods.length * 7),
-              sampleSize: recentMoods.length
+              severity: avgMood < 40 ? 'medium' : 'low',
+              actionable: avgMood < 40,
+              suggestion: avgMood < 40 ? `${dayNames[parseInt(day)]} günü mood desteği planlayabilirsin` : 
+                         `${dayNames[parseInt(day)]} günü pozitif pattern'ini sürdür`,
+              // 🎯 DASHBOARD READY METRICS
+              dashboardMetrics: {
+                dayOfWeek: parseInt(day),
+                dayName: dayNames[parseInt(day)],
+                averageMood: parseFloat(avgMood.toFixed(1)),
+                averageEnergy: parseFloat(avgEnergy.toFixed(1)),
+                averageAnxiety: parseFloat(avgAnxiety.toFixed(1)),
+                sampleSize: data.count,
+                significance: avgMood > 70 ? 'positive' : avgMood < 40 ? 'negative' : 'neutral'
+              },
+              source: 'unified_pipeline'
             });
           }
         });
 
+      console.log(`📊 Extracted ${patterns.length} enhanced mood patterns with dashboard metrics`);
       return patterns;
     } catch (error) {
-      console.warn('⚠️ Error extracting mood temporal patterns:', error);
+      console.warn('⚠️ Error extracting enhanced mood temporal patterns:', error);
       return [];
     }
+  }
+
+  /**
+   * 📈 Calculate Weekly Mood Delta for dashboard metrics
+   */
+  private calculateWeeklyMoodDelta(moods: any[]): {
+    delta: number;
+    thisWeek: number;
+    lastWeek: number;
+    confidence: number;
+    dataPoints: { thisWeek: number; lastWeek: number };
+  } | null {
+    try {
+      if (moods.length < 5) return null;
+
+      const now = new Date();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+      const thisWeekMoods = moods.filter(m => {
+        const date = new Date(m.timestamp);
+        return date >= oneWeekAgo && date <= now;
+      });
+
+      const lastWeekMoods = moods.filter(m => {
+        const date = new Date(m.timestamp);
+        return date >= twoWeeksAgo && date < oneWeekAgo;
+      });
+
+      if (thisWeekMoods.length === 0 || lastWeekMoods.length === 0) return null;
+
+      const thisWeekAvg = thisWeekMoods.reduce((sum, m) => sum + m.mood_score, 0) / thisWeekMoods.length;
+      const lastWeekAvg = lastWeekMoods.reduce((sum, m) => sum + m.mood_score, 0) / lastWeekMoods.length;
+      const delta = thisWeekAvg - lastWeekAvg;
+
+      // Confidence based on data points
+      const minDataPoints = Math.min(thisWeekMoods.length, lastWeekMoods.length);
+      const confidence = Math.min(0.9, minDataPoints / 7 * 0.8); // Max confidence with 7+ data points per week
+
+      return {
+        delta,
+        thisWeek: thisWeekAvg,
+        lastWeek: lastWeekAvg,
+        confidence,
+        dataPoints: {
+          thisWeek: thisWeekMoods.length,
+          lastWeek: lastWeekMoods.length
+        }
+      };
+    } catch (error) {
+      console.warn('⚠️ Error calculating weekly mood delta:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 🔗 Calculate enhanced MEA (Mood-Energy-Anxiety) correlations for dashboard
+   */
+  private calculateMEACorrelations(moods: any[]): {
+    moodEnergy: number;
+    moodAnxiety: number;
+    energyAnxiety: number;
+    profile: string;
+    profileType: string;
+    confidence: number;
+    severity: 'low' | 'medium' | 'high';
+    actionable: boolean;
+    suggestion: string;
+    averages: { mood: number; energy: number; anxiety: number };
+  } | null {
+    try {
+      if (moods.length < 5) return null;
+
+      const moodScores = moods.map(m => m.mood_score);
+      const energyLevels = moods.map(m => m.energy_level);
+      const anxietyLevels = moods.map(m => m.anxiety_level);
+
+      // Calculate Pearson correlation coefficients
+      const moodEnergyCorr = this.calculatePearsonCorrelation(moodScores, energyLevels);
+      const moodAnxietyCorr = this.calculatePearsonCorrelation(moodScores, anxietyLevels);
+      const energyAnxietyCorr = this.calculatePearsonCorrelation(energyLevels, anxietyLevels);
+
+      // Calculate averages
+      const averages = {
+        mood: moodScores.reduce((a, b) => a + b, 0) / moodScores.length,
+        energy: energyLevels.reduce((a, b) => a + b, 0) / energyLevels.length,
+        anxiety: anxietyLevels.reduce((a, b) => a + b, 0) / anxietyLevels.length
+      };
+
+      // Enhanced profile determination
+      let profileType = 'balanced';
+      let profile = 'Dengeli Duygusal Profil';
+      let severity: 'low' | 'medium' | 'high' = 'low';
+      let suggestion = 'Duygusal dengen iyi görünüyor';
+      let actionable = false;
+
+      // Strong positive mood-energy + negative mood-anxiety = optimal
+      if (moodEnergyCorr > 0.5 && moodAnxietyCorr < -0.3) {
+        profileType = 'optimal';
+        profile = 'Optimal Duygusal Denge';
+        suggestion = 'Mükemmel! Mood yüksek→enerji artıyor, anksiyete azalıyor';
+      }
+      // Strong negative mood-energy + positive mood-anxiety = depression risk  
+      else if (moodEnergyCorr < -0.3 && moodAnxietyCorr > 0.3) {
+        profileType = 'depression_risk';
+        profile = 'Depresif Eğilim Riski';
+        severity = 'high';
+        actionable = true;
+        suggestion = 'Mood düştüğünde enerji de düşüyor, anksiyete artıyor - profesyonel destek değerlendir';
+      }
+      // High energy-anxiety correlation = manic tendency
+      else if (energyAnxietyCorr > 0.6) {
+        profileType = 'hyperarousal';
+        profile = 'Yüksek Uyarılma Durumu';
+        severity = 'medium';
+        actionable = true;
+        suggestion = 'Enerji ve anksiyete birlikte yükseliyor - sakinleştirici teknikler faydalı olabilir';
+      }
+      // Low mood with high anxiety correlation
+      else if (averages.mood < 40 && Math.abs(moodAnxietyCorr) > 0.4) {
+        profileType = 'anxious_low_mood';
+        profile = 'Kaygılı Düşük Mood';
+        severity = 'medium';
+        actionable = true;
+        suggestion = 'Düşük mood ve anksiyete ilişkisi tespit edildi - mood destekleyici aktiviteler dene';
+      }
+      // Very low correlations = disconnected emotional states
+      else if (Math.abs(moodEnergyCorr) < 0.2 && Math.abs(moodAnxietyCorr) < 0.2) {
+        profileType = 'disconnected';
+        profile = 'Bağımsız Duygusal Durumlar';
+        suggestion = 'Mood, enerji ve anksiyete bağımsız değişiyor - bu da normal olabilir';
+      }
+
+      const confidence = Math.min(0.9, moods.length / 20); // Higher confidence with more data
+
+      return {
+        moodEnergy: parseFloat(moodEnergyCorr.toFixed(3)),
+        moodAnxiety: parseFloat(moodAnxietyCorr.toFixed(3)),
+        energyAnxiety: parseFloat(energyAnxietyCorr.toFixed(3)),
+        profile,
+        profileType,
+        confidence,
+        severity,
+        actionable,
+        suggestion,
+        averages: {
+          mood: parseFloat(averages.mood.toFixed(1)),
+          energy: parseFloat(averages.energy.toFixed(1)),
+          anxiety: parseFloat(averages.anxiety.toFixed(1))
+        }
+      };
+    } catch (error) {
+      console.warn('⚠️ Error calculating MEA correlations:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 📊 Calculate Pearson correlation coefficient
+   */
+  private calculatePearsonCorrelation(x: number[], y: number[]): number {
+    if (x.length !== y.length || x.length === 0) return 0;
+
+    const n = x.length;
+    const meanX = x.reduce((a, b) => a + b, 0) / n;
+    const meanY = y.reduce((a, b) => a + b, 0) / n;
+
+    let numerator = 0;
+    let sumXSquared = 0;
+    let sumYSquared = 0;
+
+    for (let i = 0; i < n; i++) {
+      const xDiff = x[i] - meanX;
+      const yDiff = y[i] - meanY;
+      numerator += xDiff * yDiff;
+      sumXSquared += xDiff * xDiff;
+      sumYSquared += yDiff * yDiff;
+    }
+
+    const denominator = Math.sqrt(sumXSquared * sumYSquared);
+    return denominator === 0 ? 0 : numerator / denominator;
   }
 
   /**

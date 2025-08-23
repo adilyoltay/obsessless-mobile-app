@@ -177,39 +177,91 @@ export default function MoodScreen() {
         processingTime: result.metadata?.processingTime || 0
       }, user.id);
 
-      // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format
+      // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format with enhanced metrics
       if (result.patterns) {
         const normalizedPatterns = Array.isArray(result.patterns) 
           ? result.patterns 
           : result.patterns.temporal || [];
           
-        const mappedPatterns = normalizedPatterns.map((pattern: any) => ({
-          type: pattern.type || 'temporal',
-          title: pattern.title || pattern.description || 'Mood Pattern',
-          description: pattern.description || pattern.pattern || '',
-          confidence: pattern.confidence || 0.7,
-          severity: pattern.severity || 'medium',
-          actionable: pattern.actionable || true,
-          suggestion: pattern.suggestion || 'Mood takibine devam et',
-          source: 'unified_pipeline',
-          data: pattern.data || {}
-        }));
+        const mappedPatterns = normalizedPatterns.map((pattern: any) => {
+          // 🎯 Extract dashboard metrics for enhanced mood analysis
+          const dashboardMetrics = pattern.dashboardMetrics || {};
+          
+          return {
+            type: pattern.type || 'temporal',
+            title: pattern.title || pattern.description || 'Mood Pattern',
+            description: pattern.description || pattern.pattern || '',
+            confidence: pattern.confidence || 0.7,
+            severity: pattern.severity || 'medium',
+            actionable: pattern.actionable || true,
+            suggestion: pattern.suggestion || 'Mood takibine devam et',
+            source: 'unified_pipeline',
+            // 📊 Enhanced data with dashboard metrics
+            data: {
+              ...pattern.data,
+              // Weekly Delta Metrics
+              weeklyDelta: dashboardMetrics.weeklyDelta,
+              currentWeekAvg: dashboardMetrics.currentWeekAvg,
+              previousWeekAvg: dashboardMetrics.previousWeekAvg,
+              weeklyTrend: dashboardMetrics.trend,
+              // MEA Correlation Metrics
+              meaCorrelations: {
+                moodEnergy: dashboardMetrics.moodEnergyCorrelation,
+                moodAnxiety: dashboardMetrics.moodAnxietyCorrelation,
+                energyAnxiety: dashboardMetrics.energyAnxietyCorrelation
+              },
+              emotionalProfile: dashboardMetrics.emotionalProfile,
+              averages: {
+                mood: dashboardMetrics.averageMood,
+                energy: dashboardMetrics.averageEnergy,
+                anxiety: dashboardMetrics.averageAnxiety
+              },
+              // Daily Pattern Metrics
+              dailyPattern: dashboardMetrics.dayName ? {
+                dayOfWeek: dashboardMetrics.dayOfWeek,
+                dayName: dashboardMetrics.dayName,
+                significance: dashboardMetrics.significance,
+                sampleSize: dashboardMetrics.sampleSize
+              } : undefined,
+              // Data Quality Metrics
+              dataPoints: dashboardMetrics.dataPoints,
+              analyticsReady: true // Flag for dashboard consumption
+            }
+          };
+        });
 
+        console.log('🎯 Enhanced mood patterns with dashboard metrics:', mappedPatterns);
         setMoodPatterns(mappedPatterns);
+        
+        // 📊 TELEMETRY: Track enhanced metrics delivery
+        const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
+        if (enhancedMetricsCount > 0) {
+          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+            source: 'mood_screen_enhanced',
+            enhancedPatternsCount: enhancedMetricsCount,
+            dashboardMetricsTypes: mappedPatterns
+              .map(p => p.type)
+              .filter((type, index, arr) => arr.indexOf(type) === index), // unique types
+            meaAnalysisAvailable: mappedPatterns.some(p => p.data.meaCorrelations),
+            weeklyDeltaAvailable: mappedPatterns.some(p => p.data.weeklyDelta !== undefined)
+          }, user.id);
+        }
       }
 
-      // 📊 PREDICTIVE INSIGHTS: Map progress insights
-      if (result.insights?.progress) {
-        const progressInsights = result.insights.progress;
+      // 📊 PREDICTIVE INSIGHTS: Enhanced mapping with unified pipeline metrics
+      if (result.insights?.progress || result.patterns) {
+        let predictiveInsight: any = null;
         
-        if (progressInsights.length > 0) {
+        // First, try to use progress insights from unified pipeline
+        if (result.insights?.progress && result.insights.progress.length > 0) {
+          const progressInsights = result.insights.progress;
           const avgMoodMetric = progressInsights.find((p: any) => p.metric === 'average_mood');
           const trendMetric = progressInsights.find((p: any) => p.metric === 'mood_trend');
           
           const avgMoodValue = avgMoodMetric?.value || 50;
           const trendChangeValue = trendMetric?.change || 0;
           
-          const predictiveInsight = {
+          predictiveInsight = {
             riskLevel: avgMoodValue < 30 ? 'high' : avgMoodValue < 50 ? 'medium' : 'low',
             moodTrend: trendChangeValue,
             averageRecentMood: Math.round(avgMoodValue),
@@ -222,9 +274,53 @@ export default function MoodScreen() {
                 : null
             },
             interventions: [],
-            recommendations: progressInsights.map((p: any) => p.interpretation).filter(Boolean)
+            recommendations: progressInsights.map((p: any) => p.interpretation).filter(Boolean),
+            source: 'unified_pipeline_progress'
           };
-
+        }
+        // 🚀 FALLBACK: Use enhanced pattern data if progress insights unavailable
+        else if (result.patterns) {
+          const normalizedPatterns = Array.isArray(result.patterns) ? result.patterns : result.patterns.temporal || [];
+          const weeklyDeltaPattern = normalizedPatterns.find((p: any) => p.type === 'mood_weekly_delta');
+          const meaPattern = normalizedPatterns.find((p: any) => p.type === 'mood_mea_correlation');
+          
+          if (weeklyDeltaPattern?.dashboardMetrics || meaPattern?.dashboardMetrics) {
+            const weeklyMetrics = weeklyDeltaPattern?.dashboardMetrics;
+            const meaMetrics = meaPattern?.dashboardMetrics;
+            
+            const currentMoodAvg = weeklyMetrics?.currentWeekAvg || meaMetrics?.averageMood || 50;
+            const weeklyDelta = weeklyMetrics?.weeklyDelta || 0;
+            
+            predictiveInsight = {
+              riskLevel: currentMoodAvg < 30 ? 'high' : currentMoodAvg < 50 ? 'medium' : 'low',
+              moodTrend: weeklyDelta,
+              averageRecentMood: Math.round(currentMoodAvg),
+              earlyWarning: {
+                triggered: (currentMoodAvg < 30) || (weeklyDelta < -10),
+                message: currentMoodAvg < 30 
+                  ? 'Mevcut mood seviyesi düşük - kendine iyi bakmaya odaklan'
+                  : weeklyDelta < -10
+                  ? `Haftalık mood ${weeklyDelta.toFixed(1)} puan düştü - trend'i takip et`
+                  : null
+              },
+              interventions: [],
+              recommendations: [
+                weeklyDeltaPattern?.suggestion,
+                meaPattern?.suggestion
+              ].filter(Boolean),
+              // 🎯 Enhanced metadata from patterns
+              enhancedData: {
+                weeklyMetrics: weeklyMetrics,
+                meaAnalysis: meaMetrics,
+                emotionalProfile: meaMetrics?.emotionalProfile
+              },
+              source: 'unified_pipeline_patterns'
+            };
+          }
+        }
+        
+        if (predictiveInsight) {
+          console.log('🔮 Enhanced predictive insights with unified metrics:', predictiveInsight);
           setPredictiveInsights(predictiveInsight);
         }
       }
@@ -1036,13 +1132,33 @@ export default function MoodScreen() {
         challengeArea: (() => {
           if (patterns.length === 0) return 'Veri toplama ve düzenlilik';
           
-          // Find high-severity patterns that need attention
+          // 📊 ENHANCED: Use UnifiedAIPipeline MEA correlation analysis
+          const unifiedMeaPattern = patterns.find(p => p.type === 'mood_mea_correlation' && p.source === 'unified_pipeline');
+          if (unifiedMeaPattern?.data?.emotionalProfile) {
+            const profileType = unifiedMeaPattern.data.emotionalProfile;
+            
+            switch (profileType) {
+              case 'depression_risk':
+                return 'Enerji artırıcı aktiviteler ve anksiyete yönetimi';
+              case 'hyperarousal':
+                return 'Yüksek uyarılma - sakinleştirici teknikler';
+              case 'anxious_low_mood':
+                return 'Mood ve anksiyete dengeleme stratejileri';
+              case 'disconnected':
+                return 'Duygusal bağlantı kurma ve farkındalık';
+              case 'optimal':
+                return 'Bu optimal durumu koruma stratejileri';
+              default:
+                return unifiedMeaPattern.suggestion || 'MEA dengelemesi';
+            }
+          }
+          
+          // Fallback to original logic
           const criticalPatterns = patterns.filter(p => p.severity === 'high' || p.severity === 'critical');
           if (criticalPatterns.length > 0) {
             return criticalPatterns[0].suggestion || 'Duygusal dengeleme teknikleri';
           }
           
-          // Find MEA correlation issues
           const meaPatterns = patterns.filter(p => p.type === 'mea_correlation');
           if (meaPatterns.length > 0) {
             const meaPattern = meaPatterns[0];

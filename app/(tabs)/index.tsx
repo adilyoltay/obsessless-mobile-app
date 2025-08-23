@@ -62,6 +62,7 @@ import { unifiedGamificationService, UnifiedMission } from '@/features/ai/servic
 // 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay';
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -149,7 +150,7 @@ export default function TodayScreen() {
   // 🎯 Adaptive Interventions State (JITAI)
   const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
   const adaptiveRef = useRef<boolean>(false); // Prevent duplicate triggers
-  const { generateSuggestion, snoozeSuggestion, loading: adaptiveLoading } = useAdaptiveSuggestion();
+  const { generateSuggestion, snoozeSuggestion, trackSuggestionClick, trackSuggestionDismissal, loading: adaptiveLoading } = useAdaptiveSuggestion();
 
 
 
@@ -1183,12 +1184,17 @@ export default function TodayScreen() {
     if (!user?.id || !suggestion.cta) return;
 
     try {
-      // Track click event
+      const clickTime = Date.now();
+      
+      // Track click event in telemetry
       await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
         userId: user.id,
         category: suggestion.category,
         targetScreen: suggestion.cta.screen
       });
+      
+      // 📊 Track click in analytics
+      await trackSuggestionClick(user.id, suggestion);
 
       // Navigate based on CTA
       switch (suggestion.cta.screen) {
@@ -1254,8 +1260,13 @@ export default function TodayScreen() {
     if (!user?.id) return;
 
     try {
-      // Snooze for 2 hours
-      await snoozeSuggestion(user.id, 2);
+      const snoozeHours = 2;
+      
+      // 📊 Track dismissal in analytics
+      await trackSuggestionDismissal(user.id, suggestion, snoozeHours);
+      
+      // Snooze for 2 hours (this also tracks in telemetry)
+      await snoozeSuggestion(user.id, snoozeHours);
       
       // Hide suggestion
       setAdaptiveSuggestion(null);
@@ -1792,6 +1803,9 @@ export default function TodayScreen() {
         visible={showToast}
         onHide={() => setShowToast(false)}
       />
+      
+      {/* 📊 Adaptive Analytics Debug Trigger (Development Only) */}
+      <AdaptiveAnalyticsTrigger position="bottom-left" />
       
       {/* Micro Reward Animation */}
       {lastMicroReward && (

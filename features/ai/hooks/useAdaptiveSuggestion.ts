@@ -16,6 +16,9 @@ import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
+import { adaptiveSuggestionAnalytics } from '../analytics/adaptiveSuggestionAnalytics';
+import { circadianTimingEngine, TimingRecommendation } from '../timing/circadianTimingEngine';
+import { abTestingFramework, ABTestVariant } from '../testing/abTestingFramework';
 
 // Types
 interface AdaptiveSuggestion {
@@ -48,9 +51,9 @@ interface MinimalContext {
   };
 }
 
-// Constants
-const COOLDOWN_HOURS = 4;
-const SNOOZE_HOURS = 2;
+// Default Constants (overridden by A/B tests)
+const DEFAULT_COOLDOWN_HOURS = 4;
+const DEFAULT_SNOOZE_HOURS = 2;
 const QUIET_START_HOUR = 22; // 22:00
 const QUIET_END_HOUR = 8;    // 08:00
 
@@ -169,6 +172,47 @@ export function useAdaptiveSuggestion() {
   };
 
   /**
+   * 📊 Build complete ContextAnalysisResult for AI engines
+   */
+  const buildContextAnalysisResult = (userId: string, minimalContext: MinimalContext): any => {
+    return {
+      userId,
+      timestamp: new Date(),
+      analysisId: `context_${Date.now()}`,
+      environmentalFactors: [
+        {
+          factor: 'TIME_OF_DAY',
+          value: new Date().getHours(),
+          confidence: 0.9,
+          source: 'device'
+        }
+      ],
+      userState: {
+        ...minimalContext.currentContext.userState,
+        activityState: minimalContext.currentContext.userState.activityState,
+        stressLevel: minimalContext.currentContext.userState.stressLevel,
+        moodIndicator: 'neutral' as const,
+        socialEngagement: 50
+      },
+      riskAssessment: {
+        overallRisk: minimalContext.currentContext.userState.stressLevel,
+        riskFactors: [],
+        protectiveFactors: [],
+        interventionUrgency: minimalContext.currentContext.userState.stressLevel === 'high' ? 'medium' : 'low'
+      },
+      insights: { 
+        keyObservations: [],
+        patterns: [], 
+        recommendations: [],
+        predictedNeeds: []
+      },
+      privacyLevel: 'minimal' as const,
+      dataQuality: 0.8,
+      sources: ['device', 'user_activity']
+    };
+  };
+
+  /**
    * 🎯 Generate adaptive suggestion
    */
   const generateSuggestion = useCallback(async (userId: string): Promise<AdaptiveSuggestion> => {
@@ -178,6 +222,27 @@ export function useAdaptiveSuggestion() {
       console.log('🚫 Adaptive suggestions disabled by feature flags');
       return { show: false };
     }
+
+    // 🧪 Get A/B test assignment and parameters
+    let testParameters: ABTestVariant['parameters'] | null = null;
+    let testId: string | null = null;
+    try {
+      const testAssignment = await abTestingFramework.getUserTestAssignment(userId);
+      testParameters = testAssignment.parameters;
+      testId = testAssignment.testId;
+      
+      if (testId && testParameters) {
+        console.log(`🧪 User in A/B test: ${testId}`, testParameters);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to get A/B test assignment:', error);
+    }
+
+    // Use test parameters or defaults
+    const cooldownHours = testParameters?.cooldownHours || DEFAULT_COOLDOWN_HOURS;
+    const snoozeHours = testParameters?.snoozeHours || DEFAULT_SNOOZE_HOURS;
+    const respectCircadianTiming = testParameters?.respectCircadianTiming ?? true;
+    const minimumTimingScore = testParameters?.minimumTimingScore ?? 30;
 
     try {
       setLoading(true);
@@ -190,16 +255,16 @@ export function useAdaptiveSuggestion() {
         return { show: false };
       }
 
-      // 3. Cooldown check
+      // 3. Cooldown check (using A/B test parameters)
       const cooldownKey = `adaptive_suggestion_last_${userId}`;
       const lastSuggested = await AsyncStorage.getItem(cooldownKey);
       if (lastSuggested) {
         const timeSinceLastSuggestion = Date.now() - parseInt(lastSuggested);
-        const cooldownMs = COOLDOWN_HOURS * 60 * 60 * 1000;
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
         
         if (timeSinceLastSuggestion < cooldownMs) {
           const hoursLeft = Math.ceil((cooldownMs - timeSinceLastSuggestion) / (60 * 60 * 1000));
-          console.log(`⏰ Adaptive suggestion cooldown: ${hoursLeft}h remaining`);
+          console.log(`⏰ Adaptive suggestion cooldown: ${hoursLeft}h remaining (A/B test: ${cooldownHours}h)`);
           return { show: false };
         }
       }
@@ -208,6 +273,33 @@ export function useAdaptiveSuggestion() {
       if (isQuietHours()) {
         console.log('🌙 Quiet hours - no adaptive suggestions');
         return { show: false };
+      }
+
+      // 4.5. 🕐 Smart Timing Check (A/B test controlled)
+      let timingRecommendation: TimingRecommendation | null = null;
+      if (respectCircadianTiming) {
+        try {
+          timingRecommendation = await circadianTimingEngine.getTimingRecommendation(userId);
+          
+          if (timingRecommendation.score < minimumTimingScore) {
+            console.log(`⏰ Poor timing score: ${timingRecommendation.score}/100 (min: ${minimumTimingScore}) - ${timingRecommendation.rationale}`);
+            
+            // Show alternatives if available
+            if (timingRecommendation.alternatives && timingRecommendation.alternatives.length > 0) {
+              const bestAlternative = timingRecommendation.alternatives[0];
+              console.log(`💡 Better timing available at ${bestAlternative.hour}:00 (score: ${bestAlternative.score})`);
+            }
+            
+            return { show: false };
+          }
+          
+          console.log(`⏰ Good timing: ${timingRecommendation.score}/100 - ${timingRecommendation.rationale}`);
+        } catch (error) {
+          console.warn('⚠️ Circadian timing check failed:', error);
+          // Continue without timing optimization
+        }
+      } else {
+        console.log('⏰ Circadian timing disabled by A/B test - proceeding without timing check');
       }
 
       // 5. Build minimal context
@@ -224,10 +316,44 @@ export function useAdaptiveSuggestion() {
 
       try {
         const { jitaiEngine } = await import('../jitai/jitaiEngine');
-        timing = await jitaiEngine.predictOptimalTiming(context);
-        confidence = timing?.confidence || 0;
         
-        console.log('🎯 JITAI timing prediction:', { confidence, timing });
+        // Build complete JITAI context
+        const jitaiContext = {
+          userId,
+          userProfile: {
+            preferredLanguage: 'tr',
+            symptomSeverity: context.currentContext.userState.stressLevel === 'high' ? 7 : 
+                           context.currentContext.userState.stressLevel === 'low' ? 3 : 5,
+            communicationStyle: 'encouraging' as any,
+            triggerWords: [],
+            avoidanceTopics: [],
+            therapeuticGoals: [],
+            preferredCBTTechniques: [],
+            riskFactors: [],
+            culturalContext: 'turkish'
+          },
+          currentContext: buildContextAnalysisResult(userId, context),
+          interventionHistory: [],
+          currentUserState: {
+            isAppActive: true,
+            lastInteraction: new Date(),
+            recentMood: 'neutral',
+            energyLevel: context.currentContext.userState.energyLevel,
+            stressPattern: [context.currentContext.userState.stressLevel as any]
+          },
+          personalizationProfile: {
+            preferredTimes: ['09:00', '14:00', '19:00'],
+            responsiveStates: ['ACTIVE', 'RESTING'] as any[], // UserActivityState enum values
+            effectiveCategories: ['breathwork', 'cbt'] as any[],
+            culturalPreferences: { language: 'tr' },
+            communicationStyle: 'encouraging' as const
+          }
+        };
+        
+        timing = await jitaiEngine.predictOptimalTiming(jitaiContext);
+        confidence = timing?.optimalTiming?.confidence || 0;
+        
+        console.log('🎯 JITAI timing prediction:', { confidence });
         
         if (confidence < 0.5) {
           console.log('📉 JITAI confidence too low, skipping suggestion');
@@ -245,23 +371,43 @@ export function useAdaptiveSuggestion() {
       try {
         const adaptiveInterventions = (await import('../interventions/adaptiveInterventions')).default;
         
-        // Build intervention context
+        // Build complete intervention context
         const interventionContext = {
           userId,
-          userProfile: {}, // Minimal profile
-          currentContext: {
-            analysisId: `adaptive_${Date.now()}`,
-            riskAssessment: {
-              overallRisk: context.currentContext.userState.stressLevel,
-              riskFactors: [],
-              protectiveFactors: [],
-              interventionUrgency: context.currentContext.userState.stressLevel === 'high' ? 'medium' : 'low'
-            },
-            userState: context.currentContext.userState,
-            environmentalFactors: [],
-            insights: { patterns: [] }
+          userProfile: {
+            preferredLanguage: 'tr',
+            symptomSeverity: context.currentContext.userState.stressLevel === 'high' ? 7 : 
+                           context.currentContext.userState.stressLevel === 'low' ? 3 : 5,
+            communicationStyle: 'encouraging' as any,
+            triggerWords: [],
+            avoidanceTopics: [],
+            therapeuticGoals: [],
+            preferredCBTTechniques: [],
+            riskFactors: [],
+            culturalContext: 'turkish'
           },
-          userConfig: adaptiveInterventions.getDefaultConfig(),
+          currentContext: buildContextAnalysisResult(userId, context),
+          userConfig: {
+            enabled: true,
+            userAutonomyLevel: 'high' as const,
+            maxInterventionsPerHour: 2,
+            maxInterventionsPerDay: 6,
+            respectQuietHours: true,
+            quietHours: {
+              start: "22:00",
+              end: "08:00"
+            },
+            preferredDeliveryMethods: [],
+            allowInAppInterruptions: true,
+            allowNotifications: false, // Only in-app for now
+            enableHapticFeedback: true,
+            adaptToUserFeedback: true,
+            learnFromEffectiveness: true,
+            culturalAdaptation: true,
+            crisisOverride: true,
+            emergencyContacts: [],
+            escalationProtocol: true
+          },
           recentInterventions: [],
           recentUserActivity: {
             lastAppUsage: new Date(),
@@ -289,7 +435,7 @@ export function useAdaptiveSuggestion() {
         // Update last suggested timestamp
         await AsyncStorage.setItem(cooldownKey, Date.now().toString());
         
-        // Track suggestion shown
+        // Track suggestion shown in both telemetry and analytics
         await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_SHOWN, {
           userId,
           category: suggestion.category || 'general',
@@ -298,6 +444,25 @@ export function useAdaptiveSuggestion() {
           stressLevel: context.currentContext.userState.stressLevel,
           energyLevel: context.currentContext.userState.energyLevel
         });
+        
+        // 📊 Track in analytics for performance analysis
+        await adaptiveSuggestionAnalytics.trackEvent('shown', userId, {
+          show: true,
+          title: suggestion.title,
+          content: suggestion.content,
+          category: suggestion.category,
+          confidence,
+          cta: suggestion.cta
+        });
+
+        // 🧪 Record A/B test event
+        if (testId) {
+          await abTestingFramework.recordTestEvent(userId, 'suggestion_shown', {
+            suggestionCategory: suggestion.category,
+            timingScore: timingRecommendation?.score,
+            userStressLevel: context.currentContext.userState.stressLevel
+          });
+        }
 
         return {
           show: true,
@@ -369,21 +534,96 @@ export function useAdaptiveSuggestion() {
   };
 
   /**
+   * 📊 Track suggestion click for analytics
+   */
+  const trackSuggestionClick = useCallback(async (userId: string, suggestion: AdaptiveSuggestion, sessionDuration?: number): Promise<void> => {
+    try {
+      await adaptiveSuggestionAnalytics.trackEvent('clicked', userId, suggestion, { sessionDuration });
+      
+      // 🕐 Learn from successful interaction for circadian timing
+      const currentHour = new Date().getHours();
+      await circadianTimingEngine.learnFromInteraction(
+        userId, 
+        currentHour, 
+        true, // Successful (clicked)
+        suggestion.category === 'breathwork' ? 'high' : 'moderate' // Infer stress from category
+      );
+
+      // 🧪 Record A/B test click event
+      try {
+        await abTestingFramework.recordTestEvent(userId, 'suggestion_clicked', {
+          suggestionCategory: suggestion.category,
+          sessionDuration
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to record A/B test click event:', error);
+      }
+      
+      console.log('📊 Tracked adaptive suggestion click for analytics, timing, and A/B testing');
+    } catch (error) {
+      console.error('❌ Failed to track suggestion click:', error);
+    }
+  }, []);
+
+  /**
+   * 📊 Track suggestion dismissal for analytics
+   */
+  const trackSuggestionDismissal = useCallback(async (userId: string, suggestion: AdaptiveSuggestion, snoozeHours?: number): Promise<void> => {
+    try {
+      await adaptiveSuggestionAnalytics.trackEvent('dismissed', userId, suggestion, { snoozeHours });
+      
+      // 🕐 Learn from dismissal for circadian timing
+      const currentHour = new Date().getHours();
+      await circadianTimingEngine.learnFromInteraction(
+        userId, 
+        currentHour, 
+        false, // Not successful (dismissed)
+        suggestion.category === 'breathwork' ? 'high' : 'moderate' // Infer stress from category
+      );
+
+      // 🧪 Record A/B test dismissal event
+      try {
+        await abTestingFramework.recordTestEvent(userId, 'suggestion_dismissed', {
+          suggestionCategory: suggestion.category,
+          snoozeHours
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to record A/B test dismissal event:', error);
+      }
+      
+      console.log('📊 Tracked adaptive suggestion dismissal for analytics, timing, and A/B testing');
+    } catch (error) {
+      console.error('❌ Failed to track suggestion dismissal:', error);
+    }
+  }, []);
+
+  /**
    * 😴 Snooze suggestion for specified hours
    */
-  const snoozeSuggestion = useCallback(async (userId: string, hours: number = SNOOZE_HOURS): Promise<void> => {
+  const snoozeSuggestion = useCallback(async (userId: string, hours?: number): Promise<void> => {
+    // Use A/B test parameter or provided value or default
+    let snoozeHours = hours;
+    if (!snoozeHours) {
+      try {
+        const testAssignment = await abTestingFramework.getUserTestAssignment(userId);
+        snoozeHours = testAssignment.parameters?.snoozeHours || DEFAULT_SNOOZE_HOURS;
+      } catch (error) {
+        snoozeHours = DEFAULT_SNOOZE_HOURS;
+      }
+    }
     try {
       const snoozeKey = `adaptive_suggestion_snooze_until_${userId}`;
-      const snoozeUntil = Date.now() + (hours * 60 * 60 * 1000);
+      const snoozeUntil = Date.now() + (snoozeHours * 60 * 60 * 1000);
       await AsyncStorage.setItem(snoozeKey, snoozeUntil.toString());
       
-      // Track dismissal
+      // Track dismissal in both telemetry and analytics
       await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_DISMISSED, {
         userId,
-        snoozeHours: hours
+        snoozeHours
       });
       
-      console.log(`😴 Adaptive suggestion snoozed for ${hours} hours`);
+      // 📊 Track dismissal in analytics (we need the suggestion object, so this will be handled from Today page)
+      console.log(`😴 Adaptive suggestion snoozed for ${snoozeHours} hours (A/B test controlled)`);
     } catch (error) {
       console.error('❌ Failed to snooze adaptive suggestion:', error);
     }
@@ -392,6 +632,8 @@ export function useAdaptiveSuggestion() {
   return {
     generateSuggestion,
     snoozeSuggestion,
+    trackSuggestionClick,
+    trackSuggestionDismissal,
     loading,
     isQuietHours
   };
