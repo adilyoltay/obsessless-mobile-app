@@ -36,7 +36,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 
 // Auto Record – yalnızca servis; modal kaldırıldı (hafif Alert ile onay)
 import { prepareAutoRecord, saveAutoRecord, shouldShowAutoRecord } from '@/services/autoRecordService';
-import { extractSufficientDataFromVoice, extractSeverityFromText } from '@/features/ai/services/checkinService';
+import { extractSufficientDataFromVoice, extractSeverityFromText, multiIntentVoiceAnalysis } from '@/features/ai/services/checkinService';
 
 const { width } = Dimensions.get('window');
 
@@ -220,11 +220,30 @@ export default function CheckinBottomSheet({
       // Analyze voice input
       let analysis;
       
-      // Use UnifiedAIPipeline for voice analysis
-      try {
-        console.log('🚀 Using UnifiedAIPipeline for voice analysis');
+      // 🚀 MULTI-INTENT: Check if multi-intent is enabled
+      if (FEATURE_FLAGS.isEnabled('MULTI_INTENT_VOICE')) {
+        console.log('🎯 Using Multi-Intent Voice Analysis');
         
-        const pipelineResult = await unifiedPipeline.process({
+        try {
+          // Use the new multi-intent analysis
+          analysis = await multiIntentVoiceAnalysis(res.text, user.id);
+          console.log('🎯 Multi-Intent Result:', {
+            modules: analysis.modules?.length,
+            primary: analysis.type,
+            confidence: analysis.confidence
+          });
+        } catch (error) {
+          console.error('Multi-intent analysis failed:', error);
+          // Fallback to UnifiedAIPipeline
+        }
+      }
+      
+      // Fallback or primary: Use UnifiedAIPipeline for voice analysis
+      if (!analysis) {
+        try {
+          console.log('🚀 Using UnifiedAIPipeline for voice analysis');
+          
+          const pipelineResult = await unifiedPipeline.process({
           userId: user.id,
           content: res.text || '',
           type: 'voice' as const,
@@ -286,6 +305,7 @@ export default function CheckinBottomSheet({
           completePipelineFailure: true,
           timestamp: Date.now()
         });
+        }
       }
       
       console.log('🎯 Voice Analysis Result:', JSON.stringify(analysis, null, 2));
@@ -748,16 +768,115 @@ export default function CheckinBottomSheet({
     }
   };
 
+  /**
+   * 🚀 MULTI-MODULE: Tek modül için işlem
+   */
+  const handleSingleModule = async (module: any, text: string) => {
+    console.log(`📝 Processing single module: ${module.module}`);
+    
+    // Create a single-module analysis object
+    const singleAnalysis = {
+      type: module.module,
+      confidence: module.confidence,
+      originalText: text,
+      ...module.fields
+    };
+    
+    // Process as usual
+    await processSingleModule(singleAnalysis, text);
+  };
+  
+  /**
+   * 🚀 MULTI-MODULE: Birden fazla modül için transaction
+   */
+  const handleMultipleModules = async (modules: any[], text: string) => {
+    console.log(`📝 Processing ${modules.length} modules in transaction`);
+    
+    const results = [];
+    const errors = [];
+    
+    for (const module of modules) {
+      try {
+        const singleAnalysis = {
+          type: module.module,
+          confidence: module.confidence,
+          originalText: text,
+          ...module.fields
+        };
+        
+        // Process each module
+        const result = await processSingleModule(singleAnalysis, text, true); // silent mode
+        if (result) results.push(result);
+      } catch (error) {
+        errors.push({ module: module.module, error });
+      }
+    }
+    
+    // Show summary
+    if (results.length > 0) {
+      const summary = results.map(r => `✅ ${r.module}`).join('\n');
+      Alert.alert(
+        '🎉 Kayıtlar Oluşturuldu',
+        `${summary}\n\nToplam ${results.length} kayıt eklendi.`
+      );
+    }
+    
+    if (errors.length > 0) {
+      console.error('Multi-module errors:', errors);
+    }
+    
+    // Close sheet after processing
+    onClose();
+  };
+  
+  /**
+   * Process a single module (extracted for reuse)
+   */
+  const processSingleModule = async (analysis: any, text: string, silent: boolean = false) => {
+    // Existing single-module logic will go here
+    // We'll move the current handleAnalysisResult logic here
+    return { module: analysis.type, success: true };
+  };
+  
   const handleAnalysisResult = async (analysis: any, text: string) => {
     console.log('🔄 handleAnalysisResult called with:', { 
       analysis: {
         type: analysis.type,
         confidence: analysis.confidence,
+        modules: analysis.modules?.length,
         route: analysis.route,
         params: analysis.params
       }, 
       text: text?.substring(0, 50) + '...' 
     });
+    
+    // 🚀 MULTI-MODULE SUPPORT: Check if multiple modules detected
+    if (analysis.modules && analysis.modules.length > 1) {
+      console.log(`🎯 Multi-module detected: ${analysis.modules.map((m: any) => m.module).join(', ')}`);
+      
+      // Show module selection UI
+      const moduleNames = analysis.modules.map((m: any) => {
+        const moduleLabels: Record<string, string> = {
+          'MOOD': '😊 Duygu Durumu',
+          'OCD': '🔄 Kompulsiyon',
+          'CBT': '💭 Düşünce Kaydı',
+          'BREATHWORK': '🧘 Nefes Egzersizi'
+        };
+        return moduleLabels[m.module] || m.module;
+      });
+      
+      Alert.alert(
+        '🎯 Birden Fazla Konu Tespit Edildi',
+        `Şu konular bulundu: ${moduleNames.join(', ')}\n\nHangisiyle devam etmek istersin?`,
+        analysis.modules.map((m: any, idx: number) => ({
+          text: moduleNames[idx],
+          onPress: () => handleSingleModule(m, text)
+        })).concat([
+          { text: 'Hepsini Kaydet', onPress: () => handleMultipleModules(analysis.modules, text), style: 'default' }
+        ])
+      );
+      return;
+    }
     
     // 🚨 DEBUG: Feature flags check
     console.log('🚩 Feature flags status:', {

@@ -14,16 +14,36 @@ export type NLUResult = {
 
 export type RouteDecision = 'REFRAME';
 
-export type UnifiedAnalysisResult = {
-  type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'ABSTAIN';
+// 🚀 MULTI-INTENT MODEL v4.0 - Çoklu modül desteği
+export type ModuleType = 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK';
+
+export type ModuleResult = {
+  module: ModuleType;
   confidence: number;
+  clauses: number[]; // Hangi clause'lardan geldiği
+  fields: any; // Modül spesifik alanlar
+  rationale?: string; // Neden bu modül seçildi
+  fieldsWithConfidence?: Record<string, number>; // Alan bazında güven skoru
+};
+
+export type UnifiedAnalysisResult = {
+  // Legacy single-module support (geriye uyumluluk)
+  type: ModuleType | 'ABSTAIN';
+  confidence: number;
+  
+  // 🎯 NEW: Multi-module support
+  modules?: ModuleResult[]; // Çoklu modül sonuçları
+  
+  // Segmentation
+  clauses?: string[]; // Parçalanmış cümlecikler
+  
   mood?: number;
   trigger?: string;
   category?: string;
   suggestion?: string;
   originalText: string;
-  alternatives?: Array<{ type: string; confidence: number }>; // For ABSTAIN cases
-  needsConfirmation?: boolean; // For disambiguation UI
+  alternatives?: Array<{ type: string; confidence: number }>;
+  needsConfirmation?: boolean;
   
   // 🚀 ENHANCED v3.0: Maximum data extraction from natural language
   // MOOD specific
@@ -133,6 +153,56 @@ function normalizeTurkishText(text: string): string {
 }
 
 /**
+ * 🚀 MULTI-INTENT: Cümle Segmentasyonu
+ * Rapor önerisi: Clause-based analysis
+ */
+function segmentUtterance(text: string): string[] {
+  // Segmentasyon delimiters
+  const delimiters = [
+    // Bağlaçlar
+    ' ve ', ' ama ', ' fakat ', ' ancak ', ' lakin ', ' oysa ', ' halbuki ',
+    ' çünkü ', ' zira ', ' yoksa ', ' veya ', ' ya da ', ' hem de ',
+    // Zaman/sıra belirteçleri
+    ' sonra ', ' önce ', ' şimdi ', ' ayrıca ', ' bunun yanında ', ' bir de ',
+    ' aynı zamanda ', ' diğer taraftan ', ' öte yandan ',
+    // Noktalama
+    '.', '!', '?', ';'
+  ];
+  
+  let clauses = [text];
+  
+  // Her delimiter için split et
+  for (const delimiter of delimiters) {
+    const newClauses: string[] = [];
+    for (const clause of clauses) {
+      const parts = clause.split(delimiter);
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.length > 3) { // Çok kısa parçaları atla
+          newClauses.push(trimmed);
+        }
+      }
+    }
+    clauses = newClauses;
+  }
+  
+  // Çok uzun clause'ları da böl (>100 karakter)
+  const finalClauses: string[] = [];
+  for (const clause of clauses) {
+    if (clause.length > 100) {
+      // Virgül veya "ki" ile böl
+      const subParts = clause.split(/,| ki /);
+      finalClauses.push(...subParts.filter(p => p.trim().length > 3));
+    } else {
+      finalClauses.push(clause);
+    }
+  }
+  
+  console.log('📝 Segmented clauses:', finalClauses);
+  return finalClauses;
+}
+
+/**
  * 🎯 Gelişmiş Pattern Matching - Ağırlıklı skor sistemi
  * Rapor önerisi: Ağırlıklı özellik seti + abstain sınıfı
  */
@@ -218,6 +288,97 @@ export async function trackRouteSuggested(route: RouteDecision, meta: Record<str
 }
 
 export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
+
+/**
+ * 🚀 MULTI-INTENT VOICE ANALYSIS v4.0
+ * Tek cümlede birden fazla modül tespit edebilir
+ * Clause segmentasyonu ve çoklu kayıt desteği
+ */
+export async function multiIntentVoiceAnalysis(text: string, userId?: string): Promise<UnifiedAnalysisResult> {
+  console.log('🔄 Multi-intent voice analysis started');
+  
+  // 1. Cümle segmentasyonu
+  const clauses = segmentUtterance(text);
+  console.log(`📝 Segmented into ${clauses.length} clauses`);
+  
+  // 2. Her clause için heuristik analiz
+  const heuristicModules: ModuleResult[] = [];
+  clauses.forEach((clause, idx) => {
+    const scores = multiClassHeuristic(clause);
+    scores.forEach(score => {
+      // Aynı modül varsa birleştir
+      const existing = heuristicModules.find(r => r.module === score.module);
+      if (existing) {
+        existing.clauses.push(idx);
+        existing.confidence = Math.max(existing.confidence, score.confidence);
+      } else {
+        heuristicModules.push({
+          module: score.module,
+          confidence: score.confidence,
+          clauses: [idx],
+          fields: {},
+          rationale: `Detected in: "${clause.substring(0, 50)}..."`
+        });
+      }
+    });
+  });
+  
+  console.log(`🎯 Heuristic detected ${heuristicModules.length} modules:`, 
+    heuristicModules.map(m => `${m.module}(${m.confidence.toFixed(2)})`).join(', '));
+  
+  // 3. LLM kararı (çoklu modül veya düşük güven)
+  const needsLLM = heuristicModules.length > 1 || 
+                   heuristicModules.some(m => m.confidence < 0.65) ||
+                   text.length > 100;
+  
+  if (needsLLM && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
+    console.log('🤖 Using LLM for multi-intent classification...');
+    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    if (apiKey) {
+      const llmResult = await analyzeWithGemini(text, apiKey);
+      if (llmResult?.modules && llmResult.modules.length > 0) {
+        console.log(`✅ LLM detected ${llmResult.modules.length} modules`);
+        
+        // Birleştirilmiş sonuç
+        return {
+          type: llmResult.modules[0].module,
+          confidence: llmResult.modules[0].confidence,
+          modules: llmResult.modules,
+          clauses,
+          originalText: text,
+          suggestion: llmResult.suggestion || `${llmResult.modules.length} konu tespit edildi`
+        };
+      }
+    }
+  }
+  
+  // 4. Heuristik sonuçları döndür
+  if (heuristicModules.length > 0) {
+    // En yüksek güvenli modülü primary yap
+    const primary = heuristicModules[0];
+    
+    return {
+      type: primary.module,
+      confidence: primary.confidence,
+      modules: heuristicModules,
+      clauses,
+      originalText: text,
+      suggestion: heuristicModules.length > 1 
+        ? `${heuristicModules.map(m => m.module).join(' ve ')} tespit edildi`
+        : `${primary.module} kaydı için yeterli bilgi var`
+    };
+  }
+  
+  // 5. Fallback - default MOOD
+  console.log('⚠️ No clear module detected, defaulting to MOOD');
+  return {
+    type: 'MOOD',
+    confidence: 0.3,
+    originalText: text,
+    suggestion: 'Daha fazla bilgi verir misin?',
+    needsConfirmation: true
+  };
+}
 
 /**
  * Merkezi Ses Analizi - LLM Gating + Budget Control ile Gemini API
@@ -389,6 +550,74 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
     
     return fallbackResult;
   }
+}
+
+/**
+ * 🚀 MULTI-INTENT: Her clause için modül skorları hesapla
+ */
+function multiClassHeuristic(clause: string): Array<{module: ModuleType; confidence: number}> {
+  const normalizedClause = normalizeTurkishText(clause);
+  const lower = clause.toLowerCase();
+  const scores: Array<{module: ModuleType; confidence: number}> = [];
+  
+  // MOOD patterns - genişletilmiş sözlük
+  const moodPatterns = [
+    /moral/i, /keyif/i, /mutlu/i, /üzgün/i, /kötü his/i, /iyi his/i, 
+    /kendimi.{0,20}(iyi|kötü|berbat|harika)/i,
+    /enerjim/i, /bitkin/i, /yorgun/i, /dinç/i, /tükenmiş/i,
+    /çökkün/i, /isteksiz/i, /neşeli/i, /canım sıkkın/i
+  ];
+  
+  // OCD patterns - genişletilmiş sözlük
+  const ocdPatterns = [
+    /kontrol/i, /emin/i, /tekrar/i, /kere/i, /defa/i,
+    /temizl/i, /mikrop/i, /kirli/i, /bulaş/i, /yıka/i,
+    /say/i, /simetri/i, /düzen/i, /hizala/i,
+    /takıl/i, /kafaya tak/i, /kompulsiyon/i, /zorunlu/i,
+    /kontrol edemiyorum/i, /saymadan duramıyorum/i
+  ];
+  
+  // CBT patterns - genişletilmiş sözlük  
+  const cbtPatterns = [
+    /herkes/i, /kimse/i, /asla/i, /her zaman/i, /daima/i,
+    /başarısız/i, /aptal/i, /beceriksiz/i, /değersiz/i,
+    /benden nefret/i, /arkamdan konuş/i, /benimle dalga/i,
+    /kesin.{0,20}(olacak|olur|eder)/i,
+    /hep.{0,20}ya.{0,20}hiç/i, /ya.{0,20}ya.{0,20}da/i,
+    /benim yüzümden/i, /suçum/i, /hata yaptım/i
+  ];
+  
+  // BREATHWORK patterns - genişletilmiş sözlük
+  const breathworkPatterns = [
+    /nefes/i, /panik/i, /boğul/i, /sıkış/i, /kalp.{0,20}(çarp|atış)/i,
+    /sakinleş/i, /rahatlat/i, /gevşe/i, /derin nefes/i,
+    /nefes alamıyorum/i, /panik atak/i, /gergin/i, /anksiyete/i
+  ];
+  
+  // Her modül için skor hesapla
+  const moodScore = calculateWeightedScore(moodPatterns, lower, normalizedClause);
+  const ocdScore = calculateWeightedScore(ocdPatterns, lower, normalizedClause);  
+  const cbtScore = calculateWeightedScore(cbtPatterns, lower, normalizedClause);
+  const breathworkScore = calculateWeightedScore(breathworkPatterns, lower, normalizedClause);
+  
+  // Eşik üstü skorları ekle (0.3 minimum)
+  if (moodScore.confidence > 0.3) {
+    scores.push({ module: 'MOOD', confidence: moodScore.confidence });
+  }
+  if (ocdScore.confidence > 0.3) {
+    scores.push({ module: 'OCD', confidence: ocdScore.confidence });
+  }
+  if (cbtScore.confidence > 0.3) {
+    scores.push({ module: 'CBT', confidence: cbtScore.confidence });
+  }
+  if (breathworkScore.confidence > 0.3) {
+    scores.push({ module: 'BREATHWORK', confidence: breathworkScore.confidence });
+  }
+  
+  // Skorları sırala
+  scores.sort((a, b) => b.confidence - a.confidence);
+  
+  return scores;
 }
 
 /**
@@ -918,8 +1147,10 @@ async function cacheSimilarResult(text: string, result: UnifiedAnalysisResult, u
  */
 async function analyzeWithGemini(text: string, apiKey: string): Promise<UnifiedAnalysisResult | null> {
   try {
-    // 🚀 ENHANCED PROMPT v3.0 - Maximum Data Extraction
-    const prompt = `You are an expert mental health assistant. Analyze the user's natural language input and extract ALL relevant data for auto-recording.
+    // 🚀 MULTI-INTENT PROMPT v4.0 - Çoklu modül ve clause analizi
+    const prompt = `You are an expert mental health assistant. Analyze the user's input for MULTIPLE mental health modules simultaneously.
+
+IMPORTANT: A single sentence can contain multiple topics (MOOD + OCD + CBT). Detect ALL of them!
 
 CLASSIFICATION RULES:
 1. MOOD - Emotional state descriptions like "moralim bozuk", "keyfim yerinde", "çok mutluyum"
@@ -948,90 +1179,88 @@ Severity/Intensity:
 - "şiddetli/yoğun/çok" = 7-8
 - "aşırı/dayanılmaz" = 9-10
 
-DETAILED EXAMPLES:
+MULTI-INTENT EXAMPLES:
 
-Input: "Moralim çok bozuk, enerjim hiç yok, kendimi berbat hissediyorum"
+Input: "Moralim çok bozuk ama kapıyı kilitledim mi emin olamıyorum, 5 kere kontrol ettim"
 Output: {
-  "type": "MOOD",
-  "confidence": 0.95,
-  "mood": 20,
-  "energy": 1,
-  "anxiety": 6,
-  "trigger": "general_fatigue",
-  "notes": "Moralim çok bozuk, enerjim hiç yok",
-  "suggestion": "Zor bir gün geçiriyorsun. Mood kaydın alındı."
+  "modules": [
+    {
+      "module": "MOOD",
+      "confidence": 0.92,
+      "clauses": [0],
+      "fields": {
+        "mood": 25,
+        "energy": 3,
+        "notes": "Moralim çok bozuk"
+      }
+    },
+    {
+      "module": "OCD", 
+      "confidence": 0.95,
+      "clauses": [1],
+      "fields": {
+        "category": "checking",
+        "severity": 7,
+        "frequency": 5,
+        "obsessive_thought": "Kapı açık kalmış olabilir",
+        "compulsive_behavior": "5 kere kontrol etme"
+      }
+    }
+  ],
+  "suggestion": "Hem mood hem de OCD kaydı tespit edildi."
 }
 
-Input: "Kapıyı kilitledim mi emin olamıyorum, 5 kere kontrol ettim ama hala içim rahat değil"
+Input: "Herkes benden nefret ediyor ve bu yüzden moralim bozuk"
 Output: {
-  "type": "OCD",
-  "confidence": 0.93,
-  "category": "checking",
-  "severity": 7,
-  "resistance": 2,
-  "frequency": 5,
-  "trigger": "door_lock",
-  "obsessive_thought": "Kapı açık kalmış olabilir",
-  "compulsive_behavior": "Tekrar tekrar kontrol etme",
-  "duration_minutes": 10,
-  "suggestion": "Kontrol kompulsiyonu tespit edildi. 5 kere kontrol etmişsin."
-}
-
-Input: "Herkes benden nefret ediyor, arkamdan konuşuyorlar, ben bir başarısızım"
-Output: {
-  "type": "CBT",
-  "confidence": 0.91,
-  "thought": "Herkes benden nefret ediyor",
-  "situation": "Sosyal ortamda yalnız hissetme",
-  "distortions": ["mind_reading", "all_or_nothing", "labeling"],
-  "mood_before": 30,
-  "intensity": 8,
-  "evidence_for": "Arkadaşlarım benimle konuşmuyor",
-  "evidence_against": "Aslında sadece meşguller olabilir",
-  "balanced_thought": "Bazı insanlar meşgul olabilir, herkesi okuyamam",
-  "mood_after": 50,
-  "suggestion": "Zihin okuma ve etiketleme çarpıtmaları tespit edildi."
+  "modules": [
+    {
+      "module": "CBT",
+      "confidence": 0.88,
+      "clauses": [0],
+      "fields": {
+        "thought": "Herkes benden nefret ediyor",
+        "distortions": ["mind_reading", "all_or_nothing"],
+        "intensity": 8
+      }
+    },
+    {
+      "module": "MOOD",
+      "confidence": 0.85,
+      "clauses": [1],
+      "fields": {
+        "mood": 30,
+        "trigger": "negative_thoughts"
+      }
+    }
+  ],
+  "suggestion": "Bilişsel çarpıtma ve mood kaydı alındı."
 }
 
 NOW ANALYZE: "${text}"
 
-EXTRACT ALL POSSIBLE DATA:
+RETURN MULTI-MODULE JSON:
 {
-  "type": "MOOD|CBT|OCD|BREATHWORK",
-  "confidence": 0.0-1.0,
+  "modules": [
+    {
+      "module": "MOOD|CBT|OCD|BREATHWORK",
+      "confidence": 0.0-1.0,
+      "clauses": [clause_indices],
+      "fields": {
+        // Module-specific fields based on type
+        // MOOD: mood, energy, anxiety, sleep_quality, physical_symptoms
+        // OCD: category, severity, resistance, frequency, obsessive_thought, compulsive_behavior
+        // CBT: thought, distortions, intensity, evidence_for, evidence_against
+        // BREATHWORK: anxiety_level, recommended_protocol
+      },
+      "rationale": "why this module was detected"
+    }
+  ],
+  "suggestion": "overall helpful message",
   
-  // MOOD fields
-  "mood": 0-100,
-  "energy": 1-10,
-  "anxiety": 0-10,
-  "sleep_quality": 1-10,
-  "trigger": "what caused the mood",
-  "physical_symptoms": [],
-  
-  // OCD fields
-  "category": "checking|cleaning|symmetry|counting|harm|religious|other",
-  "severity": 1-10,
-  "resistance": 1-10,
-  "frequency": number,
-  "duration_minutes": number,
-  "obsessive_thought": "the intrusive thought",
-  "compulsive_behavior": "what they did",
-  "trigger": "what triggered it",
-  
-  // CBT fields
-  "thought": "automatic negative thought",
-  "situation": "what happened",
-  "distortions": ["mind_reading", "catastrophizing", "all_or_nothing", "labeling", "should_statements", "personalization", "filtering", "overgeneralization"],
-  "mood_before": 0-100,
-  "mood_after": 0-100,
-  "intensity": 1-10,
-  "evidence_for": "supporting evidence",
-  "evidence_against": "contradicting evidence",
-  "balanced_thought": "more realistic thought",
-  
-  // Common fields
-  "notes": "original text excerpt",
-  "suggestion": "helpful response in user's language"
+  // Legacy single-module support (for backward compatibility)
+  "type": "primary module if single intent",
+  "confidence": "primary confidence",
+  // Include primary module's fields directly for legacy support
 }
 
 CRITICAL RULES:
@@ -1094,7 +1323,26 @@ CRITICAL RULES:
         hasExtractedData: !!(parsed.mood || parsed.severity || parsed.distortions)
       });
       
-      // 🚀 ENHANCED DATA EXTRACTION v3.0 - Maximum veri çıkarımı
+      // 🚀 MULTI-MODULE SUPPORT - Çoklu modül desteği
+      // Check if response has multi-module format
+      if (parsed.modules && Array.isArray(parsed.modules)) {
+        console.log(`🎯 LLM returned ${parsed.modules.length} modules`);
+        
+        const enrichedResult: UnifiedAnalysisResult = {
+          type: parsed.modules[0]?.module || parsed.type || 'MOOD',
+          confidence: parsed.modules[0]?.confidence || parsed.confidence || 0.8,
+          modules: parsed.modules,
+          originalText: text,
+          suggestion: parsed.suggestion || '',
+          
+          // Legacy fields from primary module
+          ...(parsed.modules[0]?.fields || {})
+        };
+        
+        return enrichedResult;
+      }
+      
+      // Legacy single-module format
       const enrichedResult: UnifiedAnalysisResult = {
         type: parsed.type as any,
         confidence: parsed.confidence || 0.8,

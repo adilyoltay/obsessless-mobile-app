@@ -127,6 +127,9 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_SMART_ROUTING: true, // Intelligent screen navigation with context
   AI_FORM_PREFILLING: true, // Automatic form prefilling from analysis
   
+  // 🎯 Multi-Intent Voice Analysis (NEW - Jan 2025)
+  MULTI_INTENT_VOICE: AI_MASTER_ENABLED, // Çoklu modül desteği
+  
   // 🎯 OCD AI Services (NEW - Critical for OCD functionality)
   AI_TRIGGER_DETECTION: AI_MASTER_ENABLED, // OCD trigger detection service
   TURKISH_CULTURAL_OCD: AI_MASTER_ENABLED, // Turkish cultural adaptation for OCD
