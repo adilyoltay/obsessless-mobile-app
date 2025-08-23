@@ -9,6 +9,7 @@ import {
   Pressable,
   Alert
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenLayout from '@/components/layout/ScreenLayout';
@@ -224,6 +225,16 @@ export default function TrackingScreen() {
 
     loadOnboardingProfile();
   }, [user?.id]);
+
+  // 🔄 FOCUS REFRESH: Reload data when tab gains focus (after multi-intent saves)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        console.log('🔄 Tracking tab focused, refreshing compulsions list...');
+        loadAllData();
+      }
+    }, [user?.id])
+  );
 
   // Voice trigger'dan gelindiyse otomatik aç (pre-filled data ile)
   // veya refresh parametresi gelirse listeyi yenile

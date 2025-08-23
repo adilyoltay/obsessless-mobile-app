@@ -817,7 +817,30 @@ export default function CheckinBottomSheet({
       const summary = results.map(r => `✅ ${r.module}`).join('\n');
       Alert.alert(
         '🎉 Kayıtlar Oluşturuldu',
-        `${summary}\n\nToplam ${results.length} kayıt eklendi.`
+        `${summary}\n\nToplam ${results.length} kayıt eklendi.\n\n⚡ Kayıtlar ilgili sayfalarda en üstte görünecek.`,
+        [
+          {
+            text: 'Tamam',
+            style: 'default',
+            onPress: () => {
+              // 🔄 CRITICAL: Force refresh by closing and reopening current tab
+              console.log('🔄 Multi-intent records saved, forcing refresh...');
+              
+              // Trigger refresh by invalidating cache
+              setTimeout(async () => {
+                try {
+                  if (user?.id) {
+                    // Trigger pipeline cache invalidation
+                    await unifiedPipeline.triggerInvalidation('multi_record_saved', user.id);
+                    console.log('✅ Cache invalidated, pages will refresh on next visit');
+                  }
+                } catch (error) {
+                  console.error('Cache invalidation failed:', error);
+                }
+              }, 100);
+            }
+          }
+        ]
       );
     }
     

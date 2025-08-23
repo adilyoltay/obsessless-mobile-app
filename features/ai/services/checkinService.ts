@@ -1527,7 +1527,31 @@ CRITICAL RULES:
 
     // JSON'u parse et ve zengin veri çıkarımı yap
     try {
-      const parsed = JSON.parse(resultText.replace(/```json\n?/g, '').replace(/```\n?/g, ''));
+      // 🔧 ULTRA-ROBUST JSON EXTRACTION v4.2.3
+      let cleanedText = resultText;
+      
+      // Method 1: Find JSON object boundaries
+      const startIndex = cleanedText.indexOf('{');
+      const lastIndex = cleanedText.lastIndexOf('}');
+      
+      if (startIndex !== -1 && lastIndex !== -1 && lastIndex > startIndex) {
+        cleanedText = cleanedText.substring(startIndex, lastIndex + 1);
+        console.log('✂️ Extracted JSON by boundaries (first 200 chars):', cleanedText.substring(0, 200));
+      } else {
+        // Method 2: Aggressive markdown cleanup
+        cleanedText = resultText
+          .replace(/^```json\s*/gmi, '')        
+          .replace(/^```\s*$/gmi, '')           
+          .replace(/^```.*$/gmi, '')            
+          .replace(/^\s*```/gmi, '')            
+          .replace(/```\s*$/gmi, '')            
+          .replace(/```/gmi, '')                // Remove any remaining ```
+          .trim();
+        
+        console.log('🧹 Cleaned by regex (first 200 chars):', cleanedText.substring(0, 200));
+      }
+      
+      const parsed = JSON.parse(cleanedText);
       
       console.log('🎯 Gemini Classification Result:', {
         type: parsed.type,

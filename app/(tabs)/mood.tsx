@@ -9,6 +9,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 // ✅ REMOVED: LinearGradient moved to dashboard
@@ -84,6 +85,16 @@ export default function MoodScreen() {
   }, [params.prefill]); // Only trigger when prefill specifically changes
 
   // Load mood entries
+  // 🔄 FOCUS REFRESH: Reload data when tab gains focus (after multi-intent saves)  
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        console.log('🔄 Mood tab focused, refreshing mood entries...');
+        loadMoodEntries();
+      }
+    }, [user?.id, selectedTimeRange])
+  );
+
   useEffect(() => {
     if (user?.id) {
       loadMoodEntries();
