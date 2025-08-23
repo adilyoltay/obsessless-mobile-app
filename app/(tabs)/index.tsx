@@ -21,7 +21,7 @@ import { Toast } from '@/components/ui/Toast';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { BottomSheet } from '@/components/ui/BottomSheet';
+// ✅ REMOVED: BottomSheet - Today'den başarı listesi kaldırıldı
 import moodTracker from '@/services/moodTrackingService';
 import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
 import BreathworkSuggestionCard from '@/components/ui/BreathworkSuggestionCard';
@@ -30,7 +30,7 @@ import * as Haptics from 'expo-haptics';
 
 // Gamification Components
 import { StreakCounter } from '@/components/gamification/StreakCounter';
-import { AchievementBadge } from '@/components/gamification/AchievementBadge';
+// ✅ REMOVED: AchievementBadge - Today'den başarı listesi kaldırıldı
 import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnimation';
 
 // Hooks & Utils
@@ -71,7 +71,7 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
-  const [achievementsSheetVisible, setAchievementsSheetVisible] = useState(false);
+  // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
   // Breathwork suggestion state
   const [breathworkSuggestion, setBreathworkSuggestion] = useState<{
@@ -110,8 +110,8 @@ export default function TodayScreen() {
   // Gamification store
   const { 
     profile, 
-    lastMicroReward,
-    achievements
+    lastMicroReward
+    // ✅ REMOVED: achievements - Today'den başarı listesi kaldırıldı
   } = useGamificationStore();
   const { awardMicroReward } = useGamificationStore.getState();
 
@@ -1282,7 +1282,7 @@ export default function TodayScreen() {
           <View style={styles.moduleHeader}>
             <MaterialCommunityIcons name="heart-pulse" size={18} color="#10B981" />
             <Text style={styles.moduleTitle}>OCD</Text>
-          </View>
+            </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.compulsions}</Text>
           <Text style={styles.moduleSubtext}>
             {todayStats.weeklyProgress.compulsions > 0 
@@ -1291,7 +1291,7 @@ export default function TodayScreen() {
           </Text>
           <View style={styles.moduleFooter}>
             <Text style={styles.moduleAction}>Detaylar →</Text>
-          </View>
+            </View>
         </Pressable>
         
         {/* CBT Özet */}
@@ -1313,7 +1313,7 @@ export default function TodayScreen() {
             <Text style={styles.moduleAction}>Devam Et →</Text>
           </View>
         </Pressable>
-        
+
         {/* Mood Özet */}
         <Pressable 
           style={styles.moduleCard}
@@ -1322,7 +1322,7 @@ export default function TodayScreen() {
           <View style={styles.moduleHeader}>
             <MaterialCommunityIcons name="emoticon-happy" size={18} color="#F59E0B" />
             <Text style={styles.moduleTitle}>Mood</Text>
-          </View>
+            </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.mood}</Text>
           <Text style={styles.moduleSubtext}>
             {todayStats.weeklyProgress.mood > 0 
@@ -1331,7 +1331,7 @@ export default function TodayScreen() {
           </Text>
           <View style={styles.moduleFooter}>
             <Text style={styles.moduleAction}>Görüntüle →</Text>
-          </View>
+            </View>
         </Pressable>
         
         {/* Breathwork Özet */}
@@ -1353,90 +1353,15 @@ export default function TodayScreen() {
             <Text style={styles.moduleAction}>
               {todayStats.weeklyProgress.breathwork > 0 ? 'Tekrar Et →' : 'Başla →'}
             </Text>
-          </View>
+            </View>
         </Pressable>
       </View>
-    </View>
-  );
-
-  const renderAchievements = () => {
-    // Merge achievements with unlocked status from profile
-    const achievementsWithStatus = achievements.map(achievement => ({
-      ...achievement,
-      unlockedAt: profile.unlockedAchievements.includes(achievement.id) ? new Date() : undefined
-    }));
-
-    // Sort: unlocked first, then by rarity
-    const sortedAchievements = achievementsWithStatus.sort((a, b) => {
-      if (a.unlockedAt && !b.unlockedAt) return -1;
-      if (!a.unlockedAt && b.unlockedAt) return 1;
-      if (a.rarity === 'Epic' && b.rarity !== 'Epic') return -1;
-      if (a.rarity !== 'Epic' && b.rarity === 'Epic') return 1;
-      return 0;
-    });
-
-    const unlockedCount = profile.unlockedAchievements.length;
-
-    return (
-      <View style={styles.achievementsSection}>
-
-        <Pressable 
-          onPress={() => setAchievementsSheetVisible(true)} 
-          accessibilityRole="button" 
-          accessibilityLabel="Rozet ve başarı sayılarım"
-          style={({ pressed }) => [styles.achievementsCard, pressed && styles.achievementsCardPressed]}
-        >
-          <View style={styles.achBtnContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <MaterialCommunityIcons name="trophy" size={18} color="#374151" />
-              <Text style={styles.achBtnLabel} numberOfLines={1} ellipsizeMode="tail">Başarılarım</Text>
-            </View>
-            <View style={styles.achBtnBadge}>
-              <Text style={styles.achBtnBadgeText}>{unlockedCount}/{achievements.length}</Text>
-            </View>
-          </View>
-        </Pressable>
-
-        <BottomSheet isVisible={achievementsSheetVisible} onClose={() => setAchievementsSheetVisible(false)}>
-          <Text style={styles.sheetTitle}>Başarımlarım ({unlockedCount}/{achievements.length})</Text>
-          {/* Özet satırı */}
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="star-outline" size={18} color="#10B981" />
-              <Text style={styles.summaryValue}>{profile.healingPointsTotal}</Text>
-              <Text style={styles.summaryLabel}>Healing Points</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="trophy-outline" size={18} color="#F59E0B" />
-              <Text style={styles.summaryValue}>{unlockedCount}</Text>
-              <Text style={styles.summaryLabel}>Açılan Rozet</Text>
-            </View>
-          </View>
-          {/* Sade tasarım: filtre/sıralama kaldırıldı */}
-          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
-            <View style={styles.achievementGrid}>
-              {sortedAchievements.map((achievement) => (
-                <AchievementBadge
-                  key={achievement.id}
-                  achievement={achievement}
-                  isUnlocked={!!achievement.unlockedAt}
-                  onPress={() => {
-                    setToastMessage(
-                      achievement.unlockedAt 
-                        ? `🏆 ${achievement.title} - ${achievement.description}` 
-                        : `🔒 ${achievement.title} - Henüz açılmadı`
-                    );
-                    setShowToast(true);
-                  }}
-                />
-              ))}
-            </View>
-          </ScrollView>
-        </BottomSheet>
       </View>
     );
-  };
+
+  // ✅ REMOVED: renderAchievements() - Today sayfası sadelik için kaldırıldı
+  // Detaylı başarı görüntüleme modül dashboard'larında mevcut
+  // MicroReward/Toast sistemi unlock anında çalışmaya devam ediyor
 
   return (
     <ScreenLayout>
@@ -1508,7 +1433,8 @@ export default function TodayScreen() {
         {renderArtTherapyWidget()}
         {renderDailyMissions()}
         {renderAIInsights()}
-        {renderAchievements()}
+        {/* ✅ REMOVED: Başarılarım bölümü - yinelenen bilgi, kalabalık yaratıyor */}
+        {/* Hero'da healing points + streak yeterli, detaylar modül dashboard'larında */}
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -1750,112 +1676,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     marginTop: 2,
   },
-  achievementsSection: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  achievementsButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  achievementsCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  achievementsCardPressed: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#D1FAE5',
-  },
-  achBtnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    minWidth: 200,
-  },
-  achBtnLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    flex: 1,
-  },
-  achBtnBadge: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  achBtnBadgeText: {
-    color: '#1F2937',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  summaryDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: '#E5E7EB',
-  },
-  achievementGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    fontFamily: 'Inter-Medium',
-    marginRight: 4,
-  },
+  // ✅ REMOVED: Achievement stilleri - Today'den başarı listesi kaldırıldı
+  // Başarı gösterimi modül dashboard'larında mevcut
   bottomSpacing: {
     height: 100,
   },
@@ -1996,18 +1818,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
   },
-  sheetTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  sheetSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: -6,
-    marginBottom: 12,
-  },
+  // ✅ REMOVED: sheetTitle, sheetSubtitle - achievements modalı için kullanılıyordu
   emojiRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
