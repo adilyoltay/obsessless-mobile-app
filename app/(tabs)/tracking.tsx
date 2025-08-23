@@ -647,9 +647,9 @@ export default function TrackingScreen() {
       entries.push(newEntry);
       await AsyncStorage.setItem(storageKey, JSON.stringify(entries));
 
-      // Save to Supabase database
+      // Save to Supabase database and update local ID with remote ID
       try {
-        await supabaseService.saveCompulsion({
+        const savedCompulsion = await supabaseService.saveCompulsion({
           user_id: user.id,
           category: mapToCanonicalCategory(compulsionData.type), // kanonik kategori
           subcategory: compulsionData.type, // orijinal değer etiket olarak
@@ -657,6 +657,20 @@ export default function TrackingScreen() {
           trigger: compulsionData.trigger || '',
           notes: compulsionData.notes || '',
         });
+        
+        if (savedCompulsion?.id) {
+          // Update local storage with remote ID for consistent delete operations
+          const entries = await AsyncStorage.getItem(storageKey);
+          if (entries) {
+            const parsedEntries = JSON.parse(entries);
+            const updatedEntries = parsedEntries.map((entry: CompulsionEntry) =>
+              entry.id === newEntry.id ? { ...entry, id: savedCompulsion.id } : entry
+            );
+            await AsyncStorage.setItem(storageKey, JSON.stringify(updatedEntries));
+            console.log(`✅ Local ID ${newEntry.id} updated to remote ID ${savedCompulsion.id}`);
+          }
+        }
+        
         console.log('✅ Compulsion saved to database');
       } catch (dbError) {
         console.error('❌ Database save failed (offline mode):', dbError);

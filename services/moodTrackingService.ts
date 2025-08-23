@@ -40,21 +40,16 @@ class MoodTrackingService {
 
     await this.saveToLocalStorage(moodEntry);
 
-    // best-effort sync to server (if schema/table exists in current project)
+    // Use standardized supabaseService.saveMoodEntry (writes to canonical mood_entries table)
     try {
-      await (supabaseService as any).supabaseClient
-        .from('mood_tracking')
-        .upsert({
-          id: moodEntry.id,
-          user_id: moodEntry.user_id,
-          mood_score: moodEntry.mood_score,
-          energy_level: moodEntry.energy_level,
-          anxiety_level: moodEntry.anxiety_level,
-          notes: moodEntry.notes,
-          triggers: moodEntry.triggers,
-          activities: moodEntry.activities,
-          created_at: moodEntry.timestamp,
-        });
+      await supabaseService.saveMoodEntry({
+        user_id: moodEntry.user_id,
+        mood_score: moodEntry.mood_score,
+        energy_level: moodEntry.energy_level,
+        anxiety_level: moodEntry.anxiety_level,
+        notes: moodEntry.notes,
+        trigger: moodEntry.triggers?.[0] || '', // Convert first trigger to string
+      });
       await this.markAsSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
       await this.incrementSyncAttempt(moodEntry.id, moodEntry.user_id);
@@ -119,21 +114,24 @@ class MoodTrackingService {
     for (let i = 0; i < pending.length; i += BATCH_SIZE) {
       const batch = pending.slice(i, i + BATCH_SIZE);
       try {
-        const { error } = await (supabaseService as any).supabaseClient
-          .from('mood_tracking')
-          .upsert(
-            batch.map(e => ({
-              id: e.id,
-              user_id: e.user_id,
-              mood_score: e.mood_score,
-              energy_level: e.energy_level,
-              anxiety_level: e.anxiety_level,
-              notes: e.notes,
-              triggers: e.triggers,
-              activities: e.activities,
-              created_at: e.timestamp,
-            }))
-          );
+        // Use standardized batch processing with supabaseService.saveMoodEntry
+        let batchError = null;
+        for (const entry of batch) {
+          try {
+            await supabaseService.saveMoodEntry({
+              user_id: entry.user_id,
+              mood_score: entry.mood_score,
+              energy_level: entry.energy_level,
+              anxiety_level: entry.anxiety_level,
+              notes: entry.notes,
+              trigger: entry.triggers?.[0] || '', // Convert first trigger to string
+            });
+          } catch (e) {
+            batchError = e;
+            break; // Stop on first error to maintain original batch behavior
+          }
+        }
+        const error = batchError;
         if (!error) {
           for (const item of batch) {
             await this.markAsSynced(item.id, userId);
@@ -236,8 +234,9 @@ class MoodTrackingService {
     
     try {
       const since = new Date(Date.now() - days * 86400000).toISOString();
+      // Use standardized supabaseService to fetch from canonical mood_entries table
       const { data, error } = await (supabaseService as any).supabaseClient
-        .from('mood_tracking')
+        .from('mood_entries')
         .select('*')
         .eq('user_id', userId)
         .gte('created_at', since)

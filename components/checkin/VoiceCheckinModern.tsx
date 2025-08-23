@@ -7,9 +7,11 @@ import {
   Animated,
   Dimensions,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 // Components
@@ -26,6 +28,8 @@ import supabaseService from '@/services/supabase';
 import { supabase } from '@/lib/supabase';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { moodTracker } from '@/services/moodTrackingService';
+import { offlineSyncService } from '@/services/offlineSync';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // AI Services
 import { multiIntentVoiceAnalysis } from '@/features/ai/services/checkinService';
@@ -217,19 +221,46 @@ export default function VoiceCheckinModern({
         throw new Error('Analysis returned null');
       }
       
-      // Save voice checkin to database
+      // Save voice checkin to database with offline fallback
+      const voiceCheckinData = {
+        user_id: user.id,
+        text: sanitizePII(res.text || ''),
+        mood: analysis.mood || 0,
+        trigger: analysis.trigger || '',
+        confidence: analysis.confidence || res.confidence || 0,
+        lang: res.language || 'tr-TR',
+      };
+      
       try {
-        await supabaseService.saveVoiceCheckin({
-          user_id: user.id,
-          text: sanitizePII(res.text || ''),
-          mood: analysis.mood || 0,
-          trigger: analysis.trigger || '',
-          confidence: analysis.confidence || res.confidence || 0,
-          lang: res.language || 'tr-TR',
-        });
+        await supabaseService.saveVoiceCheckin(voiceCheckinData);
         console.log('✅ Voice checkin saved');
       } catch (error) {
-        console.warn('⚠️ Failed to save voice checkin:', error);
+        console.warn('⚠️ Voice checkin save failed, adding to offline queue:', error);
+        
+        try {
+          // Add to offline sync queue for retry when online
+          await offlineSyncService.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'voice_checkin',
+            data: voiceCheckinData
+          });
+          
+          // Add to local cache for cross-device sync
+          const localVoiceKey = `voice_checkins_${user.id}`;
+          const existing = await AsyncStorage.getItem(localVoiceKey);
+          const voiceCheckins = existing ? JSON.parse(existing) : [];
+          voiceCheckins.push({ 
+            ...voiceCheckinData, 
+            id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            synced: false,
+            timestamp: new Date().toISOString() 
+          });
+          await AsyncStorage.setItem(localVoiceKey, JSON.stringify(voiceCheckins));
+          
+          console.log('✅ Voice checkin queued for offline sync');
+        } catch (offlineError) {
+          console.error('❌ Failed to queue voice checkin for offline sync:', offlineError);
+        }
       }
 
       // Track AI interaction
@@ -284,22 +315,18 @@ export default function VoiceCheckinModern({
           resistanceLevel: analysis.fields?.resistance || 5
         };
         
-        // Save compulsion
-        const { data, error } = await supabase
-          .from('compulsions')
-          .insert({
-            user_id: user.id,
-            category: extractedData.category,
-            subcategory: null,
-            notes: extractedData.notes,
-            resistance_level: extractedData.resistanceLevel,
-            trigger: extractedData.trigger || '',
-            timestamp: extractedData.timestamp.toISOString()
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
+        // Use standardized supabaseService.saveCompulsion (includes PII sanitization, DLQ, standardization)
+        const compulsionData = {
+          user_id: user.id,
+          category: extractedData.category,
+          subcategory: null,
+          notes: extractedData.notes, // PII sanitization handled in supabaseService
+          resistance_level: extractedData.resistanceLevel,
+          trigger: extractedData.trigger || '',
+          timestamp: extractedData.timestamp.toISOString()
+        };
+        
+        const data = await supabaseService.saveCompulsion(compulsionData);
         console.log(`✅ OCD record auto-saved: ${extractedData.category}`);
         return { module: 'OCD', success: true, data };
         
@@ -329,13 +356,11 @@ export default function VoiceCheckinModern({
           content_hash: contentHash // Manual hash to bypass trigger
         };
         
-        const { data, error } = await supabase
-          .from('thought_records')
-          .insert(cbtData)
-          .select()
-          .single();
+        // Use standardized supabaseService.saveCBTRecord (includes PII sanitization, DLQ, standardization)
+        const data = await supabaseService.saveCBTRecord(cbtData);
         
-        if (error) {
+        if (!data) {
+          const error = new Error('CBT record save returned no data');
           console.error('❌ CBT Supabase error:', error);
           throw error;
         }
@@ -539,11 +564,16 @@ export default function VoiceCheckinModern({
     <>
       <BottomSheet isVisible={isVisible} onClose={onClose}>
         <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-          {/* Header */}
-          <Text style={styles.title}>Check-in</Text>
-          <Text style={styles.subtitle}>
-            Bugün kendini nasıl hissediyorsun? Konuş, dinleyelim...
-          </Text>
+          {/* Header with Gradient Background */}
+          <LinearGradient
+            colors={['#E8F5E9', '#F1F8E9']}
+            style={styles.headerGradient}
+          >
+            <Text style={styles.title}>Check-in</Text>
+            <Text style={styles.subtitle}>
+              Bugün kendini nasıl hissediyorsun? Konuş, dinleyelim...
+            </Text>
+          </LinearGradient>
           
           {/* Transcript Display */}
           {lastTranscript ? (
@@ -560,40 +590,50 @@ export default function VoiceCheckinModern({
             </View>
           )}
 
-          {/* Modern Voice Button */}
+          {/* Modern Voice Button - Bigger & Beautiful */}
           <View style={styles.voiceContainer}>
             <Animated.View
               style={[
-                styles.voiceButton,
+                styles.voiceButtonWrapper,
                 {
                   transform: [{ scale: isRecording ? pulseAnim : 1 }],
-                  backgroundColor: isProcessing ? '#f59e0b' : isRecording ? '#ef4444' : '#10b981'
                 }
               ]}
             >
-              <VoiceInterface
-                onTranscription={(res) => {
-                  console.log('🎯 VoiceInterface onTranscription callback triggered:', res);
-                  handleVoiceTranscription(res);
-                }}
-                autoStart={false}
-                showHints={false}
-                enableCountdown={false}
-                showStopButton={false}
-                onStartListening={() => {
-                  console.log('🎙️ VoiceInterface onStartListening');
-                  setIsRecording(true);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                }}
-                onStopListening={() => {
-                  console.log('🛑 VoiceInterface onStopListening');
-                  setIsRecording(false);
-                }}
-                onError={(error) => {
-                  console.error('Voice error:', error);
-                  showToastMessage('Ses tanıma başlatılamadı');
-                }}
-              />
+              <LinearGradient
+                colors={
+                  isProcessing 
+                    ? ['#FCD34D', '#F59E0B']  // Yellow gradient for processing
+                    : isRecording 
+                    ? ['#F87171', '#EF4444']  // Red gradient for recording
+                    : ['#34D399', '#10B981']  // Green gradient for idle
+                }
+                style={styles.voiceButton}
+              >
+                <VoiceInterface
+                  onTranscription={(res) => {
+                    console.log('🎯 VoiceInterface onTranscription callback triggered:', res);
+                    handleVoiceTranscription(res);
+                  }}
+                  autoStart={false}
+                  showHints={false}
+                  enableCountdown={false}
+                  showStopButton={false}
+                  onStartListening={() => {
+                    console.log('🎙️ VoiceInterface onStartListening');
+                    setIsRecording(true);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                  onStopListening={() => {
+                    console.log('🛑 VoiceInterface onStopListening');
+                    setIsRecording(false);
+                  }}
+                  onError={(error) => {
+                    console.error('Voice error:', error);
+                    showToastMessage('Ses tanıma başlatılamadı');
+                  }}
+                />
+              </LinearGradient>
             </Animated.View>
 
             {/* Status Text */}
@@ -617,6 +657,62 @@ export default function VoiceCheckinModern({
               🎤 Mikrofona dokunup kendini ifade et
             </Text>
           )}
+
+          {/* Quick Actions - Beautiful horizontal buttons */}
+          {!isRecording && !isProcessing && (
+            <View style={styles.quickActions}>
+              <Text style={styles.quickTitle}>Veya hızlı erişim:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <Pressable
+                  style={[styles.quickButton, { backgroundColor: '#E8F5E9' }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    router.push('/(tabs)/cbt');
+                  }}
+                >
+                  <MaterialCommunityIcons name="head-cog-outline" size={20} color="#4CAF50" />
+                  <Text style={styles.quickButtonText}>CBT</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.quickButton, { backgroundColor: '#FFF3E0' }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    router.push('/(tabs)/tracking');
+                  }}
+                >
+                  <MaterialCommunityIcons name="pulse" size={20} color="#FF9800" />
+                  <Text style={styles.quickButtonText}>Takip</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.quickButton, { backgroundColor: '#F3E5F5' }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    router.push('/(tabs)/mood');
+                  }}
+                >
+                  <MaterialCommunityIcons name="emoticon-happy-outline" size={20} color="#9C27B0" />
+                  <Text style={styles.quickButtonText}>Mood</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.quickButton, { backgroundColor: '#E0F7FA' }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    router.push('/(tabs)/breathwork');
+                  }}
+                >
+                  <MaterialCommunityIcons name="meditation" size={20} color="#00BCD4" />
+                  <Text style={styles.quickButtonText}>Nefes</Text>
+                </Pressable>
+              </ScrollView>
+            </View>
+          )}
         </Animated.View>
       </BottomSheet>
 
@@ -634,10 +730,15 @@ export default function VoiceCheckinModern({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
     alignItems: 'center',
     minHeight: 400,
+  },
+  headerGradient: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginBottom: 10,
+    borderRadius: 15,
   },
   title: {
     fontSize: 28,
@@ -648,17 +749,17 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#558B2F',
+    color: '#388E3C',
     textAlign: 'center',
-    marginBottom: 30,
     lineHeight: 22,
   },
   exampleContainer: {
     backgroundColor: '#F3F4F6',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 32,
-    width: '100%',
+    marginBottom: 25,
+    marginHorizontal: 20,
+    width: width - 40,
   },
   exampleLabel: {
     fontSize: 14,
@@ -676,9 +777,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 32,
-    width: '100%',
-    borderLeft: 4,
+    marginBottom: 25,
+    marginHorizontal: 20,
+    width: width - 40,
+    borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
   },
   transcriptLabel: {
@@ -695,16 +797,23 @@ const styles = StyleSheet.create({
   },
   voiceContainer: {
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 30,
+  },
+  voiceButtonWrapper: {
+    borderRadius: 60,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
   },
   voiceButton: {
-    borderRadius: 100,
-    padding: 20,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 25,
   },
   recordingText: {
     marginTop: 20,
@@ -733,5 +842,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     marginTop: 20,
+  },
+  quickActions: {
+    marginTop: 25,
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  quickTitle: {
+    fontSize: 14,
+    color: '#757575',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  quickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginRight: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  quickButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#424242',
   },
 });
