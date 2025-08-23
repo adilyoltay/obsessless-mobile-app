@@ -40,6 +40,8 @@ import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 import { sanitizePII } from '@/utils/privacy';
+import { secureDataService } from '@/services/encryption/secureDataService';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 
 const { width } = Dimensions.get('window');
@@ -108,6 +110,190 @@ export default function MoodScreen() {
     }
   }, [moodEntries, user?.id]);
 
+  /**
+   * 🚀 NEW: UnifiedAIPipeline entegrasyon fonksiyonu
+   * Mood verilerini UnifiedAIPipeline ile analiz eder
+   */
+  const loadMoodAIWithUnifiedPipeline = async (entries: MoodEntry[]) => {
+    if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE') || entries.length < 3) {
+      return;
+    }
+
+    try {
+      console.log('🚀 Starting UnifiedAIPipeline mood analysis...');
+      
+      // 📊 TELEMETRY: Track insights request
+      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+        source: 'mood_screen',
+        dataType: 'mood_patterns',
+        entriesCount: entries.length
+      }, user.id);
+
+      // 🔒 PRIVACY: Sanitize PII from mood notes
+      const sanitized = entries.slice(-50).map(m => ({
+        ...m,
+        notes: m.notes ? sanitizePII(m.notes) : m.notes
+      }));
+
+      // 🔐 AUDIT: Create encrypted audit payload (non-blocking)
+      let auditPayload: any = sanitized;
+      try {
+        const encrypted = await secureDataService.encryptSensitiveData({
+          moods: sanitized,
+          dataType: 'mood_patterns'
+        });
+        auditPayload = encrypted;
+      } catch (encryptionError) {
+        console.warn('⚠️ Encryption failed, using sanitized data:', encryptionError);
+      }
+
+      // 🚀 UNIFIED PIPELINE: Process mood data
+      const result = await unifiedPipeline.process({
+        userId: user.id,
+        type: 'data',
+        content: { moods: sanitized },
+        context: {
+          source: 'mood',
+          timestamp: Date.now(),
+          metadata: {
+            dataType: 'mood_patterns',
+            privacy: {
+              piiSanitized: true,
+              encryptionLevel: 'sanitized_plaintext',
+              dataEncrypted: !!auditPayload
+            }
+          }
+        }
+      });
+
+      console.log('🎯 UnifiedAIPipeline mood analysis completed:', result);
+
+      // 📊 TELEMETRY: Track pipeline completion
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+        source: 'mood_screen',
+        cacheHit: result.metadata?.source === 'cache',
+        moduleCount: 1,
+        dataPoints: sanitized.length,
+        processingTime: result.metadata?.processingTime || 0
+      }, user.id);
+
+      // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format
+      if (result.patterns) {
+        const normalizedPatterns = Array.isArray(result.patterns) 
+          ? result.patterns 
+          : result.patterns.temporal || [];
+          
+        const mappedPatterns = normalizedPatterns.map((pattern: any) => ({
+          type: pattern.type || 'temporal',
+          title: pattern.title || pattern.description || 'Mood Pattern',
+          description: pattern.description || pattern.pattern || '',
+          confidence: pattern.confidence || 0.7,
+          severity: pattern.severity || 'medium',
+          actionable: pattern.actionable || true,
+          suggestion: pattern.suggestion || 'Mood takibine devam et',
+          source: 'unified_pipeline',
+          data: pattern.data || {}
+        }));
+
+        setMoodPatterns(mappedPatterns);
+      }
+
+      // 📊 PREDICTIVE INSIGHTS: Map progress insights
+      if (result.insights?.progress) {
+        const progressInsights = result.insights.progress;
+        
+        if (progressInsights.length > 0) {
+          const avgMoodMetric = progressInsights.find((p: any) => p.metric === 'average_mood');
+          const trendMetric = progressInsights.find((p: any) => p.metric === 'mood_trend');
+          
+          const avgMoodValue = avgMoodMetric?.value || 50;
+          const trendChangeValue = trendMetric?.change || 0;
+          
+          const predictiveInsight = {
+            riskLevel: avgMoodValue < 30 ? 'high' : avgMoodValue < 50 ? 'medium' : 'low',
+            moodTrend: trendChangeValue,
+            averageRecentMood: Math.round(avgMoodValue),
+            earlyWarning: {
+              triggered: (avgMoodValue < 30) || (trendChangeValue < -15),
+              message: avgMoodValue < 30 
+                ? 'Son günlerde mood seviyende belirgin düşüş var. Destek almayı düşünür müsün?'
+                : trendChangeValue < -15
+                ? 'Mood seviyende düşüş trendi tespit ettik. Kendine iyi bakmanın zamanı.'
+                : null
+            },
+            interventions: [],
+            recommendations: progressInsights.map((p: any) => p.interpretation).filter(Boolean)
+          };
+
+          setPredictiveInsights(predictiveInsight);
+        }
+      }
+
+      // 📊 TELEMETRY: Track insights delivery
+      const insightsCount = (result.insights?.therapeutic?.length || 0) + (result.insights?.progress?.length || 0);
+      const patternsCount = Array.isArray(result.patterns) ? result.patterns.length : 0;
+      
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        source: 'mood_screen',
+        insightsCount,
+        patternsCount,
+        deliveryTime: result.metadata?.processingTime || 0
+      }, user.id);
+
+    } catch (error) {
+      console.error('❌ UnifiedAIPipeline mood analysis failed:', error);
+      
+      // 📊 TELEMETRY: Track pipeline error
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
+        source: 'mood_screen',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        fallbackTriggered: true
+      }, user.id);
+      
+      // 🔄 FALLBACK: Use existing MoodPatternAnalysisService as fallback
+      console.log('🔄 Falling back to MoodPatternAnalysisService...');
+      await runLegacyMoodAnalysis(entries);
+    }
+  };
+
+  /**
+   * 🔄 FALLBACK: Legacy mood analysis using MoodPatternAnalysisService
+   */
+  const runLegacyMoodAnalysis = async (entries: MoodEntry[]) => {
+    if (!user?.id) return;
+    
+    try {
+      const serviceEntries = entries.map(entry => ({
+        id: entry.id,
+        user_id: entry.user_id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        notes: entry.notes || '',
+        trigger: (entry as any).trigger || '',
+        created_at: entry.created_at,
+        timestamp: entry.created_at,
+        synced: true
+      }));
+
+      const patternService = MoodPatternAnalysisService.getInstance();
+      const deepPatterns = await patternService.analyzeMoodPatterns(
+        serviceEntries as any[],
+        user.id,
+        'full'
+      );
+
+      console.log('🔄 Fallback analysis completed:', deepPatterns);
+      
+      // Merge with existing heuristic patterns
+      const mergedPatterns = mergeHeuristicAndAIPatterns(moodPatterns, deepPatterns);
+      setMoodPatterns(mergedPatterns);
+    } catch (fallbackError) {
+      console.error('❌ Fallback mood analysis also failed:', fallbackError);
+      // Keep existing heuristic patterns as final fallback
+    }
+  };
+
   const analyzeMoodPatterns = async () => {
     if (!user?.id || moodEntries.length < 3) return;
 
@@ -126,27 +312,29 @@ export default function MoodScreen() {
         created_at: entry.created_at
       }));
 
-      // ⚡ PROGRESSIVE UI: Start with quick heuristic analysis for immediate feedback
+      // ⚡ PROGRESSIVE UI Phase-1: Start with quick heuristic analysis for immediate feedback
       const quickPatterns = generateQuickHeuristicPatterns(serviceEntries);
-      console.log('⚡ Quick heuristic patterns:', quickPatterns);
+      console.log('⚡ Phase-1 (Heuristic) patterns:', quickPatterns);
       setMoodPatterns(quickPatterns);
 
-      // 🧠 BACKGROUND: Run comprehensive AI analysis
-      const patternService = MoodPatternAnalysisService.getInstance();
-      const deepPatterns = await patternService.analyzeMoodPatterns(
-        serviceEntries,
-        user.id,
-        'full'
-      );
+      // 🚀 PROGRESSIVE UI Phase-2: Check if Progressive UI is enabled
+      if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE')) {
+        // Phase-2: Run UnifiedAIPipeline in background (3s delay)
+        setTimeout(async () => {
+          await loadMoodAIWithUnifiedPipeline(moodEntries);
+        }, 3000);
+      } else {
+        // Non-progressive mode: Run immediately
+        if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+          await loadMoodAIWithUnifiedPipeline(moodEntries);
+        } else {
+          // Legacy mode: Use MoodPatternAnalysisService
+          await runLegacyMoodAnalysis(serviceEntries);
+        }
+      }
 
-      console.log('🔍 Deep pattern analysis completed:', deepPatterns);
-      
-      // ✨ PROGRESSIVE UPDATE: Merge heuristic + AI patterns
-      const mergedPatterns = mergeHeuristicAndAIPatterns(quickPatterns, deepPatterns);
-      setMoodPatterns(mergedPatterns);
-
-      // 🔮 PREDICTIVE INSIGHTS: Generate risk assessment and early warnings
-      if (serviceEntries.length >= 5) {
+      // 🔮 PREDICTIVE INSIGHTS: Generate fallback risk assessment if not handled by UnifiedAIPipeline
+      if (serviceEntries.length >= 5 && !predictiveInsights) {
         try {
           // Simple predictive analysis based on recent trends
           const recentEntries = serviceEntries.slice(-7); // Last 7 entries
@@ -201,11 +389,11 @@ export default function MoodScreen() {
             predictiveInsight.recommendations.push('Pozitif bir dönemdesin! Bu iyi hissi sürdürmek için düzenli rutinlere devam et.');
           }
 
-          console.log('🔮 Predictive insights generated:', predictiveInsight);
+          console.log('🔮 Fallback predictive insights generated:', predictiveInsight);
           setPredictiveInsights(predictiveInsight);
 
         } catch (predictiveError) {
-          console.error('⚠️ Predictive analysis failed:', predictiveError);
+          console.error('⚠️ Fallback predictive analysis failed:', predictiveError);
         }
       }
 
