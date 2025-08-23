@@ -121,6 +121,15 @@ export default function MoodScreen() {
       return;
     }
 
+    // 🔄 FORCE CACHE INVALIDATION for fresh analytics
+    console.log('🔄 Force invalidating cache to get fresh mood analytics...');
+    try {
+      await unifiedPipeline.triggerInvalidation('mood_analytics_refresh', user.id);
+      console.log('✅ Cache invalidated - will get fresh analytics');
+    } catch (invalidationError) {
+      console.warn('⚠️ Cache invalidation failed:', invalidationError);
+    }
+
     try {
       console.log('🚀 Starting UnifiedAIPipeline mood analysis...');
       
