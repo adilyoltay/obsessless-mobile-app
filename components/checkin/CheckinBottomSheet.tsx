@@ -430,14 +430,18 @@ export default function CheckinBottomSheet({
     const lower = text.toLowerCase();
     
     if (type === 'OCD') {
-      // Detect category based on text
-      let category = 'genel';
-      if (/yıka|temiz|mikrop|kirli|hijyen/i.test(lower)) {
-        category = 'temizlik';
-      } else if (/kontrol|açık|kapalı|kapı|pencere|ocak/i.test(lower)) {
-        category = 'kontrol';
-      } else if (/simetri|düzen|hizala|sayı/i.test(lower)) {
-        category = 'simetri';
+      // Detect category based on text and map to DB schema
+      let category = 'contamination'; // Default fallback
+      if (/yıka|temiz|mikrop|kirli|hijyen|bulaş/i.test(lower)) {
+        category = 'contamination'; // Temizlik/bulaşma
+      } else if (/kontrol|açık|kapalı|kapı|pencere|ocak|zarar|yanal|ölü/i.test(lower)) {
+        category = 'harm'; // Kontrol/zarar verme
+      } else if (/simetri|düzen|hizala|sayı|çift|eş/i.test(lower)) {
+        category = 'symmetry'; // Simetri/düzen
+      } else if (/günah|dini|allah|namaz|abdest/i.test(lower)) {
+        category = 'religious'; // Dini
+      } else if (/biriktir|at|çöp|eşya|topla/i.test(lower)) {
+        category = 'hoarding'; // Biriktirme
       }
       
       return {
@@ -457,10 +461,10 @@ export default function CheckinBottomSheet({
   // Helper function to check if data is sufficient for auto-record
   const checkSufficientDataForAutoRecord = (data: any, type: string) => {
     if (type === 'OCD') {
-      const hasSufficientData = data.category && data.severity && data.notes;
+      const hasSufficientData = data.category && data.resistanceLevel && data.notes;
       return {
         hasSufficientData,
-        reason: hasSufficientData ? 'Yeterli bilgi mevcut' : 'Kompulsiyon kategorisi veya şiddet seviyesi belirlenemiyor'
+        reason: hasSufficientData ? 'Yeterli bilgi mevcut' : 'Kompulsiyon kategorisi veya direnç seviyesi belirlenemiyor'
       };
     }
     return { hasSufficientData: false, reason: 'Bilinmeyen tür' };
@@ -473,12 +477,14 @@ export default function CheckinBottomSheet({
         .from('compulsions')
         .insert({
           user_id: user?.id,
-          type: data.type || 'genel',
+          category: data.category || data.type || 'contamination', // Use category instead of type
+          subcategory: data.subcategory || null,
           notes: data.notes,
           resistance_level: data.resistanceLevel || data.severity || 5,
           trigger: data.trigger || '',
-          timestamp: data.timestamp?.toISOString() || new Date().toISOString(),
-          synced: false
+          timestamp: data.timestamp?.toISOString() || new Date().toISOString()
+          // Removed: synced (column doesn't exist)
+          // Removed: type (use category instead)
         })
         .select()
         .single();
@@ -941,12 +947,16 @@ export default function CheckinBottomSheet({
           const ocdData = {
             ...extractedData,
             ...analysis.fields, // Override with LLM fields
+            // Map LLM category to DB schema if needed
+            category: analysis.fields?.category === 'washing' ? 'contamination' :
+                     analysis.fields?.category === 'checking' ? 'harm' :
+                     analysis.fields?.category === 'symmetry' ? 'symmetry' :
+                     extractedData.category, // Use heuristic fallback
             timestamp: new Date(),
-            synced: false,
           };
           
-          await saveCompulsion(ocdData as CompulsionEntry);
-          console.log(`✅ OCD record auto-saved: ${ocdData.type}`);
+          await saveCompulsion(ocdData);
+          console.log(`✅ OCD record auto-saved: ${ocdData.category}`);
           return { module: 'OCD', success: true, data: ocdData };
         } else {
           // Show manual form
@@ -956,7 +966,12 @@ export default function CheckinBottomSheet({
             setTimeout(() => {
               router.push({
                 pathname: '/(tabs)/tracking',
-                params: { prefill: 'true', text, category: extractedData.category || 'genel', severity: String(extractedData.severity || 5) }
+                params: { 
+                  prefill: 'true', 
+                  text, 
+                  category: extractedData.category || 'contamination', 
+                  resistance: String(extractedData.resistanceLevel || 5) 
+                }
               });
             }, 100);
           }
