@@ -328,6 +328,17 @@ export default function VoiceCheckinModern({
         
         const data = await supabaseService.saveCompulsion(compulsionData);
         console.log(`✅ OCD record auto-saved: ${extractedData.category}`);
+        
+        // Trigger cache invalidation for single module OCD
+        if (!silent && user?.id) {
+          try {
+            await unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
+            console.log('🔄 Single OCD cache invalidated');
+          } catch (invalidationError) {
+            console.warn('⚠️ Cache invalidation failed:', invalidationError);
+          }
+        }
+        
         return { module: 'OCD', success: true, data };
         
       } else if (analysis.type === 'CBT') {
@@ -365,6 +376,17 @@ export default function VoiceCheckinModern({
           throw error;
         }
         console.log('✅ CBT record auto-saved:', data);
+        
+        // Trigger cache invalidation for single module CBT
+        if (!silent && user?.id) {
+          try {
+            await unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
+            console.log('🔄 Single CBT cache invalidated');
+          } catch (invalidationError) {
+            console.warn('⚠️ Cache invalidation failed:', invalidationError);
+          }
+        }
+        
         return { module: 'CBT', success: true, data };
         
       } else if (analysis.type === 'MOOD') {
@@ -386,6 +408,17 @@ export default function VoiceCheckinModern({
         try {
           await moodTracker.saveMoodEntry(moodData as any);
           console.log('✅ MOOD record auto-saved:', moodData);
+          
+          // Trigger cache invalidation for single module MOOD
+          if (!silent && user?.id) {
+            try {
+              await unifiedPipeline.triggerInvalidation('mood_added', user.id);
+              console.log('🔄 Single MOOD cache invalidated');
+            } catch (invalidationError) {
+              console.warn('⚠️ Cache invalidation failed:', invalidationError);
+            }
+          }
+          
           return { module: 'MOOD', success: true, data: moodData };
         } catch (moodError) {
           console.error('❌ MOOD moodTracker error:', moodError);

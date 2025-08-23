@@ -233,26 +233,20 @@ class MoodTrackingService {
     }
     
     try {
-      const since = new Date(Date.now() - days * 86400000).toISOString();
-      // Use standardized supabaseService to fetch from canonical mood_entries table
-      const { data, error } = await (supabaseService as any).supabaseClient
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false });
-        
-      if (!error && data) {
-        const remoteEntries: MoodEntry[] = data.map((d: any) => ({
+      // Use fully standardized supabaseService.getMoodEntries (canonical service method)
+      const remoteData = await supabaseService.getMoodEntries(userId, days);
+      
+      if (remoteData && remoteData.length > 0) {
+        const remoteEntries: MoodEntry[] = remoteData.map((d: any) => ({
           id: d.id,
           user_id: d.user_id,
           mood_score: d.mood_score,
           energy_level: d.energy_level,
           anxiety_level: d.anxiety_level,
           notes: d.notes,
-          triggers: d.triggers,
-          activities: d.activities,
-          timestamp: d.created_at,
+          triggers: d.triggers || [],  // Ensure array
+          activities: d.activities || [], // Ensure array
+          timestamp: d.created_at || d.timestamp,
           synced: true,
           sync_attempts: 0,
         }));

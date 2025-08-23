@@ -668,6 +668,14 @@ export default function TrackingScreen() {
             );
             await AsyncStorage.setItem(storageKey, JSON.stringify(updatedEntries));
             console.log(`✅ Local ID ${newEntry.id} updated to remote ID ${savedCompulsion.id}`);
+            
+            // Update React state to keep UI in sync
+            setTodayCompulsions(prev => prev.map(entry =>
+              entry.id === newEntry.id ? { ...entry, id: savedCompulsion.id } : entry
+            ));
+            setAllCompulsions(prev => prev.map(entry =>
+              entry.id === newEntry.id ? { ...entry, id: savedCompulsion.id } : entry
+            ));
           }
         }
         
