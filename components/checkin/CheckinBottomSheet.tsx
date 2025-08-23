@@ -889,7 +889,15 @@ export default function CheckinBottomSheet({
         
         // Process each module
         const result = await processSingleModule(singleAnalysis, text, true); // silent mode
-        if (result) results.push(result);
+        if (result && result.success) {
+          results.push(result);
+        } else if (result && !result.success) {
+          // Module returned but indicated failure
+          errors.push({ 
+            module: module.module, 
+            error: new Error(typeof result.error === 'string' ? result.error : 'Module processing failed') 
+          });
+        }
       } catch (error) {
         console.error(`❌ Failed to process ${module.module}:`, error);
         errors.push({ module: module.module, error });
@@ -1028,7 +1036,8 @@ export default function CheckinBottomSheet({
           mood_before: Math.max(1, Math.min(10, analysis.mood_before || 5)), // Ensure 1-10 range
           mood_after: Math.max(1, Math.min(10, analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1))), // Ensure 1-10 range
           trigger: analysis.trigger || '',
-          notes: analysis.notes || text
+          notes: analysis.notes || text,
+          content_hash: null // Bypass trigger by setting explicit null
           // Removed: timestamp (uses created_at automatically)
           // Removed: synced (column doesn't exist)
           // Fixed: userId → user_id
