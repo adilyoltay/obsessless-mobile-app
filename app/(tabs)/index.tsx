@@ -704,35 +704,204 @@ export default function TodayScreen() {
   };
   
   /**
-   * Generate quick heuristic insights for Phase 1
+   * 🚀 Generate personalized quick heuristic insights for Phase 1
+   * Uses last 7 days data to create meaningful patterns and trends
    */
   const generateQuickInsights = async (): Promise<any[]> => {
     const quickInsights = [];
     
-    // Basic motivation message
-    quickInsights.push({
-      text: "Bugün mücadelene devam etmeye hazır mısın? Güçlü olduğunu unutma!",
-      category: 'motivation',
-      priority: 'medium'
-    });
-    
-    // Time-based insights
-    const hour = new Date().getHours();
-    if (hour < 12) {
+    if (!user?.id) {
+      // Fallback to generic insights if no user
       quickInsights.push({
-        text: "Günaydın! Bugünü güçlü bir başlangıçla karşılıyorsun.",
-        category: 'daily',
-        priority: 'low'
-      });
-    } else if (hour > 18) {
-      quickInsights.push({
-        text: "Bugün nasıl geçti? Nefes alma egzersizleri rahatlatabilir.",
-        category: 'evening',
+        text: "Bugün mücadelene devam etmeye hazır mısın? Güçlü olduğunu unutma!",
+        category: 'motivation',
         priority: 'medium'
       });
+      return quickInsights;
     }
-    
-    return quickInsights;
+
+    try {
+      // 📊 Gather last 7 days data for pattern analysis
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const today = new Date();
+      const currentDay = today.toLocaleDateString('tr-TR', { weekday: 'long' });
+      const currentHour = today.getHours();
+
+      // Get compulsions data
+      const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
+      const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
+      const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
+      const weekCompulsions = allCompulsions.filter((c: any) => 
+        new Date(c.timestamp) >= weekAgo
+      );
+
+      // Get mood data
+      const weekMoods = await moodTracker.getMoodEntries(user.id, 7);
+
+      // Get CBT records
+      const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
+      const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
+      const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
+      const weekCBT = allCBTRecords.filter((r: any) => 
+        new Date(r.timestamp) >= weekAgo
+      );
+
+      // 🎯 PATTERN ANALYSIS 1: Daily patterns
+      if (weekCompulsions.length > 0) {
+        const dayPatterns = weekCompulsions.reduce((acc: any, c: any) => {
+          const day = new Date(c.timestamp).toLocaleDateString('tr-TR', { weekday: 'long' });
+          acc[day] = (acc[day] || 0) + 1;
+          return acc;
+        }, {});
+
+        const maxDay = Object.entries(dayPatterns).reduce((a: any, b: any) => 
+          dayPatterns[a[0]] > dayPatterns[b[0]] ? a : b
+        )[0] as string;
+
+        if (currentDay === maxDay && dayPatterns[maxDay] >= 3) {
+          quickInsights.push({
+            text: `${currentDay} günleri genellikle biraz daha zorlayıcı geçiyor. Bugün kendine ekstra şefkat göster 💙`,
+            category: 'pattern',
+            priority: 'high'
+          });
+        }
+      }
+
+      // 🎯 PATTERN ANALYSIS 2: Time-based patterns
+      if (weekCompulsions.length > 0) {
+        const hourPatterns = weekCompulsions.reduce((acc: any, c: any) => {
+          const hour = new Date(c.timestamp).getHours();
+          const timeSlot = hour < 6 ? 'gece' : 
+                         hour < 12 ? 'sabah' : 
+                         hour < 18 ? 'öğleden sonra' : 'akşam';
+          acc[timeSlot] = (acc[timeSlot] || 0) + 1;
+          return acc;
+        }, {});
+
+        const currentTimeSlot = currentHour < 6 ? 'gece' : 
+                               currentHour < 12 ? 'sabah' : 
+                               currentHour < 18 ? 'öğleden sonra' : 'akşam';
+
+        if (hourPatterns[currentTimeSlot] && hourPatterns[currentTimeSlot] >= 3) {
+          const timeAdvice = currentTimeSlot === 'sabah' ? 'güçlü başla' :
+                            currentTimeSlot === 'öğleden sonra' ? 'ara ver, nefes al' :
+                            currentTimeSlot === 'akşam' ? 'gevşeme zamanı' : 'dinlen';
+          
+          quickInsights.push({
+            text: `${currentTimeSlot.charAt(0).toUpperCase() + currentTimeSlot.slice(1)} saatleri biraz daha hassas. ${timeAdvice} 🌟`,
+            category: 'timing',
+            priority: 'medium'
+          });
+        }
+      }
+
+      // 🎯 PATTERN ANALYSIS 3: Weekly trends
+      if (weekCompulsions.length >= 3) {
+        const recentDays = weekCompulsions.filter((c: any) => 
+          new Date(c.timestamp) >= new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+        );
+        const olderDays = weekCompulsions.filter((c: any) => 
+          new Date(c.timestamp) < new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+        );
+
+        const recentAvg = recentDays.length / 3;
+        const olderAvg = olderDays.length / 4;
+
+        if (recentAvg < olderAvg * 0.7) {
+          quickInsights.push({
+            text: "Son günlerde gerçekten ilerliyorsun! Bu pozitif momentum'u korumaya devam et ⬆️",
+            category: 'trend',
+            priority: 'high'
+          });
+        } else if (recentAvg > olderAvg * 1.3) {
+          quickInsights.push({
+            text: "Bu hafta biraz daha zorlu geçiyor gibi. Normal, dalgalanmalar olabilir. Kendine nazik ol 🤗",
+            category: 'trend',
+            priority: 'medium'
+          });
+        }
+      }
+
+      // 🎯 PATTERN ANALYSIS 4: CBT & Mood correlation
+      if (weekCBT.length > 0 && weekMoods.length > 0) {
+        const cbtDays = weekCBT.map(c => new Date(c.timestamp).toDateString());
+        const moodOnCBTDays = weekMoods.filter(m => 
+          cbtDays.includes(new Date(m.timestamp).toDateString())
+        );
+
+        if (moodOnCBTDays.length >= 2) {
+          const avgMoodOnCBTDays = moodOnCBTDays.reduce((sum, m) => sum + (m.mood_score || 50), 0) / moodOnCBTDays.length;
+          const otherMoods = weekMoods.filter(m => 
+            !cbtDays.includes(new Date(m.timestamp).toDateString())
+          );
+          const avgOtherMoods = otherMoods.length > 0 ? 
+            otherMoods.reduce((sum, m) => sum + (m.mood_score || 50), 0) / otherMoods.length : 50;
+
+          if (avgMoodOnCBTDays > avgOtherMoods + 1) {
+            quickInsights.push({
+              text: "Düşünce kayıtları tuttuğun günlerde mood'un genellikle daha iyi. Bugün de bir düşünce kaydı alabilirsin 📝",
+              category: 'correlation',
+              priority: 'medium'
+            });
+          }
+        }
+      }
+
+      // 🎯 PATTERN ANALYSIS 5: Resistance success patterns
+      if (weekCompulsions.length > 0) {
+        const resistanceWins = weekCompulsions.filter((c: any) => (c.resistanceLevel || 0) >= 3).length;
+        const resistanceRate = resistanceWins / weekCompulsions.length;
+
+        if (resistanceRate > 0.6) {
+          quickInsights.push({
+            text: `Bu hafta direnç oranın %${Math.round(resistanceRate * 100)}! Mücadele gücün gerçekten güçlü 💪`,
+            category: 'success',
+            priority: 'high'
+          });
+        } else if (resistanceRate < 0.3 && weekCompulsions.length >= 5) {
+          quickInsights.push({
+            text: "Bu hafta biraz daha zorlandın. Hatırla: her küçük adım bile değerli. Kendi hızında ilerle 🌱",
+            category: 'encouragement',
+            priority: 'medium'
+          });
+        }
+      }
+
+      // 🎯 Fallback: Time-based contextual insights if no patterns found
+      if (quickInsights.length === 0) {
+        if (currentHour < 12) {
+          quickInsights.push({
+            text: `Günaydın! ${currentDay} günü yeni fırsatlarla dolu. Bugün kendine nasıl iyi bakabilirsin?`,
+            category: 'daily',
+            priority: 'medium'
+          });
+        } else if (currentHour > 18) {
+          quickInsights.push({
+            text: `${currentDay} akşamı geliyor. Bugün kendine gösterdiğin özen için teşekkürler 🙏`,
+            category: 'evening',
+            priority: 'medium'
+          });
+        } else {
+          quickInsights.push({
+            text: "Bugün mücadelene devam etmeye hazır mısın? Güçlü olduğunu unutma!",
+            category: 'motivation',
+            priority: 'medium'
+          });
+        }
+      }
+
+      console.log(`🧠 Generated ${quickInsights.length} personalized heuristic insights`);
+      return quickInsights.slice(0, 2); // Limit to 2 insights for UI
+
+    } catch (error) {
+      console.warn('⚠️ Personalized insights failed, using fallback:', error);
+      // Fallback to basic insights
+      return [{
+        text: "Bugün mücadelene devam etmeye hazır mısın? Güçlü olduğunu unutma!",
+        category: 'motivation',
+        priority: 'medium'
+      }];
+    }
   };
 
   const onRefresh = async () => {
