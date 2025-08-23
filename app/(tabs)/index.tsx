@@ -129,7 +129,11 @@ export default function TodayScreen() {
       cbt: 0,
       mood: 0,
       breathwork: 0
-    }
+    },
+    // ✅ YENİ: CBT mood improvement bilgisi
+    cbtMoodDelta: 0,  // Avg mood improvement from CBT records
+    // ✅ YENİ: Breathwork anxiety reduction bilgisi
+    breathworkAnxietyDelta: 0  // Avg anxiety reduction from breathwork sessions
   });
 
   // ✅ AI-Generated Daily Missions State
@@ -445,6 +449,18 @@ export default function TodayScreen() {
         setAiInsights(formattedInsights);
         setInsightsSource(result.metadata.source);
         setInsightsConfidence(0.85);
+        
+        // ✅ TELEMETRY: INSIGHTS_DELIVERED event zenginleştirme
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          userId: user.id,
+          insightsCount: formattedInsights.length,
+          from: result.metadata.source === 'cache' ? 'cache' : 'pipeline',
+          therapeuticInsights: result.insights.therapeutic?.length || 0,
+          progressInsights: result.insights.progress?.length || 0,
+          confidence: 0.85,
+          moduleSource: 'all_modules_integrated',
+          timestamp: Date.now()
+        });
       }
       
       // Track telemetry - Zenginleştirilmiş
@@ -726,6 +742,20 @@ export default function TodayScreen() {
         new Date(r.timestamp) >= weekAgo
       );
       
+      // ✅ Calculate CBT mood improvement (avg delta)
+      let cbtMoodDelta = 0;
+      if (weeklyCBT.length > 0) {
+        const validCBTRecords = weeklyCBT.filter((r: any) => 
+          r.mood_before != null && r.mood_after != null
+        );
+        if (validCBTRecords.length > 0) {
+          const totalMoodImprovement = validCBTRecords.reduce((sum: number, r: any) => 
+            sum + (r.mood_after - r.mood_before), 0
+          );
+          cbtMoodDelta = Math.round((totalMoodImprovement / validCBTRecords.length) * 10) / 10; // 1 decimal place
+        }
+      }
+      
       // 3. ✅ YENİ: Mood Entries
       const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
       const todayMood = moodEntries.filter((m: any) => 
@@ -743,6 +773,20 @@ export default function TodayScreen() {
         new Date(s.timestamp) >= weekAgo
       );
       
+      // ✅ Calculate Breathwork anxiety reduction (avg delta)
+      let breathworkAnxietyDelta = 0;
+      if (weeklyBreathwork.length > 0) {
+        const validBreathworkSessions = weeklyBreathwork.filter((s: any) => 
+          s.anxiety_before != null && s.anxiety_after != null
+        );
+        if (validBreathworkSessions.length > 0) {
+          const totalAnxietyReduction = validBreathworkSessions.reduce((sum: number, s: any) => 
+            sum + (s.anxiety_before - s.anxiety_after), 0  // Reduction = before - after
+          );
+          breathworkAnxietyDelta = Math.round((totalAnxietyReduction / validBreathworkSessions.length) * 10) / 10; // 1 decimal place
+        }
+      }
+      
       // Calculate resistance wins
       const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
       
@@ -759,7 +803,9 @@ export default function TodayScreen() {
           cbt: weeklyCBT.length,
           mood: moodEntries.length,
           breathwork: weeklyBreathwork.length
-        }
+        },
+        cbtMoodDelta, // ✅ CBT mood improvement average
+        breathworkAnxietyDelta // ✅ Breathwork anxiety reduction average
       });
 
       // Load AI Insights if enabled (genişletilmiş verilerle)
@@ -1260,7 +1306,7 @@ export default function TodayScreen() {
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.cbt}</Text>
           <Text style={styles.moduleSubtext}>
             {todayStats.weeklyProgress.cbt > 0 
-              ? 'Düşünce kaydı' 
+              ? `Mood +${todayStats.cbtMoodDelta > 0 ? todayStats.cbtMoodDelta : 0}` 
               : 'Henüz kayıt yok'}
           </Text>
           <View style={styles.moduleFooter}>
@@ -1300,7 +1346,7 @@ export default function TodayScreen() {
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.breathwork}</Text>
           <Text style={styles.moduleSubtext}>
             {todayStats.weeklyProgress.breathwork > 0 
-              ? 'Oturum tamamlandı' 
+              ? `Anksiyete -${todayStats.breathworkAnxietyDelta > 0 ? todayStats.breathworkAnxietyDelta : 0}` 
               : 'Hazır mısın?'}
           </Text>
           <View style={styles.moduleFooter}>
