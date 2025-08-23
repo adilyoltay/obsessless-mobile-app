@@ -1026,9 +1026,13 @@ export default function CheckinBottomSheet({
           throw new Error('User not authenticated');
         }
         
+        // Manual content_hash to bypass trigger completely
+        const thoughtText = analysis.automatic_thought || analysis.thought || text;
+        const contentHash = `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         const cbtData = {
           user_id: user.id,
-          thought: analysis.automatic_thought || analysis.thought || text,
+          thought: thoughtText,
           distortions: analysis.distortions || [],
           evidence_for: analysis.evidence_for || null,
           evidence_against: analysis.evidence_against || null,
@@ -1037,7 +1041,7 @@ export default function CheckinBottomSheet({
           mood_after: Math.max(1, Math.min(10, analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1))), // Ensure 1-10 range
           trigger: analysis.trigger || '',
           notes: analysis.notes || text,
-          content_hash: null // Bypass trigger by setting explicit null
+          content_hash: contentHash // Manual hash to bypass trigger
           // Removed: timestamp (uses created_at automatically)
           // Removed: synced (column doesn't exist)
           // Fixed: userId → user_id
