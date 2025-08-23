@@ -115,7 +115,9 @@ export default function MoodScreen() {
    * Mood verilerini UnifiedAIPipeline ile analiz eder
    */
   const loadMoodAIWithUnifiedPipeline = async (entries: MoodEntry[]) => {
+    console.log(`🔍 Mood Analytics Debug: entries.length=${entries.length}, minRequired=3, user=${!!user?.id}`);
     if (!user?.id || !FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE') || entries.length < 3) {
+      console.log('⚠️ UnifiedAIPipeline for Mood disabled or insufficient data. Falling back.');
       return;
     }
 
