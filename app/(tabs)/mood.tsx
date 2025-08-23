@@ -34,6 +34,7 @@ import { MoodPatternAnalysisService } from '@/features/ai/services/moodPatternAn
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
 import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
+import { useGamificationStore } from '@/store/gamificationStore';
 import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
@@ -562,6 +563,15 @@ export default function MoodScreen() {
         };
         
         console.log('🎮 Gamification completed:', gamificationResult);
+        
+        // ✅ YENİ: Streak güncelle
+        try {
+          await useGamificationStore.getState().updateStreak();
+          console.log('✅ Streak updated after mood entry');
+        } catch (streakError) {
+          console.error('⚠️ Streak update failed:', streakError);
+        }
+        
       } catch (gamificationError) {
         console.error('⚠️ Mood gamification failed:', gamificationError);
         // Continue with entry save even if gamification fails

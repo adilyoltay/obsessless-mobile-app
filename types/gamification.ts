@@ -59,7 +59,8 @@ export type MicroRewardTrigger =
   | 'resistance_improvement'
 
   | 'urge_resistance'
-  | 'voice_mood_checkin';
+  | 'voice_mood_checkin'
+  | 'cbt_completed';
 
 export interface MicroReward {
   points: number;

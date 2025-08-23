@@ -115,11 +115,21 @@ export default function TodayScreen() {
   } = useGamificationStore();
   const { awardMicroReward } = useGamificationStore.getState();
 
-  // Today's stats
+  // Today's stats - Genişletildi: Tüm modüller
   const [todayStats, setTodayStats] = useState({
     compulsions: 0,
     healingPoints: 0,
-    resistanceWins: 0
+    resistanceWins: 0,
+    // ✅ YENİ: Diğer modül verileri
+    cbtRecords: 0,
+    moodCheckins: 0,
+    breathworkSessions: 0,
+    weeklyProgress: {
+      compulsions: 0,
+      cbt: 0,
+      mood: 0,
+      breathwork: 0
+    }
   });
 
   // ✅ AI-Generated Daily Missions State
@@ -333,7 +343,128 @@ export default function TodayScreen() {
   };
 
   /**
-   * 🚀 Load data using Unified AI Pipeline with Privacy-First Processing
+   * 🚀 Load AI Insights with ALL modules data
+   */
+  const loadAIInsightsWithAllModules = async (allModuleData: {
+    compulsions: any[];
+    cbtRecords: any[];
+    moodEntries: any[];
+    breathworkSessions: any[];
+  }) => {
+    if (!user?.id) return;
+    
+    try {
+      setAiInsightsLoading(true);
+      const startTime = Date.now();
+      
+      console.log('🚀 Using Unified AI Pipeline with ALL MODULE DATA');
+      
+      // 🔒 Privacy-First: Sanitize all module data
+      const sanitizedData = {
+        compulsions: allModuleData.compulsions.map((c: any) => ({
+          ...c,
+          notes: c.notes ? sanitizePII(c.notes) : c.notes,
+          trigger: c.trigger ? sanitizePII(c.trigger) : c.trigger,
+          timestamp: c.timestamp,
+          severity: c.severity,
+          resistanceLevel: c.resistanceLevel,
+          category: c.category
+        })),
+        cbtRecords: allModuleData.cbtRecords.map((r: any) => ({
+          ...r,
+          situation: r.situation ? sanitizePII(r.situation) : r.situation,
+          automatic_thought: r.automatic_thought ? sanitizePII(r.automatic_thought) : r.automatic_thought,
+          notes: r.notes ? sanitizePII(r.notes) : r.notes,
+          timestamp: r.timestamp,
+          mood_before: r.mood_before,
+          mood_after: r.mood_after
+        })),
+        moods: allModuleData.moodEntries.map((m: any) => ({
+          ...m,
+          notes: m.notes ? sanitizePII(m.notes) : m.notes,
+          mood_score: m.mood_score,
+          energy_level: m.energy_level,
+          anxiety_level: m.anxiety_level,
+          timestamp: m.timestamp,
+          triggers: m.triggers,
+          activities: m.activities
+        })),
+        breathworkSessions: allModuleData.breathworkSessions.map((s: any) => ({
+          ...s,
+          notes: s.notes ? sanitizePII(s.notes) : s.notes,
+          protocol: s.protocol,
+          duration: s.duration,
+          timestamp: s.timestamp
+        }))
+      };
+      
+      console.log(`📊 FULL MODULE DATA: ${sanitizedData.compulsions.length} compulsions + ${sanitizedData.cbtRecords.length} CBT + ${sanitizedData.moods.length} mood + ${sanitizedData.breathworkSessions.length} breathwork`);
+      
+      // ✅ ENCRYPT sensitive payload
+      let encryptedPayload;
+      try {
+        encryptedPayload = await secureDataService.encryptSensitiveData(sanitizedData);
+        console.log('🔐 ALL MODULE DATA encrypted with AES-256');
+      } catch (error) {
+        console.warn('⚠️ Encryption failed, using sanitized data:', error);
+        encryptedPayload = sanitizedData;
+      }
+      
+      // Call Unified Pipeline with ALL module data
+      const result = await unifiedPipeline.process({
+        userId: user.id,
+        content: sanitizedData,
+        type: 'mixed',
+        context: {
+          source: 'today',
+          timestamp: Date.now(),
+          includeAllModules: true,
+          privacy: {
+            piiSanitized: true,
+            encryptionLevel: 'sanitized_plaintext',
+            dataEncrypted: encryptedPayload
+          }
+        }
+      });
+      
+      // Process insights from unified result
+      if (result.insights) {
+        const formattedInsights = [
+          ...result.insights.therapeutic.map(i => ({
+            text: i.text,
+            category: i.category,
+            priority: i.priority
+          })),
+          ...result.insights.progress.map(p => ({
+            text: p.interpretation,
+            category: 'progress',
+            priority: 'medium'
+          }))
+        ];
+        
+        setAiInsights(formattedInsights);
+        setInsightsSource(result.metadata.source);
+        setInsightsConfidence(0.85);
+      }
+      
+      // Track telemetry
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+        userId: user.id,
+        processingTime: Date.now() - startTime,
+        cacheHit: result.metadata.source === 'cache',
+        moduleCount: 4, // compulsions + cbt + mood + breathwork
+        dataPoints: sanitizedData.compulsions.length + sanitizedData.cbtRecords.length + sanitizedData.moods.length + sanitizedData.breathworkSessions.length
+      });
+      
+    } catch (error) {
+      console.error('Unified Pipeline (ALL MODULES) error:', error);
+    } finally {
+      setAiInsightsLoading(false);
+    }
+  };
+
+  /**
+   * 🚀 Load data using Unified AI Pipeline with Privacy-First Processing (LEGACY)
    */
   const loadUnifiedPipelineData = async () => {
     if (!user?.id) return;
@@ -560,41 +691,92 @@ export default function TodayScreen() {
       // 🗑️ Manual refresh - invalidate all AI caches
       unifiedPipeline.triggerInvalidation('manual_refresh', user.id);
 
-      // Load today's compulsions
+      // ✅ GENIŞLETILDI: Tüm modüllerden veri topla
+      const today = new Date().toDateString();
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // 1. Compulsions (mevcut)
       const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
       const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
       const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-      const today = new Date().toDateString();
       const todayCompulsions = allCompulsions.filter((c: any) => 
         new Date(c.timestamp).toDateString() === today
+      );
+      const weeklyCompulsions = allCompulsions.filter((c: any) => 
+        new Date(c.timestamp) >= weekAgo
+      );
+      
+      // 2. ✅ YENİ: CBT Records
+      const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
+      const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
+      const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
+      const todayCBT = allCBTRecords.filter((r: any) => 
+        new Date(r.timestamp).toDateString() === today
+      );
+      const weeklyCBT = allCBTRecords.filter((r: any) => 
+        new Date(r.timestamp) >= weekAgo
+      );
+      
+      // 3. ✅ YENİ: Mood Entries
+      const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
+      const todayMood = moodEntries.filter((m: any) => 
+        new Date(m.timestamp).toDateString() === today
+      );
+      
+      // 4. ✅ YENİ: Breathwork Sessions
+      const breathworkKey = StorageKeys.BREATH_SESSIONS(user.id);
+      const breathworkData = await AsyncStorage.getItem(breathworkKey);
+      const allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
+      const todayBreathwork = allBreathworkSessions.filter((s: any) => 
+        new Date(s.timestamp).toDateString() === today
+      );
+      const weeklyBreathwork = allBreathworkSessions.filter((s: any) => 
+        new Date(s.timestamp) >= weekAgo
       );
       
       // Calculate resistance wins
       const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
       
-      // (Removed) Load today's ERP sessions
-      // (Removed) ERP session loading code
-      
-      // (Removed) ERP session logs
-      
+      // ✅ GÜNCEL: Tüm modül verilerini set et
       setTodayStats({
         compulsions: todayCompulsions.length,
-        // erpSessions: 0, // Removed ERP
         healingPoints: profile.healingPointsToday,
-        resistanceWins
+        resistanceWins,
+        cbtRecords: todayCBT.length,
+        moodCheckins: todayMood.length,
+        breathworkSessions: todayBreathwork.length,
+        weeklyProgress: {
+          compulsions: weeklyCompulsions.length,
+          cbt: weeklyCBT.length,
+          mood: moodEntries.length,
+          breathwork: weeklyBreathwork.length
+        }
       });
 
-      // Load AI Insights if enabled
-      await loadAIInsights();
+      // Load AI Insights if enabled (genişletilmiş verilerle)
+      await loadAIInsightsWithAllModules({
+        compulsions: allCompulsions,
+        cbtRecords: allCBTRecords,
+        moodEntries,
+        breathworkSessions: allBreathworkSessions
+      });
       
       // ✅ Load AI-Generated Daily Missions
       await loadAIMissions();
       
-      console.log('📊 Today stats updated:', {
+      console.log('📊 Today stats updated (TÜM MODÜLLER):', {
         compulsions: todayCompulsions.length,
-        // erpSessions: 0, // Removed ERP
+        cbt: todayCBT.length,
+        mood: todayMood.length,
+        breathwork: todayBreathwork.length,
         healingPoints: profile.healingPointsToday,
-        resistanceWins
+        resistanceWins,
+        weeklyTotals: {
+          compulsions: weeklyCompulsions.length,
+          cbt: weeklyCBT.length,
+          mood: moodEntries.length,
+          breathwork: weeklyBreathwork.length
+        }
       });
       
     } catch (error) {
@@ -650,6 +832,15 @@ export default function TodayScreen() {
           <Text style={styles.progressValue}>
             {profile.healingPointsTotal} / {nextMilestone.points}
           </Text>
+        </View>
+        
+        {/* ✅ YENİ: Streak Widget - Motivasyonel Görsel */}
+        <View style={styles.streakWidgetContainer}>
+          <StreakCounter 
+            current={profile.streakCurrent}
+            best={profile.streakBest}
+            level={profile.streakLevel}
+          />
         </View>
       </Animated.View>
     );
@@ -982,10 +1173,88 @@ export default function TodayScreen() {
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
-      <View style={[styles.quickStatCard, styles.quickStatCardDisabled]}>
-        <MaterialCommunityIcons name="shield-off" size={30} color="#9CA3AF" />
-        <Text style={styles.quickStatValue}>-</Text>
-        <Text style={styles.quickStatLabel}>Removed</Text>
+      <View style={styles.quickStatCard}>
+        <MaterialCommunityIcons name="star-outline" size={30} color="#8B5CF6" />
+        <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
+        <Text style={styles.quickStatLabel}>Bugün</Text>
+      </View>
+    </View>
+  );
+
+  /**
+   * 📊 Haftalık Özet Modül Kartları - Tüm modüllerden ilerleme
+   */
+  const renderModuleSummary = () => (
+    <View style={styles.moduleSummarySection}>
+      <View style={styles.sectionHeader}>
+        <MaterialCommunityIcons name="view-dashboard" size={20} color="#6B7280" />
+        <Text style={styles.sectionTitle}>Haftalık Özet</Text>
+      </View>
+      
+      <View style={styles.moduleGrid}>
+        {/* OCD Tracking Özet */}
+        <Pressable 
+          style={styles.moduleCard}
+          onPress={() => router.push('/(tabs)/tracking')}
+        >
+          <View style={styles.moduleHeader}>
+            <MaterialCommunityIcons name="heart-pulse" size={18} color="#10B981" />
+            <Text style={styles.moduleTitle}>OCD</Text>
+          </View>
+          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.compulsions}</Text>
+          <Text style={styles.moduleSubtext}>7 günlük kayıt</Text>
+          <View style={styles.moduleFooter}>
+            <Text style={styles.moduleAction}>Detaylar →</Text>
+          </View>
+        </Pressable>
+        
+        {/* CBT Özet */}
+        <Pressable 
+          style={styles.moduleCard}
+          onPress={() => router.push('/(tabs)/cbt')}
+        >
+          <View style={styles.moduleHeader}>
+            <MaterialCommunityIcons name="brain" size={18} color="#3B82F6" />
+            <Text style={styles.moduleTitle}>CBT</Text>
+          </View>
+          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.cbt}</Text>
+          <Text style={styles.moduleSubtext}>Düşünce kaydı</Text>
+          <View style={styles.moduleFooter}>
+            <Text style={styles.moduleAction}>Devam Et →</Text>
+          </View>
+        </Pressable>
+        
+        {/* Mood Özet */}
+        <Pressable 
+          style={styles.moduleCard}
+          onPress={() => router.push('/(tabs)/mood')}
+        >
+          <View style={styles.moduleHeader}>
+            <MaterialCommunityIcons name="emoticon-happy" size={18} color="#F59E0B" />
+            <Text style={styles.moduleTitle}>Mood</Text>
+          </View>
+          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.mood}</Text>
+          <Text style={styles.moduleSubtext}>Check-in</Text>
+          <View style={styles.moduleFooter}>
+            <Text style={styles.moduleAction}>Görüntüle →</Text>
+          </View>
+        </Pressable>
+        
+        {/* Breathwork Özet */}
+        <Pressable 
+          style={styles.moduleCard}
+          onPress={() => router.push('/(tabs)/breathwork')}
+        >
+          <View style={styles.moduleHeader}>
+            <MaterialCommunityIcons name="meditation" size={18} color="#8B5CF6" />
+            <Text style={styles.moduleTitle}>Nefes</Text>
+          </View>
+          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.breathwork}</Text>
+          <Text style={styles.moduleSubtext}>Oturum</Text>
+          <View style={styles.moduleFooter}>
+            <Text style={styles.moduleAction}>Başla →</Text>
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -1134,6 +1403,7 @@ export default function TodayScreen() {
         
         {renderQuickMoodEntry()}
         {renderQuickStats()}
+        {renderModuleSummary()} {/* ✅ YENİ: Haftalık Özet Kartları */}
         {/* Risk section removed */}
         {renderArtTherapyWidget()}
         {renderDailyMissions()}
@@ -1223,6 +1493,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
     opacity: 0.9,
+  },
+  
+  // ✅ YENİ: Streak Widget Stilleri
+  streakWidgetContainer: {
+    marginTop: 16,
+    alignItems: 'center',
   },
   missionsSection: {
     marginTop: 4,
@@ -1723,5 +1999,65 @@ const styles = StyleSheet.create({
   quickStatCardDisabled: {
     opacity: 0.6,
     backgroundColor: '#F9FAFB',
+  },
+  
+  // ✅ YENİ: Modül özet kartları stilleri
+  moduleSummarySection: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  moduleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  moduleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    width: '47%', // 2 kart per row with gap
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  moduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  moduleTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter-Medium',
+  },
+  moduleCount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    fontFamily: 'Inter-Bold',
+    marginBottom: 2,
+  },
+  moduleSubtext: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    marginBottom: 8,
+  },
+  moduleFooter: {
+    alignItems: 'flex-end',
+  },
+  moduleAction: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+    fontFamily: 'Inter-Medium',
   },
 });

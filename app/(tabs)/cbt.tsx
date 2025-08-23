@@ -696,6 +696,23 @@ export default function CBTScreen() {
 
   const handleRecordSaved = async () => {
     await loadAllData();
+    
+    // ✅ YENİ: Streak güncelle
+    try {
+      await useGamificationStore.getState().updateStreak();
+      console.log('✅ Streak updated after CBT record');
+    } catch (error) {
+      console.error('⚠️ Streak update failed:', error);
+    }
+    
+    // ✅ YENİ: CBT micro reward
+    try {
+      await useGamificationStore.getState().awardMicroReward('cbt_completed');
+      console.log('✅ CBT completed micro reward awarded');
+    } catch (error) {
+      console.error('⚠️ CBT micro reward failed:', error);
+    }
+    
     setToastMessage('Düşünce kaydı başarıyla eklendi 🎯');
     setShowToast(true);
   };

@@ -160,6 +160,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+1 ✨ Mood Check‑in',
     trigger: 'voice_mood_checkin'
   },
+  cbt_completed: {
+    points: 15,
+    message: '+15 ✨ CBT kaydı!',
+    trigger: 'cbt_completed'
+  },
 };
 
 interface GamificationState {
