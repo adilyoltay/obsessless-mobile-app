@@ -124,11 +124,31 @@ export default function TrackingScreen() {
       try {
         console.log('📋 Loading onboarding profile for Y-BOCS history...');
         
-        const localProfile = await AsyncStorage.getItem(`user_profile_${user.id}`);
-        if (localProfile) {
-          const profile = JSON.parse(localProfile);
-          console.log('✅ Found onboarding profile:', profile);
-          
+        // Try multiple storage keys and formats for backward compatibility
+        const storageKeys = [
+          `user_profile_${user.id}`,        // New onboarding format
+          `ai_user_profile_${user.id}`,     // AI onboarding format
+          `ocd_profile_${user.id}`,         // Legacy onboarding format
+        ];
+        
+        let profile = null;
+        let profileSource = 'none';
+        
+        for (const key of storageKeys) {
+          const localProfile = await AsyncStorage.getItem(key);
+          if (localProfile) {
+            try {
+              profile = JSON.parse(localProfile);
+              profileSource = key;
+              console.log(`✅ Found onboarding profile in ${key}:`, profile);
+              break;
+            } catch (e) {
+              console.warn(`⚠️ Failed to parse profile from ${key}:`, e);
+            }
+          }
+        }
+        
+        if (profile) {
           // Helper function to calculate Y-BOCS severity from score
           const calculateYbocsSeverity = (score: number): string => {
             if (score >= 32) return 'Severe';
@@ -138,39 +158,58 @@ export default function TrackingScreen() {
             return 'Minimal';
           };
           
-          // Map the profile structure
+          // ✅ FLEXIBLE MAPPING: Handle different field name patterns
+          const ybocsScore = profile.ybocsScore || 
+                            profile.ybocsLiteScore || 
+                            profile.ybocs_score ||
+                            0;
+          
           const mappedProfile = {
-            ybocsLiteScore: profile.ybocsScore,
-            ybocsSeverity: calculateYbocsSeverity(profile.ybocsScore),
-            primarySymptoms: profile.symptomTypes,
-            dailyGoal: profile.goals?.[0] || 'improve_daily_life',
-            onboardingCompleted: !!profile.onboardingCompletedAt,
-            createdAt: profile.createdAt,
+            ybocsLiteScore: ybocsScore,
+            ybocsSeverity: calculateYbocsSeverity(ybocsScore),
+            primarySymptoms: profile.symptomTypes || 
+                           profile.primarySymptoms || 
+                           profile.ocd_symptoms || 
+                           [],
+            dailyGoal: profile.goals?.[0] || 
+                      profile.dailyGoal || 
+                      profile.daily_goal || 
+                      'improve_daily_life',
+            onboardingCompleted: profile.onboardingCompleted || 
+                               profile.onboarding_completed || 
+                               !!profile.onboardingCompletedAt ||
+                               false,
+            createdAt: profile.createdAt || profile.completedAt,
+            profileSource,
             originalProfile: profile
           };
           
           setOnboardingProfile(mappedProfile);
           
-          // Create Y-BOCS history from onboarding data
-          if (profile.ybocsScore) {
+          // Create Y-BOCS history from onboarding data if score exists
+          if (ybocsScore > 0) {
             const ybocsHistoryEntry = {
               id: 'onboarding',
               user_id: user.id,
-              totalScore: profile.ybocsScore,
-              severityLevel: calculateYbocsSeverity(profile.ybocsScore),
-              timestamp: profile.createdAt || new Date().toISOString(),
+              totalScore: ybocsScore,
+              severityLevel: calculateYbocsSeverity(ybocsScore),
+              timestamp: profile.createdAt || profile.completedAt || new Date().toISOString(),
               answers: [], // We don't have individual answers, but we have the total
               metadata: {
                 source: 'onboarding',
-                culturalContext: 'turkish'
+                culturalContext: 'turkish',
+                profileSource
               }
             };
             
             setYbocsHistory([ybocsHistoryEntry]);
             console.log('✅ Y-BOCS history created from onboarding:', ybocsHistoryEntry);
+          } else {
+            console.log('ℹ️ No Y-BOCS score found in profile, creating empty history');
+            setYbocsHistory([]);
           }
         } else {
-          console.log('ℹ️ No onboarding profile found');
+          console.log('ℹ️ No onboarding profile found in any storage key');
           setYbocsHistory([]);
         }
       } catch (error) {
@@ -264,17 +303,28 @@ export default function TrackingScreen() {
             timeRange: selectedTimeRange
           };
           
-          let encryptedPayload;
+          // ✅ ENCRYPTION OPTIONAL: Since we use sanitized data for pipeline, encryption is for audit only
+          let encryptionResult: any = null;
+          let encryptionStatus = 'disabled';
+          
           try {
-            encryptedPayload = await secureDataService.encryptSensitiveData(sensitivePayload);
-            
-            // Log integrity metadata for auditability
-            console.log('🔐 Sensitive OCD payload encrypted with AES-256');
-            console.log(`🔍 Integrity hash: ${encryptedPayload.hash?.substring(0, 8)}...`);
-            console.log(`⏰ Encrypted at: ${new Date(encryptedPayload.timestamp || 0).toISOString()}`);
+            // Only try encryption if native crypto is available
+            const cryptoTest = await import('react-native-simple-crypto');
+            if (cryptoTest.AES) {
+              encryptionResult = await secureDataService.encryptSensitiveData(sensitivePayload);
+              encryptionStatus = 'success';
+              
+              // Log integrity metadata for auditability
+              console.log('🔐 Sensitive OCD payload encrypted with AES-256');
+              console.log(`🔍 Integrity hash: ${encryptionResult.hash?.substring(0, 8)}...`);
+              console.log(`⏰ Encrypted at: ${new Date(encryptionResult.timestamp || 0).toISOString()}`);
+            } else {
+              console.log('ℹ️ Native crypto not available, using sanitized data only');
+              encryptionStatus = 'unavailable';
+            }
           } catch (error) {
-            console.warn('⚠️ Encryption failed, using sanitized data:', error);
-            encryptedPayload = sensitivePayload; // fallback to sanitized data
+            console.warn('⚠️ Encryption failed, using sanitized data (this is safe):', error);
+            encryptionStatus = 'failed';
           }
 
           // ✅ FIXED: Send sanitized (not encrypted) data to pipeline for AI analysis
@@ -291,12 +341,14 @@ export default function TrackingScreen() {
                 timeRange: selectedTimeRange,
                 privacy: {
                   piiSanitized: true,
-                  encryptionLevel: (encryptedPayload as any).algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 
-                                 (encryptedPayload as any).algorithm ? 'aes256' : 'sanitized',
-                  encrypted: (encryptedPayload as any).algorithm && (encryptedPayload as any).algorithm !== 'SHA256_FALLBACK',
-                  // Store encryption details for audit trail
-                  encryptionHash: (encryptedPayload as any).hash?.substring(0, 8),
-                  encryptionTimestamp: (encryptedPayload as any).timestamp
+                  encryptionStatus: encryptionStatus,
+                  encryptionLevel: encryptionStatus === 'success' ? 
+                                  (encryptionResult?.algorithm === 'SHA256_FALLBACK' ? 'fallback_hash' : 'aes256') :
+                                  'sanitized_only',
+                  encrypted: encryptionStatus === 'success' && encryptionResult?.algorithm && encryptionResult.algorithm !== 'SHA256_FALLBACK',
+                  // Store encryption details for audit trail (if available)
+                  encryptionHash: encryptionStatus === 'success' ? encryptionResult?.hash?.substring(0, 8) : undefined,
+                  encryptionTimestamp: encryptionStatus === 'success' ? encryptionResult?.timestamp : undefined
                 }
               }
             }

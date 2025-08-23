@@ -2889,6 +2889,309 @@ export class UnifiedAIPipeline {
     return 0.9;
   }
 
+  // ============================================================================
+  // MISSING PATTERN ANALYSIS METHODS
+  // ============================================================================
+
+  /**
+   * Calculate pattern confidence based on data points
+   */
+  private calculatePatternConfidence(dataPoints: number): number {
+    if (dataPoints < 2) return 0.2;
+    if (dataPoints < 5) return 0.4;
+    if (dataPoints < 10) return 0.6;
+    if (dataPoints < 20) return 0.8;
+    return Math.min(0.95, 0.8 + (dataPoints - 20) * 0.01);
+  }
+
+  /**
+   * Analyze severity progression patterns
+   */
+  private analyzeSeverityProgression(content: any): any[] {
+    if (!Array.isArray(content.compulsions)) return [];
+    
+    const compulsions = content.compulsions;
+    const patterns = [];
+    
+    // Calculate average severity over time
+    const timeWindows = this.groupByTimeWindow(compulsions, 7); // Weekly windows
+    for (let i = 1; i < timeWindows.length; i++) {
+      const currentAvg = this.calculateAverageSeverity(timeWindows[i]);
+      const prevAvg = this.calculateAverageSeverity(timeWindows[i - 1]);
+      const change = currentAvg - prevAvg;
+      
+      if (Math.abs(change) > 0.5) { // Significant change
+        patterns.push({
+          type: 'severity_progression',
+          trend: change > 0 ? 'worsening' : 'improving',
+          magnitude: Math.abs(change),
+          timeWindow: `Week ${i}`,
+          confidence: 0.7
+        });
+      }
+    }
+    
+    return patterns;
+  }
+
+  /**
+   * Extract behavioral patterns from compulsions
+   */
+  private extractBehavioralPatterns(compulsions: any[]): any[] {
+    const patterns = [];
+    
+    // Type frequency analysis
+    const typeFreq = this.calculateTypeFrequency(compulsions);
+    for (const [type, count] of Object.entries(typeFreq)) {
+      if (count > 2) { // Minimum threshold
+        patterns.push({
+          type: 'behavioral_frequency',
+          category: type,
+          frequency: count,
+          percentage: (count / compulsions.length) * 100,
+          confidence: this.calculatePatternConfidence(count)
+        });
+      }
+    }
+    
+    // Resistance level patterns
+    const resistanceData = compulsions.filter(c => c.resistanceLevel !== undefined);
+    if (resistanceData.length > 3) {
+      const avgResistance = resistanceData.reduce((sum, c) => sum + c.resistanceLevel, 0) / resistanceData.length;
+      patterns.push({
+        type: 'resistance_pattern',
+        averageResistance: avgResistance,
+        trend: avgResistance > 5 ? 'improving' : 'struggling',
+        confidence: this.calculatePatternConfidence(resistanceData.length)
+      });
+    }
+    
+    return patterns;
+  }
+
+  /**
+   * Extract temporal patterns from compulsions
+   */
+  private extractTemporalPatterns(compulsions: any[]): any[] {
+    const patterns = [];
+    
+    // Hour-based analysis
+    const hourCounts = new Array(24).fill(0);
+    compulsions.forEach(c => {
+      const hour = new Date(c.timestamp).getHours();
+      hourCounts[hour]++;
+    });
+    
+    // Find peak hours
+    const maxCount = Math.max(...hourCounts);
+    if (maxCount > 2) { // Minimum threshold
+      const peakHours = hourCounts.map((count, hour) => ({ hour, count }))
+        .filter(h => h.count === maxCount);
+      
+      peakHours.forEach(peak => {
+        patterns.push({
+          type: 'temporal_peak',
+          hour: peak.hour,
+          timeLabel: `${peak.hour}:00 - ${peak.hour + 1}:00`,
+          frequency: peak.count,
+          confidence: this.calculatePatternConfidence(peak.count)
+        });
+      });
+    }
+    
+    // Day-of-week analysis
+    const dayPattern = this.extractDayOfWeekPattern(compulsions);
+    if (dayPattern) {
+      patterns.push(dayPattern);
+    }
+    
+    return patterns;
+  }
+
+  /**
+   * Extract environmental triggers from compulsions
+   */
+  private extractEnvironmentalTriggers(compulsions: any[]): any[] {
+    const patterns = [];
+    
+    // Trigger keyword extraction
+    const triggerCounts: Record<string, number> = {};
+    compulsions.forEach(c => {
+      if (c.trigger && typeof c.trigger === 'string') {
+        const keywords = c.trigger.toLowerCase().split(/\s+/);
+        keywords.forEach(keyword => {
+          if (keyword.length > 2) { // Ignore short words
+            triggerCounts[keyword] = (triggerCounts[keyword] || 0) + 1;
+          }
+        });
+      }
+    });
+    
+    // Convert to patterns
+    for (const [trigger, count] of Object.entries(triggerCounts)) {
+      if (count > 1) { // Multiple occurrences
+        patterns.push({
+          type: 'environmental_trigger',
+          trigger: trigger,
+          frequency: count,
+          confidence: this.calculatePatternConfidence(count)
+        });
+      }
+    }
+    
+    return patterns;
+  }
+
+  /**
+   * Extract mood-related temporal patterns
+   */
+  private extractMoodTemporalPatterns(data: any): any[] {
+    const patterns = [];
+    
+    if (data.moods && Array.isArray(data.moods)) {
+      const moodsByHour = new Array(24).fill(0).map(() => ({ total: 0, count: 0 }));
+      
+      data.moods.forEach(mood => {
+        const hour = new Date(mood.timestamp || mood.created_at).getHours();
+        moodsByHour[hour].total += mood.mood_score || 5;
+        moodsByHour[hour].count += 1;
+      });
+      
+      // Calculate averages and find patterns
+      const hourlyAverages = moodsByHour.map((h, hour) => ({
+        hour,
+        average: h.count > 0 ? h.total / h.count : 5,
+        count: h.count
+      })).filter(h => h.count > 0);
+      
+      // Find low mood periods
+      const lowMoodHours = hourlyAverages.filter(h => h.average < 4);
+      if (lowMoodHours.length > 0) {
+        patterns.push({
+          type: 'low_mood_temporal',
+          hours: lowMoodHours.map(h => h.hour),
+          averageScore: lowMoodHours.reduce((sum, h) => sum + h.average, 0) / lowMoodHours.length,
+          confidence: this.calculatePatternConfidence(lowMoodHours.length)
+        });
+      }
+    }
+    
+    return patterns;
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  private groupByTimeWindow(compulsions: any[], windowDays: number): any[][] {
+    const windows: any[][] = [];
+    const sortedCompulsions = [...compulsions].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    if (sortedCompulsions.length === 0) return windows;
+    
+    const startTime = new Date(sortedCompulsions[0].timestamp).getTime();
+    const windowMs = windowDays * 24 * 60 * 60 * 1000;
+    
+    let currentWindow: any[] = [];
+    let currentWindowStart = startTime;
+    
+    sortedCompulsions.forEach(c => {
+      const cTime = new Date(c.timestamp).getTime();
+      if (cTime >= currentWindowStart + windowMs) {
+        if (currentWindow.length > 0) windows.push(currentWindow);
+        currentWindow = [c];
+        currentWindowStart = Math.floor((cTime - startTime) / windowMs) * windowMs + startTime;
+      } else {
+        currentWindow.push(c);
+      }
+    });
+    
+    if (currentWindow.length > 0) windows.push(currentWindow);
+    return windows;
+  }
+
+  private calculateAverageSeverity(compulsions: any[]): number {
+    if (compulsions.length === 0) return 0;
+    const total = compulsions.reduce((sum, c) => sum + (c.severity || c.resistanceLevel || 5), 0);
+    return total / compulsions.length;
+  }
+
+  private calculateTypeFrequency(compulsions: any[]): Record<string, number> {
+    const freq: Record<string, number> = {};
+    compulsions.forEach(c => {
+      if (c.type) {
+        freq[c.type] = (freq[c.type] || 0) + 1;
+      }
+    });
+    return freq;
+  }
+
+  private extractDayOfWeekPattern(compulsions: any[]): any | null {
+    const dayCounts = new Array(7).fill(0);
+    compulsions.forEach(c => {
+      const day = new Date(c.timestamp).getDay();
+      dayCounts[day]++;
+    });
+    
+    const maxCount = Math.max(...dayCounts);
+    const avgCount = dayCounts.reduce((sum, count) => sum + count, 0) / 7;
+    
+    if (maxCount > avgCount * 1.5) { // Significant deviation
+      const peakDay = dayCounts.indexOf(maxCount);
+      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      
+      return {
+        type: 'day_of_week_pattern',
+        peakDay: peakDay,
+        dayName: dayNames[peakDay],
+        frequency: maxCount,
+        confidence: this.calculatePatternConfidence(maxCount)
+      };
+    }
+    
+    return null;
+  }
+
+  private extractTextPatterns(content: string): any {
+    // Simple text pattern extraction for voice/notes input
+    const patterns = {
+      behavioral: [],
+      triggers: []
+    };
+    
+    const text = content.toLowerCase();
+    
+    // Behavioral pattern keywords
+    const behavioralKeywords = ['tekrar', 'kontrol', 'temizlik', 'sayma', 'sıralama'];
+    behavioralKeywords.forEach(keyword => {
+      if (text.includes(keyword)) {
+        patterns.behavioral.push({
+          type: 'text_behavioral',
+          keyword: keyword,
+          context: text,
+          confidence: 0.6
+        });
+      }
+    });
+    
+    // Trigger pattern keywords
+    const triggerKeywords = ['stres', 'endişe', 'korku', 'kirli', 'güvenlik'];
+    triggerKeywords.forEach(keyword => {
+      if (text.includes(keyword)) {
+        patterns.triggers.push({
+          type: 'text_trigger',
+          trigger: keyword,
+          context: text,
+          confidence: 0.5
+        });
+      }
+    });
+    
+    return patterns;
+  }
+
 }
 
 // ============================================================================

@@ -127,6 +127,11 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_SMART_ROUTING: true, // Intelligent screen navigation with context
   AI_FORM_PREFILLING: true, // Automatic form prefilling from analysis
   
+  // 🎯 OCD AI Services (NEW - Critical for OCD functionality)
+  AI_TRIGGER_DETECTION: AI_MASTER_ENABLED, // OCD trigger detection service
+  TURKISH_CULTURAL_OCD: AI_MASTER_ENABLED, // Turkish cultural adaptation for OCD
+  AI_OCD_PATTERN_ANALYSIS: AI_MASTER_ENABLED, // OCD pattern recognition
+  
   // 🔀 LLM Flags (aliases → AI master)
   LLM_ROUTER: AI_MASTER_ENABLED,
   LLM_REFRAME: AI_MASTER_ENABLED,
