@@ -291,7 +291,12 @@ export enum AIEventType {
   AI_ANALYSIS_COMPLETED = 'cbt_analysis_completed',
   PROFILE_CREATED = 'user_profile_generated',
   YBOCS_COMPLETED = 'ybocs_analysis_completed',
-  INTERVENTION_COMPLETED = 'intervention_delivered'
+  INTERVENTION_COMPLETED = 'intervention_delivered',
+  
+  // 🎯 Adaptive Suggestions / JITAI events
+  ADAPTIVE_SUGGESTION_SHOWN = 'adaptive_suggestion_shown',
+  ADAPTIVE_SUGGESTION_CLICKED = 'adaptive_suggestion_clicked', 
+  ADAPTIVE_SUGGESTION_DISMISSED = 'adaptive_suggestion_dismissed'
 }
 
 // Build a runtime set for event validation (after enum declaration)

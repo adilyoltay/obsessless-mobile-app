@@ -59,6 +59,10 @@ import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { BreathworkSuggestionService } from '@/features/ai/services/breathworkSuggestionService';
 import { unifiedGamificationService, UnifiedMission } from '@/features/ai/services/unifiedGamificationService';
 
+// 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
 
@@ -141,6 +145,11 @@ export default function TodayScreen() {
   // ✅ AI-Generated Daily Missions State
   const [aiMissions, setAiMissions] = useState<UnifiedMission[]>([]);
   const [missionsLoading, setMissionsLoading] = useState(false);
+  
+  // 🎯 Adaptive Interventions State (JITAI)
+  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const adaptiveRef = useRef<boolean>(false); // Prevent duplicate triggers
+  const { generateSuggestion, snoozeSuggestion, loading: adaptiveLoading } = useAdaptiveSuggestion();
 
 
 
@@ -184,6 +193,9 @@ export default function TodayScreen() {
         onRefresh();
         // Check for AI-powered breathwork suggestions
         checkBreathworkSuggestion();
+        
+        // 🎯 Reset adaptive suggestion ref for potential re-trigger
+        adaptiveRef.current = false;
       }
     }, [user?.id])
   );
@@ -690,6 +702,24 @@ export default function TodayScreen() {
           
           setHasDeepInsights(true);
           console.log('✅ Phase 2: Deep insights loaded with ALL MODULE DATA');
+          
+          // 🎯 TRIGGER ADAPTIVE SUGGESTION after deep insights complete
+          if (user?.id && !adaptiveRef.current) {
+            console.log('🎯 Triggering adaptive suggestion after deep insights...');
+            adaptiveRef.current = true; // Prevent duplicate calls
+            
+            try {
+              const suggestion = await generateSuggestion(user.id);
+              if (suggestion.show) {
+                console.log('💡 Adaptive suggestion generated:', suggestion.category);
+                setAdaptiveSuggestion(suggestion);
+              } else {
+                console.log('🚫 No adaptive suggestion at this time');
+              }
+            } catch (error) {
+              console.warn('⚠️ Adaptive suggestion generation failed:', error);
+            }
+          }
         } catch (error) {
           console.warn('⚠️ Phase 2 deep analysis failed:', error);
         } finally {
@@ -1146,6 +1176,96 @@ export default function TodayScreen() {
 
 
 
+  /**
+   * 🎯 Handle Adaptive Suggestion CTA
+   */
+  const handleAdaptiveSuggestionAccept = async (suggestion: AdaptiveSuggestion) => {
+    if (!user?.id || !suggestion.cta) return;
+
+    try {
+      // Track click event
+      await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
+        userId: user.id,
+        category: suggestion.category,
+        targetScreen: suggestion.cta.screen
+      });
+
+      // Navigate based on CTA
+      switch (suggestion.cta.screen) {
+        case '/(tabs)/breathwork':
+          router.push({
+            pathname: '/(tabs)/breathwork' as any,
+            params: {
+              autoStart: 'true',
+              protocol: suggestion.cta.params?.protocol || 'box',
+              source: 'adaptive_suggestion',
+              ...(suggestion.cta.params || {})
+            }
+          });
+          break;
+          
+        case '/(tabs)/cbt':
+          router.push({
+            pathname: '/(tabs)/cbt' as any,
+            params: {
+              source: 'adaptive_suggestion',
+              ...(suggestion.cta.params || {})
+            }
+          });
+          break;
+          
+        case '/(tabs)/mood':
+          router.push({
+            pathname: '/(tabs)/mood' as any,
+            params: {
+              source: 'adaptive_suggestion',
+              ...(suggestion.cta.params || {})
+            }
+          });
+          break;
+          
+        case '/(tabs)/tracking':
+          router.push({
+            pathname: '/(tabs)/tracking' as any,
+            params: {
+              source: 'adaptive_suggestion',
+              ...(suggestion.cta.params || {})
+            }
+          });
+          break;
+          
+        default:
+          console.warn('⚠️ Unknown adaptive suggestion screen:', suggestion.cta.screen);
+          break;
+      }
+      
+      // Hide suggestion after navigation
+      setAdaptiveSuggestion(null);
+      
+    } catch (error) {
+      console.error('❌ Failed to handle adaptive suggestion accept:', error);
+    }
+  };
+
+  /**
+   * 😴 Handle Adaptive Suggestion Dismiss (Snooze)
+   */
+  const handleAdaptiveSuggestionDismiss = async (suggestion: AdaptiveSuggestion) => {
+    if (!user?.id) return;
+
+    try {
+      // Snooze for 2 hours
+      await snoozeSuggestion(user.id, 2);
+      
+      // Hide suggestion
+      setAdaptiveSuggestion(null);
+      
+      console.log('😴 Adaptive suggestion snoozed for 2 hours');
+    } catch (error) {
+      console.error('❌ Failed to dismiss adaptive suggestion:', error);
+    }
+  };
+
   const handleCheckinComplete = (routingResult?: {
     type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK';
     confidence: number;
@@ -1596,6 +1716,15 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderHeroSection()}
+        
+        {/* 🎯 Adaptive Intervention Suggestion Card (JITAI) */}
+        {adaptiveSuggestion?.show && (
+          <AdaptiveSuggestionCard
+            suggestion={adaptiveSuggestion}
+            onAccept={handleAdaptiveSuggestionAccept}
+            onDismiss={handleAdaptiveSuggestionDismiss}
+          />
+        )}
         
         {/* Breathwork Suggestion Card */}
         {breathworkSuggestion?.show && (
