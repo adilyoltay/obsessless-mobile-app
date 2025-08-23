@@ -296,7 +296,10 @@ export enum AIEventType {
   // 🎯 Adaptive Suggestions / JITAI events
   ADAPTIVE_SUGGESTION_SHOWN = 'adaptive_suggestion_shown',
   ADAPTIVE_SUGGESTION_CLICKED = 'adaptive_suggestion_clicked', 
-  ADAPTIVE_SUGGESTION_DISMISSED = 'adaptive_suggestion_dismissed'
+  ADAPTIVE_SUGGESTION_DISMISSED = 'adaptive_suggestion_dismissed',
+  
+  // 📊 Enhanced Mood Analytics (NEW)
+  MOOD_ANALYTICS_COMPUTED = 'mood_analytics_computed'
 }
 
 // Build a runtime set for event validation (after enum declaration)

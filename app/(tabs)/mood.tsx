@@ -248,8 +248,73 @@ export default function MoodScreen() {
         }
       }
 
-      // 📊 PREDICTIVE INSIGHTS: Enhanced mapping with unified pipeline metrics
-      if (result.insights?.progress || result.patterns) {
+      // 📊 ENHANCED ANALYTICS: Process clinical-grade mood analytics first
+      if (result.analytics?.mood) {
+        const analytics = result.analytics.mood;
+        console.log('🎯 Processing enhanced mood analytics:', analytics);
+        
+        // 📊 Store analytics in state for dashboard consumption
+        const enhancedInsight = {
+          riskLevel: analytics.baselines.mood < 30 ? 'high' : analytics.baselines.mood < 50 ? 'medium' : 'low',
+          moodTrend: analytics.weeklyDelta,
+          averageRecentMood: Math.round(analytics.baselines.mood),
+          volatility: analytics.volatility,
+          earlyWarning: {
+            triggered: (analytics.baselines.mood < 30) || 
+                      (analytics.weeklyDelta < -10) || 
+                      (analytics.volatility > 15) ||
+                      (analytics.profile?.type === 'stressed'),
+            message: analytics.profile?.type === 'stressed' 
+              ? `Stresli profil tespit edildi: ${analytics.profile.rationale.join(', ')}`
+              : analytics.baselines.mood < 30
+              ? `Düşük mood baseline: ${analytics.baselines.mood.toFixed(1)}`
+              : analytics.weeklyDelta < -10
+              ? `Haftalık mood düşüşü: ${analytics.weeklyDelta.toFixed(1)} puan`
+              : analytics.volatility > 15
+              ? `Yüksek mood volatilitesi: ${analytics.volatility.toFixed(1)}`
+              : null
+          },
+          interventions: [],
+          recommendations: [
+            ...analytics.profile?.rationale || [],
+            analytics.bestTimes?.dayOfWeek ? `En iyi gün: ${analytics.bestTimes.dayOfWeek}` : '',
+            analytics.bestTimes?.timeOfDay ? `En iyi zaman: ${analytics.bestTimes.timeOfDay}` : ''
+          ].filter(Boolean),
+          // 🎯 ENHANCED DATA: Clinical-grade analytics
+          enhancedAnalytics: {
+            volatility: analytics.volatility,
+            baselines: analytics.baselines,
+            correlations: analytics.correlations,
+            profile: analytics.profile,
+            bestTimes: analytics.bestTimes,
+            dataQuality: analytics.dataQuality,
+            confidence: analytics.confidence,
+            sampleSize: analytics.sampleSize
+          },
+          source: 'unified_pipeline_analytics'
+        };
+        
+        setPredictiveInsights(enhancedInsight);
+        
+        // 📊 Enhanced Telemetry for analytics usage
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          source: 'mood_screen_enhanced_analytics',
+          analyticsProfile: analytics.profile?.type,
+          volatility: analytics.volatility,
+          weeklyDelta: analytics.weeklyDelta,
+          dataQuality: analytics.dataQuality,
+          confidence: analytics.confidence,
+          correlationsCount: Object.keys(analytics.correlations).filter(k => {
+            const correlation = (analytics.correlations as any)[k];
+            return correlation?.r !== null;
+          }).length,
+          bestTimesAvailable: !!(analytics.bestTimes?.dayOfWeek || analytics.bestTimes?.timeOfDay)
+        }, user.id);
+        
+        console.log('🎯 Enhanced mood analytics processed successfully');
+      }
+      // FALLBACK: Use progress insights if analytics unavailable
+      else if (result.insights?.progress || result.patterns) {
         let predictiveInsight: any = null;
         
         // First, try to use progress insights from unified pipeline
@@ -1119,20 +1184,55 @@ export default function MoodScreen() {
         strongestPattern: (() => {
           if (patterns.length === 0) return 'Henüz yeterli veri yok - devam et';
           
-          // Prioritize high-confidence actionable patterns
+          // 🎯 ENHANCED: Use clinical-grade analytics from predictive insights
+          if (predictiveInsights?.enhancedAnalytics?.profile) {
+            const profile = predictiveInsights.enhancedAnalytics.profile;
+            
+            const profileDescriptions: Record<string, string> = {
+              'stressed': 'Stresli Profil - Düşük mood, yüksek anksiyete',
+              'volatile': 'Volatil Profil - Yüksek mood dalgalanmaları',
+              'fatigued': 'Yorgun Profil - Düşük enerji ve mood',
+              'recovering': 'Toparlanma Profili - Pozitif haftalık trend',
+              'resilient': 'Dirençli Profil - Yüksek mood, düşük volatilite',
+              'elevated': 'Yüksek Profil - Stabil yüksek mood',
+              'stable': 'Stabil Profil - Dengeli duygusal durum'
+            };
+            
+            return profileDescriptions[profile.type] || `${profile.type.charAt(0).toUpperCase()}${profile.type.slice(1)} Profil`;
+          }
+          
+          // Fallback to original logic
           const actionablePatterns = patterns.filter(p => p.actionable && p.confidence > 0.7);
           if (actionablePatterns.length > 0) {
             return actionablePatterns[0].title || 'Pattern tespit edildi';
           }
           
-          // Fallback to highest confidence pattern
           const sortedPatterns = [...patterns].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
           return sortedPatterns[0].title || 'Duygusal pattern analizi yapılıyor';
         })(),
         challengeArea: (() => {
           if (patterns.length === 0) return 'Veri toplama ve düzenlilik';
           
-          // 📊 ENHANCED: Use UnifiedAIPipeline MEA correlation analysis
+          // 🎯 ENHANCED: Use clinical-grade profile analysis
+          if (predictiveInsights?.enhancedAnalytics?.profile) {
+            const profileType = predictiveInsights.enhancedAnalytics.profile.type;
+            const volatility = predictiveInsights.enhancedAnalytics.volatility || 0;
+            const weeklyDelta = predictiveInsights.enhancedAnalytics.weeklyDelta || 0;
+            
+            const challengeAreas: Record<string, string> = {
+              'stressed': 'Stress yönetimi ve anksiyete azaltıcı teknikler',
+              'volatile': `Yüksek volatilite (${volatility.toFixed(1)}) - duygu düzenlemesi`,
+              'fatigued': 'Enerji artırıcı aktiviteler ve uyku düzeni',
+              'recovering': weeklyDelta > 0 ? 'Bu pozitif trendi sürdürmek' : 'Toparlanma sürecini desteklemek',
+              'resilient': 'Bu güçlü durumu koruyucu stratejiler',
+              'elevated': 'Yüksek mood seviyesini sürdürülebilir kılmak',
+              'stable': 'Bu dengeyi koruma ve farkındaḍlığı artırma'
+            };
+            
+            return challengeAreas[profileType] || `${profileType} profili için destek stratejileri`;
+          }
+          
+          // Fallback to MEA correlation analysis
           const unifiedMeaPattern = patterns.find(p => p.type === 'mood_mea_correlation' && p.source === 'unified_pipeline');
           if (unifiedMeaPattern?.data?.emotionalProfile) {
             const profileType = unifiedMeaPattern.data.emotionalProfile;
