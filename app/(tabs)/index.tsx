@@ -37,6 +37,7 @@ import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnima
 import { useTranslation } from '@/hooks/useTranslation';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { safeStorageKey } from '@/lib/queryClient';
 
 // Stores
 
@@ -624,7 +625,8 @@ export default function TodayScreen() {
       
       // PHASE 1: Immediate Insights (<500ms)
       // Load from cache or generate quick heuristic insights
-      const cacheKey = `ai:${user.id}:${new Date().toISOString().split('T')[0]}:insights`;
+      // ✅ FIXED: Use same cache key format as AIContext for consistency
+      const cacheKey = `ai_cached_insights_${safeStorageKey(user.id)}`;
       
       try {
         // Try to get cached insights first
@@ -656,10 +658,38 @@ export default function TodayScreen() {
       
       deepAnalysisTimerRef.current = setTimeout(async () => {
         try {
-          console.log('🚀 Phase 2: Starting deep analysis...');
-          await loadUnifiedPipelineData();
+          console.log('🚀 Phase 2: Starting deep analysis with ALL MODULE DATA...');
+          
+          // ✅ FIXED: Use comprehensive module data in Phase-2
+          // Gather all module data for deep analysis
+          const today = new Date().toDateString();
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+          // Collect all module data (same as onRefresh logic)
+          const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
+          const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
+          const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
+
+          const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
+          const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
+          const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
+
+          const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
+
+          const breathworkKey = StorageKeys.BREATH_SESSIONS(user.id);
+          const breathworkData = await AsyncStorage.getItem(breathworkKey);
+          const allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
+
+          // Use comprehensive analysis with all module data
+          await loadAIInsightsWithAllModules({
+            compulsions: allCompulsions,
+            cbtRecords: allCBTRecords,
+            moodEntries,
+            breathworkSessions: allBreathworkSessions
+          });
+          
           setHasDeepInsights(true);
-          console.log('✅ Phase 2: Deep insights loaded');
+          console.log('✅ Phase 2: Deep insights loaded with ALL MODULE DATA');
         } catch (error) {
           console.warn('⚠️ Phase 2 deep analysis failed:', error);
         } finally {
@@ -809,13 +839,19 @@ export default function TodayScreen() {
         breathworkAnxietyDelta // ✅ Breathwork anxiety reduction average
       });
 
-      // Load AI Insights if enabled (genişletilmiş verilerle)
-      await loadAIInsightsWithAllModules({
-        compulsions: allCompulsions,
-        cbtRecords: allCBTRecords,
-        moodEntries,
-        breathworkSessions: allBreathworkSessions
-      });
+      // Load AI Insights with Progressive UI (Phase-1: cache/heuristic → Phase-2: deep)
+      // ✅ FIXED: Use Progressive UI instead of direct deep analysis
+      if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE')) {
+        await loadAIInsights();
+      } else {
+        // Fallback to direct deep analysis if Progressive UI disabled
+        await loadAIInsightsWithAllModules({
+          compulsions: allCompulsions,
+          cbtRecords: allCBTRecords,
+          moodEntries,
+          breathworkSessions: allBreathworkSessions
+        });
+      }
       
       // ✅ Load AI-Generated Daily Missions
       await loadAIMissions();
