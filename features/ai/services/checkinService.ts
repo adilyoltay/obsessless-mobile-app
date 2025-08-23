@@ -362,7 +362,7 @@ export const DECISION_THRESHOLDS = {
   MAX_DRAFT_SUGGESTIONS: 1, // Max taslak öneri sayısı
   
   // Performance limits - v4.2.1 UPDATED for stability
-  LLM_TIMEOUT_MS: 4500,     // LLM timeout increased for complex JSON (3s -> 4.5s)
+  LLM_TIMEOUT_MS: 5500,     // LLM timeout increased for multi-module JSON (4.5s -> 5.5s)
   MAX_LLM_RETRIES: 2,       // Max retry sayısı
   
   // Confidence calibration weights
@@ -1798,29 +1798,21 @@ Output: {
 
 NOW ANALYZE: "${text}"
 
-RETURN MULTI-MODULE JSON:
+COMPACT JSON OUTPUT (NO rationale, NO comments):
 {
   "modules": [
     {
       "module": "MOOD|CBT|OCD|BREATHWORK",
       "confidence": 0.0-1.0,
-      "clauses": [clause_indices],
+      "clauses": [0,1,2],
       "fields": {
-        // Module-specific fields based on type
-        // MOOD: mood, energy, anxiety, sleep_quality, physical_symptoms
-        // OCD: category, severity, resistance, frequency, obsessive_thought, compulsive_behavior
-        // CBT: thought, distortions, intensity, evidence_for, evidence_against
-        // BREATHWORK: anxiety_level, recommended_protocol
-      },
-      "rationale": "why this module was detected"
+        // ONLY essential numeric/string values
+      }
     }
   ],
-  "suggestion": "overall helpful message",
-  
-  // Legacy single-module support (for backward compatibility)
-  "type": "primary module if single intent",
-  "confidence": "primary confidence",
-  // Include primary module's fields directly for legacy support
+  "suggestion": "Turkish message",
+  "type": "primary_module",
+  "confidence": 0.0-1.0
 }
 
 CRITICAL: RETURN ONLY VALID JSON, NO MARKDOWN, NO BACKTICKS, NO EXPLANATION!
@@ -1851,7 +1843,7 @@ DO NOT WRAP IN MARKDOWN CODE BLOCKS!`;
         }],
         generationConfig: {
           temperature: 0.1,  // Lower = more consistent JSON
-          maxOutputTokens: 400, // Slightly more for complete responses
+          maxOutputTokens: 600, // INCREASED: Multi-module needs more tokens
           topP: 0.95,
           topK: 40
         }
@@ -2074,9 +2066,27 @@ DO NOT WRAP IN MARKDOWN CODE BLOCKS!`;
             const missingBraces = openBraces - closeBraces;
             const missingBrackets = openBrackets - closeBrackets;
             
-            // Check if last character is incomplete string
-            if (extractedJson.match(/[^"]\s*$/)) {
+            // Smart completion based on context
+            const lastChars = extractedJson.slice(-50);
+            
+            // Check if we're in a string value
+            const inString = (lastChars.match(/"/g) || []).length % 2 === 1;
+            if (inString) {
               extractedJson += '"';
+            }
+            
+            // Check if we need a field value
+            if (lastChars.match(/:\s*$/)) {
+              extractedJson += 'null';
+            }
+            
+            // Add suggestion if missing
+            if (!extractedJson.includes('"suggestion"')) {
+              if (extractedJson.match(/,\s*$/)) {
+                extractedJson += '"suggestion":"Analiz tamamlandı."';
+              } else {
+                extractedJson += ',"suggestion":"Analiz tamamlandı."';
+              }
             }
             
             // Close brackets first, then braces
