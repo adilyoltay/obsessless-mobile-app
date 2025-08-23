@@ -361,8 +361,8 @@ export const DECISION_THRESHOLDS = {
   MAX_DIRECT_SAVES: 2,      // Tek check-in'de max direkt kayıt
   MAX_DRAFT_SUGGESTIONS: 1, // Max taslak öneri sayısı
   
-  // Performance limits - v4.2 UPDATED
-  LLM_TIMEOUT_MS: 3000,     // LLM timeout artırıldı (1.5s -> 3s)
+  // Performance limits - v4.2.1 UPDATED for stability
+  LLM_TIMEOUT_MS: 4500,     // LLM timeout increased for complex JSON (3s -> 4.5s)
   MAX_LLM_RETRIES: 2,       // Max retry sayısı
   
   // Confidence calibration weights
@@ -749,8 +749,55 @@ export async function multiIntentVoiceAnalysis(text: string, userId?: string): P
     };
   }
   
-  // 5. Fallback - default MOOD
-  console.log('⚠️ No clear module detected, defaulting to MOOD');
+  // 5. 🚨 ULTIMATE FALLBACK - Emergency keyword-based classification
+  console.log('⚠️ No clear module detected, using emergency classification');
+  
+  const lowerText = text.toLowerCase();
+  
+  // Emergency OCD patterns - more aggressive detection
+  if (lowerText.includes('yıka') || lowerText.includes('temizl') || lowerText.includes('mikrop') ||
+      lowerText.includes('kontrol') || lowerText.includes('açık') || lowerText.includes('kapı') ||
+      lowerText.includes('tekrar') || lowerText.includes('emin') || lowerText.includes('takıntı') ||
+      lowerText.includes('zorunlu') || lowerText.includes('kere')) {
+    
+    console.log('🚨 Emergency OCD classification activated');
+    return {
+      type: 'OCD',
+      confidence: 0.65, // Higher emergency confidence  
+      modules: [{
+        module: 'OCD',
+        confidence: 0.65,
+        clauses: [0],
+        fields: { category: 'general' },
+        rationale: 'Emergency keyword-based OCD detection'
+      }],
+      originalText: text,
+      suggestion: 'OCD davranışı tespit edildi (acil analiz)'
+    };
+  }
+  
+  // Emergency CBT patterns
+  if (lowerText.includes('keşke') || lowerText.includes('herkes') || lowerText.includes('başarısız') ||
+      lowerText.includes('aptal') || lowerText.includes('değersiz') || lowerText.includes('mahvoldum')) {
+    
+    console.log('🚨 Emergency CBT classification activated');
+    return {
+      type: 'CBT',
+      confidence: 0.6,
+      modules: [{
+        module: 'CBT',
+        confidence: 0.6,
+        clauses: [0], 
+        fields: { thought: text.substring(0, 100) },
+        rationale: 'Emergency keyword-based CBT detection'
+      }],
+      originalText: text,
+      suggestion: 'Olumsuz düşünce tespit edildi'
+    };
+  }
+  
+  // Default fallback to MOOD with clear indication
+  console.log('🔄 Final fallback to MOOD');
   return {
     type: 'MOOD',
     confidence: 0.3,
@@ -1808,7 +1855,7 @@ RETURN MULTI-MODULE JSON:
         }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 500, // INCREASED: JSON truncation fix
+          maxOutputTokens: 350, // BALANCED: Enough for JSON but not too much for timeout
         }
       })
     });
@@ -2073,9 +2120,10 @@ Return ONLY this JSON format:
           const simpleResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(3000), // Shorter timeout for simple prompt
             body: JSON.stringify({
               contents: [{ parts: [{ text: simplePrompt }] }],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 150 }
+              generationConfig: { temperature: 0.1, maxOutputTokens: 180 } // Slightly more for complete JSON
             })
           });
           
