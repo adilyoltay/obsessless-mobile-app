@@ -447,13 +447,22 @@ export default function TodayScreen() {
         setInsightsConfidence(0.85);
       }
       
-      // Track telemetry
+      // Track telemetry - Zenginleştirilmiş
       await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
         userId: user.id,
         processingTime: Date.now() - startTime,
         cacheHit: result.metadata.source === 'cache',
         moduleCount: 4, // compulsions + cbt + mood + breathwork
-        dataPoints: sanitizedData.compulsions.length + sanitizedData.cbtRecords.length + sanitizedData.moods.length + sanitizedData.breathworkSessions.length
+        dataPoints: sanitizedData.compulsions.length + sanitizedData.cbtRecords.length + sanitizedData.moods.length + sanitizedData.breathworkSessions.length,
+        insightsCount: result.insights ? 
+          (result.insights.therapeutic?.length || 0) + (result.insights.progress?.length || 0) : 0,
+        source: 'all_modules_integrated',
+        moduleBreakdown: {
+          compulsions: sanitizedData.compulsions.length,
+          cbt: sanitizedData.cbtRecords.length,
+          mood: sanitizedData.moods.length,
+          breathwork: sanitizedData.breathworkSessions.length
+        }
       });
       
     } catch (error) {
@@ -778,6 +787,32 @@ export default function TodayScreen() {
           breathwork: weeklyBreathwork.length
         }
       });
+      
+      // ✅ PERFORMANS: Weekly summary cache - Future optimization için hazır
+      try {
+        const summaryCache = {
+          timestamp: Date.now(),
+          weeklyTotals: {
+            compulsions: weeklyCompulsions.length,
+            cbt: weeklyCBT.length,
+            mood: moodEntries.length,
+            breathwork: weeklyBreathwork.length
+          },
+          todayTotals: {
+            compulsions: todayCompulsions.length,
+            cbt: todayCBT.length,
+            mood: todayMood.length,
+            breathwork: todayBreathwork.length
+          }
+        };
+        
+        // Cache weekly summary for progressive UI (future enhancement)
+        await AsyncStorage.setItem(`weekly_summary_${user.id}`, JSON.stringify(summaryCache));
+        console.log('💾 Weekly summary cached for progressive UI');
+      } catch (cacheError) {
+        console.warn('⚠️ Weekly summary caching failed:', cacheError);
+        // Non-blocking error, continue
+      }
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -1137,7 +1172,8 @@ export default function TodayScreen() {
                     {FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && (
                       <Text style={[styles.aiInsightConfidence, { marginLeft: 10 }]}>
                         Kaynak: {insightsSource === 'cache' ? 'Önbellek' : 
-                                insightsSource === 'heuristic' ? 'Hızlı Analiz' : 'Derin Analiz'}
+                                insightsSource === 'heuristic' ? 'Hızlı Analiz' : 
+                                'Tüm Modüller'}
                       </Text>
                     )}
                   </View>
@@ -1166,7 +1202,7 @@ export default function TodayScreen() {
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="calendar-today" size={30} color="#10B981" />
         <Text style={styles.quickStatValue}>{todayStats.compulsions}</Text>
-        <Text style={styles.quickStatLabel}>Today</Text>
+        <Text style={styles.quickStatLabel}>Kayıt</Text>
       </View>
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="fire" size={30} color="#F59E0B" />
@@ -1176,7 +1212,7 @@ export default function TodayScreen() {
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="star-outline" size={30} color="#8B5CF6" />
         <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
-        <Text style={styles.quickStatLabel}>Bugün</Text>
+        <Text style={styles.quickStatLabel}>Puan</Text>
       </View>
     </View>
   );
@@ -1202,7 +1238,11 @@ export default function TodayScreen() {
             <Text style={styles.moduleTitle}>OCD</Text>
           </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.compulsions}</Text>
-          <Text style={styles.moduleSubtext}>7 günlük kayıt</Text>
+          <Text style={styles.moduleSubtext}>
+            {todayStats.weeklyProgress.compulsions > 0 
+              ? `${todayStats.resistanceWins}/${todayStats.compulsions} direnç` 
+              : 'Kayıt bekliyor'}
+          </Text>
           <View style={styles.moduleFooter}>
             <Text style={styles.moduleAction}>Detaylar →</Text>
           </View>
@@ -1218,7 +1258,11 @@ export default function TodayScreen() {
             <Text style={styles.moduleTitle}>CBT</Text>
           </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.cbt}</Text>
-          <Text style={styles.moduleSubtext}>Düşünce kaydı</Text>
+          <Text style={styles.moduleSubtext}>
+            {todayStats.weeklyProgress.cbt > 0 
+              ? 'Düşünce kaydı' 
+              : 'Henüz kayıt yok'}
+          </Text>
           <View style={styles.moduleFooter}>
             <Text style={styles.moduleAction}>Devam Et →</Text>
           </View>
@@ -1234,7 +1278,11 @@ export default function TodayScreen() {
             <Text style={styles.moduleTitle}>Mood</Text>
           </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.mood}</Text>
-          <Text style={styles.moduleSubtext}>Check-in</Text>
+          <Text style={styles.moduleSubtext}>
+            {todayStats.weeklyProgress.mood > 0 
+              ? 'Check-in yapıldı' 
+              : 'Bugün henüz yok'}
+          </Text>
           <View style={styles.moduleFooter}>
             <Text style={styles.moduleAction}>Görüntüle →</Text>
           </View>
@@ -1250,9 +1298,15 @@ export default function TodayScreen() {
             <Text style={styles.moduleTitle}>Nefes</Text>
           </View>
           <Text style={styles.moduleCount}>{todayStats.weeklyProgress.breathwork}</Text>
-          <Text style={styles.moduleSubtext}>Oturum</Text>
+          <Text style={styles.moduleSubtext}>
+            {todayStats.weeklyProgress.breathwork > 0 
+              ? 'Oturum tamamlandı' 
+              : 'Hazır mısın?'}
+          </Text>
           <View style={styles.moduleFooter}>
-            <Text style={styles.moduleAction}>Başla →</Text>
+            <Text style={styles.moduleAction}>
+              {todayStats.weeklyProgress.breathwork > 0 ? 'Tekrar Et →' : 'Başla →'}
+            </Text>
           </View>
         </Pressable>
       </View>
