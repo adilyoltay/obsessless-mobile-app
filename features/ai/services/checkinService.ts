@@ -157,16 +157,19 @@ function normalizeTurkishText(text: string): string {
  * Rapor önerisi: Clause-based analysis
  */
 function segmentUtterance(text: string): string[] {
-  // Segmentasyon delimiters
+  // 🎯 ENHANCED SEGMENTATION - Rapor önerileri
   const delimiters = [
-    // Bağlaçlar
+    // Temel bağlaçlar
     ' ve ', ' ama ', ' fakat ', ' ancak ', ' lakin ', ' oysa ', ' halbuki ',
     ' çünkü ', ' zira ', ' yoksa ', ' veya ', ' ya da ', ' hem de ',
+    // Gelişmiş kalıplar
+    ' hem ', ' ne de ', ' ama hala ', ' ama yine de ', ' buna rağmen ',
+    ' keşke ', ' sanki ', ' gibi ', ' diye ',
     // Zaman/sıra belirteçleri
     ' sonra ', ' önce ', ' şimdi ', ' ayrıca ', ' bunun yanında ', ' bir de ',
-    ' aynı zamanda ', ' diğer taraftan ', ' öte yandan ',
+    ' aynı zamanda ', ' diğer taraftan ', ' öte yandan ', ' bunun üzerine ',
     // Noktalama
-    '.', '!', '?', ';'
+    '.', '!', '?', ';', ' - ', ' – '
   ];
   
   let clauses = [text];
@@ -198,8 +201,24 @@ function segmentUtterance(text: string): string[] {
     }
   }
   
-  console.log('📝 Segmented clauses:', finalClauses);
-  return finalClauses;
+  // 🎯 POST-PROCESSING: Sayısal ifadeleri ve yan tümceleri koru
+  const processedClauses = finalClauses.map(clause => {
+    // Sayısal ifadeleri normalize et
+    let processed = clause
+      .replace(/(\d+)\s*(kere|kez|defa)/gi, (match, num) => `[FREQUENCY:${num}] ${match}`)
+      .replace(/(\d+)\s*(dakika|dk|saat|sa)/gi, (match, num, unit) => `[DURATION:${num}${unit}] ${match}`)
+      .replace(/(\d+)\s*\/\s*10/gi, (match, num) => `[INTENSITY:${num}/10] ${match}`);
+    
+    // Yan tümceleri işaretle (CBT situation için)
+    if (processed.includes('iken') || processed.includes('ken')) {
+      processed = `[SITUATION] ${processed}`;
+    }
+    
+    return processed;
+  });
+  
+  console.log('📝 Segmented clauses:', processedClauses);
+  return processedClauses;
 }
 
 /**
@@ -290,6 +309,95 @@ export async function trackRouteSuggested(route: RouteDecision, meta: Record<str
 export const LLM_ROUTER_ENABLED = () => FEATURE_FLAGS.isEnabled('LLM_ROUTER');
 
 /**
+ * 🎯 DECISION THRESHOLDS - Rapor önerisi: Kalibre edilebilir eşikler
+ */
+export const DECISION_THRESHOLDS = {
+  // Module acceptance thresholds
+  ACCEPT_DIRECT: 0.80,     // >= 0.80: Direkt kabul, auto-save
+  CONFIRM_NEEDED: 0.65,     // 0.65-0.80: Kullanıcı onayı gerekli
+  ABSTAIN_THRESHOLD: 0.65,  // < 0.65: Belirsiz, soru sor
+  
+  // Multi-module limits
+  MAX_DIRECT_SAVES: 2,      // Tek check-in'de max direkt kayıt
+  MAX_DRAFT_SUGGESTIONS: 1, // Max taslak öneri sayısı
+  
+  // Performance limits
+  LLM_TIMEOUT_MS: 1500,     // LLM timeout süresi
+  MAX_LLM_RETRIES: 2,       // Max retry sayısı
+  
+  // Confidence calibration weights
+  LLM_WEIGHT: 0.6,          // LLM skor ağırlığı
+  HEURISTIC_WEIGHT: 0.4,    // Heuristik skor ağırlığı
+};
+
+/**
+ * 🎯 AUTO-SAVE POLICY - Modül bazlı alan gereksinimleri
+ */
+const AUTO_SAVE_REQUIREMENTS = {
+  MOOD: {
+    required: ['mood'],
+    optional: ['energy', 'anxiety', 'sleep_quality', 'trigger'],
+    minFields: 1, // En az 1 zorunlu alan
+    canAutoSave: (fields: any) => fields.mood !== undefined && fields.mood >= 0 && fields.mood <= 100
+  },
+  CBT: {
+    required: ['thought'],
+    optional: ['distortions', 'evidence_for', 'evidence_against', 'situation'],
+    minFields: 1,
+    canAutoSave: (fields: any) => !!fields.thought && fields.thought.length > 10
+  },
+  OCD: {
+    required: ['category', 'severity'],
+    optional: ['compulsive_behavior', 'obsessive_thought', 'frequency', 'duration_minutes'],
+    minFields: 2,
+    canAutoSave: (fields: any) => !!fields.category && fields.severity >= 1 && fields.severity <= 10
+  },
+  BREATHWORK: {
+    required: ['anxietyLevel'],
+    optional: ['panic', 'recommended_protocol'],
+    minFields: 1,
+    canAutoSave: (fields: any) => fields.anxietyLevel >= 7 // Yüksek anksiyete
+  }
+};
+
+/**
+ * Check if module has sufficient data for auto-save
+ */
+function checkAutoSaveEligibility(module: ModuleType, fields: any): {eligible: boolean; reason?: string} {
+  const policy = AUTO_SAVE_REQUIREMENTS[module];
+  if (!policy) {
+    return { eligible: false, reason: 'Bilinmeyen modül tipi' };
+  }
+  
+  // Check if can auto-save
+  if (!policy.canAutoSave(fields)) {
+    const missingFields = policy.required.filter(f => !fields[f]);
+    return { 
+      eligible: false, 
+      reason: `Eksik alanlar: ${missingFields.join(', ')}` 
+    };
+  }
+  
+  // Count filled optional fields for bonus
+  const optionalFilled = policy.optional.filter(f => fields[f] !== undefined).length;
+  if (optionalFilled > 0) {
+    console.log(`✅ ${module}: ${optionalFilled} bonus alan dolu`);
+  }
+  
+  // 📊 Track field completeness
+  trackAIInteraction(AIEventType.FIELD_COMPLETENESS, {
+    module,
+    requiredFilled: policy.required.filter(f => fields[f] !== undefined).length,
+    requiredTotal: policy.required.length,
+    optionalFilled,
+    optionalTotal: policy.optional.length,
+    autoSaveEligible: true
+  });
+  
+  return { eligible: true };
+}
+
+/**
  * 🚀 MULTI-INTENT VOICE ANALYSIS v4.0
  * Tek cümlede birden fazla modül tespit edebilir
  * Clause segmentasyonu ve çoklu kayıt desteği
@@ -328,7 +436,7 @@ export async function multiIntentVoiceAnalysis(text: string, userId?: string): P
   
   // 3. LLM kararı (çoklu modül veya düşük güven)
   const needsLLM = heuristicModules.length > 1 || 
-                   heuristicModules.some(m => m.confidence < 0.65) ||
+                   heuristicModules.some(m => m.confidence < DECISION_THRESHOLDS.ABSTAIN_THRESHOLD) ||
                    text.length > 100;
   
   if (needsLLM && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
@@ -339,14 +447,55 @@ export async function multiIntentVoiceAnalysis(text: string, userId?: string): P
       if (llmResult?.modules && llmResult.modules.length > 0) {
         console.log(`✅ LLM detected ${llmResult.modules.length} modules`);
         
-        // Birleştirilmiş sonuç
+        // 🎯 CONFIDENCE CALIBRATION - Weighted combination
+        const combinedModules = llmResult.modules.map(llmModule => {
+          // Find matching heuristic module
+          const heuristicModule = heuristicModules.find(h => h.module === llmModule.module);
+          
+          if (heuristicModule) {
+            // Combine scores using configured weights
+            const calibratedConfidence = (DECISION_THRESHOLDS.LLM_WEIGHT * llmModule.confidence) + 
+                                         (DECISION_THRESHOLDS.HEURISTIC_WEIGHT * heuristicModule.confidence);
+            
+            // Normalize to [0.1, 0.95] range
+            const normalizedConfidence = Math.min(0.95, Math.max(0.1, calibratedConfidence));
+            
+            console.log(`📊 Calibrated ${llmModule.module}: LLM=${llmModule.confidence.toFixed(2)}, Heur=${heuristicModule.confidence.toFixed(2)}, Final=${normalizedConfidence.toFixed(2)}`);
+            
+            return {
+              ...llmModule,
+              confidence: normalizedConfidence,
+              rationale: `LLM+Heuristic combined`
+            };
+          }
+          
+          // Only LLM score available
+          return {
+            ...llmModule,
+            confidence: Math.min(0.95, Math.max(0.1, llmModule.confidence))
+          };
+        });
+        
+        // Sort by calibrated confidence
+        combinedModules.sort((a, b) => b.confidence - a.confidence);
+        
+        // 📊 Track routing decision
+        await trackAIInteraction(AIEventType.CHECKIN_ROUTING_DECISION, {
+          userId,
+          predicted_modules: combinedModules.map(m => m.module),
+          scores: combinedModules.map(m => m.confidence),
+          chosen: combinedModules[0].module,
+          needsConfirmation: combinedModules[0].confidence < 0.65,
+          source: 'llm_heuristic_combined'
+        });
+        
         return {
-          type: llmResult.modules[0].module,
-          confidence: llmResult.modules[0].confidence,
-          modules: llmResult.modules,
+          type: combinedModules[0].module,
+          confidence: combinedModules[0].confidence,
+          modules: combinedModules,
           clauses,
           originalText: text,
-          suggestion: llmResult.suggestion || `${llmResult.modules.length} konu tespit edildi`
+          suggestion: llmResult.suggestion || `${combinedModules.length} konu tespit edildi`
         };
       }
     }
@@ -600,17 +749,25 @@ function multiClassHeuristic(clause: string): Array<{module: ModuleType; confide
   const cbtScore = calculateWeightedScore(cbtPatterns, lower, normalizedClause);
   const breathworkScore = calculateWeightedScore(breathworkPatterns, lower, normalizedClause);
   
-  // Eşik üstü skorları ekle (0.3 minimum)
-  if (moodScore.confidence > 0.3) {
+  // 🎯 CALIBRATED THRESHOLDS - Modül bazlı eşikler
+  const MODULE_THRESHOLDS = {
+    MOOD: 0.25,      // Daha düşük eşik (genellikle default)
+    OCD: 0.35,       // Orta eşik (spesifik pattern gerekli)
+    CBT: 0.40,       // Yüksek eşik (çarpıtma tespiti zor)
+    BREATHWORK: 0.45 // En yüksek eşik (nadir durum)
+  };
+  
+  // Eşik üstü skorları ekle
+  if (moodScore.confidence > MODULE_THRESHOLDS.MOOD) {
     scores.push({ module: 'MOOD', confidence: moodScore.confidence });
   }
-  if (ocdScore.confidence > 0.3) {
+  if (ocdScore.confidence > MODULE_THRESHOLDS.OCD) {
     scores.push({ module: 'OCD', confidence: ocdScore.confidence });
   }
-  if (cbtScore.confidence > 0.3) {
+  if (cbtScore.confidence > MODULE_THRESHOLDS.CBT) {
     scores.push({ module: 'CBT', confidence: cbtScore.confidence });
   }
-  if (breathworkScore.confidence > 0.3) {
+  if (breathworkScore.confidence > MODULE_THRESHOLDS.BREATHWORK) {
     scores.push({ module: 'BREATHWORK', confidence: breathworkScore.confidence });
   }
   
@@ -1145,8 +1302,13 @@ async function cacheSimilarResult(text: string, result: UnifiedAnalysisResult, u
  * - TR/EN dual language support
  * - Strict JSON schema enforcement
  */
-async function analyzeWithGemini(text: string, apiKey: string): Promise<UnifiedAnalysisResult | null> {
+async function analyzeWithGemini(text: string, apiKey: string, retryCount: number = 0): Promise<UnifiedAnalysisResult | null> {
   try {
+    // 🎯 TIMEOUT CONTROL - Configurable timeout
+    const timeoutMs = DECISION_THRESHOLDS.LLM_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
     // 🚀 MULTI-INTENT PROMPT v4.0 - Çoklu modül ve clause analizi
     const prompt = `You are an expert mental health assistant. Analyze the user's input for MULTIPLE mental health modules simultaneously.
 
@@ -1278,6 +1440,7 @@ CRITICAL RULES:
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: controller.signal, // Add abort signal for timeout
       body: JSON.stringify({
         contents: [{
           parts: [{
@@ -1290,6 +1453,9 @@ CRITICAL RULES:
         }
       })
     });
+
+    // Clear timeout if request completes
+    clearTimeout(timeoutId);
 
     console.log('📡 Gemini API Response Status:', response.status);
     
@@ -1411,8 +1577,29 @@ CRITICAL RULES:
       console.error('Gemini yanıtı parse edilemedi:', resultText);
       return null;
     }
-  } catch (error) {
+  } catch (error: any) {
+    // 🔄 RETRY LOGIC - Timeout veya parse hatası durumunda
+    if (error?.name === 'AbortError') {
+      console.warn(`⏱️ LLM timeout (${DECISION_THRESHOLDS.LLM_TIMEOUT_MS}ms), attempt ${retryCount + 1}/2`);
+      
+      if (retryCount < DECISION_THRESHOLDS.MAX_LLM_RETRIES) {
+        // Retry with simplified text
+        const simplifiedText = text.substring(0, 200);
+        return analyzeWithGemini(simplifiedText, apiKey, retryCount + 1);
+      }
+    }
+    
     console.error('Gemini API çağrısı başarısız:', error);
+    
+    // Track error with retry info
+    await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      provider: 'gemini',
+      textLength: text?.length || 0,
+      retryCount,
+      isTimeout: error?.name === 'AbortError'
+    });
+    
     return null;
   }
 }

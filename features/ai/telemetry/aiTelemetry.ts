@@ -258,6 +258,12 @@ export enum AIEventType {
   BREATHWORK_SUGGESTION_ACCEPTED = 'breathwork_suggestion_accepted',
   BREATHWORK_SESSION_COMPLETED = 'breathwork_session_completed',
   
+  // 🎯 Multi-Intent Events (NEW)
+  CHECKIN_ROUTING_DECISION = 'checkin_routing_decision',
+  CHECKIN_USER_CORRECTION = 'checkin_user_correction',
+  FIELD_COMPLETENESS = 'field_completeness',
+  MULTI_RECORD_TRANSACTION = 'multi_record_transaction',
+  
   // Dynamic Gamification events (NEW - Week 2)
   GAMIFICATION_DYNAMIC_POINTS_AWARDED = 'gamification_dynamic_points_awarded',
   GAMIFICATION_MISSIONS_GENERATED = 'gamification_missions_generated',
