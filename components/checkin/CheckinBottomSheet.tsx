@@ -26,7 +26,12 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
 import supabaseService from '@/services/supabase';
+import { supabase } from '@/lib/supabase';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
+import { moodTracker } from '@/services/moodTrackingService';
+
+// Types
+import type { CompulsionEntry } from '@/types/compulsion';
 
 // Utils
 import { sanitizePII } from '@/utils/privacy';
@@ -133,6 +138,8 @@ export default function CheckinBottomSheet({
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [quickEntrySource, setQuickEntrySource] = useState<string | null>(null);
   
   // Auto Record Modal State
   const [showAutoRecord, setShowAutoRecord] = useState(false);
@@ -416,6 +423,72 @@ export default function CheckinBottomSheet({
       return 3; // Low severity
     }
     return 5; // Default medium
+  };
+
+  // Helper function to extract data from voice text
+  const extractDataFromVoice = (text: string, type: string) => {
+    const lower = text.toLowerCase();
+    
+    if (type === 'OCD') {
+      // Detect category based on text
+      let category = 'genel';
+      if (/yıka|temiz|mikrop|kirli|hijyen/i.test(lower)) {
+        category = 'temizlik';
+      } else if (/kontrol|açık|kapalı|kapı|pencere|ocak/i.test(lower)) {
+        category = 'kontrol';
+      } else if (/simetri|düzen|hizala|sayı/i.test(lower)) {
+        category = 'simetri';
+      }
+      
+      return {
+        category,
+        severity: extractSeverityFromText(text),
+        trigger: text.substring(0, 100),
+        notes: text,
+        timestamp: new Date(),
+        type: category,
+        resistanceLevel: estimateResistanceFromText(text)
+      };
+    }
+    
+    return {};
+  };
+
+  // Helper function to check if data is sufficient for auto-record
+  const checkSufficientDataForAutoRecord = (data: any, type: string) => {
+    if (type === 'OCD') {
+      const hasSufficientData = data.category && data.severity && data.notes;
+      return {
+        hasSufficientData,
+        reason: hasSufficientData ? 'Yeterli bilgi mevcut' : 'Kompulsiyon kategorisi veya şiddet seviyesi belirlenemiyor'
+      };
+    }
+    return { hasSufficientData: false, reason: 'Bilinmeyen tür' };
+  };
+
+  // Helper function to save compulsion
+  const saveCompulsion = async (data: any) => {
+    try {
+      const { data: saved, error } = await supabase
+        .from('compulsions')
+        .insert({
+          user_id: user?.id,
+          type: data.type || 'genel',
+          notes: data.notes,
+          resistance_level: data.resistanceLevel || data.severity || 5,
+          trigger: data.trigger || '',
+          timestamp: data.timestamp?.toISOString() || new Date().toISOString(),
+          synced: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return saved;
+    } catch (error) {
+      console.error('Error saving compulsion:', error);
+      throw error;
+    }
   };
 
   // Auto Record Handlers
@@ -856,9 +929,93 @@ export default function CheckinBottomSheet({
    * Process a single module (extracted for reuse)
    */
   const processSingleModule = async (analysis: any, text: string, silent: boolean = false) => {
-    // Existing single-module logic will go here
-    // We'll move the current handleAnalysisResult logic here
-    return { module: analysis.type, success: true };
+    console.log(`🔄 Processing single module: ${analysis.type}`, { silent, fields: Object.keys(analysis) });
+    
+    try {
+      if (analysis.type === 'OCD') {
+        const extractedData = extractDataFromVoice(text, 'OCD');
+        const sufficientData = checkSufficientDataForAutoRecord(extractedData, 'OCD');
+        
+        if (sufficientData.hasSufficientData) {
+          // Auto-save OCD record
+          const ocdData = {
+            ...extractedData,
+            ...analysis.fields, // Override with LLM fields
+            timestamp: new Date(),
+            synced: false,
+          };
+          
+          await saveCompulsion(ocdData as CompulsionEntry);
+          console.log(`✅ OCD record auto-saved: ${ocdData.type}`);
+          return { module: 'OCD', success: true, data: ocdData };
+        } else {
+          // Show manual form
+          if (!silent) {
+            setShowQuickEntry(true);
+            setQuickEntrySource('voice');
+            setTimeout(() => {
+              router.push({
+                pathname: '/(tabs)/tracking',
+                params: { prefill: 'true', text, category: extractedData.category || 'genel', severity: String(extractedData.severity || 5) }
+              });
+            }, 100);
+          }
+          return { module: 'OCD', success: false, needsManual: true };
+        }
+      } 
+      else if (analysis.type === 'CBT') {
+        // CBT kayıt logic
+        const cbtData = {
+          thought: analysis.automatic_thought || analysis.thought || text,
+          distortions: analysis.distortions || [],
+          intensity: analysis.intensity || 5,
+          timestamp: new Date(),
+          synced: false,
+          userId: user?.id
+        };
+        
+        // Save CBT record
+        const { data, error } = await supabase
+          .from('cbt_thought_records')  
+          .insert(cbtData)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        console.log('✅ CBT record auto-saved:', data);
+        return { module: 'CBT', success: true, data };
+      }
+      else if (analysis.type === 'MOOD') {
+        const moodData = {
+          mood: analysis.mood_score || analysis.mood || 5,
+          energy: analysis.energy || 5,
+          anxiety: analysis.anxiety || 5,
+          notes: analysis.notes || text,
+          timestamp: new Date(),
+          synced: false,
+          userId: user?.id
+        };
+        
+        // Save mood entry using moodTracker
+        await moodTracker.saveMoodEntry({
+          ...moodData,
+          timestamp: moodData.timestamp.toISOString(),
+        } as any);
+        
+        console.log('✅ MOOD record auto-saved:', moodData);
+        return { module: 'MOOD', success: true, data: moodData };
+      }
+      else if (analysis.type === 'BREATHWORK') {
+        // BREATHWORK suggestion
+        console.log('🧘 BREATHWORK suggestion provided, no record needed');
+        return { module: 'BREATHWORK', success: true, suggestion: true };
+      }
+      
+      return { module: analysis.type, success: false, error: 'Unknown module type' };
+    } catch (error) {
+      console.error(`❌ Failed to process ${analysis.type}:`, error);
+      return { module: analysis.type, success: false, error };
+    }
   };
   
   const handleAnalysisResult = async (analysis: any, text: string) => {
