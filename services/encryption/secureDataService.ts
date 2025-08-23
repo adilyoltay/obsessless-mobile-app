@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
 
 export interface EncryptedData {
   ciphertext: string;
@@ -44,36 +45,84 @@ class SecureDataService {
   }
 
   async encryptData(data: unknown): Promise<EncryptedData> {
-    const key = await this.getOrCreateKey();
-    const { AES } = await import('react-native-simple-crypto');
-    const ivArr = new Uint8Array(12);
-    for (let i = 0; i < ivArr.length; i++) ivArr[i] = Math.floor(Math.random() * 256);
-    const iv = ivArr.buffer as ArrayBuffer; // 96-bit IV for GCM
-    const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
-    const ptBytes = this.utf8ToArrayBuffer(plaintext);
-    const ct = await AES.encrypt(ptBytes, key, iv);
-    return {
-      ciphertext: this.arrayBufferToBase64(ct),
-      iv: this.arrayBufferToBase64(iv),
-      algorithm: 'AES-256-GCM',
-      version: 1,
-    };
+    try {
+      const key = await this.getOrCreateKey();
+      const keyObject = await crypto.subtle.importKey(
+        'raw',
+        key,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      );
+      
+      // Generate random IV (96-bit for GCM)
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
+      const ptBytes = this.utf8ToArrayBuffer(plaintext);
+      
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        keyObject,
+        ptBytes
+      );
+      
+      return {
+        ciphertext: this.arrayBufferToBase64(encrypted),
+        iv: this.arrayBufferToBase64(iv.buffer),
+        algorithm: 'AES-256-GCM',
+        version: 1,
+      };
+    } catch (error) {
+      console.warn('⚠️ Web Crypto API not available, using fallback');
+      // Fallback: return hashed data instead of encrypted
+      const json = JSON.stringify(data);
+      const hash = await this.createHash(json);
+      return {
+        ciphertext: hash,
+        iv: '',
+        algorithm: 'SHA256_FALLBACK',
+        version: 0,
+      };
+    }
   }
 
   async decryptData(payload: EncryptedData): Promise<unknown> {
+    if (payload.algorithm === 'SHA256_FALLBACK') {
+      throw new Error('Cannot decrypt hashed data - use SHA256_FALLBACK only as last resort');
+    }
+    
     if (payload.algorithm !== 'AES-256-GCM') {
       throw new Error('Unsupported encryption algorithm');
     }
-    const key = await this.getOrCreateKey();
-    const { AES } = await import('react-native-simple-crypto');
-    const iv = this.base64ToArrayBuffer(payload.iv);
-    const ct = this.base64ToArrayBuffer(payload.ciphertext);
-    const pt = await AES.decrypt(ct, key, iv);
-    const text = this.arrayBufferToUtf8(pt);
+    
     try {
-      return JSON.parse(text);
-    } catch {
-      return text;
+      const key = await this.getOrCreateKey();
+      const keyObject = await crypto.subtle.importKey(
+        'raw',
+        key,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+      
+      const iv = this.base64ToArrayBuffer(payload.iv);
+      const ciphertext = this.base64ToArrayBuffer(payload.ciphertext);
+      
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        keyObject,
+        ciphertext
+      );
+      
+      const text = this.arrayBufferToUtf8(decrypted);
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    } catch (error) {
+      console.error('❌ Decryption failed:', error);
+      throw error;
     }
   }
 
@@ -105,6 +154,29 @@ class SecureDataService {
     const decoder = new TextDecoder();
     return decoder.decode(buffer);
   }
+
+  /**
+   * Create SHA-256 hash using expo-crypto
+   */
+  private async createHash(data: string): Promise<string> {
+    try {
+      return await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        data,
+        { encoding: Crypto.CryptoEncoding.HEX }
+      );
+    } catch (error) {
+      console.warn('⚠️ Crypto hashing failed, using simple hash');
+      // Fallback: simple hash algorithm
+      let hash = 0;
+      for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return Math.abs(hash).toString(16);
+    }
+  }
   
   /**
    * Enhanced encryption with integrity metadata (from dataEncryption.ts)
@@ -124,9 +196,8 @@ class SecureDataService {
       const encryptedResult = await this.encryptData(data);
       
       // Generate integrity hash for auditability
-      const { SHA } = await import('react-native-simple-crypto');
       const json = JSON.stringify(data);
-      const integrityHash = await SHA.sha256(json);
+      const integrityHash = await this.createHash(json);
       
       return {
         encrypted: encryptedResult.ciphertext,
@@ -141,10 +212,10 @@ class SecureDataService {
       console.error('❌ AES-256 encryption failed:', error);
       
       // Generate fallback hash instead of storing plaintext
-      const { SHA } = await import('react-native-simple-crypto');
       const json = JSON.stringify(data);
-      const fallbackHash = await SHA.sha256(json);
+      const fallbackHash = await this.createHash(json);
       
+      console.warn('⚠️ Encryption failed, using sanitized data:', error);
       return {
         encrypted: fallbackHash,
         iv: '',

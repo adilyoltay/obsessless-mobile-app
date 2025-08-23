@@ -239,9 +239,8 @@ export class UnifiedAIPipeline {
     // 2. Process through pipeline
     const result = await this.executePipeline(input);
     
-    // 3. Cache the result with module-specific TTL
-    const moduleTTL = this.getModuleTTL(input);
-    this.setCache(cacheKey, result, moduleTTL);
+    // 3. Smart cache with empty insights policy
+    this.setCacheWithInsightsPolicy(cacheKey, result, input);
     
     // 4. Track pipeline completion telemetry
     const processingTime = Date.now() - startTime;
@@ -322,9 +321,24 @@ export class UnifiedAIPipeline {
     // Wait for parallel analyses
     await Promise.allSettled(promises);
     
-    // 4. Insights Generation (depends on patterns, so run after)
+    // 4. Insights Generation with Voice→Insights Bridge (depends on patterns, so run after)
     if (result.patterns) {
-      result.insights = await this.processInsightsGeneration(input, result.patterns);
+      // 🎯 Voice→Insights Bridge: Pass voice analysis results as hints for better insights
+      const voiceHints = result.voice?.category ? {
+        voiceCategory: result.voice.category,
+        voiceConfidence: result.voice.confidence,
+        voiceSuggestion: result.voice.suggestion
+      } : undefined;
+      
+      const enhancedInput = voiceHints ? {
+        ...input,
+        context: {
+          ...input.context,
+          hints: voiceHints
+        }
+      } : input;
+      
+      result.insights = await this.processInsightsGeneration(enhancedInput, result.patterns);
     }
     
     return result;
@@ -396,8 +410,8 @@ export class UnifiedAIPipeline {
           // patterns.metadata.dataPoints += content.erpSessions.length; // Removed Terapi
         // } // Removed Terapi
         
-        // 2. BEHAVIORAL PATTERNS (Davranışsal kalıplar)
-        if (content.compulsions) {
+        // 2. BEHAVIORAL PATTERNS (Davranışsal kalıplar)  
+        if (content.compulsions && Array.isArray(content.compulsions)) {
           patterns.behavioral = this.extractBehavioralPatterns(content.compulsions);
         }
         
@@ -920,56 +934,99 @@ export class UnifiedAIPipeline {
         }
       };
       
-      // 1. TEMPORAL INSIGHTS (Zaman bazlı içgörüler)
+      // 1. VOICE-ENHANCED INSIGHTS (Ses analizi destekli)
+      const voiceHints = input.context?.hints;
+      if (voiceHints?.voiceCategory && voiceHints.voiceConfidence > 0.7) {
+        const voiceEnhancedInsights = this.generateVoiceEnhancedInsights(voiceHints, patterns);
+        insights.therapeutic.push(...voiceEnhancedInsights);
+        console.log(`🎤 Added ${voiceEnhancedInsights.length} voice-enhanced insights for category: ${voiceHints.voiceCategory}`);
+        
+        // 📊 Track voice insights application
+        try {
+          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+            userId: input.userId,
+            source: 'voice_enhanced_insights',
+            insightsHintsApplied: true,
+            voiceCategory: voiceHints.voiceCategory,
+            voiceConfidence: voiceHints.voiceConfidence,
+            enhancedInsightsCount: voiceEnhancedInsights.length,
+            originalPatternsCount: Object.keys(patterns).filter(k => patterns[k]?.length > 0).length
+          });
+        } catch (error) {
+          console.warn('⚠️ Voice insights telemetry failed:', error);
+        }
+      }
+
+      // 2. TEMPORAL INSIGHTS (Zaman bazlı içgörüler)
       if (patterns.temporal && patterns.temporal.length > 0) {
         const temporalInsights = this.generateTemporalInsights(patterns.temporal);
         insights.therapeutic.push(...temporalInsights);
       }
       
-      // 2. BEHAVIORAL INSIGHTS (Davranışsal içgörüler)
+      // 3. BEHAVIORAL INSIGHTS (Davranışsal içgörüler)
       if (patterns.behavioral && patterns.behavioral.length > 0) {
         const behavioralInsights = this.generateBehavioralInsights(patterns.behavioral);
         insights.behavioral.push(...behavioralInsights);
       }
       
-      // 3. TRIGGER INSIGHTS (Tetik içgörüleri)
+      // 4. TRIGGER INSIGHTS (Tetik içgörüleri)
       if (patterns.triggers && patterns.triggers.length > 0) {
         const triggerInsights = this.generateTriggerInsights(patterns.triggers);
         insights.therapeutic.push(...triggerInsights);
       }
       
-      // 4. SEVERITY PROGRESSION INSIGHTS (Şiddet seyri içgörüleri)
+      // 5. SEVERITY PROGRESSION INSIGHTS (Şiddet seyri içgörüleri)
       if (patterns.severity && patterns.severity.length > 0) {
         const severityInsights = this.generateSeverityInsights(patterns.severity);
         insights.progress.push(...severityInsights);
       }
       
-      // 5. ENVIRONMENTAL INSIGHTS (Çevresel içgörüler)
+      // 6. ENVIRONMENTAL INSIGHTS (Çevresel içgörüler)
       if (patterns.environmental && patterns.environmental.length > 0) {
         const environmentalInsights = this.generateEnvironmentalInsights(patterns.environmental);
         insights.therapeutic.push(...environmentalInsights);
       }
       
-      // 6. PROGRESS INSIGHTS (İlerleme içgörüleri)
+      // 7. PROGRESS INSIGHTS (İlerleme içgörüleri)
       const progressInsights = this.generateProgressInsights(patterns, input);
       insights.progress.push(...progressInsights);
       
-      // 7. MOTIVATIONAL INSIGHTS (Motivasyon içgörüleri)
+      // 8. MOTIVATIONAL INSIGHTS (Motivasyon içgörüleri)
       const motivationalInsights = this.generateMotivationalInsights(patterns);
       insights.motivational.push(...motivationalInsights);
       
-      // 8. CROSS-PATTERN INSIGHTS (Çapraz kalıp analizi)
+      // 9. CROSS-PATTERN INSIGHTS (Çapraz kalıp analizi)
       const crossPatternInsights = this.generateCrossPatternInsights(patterns);
       insights.therapeutic.push(...crossPatternInsights);
       
-      // 9. CALCULATE METADATA
+      // 10. CALCULATE METADATA
       insights.metadata = this.calculateInsightsMetadata(insights);
       
-      // 10. PRIORITIZE AND LIMIT INSIGHTS (En önemli içgörüleri seç)
+      // 11. PRIORITIZE AND LIMIT INSIGHTS (En önemli içgörüleri seç)
       insights.therapeutic = this.prioritizeInsights(insights.therapeutic).slice(0, 5);
       insights.progress = insights.progress.slice(0, 3);
       insights.behavioral = insights.behavioral.slice(0, 3);
       insights.motivational = insights.motivational.slice(0, 2);
+      
+      // 12. FALLBACK INSIGHT GENERATION (Boş sonuç önleme)
+      const totalInsights = insights.therapeutic.length + insights.progress.length + 
+                           insights.behavioral.length + insights.motivational.length;
+      
+      if (totalInsights === 0) {
+        console.log('⚠️ No primary insights generated, adding fallback insights...');
+        const fallbackInsights = this.generateFallbackInsights(patterns, input);
+        insights.therapeutic.push(...fallbackInsights.therapeutic);
+        insights.progress.push(...fallbackInsights.progress);
+        
+        // Track fallback usage for monitoring
+        trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          userId: input.userId,
+          source: 'fallback',
+          reason: 'no_primary_insights',
+          insightsCount: fallbackInsights.therapeutic.length + fallbackInsights.progress.length,
+          patternsAvailable: Object.keys(patterns).filter(k => patterns[k]?.length > 0)
+        }).catch(console.warn);
+      }
       
       return insights;
     } catch (error) {
@@ -1570,35 +1627,60 @@ export class UnifiedAIPipeline {
   // ============================================================================
   
   private extractTemporalPatterns(compulsions: any[]): any[] {
+    // Guard against undefined/null compulsions
+    if (!compulsions || !Array.isArray(compulsions)) return [];
+    
+    // 🚀 PERFORMANCE OPTIMIZATION: Sample recent entries only
+    // Recent patterns are more relevant and processing is much faster
+    const SAMPLE_SIZE = 50; // Process max 50 recent entries instead of all 101+
+    const recentCompulsions = compulsions
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, SAMPLE_SIZE);
+    
     // Group by hour of day
     const hourGroups = {};
     
-    compulsions.forEach(c => {
+    recentCompulsions.forEach(c => {
       const hour = new Date(c.timestamp).getHours();
       hourGroups[hour] = (hourGroups[hour] || 0) + 1;
     });
     
-    // Find peak hours
+    // Find peak hours with early exit
     const patterns = [];
-    Object.entries(hourGroups).forEach(([hour, count]) => {
-      if (count > 2) {
-        patterns.push({
-          type: 'peak_hour',
-          frequency: count as number,
-          timeOfDay: `${hour}:00`,
-          trend: 'stable'
-        });
-      }
-    });
+    const maxPatterns = 5; // Limit patterns to prevent over-processing
+    
+    Object.entries(hourGroups)
+      .sort(([,a], [,b]) => (b as number) - (a as number)) // Sort by frequency
+      .forEach(([hour, count]) => {
+        if (patterns.length >= maxPatterns) return; // Early exit
+        if (count > 2) {
+          patterns.push({
+            type: 'peak_hour',
+            frequency: count as number,
+            timeOfDay: `${hour}:00`,
+            trend: 'stable',
+            sampleSize: recentCompulsions.length
+          });
+        }
+      });
     
     return patterns;
   }
   
   private extractBehavioralPatterns(compulsions: any[]): any[] {
+    // Guard against undefined/null compulsions
+    if (!compulsions || !Array.isArray(compulsions)) return [];
+    
+    // 🚀 PERFORMANCE OPTIMIZATION: Sample recent entries only
+    const SAMPLE_SIZE = 50; // Process max 50 recent entries instead of all 101+
+    const recentCompulsions = compulsions
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, SAMPLE_SIZE);
+    
     // Group by trigger
     const triggerGroups = {};
     
-    compulsions.forEach(c => {
+    recentCompulsions.forEach(c => {
       const trigger = c.trigger || 'unknown';
       if (!triggerGroups[trigger]) {
         triggerGroups[trigger] = {
@@ -1607,19 +1689,27 @@ export class UnifiedAIPipeline {
         };
       }
       triggerGroups[trigger].count++;
-      triggerGroups[trigger].totalSeverity += c.severity || 5;
+      triggerGroups[trigger].totalSeverity += this.getCompulsionSeverity(c);
     });
     
-    // Convert to patterns
+    // Convert to patterns with early exit
     const patterns = [];
-    Object.entries(triggerGroups).forEach(([trigger, data]: [string, any]) => {
-      patterns.push({
-        trigger,
-        response: 'compulsion',
-        frequency: data.count,
-        severity: Math.round(data.totalSeverity / data.count)
+    const maxPatterns = 6; // Limit patterns to prevent over-processing
+    
+    Object.entries(triggerGroups)
+      .sort(([,a], [,b]) => (b as any).count - (a as any).count) // Sort by frequency
+      .forEach(([trigger, data]: [string, any]) => {
+        if (patterns.length >= maxPatterns) return; // Early exit
+        if (data.count >= 2) { // Only include meaningful triggers
+          patterns.push({
+            trigger,
+            response: 'compulsion',
+            frequency: data.count,
+            severity: Math.round(data.totalSeverity / data.count),
+            sampleSize: recentCompulsions.length
+          });
+        }
       });
-    });
     
     return patterns;
   }
@@ -1665,7 +1755,18 @@ export class UnifiedAIPipeline {
       if (memoryCache.expires < Date.now()) {
         this.cache.delete(key);
       } else {
-        return memoryCache.result;
+        // 🚫 NEGATIVE CACHE BYPASS: Skip empty insights with short TTL
+        const insightsCount = this.countTotalInsights(memoryCache.result);
+        const remainingTTL = memoryCache.expires - Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (insightsCount === 0 && remainingTTL < fiveMinutes) {
+          console.log(`🚫 Bypassing negative cache: insightsCount=${insightsCount}, remainingTTL=${Math.round(remainingTTL/60000)}min`);
+          this.cache.delete(key);
+          // Skip this cache entry and continue to fresh generation
+        } else {
+          return memoryCache.result;
+        }
       }
     }
     
@@ -1673,14 +1774,22 @@ export class UnifiedAIPipeline {
     try {
       const supabaseCached = await this.getFromSupabaseCache(key);
       if (supabaseCached) {
-        // Restore to memory cache for faster future access (use default TTL for restored cache)
-        this.cache.set(key, {
-          result: supabaseCached,
-          expires: Date.now() + this.MODULE_TTLS.default
-        });
+        // 🚫 NEGATIVE CACHE BYPASS: Check for empty insights before restoring
+        const insightsCount = this.countTotalInsights(supabaseCached);
         
-        console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
-        return supabaseCached;
+        if (insightsCount === 0) {
+          console.log(`🚫 Bypassing negative Supabase cache: insightsCount=${insightsCount}`);
+          // Don't restore empty cache to memory, continue to fresh generation
+        } else {
+          // Restore to memory cache for faster future access (use default TTL for restored cache)
+          this.cache.set(key, {
+            result: supabaseCached,
+            expires: Date.now() + this.MODULE_TTLS.default
+          });
+          
+          console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
+          return supabaseCached;
+        }
       }
     } catch (error) {
       console.warn('⚠️ Supabase cache read failed:', error);
@@ -1692,8 +1801,17 @@ export class UnifiedAIPipeline {
       if (offlineCache) {
         const parsed = JSON.parse(offlineCache);
         if (parsed.expires > Date.now()) {
-          console.log('📱 Cache restored from AsyncStorage:', key.substring(0, 30) + '...');
-          return parsed.result;
+          // 🚫 NEGATIVE CACHE BYPASS: Check for empty insights before restoring
+          const insightsCount = this.countTotalInsights(parsed.result);
+          
+          if (insightsCount === 0) {
+            console.log(`🚫 Bypassing negative AsyncStorage cache: insightsCount=${insightsCount}`);
+            await AsyncStorage.removeItem(key); // Clean up negative cache
+            // Continue to fresh generation
+          } else {
+            console.log('📱 Cache restored from AsyncStorage:', key.substring(0, 30) + '...');
+            return parsed.result;
+          }
         } else {
           await AsyncStorage.removeItem(key);
         }
@@ -1722,6 +1840,368 @@ export class UnifiedAIPipeline {
     this.persistToStorage(key, result);
     
     console.log(`📦 Cache set with ${Math.round(cacheTTL / (60 * 60 * 1000))}h TTL:`, key.substring(0, 30) + '...');
+  }
+
+  /**
+   * 🧠 Smart caching with empty insights policy
+   * - Don't cache results with 0 insights OR use short TTL (5-10 min)
+   * - Use full TTL for meaningful insights
+   */
+  private setCacheWithInsightsPolicy(key: string, result: UnifiedPipelineResult, input: UnifiedPipelineInput): void {
+    const insightsCount = this.countTotalInsights(result);
+    const moduleTTL = this.getModuleTTL(input);
+    
+    // If no insights, use short TTL to prevent negative caching
+    if (insightsCount === 0) {
+      const shortTTL = 5 * 60 * 1000; // 5 minutes
+      console.log(`📦 Empty insights detected (${insightsCount}), using short TTL: ${shortTTL / 60000}min`);
+      this.setCache(key, result, shortTTL);
+      
+      // Track empty insights caching for monitoring
+      trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        userId: input.userId,
+        source: 'empty_cache_policy',
+        insightsCount: 0,
+        cacheKey: key,
+        shortTTL: shortTTL
+      }).catch(console.warn);
+      
+      return;
+    }
+    
+    // Normal caching for meaningful results
+    console.log(`📦 Caching meaningful insights (${insightsCount}), using full TTL: ${Math.round(moduleTTL / (60 * 60 * 1000))}h`);
+    this.setCache(key, result, moduleTTL);
+  }
+
+  /**
+   * 📊 Count total insights across all categories
+   */
+  private countTotalInsights(result: UnifiedPipelineResult): number {
+    if (!result.insights) return 0;
+    
+    const { therapeutic = [], progress = [], behavioral = [], motivational = [] } = result.insights;
+    return therapeutic.length + progress.length + behavioral.length + motivational.length;
+  }
+
+  /**
+   * 🧹 Manual cache invalidation for cleaning up stale 0-insight entries
+   * Called when user adds/removes data to refresh cache state
+   */
+  public async invalidateStaleCache(): Promise<{ invalidated: number; reason: string }> {
+    let invalidatedCount = 0;
+    const reason = 'manual_refresh_cleanup';
+    
+    try {
+      // 1. Clean in-memory cache
+      const memoryKeys = Array.from(this.cache.keys());
+      for (const key of memoryKeys) {
+        const cached = this.cache.get(key);
+        if (cached && this.countTotalInsights(cached.result) === 0) {
+          this.cache.delete(key);
+          invalidatedCount++;
+          console.log(`🧹 Invalidated stale memory cache: ${key.substring(0, 30)}...`);
+        }
+      }
+      
+      // 2. Clean AsyncStorage cache (0-insight entries)
+      const allKeys = await AsyncStorage.getAllKeys();
+      const unifiedKeys = allKeys.filter(key => key.startsWith('unified:'));
+      
+      for (const key of unifiedKeys) {
+        try {
+          const cached = await AsyncStorage.getItem(key);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.result && this.countTotalInsights(parsed.result) === 0) {
+              await AsyncStorage.removeItem(key);
+              invalidatedCount++;
+              console.log(`🧹 Removed stale AsyncStorage cache: ${key.substring(0, 30)}...`);
+            }
+          }
+        } catch (error) {
+          // Ignore individual key errors, continue cleanup
+          console.warn(`⚠️ Failed to clean cache key ${key}:`, error);
+        }
+      }
+      
+      console.log(`✅ Cache cleanup completed: ${invalidatedCount} stale entries removed`);
+      
+      return { invalidated: invalidatedCount, reason };
+    } catch (error) {
+      console.error('❌ Cache cleanup failed:', error);
+      return { invalidated: invalidatedCount, reason: 'cleanup_failed' };
+    }
+  }
+
+  /**
+   * 📊 Analyze tracking trends for fallback patterns (moved from tracking screen)
+   * Generates local heuristic patterns from compulsion data
+   */
+  private analyzeTrackingTrends(entries: any[]): any[] {
+    if (!Array.isArray(entries) || entries.length < 5) return [];
+
+    const patterns = [];
+    
+    // Time-based patterns
+    const hourCounts = new Array(24).fill(0);
+    entries.forEach(entry => {
+      const timestamp = entry.timestamp || entry.created_at;
+      const hour = new Date(timestamp).getHours();
+      hourCounts[hour]++;
+    });
+    
+    const peakHours = hourCounts
+      .map((count, hour) => ({ hour, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    if (peakHours[0].count >= 3) {
+      patterns.push({
+        type: 'time_pattern',
+        title: `${peakHours[0].hour}:00 Saatinde Yoğunluk`,
+        description: `En çok kompülsiyon ${peakHours[0].hour}:00 saatinde yaşanıyor (${peakHours[0].count} kez).`,
+        suggestion: 'Bu saatlerde önleyici teknikler uygulayın.',
+        confidence: 0.8,
+        severity: 'medium'
+      });
+    }
+
+    // Resistance trends
+    const recentEntries = entries.slice(-10);
+    const resistanceSum = recentEntries.reduce((sum, e) => sum + (e.resistanceLevel || e.resistance_level || 5), 0);
+    const avgResistance = resistanceSum / recentEntries.length;
+    
+    if (avgResistance >= 7) {
+      patterns.push({
+        type: 'progress_pattern',
+        title: 'Güçlü Direnç Trendi',
+        description: `Son kompülsiyonlarda ortalama ${avgResistance.toFixed(1)} direnç seviyesi.`,
+        suggestion: 'Mükemmel ilerleme! Bu motivasyonu koruyun.',
+        confidence: 0.9,
+        severity: 'positive'
+      });
+    } else if (avgResistance <= 3) {
+      patterns.push({
+        type: 'warning_pattern',
+        title: 'Düşük Direnç Uyarısı',
+        description: `Son kompülsiyonlarda ortalama ${avgResistance.toFixed(1)} direnç seviyesi.`,
+        suggestion: 'Terapi egzersizleri ve mindfulness teknikleri deneyin.',
+        confidence: 0.85,
+        severity: 'warning'
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * 🔄 Generate fallback insights when primary analysis yields no results
+   * Creates basic actionable insights from available patterns data
+   */
+  private generateFallbackInsights(patterns: any, input: UnifiedPipelineInput): any {
+    const fallback = {
+      therapeutic: [],
+      progress: []
+    };
+
+    try {
+      // 🎯 ENHANCED FALLBACK: Integrate tracking screen patterns
+      if (input.content && typeof input.content === 'object' && Array.isArray(input.content.compulsions)) {
+        const compulsions = input.content.compulsions;
+        const trackingPatterns = this.analyzeTrackingTrends(compulsions);
+        
+        trackingPatterns.forEach(pattern => {
+          const insight = {
+            text: pattern.description + ' ' + pattern.suggestion,
+            category: pattern.type,
+            priority: pattern.severity === 'positive' ? 'high' : 'medium',
+            actionable: true,
+            confidence: pattern.confidence,
+            source: 'fallback_tracking'
+          };
+          
+          if (pattern.severity === 'positive') {
+            fallback.progress.push(insight);
+          } else {
+            fallback.therapeutic.push(insight);
+          }
+        });
+      }
+      
+      // 1. TEMPORAL PATTERN FALLBACKS (Original logic preserved)
+      if (patterns.temporal && patterns.temporal.length > 0) {
+        const peakPattern = patterns.temporal[0]; // Most significant temporal pattern
+        if (peakPattern.type === 'peak_hour' || peakPattern.frequency > 2) {
+          fallback.therapeutic.push({
+            text: `${peakPattern.timeOfDay || 'Belirli saatlerde'} daha yoğun aktivite görülüyor. Bu zamanlarda destek stratejilerini hatırlamak faydalı olabilir.`,
+            category: 'temporal_awareness',
+            priority: 'medium',
+            actionable: true,
+            confidence: 0.7,
+            source: 'fallback_temporal'
+          });
+        }
+      }
+
+      // 2. BEHAVIORAL PATTERN FALLBACKS  
+      if (patterns.behavioral && patterns.behavioral.length > 0) {
+        const dominantPattern = patterns.behavioral.sort((a, b) => (b.frequency || 0) - (a.frequency || 0))[0];
+        if (dominantPattern.trigger && dominantPattern.frequency > 1) {
+          fallback.therapeutic.push({
+            text: `En sık görülen tetik "${dominantPattern.trigger}" için alternatif başa çıkma stratejileri geliştirmek yararlı olabilir.`,
+            category: 'behavioral_insight',
+            priority: 'medium', 
+            actionable: true,
+            confidence: 0.6,
+            source: 'fallback_behavioral'
+          });
+        }
+      }
+
+      // 3. ENVIRONMENTAL/TRIGGER FALLBACKS
+      if (patterns.triggers && patterns.triggers.length > 0) {
+        const commonTrigger = patterns.triggers[0];
+        fallback.therapeutic.push({
+          text: `Çevresel faktörlerin etkisini fark etmek önemli bir adım. Tetikleyici durumları önceden tanımak güçlendirici olabilir.`,
+          category: 'environmental_awareness',
+          priority: 'low',
+          actionable: true,
+          confidence: 0.5,
+          source: 'fallback_environmental'
+        });
+      }
+
+      // 4. GENERAL PROGRESS FALLBACK (always available)
+      if (input.context?.source) {
+        fallback.progress.push({
+          text: `Veri toplama ve takip süreci aktif. Bu tutarlılık, ilerlemeyi değerlendirmek için değerli bir kaynak oluşturuyor.`,
+          category: 'progress_tracking',
+          priority: 'low',
+          actionable: true,
+          confidence: 0.8,
+          source: 'fallback_progress'
+        });
+      }
+
+      // 5. DATA QUALITY INSIGHTS
+      const dataPoints = patterns.metadata?.dataPoints || 0;
+      if (dataPoints >= 5) {
+        fallback.progress.push({
+          text: `${dataPoints} veri noktası toplandı. Bu bilgiler zaman içinde daha detaylı kalıp analizi için yeterli olacak.`,
+          category: 'data_sufficiency',
+          priority: 'low',
+          actionable: false,
+          confidence: 0.9,
+          source: 'fallback_data_quality'
+        });
+      }
+
+      console.log(`🔄 Generated ${fallback.therapeutic.length + fallback.progress.length} fallback insights`);
+
+    } catch (error) {
+      console.warn('Fallback insight generation failed:', error);
+      // Minimal safety fallback
+      fallback.therapeutic.push({
+        text: 'Veriler analiz ediliyor. Daha fazla veri toplandığında detaylı içgörüler sunulacak.',
+        category: 'system_status',
+        priority: 'low',
+        actionable: false,
+        confidence: 0.5,
+        source: 'fallback_minimal'
+      });
+    }
+
+    return fallback;
+  }
+
+  /**
+   * 🎤 Generate insights enhanced by voice analysis results
+   * Creates targeted insights based on detected voice category and confidence
+   */
+  private generateVoiceEnhancedInsights(voiceHints: any, patterns: any): any[] {
+    const insights: any[] = [];
+
+    try {
+      const { voiceCategory, voiceConfidence, voiceSuggestion } = voiceHints;
+
+      switch (voiceCategory) {
+        case 'OCD':
+          insights.push({
+            text: `Ses analizinde OKB ile ilişkili içerik tespit edildi. ${voiceSuggestion || 'Mevcut başa çıkma stratejilerinizi hatırlamak faydalı olabilir.'}`,
+            category: 'voice_ocd_detection', 
+            priority: 'high',
+            actionable: true,
+            confidence: voiceConfidence,
+            source: 'voice_enhanced'
+          });
+          
+          // Add pattern-specific OCD insight if behavioral patterns exist
+          if (patterns.behavioral && patterns.behavioral.length > 0) {
+            const dominantPattern = patterns.behavioral[0];
+            insights.push({
+              text: `Davranışsal kalıplar ve ses analizi birlikte değerlendirildiğinde, "${dominantPattern.trigger || 'belirli durumlar'}" için ERP teknikleri uygulamak yararlı olabilir.`,
+              category: 'voice_pattern_correlation',
+              priority: 'medium',
+              actionable: true,
+              confidence: Math.min(voiceConfidence, 0.8),
+              source: 'voice_enhanced'
+            });
+          }
+          break;
+
+        case 'CBT':
+          insights.push({
+            text: `Bilişsel distorsyonlar ile ilgili düşünceler tespit edildi. ${voiceSuggestion || 'Düşünce-duygu-davranış üçgenini incelemek faydalı olabilir.'}`,
+            category: 'voice_cbt_detection',
+            priority: 'high', 
+            actionable: true,
+            confidence: voiceConfidence,
+            source: 'voice_enhanced'
+          });
+          break;
+
+        case 'MOOD':
+          insights.push({
+            text: `Duygu durum ile ilgili ifadeler algılandı. ${voiceSuggestion || 'Mood tracking verileriniz ile birlikte değerlendirildiğinde daha detaylı analiz yapılabilir.'}`,
+            category: 'voice_mood_detection',
+            priority: 'medium',
+            actionable: true,
+            confidence: voiceConfidence,
+            source: 'voice_enhanced'
+          });
+          break;
+
+        case 'BREATHWORK':
+          insights.push({
+            text: `Nefes çalışması veya rahatlama ile ilgili gereksinim tespit edildi. ${voiceSuggestion || 'Derin nefes teknikleri şu anda yararlı olabilir.'}`,
+            category: 'voice_breathwork_suggestion',
+            priority: 'medium',
+            actionable: true,
+            confidence: voiceConfidence,
+            source: 'voice_enhanced'
+          });
+          break;
+
+        default:
+          // Generic voice-detected insight
+          if (voiceConfidence > 0.5) {
+            insights.push({
+              text: `Ses analizinde önemli içerik tespit edildi. Bu durum için mevcut destek stratejilerinizi kullanmayı değerlendirebilirsiniz.`,
+              category: 'voice_general_detection',
+              priority: 'low',
+              actionable: true,
+              confidence: voiceConfidence,
+              source: 'voice_enhanced'
+            });
+          }
+      }
+
+    } catch (error) {
+      console.warn('Voice-enhanced insight generation failed:', error);
+    }
+
+    return insights;
   }
   
   private async persistToStorage(key: string, result: UnifiedPipelineResult): Promise<void> {
@@ -1814,22 +2294,22 @@ export class UnifiedAIPipeline {
   
   private setupInvalidationHooks(): void {
     // Hook: New compulsion recorded
-    this.invalidationHooks.set('compulsion_added', () => {
+    this.invalidationHooks.set('compulsion_added', async () => {
       // ✅ FIXED: Invalidate patterns, insights, AND progress as per specification
-      this.invalidateUserCache('patterns');
-      this.invalidateUserCache('insights'); 
-      this.invalidateUserCache('progress');
+      await this.invalidateUserCache('patterns');
+      await this.invalidateUserCache('insights'); 
+      await this.invalidateUserCache('progress');
       console.log('🔄 Cache invalidated: patterns + insights + progress (compulsion_added)');
     });
     
     // Hook: CBT thought record created/updated
-    this.invalidationHooks.set('cbt_record_added', () => {
-      this.invalidateUserCache('insights');
+    this.invalidationHooks.set('cbt_record_added', async () => {
+      await this.invalidateUserCache('insights');
     });
     
     // Hook: Mood entry added
-    this.invalidationHooks.set('mood_added', () => {
-      this.invalidateUserCache('all');
+    this.invalidationHooks.set('mood_added', async () => {
+      await this.invalidateUserCache('all');
     });
     
     // Hook: Manual refresh requested
@@ -1841,35 +2321,60 @@ export class UnifiedAIPipeline {
     // REMOVED: erp_completed - ERP module deleted
   }
   
-  public triggerInvalidation(hook: string, userId?: string): void {
+  public async triggerInvalidation(hook: string, userId?: string): Promise<void> {
     const handler = this.invalidationHooks.get(hook);
     if (handler) {
-      handler();
+      await handler();
     }
     
     // Track invalidation
-    trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
+    await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
       hook,
       userId,
       timestamp: Date.now()
     });
   }
   
-  private invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'cbt' | 'voice' | 'all', userId?: string): void {
+  private async invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'cbt' | 'voice' | 'all', userId?: string): Promise<void> {
     const keysToDelete: string[] = [];
     
     this.cache.forEach((_, key) => {
+      // For unified pipeline cache keys, we need to match user and invalidate based on type
       if (userId && !key.includes(userId)) return;
       
-      if (type === 'all' || key.includes(type)) {
-        keysToDelete.push(key);
+      // Since unified pipeline cache keys are "unified:userId:hash", we need to invalidate differently
+      if (type === 'all') {
+        // Invalidate all unified pipeline keys for this user
+        if (key.startsWith('unified:')) {
+          keysToDelete.push(key);
+        }
+      } else {
+        // For specific types, invalidate all unified keys (since they contain mixed data)
+        // This ensures any cache that might contain the changed data type is cleared
+        if (key.startsWith('unified:')) {
+          keysToDelete.push(key);
+        }
       }
     });
     
+    const deletedCount = keysToDelete.length;
     keysToDelete.forEach(key => this.cache.delete(key));
     
+    // 📊 CRITICAL FIX: Track cache invalidation telemetry
+    if (deletedCount > 0) {
+      await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
+        userId: userId || 'unknown',
+        invalidationType: type,
+        keysDeleted: deletedCount,
+        cacheKeys: keysToDelete.slice(0, 3), // First 3 keys for debugging
+        timestamp: Date.now()
+      });
+      
+      console.log(`🗑️ Cache invalidated: ${type} (${deletedCount} keys deleted)`);
+    }
+    
     // Also invalidate Supabase cache
-    this.invalidateSupabaseCache(type, userId);
+    await this.invalidateSupabaseCache(type, userId);
   }
   
   /**
@@ -2400,41 +2905,7 @@ export class UnifiedAIPipeline {
   // 🔧 MISSING PATTERN EXTRACTION METHODS
   // ============================================================================
 
-  /**
-   * Extract temporal patterns from compulsions
-   */
-  private extractTemporalPatterns(compulsions: any[]): any[] {
-    try {
-      const patterns: any[] = [];
-      if (!compulsions || compulsions.length === 0) return patterns;
 
-      // Group by hour to find time-based patterns
-      const hourlyData: Record<number, number> = {};
-      compulsions.forEach(c => {
-        if (c.timestamp) {
-          const hour = new Date(c.timestamp).getHours();
-          hourlyData[hour] = (hourlyData[hour] || 0) + 1;
-        }
-      });
-
-      // Find peak hours
-      const peakHours = Object.entries(hourlyData)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 3)
-        .map(([hour, count]) => ({
-          type: 'temporal',
-          description: `Peak activity at ${hour}:00`,
-          pattern: `${hour}:00 saati yoğunluk`,
-          confidence: Math.min(0.9, count / compulsions.length * 2)
-        }));
-
-      patterns.push(...peakHours);
-      return patterns;
-    } catch (error) {
-      console.warn('⚠️ Error extracting temporal patterns:', error);
-      return [];
-    }
-  }
 
   /**
    * Extract mood temporal patterns
@@ -2444,32 +2915,45 @@ export class UnifiedAIPipeline {
       const patterns: any[] = [];
       if (!moods || moods.length === 0) return patterns;
 
+      // 🚀 PERFORMANCE OPTIMIZATION: Sample recent mood entries only  
+      const SAMPLE_SIZE = 30; // Process max 30 recent moods instead of all 78+
+      const recentMoods = moods
+        .filter(m => m.timestamp && m.mood_score !== undefined) // Filter valid entries first
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, SAMPLE_SIZE);
+
+      if (recentMoods.length === 0) return patterns;
+
       // Group moods by day of week
       const weeklyData: Record<number, { mood: number, count: number }> = {};
-      moods.forEach(m => {
-        if (m.timestamp && m.mood_score !== undefined) {
-          const dayOfWeek = new Date(m.timestamp).getDay();
-          if (!weeklyData[dayOfWeek]) {
-            weeklyData[dayOfWeek] = { mood: 0, count: 0 };
-          }
-          weeklyData[dayOfWeek].mood += m.mood_score;
-          weeklyData[dayOfWeek].count += 1;
+      recentMoods.forEach(m => {
+        const dayOfWeek = new Date(m.timestamp).getDay();
+        if (!weeklyData[dayOfWeek]) {
+          weeklyData[dayOfWeek] = { mood: 0, count: 0 };
         }
+        weeklyData[dayOfWeek].mood += m.mood_score;
+        weeklyData[dayOfWeek].count += 1;
       });
 
-      // Find mood patterns by day
+      // Find mood patterns by day with early exit
       const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-      Object.entries(weeklyData).forEach(([day, data]) => {
-        const avgMood = data.mood / data.count;
-        if (data.count >= 2) {
-          patterns.push({
-            type: 'mood_temporal',
-            description: `${dayNames[parseInt(day)]} mood pattern`,
-            pattern: `${dayNames[parseInt(day)]} günü ortalama mood: ${avgMood.toFixed(1)}`,
-            confidence: Math.min(0.8, data.count / moods.length * 7)
-          });
-        }
-      });
+      const maxPatterns = 4; // Limit patterns to prevent over-processing
+      
+      Object.entries(weeklyData)
+        .sort(([,a], [,b]) => (b.mood / b.count) - (a.mood / a.count)) // Sort by avg mood
+        .forEach(([day, data]) => {
+          if (patterns.length >= maxPatterns) return; // Early exit
+          const avgMood = data.mood / data.count;
+          if (data.count >= 2) {
+            patterns.push({
+              type: 'mood_temporal',
+              description: `${dayNames[parseInt(day)]} mood pattern`,
+              pattern: `${dayNames[parseInt(day)]} günü ortalama mood: ${avgMood.toFixed(1)}`,
+              confidence: Math.min(0.8, data.count / recentMoods.length * 7),
+              sampleSize: recentMoods.length
+            });
+          }
+        });
 
       return patterns;
     } catch (error) {
@@ -2536,43 +3020,7 @@ export class UnifiedAIPipeline {
     }
   }
 
-  /**
-   * Extract behavioral patterns
-   */
-  private extractBehavioralPatterns(compulsions: any[]): any[] {
-    try {
-      const patterns: any[] = [];
-      if (!compulsions || compulsions.length === 0) return patterns;
 
-      // Group by category
-      const categoryData: Record<string, number> = {};
-      compulsions.forEach(c => {
-        if (c.type || c.category) {
-          const category = c.type || c.category;
-          categoryData[category] = (categoryData[category] || 0) + 1;
-        }
-      });
-
-      // Find most common patterns
-      Object.entries(categoryData)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 5)
-        .forEach(([category, count]) => {
-          patterns.push({
-            type: 'behavioral',
-            pattern: category,
-            frequency: count,
-            description: `${category} kategorisinde ${count} kayıt`,
-            confidence: Math.min(0.9, count / compulsions.length * 2)
-          });
-        });
-
-      return patterns;
-    } catch (error) {
-      console.warn('⚠️ Error extracting behavioral patterns:', error);
-      return [];
-    }
-  }
 
   /**
    * Analyze triggers
@@ -2602,15 +3050,15 @@ export class UnifiedAIPipeline {
       if (content.compulsions && Array.isArray(content.compulsions)) {
         // Calculate average severity/resistance over time
         const sortedCompulsions = content.compulsions
-          .filter((c: any) => c.timestamp && c.resistanceLevel !== undefined)
+          .filter((c: any) => c.timestamp && this.hasValidSeverity(c))
           .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
         if (sortedCompulsions.length >= 3) {
           const first = sortedCompulsions.slice(0, Math.floor(sortedCompulsions.length / 3));
           const last = sortedCompulsions.slice(-Math.floor(sortedCompulsions.length / 3));
 
-          const firstAvg = first.reduce((sum: number, c: any) => sum + c.resistanceLevel, 0) / first.length;
-          const lastAvg = last.reduce((sum: number, c: any) => sum + c.resistanceLevel, 0) / last.length;
+          const firstAvg = first.reduce((sum: number, c: any) => sum + this.getCompulsionSeverity(c), 0) / first.length;
+          const lastAvg = last.reduce((sum: number, c: any) => sum + this.getCompulsionSeverity(c), 0) / last.length;
 
           if (Math.abs(lastAvg - firstAvg) > 0.5) {
             progression.push({
@@ -2904,114 +3352,18 @@ export class UnifiedAIPipeline {
     return Math.min(0.95, 0.8 + (dataPoints - 20) * 0.01);
   }
 
-  /**
-   * Analyze severity progression patterns
-   */
-  private analyzeSeverityProgression(content: any): any[] {
-    if (!Array.isArray(content.compulsions)) return [];
-    
-    const compulsions = content.compulsions;
-    const patterns = [];
-    
-    // Calculate average severity over time
-    const timeWindows = this.groupByTimeWindow(compulsions, 7); // Weekly windows
-    for (let i = 1; i < timeWindows.length; i++) {
-      const currentAvg = this.calculateAverageSeverity(timeWindows[i]);
-      const prevAvg = this.calculateAverageSeverity(timeWindows[i - 1]);
-      const change = currentAvg - prevAvg;
-      
-      if (Math.abs(change) > 0.5) { // Significant change
-        patterns.push({
-          type: 'severity_progression',
-          trend: change > 0 ? 'worsening' : 'improving',
-          magnitude: Math.abs(change),
-          timeWindow: `Week ${i}`,
-          confidence: 0.7
-        });
-      }
-    }
-    
-    return patterns;
-  }
 
-  /**
-   * Extract behavioral patterns from compulsions
-   */
-  private extractBehavioralPatterns(compulsions: any[]): any[] {
-    const patterns = [];
-    
-    // Type frequency analysis
-    const typeFreq = this.calculateTypeFrequency(compulsions);
-    for (const [type, count] of Object.entries(typeFreq)) {
-      if (count > 2) { // Minimum threshold
-        patterns.push({
-          type: 'behavioral_frequency',
-          category: type,
-          frequency: count,
-          percentage: (count / compulsions.length) * 100,
-          confidence: this.calculatePatternConfidence(count)
-        });
-      }
-    }
-    
-    // Resistance level patterns
-    const resistanceData = compulsions.filter(c => c.resistanceLevel !== undefined);
-    if (resistanceData.length > 3) {
-      const avgResistance = resistanceData.reduce((sum, c) => sum + c.resistanceLevel, 0) / resistanceData.length;
-      patterns.push({
-        type: 'resistance_pattern',
-        averageResistance: avgResistance,
-        trend: avgResistance > 5 ? 'improving' : 'struggling',
-        confidence: this.calculatePatternConfidence(resistanceData.length)
-      });
-    }
-    
-    return patterns;
-  }
 
-  /**
-   * Extract temporal patterns from compulsions
-   */
-  private extractTemporalPatterns(compulsions: any[]): any[] {
-    const patterns = [];
-    
-    // Hour-based analysis
-    const hourCounts = new Array(24).fill(0);
-    compulsions.forEach(c => {
-      const hour = new Date(c.timestamp).getHours();
-      hourCounts[hour]++;
-    });
-    
-    // Find peak hours
-    const maxCount = Math.max(...hourCounts);
-    if (maxCount > 2) { // Minimum threshold
-      const peakHours = hourCounts.map((count, hour) => ({ hour, count }))
-        .filter(h => h.count === maxCount);
-      
-      peakHours.forEach(peak => {
-        patterns.push({
-          type: 'temporal_peak',
-          hour: peak.hour,
-          timeLabel: `${peak.hour}:00 - ${peak.hour + 1}:00`,
-          frequency: peak.count,
-          confidence: this.calculatePatternConfidence(peak.count)
-        });
-      });
-    }
-    
-    // Day-of-week analysis
-    const dayPattern = this.extractDayOfWeekPattern(compulsions);
-    if (dayPattern) {
-      patterns.push(dayPattern);
-    }
-    
-    return patterns;
-  }
+
+
+
 
   /**
    * Extract environmental triggers from compulsions
    */
   private extractEnvironmentalTriggers(compulsions: any[]): any[] {
+    if (!compulsions || !Array.isArray(compulsions)) return [];
+    
     const patterns = [];
     
     // Trigger keyword extraction
@@ -3043,35 +3395,40 @@ export class UnifiedAIPipeline {
   }
 
   /**
-   * Extract mood-related temporal patterns
+   * Extract mood-related temporal patterns by hour (OPTIMIZED - lightweight version)
    */
-  private extractMoodTemporalPatterns(data: any): any[] {
+  private extractMoodTemporalPatternsByHour(data: any): any[] {
     const patterns = [];
     
     if (data.moods && Array.isArray(data.moods)) {
+      // 🚀 PERFORMANCE: Sample only recent moods and limit processing
+      const SAMPLE_SIZE = 20; // Much smaller sample for hourly analysis
+      const recentMoods = data.moods
+        .slice(0, SAMPLE_SIZE)
+        .filter(mood => mood.timestamp || mood.created_at);
+      
+      if (recentMoods.length < 5) return []; // Early exit for insufficient data
+      
       const moodsByHour = new Array(24).fill(0).map(() => ({ total: 0, count: 0 }));
       
-      data.moods.forEach(mood => {
+      recentMoods.forEach(mood => {
         const hour = new Date(mood.timestamp || mood.created_at).getHours();
         moodsByHour[hour].total += mood.mood_score || 5;
         moodsByHour[hour].count += 1;
       });
       
-      // Calculate averages and find patterns
-      const hourlyAverages = moodsByHour.map((h, hour) => ({
-        hour,
-        average: h.count > 0 ? h.total / h.count : 5,
-        count: h.count
-      })).filter(h => h.count > 0);
+      // Find significant low mood periods only (early exit)
+      const hourlyAverages = moodsByHour
+        .map((h, hour) => ({ hour, average: h.count > 0 ? h.total / h.count : 5, count: h.count }))
+        .filter(h => h.count >= 2 && h.average < 4); // More restrictive filtering
       
-      // Find low mood periods
-      const lowMoodHours = hourlyAverages.filter(h => h.average < 4);
-      if (lowMoodHours.length > 0) {
+      if (hourlyAverages.length > 0) {
         patterns.push({
-          type: 'low_mood_temporal',
-          hours: lowMoodHours.map(h => h.hour),
-          averageScore: lowMoodHours.reduce((sum, h) => sum + h.average, 0) / lowMoodHours.length,
-          confidence: this.calculatePatternConfidence(lowMoodHours.length)
+          type: 'low_mood_temporal_hourly',
+          hours: hourlyAverages.slice(0, 3).map(h => h.hour), // Limit to top 3
+          averageScore: hourlyAverages.reduce((sum, h) => sum + h.average, 0) / hourlyAverages.length,
+          confidence: Math.min(0.7, hourlyAverages.length / 10),
+          sampleSize: recentMoods.length
         });
       }
     }
@@ -3112,14 +3469,33 @@ export class UnifiedAIPipeline {
     return windows;
   }
 
+  /**
+   * 📊 Extract resistance/severity value from compulsion with field name flexibility
+   */
+  private getCompulsionSeverity(compulsion: any): number {
+    return compulsion.severity || compulsion.resistanceLevel || compulsion.resistance_level || compulsion.intensity || 5;
+  }
+
+  /**
+   * 📊 Check if compulsion has valid severity/resistance data
+   */
+  private hasValidSeverity(compulsion: any): boolean {
+    return compulsion.severity !== undefined || 
+           compulsion.resistanceLevel !== undefined ||
+           compulsion.resistance_level !== undefined ||
+           compulsion.intensity !== undefined;
+  }
+
   private calculateAverageSeverity(compulsions: any[]): number {
-    if (compulsions.length === 0) return 0;
-    const total = compulsions.reduce((sum, c) => sum + (c.severity || c.resistanceLevel || 5), 0);
+    if (!compulsions || !Array.isArray(compulsions) || compulsions.length === 0) return 0;
+    const total = compulsions.reduce((sum, c) => sum + this.getCompulsionSeverity(c), 0);
     return total / compulsions.length;
   }
 
   private calculateTypeFrequency(compulsions: any[]): Record<string, number> {
     const freq: Record<string, number> = {};
+    if (!compulsions || !Array.isArray(compulsions)) return freq;
+    
     compulsions.forEach(c => {
       if (c.type) {
         freq[c.type] = (freq[c.type] || 0) + 1;
@@ -3129,6 +3505,8 @@ export class UnifiedAIPipeline {
   }
 
   private extractDayOfWeekPattern(compulsions: any[]): any | null {
+    if (!compulsions || !Array.isArray(compulsions)) return null;
+    
     const dayCounts = new Array(7).fill(0);
     compulsions.forEach(c => {
       const day = new Date(c.timestamp).getDay();

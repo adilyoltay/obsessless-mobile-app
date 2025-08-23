@@ -49,6 +49,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
 // Removed CoreAnalysisService - using UnifiedAIPipeline only
 
 // Unified AI Pipeline (ACTIVE - Jan 2025)
@@ -1214,13 +1215,21 @@ export default function TodayScreen() {
                     <Text style={styles.aiInsightConfidence}>
                       Güvenilirlik: {Math.round(insight.confidence * 100)}%
                     </Text>
-                    {/* Progressive UI: Show source */}
+                    {/* ✅ POLISH: Enhanced source + module indicator */}
                     {FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE') && (
-                      <Text style={[styles.aiInsightConfidence, { marginLeft: 10 }]}>
-                        Kaynak: {insightsSource === 'cache' ? 'Önbellek' : 
-                                insightsSource === 'heuristic' ? 'Hızlı Analiz' : 
-                                'Tüm Modüller'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.aiInsightConfidence, { marginLeft: 10 }]}>
+                          Kaynak: {insightsSource === 'cache' ? 'Önbellek' : 
+                                  insightsSource === 'heuristic' ? 'Hızlı Analiz' : 
+                                  'Derin Analiz'}
+                        </Text>
+                        {/* ✅ POLISH: 4 modül indicator */}
+                        {insightsSource !== 'cache' && insightsSource !== 'heuristic' && (
+                          <Text style={[styles.aiInsightConfidence, { marginLeft: 8, fontWeight: '600', color: '#10B981' }]}>
+                            • 4 Modül
+                          </Text>
+                        )}
+                      </View>
                     )}
                   </View>
                 )}
@@ -1230,12 +1239,15 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* No Insights State */}
+        {/* ✅ POLISH: Gentle empty insights message (non-prescriptive) */}
         {aiInsights.length === 0 && !aiInsightsLoading && (
           <View style={styles.noInsightsCard}>
-            <MaterialCommunityIcons name="chart-timeline-variant" size={32} color="#9ca3af" />
+            <MaterialCommunityIcons name="lightbulb-outline" size={28} color="#a1a1aa" />
             <Text style={styles.noInsightsText}>
-              Henüz kişisel içgörü üretmek için yeterli veri yok. ERP oturumları ve günlük kayıtlar arttıkça öneriler burada görünecek.
+              Daha fazla kayıtla daha iyi öneriler sunabiliriz 💙
+            </Text>
+            <Text style={[styles.noInsightsText, { fontSize: 12, marginTop: 4, opacity: 0.7 }]}>
+              Günlük aktiviteleriniz artıkça kişisel içgörüler burada görünecek
             </Text>
           </View>
         )}
@@ -1248,17 +1260,17 @@ export default function TodayScreen() {
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="calendar-today" size={30} color="#10B981" />
         <Text style={styles.quickStatValue}>{todayStats.compulsions}</Text>
-        <Text style={styles.quickStatLabel}>Kayıt</Text>
+        <Text style={styles.quickStatLabel}>Kayıt (Bugün)</Text>      {/* ✅ POLISH: Etiket hizalama */}
       </View>
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="fire" size={30} color="#F59E0B" />
         <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
-        <Text style={styles.quickStatLabel}>Streak</Text>
+        <Text style={styles.quickStatLabel}>Streak</Text>              {/* ✅ POLISH: Zaten kısa */}
       </View>
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="star-outline" size={30} color="#8B5CF6" />
         <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
-        <Text style={styles.quickStatLabel}>Puan</Text>
+        <Text style={styles.quickStatLabel}>Puan (Bugün)</Text>        {/* ✅ POLISH: Etiket hizalama */}
       </View>
     </View>
   );
@@ -1455,6 +1467,8 @@ export default function TodayScreen() {
         />
       )}
 
+      {/* Debug AI Pipeline Overlay - Development Only */}
+      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
 
     </ScreenLayout>
   );

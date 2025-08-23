@@ -82,25 +82,23 @@ export function MoodQuickEntry({
     }
   };
 
-  // Set initial values when modal opens
+  // Set initial values when modal opens (only once per visible session)
   React.useEffect(() => {
-    if (visible && initialData) {
+    if (visible && initialData && initialData.mood !== undefined) {
       // 🎭 Map numeric mood score to emotion wheel selection
-      if (initialData.mood !== undefined) {
-        const emotion = getEmotionFromMoodScore(initialData.mood);
-        setSelectedEmotion(emotion);
-        console.log('🎭 Voice prefill emotion mapping:', { 
-          inputMoodScore: initialData.mood, 
-          selectedEmotion: emotion 
-        });
-      }
+      const emotion = getEmotionFromMoodScore(initialData.mood);
+      setSelectedEmotion(emotion);
+      console.log('🎭 Voice prefill emotion mapping:', { 
+        inputMoodScore: initialData.mood, 
+        selectedEmotion: emotion 
+      });
       
       setEnergy(initialData.energy || 5);
       setAnxiety(initialData.anxiety || 5);
       setNotes(initialData.notes || '');
       setSelectedTrigger(initialData.trigger || '');
     }
-  }, [visible, initialData]);
+  }, [visible, initialData?.mood]); // Only trigger when visible state or mood value changes
 
   const triggers = [
     'İş/Okul',
@@ -219,14 +217,16 @@ export function MoodQuickEntry({
     
     const finalScore = Math.max(0, Math.min(100, baseScore + secondaryBonus));
     
-    // 🔍 Debug logging for emotion analysis
-    console.log('🎭 Emotion Score Calculation:', {
-      primary: emotion.primary,
-      secondary: emotion.secondary,
-      baseScore,
-      secondaryBonus,
-      finalScore
-    });
+    // 🔍 Debug logging for emotion analysis (development only)
+    if (__DEV__) {
+      // console.log('🎭 Emotion Score Calculation:', {
+      //   primary: emotion.primary,
+      //   secondary: emotion.secondary,
+      //   baseScore,
+      //   secondaryBonus,
+      //   finalScore
+      // });
+    }
     
     return finalScore;
   };

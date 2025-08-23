@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import UserCentricCBTDashboard from '@/components/ui/UserCentricCBTDashboard';
+import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
+import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 interface ThoughtRecord {
   id: string;
@@ -80,13 +82,13 @@ export default function CBTScreen() {
     }
   });
 
-  // Voice trigger'dan gelindiyse otomatik aç
+  // Voice trigger'dan gelindiyse otomatik aç (only once)
   useEffect(() => {
-    if ((params.trigger === 'voice' && params.text) || params.prefill === 'true') {
+    if (((params.trigger === 'voice' && params.text) || params.prefill === 'true') && !showQuickEntry) {
       console.log('📝 Opening CBT form with pre-filled data:', params);
       setShowQuickEntry(true);
     }
-  }, [params]);
+  }, [params.prefill, params.trigger]); // Only trigger when specific params change
 
   // Load data on mount and focus
   useEffect(() => {
@@ -94,6 +96,31 @@ export default function CBTScreen() {
       loadAllData();
     }
   }, [user?.id, selectedTimeRange]);
+
+  // Memoize voice analysis data to prevent infinite re-renders
+  const voiceAnalysisData = useMemo(() => {
+    if (params.confidence && params.prefill === 'true') {
+      return {
+        confidence: parseFloat(params.confidence as string) || 0.5,
+        analysisSource: (params.analysisSource as 'gemini' | 'heuristic') || 'heuristic',
+        autoThought: params.text as string,
+        suggestedDistortions: params.distortions ? 
+          JSON.parse(params.distortions as string).map((d: string, idx: number) => ({
+            id: d.toLowerCase().replace(/\s+/g, '_'),
+            label: d,
+            confidence: parseFloat(params.confidence as string) || 0.7
+          })) : undefined
+      };
+    }
+    return undefined;
+  }, [params.confidence, params.prefill, params.analysisSource, params.text, params.distortions]);
+
+  // Memoize callbacks to prevent re-renders
+  const handleDismiss = useCallback(() => {
+    setShowQuickEntry(false);
+  }, []);
+
+  // Removed handleRecordSavedCallback due to hoisting issue - using direct handleRecordSaved
 
   // Refresh on screen focus
   useFocusEffect(
@@ -1019,21 +1046,11 @@ export default function CBTScreen() {
       {/* CBT Quick Entry Modal */}
       <CBTQuickEntry
         visible={showQuickEntry}
-        onDismiss={() => setShowQuickEntry(false)}
+        onDismiss={handleDismiss}
         onSubmit={handleRecordSaved}
         initialThought={params.text as string}
         initialTrigger={params.trigger as string}
-        voiceAnalysisData={params.confidence && params.prefill === 'true' ? {
-          confidence: parseFloat(params.confidence as string) || 0.5,
-          analysisSource: params.analysisSource as 'gemini' | 'heuristic' || 'heuristic',
-          autoThought: params.text as string,
-          suggestedDistortions: params.distortions ? 
-            JSON.parse(params.distortions as string).map((d: string, idx: number) => ({
-              id: d.toLowerCase().replace(/\s+/g, '_'),
-              label: d,
-              confidence: parseFloat(params.confidence as string) || 0.7
-            })) : undefined
-        } : undefined}
+        voiceAnalysisData={voiceAnalysisData}
       />
 
       {/* Toast */}
@@ -1058,6 +1075,9 @@ export default function CBTScreen() {
           }
         }}
       />
+
+      {/* Debug AI Pipeline Overlay - Development Only */}
+      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
     </ScreenLayout>
   );
 }

@@ -11,13 +11,13 @@ export type CheckinRecord = {
 };
 
 // export type ErpSessionLog = { // Removed ERP
-  id: string;
-  startedAt: string; // ISO
-  endedAt?: string;  // ISO
-  trigger: { type: 'time' | 'geo'; id: string };
-  steps: { step: 'intention' | 'exposure' | 'response_prevention'; sudsBefore?: number; sudsAfter?: number; durSec?: number }[];
-  guardrails?: { type: string; ts: string }[];
-  outcome: 'completed' | 'aborted' | 'guardrail_exit';
-};
+//   id: string;
+//   startedAt: string; // ISO
+//   endedAt?: string;  // ISO
+//   trigger: { type: 'time' | 'geo'; id: string };
+//   steps: { step: 'intention' | 'exposure' | 'response_prevention'; sudsBefore?: number; sudsAfter?: number; durSec?: number }[];
+//   guardrails?: { type: string; ts: string }[];
+//   outcome: 'completed' | 'aborted' | 'guardrail_exit';
+// };
 
 

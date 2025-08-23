@@ -44,6 +44,7 @@ import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
 
 // Removed: Y-BOCS AI Assessment Integration - using onboarding data
 // VoiceMoodCheckin removed - using unified voice from Today page
@@ -78,6 +79,7 @@ export default function TrackingScreen() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [todayCompulsions, setTodayCompulsions] = useState<CompulsionEntry[]>([]);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [quickEntrySource, setQuickEntrySource] = useState<'fab' | 'voice' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -227,8 +229,20 @@ export default function TrackingScreen() {
   // veya refresh parametresi gelirse listeyi yenile
   useEffect(() => {
     if (params.prefill === 'true') {
-      console.log('📝 Opening tracking form with pre-filled data:', params);
-      setShowQuickEntry(true);
+      console.log('📝 Opening tracking form with pre-filled data from voice:', params);
+      console.log('🔍 Current state before voice prefill:', { showQuickEntry, quickEntrySource });
+      
+      // Always reset state for voice prefill to avoid conflicts
+      console.log('📝 Voice prefill detected, resetting state...');
+      setShowQuickEntry(false);
+      setQuickEntrySource(null);
+      
+      // Use timeout to ensure state reset completes
+      setTimeout(() => {
+        console.log('✅ VOICE: Setting state to true with source=voice');
+        setShowQuickEntry(true);
+        setQuickEntrySource('voice');
+      }, 50);
     }
   }, [params.prefill]);
   
@@ -308,20 +322,15 @@ export default function TrackingScreen() {
           let encryptionStatus = 'disabled';
           
           try {
-            // Only try encryption if native crypto is available
-            const cryptoTest = await import('react-native-simple-crypto');
-            if (cryptoTest.AES) {
-              encryptionResult = await secureDataService.encryptSensitiveData(sensitivePayload);
-              encryptionStatus = 'success';
-              
-              // Log integrity metadata for auditability
-              console.log('🔐 Sensitive OCD payload encrypted with AES-256');
-              console.log(`🔍 Integrity hash: ${encryptionResult.hash?.substring(0, 8)}...`);
-              console.log(`⏰ Encrypted at: ${new Date(encryptionResult.timestamp || 0).toISOString()}`);
-            } else {
-              console.log('ℹ️ Native crypto not available, using sanitized data only');
-              encryptionStatus = 'unavailable';
-            }
+            // Use expo-crypto for encryption (migrated from react-native-simple-crypto)
+            encryptionResult = await secureDataService.encryptSensitiveData(sensitivePayload);
+            encryptionStatus = 'success';
+            
+            // Log integrity metadata for auditability
+            console.log('🔐 Sensitive OCD payload encrypted with AES-256');
+            console.log(`🔍 Integrity hash: ${encryptionResult.hash?.substring(0, 8)}...`);
+            console.log(`⏰ Encrypted at: ${new Date(encryptionResult.timestamp || 0).toISOString()}`);
+          
           } catch (error) {
             console.warn('⚠️ Encryption failed, using sanitized data (this is safe):', error);
             encryptionStatus = 'failed';
@@ -515,9 +524,10 @@ export default function TrackingScreen() {
         // State'i güncelle
         const today = new Date();
         const todayKey = today.toDateString();
-        const todayEntries = formattedCompulsions.filter(entry => 
-          new Date(entry.timestamp).toDateString() === todayKey
-        );
+        const todayEntries = formattedCompulsions
+          .filter(entry => new Date(entry.timestamp).toDateString() === todayKey)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Sort newest first
+        
         setTodayCompulsions(todayEntries);
       }
     } catch (error) {
@@ -539,11 +549,12 @@ export default function TrackingScreen() {
       // Set all compulsions for dashboard
       setAllCompulsions(allEntries);
       
-      // Filter today's entries
+      // Filter today's entries and sort newest first
       const todayKey = today.toDateString();
-      const todayEntries = allEntries.filter(entry => 
-        new Date(entry.timestamp).toDateString() === todayKey
-      );
+      const todayEntries = allEntries
+        .filter(entry => new Date(entry.timestamp).toDateString() === todayKey)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
       setTodayCompulsions(todayEntries);
       
       // Calculate week entries (last 7 days)
@@ -671,7 +682,14 @@ export default function TrackingScreen() {
       // Refresh data
       await loadAllData();
       
-      // 🗑️ Invalidate AI cache - new compulsion affects patterns
+      // 🧹 Clean stale cache and invalidate - new compulsion affects patterns
+      try {
+        const cleanup = await unifiedPipeline.invalidateStaleCache();
+        console.log(`✅ Cache cleanup after compulsion save: ${cleanup.invalidated} entries removed`);
+      } catch (cleanupError) {
+        console.warn('⚠️ Cache cleanup failed:', cleanupError);
+      }
+      
       unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
     } catch (error) {
       console.error('Error saving compulsion:', error);
@@ -1003,14 +1021,38 @@ export default function TrackingScreen() {
       {/* FAB */}
       <FAB 
         icon="plus" 
-        onPress={() => setShowQuickEntry(true)}
+        onPress={() => {
+          console.log('🔥 FAB BUTTON PRESSED - Opening CompulsionQuickEntry');
+          console.log('🔍 Current state:', { showQuickEntry, quickEntrySource });
+          
+          // 🔧 FIX: Always reset and reopen for FAB
+          if (showQuickEntry) {
+            console.log('⚠️ State already true, resetting first...');
+            setShowQuickEntry(false);
+            setQuickEntrySource(null);
+            setTimeout(() => {
+              console.log('✅ FAB: Setting state to true with source=fab');
+              setShowQuickEntry(true);
+              setQuickEntrySource('fab');
+            }, 10);
+          } else {
+            console.log('✅ FAB: Setting state to true with source=fab');
+            setShowQuickEntry(true);
+            setQuickEntrySource('fab');
+          }
+          console.log('✅ FAB action completed');
+        }}
         position="fixed"
       />
 
       {/* Quick Entry Bottom Sheet */}
       <CompulsionQuickEntry
         visible={showQuickEntry}
-        onDismiss={() => setShowQuickEntry(false)}
+        onDismiss={() => {
+          console.log('📝 CompulsionQuickEntry dismissed, source was:', quickEntrySource);
+          setShowQuickEntry(false);
+          setQuickEntrySource(null);
+        }}
         onSubmit={handleCompulsionSubmit}
         initialCategory={params.category as string}
         initialText={params.text as string}
@@ -1047,6 +1089,9 @@ export default function TrackingScreen() {
         type="success"
         onHide={() => setShowToast(false)}
       />
+
+      {/* Debug AI Pipeline Overlay - Development Only */}
+      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
     </ScreenLayout>
   );
 }

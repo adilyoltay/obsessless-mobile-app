@@ -36,6 +36,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 
 // Auto Record – yalnızca servis; modal kaldırıldı (hafif Alert ile onay)
 import { prepareAutoRecord, saveAutoRecord, shouldShowAutoRecord } from '@/services/autoRecordService';
+import { extractSufficientDataFromVoice, extractSeverityFromText } from '@/features/ai/services/checkinService';
 
 const { width } = Dimensions.get('window');
 
@@ -449,40 +450,217 @@ export default function CheckinBottomSheet({
     setAutoRecordData(data);
   };
 
-  const handleAutoRecordClose = () => {
+  const handleAutoRecordClose = async () => {
+    console.log('🔥 handleAutoRecordClose called!', {
+      hasAnalysisResult: !!analysisResult,
+      hasUser: !!user?.id,
+      lastTranscript: lastTranscript?.substring(0, 50) + '...'
+    });
+    
     setShowAutoRecord(false);
-    // Continue with default navigation
-    if (analysisResult) {
-      const analysis = analysisResult;
-      switch (analysis.type) {
+    
+    // 🎯 SMART AUTO-RECORD: Check if we can create automatic record vs manual completion
+    if (analysisResult && user?.id) {
+      console.log('✅ Calling handleSmartAutoRecord...');
+      await handleSmartAutoRecord(analysisResult, lastTranscript);
+    } else {
+      console.log('❌ Cannot call handleSmartAutoRecord:', {
+        noAnalysisResult: !analysisResult,
+        noUserId: !user?.id
+      });
+    }
+  };
+
+  /**
+   * 🎯 Smart Auto-Record Handler - Creates automatic record vs manual completion
+   * Analyzes voice transcript to determine if sufficient data exists for auto-record
+   */
+  const handleSmartAutoRecord = async (analysis: any, transcript: string) => {
+    try {
+      console.log('🎯 Smart auto-record analysis starting...', {
+        analysisType: analysis.type,
+        transcriptLength: transcript.length,
+        analysis: analysis,
+        transcript: transcript.substring(0, 50) + '...'
+      });
+
+      // Extract sufficient data check
+      const dataAnalysis = extractSufficientDataFromVoice(analysis, transcript);
+      
+      console.log('📊 Data sufficiency analysis:', dataAnalysis);
+
+      if (dataAnalysis.hasSufficientData) {
+        // ✅ AUTO-RECORD: Create record automatically and show at top of list
+        await createAutoRecord(analysis.type, dataAnalysis.extractedData, transcript);
+      } else {
+        // ❌ MANUAL COMPLETION: Navigate to sheet with prefilled data
+        console.log(`⚠️ Insufficient data: ${dataAnalysis.reason || 'Unknown reason'}, opening manual sheet...`);
+        await navigateToManualCompletion(analysis, transcript, dataAnalysis.reason || 'Data insufficient');
+      }
+    } catch (error) {
+      console.error('❌ Smart auto-record failed:', error);
+      // Fallback to manual completion
+      await navigateToManualCompletion(analysis, transcript, 'Auto-record failed');
+    }
+  };
+
+  /**
+   * ✅ Create automatic record and refresh list to show at top
+   */
+  const createAutoRecord = async (type: string, extractedData: any, transcript: string) => {
+    try {
+      console.log('✅ Creating automatic record:', { type, data: extractedData });
+
+      const recordData = {
+        ...extractedData,
+        id: `auto_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: user?.id,
+        created_at: new Date().toISOString(),
+        synced: false
+      };
+
+      switch (type) {
         case 'OCD':
-          // 🔧 FIX: Add severity and trigger params for AutoRecord close
-          const estimatedSeverity = (analysis as any).severity || 
-                                    (analysis as any).params?.severity || 
-                                    (analysis as any).extractedData?.severity ||
-                                    extractSeverityFromText(lastTranscript);
+          // Save compulsion record  
+          const compulsionKey = StorageKeys.COMPULSIONS(user!.id);
+          const existingCompulsions = await AsyncStorage.getItem(compulsionKey);
+          const compulsions = existingCompulsions ? JSON.parse(existingCompulsions) : [];
           
-          router.push({
-            pathname: '/(tabs)/tracking',
-            params: {
-              text: lastTranscript,
-              category: analysis.category || 'genel',
-              trigger: analysis.trigger || '',
-              severity: estimatedSeverity,
-              prefill: 'true'
-            },
-          });
-          break;
-        case 'CBT':
-          router.push({
-            pathname: '/(tabs)/cbt',
-            params: { text: lastTranscript, trigger: 'voice' },
-          });
+          // Add to beginning of array (top of list)
+          compulsions.unshift(recordData);
+          await AsyncStorage.setItem(compulsionKey, JSON.stringify(compulsions));
+
+          // Sync to Supabase
+          try {
+            await supabaseService.saveCompulsion(recordData);
+            console.log('✅ Compulsion synced to Supabase');
+          } catch (syncError) {
+            console.warn('⚠️ Supabase sync failed, will retry later:', syncError);
+          }
+
+          // Success feedback and navigation
+          Alert.alert(
+            '✅ Kompulsyon Kaydedildi',
+            `"${extractedData.category || extractedData.type}" kategorisinde otomatik kayıt oluşturuldu.`,
+            [
+              {
+                text: 'Takip Sayfasını Gör',
+                onPress: () => {
+                  onClose();
+                  router.push('/(tabs)/tracking');
+                }
+              },
+              { text: 'Tamam', style: 'default' }
+            ]
+          );
           break;
 
+        case 'CBT':
+          // Save CBT thought record
+          try {
+            const cbtRecord = {
+              user_id: user!.id,
+              thought: extractedData.thought,
+              distortions: extractedData.distortions,
+              mood_before: extractedData.mood_before,
+              mood_after: extractedData.mood_before + 1, // Slightly improved after recording
+              reframe: 'Voice analysis ile tespit edildi - detay doldurulacak',
+              trigger: extractedData.trigger,
+              notes: extractedData.notes
+            };
+
+            await supabaseService.saveCBTRecord(cbtRecord);
+            console.log('✅ CBT record saved to Supabase');
+
+            // Success feedback and navigation  
+            Alert.alert(
+              '✅ Düşünce Kaydı Oluşturuldu',
+              `Bilişsel çarpıtmalar tespit edildi ve kayıt oluşturuldu.`,
+              [
+                {
+                  text: 'CBT Sayfasını Gör',
+                  onPress: () => {
+                    onClose();
+                    router.push('/(tabs)/cbt');
+                  }
+                },
+                { text: 'Tamam', style: 'default' }
+              ]
+            );
+          } catch (error) {
+            console.error('❌ CBT record save failed:', error);
+            throw error; // Will fallback to manual completion
+          }
+          break;
+
+        default:
+          throw new Error(`Unsupported record type: ${type}`);
       }
-      onClose();
+
+      // Track successful auto-record
+      await trackAIInteraction(AIEventType.VOICE_ANALYSIS_COMPLETED, {
+        userId: user!.id,
+        analysisType: type,
+        confidence: 0.9,
+        usedAutoRecord: true,
+        transcriptLength: transcript.length
+      });
+
+      // Haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    } catch (error) {
+      console.error('❌ Auto-record creation failed:', error);
+      throw error;
     }
+  };
+
+  /**
+   * ❌ Navigate to manual completion sheet with prefilled data
+   */
+  const navigateToManualCompletion = async (analysis: any, transcript: string, reason: string) => {
+    console.log(`📝 Opening manual completion sheet: ${reason}`);
+
+    // Show explanation to user
+    Alert.alert(
+      '📝 Ek Bilgi Gerekli',
+      `${reason}\n\nLütfen eksik bilgileri tamamlayın.`,
+      [
+        {
+          text: 'Tamam',
+          onPress: () => {
+            // Navigate with prefilled data
+            switch (analysis.type) {
+              case 'OCD':
+                const estimatedSeverity = (analysis as any).severity || 
+                                          (analysis as any).params?.severity || 
+                                          (analysis as any).extractedData?.severity ||
+                                          extractSeverityFromText(transcript);
+                
+                router.push({
+                  pathname: '/(tabs)/tracking',
+                  params: {
+                    text: transcript,
+                    category: analysis.category || 'genel',
+                    trigger: analysis.trigger || '',
+                    severity: estimatedSeverity,
+                    prefill: 'true'
+                  },
+                });
+                break;
+
+              case 'CBT':
+                router.push({
+                  pathname: '/(tabs)/cbt',
+                  params: { text: transcript, trigger: 'voice' },
+                });
+                break;
+            }
+            onClose();
+          }
+        }
+      ]
+    );
   };
 
   /**
@@ -596,7 +774,35 @@ export default function CheckinBottomSheet({
     // Haptic feedback
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    // 🗂️ TRY SMART ROUTING FIRST (if enabled and user available)
+    // 🎯 SMART AUTO-RECORD CHECK (before smart routing)
+    if (user?.id && (analysis.type === 'OCD' || analysis.type === 'CBT')) {
+      console.log('🎯 Checking for auto-record eligibility before routing...', {
+        analysisType: analysis.type,
+        textLength: text.length
+      });
+      
+      try {
+        const dataAnalysis = extractSufficientDataFromVoice(analysis, text);
+        console.log('📊 Auto-record data sufficiency:', dataAnalysis);
+        
+        if (dataAnalysis.hasSufficientData) {
+          console.log('✅ Sufficient data for auto-record, creating automatic record...');
+          await createAutoRecord(analysis.type, dataAnalysis.extractedData, text);
+          onClose(); // Close check-in after successful auto-record
+          return; // Auto-record succeeded, exit early
+        } else {
+          console.log('📝 Insufficient data for auto-record, proceeding with manual completion...');
+          await navigateToManualCompletion(analysis, text, dataAnalysis.reason || 'Data insufficient');
+          return; // Exit after manual completion navigation
+        }
+      } catch (error) {
+        console.warn('❌ Auto-record check failed, proceeding with manual completion:', error);
+        await navigateToManualCompletion(analysis, text, 'Auto-record failed');
+        return; // Exit after manual completion navigation
+      }
+    }
+
+    // 🗂️ TRY SMART ROUTING (if enabled and user available)
     if (FEATURE_FLAGS.isEnabled('AI_SMART_ROUTING') && user?.id) {
       console.log('🗂️ Smart routing enabled, trying smart routing...');
       try {

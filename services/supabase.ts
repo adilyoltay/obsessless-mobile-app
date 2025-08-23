@@ -958,7 +958,16 @@ class SupabaseNativeService {
       const { data, error } = await this.client
         .from('thought_records')
         .insert({
-          ...record,
+          user_id: record.user_id,
+          thought: record.thought,
+          distortions: record.distortions || [],
+          evidence_for: record.evidence_for || null,
+          evidence_against: record.evidence_against || null,
+          reframe: record.reframe,
+          mood_before: record.mood_before,
+          mood_after: record.mood_after,
+          trigger: record.trigger || null,
+          notes: record.notes || null,
           created_at: new Date().toISOString()
         })
         .select('id')

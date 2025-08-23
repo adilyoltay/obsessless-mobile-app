@@ -175,7 +175,6 @@ export function AIProvider({ children }: AIProviderProps) {
           task: async () => {
             // Insights now handled by UnifiedAIPipeline
             console.log('✅ Insights handled by UnifiedAIPipeline');
-            return true;
           }
         },
         {
@@ -249,7 +248,6 @@ export function AIProvider({ children }: AIProviderProps) {
           task: async () => {
             // Insights Engine v2 now handled by UnifiedAIPipeline
             console.log('✅ Insights Engine v2 handled by UnifiedAIPipeline');
-            return true;
           }
         },
         {
@@ -258,7 +256,6 @@ export function AIProvider({ children }: AIProviderProps) {
           task: async () => {
             // Pattern Recognition now handled by UnifiedAIPipeline
             console.log('✅ Pattern Recognition handled by UnifiedAIPipeline');
-            return true;
           }
         },
         {
@@ -267,7 +264,6 @@ export function AIProvider({ children }: AIProviderProps) {
           task: async () => {
             // Smart Notifications now handled by UnifiedAIPipeline
             console.log('✅ Smart Notifications handled by UnifiedAIPipeline');
-            return true;
           }
         },
         {
@@ -341,12 +337,15 @@ export function AIProvider({ children }: AIProviderProps) {
           })
       );
 
-      // Add always-available features
+      // Add always-available features (adjust total count accordingly)
+      let additionalFeatures = 0;
       if (FEATURE_FLAGS.isEnabled('AI_CHAT')) {
         features.push('AI_CHAT');
+        additionalFeatures++;
       }
       // OnboardingFlow varsayılan olarak aktiftir (flag kaldırıldı)
       features.push('AI_ONBOARDING');
+      additionalFeatures++;
       if (__DEV__) console.log('🎯 OnboardingFlow enabled (default)');
 
       setAvailableFeatures(features);
@@ -372,13 +371,14 @@ export function AIProvider({ children }: AIProviderProps) {
       if (__DEV__) console.log(`✅ AI services initialized successfully in ${initTime}ms`);
 
       // Track successful initialization with performance metrics
+      const enabledTaskCount = initializationTasks.filter(t => t.enabled).length;
       await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         userId: user.id,
         context: 'ai_context_initialized',
         availableFeatures: features,
         initializationTime: initTime,
         successfulServices: features.length,
-        totalAttempted: initializationTasks.filter(t => t.enabled).length
+        totalAttempted: enabledTaskCount + additionalFeatures  // Fixed: Include additional features in count
       });
 
     } catch (error) {

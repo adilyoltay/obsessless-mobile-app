@@ -129,7 +129,7 @@ export default function CBTQuickEntry({
   initialDistortions,
   voiceAnalysisData
 }: CBTQuickEntryProps) {
-  console.log('🔵 CBTQuickEntry rendered, visible:', visible);
+  // console.log('🔵 CBTQuickEntry rendered, visible:', visible); // Disabled to reduce log noise
   const { user } = useAuth();
   const { t } = useTranslation();
   const { awardMicroReward, updateStreak } = useGamificationStore();

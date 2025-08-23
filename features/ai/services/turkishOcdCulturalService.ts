@@ -287,6 +287,53 @@ class TurkishOCDCulturalService {
   }
 
   /**
+   * Generate religiously adapted encouragement text
+   */
+  async generateReligiouslyAdaptedEncouragement(
+    recoveryStory: string,
+    culturalAnalysis: TurkishOCDCulturalAnalysis
+  ): Promise<string> {
+    try {
+      const { religiousAnalysis } = culturalAnalysis;
+      
+      if (!religiousAnalysis.isPresent) {
+        return recoveryStory; // Return original if no religious context
+      }
+
+      // Generate encouraging text based on religious context and severity
+      let encouragement = '';
+
+      switch (religiousAnalysis.severity) {
+        case 'mild':
+          encouragement = 'İnancınızla OKB arasındaki farkı ayırt edebiliyorsunuz. Bu güzel bir ilerleme! Dini değerlerinizi koruyarak tedavinize devam edin. 🌟';
+          break;
+        case 'moderate':
+          encouragement = 'İnanç sisteminizle uyumlu bir şekilde iyileşme yolculuğundasınız. Dini danışman desteğiyle OKB ile inanç arasındaki dengeyi kurmaya devam edin. 💙';
+          break;
+        case 'severe':
+          encouragement = 'İnancınız size güç veriyor. OKB ile dini değerlerinizi ayırt etme konusunda sabırlı olun. Uzman destek alırken manevi değerlerinizi koruyor olmak güzel. 🤲';
+          break;
+      }
+
+      // Add specific religious support if distinction is needed
+      if (religiousAnalysis.distinctionNeeded) {
+        encouragement += '\n\nDini değerlerinizi koruyarak OKB ile mücadelenizde ilerleme kaydediyorsunuz. Bu süreçte Allah\'ın rahmet ve merhametini unutmayın.';
+      }
+
+      // Add positive reinforcement based on recommended support
+      if (religiousAnalysis.recommendedReligiousSupport.length > 0) {
+        encouragement += '\n\n🕌 Dini danışman desteği ve uzman rehberliğiyle daha güçlü adımlar atacaksınız.';
+      }
+
+      return encouragement;
+
+    } catch (error) {
+      console.error('❌ Error generating religious encouragement:', error);
+      return recoveryStory; // Fallback to original story
+    }
+  }
+
+  /**
    * Create culturally adapted Y-BOCS questions
    */
   createCulturallyAdaptedYBOCS(baseQuestions: any[]): any[] {

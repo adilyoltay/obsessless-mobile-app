@@ -75,13 +75,13 @@ export default function MoodScreen() {
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
   const [predictiveInsights, setPredictiveInsights] = useState<any>(null); // Still needed for dashboard data generation
 
-  // Pre-fill from voice trigger if available
+  // Pre-fill from voice trigger if available (only once)
   useEffect(() => {
-    if (params.prefill === 'true') {
+    if (params.prefill === 'true' && !showQuickEntry) {
       console.log('📝 Opening mood form with pre-filled data:', params);
       setShowQuickEntry(true);
     }
-  }, [params]);
+  }, [params.prefill]); // Only trigger when prefill specifically changes
 
   // Load mood entries
   useEffect(() => {

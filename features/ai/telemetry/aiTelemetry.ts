@@ -504,6 +504,9 @@ class AITelemetryManager {
       // Debug log (sadece development)
       if (__DEV__) console.log(`📊 AI Telemetry: ${eventType}`, JSON.stringify(metadata));
 
+      // Debug listener'ları bilgilendir (sadece development)
+      notifyTelemetryDebugListeners(event);
+
     } catch (error) {
       console.error('❌ Error tracking AI interaction:', error);
     }
@@ -957,6 +960,69 @@ class AITelemetryManager {
     // Final flush
     await this.flushBuffer();
   }
+}
+
+// =============================================================================
+// 🔧 DEBUG LISTENERS (Development Only)
+// =============================================================================
+
+/**
+ * Debug listener function type
+ */
+type DebugListener = (event: TelemetryEvent) => void;
+
+/**
+ * Global debug listeners array (development only)
+ */
+let __aiDebugListeners: DebugListener[] = [];
+
+/**
+ * Debug listener'ı ekle (sadece development)
+ */
+export function addTelemetryDebugListener(listener: DebugListener): void {
+  if (!__DEV__) {
+    console.warn('⚠️ Debug listeners only available in development mode');
+    return;
+  }
+  
+  if (typeof listener !== 'function') {
+    console.warn('⚠️ Debug listener must be a function');
+    return;
+  }
+  
+  __aiDebugListeners.push(listener);
+  console.log(`🔧 Added debug listener. Total listeners: ${__aiDebugListeners.length}`);
+}
+
+/**
+ * Debug listener'ı kaldır (sadece development)
+ */
+export function removeTelemetryDebugListener(listener: DebugListener): void {
+  if (!__DEV__) return;
+  
+  const index = __aiDebugListeners.indexOf(listener);
+  if (index > -1) {
+    __aiDebugListeners.splice(index, 1);
+    console.log(`🔧 Removed debug listener. Total listeners: ${__aiDebugListeners.length}`);
+  }
+}
+
+/**
+ * Debug listener'ları bilgilendir (sadece development)
+ */
+function notifyTelemetryDebugListeners(event: TelemetryEvent): void {
+  if (!__DEV__ || __aiDebugListeners.length === 0) return;
+  
+  // Background'da notify et, UI thread'i bloklamayacak şekilde
+  setTimeout(() => {
+    __aiDebugListeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('🚨 Debug listener error:', error);
+      }
+    });
+  }, 0);
 }
 
 // =============================================================================

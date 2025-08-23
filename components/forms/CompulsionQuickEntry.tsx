@@ -355,6 +355,28 @@ export function CompulsionQuickEntry({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  // Debug logging for visibility issues
+  console.log('🔍 CompulsionQuickEntry render:', { 
+    visible, 
+    timestamp: new Date().toLocaleTimeString(),
+    shouldRender: visible,
+    initialCategory,
+    hasInitialText: !!initialText
+  });
+
+  // Early return if not visible
+  if (!visible) {
+    console.log('❌ CompulsionQuickEntry: visible=false, not rendering');
+    return null;
+  }
+
+  console.log('✅ CompulsionQuickEntry: Rendering with visible=true', {
+    initialCategory,
+    initialText: initialText?.substring(0, 30) + '...',
+    initialResistance,
+    initialSeverity
+  });
+
   return (
     <BottomSheet
       isVisible={visible}
