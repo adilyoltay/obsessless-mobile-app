@@ -1823,21 +1823,17 @@ RETURN MULTI-MODULE JSON:
   // Include primary module's fields directly for legacy support
 }
 
-⚡ KALIBRASYON v5.0 - KATI ŞEMA KURALLAR:
-- **NULL POLICY**: If you don't know a field value, SET IT TO null (not undefined or empty string)
-- **REQUIRED CONFIDENCE**: Every module MUST have confidence between 0.0-1.0
-- **NUMERIC VALIDATION**: mood (1-10), energy (1-10), severity (1-10), anxiety_level (1-10)
-- **STRING VALIDATION**: All text fields minimum 3 characters or null
-- **ARRAY VALIDATION**: distortions, symptoms as arrays or null
-- **NATURAL LANGUAGE MAPPING**: Convert expressions to exact numbers:
-  * "çok kötü/berbat" → mood: 2
-  * "orta/idare eder" → mood: 5  
-  * "çok iyi/harika" → mood: 8
-  * "5 kere kontrol" → frequency: 5
-- **CONTEXT EXTRACTION**: Extract implicit information from context
-- **TURKISH RESPONSES**: suggestion field MUST be in Turkish
-- **JSON ONLY**: Return ONLY valid JSON, no markdown, no explanation
-- **FIELD COMPLETENESS**: Fill ALL available fields or set to null`;
+CRITICAL: RETURN ONLY VALID JSON, NO MARKDOWN, NO BACKTICKS, NO EXPLANATION!
+
+⚡ STRICT RULES:
+- Start with { and end with }
+- Use double quotes for ALL strings
+- Numbers without quotes (1-10 range)
+- null for unknown values (not undefined)
+- confidence: 0.0 to 1.0 only
+- suggestion in Turkish
+
+DO NOT WRAP IN MARKDOWN CODE BLOCKS!`;
 
     console.log('📡 Gemini API Request URL:', `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.substring(0, 10)}...`);
     
@@ -1854,8 +1850,10 @@ RETURN MULTI-MODULE JSON:
           }]
         }],
         generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 350, // BALANCED: Enough for JSON but not too much for timeout
+          temperature: 0.1,  // Lower = more consistent JSON
+          maxOutputTokens: 400, // Slightly more for complete responses
+          topP: 0.95,
+          topK: 40
         }
       })
     });
@@ -1885,10 +1883,20 @@ RETURN MULTI-MODULE JSON:
       return null;
     }
 
+    // 🧹 AGGRESSIVE MARKDOWN CLEANUP FIRST
+    let cleanedText = resultText
+      .replace(/^```json\s*/gmi, '')     // Remove ```json at start
+      .replace(/```\s*$/gmi, '')         // Remove ``` at end
+      .replace(/^```.*\n/gmi, '')        // Remove any ``` line
+      .replace(/\n```$/gmi, '')          // Remove ``` at line end  
+      .replace(/```/g, '')               // Remove all remaining ```
+      .trim();                           // Clean whitespace
+    
+    console.log('🧹 Initial cleanup (first 200 chars):', cleanedText.substring(0, 200));
+
     // JSON'u parse et ve zengin veri çıkarımı yap
-    let cleanedText = resultText; // Scope'u genişlet
     try {
-      // 🔧 ULTRA-ROBUST JSON EXTRACTION v4.2.3
+      // 🔧 ULTRA-ROBUST JSON EXTRACTION v5.2
       
       // Method 1: Find JSON object boundaries
       const startIndex = cleanedText.indexOf('{');
@@ -2006,10 +2014,12 @@ RETURN MULTI-MODULE JSON:
     } catch (parseError: any) {
       console.error('🚨 JSON Parse Error Details:', {
         error: parseError?.message || 'Unknown parse error',
-        rawResponse: resultText.substring(0, 300),
-        cleanedAttempt: cleanedText?.substring(0, 300) || 'N/A',
+        rawResponse: resultText.substring(0, 500), // More context
+        cleanedAttempt: cleanedText?.substring(0, 500) || 'N/A',
         startsWithJson: resultText.trim().startsWith('```json'),
-        hasJsonBraces: resultText.includes('{') && resultText.includes('}')
+        hasJsonBraces: resultText.includes('{') && resultText.includes('}'),
+        responseLength: resultText.length,
+        cleanedLength: cleanedText?.length
       });
       
       // 🔄 LAST RESORT: Ultra-robust manual JSON extraction
@@ -2046,11 +2056,38 @@ RETURN MULTI-MODULE JSON:
         }
         
         // Strategy 3: Try to complete truncated JSON
-        if (!extractedJson && resultText.includes('"compulsive_behavior"')) {
-          extractedJson = resultText.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-          // Try to close any unclosed strings and objects
-          if (extractedJson.match(/"\s*$/)) {
-            extractedJson += '"}]},"suggestion":"OCD davranışı tespit edildi."}';
+        if (!extractedJson) {
+          console.log('🔧 Attempting truncation completion strategy...');
+          extractedJson = resultText.replace(/```json\n?/g, '').replace(/```\n?$/g, '').trim();
+          
+          // Count open and close braces
+          const openBraces = (extractedJson.match(/\{/g) || []).length;
+          const closeBraces = (extractedJson.match(/\}/g) || []).length;
+          const openBrackets = (extractedJson.match(/\[/g) || []).length;
+          const closeBrackets = (extractedJson.match(/\]/g) || []).length;
+          
+          console.log(`🔧 Brace/Bracket count: {${openBraces}/${closeBraces}, [${openBrackets}/${closeBrackets}`);
+          
+          // Try to auto-complete
+          if (openBraces > closeBraces || openBrackets > closeBrackets) {
+            // Add missing closing characters
+            const missingBraces = openBraces - closeBraces;
+            const missingBrackets = openBrackets - closeBrackets;
+            
+            // Check if last character is incomplete string
+            if (extractedJson.match(/[^"]\s*$/)) {
+              extractedJson += '"';
+            }
+            
+            // Close brackets first, then braces
+            for (let i = 0; i < missingBrackets; i++) {
+              extractedJson += ']';
+            }
+            for (let i = 0; i < missingBraces; i++) {
+              extractedJson += '}';
+            }
+            
+            console.log('🔧 Auto-completed JSON structure');
           }
         }
         
