@@ -249,6 +249,26 @@ function calculateWeightedScore(patterns: RegExp[], text: string, normalizedText
     });
   });
   
+  // 🔥 BONUS SCORING v4.2 - Sayısal ifadeler için ekstra puan
+  const numericalPattern = /\d+\s*(kere|kez|defa|dakika|dk|saat|sa)/gi;
+  const numericalMatches = text.match(numericalPattern);
+  if (numericalMatches && numericalMatches.length > 0) {
+    score += numericalMatches.length * 3; // Her sayısal ifade için +3 puan
+    matchedPatterns += numericalMatches.length;
+  }
+  
+  // 🎯 Spesifik OCD anahtar kelimeler için boost
+  if (/kontrol.*\d+.*kere/i.test(text) || /\d+.*kere.*kontrol/i.test(text)) {
+    score += 5; // "kontrol" + sayı kombinasyonu çok güçlü OCD göstergesi
+    matchedPatterns += 2;
+  }
+  
+  // 🚀 "takıntı" kelimesi varsa direkt OCD boost
+  if (/takıntı/i.test(text)) {
+    score += 4;
+    matchedPatterns += 2;
+  }
+  
   // Text length bonus/penalty
   const lengthFactor = text.length < 10 ? 0.7 : // Çok kısa penalty
                        text.length > 50 ? 1.2 : // Uzun bonus
@@ -321,8 +341,8 @@ export const DECISION_THRESHOLDS = {
   MAX_DIRECT_SAVES: 2,      // Tek check-in'de max direkt kayıt
   MAX_DRAFT_SUGGESTIONS: 1, // Max taslak öneri sayısı
   
-  // Performance limits
-  LLM_TIMEOUT_MS: 1500,     // LLM timeout süresi
+  // Performance limits - v4.2 UPDATED
+  LLM_TIMEOUT_MS: 3000,     // LLM timeout artırıldı (1.5s -> 3s)
   MAX_LLM_RETRIES: 2,       // Max retry sayısı
   
   // Confidence calibration weights
@@ -717,23 +737,49 @@ function multiClassHeuristic(clause: string): Array<{module: ModuleType; confide
     /çökkün/i, /isteksiz/i, /neşeli/i, /canım sıkkın/i
   ];
   
-  // OCD patterns - genişletilmiş sözlük
+  // OCD patterns - genişletilmiş sözlük - ENHANCED v4.2
   const ocdPatterns = [
-    /kontrol/i, /emin/i, /tekrar/i, /kere/i, /defa/i,
+    // Kontrol kompulsiyonları - YÜKSEK AĞIRLIK
+    /kontrol\s*et/i, /kontrol/i, /emin\s*olamıyorum/i, /emin\s*değilim/i,
+    /kapı.*kontrol/i, /ocak.*kontrol/i, /fırın.*kontrol/i,
+    /tekrar.*bak/i, /tekrar.*kontrol/i, /geri.*dön/i,
+    
+    // Sayısal ifadeler - ÇOOK ÖNEMLİ
+    /\d+\s*(kere|kez|defa)/i, // "5 kere", "3 defa" etc.
+    /üç\s*(kere|kez)/i, /beş\s*(kere|kez)/i, /yedi\s*(kere|kez)/i,
+    
+    // Temizlik/bulaş
     /temizl/i, /mikrop/i, /kirli/i, /bulaş/i, /yıka/i,
-    /say/i, /simetri/i, /düzen/i, /hizala/i,
-    /takıl/i, /kafaya tak/i, /kompulsiyon/i, /zorunlu/i,
-    /kontrol edemiyorum/i, /saymadan duramıyorum/i
+    /el.*yıka/i, /dezenfekte/i, /hijyen/i,
+    
+    // Simetri/düzen
+    /say/i, /simetri/i, /düzen/i, /hizala/i, /organize/i,
+    
+    // Genel OCD
+    /takıntı/i, /takıl/i, /kafaya\s*tak/i, /obsesyon/i, /kompulsiyon/i,
+    /zorunlu/i, /duramıyorum/i, /kontrol\s*edemiyorum/i,
+    /saymadan\s*duramıyorum/i, /yapmadan\s*edemiyorum/i
   ];
   
-  // CBT patterns - genişletilmiş sözlük  
+  // CBT patterns - genişletilmiş sözlük - ENHANCED v4.2
   const cbtPatterns = [
-    /herkes/i, /kimse/i, /asla/i, /her zaman/i, /daima/i,
-    /başarısız/i, /aptal/i, /beceriksiz/i, /değersiz/i,
-    /benden nefret/i, /arkamdan konuş/i, /benimle dalga/i,
-    /kesin.{0,20}(olacak|olur|eder)/i,
+    // Bilişsel çarpıtmalar
+    /herkes/i, /kimse/i, /asla/i, /her\s*zaman/i, /daima/i, /hiçbir\s*zaman/i,
+    /başarısız/i, /aptal/i, /beceriksiz/i, /değersiz/i, /berbat/i,
+    /benden\s*nefret/i, /arkamdan\s*konuş/i, /benimle\s*dalga/i,
+    
+    // Felaketleştirme
+    /kesin.{0,20}(olacak|olur|eder)/i, /mahvoldum/i, /bitirdim/i,
+    
+    // Ya hep ya hiç
     /hep.{0,20}ya.{0,20}hiç/i, /ya.{0,20}ya.{0,20}da/i,
-    /benim yüzümden/i, /suçum/i, /hata yaptım/i
+    
+    // Suçluluk/sorumluluk
+    /benim\s*yüzümden/i, /suçum/i, /hata\s*yaptım/i, /kusur/i,
+    
+    // Dilek/pişmanlık - ÖNEMLİ
+    /keşke/i, /umarım/i, /belki\s*de/i, /acaba/i,
+    /olmasa/i, /olmasaydı/i, /yapmasaydım/i
   ];
   
   // BREATHWORK patterns - genişletilmiş sözlük
@@ -749,11 +795,11 @@ function multiClassHeuristic(clause: string): Array<{module: ModuleType; confide
   const cbtScore = calculateWeightedScore(cbtPatterns, lower, normalizedClause);
   const breathworkScore = calculateWeightedScore(breathworkPatterns, lower, normalizedClause);
   
-  // 🎯 CALIBRATED THRESHOLDS - Modül bazlı eşikler
+  // 🎯 CALIBRATED THRESHOLDS v4.2 - Enhanced detection için güncellendi
   const MODULE_THRESHOLDS = {
     MOOD: 0.25,      // Daha düşük eşik (genellikle default)
-    OCD: 0.35,       // Orta eşik (spesifik pattern gerekli)
-    CBT: 0.40,       // Yüksek eşik (çarpıtma tespiti zor)
+    OCD: 0.20,       // Düşürüldü - artık daha iyi pattern detection var
+    CBT: 0.30,       // Düşürüldü - keşke/olmasa detection eklendi
     BREATHWORK: 0.45 // En yüksek eşik (nadir durum)
   };
   
@@ -1580,7 +1626,7 @@ CRITICAL RULES:
   } catch (error: any) {
     // 🔄 RETRY LOGIC - Timeout veya parse hatası durumunda
     if (error?.name === 'AbortError') {
-      console.warn(`⏱️ LLM timeout (${DECISION_THRESHOLDS.LLM_TIMEOUT_MS}ms), attempt ${retryCount + 1}/2`);
+      console.warn(`⏱️ LLM timeout (${DECISION_THRESHOLDS.LLM_TIMEOUT_MS}ms), attempt ${retryCount + 1}/${DECISION_THRESHOLDS.MAX_LLM_RETRIES + 1}`);
       
       if (retryCount < DECISION_THRESHOLDS.MAX_LLM_RETRIES) {
         // Retry with simplified text
