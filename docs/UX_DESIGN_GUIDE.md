@@ -49,6 +49,45 @@ Bu belge, ObsessLess uygulamasının kullanıcı akışlarını ve görsel tasar
 ### 🏠 Today
 - Healing Points ana kartı, Quick Stats (Today/Streak/ERP), Öneriler kartları, Başarımlar bölümü
 
+## 🎯 Adaptive Suggestions (Cross-Module Cards) - (NEW - Ocak 2025)
+
+### 🎨 **Card Design System**:
+```typescript
+// AdaptiveSuggestionCard Style Guide
+backgroundColor: 'category-specific' // CBT: #F0F9FF, Mood: #FDF2F8, Breathwork: #ECFDF5
+borderRadius: 12
+padding: 16  
+marginHorizontal: 16
+marginBottom: 16
+borderLeftWidth: 4
+borderLeftColor: 'category-color' // CBT: #3B82F6, Mood: #EC4899, Breathwork: #10B981
+shadowColor: #000, shadowOpacity: 0.05, elevation: 2
+```
+
+### 🎯 **Priority Rules (UI Hierarchy)**:
+1. **Adaptive Suggestions** (öncelik #1) - Pipeline tabanlı contextual öneriler
+2. **Breathwork Suggestions** (öncelik #2) - Sadece adaptive yoksa göster
+3. **Static Cards** (öncelik #3) - Mission cards, stats vb.
+
+```typescript
+// Priority-based rendering logic
+{adaptiveSuggestion?.show && <AdaptiveSuggestionCard />}
+{!adaptiveSuggestion?.show && breathworkSuggestion?.show && <BreathworkSuggestionCard />}
+{/* Static content always shown */}
+```
+
+### 🚀 **Cross-Module Coverage**:
+- **Today Screen**: Universal pipeline-based suggestions
+- **Mood Screen**: Mood analytics → CBT/Breathwork önerileri  
+- **CBT Screen**: CBT progress → Mood/Breathwork önerileri
+- **Tracking Screen**: Compulsion patterns → Breathwork/CBT önerileri
+
+### 📊 **Enhanced UX Patterns**:
+- **Flag-based Graceful Degradation**: AI_UNIFIED_PIPELINE kapalıysa phase-1 heuristic fallback
+- **Non-intrusive Notifications**: Clean accept/dismiss actions, no modal popups
+- **Source Tracking**: Enhanced telemetry ile suggestion effectiveness tracking
+- **Consistent Navigation**: All suggestions use same CTA pattern with screen routing
+
 ### 🌈 Mood Tracking
 - Lindsay Braman tarzı spektrum tabanlı mood tracker
 - Günlük (saatlik), Haftalık (günlük), Aylık (takvim) görünümleri

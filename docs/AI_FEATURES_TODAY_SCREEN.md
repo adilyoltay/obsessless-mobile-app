@@ -33,7 +33,65 @@ Today Screen, ObsessLess uygulamasının **merkezi kontrol paneli** ve kullanıc
 
 ---
 
-## 🎯 **1. Merkezi Ses Check-in Sistemi (Voice Analysis)**
+## 🎯 **1. Cross-Module Adaptive Suggestions (JITAI/Adaptive Interventions)**
+
+### 🧠 **Ne Yapıyor:**
+Today Screen, UnifiedAIPipeline sonuçlarından beslenip **cross-module adaptive suggestions** sunar. Kullanıcının mood, CBT, tracking verilerine dayalı contextual öneriler gösterir.
+
+### 🎯 **Smart Suggestion Logic:**
+```typescript
+// Pipeline → Smart Rules → Contextual Suggestions
+if (mood.weeklyDelta > +10 && mood.sampleSize >= 5) {
+  return "Güzel İvme!" // CBT reinforcement
+}
+if (baselines.mood < 40 || volatility > 15) {
+  return "Kısa Bir Mola" // Breathwork suggestion  
+}
+if (tracking.compulsionIncrease > 15) {
+  return "Stresi Azalt" // Breathwork intervention
+}
+```
+
+### ⚙️ **Flag-Based Fallback (NEW - Ocak 2025)**:
+```typescript
+// AI_UNIFIED_PIPELINE flag kontrolü
+if (!FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+  console.log('⚠️ Pipeline disabled - phase-1 heuristic fallback');
+  const quickInsights = await generateQuickInsights();
+  // UnifiedAIPipeline olmadan da basic insights çalışır
+}
+```
+
+### 📊 **Enhanced Telemetry (NEW - Ocak 2025)**:
+```typescript
+await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
+  userId,
+  category: suggestion.category,
+  source: 'today', // Today screen is the source  
+  targetScreen: suggestion.cta.screen,
+  hasNavigation: !!suggestion.cta.screen // Navigation track'i
+});
+```
+
+### 🎯 **Priority Rules (NEW - Ocak 2025)**:
+- ✅ **Adaptive Suggestions** (öncelik #1)
+- ⚠️ **Breathwork Suggestions** (öncelik #2, adaptive yoksa göster)
+```typescript
+// Priority-based rendering
+{!adaptiveSuggestion?.show && breathworkSuggestion?.show && (
+  <BreathworkSuggestionCard ... />
+)}
+```
+
+### 🚀 **Cross-Module Coverage**:
+- **Today**: Pipeline-based universal suggestions
+- **Mood**: Mood analytics → CBT/Breathwork önerileri  
+- **CBT**: CBT progress → Mood/Breathwork önerileri
+- **Tracking**: Compulsion patterns → Breathwork/CBT önerileri
+
+---
+
+## 🎯 **2. Merkezi Ses Check-in Sistemi (Voice Analysis)**
 
 ### 🎤 **Ne Yapıyor:**
 Today Screen'deki **"Check-in"** butonu, kullanıcının sesli olarak günlük durumunu paylaşabileceği merkezi giriş noktasıdır. Unified Voice Analysis sistemi ile bu ses gerçek zamanlı analiz edilir.

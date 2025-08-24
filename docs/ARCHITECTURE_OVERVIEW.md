@@ -44,8 +44,28 @@ Bu belge, mevcut kod tabanının gerçek durumunu, katmanları ve veri akışın
 - **15→5 Servis İndirimi**: Sadece 5 core servis (Unified AI, Supabase, Gamification, Notifications, Telemetry)
 - **24 Saat Cache**: TTL bazlı önbellekleme, invalidation hooks
 - **Full Rollout**: %100 aktif - tüm kullanıcılar
+- **Flag-based Fallback**: AI_UNIFIED_PIPELINE flag kapalıysa phase-1 heuristic fallback
 - **Paralel İşleme**: Tüm analizler paralel çalışır
 - **Cache Invalidation Hooks**: compulsion_added, mood_added, manual_refresh (ERP removed)
+
+### 🎯 Cross-Module Adaptive Suggestions (JITAI) - (ACTIVE - Ocak 2025)
+- **Universal Coverage**: Today/Mood/CBT/Tracking - %100 cross-module coverage
+- **Pipeline Integration**: UnifiedAIPipeline sonuçlarından beslenen `generateSuggestionFromPipeline()`
+- **Smart Rules**: weeklyDelta, volatility, baselines, sampleSize metrics'e dayalı contextual logic
+- **Priority System**: Adaptive Suggestions > Breathwork Suggestions (conflict resolution)
+- **Enhanced Telemetry**: source tracking, hasNavigation boolean, click-through analytics
+- **Flag-based Degradation**: AI_JITAI_SYSTEM + AI_ADAPTIVE_INTERVENTIONS flag controls
+- **Cooldown/Snooze**: 4h cooldown, 2h snooze, quiet hours (22-08), circadian timing awareness
+- **A/B Testing Ready**: Parameter overrides, test assignment tracking
+- **Non-blocking UI**: Suggestion generation failure asla UI'yi bloke etmez
+
+#### Cross-Module Suggestion Logic:
+```
+Mood Screen: İyileşme → CBT, Kötü mood → Breathwork, Eksik kayıt → Mood entry
+CBT Screen: İyi progress → Mood tracking, Volatilite → Breathwork, Az kayıt → CBT encourage  
+Tracking Screen: Yüksek kompülsiyon → Breathwork, İyi direnç → CBT, Tutarlı takip → Mood correlation
+Today Screen: Pipeline-based universal suggestions (all patterns combined)
+```
   
 Güncel yönlendirme:
 - Onboarding giriş rotası: `/(auth)/onboarding` (eski `/(auth)/ai-onboarding` kaldırıldı)
