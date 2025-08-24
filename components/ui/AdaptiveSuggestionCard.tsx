@@ -143,7 +143,7 @@ export function AdaptiveSuggestionCard({
         </View>
         
         {/* Quality Ribbon (right-aligned) */}
-        {meta && meta.source ? (
+        {meta && meta.source && (
           <QualityRibbon
             source={meta.source}
             qualityLevel={meta.qualityLevel || 'medium'}
@@ -151,8 +151,6 @@ export function AdaptiveSuggestionCard({
             freshnessMs={meta.freshnessMs}
             style={styles.qualityRibbon}
           />
-        ) : (
-          <Text style={{ fontSize: 10, color: '#999' }}>No Meta</Text>
         )}
       </View>
 

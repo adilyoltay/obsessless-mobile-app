@@ -117,10 +117,16 @@ export default function TodayScreen() {
   // ✅ FIXED: Progressive UI Timer Management - prevent overlapping pipeline runs
   const deepAnalysisTimerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Progressive UI State
-  const [insightsSource, setInsightsSource] = useState<'cache' | 'heuristic' | 'llm'>('cache');
-  const [hasDeepInsights, setHasDeepInsights] = useState(false);
-  const [insightsConfidence, setInsightsConfidence] = useState(0);
+  // ✅ OPTIMIZATION: Cache loaded module data to avoid duplicate AsyncStorage reads
+  const moduleDataCacheRef = useRef<{
+    allCompulsions: any[];
+    allCBTRecords: any[];
+    moodEntries: any[];
+    allBreathworkSessions: any[];
+    lastUpdated: number;
+  } | null>(null);
+  
+
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -303,8 +309,10 @@ export default function TodayScreen() {
 
     try {
       
-      // PHASE 1: Quick initialization for adaptive suggestions
-      console.log('✅ Phase 1: Initialized for adaptive suggestions');
+      // PHASE 1: Quick heuristic insights generation
+      console.log('✅ Phase 1: Generating quick heuristic insights...');
+      const quickInsights = await generateQuickInsights();
+      console.log(`✅ Phase 1: Generated ${quickInsights.length} heuristic insights for context`);
       
       // PHASE 2: Deep Analysis (Background, 3s delay)
       // ✅ FIXED: Clear existing timer to prevent overlapping runs
@@ -317,30 +325,71 @@ export default function TodayScreen() {
         try {
           console.log('🚀 Phase 2: Starting deep analysis with ALL MODULE DATA...');
           
-          // ✅ FIXED: Use comprehensive module data in Phase-2
-          // Gather all module data for deep analysis
-          const today = new Date().toDateString();
-          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-          // Collect all module data (same as onRefresh logic)
-          const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
-          const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-          const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-
-          const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
-          const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
-          const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
-
-          const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
-
-          const breathworkKey = StorageKeys.BREATH_SESSIONS(user.id);
-          const breathworkData = await AsyncStorage.getItem(breathworkKey);
-          const allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
-
-          // Deep analysis phase - data is available for future enhancements
-          console.log('🔍 Deep analysis phase completed - data ready for adaptive suggestions');
+          // ✅ OPTIMIZATION: Use cached module data to avoid duplicate AsyncStorage reads
+          let allCompulsions, allCBTRecords, moodEntries, allBreathworkSessions;
           
-          setHasDeepInsights(true);
+          if (moduleDataCacheRef.current && (Date.now() - moduleDataCacheRef.current.lastUpdated) < 60000) {
+            // Use cached data if fresh (< 1 minute old)
+            console.log('✅ Using cached module data for deep analysis');
+            ({ allCompulsions, allCBTRecords, moodEntries, allBreathworkSessions } = moduleDataCacheRef.current);
+          } else {
+            // Fallback to AsyncStorage if cache is stale or missing
+            console.log('⚠️ Cache stale or missing, reading from AsyncStorage');
+            const today = new Date().toDateString();
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
+            const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
+            allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
+
+            const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
+            const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
+            allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
+
+            moodEntries = await moodTracker.getMoodEntries(user.id, 7);
+
+            const breathworkKey = StorageKeys.BREATH_SESSIONS(user.id);
+            const breathworkData = await AsyncStorage.getItem(breathworkKey);
+            allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
+          }
+
+          // Deep analysis phase - run unified pipeline analysis
+          console.log('🔍 Starting unified pipeline analysis for Today...');
+          
+          let pipelineResult = null;
+          try {
+            // Process all module data through unified pipeline
+            pipelineResult = await unifiedPipeline.process({
+              userId: user.id,
+              content: {
+                compulsions: allCompulsions,
+                cbtRecords: allCBTRecords,
+                moodEntries,
+                breathworkSessions: allBreathworkSessions
+              },
+              type: 'mixed',
+              context: {
+                source: 'today',
+                timestamp: Date.now(),
+                metadata: {
+                  includeAllModules: true,
+                  privacy: {
+                    piiSanitized: true,
+                    encryptionLevel: 'sanitized_plaintext'
+                  }
+                }
+              }
+            });
+            
+            console.log('📊 Today Pipeline Analysis completed:', {
+              insights: pipelineResult.insights?.therapeutic?.length || 0,
+              patterns: Array.isArray(pipelineResult.patterns) ? pipelineResult.patterns.length : 0,
+              source: pipelineResult.metadata?.source
+            });
+          } catch (pipelineError) {
+            console.warn('⚠️ Today pipeline analysis failed:', pipelineError);
+          }
+          
           console.log('✅ Phase 2: Deep insights loaded with ALL MODULE DATA');
           
           // 🎯 TRIGGER ADAPTIVE SUGGESTION after deep insights complete
@@ -355,16 +404,38 @@ export default function TodayScreen() {
                 setAdaptiveSuggestion(suggestion);
                 console.log('✅ AdaptiveSuggestion STATE SET:', { suggestion, show: suggestion.show });
                 
-                // 📊 GENERATE QUALITY METADATA from latest pipeline result (if available in scope)
-                // Note: For Today screen context-based suggestions, we use heuristic quality estimation
+                // 📊 GENERATE QUALITY METADATA from pipeline result (if available) or fallback
                 try {
-                  setAdaptiveMeta({
-                    source: 'heuristic' as const, // Context-based suggestion
-                    qualityLevel: 'medium' as const, // Default for context-based
-                    sampleSize: undefined, // Not available for context suggestions
-                    freshnessMs: 0, // Fresh generation
-                  });
-                  console.log('📊 Default quality metadata set for Today suggestion');
+                  if (pipelineResult) {
+                    // Use pipeline result to generate quality metadata (like mood page)
+                    // Map suggestion category to InsightCategory
+                    const getInsightCategory = (suggestedCategory?: string): 'mood' | 'cbt' | 'ocd' | 'breathwork' | 'timeline' => {
+                      switch (suggestedCategory) {
+                        case 'breathwork': return 'breathwork';
+                        case 'cbt': return 'cbt';
+                        case 'mood': return 'mood';
+                        case 'tracking': return 'ocd'; // tracking suggestions map to OCD category
+                        default: return 'mood'; // default fallback
+                      }
+                    };
+
+                    const registryItems = mapUnifiedResultToRegistryItems(pipelineResult, 'today', {
+                      trigger: 'today_analysis',
+                      baseCategory: getInsightCategory(suggestion.category),
+                    });
+                    const qualityMeta = extractUIQualityMeta(registryItems, 'suggestion');
+                    setAdaptiveMeta(qualityMeta);
+                    console.log('📊 Pipeline-based quality metadata set for Today suggestion:', qualityMeta);
+                  } else {
+                    // Fallback to heuristic estimation if no pipeline result
+                    setAdaptiveMeta({
+                      source: 'heuristic' as const,
+                      qualityLevel: 'medium' as const,
+                      sampleSize: undefined,
+                      freshnessMs: 0,
+                    });
+                    console.log('📊 Fallback quality metadata set for Today suggestion');
+                  }
                 } catch (metaError) {
                   console.warn('⚠️ Quality metadata generation failed:', metaError);
                   setAdaptiveMeta(null);
@@ -695,6 +766,15 @@ export default function TodayScreen() {
         cbtMoodDelta, // ✅ CBT mood improvement average
         breathworkAnxietyDelta // ✅ Breathwork anxiety reduction average
       });
+
+      // ✅ OPTIMIZATION: Cache module data to avoid duplicate AsyncStorage reads in loadAIInsights
+      moduleDataCacheRef.current = {
+        allCompulsions,
+        allCBTRecords,
+        moodEntries,
+        allBreathworkSessions,
+        lastUpdated: Date.now()
+      };
 
       // Load AI Insights with Progressive UI (Phase-1: cache/heuristic → Phase-2: deep)
       // ✅ Load AI Insights for Progressive UI (Adaptive Suggestions)
