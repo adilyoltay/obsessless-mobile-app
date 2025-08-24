@@ -442,7 +442,7 @@ export function useAdaptiveSuggestion() {
           category: suggestion.category || 'general',
           confidence,
           delivery: 'inline_card',
-          source: 'context_based', // Context-based suggestions (not from specific screen)
+          source: 'today', // Consistent source for today-generated suggestions
           stressLevel: context.currentContext.userState.stressLevel,
           energyLevel: context.currentContext.userState.energyLevel
         });
@@ -632,42 +632,128 @@ export function useAdaptiveSuggestion() {
           console.log(`⚡ Analytics absent for ${source}, using enhanced fallbacks`);
           
           if (source === 'cbt') {
-            // CBT: infer progress from insights.therapeutic and insights.progress
-            if (result.insights?.therapeutic?.length > 0) {
-              sampleSize = result.insights.progress?.length || result.insights.therapeutic.length;
-              // Infer volatility from therapeutic insight diversity
-              volatility = result.insights.therapeutic.length > 3 ? 25 : 10; // High diversity = high volatility
-              weeklyDelta = sampleSize >= 3 ? 5 : 0; // Assume modest progress if sufficient data
-              baselines.cbt = sampleSize >= 2 ? 6 : 3; // Conservative baseline
+            // CBT: infer progress from insights.therapeutic and insights.progress with enhanced confidence
+            const therapeuticCount = result.insights?.therapeutic?.length || 0;
+            const progressCount = result.insights?.progress?.length || 0;
+            const totalInsights = therapeuticCount + progressCount;
+            
+            if (totalInsights > 0) {
+              sampleSize = Math.max(totalInsights, result.metadata?.processingTime ? Math.min(10, Math.floor(result.metadata.processingTime / 800)) : 0);
+              
+              // Enhanced volatility inference from insight diversity and patterns
+              const patternDiversity = Array.isArray(result.patterns) ? result.patterns.length : 0;
+              volatility = therapeuticCount > 5 ? 30 : // High therapeutic activity
+                          therapeuticCount > 3 ? 20 : // Moderate activity
+                          therapeuticCount > 1 ? 15 : 10; // Low activity
+              
+              // Sophisticated weekly delta from therapeutic vs progress balance
+              const therapeuticRatio = totalInsights > 0 ? therapeuticCount / totalInsights : 0;
+              weeklyDelta = therapeuticRatio > 0.7 ? 8 : // High therapeutic focus = good progress
+                           therapeuticRatio > 0.4 ? 5 : // Balanced insights
+                           progressCount > 3 ? 3 : 0; // Progress-heavy but modest improvement
+              
+              // Dynamic baseline based on insight quality
+              baselines.cbt = progressCount >= 3 ? 7 : // Good progress evidence
+                             therapeuticCount >= 2 ? 5 : // Some therapeutic work
+                             3; // Minimal baseline
+              
+              // Add pattern context if available
+              if (patternDiversity > 0) {
+                volatility = Math.min(volatility + patternDiversity * 2, 35); // Cap volatility
+                weeklyDelta = Math.max(weeklyDelta - 1, 0); // Patterns suggest complexity, reduce optimism slightly
+              }
             } else {
-              // Lack of therapeutic insights suggests no progress
-              sampleSize = 0;
-              volatility = 0;
-              weeklyDelta = 0;
+              // Enhanced fallback for no insights - use metadata context
+              const processingTime = result.metadata?.processingTime || 0;
+              if (processingTime > 2000) {
+                // Long processing suggests complex data, infer minimal activity
+                sampleSize = 1;
+                volatility = 5;
+                weeklyDelta = -2; // Slight negative trend assumption
+                baselines.cbt = 4;
+              } else {
+                // Short processing = no data
+                sampleSize = 0;
+                volatility = 0;
+                weeklyDelta = 0;
+                baselines.cbt = 3;
+              }
             }
-            console.log(`🧠 CBT fallback: sampleSize=${sampleSize}, volatility=${volatility}, weeklyDelta=${weeklyDelta}`);
+            console.log(`🧠 CBT enhanced fallback: insights=${totalInsights}, sampleSize=${sampleSize}, volatility=${volatility}, weeklyDelta=${weeklyDelta}`);
+            
           } else if (source === 'tracking') {
-            // Tracking: derive weeklyDelta from temporal patterns trend counts
-            if (Array.isArray(result.patterns)) {
-              const temporalPatterns = result.patterns.filter((p: any) => p.temporal === true);
-              const increasingPatterns = temporalPatterns.filter((p: any) => 
-                p.trend === 'increasing' || p.description?.includes('increase') || p.description?.includes('artı')).length;
-              const decreasingPatterns = temporalPatterns.filter((p: any) => 
-                p.trend === 'decreasing' || p.description?.includes('azal') || p.description?.includes('düş')).length;
+            // Tracking: enhanced trend analysis with pattern sophistication
+            if (Array.isArray(result.patterns) && result.patterns.length > 0) {
+              const temporalPatterns = result.patterns.filter((p: any) => p.temporal === true || p.type?.includes('temporal'));
+              const allPatterns = result.patterns;
               
-              // Derive weeklyDelta surrogate from trend balance
-              weeklyDelta = (increasingPatterns * 10) - (decreasingPatterns * 10); // -20 to +20 range
-              sampleSize = temporalPatterns.length || (result.metadata?.processingTime ? Math.min(7, Math.floor(result.metadata.processingTime / 500)) : 2);
-              volatility = Math.abs(increasingPatterns - decreasingPatterns) * 5; // Imbalance = volatility
-              baselines.compulsions = sampleSize >= 3 ? 5 : 8; // Conservative baseline
+              // Enhanced pattern classification
+              const increasingPatterns = allPatterns.filter((p: any) => 
+                p.trend === 'increasing' || 
+                p.description?.toLowerCase()?.includes('increase') || 
+                p.description?.toLowerCase()?.includes('artı') ||
+                p.description?.toLowerCase()?.includes('yüksel') ||
+                p.severity === 'high' && p.confidence > 0.7).length;
+                
+              const decreasingPatterns = allPatterns.filter((p: any) => 
+                p.trend === 'decreasing' || 
+                p.description?.toLowerCase()?.includes('azal') || 
+                p.description?.toLowerCase()?.includes('düş') ||
+                p.description?.toLowerCase()?.includes('improve') ||
+                p.severity === 'low' && p.confidence > 0.7).length;
               
-              console.log(`📊 Tracking fallback: patterns=${temporalPatterns.length}, inc=${increasingPatterns}, dec=${decreasingPatterns}, weeklyDelta=${weeklyDelta}`);
+              const stablePatterns = allPatterns.length - increasingPatterns - decreasingPatterns;
+              
+              // Sophisticated weeklyDelta calculation
+              const trendStrength = (increasingPatterns * 12) - (decreasingPatterns * 12) + (stablePatterns * 0);
+              weeklyDelta = Math.max(-25, Math.min(25, trendStrength)); // Clamped range
+              
+              // Enhanced sample size from multiple sources
+              const patternSampleSize = temporalPatterns.length * 2; // Temporal patterns worth more
+              const metadataSampleSize = result.metadata?.processingTime ? Math.min(10, Math.floor(result.metadata.processingTime / 400)) : 0;
+              sampleSize = Math.max(patternSampleSize, metadataSampleSize, allPatterns.length);
+              
+              // Dynamic volatility based on pattern conflict
+              const patternConflict = Math.abs(increasingPatterns - decreasingPatterns);
+              const patternConsistency = stablePatterns / allPatterns.length;
+              volatility = (patternConflict * 6) + (patternConsistency > 0.6 ? 0 : 10); // Conflict + inconsistency
+              
+              // Smart baseline inference
+              if (decreasingPatterns > increasingPatterns && decreasingPatterns >= 2) {
+                baselines.compulsions = 4; // Improving trend = lower baseline
+              } else if (increasingPatterns > decreasingPatterns && increasingPatterns >= 2) {
+                baselines.compulsions = 8; // Worsening trend = higher baseline  
+              } else {
+                baselines.compulsions = 6; // Stable/mixed trend = moderate baseline
+              }
+              
+              console.log(`📊 Tracking enhanced fallback: patterns=${allPatterns.length}, inc=${increasingPatterns}, dec=${decreasingPatterns}, stable=${stablePatterns}, weeklyDelta=${weeklyDelta}`);
             } else {
-              // Use metadata + context heuristics
-              sampleSize = result.metadata?.processingTime ? Math.min(5, Math.floor(result.metadata.processingTime / 1000)) : 1;
-              weeklyDelta = 0; // Neutral when no pattern data
-              volatility = 5; // Low volatility assumption
-              baselines.compulsions = 6;
+              // Enhanced metadata-only fallback
+              const processingTime = result.metadata?.processingTime || 0;
+              const contextSize = 0; // dataPoints not available in metadata type
+              
+              if (processingTime > 3000 || contextSize > 20) {
+                // Rich context suggests active tracking
+                sampleSize = Math.min(8, Math.floor(processingTime / 500) + Math.floor(contextSize / 5));
+                weeklyDelta = -2; // Assume slight improvement for active users
+                volatility = 8; // Moderate volatility for active tracking
+                baselines.compulsions = 5;
+              } else if (processingTime > 1000) {
+                // Some context
+                sampleSize = 3;
+                weeklyDelta = 0; // Neutral
+                volatility = 5;
+                baselines.compulsions = 6;
+              } else {
+                // Minimal context
+                sampleSize = 1;
+                weeklyDelta = 0;
+                volatility = 3;
+                baselines.compulsions = 7; // Higher baseline for uncertainty
+              }
+              
+              console.log(`📊 Tracking metadata fallback: processingTime=${processingTime}, contextSize=${contextSize}, sampleSize=${sampleSize}`);
             }
           }
         }
@@ -706,7 +792,7 @@ export function useAdaptiveSuggestion() {
         category: suggestion.category,
         confidence,
         delivery: 'cross_module_card',
-        source,
+        source: source || 'today', // Ensure source is always present
         hasWeeklyDelta: weeklyDelta !== 0,
         hasVolatility: volatility > 0,
         sampleSize
@@ -922,7 +1008,7 @@ export function useAdaptiveSuggestion() {
   /**
    * 😴 Snooze suggestion for specified hours
    */
-  const snoozeSuggestion = useCallback(async (userId: string, hours?: number): Promise<void> => {
+  const snoozeSuggestion = useCallback(async (userId: string, hours?: number, source = 'unknown'): Promise<void> => {
     // Use A/B test parameter or provided value or default
     let snoozeHours = hours;
     if (!snoozeHours) {

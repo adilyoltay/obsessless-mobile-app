@@ -375,7 +375,10 @@ export default function TodayScreen() {
     // Check AI_UNIFIED_PIPELINE flag - fallback to phase-1 heuristics if disabled
     if (!FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
       console.log('⚠️ AI_UNIFIED_PIPELINE disabled - falling back to phase-1 insights');
-      await generateQuickInsights(); // Fallback to phase-1 heuristic path
+      const quickInsights = await generateQuickInsights();
+      setAiInsights(quickInsights);
+      setInsightsSource('heuristic');
+      setInsightsConfidence(0.6);
       return;
     }
     
