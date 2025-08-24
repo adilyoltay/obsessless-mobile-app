@@ -62,7 +62,7 @@ import { unifiedGamificationService, UnifiedMission } from '@/features/ai/servic
 // 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
-import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay';
+// import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay'; // REMOVED - File deleted
 
 // Art Therapy Integration - temporarily disabled
 // Risk assessment UI removed
@@ -1804,8 +1804,8 @@ export default function TodayScreen() {
         onHide={() => setShowToast(false)}
       />
       
-      {/* 📊 Adaptive Analytics Debug Trigger (Development Only) */}
-      <AdaptiveAnalyticsTrigger position="bottom-left" />
+      {/* 📊 Adaptive Analytics Debug Trigger (Development Only) - REMOVED: Component deleted */}
+      {/* <AdaptiveAnalyticsTrigger position="bottom-left" /> */}
       
       {/* Micro Reward Animation */}
       {lastMicroReward && (
