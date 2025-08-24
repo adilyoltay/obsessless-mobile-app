@@ -43,6 +43,10 @@ import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
+// 🎯 Adaptive Suggestions (Cross-Module Integration)
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+
 
 const { width } = Dimensions.get('window');
 
@@ -77,6 +81,10 @@ export default function MoodScreen() {
   // ✅ REMOVED: Pattern analysis and predictive insights state moved to dashboard
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
   const [predictiveInsights, setPredictiveInsights] = useState<any>(null); // Still needed for dashboard data generation
+  
+  // 🎯 Adaptive Suggestions State (Cross-Module)
+  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
 
   // Pre-fill from voice trigger if available (only once)
   useEffect(() => {
@@ -188,13 +196,27 @@ export default function MoodScreen() {
         processingTime: result.metadata?.processingTime || 0
       }, user.id);
 
+      // 🎯 ADAPTIVE SUGGESTIONS: Generate cross-module suggestion from pipeline
+      try {
+        const suggestion = await generateSuggestionFromPipeline(user.id, result, 'mood');
+        if (suggestion.show) {
+          setAdaptiveSuggestion(suggestion);
+          console.log('✨ Mood adaptive suggestion generated:', suggestion.title);
+        } else {
+          setAdaptiveSuggestion(null);
+        }
+      } catch (error) {
+        console.warn('⚠️ Adaptive suggestion generation failed (non-blocking):', error);
+        setAdaptiveSuggestion(null);
+      }
+
       // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format with enhanced metrics
       if (result.patterns) {
         const normalizedPatterns = Array.isArray(result.patterns) 
           ? result.patterns 
           : result.patterns.temporal || [];
           
-        const mappedPatterns = normalizedPatterns.map((pattern: any) => {
+        let mappedPatterns = normalizedPatterns.map((pattern: any) => {
           // 🎯 Extract dashboard metrics for enhanced mood analysis
           const dashboardMetrics = pattern.dashboardMetrics || {};
           
@@ -240,6 +262,37 @@ export default function MoodScreen() {
             }
           };
         });
+
+        // 📊 ADD CLINICAL ANALYTICS: Add clinical profile as pattern if available
+        if (result.analytics?.mood) {
+          const analytics = result.analytics.mood;
+          
+          const clinicalPattern = {
+            type: 'clinical_profile',
+            title: `${analytics.profile?.type ? (analytics.profile.type.charAt(0).toUpperCase() + analytics.profile.type.slice(1)) : 'Clinical'} Profil`,
+            description: analytics.profile?.rationale?.join(', ') || 'Clinical mood profile analizi',
+            confidence: analytics.confidence || 0.8,
+            severity: analytics.profile?.type === 'stressed' || analytics.profile?.type === 'fatigued' ? 'high' : 'medium',
+            actionable: true,
+            suggestion: `Volatilite: ${analytics.volatility?.toFixed(1)}, En iyi zaman: ${analytics.bestTimes?.dayOfWeek || 'belirsiz'} ${analytics.bestTimes?.timeOfDay || ''}`,
+            source: 'clinical_analytics',
+            data: {
+              profileType: analytics.profile?.type,
+              confidence: analytics.confidence,
+              weeklyDelta: analytics.weeklyDelta,
+              volatility: analytics.volatility,
+              baselines: analytics.baselines,
+              correlations: analytics.correlations,
+              bestTimes: analytics.bestTimes,
+              sampleSize: analytics.sampleSize,
+              dataQuality: analytics.dataQuality,
+              analyticsReady: true
+            }
+          };
+          
+          mappedPatterns = [clinicalPattern, ...mappedPatterns];
+          console.log('📊 Clinical analytics added to patterns:', clinicalPattern.title);
+        }
 
         console.log('🎯 Enhanced mood patterns with dashboard metrics:', mappedPatterns);
         setMoodPatterns(mappedPatterns);
@@ -1510,6 +1563,25 @@ export default function MoodScreen() {
           />
         }
       >
+        {/* 🎯 ADAPTIVE SUGGESTION CARD (Cross-Module) */}
+        {adaptiveSuggestion?.show && (
+          <AdaptiveSuggestionCard
+            suggestion={adaptiveSuggestion}
+            onAccept={async () => {
+              if (!user?.id || !adaptiveSuggestion?.cta) return;
+              await trackSuggestionClick(user.id, adaptiveSuggestion);
+              router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
+              setAdaptiveSuggestion(null);
+            }}
+            onDismiss={async () => {
+              if (!user?.id) return;
+              await trackSuggestionDismissal(user.id, adaptiveSuggestion);
+              setAdaptiveSuggestion(null);
+            }}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+          />
+        )}
+
         {/* Date Display */}
         <Text style={styles.dateText}>
           {new Date().toLocaleDateString('tr-TR', { 

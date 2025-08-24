@@ -47,6 +47,10 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
 
+// 🎯 Adaptive Suggestions (Cross-Module Integration)
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+
 // Removed: Y-BOCS AI Assessment Integration - using onboarding data
 // VoiceMoodCheckin removed - using unified voice from Today page
 
@@ -100,6 +104,10 @@ export default function TrackingScreen() {
   const [onboardingProfile, setOnboardingProfile] = useState<any>(null);
   const [ybocsHistory, setYbocsHistory] = useState<any[]>([]);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  
+  // 🎯 Adaptive Suggestions State (Cross-Module)
+  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
   
   const [stats, setStats] = useState({
     totalCompulsions: 0,
@@ -375,6 +383,20 @@ export default function TrackingScreen() {
           });
 
           console.log('🎯 UnifiedPipeline pattern analysis result:', pipelineResult);
+
+          // 🎯 ADAPTIVE SUGGESTIONS: Generate cross-module suggestion from pipeline
+          try {
+            const suggestion = await generateSuggestionFromPipeline(user.id, pipelineResult, 'tracking');
+            if (suggestion.show) {
+              setAdaptiveSuggestion(suggestion);
+              console.log('✨ Tracking adaptive suggestion generated:', suggestion.title);
+            } else {
+              setAdaptiveSuggestion(null);
+            }
+          } catch (error) {
+            console.warn('⚠️ Tracking adaptive suggestion generation failed (non-blocking):', error);
+            setAdaptiveSuggestion(null);
+          }
 
           // Extract patterns from pipeline result
           if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
@@ -925,6 +947,25 @@ export default function TrackingScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* 🎯 ADAPTIVE SUGGESTION CARD (Cross-Module) */}
+        {adaptiveSuggestion?.show && (
+          <AdaptiveSuggestionCard
+            suggestion={adaptiveSuggestion}
+            onAccept={async () => {
+              if (!user?.id || !adaptiveSuggestion?.cta) return;
+              await trackSuggestionClick(user.id, adaptiveSuggestion);
+              router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
+              setAdaptiveSuggestion(null);
+            }}
+            onDismiss={async () => {
+              if (!user?.id) return;
+              await trackSuggestionDismissal(user.id, adaptiveSuggestion);
+              setAdaptiveSuggestion(null);
+            }}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+          />
+        )}
+
         {/* Date Display */}
         <Text style={styles.dateText}>
           {new Date().toLocaleDateString('en-US', { 

@@ -19,6 +19,7 @@ import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 import { adaptiveSuggestionAnalytics } from '../analytics/adaptiveSuggestionAnalytics';
 import { circadianTimingEngine, TimingRecommendation } from '../timing/circadianTimingEngine';
 import { abTestingFramework, ABTestVariant } from '../testing/abTestingFramework';
+import type { UnifiedPipelineResult } from '../core/UnifiedAIPipeline';
 
 // Types
 interface AdaptiveSuggestion {
@@ -534,6 +535,282 @@ export function useAdaptiveSuggestion() {
   };
 
   /**
+   * 🔄 Generate suggestion from UnifiedAIPipeline result
+   */
+  const generateSuggestionFromPipeline = useCallback(async (
+    userId: string, 
+    result: UnifiedPipelineResult, 
+    source: 'mood' | 'cbt' | 'tracking' | 'today' = 'today'
+  ): Promise<AdaptiveSuggestion> => {
+    // 1. Flag checks
+    if (!FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM') || 
+        !FEATURE_FLAGS.isEnabled('AI_ADAPTIVE_INTERVENTIONS')) {
+      console.log('🚫 Pipeline-based adaptive suggestions disabled by flags');
+      return { show: false };
+    }
+
+    try {
+      // 2. Get A/B test parameters
+      let testParameters: ABTestVariant['parameters'] | null = null;
+      let testId: string | null = null;
+      try {
+        const testAssignment = await abTestingFramework.getUserTestAssignment(userId);
+        testParameters = testAssignment.parameters;
+        testId = testAssignment.testId;
+      } catch (error) {
+        console.warn('⚠️ Failed to get A/B test assignment:', error);
+      }
+
+      const cooldownHours = testParameters?.cooldownHours || DEFAULT_COOLDOWN_HOURS;
+      const respectCircadianTiming = testParameters?.respectCircadianTiming ?? true;
+      const minimumTimingScore = testParameters?.minimumTimingScore ?? 30;
+
+      // 3. Check cooldown/snooze/quiet (reuse existing logic)
+      const snoozeKey = `adaptive_suggestion_snooze_until_${userId}`;
+      const snoozeUntil = await AsyncStorage.getItem(snoozeKey);
+      if (snoozeUntil && Date.now() < parseInt(snoozeUntil)) {
+        return { show: false };
+      }
+
+      const cooldownKey = `adaptive_suggestion_last_${userId}`;
+      const lastSuggested = await AsyncStorage.getItem(cooldownKey);
+      if (lastSuggested) {
+        const timeSinceLastSuggestion = Date.now() - parseInt(lastSuggested);
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        if (timeSinceLastSuggestion < cooldownMs) {
+          return { show: false };
+        }
+      }
+
+      if (isQuietHours()) {
+        return { show: false };
+      }
+
+      // 4. Timing check
+      if (respectCircadianTiming) {
+        try {
+          const timingRecommendation = await circadianTimingEngine.getTimingRecommendation(userId);
+          if (timingRecommendation.score < minimumTimingScore) {
+            console.log(`⏰ Poor timing score for ${source}: ${timingRecommendation.score}/${minimumTimingScore}`);
+            return { show: false };
+          }
+        } catch (error) {
+          console.warn('⚠️ Circadian timing check failed:', error);
+        }
+      }
+
+      // 5. Extract metrics safely from pipeline result
+      let weeklyDelta = 0;
+      let volatility = 0;
+      let baselines: any = {};
+      let sampleSize = 0;
+      let bestTimes: number[] = [];
+
+      try {
+        // Primary: analytics data
+        if (result.analytics && source !== 'today' && result.analytics[source as keyof typeof result.analytics]) {
+          const analytics = (result.analytics as any)[source];
+          weeklyDelta = analytics.weeklyDelta || 0;
+          volatility = analytics.volatility || 0;
+          baselines = analytics.baselines || {};
+          sampleSize = analytics.sampleSize || 0;
+          bestTimes = analytics.bestTimes || [];
+        }
+        // Fallback: patterns data
+        else if (Array.isArray(result.patterns)) {
+          const pattern = result.patterns.find((p: any) => p.category === source);
+          if (pattern?.dashboardMetrics) {
+            weeklyDelta = pattern.dashboardMetrics.weeklyDelta || 0;
+            volatility = pattern.dashboardMetrics.volatility || 0;
+            baselines = pattern.dashboardMetrics.baselines || {};
+            sampleSize = pattern.dashboardMetrics.sampleSize || 0;
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to extract metrics from pipeline result:', error);
+      }
+
+      // 6. Generate suggestion based on source and metrics
+      let suggestion: any = null;
+
+      switch (source) {
+        case 'mood':
+          suggestion = generateMoodSuggestion(weeklyDelta, volatility, baselines, sampleSize);
+          break;
+        case 'cbt':
+          suggestion = generateCBTSuggestion(weeklyDelta, volatility, baselines, sampleSize);
+          break;
+        case 'tracking':
+          suggestion = generateTrackingSuggestion(weeklyDelta, volatility, baselines, sampleSize);
+          break;
+        default:
+          return { show: false };
+      }
+
+      if (!suggestion || !suggestion.show) {
+        return { show: false };
+      }
+
+      // 7. Track and return
+      await AsyncStorage.setItem(cooldownKey, Date.now().toString());
+      
+      const confidence = 0.7; // Default confidence for pipeline-based suggestions
+      
+      await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_SHOWN, {
+        userId,
+        category: suggestion.category,
+        confidence,
+        delivery: 'cross_module_card',
+        source,
+        hasWeeklyDelta: weeklyDelta !== 0,
+        hasVolatility: volatility > 0,
+        sampleSize
+      });
+
+      await adaptiveSuggestionAnalytics.trackEvent('shown', userId, suggestion);
+
+      if (testId) {
+        await abTestingFramework.recordTestEvent(userId, 'suggestion_shown', {
+          suggestionCategory: suggestion.category
+        });
+      }
+
+      return {
+        show: true,
+        title: suggestion.title,
+        content: suggestion.content,
+        cta: suggestion.cta,
+        confidence,
+        category: suggestion.category
+      };
+
+    } catch (error) {
+      console.error(`❌ Pipeline-based suggestion generation failed for ${source}:`, error);
+      return { show: false };
+    }
+  }, []);
+
+  /**
+   * 😊 Generate mood-specific suggestions
+   */
+  const generateMoodSuggestion = (weeklyDelta: number, volatility: number, baselines: any, sampleSize: number): any => {
+    // Improvement → CBT reinforcement
+    if (weeklyDelta > 10 && sampleSize >= 5) {
+      return {
+        show: true,
+        title: "Güzel İvme!",
+        content: "Mood'un bu hafta iyileşmiş. Bunu bir CBT kaydı ile pekiştirmek ister misin?",
+        category: 'cbt',
+        cta: { screen: '/(tabs)/cbt' }
+      };
+    }
+
+    // Low mood/high volatility → breathwork
+    if ((baselines.mood && baselines.mood < 40) || volatility > 15) {
+      return {
+        show: true,
+        title: "Kısa Bir Mola",
+        content: "Kendini zorlayıcı hissediyorsun. 5 dakikalık nefes egzersizi rahatlatabilir.",
+        category: 'breathwork',
+        cta: { screen: '/(tabs)/breathwork', params: { autoStart: true, protocol: 'box' } }
+      };
+    }
+
+    // Missing recency → mood prompt
+    if (sampleSize < 3) {
+      return {
+        show: true,
+        title: "Nasıl Hissediyorsun?",
+        content: "Son günlerde mood kaydı yok. Şimdi bir kayıt eklemek ister misin?",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
+      };
+    }
+
+    return { show: false };
+  };
+
+  /**
+   * 🧠 Generate CBT-specific suggestions
+   */
+  const generateCBTSuggestion = (weeklyDelta: number, volatility: number, baselines: any, sampleSize: number): any => {
+    // Good CBT progress → mood tracking
+    if (weeklyDelta > 8 && sampleSize >= 3) {
+      return {
+        show: true,
+        title: "İlerleme Kaydı",
+        content: "CBT kayıtların çok tutarlı! Mood tracking ile desteklemeye ne dersin?",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
+      };
+    }
+
+    // High distortion volatility → breathwork before CBT
+    if (volatility > 20) {
+      return {
+        show: true,
+        title: "Önce Sakinleş",
+        content: "Düşünceler karmaşık görünüyor. Önce nefes egzersizi ile sakinleşmeye ne dersin?",
+        category: 'breathwork',
+        cta: { screen: '/(tabs)/breathwork', params: { autoStart: true, protocol: '4-7-8' } }
+      };
+    }
+
+    // Low CBT activity → encourage
+    if (sampleSize < 2) {
+      return {
+        show: true,
+        title: "Düşünce Analizi",
+        content: "Düşüncelerini analiz etmek için güzel bir zaman. Başlamaya ne dersin?",
+        category: 'cbt',
+        cta: { screen: '/(tabs)/cbt' }
+      };
+    }
+
+    return { show: false };
+  };
+
+  /**
+   * 📊 Generate tracking-specific suggestions
+   */
+  const generateTrackingSuggestion = (weeklyDelta: number, volatility: number, baselines: any, sampleSize: number): any => {
+    // High compulsion increase → breathwork
+    if (weeklyDelta > 15 || (baselines.compulsions && baselines.compulsions > 8)) {
+      return {
+        show: true,
+        title: "Stresi Azalt",
+        content: "Kompülsiyon sayın artmış. Hemen nefes egzersizi ile stresi azaltmaya ne dersin?",
+        category: 'breathwork',
+        cta: { screen: '/(tabs)/breathwork', params: { autoStart: true, protocol: '4-7-8' } }
+      };
+    }
+
+    // Good resistance progress → CBT analysis
+    if (weeklyDelta < -10 && sampleSize >= 5) {
+      return {
+        show: true,
+        title: "Başarını Analiz Et",
+        content: "Direnç oranın harika! Bu pattern'i CBT kaydı ile analiz etmek ister misin?",
+        category: 'cbt',
+        cta: { screen: '/(tabs)/cbt' }
+      };
+    }
+
+    // Consistent tracking → mood correlation
+    if (sampleSize >= 7) {
+      return {
+        show: true,
+        title: "Mood Korelasyonu",
+        content: "Takip kayıtların çok düzenli! Mood ile korelasyonunu görmek ister misin?",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
+      };
+    }
+
+    return { show: false };
+  };
+
+  /**
    * 📊 Track suggestion click for analytics
    */
   const trackSuggestionClick = useCallback(async (userId: string, suggestion: AdaptiveSuggestion, sessionDuration?: number): Promise<void> => {
@@ -631,6 +908,7 @@ export function useAdaptiveSuggestion() {
 
   return {
     generateSuggestion,
+    generateSuggestionFromPipeline,
     snoozeSuggestion,
     trackSuggestionClick,
     trackSuggestionDismissal,

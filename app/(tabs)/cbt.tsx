@@ -9,7 +9,7 @@ import {
   Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from '@react-navigation/native';
@@ -32,6 +32,10 @@ import UserCentricCBTDashboard from '@/components/ui/UserCentricCBTDashboard';
 import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
+// 🎯 Adaptive Suggestions (Cross-Module Integration)
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+
 interface ThoughtRecord {
   id: string;
   thought: string;
@@ -48,6 +52,7 @@ interface ThoughtRecord {
 
 export default function CBTScreen() {
   const params = useLocalSearchParams();
+  const router = useRouter();
   const { user } = useAuth();
   const { t } = useTranslation();
   const { awardMicroReward, updateStreak } = useGamificationStore();
@@ -61,6 +66,10 @@ export default function CBTScreen() {
   const [displayLimit, setDisplayLimit] = useState(5);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // 🎯 Adaptive Suggestions State (Cross-Module)
+  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
   
   // ✅ FIXED: Enhanced AI-driven stats
   const [stats, setStats] = useState({
@@ -327,6 +336,20 @@ export default function CBTScreen() {
         });
 
         console.log('🎯 AI Progress Analytics Result:', pipelineResult);
+
+        // 🎯 ADAPTIVE SUGGESTIONS: Generate cross-module suggestion from pipeline
+        try {
+          const suggestion = await generateSuggestionFromPipeline(user.id, pipelineResult, 'cbt');
+          if (suggestion.show) {
+            setAdaptiveSuggestion(suggestion);
+            console.log('✨ CBT adaptive suggestion generated:', suggestion.title);
+          } else {
+            setAdaptiveSuggestion(null);
+          }
+        } catch (error) {
+          console.warn('⚠️ CBT adaptive suggestion generation failed (non-blocking):', error);
+          setAdaptiveSuggestion(null);
+        }
 
         // Extract AI insights from pipeline result
         if (pipelineResult.insights?.therapeutic) {
@@ -881,6 +904,25 @@ export default function CBTScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* 🎯 ADAPTIVE SUGGESTION CARD (Cross-Module) */}
+        {adaptiveSuggestion?.show && (
+          <AdaptiveSuggestionCard
+            suggestion={adaptiveSuggestion}
+            onAccept={async () => {
+              if (!user?.id || !adaptiveSuggestion?.cta) return;
+              await trackSuggestionClick(user.id, adaptiveSuggestion);
+              router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
+              setAdaptiveSuggestion(null);
+            }}
+            onDismiss={async () => {
+              if (!user?.id) return;
+              await trackSuggestionDismissal(user.id, adaptiveSuggestion);
+              setAdaptiveSuggestion(null);
+            }}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+          />
+        )}
+
         {/* Date Display */}
         <Text style={styles.dateText}>
           {new Date().toLocaleDateString('tr-TR', {
