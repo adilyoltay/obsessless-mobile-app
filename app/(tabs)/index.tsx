@@ -50,7 +50,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
+// import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay'; // REMOVED - Kullanıcı için çok teknik
 // Removed CoreAnalysisService - using UnifiedAIPipeline only
 
 // Unified AI Pipeline (ACTIVE - Jan 2025)
@@ -1815,8 +1815,8 @@ export default function TodayScreen() {
         />
       )}
 
-      {/* Debug AI Pipeline Overlay - Development Only */}
-      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
+      {/* Debug AI Pipeline Overlay - Development Only - REMOVED: Kullanıcı için çok teknik detay */}
+      {/* {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />} */}
 
     </ScreenLayout>
   );
