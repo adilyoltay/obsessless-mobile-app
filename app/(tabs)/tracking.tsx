@@ -45,7 +45,7 @@ import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
+// import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay'; // REMOVED - Kullanıcı için çok teknik
 
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
@@ -1164,8 +1164,8 @@ export default function TrackingScreen() {
         onHide={() => setShowToast(false)}
       />
 
-      {/* Debug AI Pipeline Overlay - Development Only */}
-      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
+      {/* Debug AI Pipeline Overlay - Development Only - REMOVED: Kullanıcı için çok teknik detay */}
+      {/* {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />} */}
     </ScreenLayout>
   );
 }

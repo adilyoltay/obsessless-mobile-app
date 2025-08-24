@@ -29,7 +29,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import UserCentricCBTDashboard from '@/components/ui/UserCentricCBTDashboard';
-import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay';
+// import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay'; // REMOVED - Kullanıcı için çok teknik
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
@@ -1118,8 +1118,8 @@ export default function CBTScreen() {
         }}
       />
 
-      {/* Debug AI Pipeline Overlay - Development Only */}
-      {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />}
+      {/* Debug AI Pipeline Overlay - Development Only - REMOVED: Kullanıcı için çok teknik detay */}
+      {/* {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />} */}
     </ScreenLayout>
   );
 }
