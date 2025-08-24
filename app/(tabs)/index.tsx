@@ -372,6 +372,13 @@ export default function TodayScreen() {
   }) => {
     if (!user?.id) return;
     
+    // Check AI_UNIFIED_PIPELINE flag - fallback to phase-1 heuristics if disabled
+    if (!FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+      console.log('⚠️ AI_UNIFIED_PIPELINE disabled - falling back to phase-1 insights');
+      await generateQuickInsights(); // Fallback to phase-1 heuristic path
+      return;
+    }
+    
     try {
       setAiInsightsLoading(true);
       const startTime = Date.now();
@@ -508,6 +515,13 @@ export default function TodayScreen() {
    */
   const loadUnifiedPipelineData = async () => {
     if (!user?.id) return;
+    
+    // Check AI_UNIFIED_PIPELINE flag - fallback to phase-1 heuristics if disabled  
+    if (!FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+      console.log('⚠️ AI_UNIFIED_PIPELINE disabled - falling back to phase-1 insights');
+      await generateQuickInsights(); // Fallback to phase-1 heuristic path
+      return;
+    }
     
     try {
       setAiInsightsLoading(true);
@@ -1190,7 +1204,9 @@ export default function TodayScreen() {
       await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
         userId: user.id,
         category: suggestion.category,
-        targetScreen: suggestion.cta.screen
+        source: 'today', // Today screen is the source
+        targetScreen: suggestion.cta.screen,
+        hasNavigation: !!suggestion.cta.screen
       });
       
       // 📊 Track click in analytics
@@ -1737,8 +1753,8 @@ export default function TodayScreen() {
           />
         )}
         
-        {/* Breathwork Suggestion Card */}
-        {breathworkSuggestion?.show && (
+        {/* Breathwork Suggestion Card - Only show if Adaptive suggestion is not present (priority rule) */}
+        {!adaptiveSuggestion?.show && breathworkSuggestion?.show && (
           <BreathworkSuggestionCard
             trigger={breathworkSuggestion.trigger}
             anxietyLevel={breathworkSuggestion.anxietyLevel}

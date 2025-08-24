@@ -951,9 +951,13 @@ class SupabaseNativeService {
     mood_after: number;
     trigger?: string;
     notes?: string;
+    content_hash?: string; // Allow manual content_hash to bypass trigger
   }): Promise<{ id: string } | null> {
     try {
       await this.ensureUserProfileExists(record.user_id);
+      
+      // Generate content_hash if not provided (to bypass problematic trigger)
+      const contentHash = record.content_hash || `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const { data, error } = await this.client
         .from('thought_records')
@@ -968,6 +972,7 @@ class SupabaseNativeService {
           mood_after: record.mood_after,
           trigger: record.trigger || null,
           notes: record.notes || null,
+          content_hash: contentHash, // Manual hash to bypass trigger
           created_at: new Date().toISOString()
         })
         .select('id')

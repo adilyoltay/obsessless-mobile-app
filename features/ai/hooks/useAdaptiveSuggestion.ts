@@ -442,6 +442,7 @@ export function useAdaptiveSuggestion() {
           category: suggestion.category || 'general',
           confidence,
           delivery: 'inline_card',
+          source: 'context_based', // Context-based suggestions (not from specific screen)
           stressLevel: context.currentContext.userState.stressLevel,
           energyLevel: context.currentContext.userState.energyLevel
         });
@@ -616,7 +617,7 @@ export function useAdaptiveSuggestion() {
           sampleSize = analytics.sampleSize || 0;
           bestTimes = analytics.bestTimes || [];
         }
-        // Fallback: patterns data
+        // Enhanced Fallback: patterns data with source-specific extraction
         else if (Array.isArray(result.patterns)) {
           const pattern = result.patterns.find((p: any) => p.category === source);
           if (pattern?.dashboardMetrics) {
@@ -624,6 +625,50 @@ export function useAdaptiveSuggestion() {
             volatility = pattern.dashboardMetrics.volatility || 0;
             baselines = pattern.dashboardMetrics.baselines || {};
             sampleSize = pattern.dashboardMetrics.sampleSize || 0;
+          }
+        }
+        // 🔧 ENHANCED FALLBACK: Source-specific heuristics when analytics missing
+        else {
+          console.log(`⚡ Analytics absent for ${source}, using enhanced fallbacks`);
+          
+          if (source === 'cbt') {
+            // CBT: infer progress from insights.therapeutic and insights.progress
+            if (result.insights?.therapeutic?.length > 0) {
+              sampleSize = result.insights.progress?.length || result.insights.therapeutic.length;
+              // Infer volatility from therapeutic insight diversity
+              volatility = result.insights.therapeutic.length > 3 ? 25 : 10; // High diversity = high volatility
+              weeklyDelta = sampleSize >= 3 ? 5 : 0; // Assume modest progress if sufficient data
+              baselines.cbt = sampleSize >= 2 ? 6 : 3; // Conservative baseline
+            } else {
+              // Lack of therapeutic insights suggests no progress
+              sampleSize = 0;
+              volatility = 0;
+              weeklyDelta = 0;
+            }
+            console.log(`🧠 CBT fallback: sampleSize=${sampleSize}, volatility=${volatility}, weeklyDelta=${weeklyDelta}`);
+          } else if (source === 'tracking') {
+            // Tracking: derive weeklyDelta from temporal patterns trend counts
+            if (Array.isArray(result.patterns)) {
+              const temporalPatterns = result.patterns.filter((p: any) => p.temporal === true);
+              const increasingPatterns = temporalPatterns.filter((p: any) => 
+                p.trend === 'increasing' || p.description?.includes('increase') || p.description?.includes('artı')).length;
+              const decreasingPatterns = temporalPatterns.filter((p: any) => 
+                p.trend === 'decreasing' || p.description?.includes('azal') || p.description?.includes('düş')).length;
+              
+              // Derive weeklyDelta surrogate from trend balance
+              weeklyDelta = (increasingPatterns * 10) - (decreasingPatterns * 10); // -20 to +20 range
+              sampleSize = temporalPatterns.length || (result.metadata?.processingTime ? Math.min(7, Math.floor(result.metadata.processingTime / 500)) : 2);
+              volatility = Math.abs(increasingPatterns - decreasingPatterns) * 5; // Imbalance = volatility
+              baselines.compulsions = sampleSize >= 3 ? 5 : 8; // Conservative baseline
+              
+              console.log(`📊 Tracking fallback: patterns=${temporalPatterns.length}, inc=${increasingPatterns}, dec=${decreasingPatterns}, weeklyDelta=${weeklyDelta}`);
+            } else {
+              // Use metadata + context heuristics
+              sampleSize = result.metadata?.processingTime ? Math.min(5, Math.floor(result.metadata.processingTime / 1000)) : 1;
+              weeklyDelta = 0; // Neutral when no pattern data
+              volatility = 5; // Low volatility assumption
+              baselines.compulsions = 6;
+            }
           }
         }
       } catch (error) {
@@ -896,7 +941,9 @@ export function useAdaptiveSuggestion() {
       // Track dismissal in both telemetry and analytics
       await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_DISMISSED, {
         userId,
-        snoozeHours
+        source,
+        snoozeHours,
+        category: 'dismissed' // Consistent category for dismissals
       });
       
       // 📊 Track dismissal in analytics (we need the suggestion object, so this will be handled from Today page)
