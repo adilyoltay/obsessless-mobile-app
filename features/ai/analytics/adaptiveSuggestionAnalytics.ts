@@ -329,6 +329,55 @@ class AdaptiveSuggestionAnalytics {
     const ctrChange = prevCTR > 0 ? ((ctr - prevCTR) / prevCTR) * 100 : 0;
     const dismissalChange = prevDismissalRate > 0 ? ((dismissalRate - prevDismissalRate) / prevDismissalRate) * 100 : 0;
 
+    // Calculate previous period engagement metrics
+    const prevClickedEvents = previousEvents.filter(e => e.eventType === 'clicked');
+    const prevSessionsWithDuration = prevClickedEvents.filter(e => e.sessionDuration);
+    const prevAvgSessionDuration = prevSessionsWithDuration.length > 0
+      ? prevSessionsWithDuration.reduce((sum, e) => sum + (e.sessionDuration || 0), 0) / prevSessionsWithDuration.length
+      : 0;
+
+    const prevUniqueUsers = [...new Set(previousEvents.map(e => e.userId))];
+    const prevReturnUsers = prevUniqueUsers.filter(userId => 
+      prevClickedEvents.filter(e => e.userId === userId).length > 1
+    );
+    const prevReturnUserRate = prevUniqueUsers.length > 0 ? prevReturnUsers.length / prevUniqueUsers.length : 0;
+
+    const prevDismissedEvents = previousEvents.filter(e => e.eventType === 'dismissed');
+    const prevSnoozedUsers = [...new Set(prevDismissedEvents.filter(e => e.snoozeHours).map(e => e.userId))];
+    const prevSnoozedButReturned = prevSnoozedUsers.filter(userId =>
+      prevClickedEvents.some(e => e.userId === userId && e.timestamp > 
+        Math.max(...prevDismissedEvents.filter(d => d.userId === userId).map(d => d.timestamp))
+      )
+    ).length;
+
+    // Calculate engagement change as weighted average of multiple factors
+    let engagementChange = 0;
+    let weightSum = 0;
+
+    // 1. Session duration change (weight: 0.4)
+    if (prevAvgSessionDuration > 0 && avgSessionDuration > 0) {
+      const sessionDurationChange = ((avgSessionDuration - prevAvgSessionDuration) / prevAvgSessionDuration) * 100;
+      engagementChange += sessionDurationChange * 0.4;
+      weightSum += 0.4;
+    }
+
+    // 2. Return user rate change (weight: 0.35)
+    if (prevReturnUserRate > 0 && returnUserRate > 0) {
+      const returnRateChange = ((returnUserRate - prevReturnUserRate) / prevReturnUserRate) * 100;
+      engagementChange += returnRateChange * 0.35;
+      weightSum += 0.35;
+    }
+
+    // 3. Snoozed but returned change (weight: 0.25)
+    if (prevSnoozedButReturned > 0 && snoozedButReturned > 0) {
+      const snoozeReturnChange = ((snoozedButReturned - prevSnoozedButReturned) / prevSnoozedButReturned) * 100;
+      engagementChange += snoozeReturnChange * 0.25;
+      weightSum += 0.25;
+    }
+
+    // Normalize by actual weights used
+    engagementChange = weightSum > 0 ? engagementChange / weightSum : 0;
+
     return {
       totalShown: shown.length,
       totalClicked: clicked.length,
@@ -349,7 +398,7 @@ class AdaptiveSuggestionAnalytics {
       trends: {
         ctrChange,
         dismissalChange,
-        engagementChange: 0 // TODO: Calculate engagement trend
+        engagementChange // Calculated above as weighted average of engagement metrics
       }
     };
   }

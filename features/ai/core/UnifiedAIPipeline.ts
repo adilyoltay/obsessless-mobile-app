@@ -3436,6 +3436,91 @@ export class UnifiedAIPipeline {
   }
 
   /**
+   * 📊 Calculate p-value for Pearson correlation coefficient
+   * Uses t-test approximation: t = r * sqrt(n-2) / sqrt(1-r²)
+   */
+  private calculateCorrelationPValue(r: number, n: number): number | null {
+    if (n < 3 || Math.abs(r) >= 1) return null;
+    
+    try {
+      const df = n - 2; // degrees of freedom
+      const t = r * Math.sqrt(df) / Math.sqrt(1 - r * r);
+      
+      // Approximation of two-tailed t-test p-value using t-distribution
+      const p = this.approximateTTestPValue(Math.abs(t), df);
+      
+      return Math.min(1, Math.max(0, p)); // Clamp between 0 and 1
+    } catch (error) {
+      console.warn('⚠️ P-value calculation failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 🧮 Approximate two-tailed t-test p-value
+   * Uses simplified approximation for t-distribution
+   */
+  private approximateTTestPValue(t: number, df: number): number {
+    // For large df (>30), normal approximation is reasonable
+    if (df > 30) {
+      return 2 * (1 - this.normalCDF(t));
+    }
+    
+    // For small df, use lookup table approximation
+    const criticalValues = [
+      { df: 2, values: [4.303, 6.965, 9.925, 14.089] },   // p: [0.1, 0.05, 0.02, 0.01]
+      { df: 3, values: [3.182, 4.541, 5.841, 7.453] },
+      { df: 4, values: [2.776, 3.747, 4.604, 5.598] },
+      { df: 5, values: [2.571, 3.365, 4.032, 4.773] },
+      { df: 10, values: [2.228, 2.764, 3.169, 3.581] },
+      { df: 20, values: [2.086, 2.528, 2.845, 3.153] },
+      { df: 30, values: [2.042, 2.457, 2.750, 3.030] }
+    ];
+
+    // Find closest df
+    const closest = criticalValues.reduce((prev, curr) => 
+      Math.abs(curr.df - df) < Math.abs(prev.df - df) ? curr : prev
+    );
+
+    const pLevels = [0.1, 0.05, 0.02, 0.01];
+    
+    // Linear interpolation between p-values
+    for (let i = 0; i < closest.values.length; i++) {
+      if (t <= closest.values[i]) {
+        if (i === 0) {
+          // Above highest p-value, interpolate between 1.0 and 0.1
+          const ratio = t / closest.values[0];
+          return Math.max(0.1, 1.0 - ratio * 0.9);
+        } else {
+          // Interpolate between two p-values
+          const prevT = i === 0 ? 0 : closest.values[i - 1];
+          const currT = closest.values[i];
+          const prevP = i === 0 ? 1.0 : pLevels[i - 1];
+          const currP = pLevels[i];
+          
+          const ratio = (t - prevT) / (currT - prevT);
+          return prevP - ratio * (prevP - currP);
+        }
+      }
+    }
+    
+    // Below lowest critical value, very significant
+    return 0.001;
+  }
+
+  /**
+   * 🔢 Normal CDF approximation (cumulative distribution function)
+   */
+  private normalCDF(x: number): number {
+    // Abramowitz and Stegun approximation
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989423 * Math.exp(-x * x / 2);
+    const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+    
+    return x >= 0 ? 1 - prob : prob;
+  }
+
+  /**
    * 📊 COMPREHENSIVE MOOD ANALYTICS PROCESSOR
    * Implements clinical-grade mood analytics with volatility, profiles, and correlations
    */
@@ -4370,21 +4455,26 @@ export class UnifiedAIPipeline {
       const moodAnxietyR = this.calculatePearsonCorrelation(moodScores, anxietyLevels);
       const energyAnxietyR = this.calculatePearsonCorrelation(energyLevels, anxietyLevels);
       
+      // Calculate p-values for each correlation
+      const moodEnergyP = this.calculateCorrelationPValue(moodEnergyR, moods.length);
+      const moodAnxietyP = this.calculateCorrelationPValue(moodAnxietyR, moods.length);
+      const energyAnxietyP = this.calculateCorrelationPValue(energyAnxietyR, moods.length);
+
       return {
         moodEnergy: {
           r: parseFloat(moodEnergyR.toFixed(3)),
           n: moods.length,
-          p: null // TODO: Could add p-value calculation for future
+          p: moodEnergyP ? parseFloat(moodEnergyP.toFixed(4)) : null
         },
         moodAnxiety: {
           r: parseFloat(moodAnxietyR.toFixed(3)),
           n: moods.length,
-          p: null
+          p: moodAnxietyP ? parseFloat(moodAnxietyP.toFixed(4)) : null
         },
         energyAnxiety: {
           r: parseFloat(energyAnxietyR.toFixed(3)),
           n: moods.length,
-          p: null
+          p: energyAnxietyP ? parseFloat(energyAnxietyP.toFixed(4)) : null
         }
       };
     } catch (error) {

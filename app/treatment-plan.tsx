@@ -14,6 +14,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +22,16 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSecureStorage } from '@/hooks/useSecureStorage';
+// Conditional imports for expo-print (requires dev client rebuild)
+let Print: any = null;
+let Sharing: any = null;
+
+try {
+  Print = require('expo-print');
+  Sharing = require('expo-sharing');
+} catch (error) {
+  console.warn('⚠️ expo-print or expo-sharing not available in development build:', error);
+}
 
 // AI Components
 import { TreatmentPlanPreview } from '@/features/ai/components/onboarding/TreatmentPlanPreview';
@@ -176,8 +187,335 @@ export default function TreatmentPlanScreen() {
   };
 
   const handleExportPlan = async () => {
-    // TODO: Tedavi planını PDF olarak dışa aktarma
-    Alert.alert('Yakında', 'Tedavi planınızı PDF olarak dışa aktarma özelliği yakında eklenecek.');
+    try {
+      console.log('📄 Starting treatment plan PDF export...');
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Check if expo-print is available
+      if (!Print || !Sharing) {
+        Alert.alert(
+          'Özellik Kullanılamıyor',
+          'PDF export özelliği şu anda development build\'de mevcut değil. Production build\'de çalışacaktır.',
+          [
+            {
+              text: 'Tamam',
+              style: 'default'
+            },
+            {
+              text: 'Detayları Göster',
+              style: 'default',
+              onPress: () => {
+                Alert.alert(
+                  'Teknik Detaylar',
+                  'Bu özellik expo-print native modülünü gerektirir. Development client\'ı yeniden build etmeniz gerekiyor:\n\n1. expo install expo-print\n2. expo run:ios\n\nVeya production build\'de kullanabilirsiniz.'
+                );
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      if (!treatmentPlan || !userProfile) {
+        Alert.alert('Hata', 'Tedavi planı verileriniz eksik. Lütfen önce planınızı güncelleyin.');
+        return;
+      }
+
+      // Generate HTML content for PDF
+      const htmlContent = generateTreatmentPlanHTML(treatmentPlan, userProfile);
+      
+      // Create PDF
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+        width: 612, // A4 width in points
+        height: 792, // A4 height in points
+      });
+
+      console.log('✅ PDF created successfully:', uri);
+
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        // Share the PDF
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Tedavi Planınızı Paylaşın',
+          UTI: 'com.adobe.pdf',
+        });
+        
+        console.log('📤 PDF shared successfully');
+      } else {
+        // Fallback: Show alert with file location
+        Alert.alert(
+          'PDF Oluşturuldu',
+          `Tedavi planınız PDF olarak oluşturuldu.\n\nDosya konumu: ${uri}`,
+          [
+            { text: 'Tamam', style: 'default' }
+          ]
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to export treatment plan as PDF:', error);
+      Alert.alert(
+        'Hata', 
+        'PDF oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+      );
+    }
+  };
+
+  /**
+   * Generate HTML content for treatment plan PDF
+   */
+  const generateTreatmentPlanHTML = (plan: TreatmentPlan, profile: UserProfile): string => {
+    const currentDate = new Date().toLocaleDateString('tr-TR');
+    
+    // Extract user details safely
+    const userName = profile.name || 'Kullanıcı';
+    const userAge = profile.age || '';
+    const symptoms = profile.symptoms?.join(', ') || 'Belirtilmedi';
+    const severity = profile.severity || 'Belirtilmedi';
+    
+    // Extract plan details
+    const planTitle = plan.title || 'Kişiselleştirilmiş Tedavi Planı';
+    const planDescription = plan.description || 'Bu plan sizin özel durumunuz için hazırlanmıştır.';
+    const phases = plan.phases || [];
+    const goals = plan.goals || [];
+    const recommendations = plan.recommendations || [];
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${planTitle}</title>
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            color: #333;
+            background: #fff;
+          }
+          
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #10B981;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          
+          .header h1 {
+            color: #10B981;
+            font-size: 24px;
+            margin: 0 0 10px 0;
+          }
+          
+          .header p {
+            color: #6B7280;
+            margin: 0;
+            font-size: 14px;
+          }
+          
+          .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+          }
+          
+          .section h2 {
+            color: #1F2937;
+            font-size: 18px;
+            border-left: 4px solid #10B981;
+            padding-left: 12px;
+            margin: 0 0 15px 0;
+          }
+          
+          .section h3 {
+            color: #374151;
+            font-size: 16px;
+            margin: 15px 0 8px 0;
+          }
+          
+          .user-info {
+            background: #F9FAFB;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #10B981;
+          }
+          
+          .user-info p {
+            margin: 5px 0;
+          }
+          
+          .phase {
+            background: #F3F4F6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3B82F6;
+          }
+          
+          .phase-title {
+            color: #1F2937;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+          }
+          
+          .phase-description {
+            color: #4B5563;
+            margin-bottom: 10px;
+          }
+          
+          .activities {
+            list-style-type: none;
+            padding-left: 0;
+          }
+          
+          .activities li {
+            background: #FFFFFF;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 3px solid #10B981;
+          }
+          
+          .goal {
+            background: #EEF2FF;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid #6366F1;
+          }
+          
+          .recommendation {
+            background: #FEF3C7;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            border-left: 4px solid #F59E0B;
+          }
+          
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+            text-align: center;
+            font-size: 12px;
+            color: #6B7280;
+          }
+          
+          ul {
+            padding-left: 20px;
+          }
+          
+          li {
+            margin-bottom: 5px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🌿 ObsessLess Tedavi Planı</h1>
+          <p>Kişiselleştirilmiş OKB Tedavi Programı</p>
+          <p>Oluşturulma Tarihi: ${currentDate}</p>
+        </div>
+        
+        <div class="section">
+          <h2>👤 Kullanıcı Bilgileri</h2>
+          <div class="user-info">
+            <p><strong>İsim:</strong> ${userName}</p>
+            ${userAge ? `<p><strong>Yaş:</strong> ${userAge}</p>` : ''}
+            <p><strong>Belirtiler:</strong> ${symptoms}</p>
+            <p><strong>Şiddet Düzeyi:</strong> ${severity}</p>
+          </div>
+        </div>
+        
+        <div class="section">
+          <h2>🎯 Plan Özeti</h2>
+          <h3>${planTitle}</h3>
+          <p>${planDescription}</p>
+        </div>
+        
+        ${goals.length > 0 ? `
+          <div class="section">
+            <h2>🎯 Hedefler</h2>
+            ${goals.map(goal => `
+              <div class="goal">
+                <strong>${goal.title || goal}</strong>
+                ${goal.description ? `<p>${goal.description}</p>` : ''}
+                ${goal.timeframe ? `<p><em>Süre: ${goal.timeframe}</em></p>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        ${phases.length > 0 ? `
+          <div class="section">
+            <h2>📋 Tedavi Aşamaları</h2>
+            ${phases.map((phase, index) => `
+              <div class="phase">
+                <div class="phase-title">
+                  Aşama ${index + 1}: ${phase.name || phase.title || `Aşama ${index + 1}`}
+                </div>
+                ${phase.description ? `
+                  <div class="phase-description">${phase.description}</div>
+                ` : ''}
+                
+                ${phase.duration ? `<p><strong>Süre:</strong> ${phase.duration}</p>` : ''}
+                
+                ${phase.activities && phase.activities.length > 0 ? `
+                  <h4>Aktiviteler:</h4>
+                  <ul class="activities">
+                    ${phase.activities.map(activity => `
+                      <li>${typeof activity === 'string' ? activity : activity.title || activity.name || 'Aktivite'}</li>
+                    `).join('')}
+                  </ul>
+                ` : ''}
+                
+                ${phase.goals && phase.goals.length > 0 ? `
+                  <h4>Bu Aşamanın Hedefleri:</h4>
+                  <ul>
+                    ${phase.goals.map(goal => `<li>${goal}</li>`).join('')}
+                  </ul>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        ${recommendations.length > 0 ? `
+          <div class="section">
+            <h2>💡 Öneriler</h2>
+            ${recommendations.map(rec => `
+              <div class="recommendation">
+                <strong>${rec.title || 'Öneri'}</strong>
+                ${rec.description ? `<p>${rec.description}</p>` : ''}
+                ${rec.importance ? `<p><em>Önem: ${rec.importance}</em></p>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        
+        <div class="section">
+          <h2>⚠️ Önemli Notlar</h2>
+          <ul>
+            <li>Bu plan, kişiselleştirilmiş bir rehber niteliğindedir ve profesyonel tıbbi tavsiyenin yerini almaz.</li>
+            <li>Herhangi bir soru veya endişeniz varsa, lütfen bir sağlık profesyoneline danışın.</li>
+            <li>Plan, durumunuza göre güncelleme gerektirebilir.</li>
+            <li>Düzenli takip ve değerlendirme önemlidir.</li>
+          </ul>
+        </div>
+        
+        <div class="footer">
+          <p>ObsessLess Uygulaması ile oluşturuldu</p>
+          <p>🌿 Sağlıklı yaşam, mutlu gelecek</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
   if (isLoading) {
@@ -413,3 +751,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+export default TreatmentPlanScreen;

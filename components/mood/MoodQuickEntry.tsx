@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,14 @@ interface MoodQuickEntryProps {
     notes?: string;
     trigger?: string;
   };
+  editingEntry?: {
+    id: string;
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    notes?: string;
+    trigger?: string;
+  } | null;
 }
 
 export function MoodQuickEntry({
@@ -38,12 +46,56 @@ export function MoodQuickEntry({
   onClose,
   onSubmit,
   initialData,
+  editingEntry,
 }: MoodQuickEntryProps) {
   const [selectedEmotion, setSelectedEmotion] = useState<{ primary: string; secondary?: string } | null>(null);
   const [energy, setEnergy] = useState(5);
   const [anxiety, setAnxiety] = useState(5);
   const [notes, setNotes] = useState('');
   const [selectedTrigger, setSelectedTrigger] = useState('');
+
+  // Initialize form data from editingEntry or initialData
+  useEffect(() => {
+    if (editingEntry) {
+      // Pre-fill from editing entry
+      setEnergy(editingEntry.energy_level);
+      setAnxiety(editingEntry.anxiety_level);
+      setNotes(editingEntry.notes || '');
+      setSelectedTrigger(editingEntry.trigger || '');
+      
+      // Convert mood score to emotion for the wheel
+      const moodScore = editingEntry.mood_score;
+      const emotionFromScore = getMoodScoreAsEmotion(moodScore);
+      setSelectedEmotion(emotionFromScore);
+      
+      console.log('📝 Pre-filled form for editing:', {
+        id: editingEntry.id,
+        mood: moodScore,
+        energy: editingEntry.energy_level,
+        anxiety: editingEntry.anxiety_level,
+        emotion: emotionFromScore
+      });
+      
+    } else if (initialData) {
+      // Pre-fill from initial data (voice input, etc.)
+      if (initialData.energy !== undefined) setEnergy(initialData.energy);
+      if (initialData.anxiety !== undefined) setAnxiety(initialData.anxiety);
+      if (initialData.notes) setNotes(initialData.notes);
+      if (initialData.trigger) setSelectedTrigger(initialData.trigger);
+      
+      if (initialData.mood !== undefined) {
+        const emotionFromScore = getMoodScoreAsEmotion(initialData.mood);
+        setSelectedEmotion(emotionFromScore);
+      }
+    } else {
+      // Reset form when no editing entry or initial data
+      setSelectedEmotion(null);
+      setEnergy(5);
+      setAnxiety(5);
+      setNotes('');
+      setSelectedTrigger('');
+    }
+  }, [editingEntry, initialData, visible]);
 
   /**
    * 🎯 Mood Score to Emotion Mapping (Aligned with EmotionWheel PRIMARY/SECONDARY sets)

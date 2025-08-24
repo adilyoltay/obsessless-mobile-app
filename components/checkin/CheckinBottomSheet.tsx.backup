@@ -724,12 +724,12 @@ export default function CheckinBottomSheet({
         }
         
         const moodData = {
-          mood: Math.max(1, Math.min(10, analysis.mood_score || analysis.mood || 5)),
-          energy: Math.max(1, Math.min(10, analysis.energy || 5)),
-          anxiety: Math.max(1, Math.min(10, analysis.anxiety || 5)),
+          mood_score: Math.max(1, Math.min(10, analysis.mood_score || analysis.mood || 5)),
+          energy_level: Math.max(1, Math.min(10, analysis.energy || 5)),
+          anxiety_level: Math.max(1, Math.min(10, analysis.anxiety || 5)),
           notes: analysis.notes || text,
           timestamp: new Date().toISOString(), // Convert to ISO string for moodTracker
-          userId: user.id
+          user_id: user.id
           // Removed: synced (handled by moodTracker service)
         };
         

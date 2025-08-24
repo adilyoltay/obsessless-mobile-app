@@ -300,6 +300,65 @@ class MoodTrackingService {
     
     return localEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
+
+  /**
+   * Delete mood entry from local storage
+   */
+  async deleteMoodEntry(entryId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting mood entry from local storage:', entryId);
+      
+      // Get all stored entries to find and remove the specific entry
+      const allEntries: MoodEntry[] = [];
+      
+      // Get recent dates (last 30 days to be safe)
+      const dates = await this.getRecentDates(30);
+      
+      for (const date of dates) {
+        const key = `${this.STORAGE_KEY}_${entryId.split('_')[1] || 'user'}_${date}`;
+        const existing = await AsyncStorage.getItem(key);
+        
+        if (existing) {
+          const entries: MoodEntry[] = JSON.parse(existing);
+          const filteredEntries = entries.filter(entry => entry.id !== entryId);
+          
+          // If entries were removed, update storage
+          if (filteredEntries.length !== entries.length) {
+            if (filteredEntries.length > 0) {
+              await AsyncStorage.setItem(key, JSON.stringify(filteredEntries));
+            } else {
+              await AsyncStorage.removeItem(key); // Remove empty date entry
+            }
+            console.log(`✅ Removed entry ${entryId} from date ${date}`);
+            break; // Entry found and removed, stop searching
+          }
+        }
+      }
+
+      // Also try to remove from the main storage key (fallback)
+      const mainKey = this.STORAGE_KEY;
+      const mainData = await AsyncStorage.getItem(mainKey);
+      if (mainData) {
+        const entries: MoodEntry[] = JSON.parse(mainData);
+        const filteredEntries = entries.filter(entry => entry.id !== entryId);
+        
+        if (filteredEntries.length !== entries.length) {
+          if (filteredEntries.length > 0) {
+            await AsyncStorage.setItem(mainKey, JSON.stringify(filteredEntries));
+          } else {
+            await AsyncStorage.removeItem(mainKey);
+          }
+          console.log(`✅ Removed entry ${entryId} from main storage`);
+        }
+      }
+
+      console.log('✅ Successfully deleted mood entry from local storage');
+      
+    } catch (error) {
+      console.error('❌ Failed to delete mood entry from local storage:', error);
+      throw error;
+    }
+  }
 }
 
 export const moodTracker = MoodTrackingService.getInstance();

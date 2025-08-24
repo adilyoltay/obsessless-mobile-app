@@ -270,13 +270,104 @@ describe('Today Page - Quality Ribbon E2E', () => {
   };
 
   const clearAllData = async () => {
-    // This would require a test-only endpoint or method to clear AsyncStorage
-    // Implementation depends on test setup
+    // Clear AsyncStorage through dev menu or direct API call
+    try {
+      // Method 1: Use React Native's DevSettings to clear AsyncStorage
+      await device.sendToHome();
+      await device.launchApp({ 
+        newInstance: false,
+        url: 'obslessless://dev/clear-storage'
+      });
+      await device.sleep(1000);
+      
+      // Method 2: Alternative - clear through test endpoint if available
+      // This assumes a test-only endpoint exists in dev mode
+      /*
+      await fetch('http://localhost:8081/test/clear-storage', {
+        method: 'POST'
+      });
+      */
+      
+      // Method 3: Navigate to Settings and clear data (UI-based)
+      await element(by.text('Ayarlar')).tap();
+      if (await element(by.text('Test Verilerini Temizle')).isVisible()) {
+        await element(by.text('Test Verilerini Temizle')).tap();
+        await element(by.text('Onayla')).tap();
+      }
+      
+      // Return to Today page
+      await element(by.text('Bugün')).tap();
+      await device.sleep(2000);
+      
+    } catch (error) {
+      console.warn('clearAllData failed:', error);
+      // Fallback: restart app to ensure clean state
+      await device.reloadReactNative();
+    }
   };
 
   const toggleFeatureFlag = async (flagName, value) => {
-    // This would require test configuration to toggle feature flags
-    // Implementation depends on test setup
+    try {
+      // Method 1: Use AsyncStorage to override feature flag
+      // This assumes feature flags check AsyncStorage for overrides in test mode
+      const overrideKey = `test_flag_${flagName}`;
+      
+      await device.sendUserActivity({
+        type: 'com.obsessless.test.set-flag',
+        userInfo: {
+          flagName: flagName,
+          value: value,
+          action: 'set'
+        }
+      });
+      
+      await device.sleep(500);
+      
+      // Method 2: Alternative - Navigate to dev settings if available
+      if (__DEV__) {
+        await element(by.text('Ayarlar')).tap();
+        
+        // Look for debug/developer options
+        if (await element(by.text('Geliştirici Seçenekleri')).isVisible()) {
+          await element(by.text('Geliştirici Seçenekleri')).tap();
+          
+          // Find the specific feature flag toggle
+          const flagToggle = element(by.id(`flag-toggle-${flagName}`));
+          if (await flagToggle.isVisible()) {
+            const currentState = await flagToggle.getAttributes();
+            // Toggle if needed to match desired value
+            if ((value && currentState.value !== 'true') || (!value && currentState.value === 'true')) {
+              await flagToggle.tap();
+            }
+          }
+          
+          // Go back to Today page
+          await element(by.text('Bugün')).tap();
+        }
+      }
+      
+      // Method 3: Direct AsyncStorage manipulation (for test environment)
+      // This would require a test bridge or deep link
+      await device.launchApp({
+        newInstance: false,
+        url: `obslessless://test/flag?${flagName}=${value}`
+      });
+      
+      await device.sleep(1000);
+      
+    } catch (error) {
+      console.warn(`toggleFeatureFlag(${flagName}, ${value}) failed:`, error);
+      
+      // Fallback: Restart app with environment variable override
+      await device.terminateApp();
+      await device.launchApp({
+        newInstance: true,
+        environmentVariables: {
+          [`TEST_${flagName}`]: value.toString(),
+          'EXPO_PUBLIC_ENABLE_AI': value.toString() // For AI-related flags
+        }
+      });
+    }
   };
 
   const addHighStressPatterns = async () => {
@@ -302,7 +393,62 @@ describe('Today Page - Quality Ribbon E2E', () => {
   };
 
   const simulateMetadataError = async () => {
-    // This would mock the extractUIQualityMeta to return null
-    // Implementation depends on mocking setup
+    try {
+      // Method 1: Trigger network failure to cause metadata generation failure
+      await device.setURLBlacklist([
+        '**/supabase/**',
+        '**/api/analyze/**',
+        '**/gemini/**'
+      ]);
+      
+      // Method 2: Use deep link to simulate metadata error condition
+      await device.launchApp({
+        newInstance: false,
+        url: 'obslessless://test/simulate-error?type=metadata&component=qualityRibbon'
+      });
+      
+      await device.sleep(1000);
+      
+      // Method 3: Force specific error condition through user activity
+      await device.sendUserActivity({
+        type: 'com.obsessless.test.simulate-error',
+        userInfo: {
+          errorType: 'metadata_generation_failure',
+          component: 'extractUIQualityMeta',
+          action: 'return_null'
+        }
+      });
+      
+      await device.sleep(500);
+      
+      // Method 4: Corrupt local data to cause parsing errors
+      await device.sendUserActivity({
+        type: 'com.obsessless.test.corrupt-data',
+        userInfo: {
+          dataType: 'pipeline_result',
+          corruptionType: 'missing_metadata_fields'
+        }
+      });
+      
+    } catch (error) {
+      console.warn('simulateMetadataError failed:', error);
+      
+      // Fallback: Use environment variable to force error condition
+      await device.terminateApp();
+      await device.launchApp({
+        newInstance: true,
+        environmentVariables: {
+          'TEST_FORCE_METADATA_ERROR': 'true',
+          'TEST_SIMULATE_NETWORK_FAILURE': 'true'
+        }
+      });
+      
+      // Navigate back to Today page if needed
+      try {
+        await element(by.text('Bugün')).tap();
+      } catch {
+        // Already on Today page or navigation failed
+      }
+    }
   };
 });

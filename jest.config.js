@@ -1,17 +1,23 @@
 module.exports = {
   preset: 'react-native',
+  testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)'],
   transformIgnorePatterns: [
     'node_modules/(?!(react-native'
       + '|@react-native'
       + '|react-native-reanimated'
       + '|@react-native-async-storage'
+      + '|@react-navigation'
+      + '|@react-navigation/.*'
       + '|expo'
       + '|expo-.*'
       + '|@expo'
       + '|@expo/.*'
       + '|@expo/vector-icons'
       + '|expo-modules-core'
+      + '|expo-router'
+      + '|@testing-library'
+      + '|@testing-library/.*'
       + ')/)'
   ],
   moduleNameMapper: {

@@ -1149,6 +1149,20 @@ class SupabaseNativeService {
       return data || [];
     } catch (error) {
       console.error('❌ Get mood entries failed:', error);
+      
+      // Additional error context for debugging
+      if (error && typeof error === 'object') {
+        const supabaseError = error as any;
+        if (supabaseError.code) {
+          console.error('🔍 Supabase Error Details:', {
+            code: supabaseError.code,
+            message: supabaseError.message,
+            details: supabaseError.details,
+            hint: supabaseError.hint
+          });
+        }
+      }
+      
       return [];
     }
   }

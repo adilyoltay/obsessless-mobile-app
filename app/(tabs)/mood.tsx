@@ -73,6 +73,7 @@ export default function MoodScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null);
   const [showMoodDashboard, setShowMoodDashboard] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -1066,6 +1067,7 @@ export default function MoodScreen() {
         setToastMessage('Mood kaydı offline kaydedildi 📱');
         setShowToast(true);
         setShowQuickEntry(false);
+        setEditingEntry(null); // Clear editing state
       } catch (syncError) {
         setToastMessage('Kayıt oluşturulamadı');
         setShowToast(true);
@@ -1074,13 +1076,124 @@ export default function MoodScreen() {
   };
 
   const handleEditEntry = async (entry: MoodEntry) => {
-    // TODO: Implement edit functionality
-    console.log('Edit entry:', entry);
+    try {
+      console.log('✏️ Editing mood entry:', entry.id);
+      
+      // Find the entry in current list
+      const currentEntry = moodEntries.find(e => e.id === entry.id);
+      if (!currentEntry) {
+        setToastMessage('Kayıt bulunamadı');
+        setShowToast(true);
+        return;
+      }
+
+      // Set the entry to be edited and show the form
+      setEditingEntry(currentEntry);
+      setShowQuickEntry(true);
+      
+      setToastMessage('Düzenleme formu açılıyor...');
+      setShowToast(true);
+
+      // Track edit action
+      await trackAIInteraction('MOOD_ENTRY_EDIT' as AIEventType, {
+        entryId: entry.id,
+        mood: entry.mood_score,
+        energy: entry.energy_level,
+        anxiety: entry.anxiety_level
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to edit entry:', error);
+      setToastMessage('Düzenleme başlatılamadı');
+      setShowToast(true);
+    }
   };
 
   const handleDeleteEntry = async (entryId: string) => {
-    // TODO: Implement delete functionality
-    console.log('Delete entry:', entryId);
+    try {
+      console.log('🗑️ Deleting mood entry:', entryId);
+
+      // Confirm delete with user
+      Alert.alert(
+        'Kaydı Sil',
+        'Bu mood kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+        [
+          {
+            text: 'İptal',
+            style: 'cancel',
+          },
+          {
+            text: 'Sil',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const entryToDelete = moodEntries.find(e => e.id === entryId);
+                if (!entryToDelete) {
+                  setToastMessage('Kayıt bulunamadı');
+                  setShowToast(true);
+                  return;
+                }
+
+                // Track delete action before deletion
+                await trackAIInteraction('MOOD_ENTRY_DELETE' as AIEventType, {
+                  entryId: entryId,
+                  mood: entryToDelete.mood_score,
+                  energy: entryToDelete.energy_level,
+                  anxiety: entryToDelete.anxiety_level
+                });
+
+                if (user) {
+                  // Try to delete from server first
+                  try {
+                    await supabaseService.deleteMoodEntry(entryId);
+                    console.log('✅ Mood entry deleted from server');
+                  } catch (serverError) {
+                    console.warn('⚠️ Server delete failed, continuing with local delete:', serverError);
+                    // Continue with local deletion even if server fails
+                  }
+
+                  // Delete from local service
+                  await moodTracker.deleteMoodEntry(entryId);
+                  console.log('✅ Mood entry deleted from local storage');
+
+                  // Remove from current state
+                  setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
+
+                  // Show success message
+                  setToastMessage('Mood kaydı silindi');
+                  setShowToast(true);
+
+                  // Haptic feedback
+                  await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                  // Trigger refresh to update any dependent data
+                  await loadMoodEntries();
+
+                } else {
+                  // Offline mode - just remove from local storage
+                  await moodTracker.deleteMoodEntry(entryId);
+                  setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
+                  
+                  setToastMessage('Mood kaydı offline silindi');
+                  setShowToast(true);
+                }
+
+              } catch (deleteError) {
+                console.error('❌ Failed to delete mood entry:', deleteError);
+                setToastMessage('Kayıt silinemedi');
+                setShowToast(true);
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+
+    } catch (error) {
+      console.error('❌ Failed to initiate delete:', error);
+      setToastMessage('Silme işlemi başlatılamadı');
+      setShowToast(true);
+    }
   };
 
   // Calculate statistics
@@ -1773,8 +1886,12 @@ export default function MoodScreen() {
       {/* Quick Entry Modal */}
       <MoodQuickEntry
         visible={showQuickEntry}
-        onClose={() => setShowQuickEntry(false)}
+        onClose={() => {
+          setShowQuickEntry(false);
+          setEditingEntry(null); // Clear editing state when closing
+        }}
         onSubmit={handleQuickEntry}
+        editingEntry={editingEntry as any}
         initialData={params.prefill === 'true' ? {
           mood: params.mood ? Number(params.mood) : 50,
           energy: params.energy ? Number(params.energy) : 5,

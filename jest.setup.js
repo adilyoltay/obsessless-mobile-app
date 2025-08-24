@@ -47,7 +47,29 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
   router: { push: jest.fn(), replace: jest.fn() },
   useSegments: () => [],
+  useLocalSearchParams: () => ({}),
 }));
+
+// Mock @react-navigation/native to fix ES module transform issues
+jest.mock('@react-navigation/native', () => ({
+  __esModule: true,
+  useFocusEffect: jest.fn((cb) => { 
+    if (typeof cb === 'function') cb();
+  }),
+  useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn() }),
+  useRoute: () => ({ params: {}, name: 'Test' }),
+  createStaticNavigation: jest.fn(),
+}));
+
+// Mock expo-linear-gradient to avoid native calls
+jest.mock('expo-linear-gradient', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    LinearGradient: (props) => React.createElement(View, props),
+  };
+});
 
 // Mock expo-haptics to avoid native calls
 jest.mock('expo-haptics', () => ({
