@@ -17,6 +17,13 @@
     "lint": "eslint .",
     "test": "jest --ci",
     "test:unit": "jest --ci --passWithNoTests",
+    "test:integration": "jest --ci --testMatch='**/__tests__/**/*.integration.test.[jt]s?(x)'",
+    "test:e2e": "detox test --configuration ios.sim.debug",
+    "test:e2e:build": "detox build --configuration ios.sim.debug",
+    "test:e2e:android": "detox test --configuration android.emu.debug",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:automation": "node scripts/run-automated-tests.js",
     "validate:expo": "expo-doctor",
     "scan:secrets": "gitleaks detect --redact",
     "scan:deprecated": "bash scripts/find-deprecated-features.sh",
@@ -91,15 +98,16 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "^19.1.1",
-    "@react-native/metro-config": "^0.80.2",
-    "@types/react": "~19.0.10",
-    "babel-plugin-module-resolver": "^5.0.2",
-    "dotenv": "^17.2.1",
-    "glob": "^11.0.3",
-    "react-test-renderer": "19.0.0",
-    "typescript": "~5.8.3"
+    "@babel/core": "^7.25.2",
+    "@testing-library/react-native": "^12.4.1",
+    "@types/jest": "^29.5.11",
+    "@types/react": "~18.3.12",
+    "@types/react-test-renderer": "^18.0.7",
+    "detox": "^20.19.3",
+    "jest": "^29.7.0",
+    "jest-expo": "^51.0.0",
+    "react-test-renderer": "18.3.1",
+    "typescript": "^5.7.2"
   },
   "private": true
 }
