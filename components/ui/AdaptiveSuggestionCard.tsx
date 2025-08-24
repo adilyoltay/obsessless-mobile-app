@@ -24,6 +24,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import QualityRibbon from './QualityRibbon';
+import type { ProvenanceSource, QualityLevel } from '@/features/ai/insights/insightRegistry';
 
 // Props interface
 interface AdaptiveSuggestionCardProps {
@@ -31,6 +33,12 @@ interface AdaptiveSuggestionCardProps {
   onAccept: (suggestion: AdaptiveSuggestion) => void;
   onDismiss: (suggestion: AdaptiveSuggestion) => void;
   style?: ViewStyle;
+  meta?: {
+    source?: ProvenanceSource;
+    qualityLevel?: QualityLevel;
+    sampleSize?: number;
+    freshnessMs?: number;
+  };
 }
 
 /**
@@ -73,7 +81,8 @@ export function AdaptiveSuggestionCard({
   suggestion, 
   onAccept, 
   onDismiss,
-  style 
+  style,
+  meta
 }: AdaptiveSuggestionCardProps) {
   
   // Don't render if suggestion should not be shown
@@ -98,27 +107,40 @@ export function AdaptiveSuggestionCard({
     <View style={[styles.card, { borderLeftColor: accentColor }, style]}>
       {/* Header with icon and category */}
       <View style={styles.header}>
-        <MaterialCommunityIcons 
-          name={iconName} 
-          size={20} 
-          color={accentColor} 
-        />
-        <Text style={[styles.category, { color: accentColor }]}>
-          {suggestion.category === 'breathwork' ? 'Nefes Egzersizi' :
-           suggestion.category === 'cbt' ? 'Düşünce Kaydı' :
-           suggestion.category === 'mood' ? 'Mood Check-in' :
-           suggestion.category === 'tracking' ? 'Takip' : 'Öneri'}
-        </Text>
-        
-        {/* AI badge */}
-        <View style={styles.aiBadge}>
+        <View style={styles.headerLeft}>
           <MaterialCommunityIcons 
-            name="robot-outline" 
-            size={12} 
-            color="#10B981" 
+            name={iconName} 
+            size={20} 
+            color={accentColor} 
           />
-          <Text style={styles.aiBadgeText}>AI</Text>
+          <Text style={[styles.category, { color: accentColor }]}>
+            {suggestion.category === 'breathwork' ? 'Nefes Egzersizi' :
+             suggestion.category === 'cbt' ? 'Düşünce Kaydı' :
+             suggestion.category === 'mood' ? 'Mood Check-in' :
+             suggestion.category === 'tracking' ? 'Takip' : 'Öneri'}
+          </Text>
+          
+          {/* AI badge */}
+          <View style={styles.aiBadge}>
+            <MaterialCommunityIcons 
+              name="robot-outline" 
+              size={12} 
+              color="#10B981" 
+            />
+            <Text style={styles.aiBadgeText}>AI</Text>
+          </View>
         </View>
+        
+        {/* Quality Ribbon (right-aligned) */}
+        {meta && meta.source && (
+          <QualityRibbon
+            source={meta.source}
+            qualityLevel={meta.qualityLevel || 'medium'}
+            sampleSize={meta.sampleSize}
+            freshnessMs={meta.freshnessMs}
+            style={styles.qualityRibbon}
+          />
+        )}
       </View>
 
       {/* Title and content */}
@@ -192,8 +214,19 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  } as ViewStyle,
+
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  } as ViewStyle,
+
+  qualityRibbon: {
+    marginTop: 2, // Slight offset for visual balance
   } as ViewStyle,
 
   category: {

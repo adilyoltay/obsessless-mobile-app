@@ -62,6 +62,7 @@ import { unifiedGamificationService, UnifiedMission } from '@/features/ai/servic
 // 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai/insights/insightRegistry';
 // import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay'; // REMOVED - File deleted
 
 // Art Therapy Integration - temporarily disabled
@@ -149,6 +150,7 @@ export default function TodayScreen() {
   
   // 🎯 Adaptive Interventions State (JITAI)
   const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
   const adaptiveRef = useRef<boolean>(false); // Prevent duplicate triggers
   const { generateSuggestion, snoozeSuggestion, trackSuggestionClick, trackSuggestionDismissal, loading: adaptiveLoading } = useAdaptiveSuggestion();
 
@@ -447,11 +449,12 @@ export default function TodayScreen() {
         context: {
           source: 'today',
           timestamp: Date.now(),
-          includeAllModules: true,
-          privacy: {
-            piiSanitized: true,
-            encryptionLevel: 'sanitized_plaintext',
-            dataEncrypted: encryptedPayload
+          metadata: {
+            privacy: {
+              piiSanitized: true,
+              encryptionLevel: 'sanitized_plaintext',
+              dataEncrypted: encryptedPayload
+            }
           }
         }
       });
@@ -472,7 +475,7 @@ export default function TodayScreen() {
         ];
         
         setAiInsights(formattedInsights);
-        setInsightsSource(result.metadata.source);
+        setInsightsSource(result.metadata.source === 'fresh' ? 'unified' : result.metadata.source as any);
         setInsightsConfidence(0.85);
         
         // ✅ TELEMETRY: INSIGHTS_DELIVERED event zenginleştirme
@@ -594,10 +597,12 @@ export default function TodayScreen() {
         context: {
           source: 'today',
           timestamp: Date.now(),
-          privacy: {
-            piiSanitized: true,
-            encryptionLevel: 'sanitized_plaintext', // For AI processing
-            dataEncrypted: encryptedPayload // Store encrypted version for telemetry/audit
+          metadata: {
+            privacy: {
+              piiSanitized: true,
+              encryptionLevel: 'sanitized_plaintext', // For AI processing
+              dataEncrypted: encryptedPayload // Store encrypted version for telemetry/audit
+            }
           }
         }
       });
@@ -618,7 +623,7 @@ export default function TodayScreen() {
         ];
         
         setAiInsights(formattedInsights);
-        setInsightsSource(result.metadata.source);
+        setInsightsSource(result.metadata.source === 'fresh' ? 'unified' : result.metadata.source as any);
         setInsightsConfidence(0.85);
       }
       
@@ -731,11 +736,28 @@ export default function TodayScreen() {
               if (suggestion.show) {
                 console.log('💡 Adaptive suggestion generated:', suggestion.category);
                 setAdaptiveSuggestion(suggestion);
+                
+                // 📊 GENERATE QUALITY METADATA from latest pipeline result (if available in scope)
+                // Note: For Today screen context-based suggestions, we use heuristic quality estimation
+                try {
+                  setAdaptiveMeta({
+                    source: 'heuristic' as const, // Context-based suggestion
+                    qualityLevel: 'medium' as const, // Default for context-based
+                    sampleSize: undefined, // Not available for context suggestions
+                    freshnessMs: 0, // Fresh generation
+                  });
+                  console.log('📊 Default quality metadata set for Today suggestion');
+                } catch (metaError) {
+                  console.warn('⚠️ Quality metadata generation failed:', metaError);
+                  setAdaptiveMeta(null);
+                }
               } else {
                 console.log('🚫 No adaptive suggestion at this time');
+                setAdaptiveMeta(null);
               }
             } catch (error) {
               console.warn('⚠️ Adaptive suggestion generation failed:', error);
+              setAdaptiveMeta(null);
             }
           }
         } catch (error) {
@@ -872,7 +894,7 @@ export default function TodayScreen() {
 
       // 🎯 PATTERN ANALYSIS 4: CBT & Mood correlation
       if (weekCBT.length > 0 && weekMoods.length > 0) {
-        const cbtDays = weekCBT.map(c => new Date(c.timestamp).toDateString());
+        const cbtDays = weekCBT.map((c: { timestamp: string }) => new Date(c.timestamp).toDateString());
         const moodOnCBTDays = weekMoods.filter(m => 
           cbtDays.includes(new Date(m.timestamp).toDateString())
         );
@@ -972,10 +994,10 @@ export default function TodayScreen() {
       const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
       const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
       const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-      const todayCompulsions = allCompulsions.filter((c: any) => 
+      const todayCompulsions = allCompulsions.filter((c: { timestamp: string }) => 
         new Date(c.timestamp).toDateString() === today
       );
-      const weeklyCompulsions = allCompulsions.filter((c: any) => 
+      const weeklyCompulsions = allCompulsions.filter((c: { timestamp: string }) => 
         new Date(c.timestamp) >= weekAgo
       );
       
@@ -1036,7 +1058,7 @@ export default function TodayScreen() {
       }
       
       // Calculate resistance wins
-      const resistanceWins = todayCompulsions.filter((c: any) => c.resistanceLevel >= 3).length;
+      const resistanceWins = todayCompulsions.filter((c: { resistanceLevel?: number }) => (c.resistanceLevel || 0) >= 3).length;
       
       // ✅ GÜNCEL: Tüm modül verilerini set et
       setTodayStats({
@@ -1171,11 +1193,7 @@ export default function TodayScreen() {
         
         {/* ✅ YENİ: Streak Widget - Motivasyonel Görsel */}
         <View style={styles.streakWidgetContainer}>
-          <StreakCounter 
-            current={profile.streakCurrent}
-            best={profile.streakBest}
-            level={profile.streakLevel}
-          />
+          <StreakCounter />
         </View>
       </Animated.View>
     );
@@ -1266,6 +1284,7 @@ export default function TodayScreen() {
       
       // Hide suggestion after navigation
       setAdaptiveSuggestion(null);
+      setAdaptiveMeta(null);
       
     } catch (error) {
       console.error('❌ Failed to handle adaptive suggestion accept:', error);
@@ -1289,6 +1308,7 @@ export default function TodayScreen() {
       
       // Hide suggestion
       setAdaptiveSuggestion(null);
+      setAdaptiveMeta(null);
       
       console.log('😴 Adaptive suggestion snoozed for 2 hours');
     } catch (error) {
@@ -1306,8 +1326,8 @@ export default function TodayScreen() {
     if (routingResult) {
       console.log('🧭 Smart routing result:', routingResult);
       
-      // Track successful routing
-      trackAIInteraction(AIEventType.ROUTE_FOLLOWED, {
+      // Track successful routing  
+      trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         userId: user?.id,
         routeType: routingResult.type,
         confidence: routingResult.confidence,
@@ -1753,6 +1773,7 @@ export default function TodayScreen() {
             suggestion={adaptiveSuggestion}
             onAccept={handleAdaptiveSuggestionAccept}
             onDismiss={handleAdaptiveSuggestionDismiss}
+            meta={adaptiveMeta}
           />
         )}
         

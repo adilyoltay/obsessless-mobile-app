@@ -431,6 +431,107 @@ export class UnifiedAIPipeline {
       };
     }
     
+    // 📊 PHASE 2: Minimal analytics for CBT/Tracking (scaffold)
+    // Generate basic analytics when input contains CBT or tracking data
+    if (input.content && typeof input.content === 'object') {
+      const content = input.content as any;
+      
+      // ✅ CBT Analytics (minimal)
+      if (content.cbtRecords && Array.isArray(content.cbtRecords) && content.cbtRecords.length > 0) {
+        const cbtRecords = content.cbtRecords;
+        const validRecords = cbtRecords.filter((r: any) => 
+          r.mood_before != null && r.mood_after != null
+        );
+        
+        if (validRecords.length > 0) {
+          // Compute simple aggregates
+          const deltas = validRecords.map((r: any) => r.mood_after - r.mood_before);
+          const avgDelta = deltas.reduce((sum, d) => sum + d, 0) / deltas.length;
+          const deltaVariance = deltas.reduce((sum, d) => sum + Math.pow(d - avgDelta, 2), 0) / deltas.length;
+          const volatility = Math.sqrt(deltaVariance);
+          
+          // Weekly delta proxy - assume recent records are more recent
+          const recentRecords = validRecords.slice(-7);
+          const olderRecords = validRecords.slice(-14, -7);
+          let weeklyDelta = 0;
+          if (recentRecords.length > 0 && olderRecords.length > 0) {
+            const recentAvg = recentRecords.reduce((sum, r) => sum + (r.mood_after - r.mood_before), 0) / recentRecords.length;
+            const olderAvg = olderRecords.reduce((sum, r) => sum + (r.mood_after - r.mood_before), 0) / olderRecords.length;
+            weeklyDelta = recentAvg - olderAvg;
+          }
+          
+          const confidence = Math.min(0.8, 0.5 + (validRecords.length * 0.05)); // Scale with data volume
+          
+          result.analytics = result.analytics || {};
+          result.analytics.cbt = {
+            sampleSize: validRecords.length,
+            volatility: Math.round(volatility * 10) / 10, // Round to 1 decimal
+            weeklyDelta: Math.round(weeklyDelta * 10) / 10,
+            confidence,
+            dataQuality: confidence,
+            baselines: {
+              moodImprovement: avgDelta
+            }
+          };
+          
+          console.log(`📊 Minimal CBT analytics: sampleSize=${validRecords.length}, volatility=${volatility.toFixed(1)}, weeklyDelta=${weeklyDelta.toFixed(1)}`);
+        }
+      }
+      
+      // ✅ Tracking Analytics (minimal)
+      if (content.compulsions && Array.isArray(content.compulsions) && content.compulsions.length > 0) {
+        const compulsions = content.compulsions;
+        const sampleSize = compulsions.length;
+        
+        // Group by day for volatility calculation
+        const dayGroups: { [key: string]: number } = {};
+        compulsions.forEach((c: any) => {
+          if (c.timestamp) {
+            const day = new Date(c.timestamp).toDateString();
+            dayGroups[day] = (dayGroups[day] || 0) + 1;
+          }
+        });
+        
+        const dailyCounts = Object.values(dayGroups);
+        let volatility = 0;
+        if (dailyCounts.length > 1) {
+          const avgDaily = dailyCounts.reduce((sum, count) => sum + count, 0) / dailyCounts.length;
+          const variance = dailyCounts.reduce((sum, count) => sum + Math.pow(count - avgDaily, 2), 0) / dailyCounts.length;
+          volatility = Math.sqrt(variance);
+        }
+        
+        // Weekly delta proxy - compare recent 3 days vs prior 3 days
+        const sortedDays = Object.entries(dayGroups).sort(([a], [b]) => 
+          new Date(a).getTime() - new Date(b).getTime()
+        );
+        let weeklyDelta = 0;
+        if (sortedDays.length >= 6) {
+          const recentDays = sortedDays.slice(-3);
+          const olderDays = sortedDays.slice(-6, -3);
+          const recentAvg = recentDays.reduce((sum, [, count]) => sum + count, 0) / recentDays.length;
+          const olderAvg = olderDays.reduce((sum, [, count]) => sum + count, 0) / olderDays.length;
+          weeklyDelta = recentAvg - olderAvg;
+        }
+        
+        const confidence = Math.min(0.8, 0.4 + (sampleSize * 0.02)); // Conservative confidence for tracking
+        
+        result.analytics = result.analytics || {};
+        result.analytics.tracking = {
+          sampleSize,
+          volatility: Math.round(volatility * 10) / 10,
+          weeklyDelta: Math.round(weeklyDelta * 10) / 10,
+          confidence,
+          dataQuality: confidence,
+          baselines: {
+            compulsions: dailyCounts.length > 0 ? 
+              Math.round((dailyCounts.reduce((sum, count) => sum + count, 0) / dailyCounts.length) * 10) / 10 : 0
+          }
+        };
+        
+        console.log(`📊 Minimal Tracking analytics: sampleSize=${sampleSize}, volatility=${volatility.toFixed(1)}, weeklyDelta=${weeklyDelta.toFixed(1)}`);
+      }
+    }
+    
     return result;
   }
   

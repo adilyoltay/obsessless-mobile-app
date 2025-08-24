@@ -46,6 +46,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai/insights/insightRegistry';
 
 
 const { width } = Dimensions.get('window');
@@ -84,6 +85,7 @@ export default function MoodScreen() {
   
   // 🎯 Adaptive Suggestions State (Cross-Module)
   const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
   const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
 
   // Pre-fill from voice trigger if available (only once)
@@ -201,13 +203,30 @@ export default function MoodScreen() {
         const suggestion = await generateSuggestionFromPipeline(user.id, result, 'mood');
         if (suggestion.show) {
           setAdaptiveSuggestion(suggestion);
+          
+          // 📊 GENERATE QUALITY METADATA from UnifiedPipeline result
+          try {
+            const registryItems = mapUnifiedResultToRegistryItems(result, 'mood', {
+              trigger: 'mood_analysis',
+              baseCategory: 'mood',
+            });
+            const qualityMeta = extractUIQualityMeta(registryItems, 'suggestion');
+            setAdaptiveMeta(qualityMeta);
+            console.log('📊 Quality metadata for mood suggestion:', qualityMeta);
+          } catch (metaError) {
+            console.warn('⚠️ Quality metadata generation failed:', metaError);
+            setAdaptiveMeta(null);
+          }
+          
           console.log('✨ Mood adaptive suggestion generated:', suggestion.title);
         } else {
           setAdaptiveSuggestion(null);
+          setAdaptiveMeta(null);
         }
       } catch (error) {
         console.warn('⚠️ Adaptive suggestion generation failed (non-blocking):', error);
         setAdaptiveSuggestion(null);
+        setAdaptiveMeta(null);
       }
 
       // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format with enhanced metrics
@@ -1572,12 +1591,15 @@ export default function MoodScreen() {
               await trackSuggestionClick(user.id, adaptiveSuggestion);
               router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
               setAdaptiveSuggestion(null);
+              setAdaptiveMeta(null);
             }}
             onDismiss={async () => {
               if (!user?.id) return;
               await trackSuggestionDismissal(user.id, adaptiveSuggestion);
               setAdaptiveSuggestion(null);
+              setAdaptiveMeta(null);
             }}
+            meta={adaptiveMeta}
             style={{ marginHorizontal: 16, marginBottom: 16 }}
           />
         )}
