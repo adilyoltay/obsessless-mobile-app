@@ -12,6 +12,12 @@ if (process.env.REPL_ID) {
 config.resolver.unstable_enablePackageExports = false;
 config.resolver.unstable_conditionNames = ['react-native', 'browser', 'require'];
 
+// Node.js polyfills for React Native
+config.resolver.alias = {
+  ...config.resolver.alias,
+  buffer: require.resolve('buffer'),
+};
+
 // Custom serializer to fix path.relative() undefined issue
 config.serializer = {
   ...config.serializer,

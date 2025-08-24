@@ -53,8 +53,14 @@ interface MinimalContext {
 }
 
 // Default Constants (overridden by A/B tests)
-const DEFAULT_COOLDOWN_HOURS = 4;
-const DEFAULT_SNOOZE_HOURS = 2;
+const DEFAULT_COOLDOWN_HOURS = __DEV__ ? 0.1 : 4; // 6 minutes in dev, 4 hours in production
+const DEFAULT_SNOOZE_HOURS = __DEV__ ? 0.05 : 2;  // 3 minutes in dev, 2 hours in production
+
+// 🔧 DEV MODE: Auto-clear cooldown on hook init for testing
+if (__DEV__) {
+  AsyncStorage.removeItem('adaptive_suggestion_last_a477080d-4d3f-4edc-9c31-4a1076c0967b').catch(() => {});
+  console.log('🔧 DEV: Auto-cleared adaptive suggestion cooldown for testing');
+}
 const QUIET_START_HOUR = 22; // 22:00
 const QUIET_END_HOUR = 8;    // 08:00
 
@@ -266,6 +272,9 @@ export function useAdaptiveSuggestion() {
         if (timeSinceLastSuggestion < cooldownMs) {
           const hoursLeft = Math.ceil((cooldownMs - timeSinceLastSuggestion) / (60 * 60 * 1000));
           console.log(`⏰ Adaptive suggestion cooldown: ${hoursLeft}h remaining (A/B test: ${cooldownHours}h)`);
+          if (__DEV__) {
+            console.log(`🔧 DEV MODE: To clear cooldown, run in console: AsyncStorage.removeItem('${cooldownKey}')`);
+          }
           return { show: false };
         }
       }
@@ -427,8 +436,28 @@ export function useAdaptiveSuggestion() {
 
       } catch (error) {
         console.warn('⚠️ Adaptive intervention failed:', error);
-        // Generate fallback suggestion based on context
-        suggestion = generateFallbackSuggestion(context);
+        // Generate fallback suggestion with enhanced breathwork logic
+        suggestion = await generateEnhancedFallbackSuggestion(userId, context);
+      }
+
+      // 🔧 DEV MODE: Force suggestion for Quality Ribbon testing if no suggestion generated
+      if (__DEV__ && (!suggestion || !suggestion.show)) {
+        console.log('🔧 DEV: No suggestion generated, forcing one for Quality Ribbon test');
+        suggestion = {
+          show: true,
+          id: `dev_test_${Date.now()}`,
+          title: '🎯 Debug: Quality Ribbon Test',
+          content: 'Bu Development modda Quality Ribbon görünümünü test etmek için otomatik oluşturulan bir önerdir.',
+          category: 'mood',
+          confidence: 0.85,
+          priority: 'medium',
+          timing: 'optimal',
+          cta: {
+            label: 'Teste Devam Et',
+            screen: '/(tabs)/mood',
+            params: {}
+          }
+        };
       }
 
       // 8. Process and return suggestion
@@ -533,6 +562,84 @@ export function useAdaptiveSuggestion() {
     }
 
     return { show: false };
+  };
+
+  /**
+   * 🌬️ Enhanced fallback suggestion with breathwork service integration
+   */
+  const generateEnhancedFallbackSuggestion = async (userId: string, context: MinimalContext): Promise<any> => {
+    const { recentActivity, currentContext } = context;
+    
+    // 1. Check if breathwork suggestion should be prioritized
+    const shouldTryBreathwork = (
+      currentContext.userState.stressLevel === 'high' ||
+      currentContext.userState.energyLevel < 30 ||
+      (recentActivity?.compulsionCount || 0) > 3
+    );
+
+    if (shouldTryBreathwork) {
+      try {
+        // Import breathwork service and mood tracker
+        const { BreathworkSuggestionService } = await import('../services/breathworkSuggestionService');
+        const moodTracker = (await import('@/services/moodTrackingService')).default;
+        
+        // Get mood score for context
+        let moodScore: number | undefined = undefined;
+        try {
+          const lastMood = await moodTracker.getLastMoodEntry(userId);
+          moodScore = lastMood?.mood_score;
+        } catch (error) {
+          console.warn('⚠️ Failed to get mood for breathwork context:', error);
+        }
+        
+        const breathworkContext = {
+          userId,
+          currentTime: new Date(),
+          moodScore,
+          recentCompulsions: recentActivity?.compulsionCount || 0,
+          anxietyLevel: moodScore ? Math.max(1, Math.min(10, Math.round(11 - moodScore/10))) : 
+                      currentContext.userState.stressLevel === 'high' ? 8 : 
+                      currentContext.userState.stressLevel === 'low' ? 3 : 5
+        };
+        
+        const breathworkService = BreathworkSuggestionService.getInstance();
+        const breathworkSuggestion = await breathworkService.generateSuggestion(breathworkContext);
+        
+        if (breathworkSuggestion) {
+          const protocol = breathworkSuggestion.protocol?.name || 'box';
+          const anxietyLevel = breathworkContext.anxietyLevel;
+          
+          return {
+            show: true,
+            id: `breathwork_${Date.now()}`,
+            title: breathworkSuggestion.trigger?.reason || "Nefes Al",
+            content: breathworkSuggestion.protocol.description || 
+                    `${protocol === '4-7-8' ? '4-7-8' : 'Kutu'} nefes tekniği ile ${Math.ceil(breathworkSuggestion.protocol.duration / 60) || 5} dakika nefes egzersizi yaparak rahatlamaya ne dersiniz?`,
+            category: 'breathwork',
+            confidence: 0.8,
+            priority: breathworkSuggestion.urgency === 'high' ? 'urgent' : 
+                     breathworkSuggestion.urgency === 'low' ? 'low' : 'medium',
+            timing: 'optimal',
+            cta: {
+              label: 'Nefes Egzersiziyle Başla',
+              screen: '/(tabs)/breathwork',
+              params: {
+                protocol: anxietyLevel >= 7 ? '4-7-8' : 'box',
+                autoStart: 'true',
+                source: 'adaptive_suggestion'
+              }
+            }
+          };
+        }
+        
+        console.log('🌬️ Breathwork service returned no suggestion');
+      } catch (error) {
+        console.warn('⚠️ Enhanced breathwork suggestion failed:', error);
+      }
+    }
+
+    // 2. Fall back to original suggestion logic
+    return generateFallbackSuggestion(context);
   };
 
   /**

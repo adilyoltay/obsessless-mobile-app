@@ -10,6 +10,7 @@
  * ⚠️ Türk kültürüne özel adaptasyonlar dahil
  */
 
+import { Buffer } from 'buffer';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
   YBOCSAnswer,

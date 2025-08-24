@@ -12,7 +12,7 @@
  * - Smooth animations
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -85,6 +85,17 @@ export function AdaptiveSuggestionCard({
   meta
 }: AdaptiveSuggestionCardProps) {
   
+  // 🔍 DEBUG: Monitor meta prop changes
+  useEffect(() => {
+    console.log('🎯 AdaptiveSuggestionCard meta check:', { 
+      meta, 
+      hasSource: !!meta?.source, 
+      source: meta?.source,
+      qualityLevel: meta?.qualityLevel,
+      suggestionTitle: suggestion.title
+    });
+  }, [meta, suggestion.title]);
+
   // Don't render if suggestion should not be shown
   if (!suggestion.show || !suggestion.title || !suggestion.content) {
     return null;
@@ -132,7 +143,7 @@ export function AdaptiveSuggestionCard({
         </View>
         
         {/* Quality Ribbon (right-aligned) */}
-        {meta && meta.source && (
+        {meta && meta.source ? (
           <QualityRibbon
             source={meta.source}
             qualityLevel={meta.qualityLevel || 'medium'}
@@ -140,6 +151,8 @@ export function AdaptiveSuggestionCard({
             freshnessMs={meta.freshnessMs}
             style={styles.qualityRibbon}
           />
+        ) : (
+          <Text style={{ fontSize: 10, color: '#999' }}>No Meta</Text>
         )}
       </View>
 

@@ -477,6 +477,23 @@ class SupabaseNativeService {
       return data ?? null;
     } catch (error) {
       console.error('❌ Get user profile failed:', error);
+      
+      // 🔧 DEV MODE: Return fallback profile to prevent app crashes
+      if (__DEV__) {
+        console.log('🔧 DEV: Returning fallback profile to continue app functionality');
+        return {
+          id: userId,
+          user_id: userId,
+          ocd_symptoms: ['contamination', 'checking'], // Default symptoms
+          daily_goal: 3,
+          ybocs_score: 12,
+          ybocs_severity: 'mild',
+          onboarding_completed: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+      
       return null;
     }
   }

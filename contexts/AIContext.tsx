@@ -121,6 +121,16 @@ export function AIProvider({ children }: AIProviderProps) {
   const [isInitializing, setIsInitializing] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
   
+  // 🔍 DEBUG: Monitor AIContext state (moved below availableFeatures declaration)
+  
+  // 🔍 DEBUG: AIContext mount
+  useEffect(() => {
+    console.log('🤖 AIContext mounted, user:', !!user?.id);
+    return () => console.log('🤖 AIContext unmounted');
+  }, []);
+  
+  // 🔍 DEBUG: User change effect (moved to main initialization effect below)
+  
   // Network Status
   const [isOnline, setIsOnline] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
@@ -137,15 +147,23 @@ export function AIProvider({ children }: AIProviderProps) {
   // AI Capabilities
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
+  
+  // 🔍 DEBUG: Monitor AIContext state
+  useEffect(() => {
+    console.log('🤖 AIContext State:', { isInitialized, isInitializing, featuresCount: availableFeatures.length });
+  }, [isInitialized, isInitializing, availableFeatures]);
 
   /**
    * 🔄 Initialize AI Services - Performance Optimized with Parallel Loading
    */
   const initializeAIServices = useCallback(async (): Promise<void> => {
+    console.log('🤖 initializeAIServices called:', { userId: !!user?.id, isInitializing });
     if (!user?.id || isInitializing) {
+      console.log('🚫 initializeAIServices early return:', { reason: !user?.id ? 'no_user' : 'already_initializing' });
       return;
     }
 
+    console.log('🚀 Starting AI services initialization...');
     setIsInitializing(true);
     setInitializationError(null);
     const startTime = Date.now();
@@ -366,6 +384,7 @@ export function AIProvider({ children }: AIProviderProps) {
         tryLoad();
       });
 
+      console.log('🎯 Setting isInitialized=true, availableFeatures count:', features.length);
       setIsInitialized(true);
       const initTime = Date.now() - startTime;
       if (__DEV__) console.log(`✅ AI services initialized successfully in ${initTime}ms`);
@@ -394,6 +413,7 @@ export function AIProvider({ children }: AIProviderProps) {
         initializationTime: initTime
       });
     } finally {
+      console.log('🏁 Setting isInitializing=false (initialization complete)');
       setIsInitializing(false);
     }
   }, [user?.id]);
@@ -1033,7 +1053,14 @@ export function AIProvider({ children }: AIProviderProps) {
    * 🔄 Auto-initialize when user changes
    */
   useEffect(() => {
+    console.log('🤖 Main initialization effect:', { 
+      userId: !!user?.id, 
+      isInitialized, 
+      isInitializing,
+      willCall: !!(user?.id && !isInitialized && !isInitializing)
+    });
     if (user?.id && !isInitialized && !isInitializing) {
+      console.log('🤖 Calling initializeAIServices from main effect...');
       initializeAIServices();
     }
   }, [user?.id, isInitialized, isInitializing, initializeAIServices]);

@@ -114,11 +114,17 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
               console.warn('⚠️ AI onboarding status check failed');
             }
 
-            // If not complete locally, check database for verification
+            // If not complete locally, check database for verification (with timeout)
             if (!isProfileComplete) {
               console.log('🧭 Checking database for profile completion...');
               try {
-                const userProfile = await supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
+                // Add 5-second timeout for database check
+                const profilePromise = supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
+                const timeoutPromise = new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Database check timeout')), 5000)
+                );
+                
+                const userProfile = await Promise.race([profilePromise, timeoutPromise]);
                 console.log('🧭 Database profile result:', {
                   hasProfile: !!userProfile,
                   onboardingCompleted: userProfile?.onboarding_completed
@@ -132,8 +138,12 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                   console.log('✅ Profile completion confirmed from database and cached');
                 }
               } catch (dbError) {
-                console.warn('⚠️ Database profile check failed, using AsyncStorage only:', dbError);
-                // Continue with AsyncStorage result
+                console.warn('⚠️ Database profile check failed/timeout, using AsyncStorage only:', dbError);
+                // Continue with AsyncStorage result - skip to app
+                if (!isProfileComplete && lastUserIdRef.current) {
+                  console.log('⚡ Fast-track: Assuming profile complete due to DB timeout');
+                  isProfileComplete = true; // Fast-track existing users
+                }
               }
             }
 
