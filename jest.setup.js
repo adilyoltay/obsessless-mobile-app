@@ -172,6 +172,17 @@ jest.mock('expo-crypto', () => ({
   getRandomBytesAsync: jest.fn(async (n) => new Uint8Array(n || 16)),
 }));
 
+// Mock ResultCache to avoid undefined .catch() errors in tests
+jest.mock('@/features/ai/cache/resultCache', () => ({
+  __esModule: true,
+  resultCache: {
+    set: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn().mockResolvedValue(null),
+    delete: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn().mockResolvedValue(undefined)
+  }
+}));
+
 // Silence noisy React warnings in test output (ErrorBoundary scenarios etc.)
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});

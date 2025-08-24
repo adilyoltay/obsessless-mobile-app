@@ -79,13 +79,21 @@ export default function QualityRibbon({
   const age = freshnessMs !== undefined ? formatAge(freshnessMs) : null;
   
   return (
-    <View style={[styles.ribbon, style]} accessibilityRole="text">
+    <View 
+      style={[styles.ribbon, style]} 
+      accessibilityRole="text"
+      testID="quality-ribbon"
+    >
       {/* Source Badge */}
-      <View style={[styles.badge, { backgroundColor: sourceConfig.bgColor }]}>
+      <View 
+        style={[styles.badge, { backgroundColor: sourceConfig.bgColor }]}
+        testID="source-badge"
+      >
         <MaterialCommunityIcons 
           name={sourceConfig.icon as any} 
           size={10} 
           color={sourceConfig.color}
+          testID={`icon-${sourceConfig.icon}`}
         />
         <Text style={[styles.badgeText, { color: sourceConfig.color }]}>
           {sourceConfig.label}
@@ -93,7 +101,10 @@ export default function QualityRibbon({
       </View>
       
       {/* Quality Badge */}
-      <View style={[styles.badge, { backgroundColor: qualityConfig.bgColor }]}>
+      <View 
+        style={[styles.badge, { backgroundColor: qualityConfig.bgColor }]}
+        testID="quality-badge"
+      >
         <Text style={[styles.badgeText, { color: qualityConfig.color }]}>
           {qualityConfig.label}
         </Text>
@@ -101,7 +112,10 @@ export default function QualityRibbon({
       
       {/* Sample Size Badge */}
       {sampleSize !== undefined && sampleSize > 0 && (
-        <View style={[styles.badge, { backgroundColor: '#F3F4F6' }]}>
+        <View 
+          style={[styles.badge, { backgroundColor: '#F3F4F6' }]}
+          testID="sample-size-badge"
+        >
           <Text style={[styles.badgeText, { color: '#6B7280' }]}>
             n={sampleSize}
           </Text>
@@ -110,11 +124,15 @@ export default function QualityRibbon({
       
       {/* Age Badge */}
       {age && age !== 'now' && (
-        <View style={[styles.badge, { backgroundColor: '#F3F4F6' }]}>
+        <View 
+          style={[styles.badge, { backgroundColor: '#F3F4F6' }]}
+          testID="age-badge"
+        >
           <MaterialCommunityIcons 
             name="clock-outline" 
             size={10} 
             color="#6B7280"
+            testID="icon-clock-outline"
           />
           <Text style={[styles.badgeText, { color: '#6B7280' }]}>
             {age}

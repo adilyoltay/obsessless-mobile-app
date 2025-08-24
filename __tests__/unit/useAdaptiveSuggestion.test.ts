@@ -19,6 +19,14 @@ import {
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 jest.mock('@/features/ai/telemetry/aiTelemetry');
 jest.mock('@/features/ai/context/contextIntelligence');
+jest.mock('@/constants/featureFlags', () => ({
+  FEATURE_FLAGS: {
+    isEnabled: jest.fn((flag) => {
+      if (flag === 'AI_UNIFIED_PIPELINE') return true;
+      return false;
+    })
+  }
+}));
 
 describe('useAdaptiveSuggestion Hook', () => {
   let mockTrackAIInteraction: jest.Mock;

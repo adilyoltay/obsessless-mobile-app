@@ -15,6 +15,14 @@ import {
 // Mock dependencies
 jest.mock('@/features/ai/telemetry/aiTelemetry');
 jest.mock('@/services/supabase');
+jest.mock('@/constants/featureFlags', () => ({
+  FEATURE_FLAGS: {
+    isEnabled: jest.fn((flag) => {
+      if (flag === 'AI_UNIFIED_PIPELINE') return true;
+      return false;
+    })
+  }
+}));
 
 describe('Tracking Analytics Integration', () => {
   beforeEach(() => {

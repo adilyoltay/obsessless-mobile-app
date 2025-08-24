@@ -24,6 +24,14 @@ jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 jest.mock('@/features/ai/core/UnifiedAIPipeline');
 jest.mock('@/features/ai/hooks/useAdaptiveSuggestion');
 jest.mock('@/features/ai/telemetry/aiTelemetry');
+jest.mock('@/constants/featureFlags', () => ({
+  FEATURE_FLAGS: {
+    isEnabled: jest.fn((flag) => {
+      if (flag === 'AI_UNIFIED_PIPELINE') return true;
+      return false;
+    })
+  }
+}));
 
 describe('Mood Page AI Pipeline Integration', () => {
   let mockUser: any;

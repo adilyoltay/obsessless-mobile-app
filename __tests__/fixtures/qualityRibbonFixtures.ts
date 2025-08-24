@@ -198,16 +198,21 @@ export const generateMoodEntries = (count: number) => {
 };
 
 export const generateCBTRecords = (count: number) => {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `cbt_${i}`,
-    situation: `Test situation ${i}`,
-    automaticThoughts: `Negative thought ${i}`,
-    emotions: ["anxious", "worried"],
-    mood_before: Math.floor(Math.random() * 10) + 1,
-    mood_after: Math.floor(Math.random() * 10) + 1,
-    balancedThoughts: `Balanced thought ${i}`,
-    timestamp: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const moodBefore = Math.floor(Math.random() * 7) + 1; // 1-7
+    const moodAfter = Math.min(10, moodBefore + Math.floor(Math.random() * 4)); // Usually improvement
+    
+    return {
+      id: `cbt_${i}`,
+      situation: `Test situation ${i}`,
+      automaticThoughts: `Negative thought ${i}`,
+      emotions: ["anxious", "worried"],
+      mood_before: moodBefore,
+      mood_after: moodAfter,
+      balancedThoughts: `Balanced thought ${i}`,
+      timestamp: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString()
+    };
+  });
 };
 
 export const generateCompulsions = (count: number) => {
