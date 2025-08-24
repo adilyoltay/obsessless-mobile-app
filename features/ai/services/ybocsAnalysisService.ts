@@ -643,12 +643,14 @@ class YBOCSAnalysisService {
 
     // Validate each answer
     answers.forEach((answer, index) => {
-      if (!answer.questionId || !answer.response) {
+      // Check for response in either 'response' or 'value' property for backward compatibility
+      const responseValue = answer.response ?? answer.value;
+      if (!answer.questionId || (responseValue === undefined || responseValue === null || Number.isNaN(responseValue))) {
         throw new Error(`Eksik yanıt: Soru ${index + 1}`);
       }
       
-      if (typeof answer.response === 'number' && (answer.response < 0 || answer.response > 4)) {
-        throw new Error(`Geçersiz puan: ${answer.response} (0-4 arası olmalı)`);
+      if (typeof responseValue === 'number' && (responseValue < 0 || responseValue > 4)) {
+        throw new Error(`Geçersiz puan: ${responseValue} (0-4 arası olmalı)`);
       }
     });
   }
@@ -856,7 +858,10 @@ class YBOCSAnalysisService {
     try {
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
         // Integration with Sprint 6 Context Intelligence
-        return await contextIntelligenceEngine.getCurrentContext('user_assessment');
+        // Note: This would require a proper ContextIntelligenceContext object
+        // For now, return null to avoid runtime errors - proper integration needed
+        console.log('🌍 Context Intelligence available but requires proper context setup');
+        return null;
       }
       return null;
     } catch (error) {

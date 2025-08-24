@@ -399,7 +399,7 @@ export default function TrackingScreen() {
           }
 
           // Extract patterns from pipeline result
-          if (pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
+          if (pipelineResult && pipelineResult.patterns && Array.isArray(pipelineResult.patterns)) {
             const unifiedPatterns = pipelineResult.patterns.map((pattern: any) => ({
               type: pattern.type || 'general_pattern',
               title: pattern.title || 'Pattern Detected',
@@ -432,21 +432,21 @@ export default function TrackingScreen() {
 
           // ✅ ENHANCED: Calculate processing time and track comprehensive metrics
           const processingTime = Date.now() - analysisStartTime;
-          const usedFallback = !pipelineResult.patterns || !Array.isArray(pipelineResult.patterns);
+          const usedFallback = !pipelineResult || !pipelineResult.patterns || !Array.isArray(pipelineResult.patterns);
           
-          // Track successful analysis with enhanced telemetry
-          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-            userId: user.id,
-            source: 'tracking_screen',
-            insightsCount: insights?.length || 0,
-            patternsCount: aiPatterns.length,
-            processingTime,
-            analysisSource: usedFallback ? 'fallback' : 'pipeline',
-            cacheHit: pipelineResult.fromCache || false,
-            dataQuality: allEntries.length >= 5 ? 1.0 : (allEntries.length / 5),
-            modules: ['ocd_pattern_analysis', 'compulsion_trends'],
-            performance: {
-              responseTime: processingTime,
+                      // Track successful analysis with enhanced telemetry
+            await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+              userId: user.id,
+              source: 'tracking_screen',
+              insightsCount: insights?.length || 0,
+              patternsCount: aiPatterns.length,
+              processingTime,
+              analysisSource: usedFallback ? 'fallback' : 'pipeline',
+              cacheHit: pipelineResult?.fromCache || false,
+              dataQuality: allEntries.length >= 5 ? 1.0 : (allEntries.length / 5),
+              modules: ['ocd_pattern_analysis', 'compulsion_trends'],
+              performance: {
+                responseTime: processingTime,
               targetTime: 2000, // 2s target for OCD analysis
               withinTarget: processingTime <= 2000
             }

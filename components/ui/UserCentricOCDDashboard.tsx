@@ -548,9 +548,9 @@ export default function UserCentricOCDDashboard({
           try {
             await ybocsAnalysisService.initialize();
             // Convert onboarding data to Y-BOCS answers format for analysis
-            const mockAnswers = createMockYBOCSAnswers(onboardingYBOCS.score);
+            const mockAnswers = createMockYBOCSAnswers(onboardingYBOCS.totalScore);
             console.log('🧪 Mock Y-BOCS Answers for validation:', {
-              totalScore: onboardingYBOCS.score,
+              totalScore: onboardingYBOCS.totalScore,
               answersCount: mockAnswers.length,
               sampleAnswers: mockAnswers.slice(0, 3),
               allQuestionIds: mockAnswers.map(a => a.questionId),

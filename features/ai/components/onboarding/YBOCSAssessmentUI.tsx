@@ -269,7 +269,8 @@ export const YBOCSAssessmentUI: React.FC<YBOCSAssessmentUIProps> = ({
       questionId: currentQuestion.id,
       questionType: currentQuestion.type,
       category: currentQuestion.category,
-      value,
+      response: value, // ✅ Use 'response' property for validation compatibility
+      value, // Keep backward compatibility
       timestamp: new Date(),
       metadata: { responseTime: 0, revisionCount: 0 }
     };

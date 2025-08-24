@@ -482,4 +482,230 @@ Bu test rehberinde sorun yaşarsanız:
 
 ---
 
+---
+
+## 🤖 Automated Test Coverage
+
+### 📋 Test Suite Overview
+
+The Quality Ribbon system is backed by comprehensive automated tests across multiple layers:
+
+**🔧 Test Categories:**
+- **E2E Tests**: Full user journey validation with Detox
+- **Integration Tests**: Component + pipeline integration  
+- **Unit Tests**: Individual component and hook testing
+- **Analytics Tests**: Data processing and calculation validation
+
+### 🧪 Running Automated Tests
+
+**Prerequisites:**
+```bash
+npm install
+npx detox build --configuration ios.sim.debug  # For E2E tests
+```
+
+**Test Commands:**
+```bash
+# All tests
+npm test
+
+# Unit tests only  
+npm run test:unit
+
+# Integration tests
+npm run test:integration  
+
+# E2E tests (requires simulator)
+npm run test:e2e
+
+# Analytics tests
+npm run test:analytics
+
+# Coverage report
+npm run test:coverage
+```
+
+### 🎯 E2E Test Coverage
+
+**File:** `e2e/TodayPageQualityRibbon.e2e.js`
+
+**Covered Scenarios:**
+- ✅ AI pipeline phases (Phase 1 → Phase 2)
+- ✅ Quality Ribbon badge accuracy ([Fresh][High][n=15][5m])
+- ✅ User interactions ("Şimdi Dene" / "Daha Sonra")
+- ✅ Data volume impact on quality levels
+- ✅ Fresh vs Cache badge behavior
+- ✅ Suggestion prioritization (Adaptive > Breathwork)
+- ✅ Error handling and graceful degradation
+- ✅ Feature flag integration
+
+**Key Assertions:**
+```javascript
+// Quality Ribbon visibility
+await expect(element(by.id('quality-ribbon'))).toBeVisible();
+
+// Badge content validation  
+await expect(element(by.text('Fresh'))).toBeVisible();
+await expect(element(by.text('High'))).toBeVisible();
+await expect(element(by.text(/n=\d+/))).toBeVisible();
+
+// User interaction flows
+await element(by.text('Şimdi Dene')).tap();
+await waitFor(element(by.text('Nefes'))).toBeVisible().withTimeout(3000);
+```
+
+### 🔗 Integration Test Coverage
+
+**File:** `__tests__/integration/MoodPageAIPipeline.test.tsx`
+
+**Covered Areas:**
+- ✅ Unified pipeline integration with real data
+- ✅ Quality metadata generation from analytics
+- ✅ Registry item mapping and UI rendering
+- ✅ Error boundary and fallback behavior
+- ✅ Performance under load
+- ✅ Cache vs fresh result handling
+
+**Sample Test Structure:**
+```typescript
+it('should generate quality metadata from pipeline result', async () => {
+  const component = renderMoodPage();
+  
+  await waitFor(() => {
+    expectQualityRibbonToShow(component, 'unified', 'high', 15);
+  });
+});
+```
+
+### ⚙️ Unit Test Coverage
+
+**Files:**
+- `__tests__/unit/QualityRibbon.test.tsx` - UI component validation
+- `__tests__/unit/useAdaptiveSuggestion.test.ts` - Hook logic testing
+
+**QualityRibbon Component Tests:**
+- ✅ Badge rendering with correct colors/text
+- ✅ Age formatting (30s → "now", 5m → "5m", 2h → "2h", 3d → "3d")
+- ✅ Source mapping (unified → "Fresh", cache → "Cache", etc.)
+- ✅ Accessibility and performance validation
+- ✅ Error handling for invalid props
+
+**useAdaptiveSuggestion Hook Tests:**
+- ✅ Cooldown logic (2-hour enforcement)
+- ✅ Quiet hours (23:00-07:00 UTC)
+- ✅ Pipeline integration and suggestion generation
+- ✅ Context-based fallback suggestions
+- ✅ Telemetry event tracking
+- ✅ Memory management and performance
+
+### 📊 Analytics Test Coverage
+
+**Files:**
+- `__tests__/analytics/CBTAnalytics.test.ts` - CBT metrics validation
+- `__tests__/analytics/TrackingAnalytics.test.ts` - OCD tracking validation
+
+**CBT Analytics Tests:**
+- ✅ Mood before/after delta calculations
+- ✅ Volatility computation (standard deviation)
+- ✅ Weekly trend analysis (recent vs older records)
+- ✅ Confidence scaling based on sample size
+- ✅ Quality Ribbon metadata generation
+- ✅ Edge cases (identical moods, extreme improvements)
+
+**Tracking Analytics Tests:**
+- ✅ Daily compulsion pattern grouping
+- ✅ Daily count volatility calculations
+- ✅ Weekly delta trends (improvement detection)
+- ✅ Baseline calculation (daily averages)
+- ✅ Conservative confidence scaling
+- ✅ Large dataset performance validation
+
+### 🧪 Test Fixtures and Utilities
+
+**File:** `__tests__/fixtures/qualityRibbonFixtures.ts`
+
+**Available Mocks:**
+```typescript
+// Pipeline result mocks
+mockUnifiedPipelineResult: Complete pipeline response
+mockRegistryItems: Pre-built registry items
+mockQualityMeta: UI metadata objects
+
+// Data generators  
+generateMoodEntries(count): Realistic mood data
+generateCBTRecords(count): CBT thought records
+generateCompulsions(count): OCD tracking data
+
+// Test helpers
+expectQualityRibbonToShow(): UI assertion helper
+waitForPipelineCompletion(): Async operation helper
+mockDateNow(): Consistent timestamp mocking
+```
+
+### 📈 Quality Metrics and Thresholds
+
+**Performance Requirements:**
+- E2E tests: < 30 seconds per scenario
+- Pipeline processing: < 3 seconds for 1000+ records  
+- UI rendering: < 50ms per component
+- Memory usage: < 100MB for large datasets
+
+**Quality Thresholds (Automated Validation):**
+- High Quality: confidence ≥ 0.8, sampleSize ≥ 7, freshnessMs < 30min
+- Medium Quality: confidence ≥ 0.6, sampleSize ≥ 3
+- Low Quality: All other cases
+
+**Coverage Targets:**
+- Unit Tests: > 90% line coverage
+- Integration Tests: All major user flows
+- E2E Tests: Critical paths and error scenarios
+- Analytics Tests: All calculation methods + edge cases
+
+### 🚨 Test Maintenance
+
+**Updating Tests When Features Change:**
+1. **UI Changes**: Update selectors in E2E tests
+2. **New Analytics**: Add test cases in analytics test files
+3. **API Changes**: Update mocks in fixtures
+4. **New Quality Logic**: Update thresholds in unit tests
+
+**Test Data Management:**
+- Use fixtures for consistent test data
+- Generate realistic data with utility functions  
+- Mock external dependencies (AsyncStorage, Supabase)
+- Use snapshot testing for complex UI components
+
+**CI/CD Integration:**
+```yaml
+# Example GitHub Actions workflow
+- name: Run Test Suite
+  run: |
+    npm run test:unit
+    npm run test:integration  
+    npm run test:analytics
+    npm run test:e2e --maxWorkers=1
+```
+
+### 🔍 Debugging Test Failures
+
+**Common Issues:**
+- **Timing Issues**: Increase `waitFor` timeouts
+- **Mock Problems**: Verify fixture data matches real API
+- **E2E Flakiness**: Check element selectors and timing
+- **Memory Leaks**: Monitor test cleanup and unmounting
+
+**Debug Commands:**
+```bash
+# Verbose test output
+npm test -- --verbose
+
+# Watch mode for development
+npm test -- --watch
+
+# Debug specific test file
+npm test QualityRibbon.test.tsx -- --verbose
+```
+
+---
+
 Happy Testing! 🎉
