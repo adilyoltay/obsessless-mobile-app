@@ -70,7 +70,7 @@ export function estimateQualityLevel(quality: InsightRegistryItem['quality']): Q
 /**
  * 🔄 Map UnifiedPipelineResult metadata source to ProvenanceSource
  */
-function mapMetadataSourceToProvenance(metadataSource: string): ProvenanceSource {
+export function mapMetadataSourceToProvenance(metadataSource: string): ProvenanceSource {
   switch (metadataSource) {
     case 'cache':
       return 'cache';

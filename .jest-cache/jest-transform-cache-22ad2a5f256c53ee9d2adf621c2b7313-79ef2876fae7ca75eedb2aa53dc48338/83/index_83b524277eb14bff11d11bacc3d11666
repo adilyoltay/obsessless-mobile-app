@@ -1,0 +1,14 @@
+d64586bee15f6c0fa1929e2ae426cff1
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+Object.defineProperty(exports, "setup", {
+  enumerable: true,
+  get: function get() {
+    return _setup.setup;
+  }
+});
+var _setup = require("./setup");
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfc2V0dXAiLCJyZXF1aXJlIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vc3JjL3VzZXItZXZlbnQvc2V0dXAvaW5kZXgudHMiXSwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IHR5cGUgeyBVc2VyRXZlbnRDb25maWcsIFVzZXJFdmVudEluc3RhbmNlIH0gZnJvbSAnLi9zZXR1cCc7XG5leHBvcnQgeyBzZXR1cCB9IGZyb20gJy4vc2V0dXAnO1xuIl0sIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7OztBQUNBLElBQUFBLE1BQUEsR0FBQUMsT0FBQSIsImlnbm9yZUxpc3QiOltdfQ==

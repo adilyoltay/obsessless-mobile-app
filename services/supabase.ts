@@ -1144,6 +1144,8 @@ class SupabaseNativeService {
     anxiety_level: number;
     notes?: string;
     trigger?: string;
+    triggers?: string[];
+    activities?: string[];
   }): Promise<any> {
     try {
       console.log('🔄 Saving mood entry...', entry);
@@ -1156,19 +1158,31 @@ class SupabaseNativeService {
         ...entry,
         notes: sanitizePII(entry.notes || ''),
         trigger: sanitizePII(entry.trigger || ''),
+        // ✅ NEW: Handle triggers array properly
+        triggers: entry.triggers?.map(t => sanitizePII(t)) || (entry.trigger ? [sanitizePII(entry.trigger)] : []),
+        activities: entry.activities?.map(a => sanitizePII(a)) || [],
       };
       
       // ✅ Generate content_hash for idempotency (client-side) using sanitized data
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${sanitizedEntry.trigger.trim().toLowerCase()}|${new Date().toISOString().slice(0,10)}`;
+      const triggerText = sanitizedEntry.triggers.join(',').toLowerCase();
+      const activityText = sanitizedEntry.activities.join(',').toLowerCase();
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${triggerText}|${activityText}|${new Date().toISOString().slice(0,10)}`;
       const content_hash = this.computeContentHash(contentText);
       
       const payload = {
-        ...sanitizedEntry,
+        user_id: sanitizedEntry.user_id,
+        mood_score: sanitizedEntry.mood_score,
+        energy_level: sanitizedEntry.energy_level,
+        anxiety_level: sanitizedEntry.anxiety_level,
+        notes: sanitizedEntry.notes,
+        triggers: sanitizedEntry.triggers,
+        activities: sanitizedEntry.activities,
         content_hash,
         created_at: new Date().toISOString(),
       };
       
       // ✅ Use upsert with conflict resolution on (user_id, content_hash)
+      // NOTE: Use maybeSingle() to avoid PGRST116 when no rows are returned (duplicate prevented)
       const { data, error } = await this.client
         .from('mood_entries')
         .upsert(payload, { 
@@ -1176,13 +1190,18 @@ class SupabaseNativeService {
           ignoreDuplicates: true 
         })
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) {
-        // ✅ Handle unique constraint violation gracefully
-        if (error.code === '23505' || error.message?.includes('duplicate')) {
-          console.log('ℹ️ Mood entry already exists (duplicate prevented)');
-          return null; // Graceful handling of duplicates
+        // ✅ Handle unique/duplicate or no-row return cases gracefully
+        if (
+          error.code === '23505' ||
+          error.message?.includes('duplicate') ||
+          error.code === 'PGRST116' ||
+          /multiple \(or no\) rows returned/i.test(error.message || '')
+        ) {
+          console.log('ℹ️ Mood entry already exists or not returned (idempotent upsert)');
+          return null;
         }
         throw error;
       }

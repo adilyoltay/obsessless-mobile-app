@@ -48,7 +48,9 @@ class MoodTrackingService {
         energy_level: moodEntry.energy_level,
         anxiety_level: moodEntry.anxiety_level,
         notes: moodEntry.notes,
-        trigger: moodEntry.triggers?.[0] || '', // Convert first trigger to string
+        triggers: moodEntry.triggers || [], // Send full triggers array
+        activities: moodEntry.activities || [], // Send activities array
+        trigger: moodEntry.triggers?.[0] || '', // Keep backward compatibility
       });
       await this.markAsSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
@@ -124,7 +126,9 @@ class MoodTrackingService {
               energy_level: entry.energy_level,
               anxiety_level: entry.anxiety_level,
               notes: entry.notes,
-              trigger: entry.triggers?.[0] || '', // Convert first trigger to string
+              triggers: entry.triggers || [], // Send full triggers array
+              activities: entry.activities || [], // Send activities array
+              trigger: entry.triggers?.[0] || '', // Keep backward compatibility
             });
           } catch (e) {
             batchError = e;
@@ -243,9 +247,12 @@ class MoodTrackingService {
           mood_score: d.mood_score,
           energy_level: d.energy_level,
           anxiety_level: d.anxiety_level,
-          notes: d.notes,
-          triggers: d.triggers || [],  // Ensure array
-          activities: d.activities || [], // Ensure array
+          notes: d.notes || '',
+          // ✅ NEW SCHEMA: Handle both array and single trigger formats for migration period
+          triggers: d.triggers && Array.isArray(d.triggers) 
+            ? d.triggers 
+            : (d.trigger ? [d.trigger] : []),
+          activities: d.activities || [],
           timestamp: d.created_at || d.timestamp,
           synced: true,
           sync_attempts: 0,
@@ -303,60 +310,92 @@ class MoodTrackingService {
 
   /**
    * Delete mood entry from local storage
+   * FIXED: Proper UUID/ID handling without incorrect parsing
    */
   async deleteMoodEntry(entryId: string): Promise<void> {
     try {
       console.log('🗑️ Deleting mood entry from local storage:', entryId);
       
-      // Get all stored entries to find and remove the specific entry
-      const allEntries: MoodEntry[] = [];
+      let entryFound = false;
       
       // Get recent dates (last 30 days to be safe)
       const dates = await this.getRecentDates(30);
       
-      for (const date of dates) {
-        const key = `${this.STORAGE_KEY}_${entryId.split('_')[1] || 'user'}_${date}`;
-        const existing = await AsyncStorage.getItem(key);
+      // Get all possible user storage keys by scanning existing storage
+      const allKeys = await this.getAllMoodStorageKeys();
+      
+      for (const storageKey of allKeys) {
+        const existing = await AsyncStorage.getItem(storageKey);
         
         if (existing) {
-          const entries: MoodEntry[] = JSON.parse(existing);
-          const filteredEntries = entries.filter(entry => entry.id !== entryId);
-          
-          // If entries were removed, update storage
-          if (filteredEntries.length !== entries.length) {
-            if (filteredEntries.length > 0) {
-              await AsyncStorage.setItem(key, JSON.stringify(filteredEntries));
-            } else {
-              await AsyncStorage.removeItem(key); // Remove empty date entry
+          try {
+            const entries: MoodEntry[] = JSON.parse(existing);
+            const filteredEntries = entries.filter(entry => entry.id !== entryId);
+            
+            // If entries were removed, update storage
+            if (filteredEntries.length !== entries.length) {
+              if (filteredEntries.length > 0) {
+                await AsyncStorage.setItem(storageKey, JSON.stringify(filteredEntries));
+              } else {
+                await AsyncStorage.removeItem(storageKey); // Remove empty date entry
+              }
+              console.log(`✅ Removed entry ${entryId} from storage key: ${storageKey}`);
+              entryFound = true;
+              // Don't break - entry might exist in multiple places due to sync issues
             }
-            console.log(`✅ Removed entry ${entryId} from date ${date}`);
-            break; // Entry found and removed, stop searching
+          } catch (parseError) {
+            console.warn(`⚠️ Failed to parse data from storage key ${storageKey}:`, parseError);
           }
         }
       }
 
-      // Also try to remove from the main storage key (fallback)
+      // Also try to remove from the main storage key (fallback for old format)
       const mainKey = this.STORAGE_KEY;
       const mainData = await AsyncStorage.getItem(mainKey);
       if (mainData) {
-        const entries: MoodEntry[] = JSON.parse(mainData);
-        const filteredEntries = entries.filter(entry => entry.id !== entryId);
-        
-        if (filteredEntries.length !== entries.length) {
-          if (filteredEntries.length > 0) {
-            await AsyncStorage.setItem(mainKey, JSON.stringify(filteredEntries));
-          } else {
-            await AsyncStorage.removeItem(mainKey);
+        try {
+          const entries: MoodEntry[] = JSON.parse(mainData);
+          const filteredEntries = entries.filter(entry => entry.id !== entryId);
+          
+          if (filteredEntries.length !== entries.length) {
+            if (filteredEntries.length > 0) {
+              await AsyncStorage.setItem(mainKey, JSON.stringify(filteredEntries));
+            } else {
+              await AsyncStorage.removeItem(mainKey);
+            }
+            console.log(`✅ Removed entry ${entryId} from main storage`);
+            entryFound = true;
           }
-          console.log(`✅ Removed entry ${entryId} from main storage`);
+        } catch (parseError) {
+          console.warn(`⚠️ Failed to parse data from main storage:`, parseError);
         }
       }
 
-      console.log('✅ Successfully deleted mood entry from local storage');
+      if (entryFound) {
+        console.log('✅ Successfully deleted mood entry from local storage');
+      } else {
+        console.warn(`⚠️ Entry ${entryId} not found in local storage - might have been already deleted`);
+      }
       
     } catch (error) {
       console.error('❌ Failed to delete mood entry from local storage:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Helper: Get all mood-related storage keys
+   * Scans AsyncStorage for keys matching mood entry pattern
+   */
+  private async getAllMoodStorageKeys(): Promise<string[]> {
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const moodKeys = allKeys.filter(key => key.startsWith(this.STORAGE_KEY));
+      console.log(`📦 Found ${moodKeys.length} mood storage keys`);
+      return moodKeys;
+    } catch (error) {
+      console.error('❌ Failed to get mood storage keys:', error);
+      return [];
     }
   }
 }

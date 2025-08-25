@@ -10,6 +10,18 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
+// In test/live environments, avoid scheduling after interactions to prevent teardown issues
+function scheduleAfterInteractions(cb: () => void) {
+  try {
+    if (process?.env?.TEST_LIVE_BACKEND === '1' || process?.env?.TEST_MODE === '1') {
+      cb();
+      return;
+    }
+  } catch {}
+  // Fallback to normal RN scheduling
+  // @ts-ignore - react-native types vary across versions
+  InteractionManager.runAfterInteractions(cb as any);
+}
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { 
   AIError, 
@@ -453,6 +465,12 @@ class AITelemetryManager {
     }
 
     try {
+      // Resolve raw user id for persistence (prefer explicit param, else metadata.userId)
+      const rawUserId: string | undefined = (typeof userId === 'string' && userId.length > 0)
+        ? userId
+        : (typeof (metadata as any)?.userId === 'string' && (metadata as any).userId.length > 0
+          ? (metadata as any).userId
+          : undefined);
       const event: TelemetryEvent = {
         eventType,
         timestamp: new Date().toISOString(),
@@ -469,8 +487,8 @@ class AITelemetryManager {
 
       // Persist a minimal copy to Supabase (non-blocking)
       try {
-        // Use InteractionManager to avoid UI jank
-        InteractionManager.runAfterInteractions(async () => {
+        // Use InteractionManager to avoid UI jank (or immediate in test/live)
+        scheduleAfterInteractions(async () => {
           try {
             if (!FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) return;
             const { default: supabaseService } = await import('@/services/supabase');
@@ -479,7 +497,7 @@ class AITelemetryManager {
             await supabaseService.supabaseClient
               .from('ai_telemetry')
               .insert({
-                user_id: userId || null,
+                user_id: rawUserId || null,
                 event_type: eventType,
                 metadata: this.sanitizeMetadata(metadata)
               });
@@ -793,7 +811,10 @@ class AITelemetryManager {
             event_type: evt.eventType,
             metadata: evt.metadata,
             session_id: evt.sessionId,
-            user_id: evt.userId || null,
+            // Prefer raw userId from metadata when available; evt.userId is hashed for privacy
+            user_id: (evt as any)?.metadata?.userId && typeof (evt as any).metadata.userId === 'string'
+              ? (evt as any).metadata.userId
+              : null,
             consent_level: evt.consentLevel,
             anonymized: evt.anonymized,
             occurred_at: evt.timestamp
@@ -844,8 +865,8 @@ class AITelemetryManager {
    * Offline buffer'ı background'da yükle
    */
   private async loadOfflineBuffer(): Promise<void> {
-    // UI thread'i bloklamak için InteractionManager kullan
-    InteractionManager.runAfterInteractions(async () => {
+    // UI thread'i bloklamak için InteractionManager kullan (test/live'da hemen)
+    scheduleAfterInteractions(async () => {
       try {
         const stored = await AsyncStorage.getItem('ai_telemetry_offline');
         if (stored) {
@@ -871,8 +892,8 @@ class AITelemetryManager {
    * Event'leri background'da storage'a kaydet
    */
   private async saveEventsToStorage(events: TelemetryEvent[]): Promise<void> {
-    // UI thread'i bloklamadan background'da kaydet
-    InteractionManager.runAfterInteractions(async () => {
+    // UI thread'i bloklamadan background'da kaydet (test/live'da hemen)
+    scheduleAfterInteractions(async () => {
       try {
         // Retention policy uygula - eski event'leri filtrele
         const cutoffDate = new Date();

@@ -198,6 +198,10 @@ export class UnifiedAIPipeline {
   private static instance: UnifiedAIPipeline;
   private cache: Map<string, { result: UnifiedPipelineResult; expires: number }> = new Map();
   
+  // 🧪 Test mode detection
+  private readonly isTestMode = process.env.TEST_MODE === '1';
+  private readonly testTTL = parseInt(process.env.TEST_TTL_MS || '5000', 10);
+  
   // ✅ FIXED: Module-specific cache TTLs as per specification  
   private readonly MODULE_TTLS = {
     insights: 24 * 60 * 60 * 1000,    // 24 hours
@@ -2041,7 +2045,8 @@ export class UnifiedAIPipeline {
   
   private setCache(key: string, result: UnifiedPipelineResult, ttl?: number): void {
     // ✅ FIXED: Use module-specific TTL instead of single DEFAULT_TTL
-    const cacheTTL = ttl || this.MODULE_TTLS.default;
+    // 🧪 TEST MODE: Override TTL for deterministic testing
+    const cacheTTL = this.isTestMode ? this.testTTL : (ttl || this.MODULE_TTLS.default);
     
     // 1. Store in memory cache (fastest access)
     this.cache.set(key, {
@@ -2055,7 +2060,10 @@ export class UnifiedAIPipeline {
     // 3. Also persist to AsyncStorage for offline
     this.persistToStorage(key, result);
     
-    console.log(`📦 Cache set with ${Math.round(cacheTTL / (60 * 60 * 1000))}h TTL:`, key.substring(0, 30) + '...');
+    const ttlDisplay = this.isTestMode 
+      ? `${cacheTTL}ms (TEST MODE)` 
+      : `${Math.round(cacheTTL / (60 * 60 * 1000))}h`;
+    console.log(`📦 Cache set with ${ttlDisplay} TTL:`, key.substring(0, 30) + '...');
   }
 
   /**
@@ -2069,8 +2077,9 @@ export class UnifiedAIPipeline {
     
     // If no insights, use short TTL to prevent negative caching
     if (insightsCount === 0) {
-      const shortTTL = 5 * 60 * 1000; // 5 minutes
-      console.log(`📦 Empty insights detected (${insightsCount}), using short TTL: ${shortTTL / 60000}min`);
+      const shortTTL = this.isTestMode ? this.testTTL : 5 * 60 * 1000; // Test mode or 5 minutes
+      const ttlDisplay = this.isTestMode ? `${shortTTL}ms (TEST)` : `${shortTTL / 60000}min`;
+      console.log(`📦 Empty insights detected (${insightsCount}), using short TTL: ${ttlDisplay}`);
       this.setCache(key, result, shortTTL);
       
       // Track empty insights caching for monitoring
@@ -2442,7 +2451,7 @@ export class UnifiedAIPipeline {
       // ✅ FIXED: Use correct column names from ai_cache table schema
       const { data, error } = await supabaseService.supabaseClient
         .from('ai_cache')
-        .select('content, expires_at')  // 'content' not 'cached_result'
+        .select('content')
         .eq('cache_key', key)
         .maybeSingle();
       
@@ -2455,19 +2464,7 @@ export class UnifiedAIPipeline {
         return null; // Cache miss
       }
       
-      // Check expiration
-      const now = new Date();
-      const expiresAt = new Date(data.expires_at);
-      if (now > expiresAt) {
-        // Cleanup expired entry
-        await supabaseService.supabaseClient
-          .from('ai_cache')
-          .delete()
-          .eq('cache_key', key);
-        return null;
-      }
-      
-      return data.content as UnifiedPipelineResult;  // Use 'content' column
+      return (data as any).content as UnifiedPipelineResult;  // Use 'content' column
     } catch (error) {
       console.warn('⚠️ Supabase cache read failed:', error);
       return null;
@@ -2478,7 +2475,7 @@ export class UnifiedAIPipeline {
     try {
       // Extract userId from key for proper RLS
       const userId = key.split(':')[1];
-      const ttlHours = this.MODULE_TTLS.default / (1000 * 60 * 60); // Convert ms to hours
+      // Minimal upsert for compatibility across schemas (triggers may derive expires_at)
       
       // ✅ FIXED: Use correct column names from ai_cache table schema
       const { error } = await supabaseService.supabaseClient
@@ -2486,10 +2483,7 @@ export class UnifiedAIPipeline {
         .upsert({
           cache_key: key,
           user_id: userId,
-          content: result,  // Use 'content' column
-          computed_at: new Date().toISOString(),
-          ttl_hours: Math.round(ttlHours),  // TTL in hours
-          // expires_at is calculated automatically by trigger
+          content: result
         }, {
           onConflict: 'cache_key'
         });
@@ -2611,16 +2605,11 @@ export class UnifiedAIPipeline {
   private async invalidateSupabaseCache(type: 'patterns' | 'insights' | 'all', userId?: string): Promise<void> {
     try {
       // ✅ Use correct client getter: supabaseService.supabaseClient (not .client)
-      let query = supabaseService.supabaseClient
+      const likePattern = userId ? `unified:${userId}:%` : 'unified:%';
+      const { error } = await supabaseService.supabaseClient
         .from('ai_cache')
         .delete()
-        .like('cache_key', 'unified:%'); // ✅ Use LIKE for unified cache keys
-      
-      if (userId) {
-        query = query.eq('user_id', userId);
-      }
-      
-      const { error } = await query;
+        .like('cache_key', likePattern);
       
       if (error) {
         console.warn('⚠️ Supabase cache invalidation error:', error);

@@ -1,0 +1,26 @@
+bd42a9c7a842cc4a1a0ce9efcc136c98
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+Object.defineProperty(exports, "PressOptions", {
+  enumerable: true,
+  get: function get() {
+    return _press.PressOptions;
+  }
+});
+Object.defineProperty(exports, "longPress", {
+  enumerable: true,
+  get: function get() {
+    return _press.longPress;
+  }
+});
+Object.defineProperty(exports, "press", {
+  enumerable: true,
+  get: function get() {
+    return _press.press;
+  }
+});
+var _press = require("./press");
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfcHJlc3MiLCJyZXF1aXJlIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vc3JjL3VzZXItZXZlbnQvcHJlc3MvaW5kZXgudHMiXSwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IHsgbG9uZ1ByZXNzLCBwcmVzcywgUHJlc3NPcHRpb25zIH0gZnJvbSAnLi9wcmVzcyc7XG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsSUFBQUEsTUFBQSxHQUFBQyxPQUFBIiwiaWdub3JlTGlzdCI6W119

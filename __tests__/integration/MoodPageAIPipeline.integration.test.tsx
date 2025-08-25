@@ -18,6 +18,15 @@ import {
   mockAsyncStorage,
   expectQualityRibbonToShow
 } from '../fixtures/qualityRibbonFixtures';
+import {
+  clearAllTestData,
+  seedTestData,
+  createMockPipelineResult,
+  TEST_ENV,
+  MOOD_SCENARIOS,
+  waitForElement,
+  waitForDuration
+} from '../fixtures/seedData';
 
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
@@ -399,6 +408,245 @@ describe('Mood Page AI Pipeline Integration', () => {
         // Loading state should be replaced with content
         expect(component.queryByText('Yükleniyor...')).toBeNull();
       });
+    });
+  });
+
+  // ============================================================================
+  // 🎗️ QUALITY RIBBON N-THRESHOLD TESTING (Task Requirements)
+  // ============================================================================
+
+  describe('🔢 N-Threshold Quality Testing', () => {
+    beforeEach(async () => {
+      await clearAllTestData();
+    });
+
+    it.each([
+      ['high', 16, 'High', 'Fresh'],
+      ['medium', 10, 'Med', 'Cache'],
+      ['low', 4, 'Low', 'Fast']
+    ])('[QR:mood:%s] should show %s quality for %i mood entries', async (scenario, sampleSize, expectedQuality, expectedSource) => {
+      // Seed mood data with specific sample size
+      await seedTestData(scenario as 'high' | 'medium' | 'low', ['mood']);
+      
+      // Mock pipeline with scenario-specific result
+      const pipelineResult = createMockPipelineResult(
+        scenario === 'high' ? 'unified' : 
+        scenario === 'medium' ? 'cache' : 'heuristic',
+        scenario as 'high' | 'medium' | 'low',
+        'mood'
+      );
+      
+      mockUnifiedPipeline.process.mockResolvedValue(pipelineResult);
+      
+      // Mock adaptive suggestion with quality meta
+      const scenarioConfig = MOOD_SCENARIOS[scenario as keyof typeof MOOD_SCENARIOS];
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.highQuality,
+        meta: {
+          source: pipelineResult.metadata.source === 'fresh' ? 'unified' : pipelineResult.metadata.source,
+          qualityLevel: scenarioConfig.qualityLevel,
+          sampleSize: scenarioConfig.sampleSize,
+          freshnessMs: Date.now() - (pipelineResult.metadata.processedAt || Date.now())
+        }
+      });
+
+      const component = renderMoodPage();
+
+      // Wait for processing to complete
+      await waitFor(() => {
+        expect(component.getByTestId('adaptive-suggestion-card')).toBeTruthy();
+      }, { timeout: 8000 });
+
+      // Verify Quality Ribbon displays correct values
+      await waitFor(() => {
+        expect(component.getByText(expectedSource)).toBeTruthy();
+        expect(component.getByText(expectedQuality)).toBeTruthy();
+        expect(component.getByText(`n=${sampleSize}`)).toBeTruthy();
+      });
+    });
+
+    it('[QR:mood:medium] should handle mood data exactly at threshold boundaries', async () => {
+      // Test exactly 7 days (boundary between low and medium)
+      const boundaryScenario = {
+        sampleSize: 7,
+        expectedQuality: 'Med' // Should be medium at boundary
+      };
+      
+      await seedTestData('medium', ['mood']);
+      
+      const result = createMockPipelineResult('cache', 'medium', 'mood');
+      result.analytics.mood.sampleSize = boundaryScenario.sampleSize;
+      
+      mockUnifiedPipeline.process.mockResolvedValue(result);
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.mediumQuality,
+        meta: {
+          source: 'cache',
+          qualityLevel: 'medium',
+          sampleSize: boundaryScenario.sampleSize,
+          freshnessMs: 3600000 // 1 hour
+        }
+      });
+
+      const component = renderMoodPage();
+
+      await waitFor(() => {
+        expect(component.getByText('Cache')).toBeTruthy();
+        expect(component.getByText(boundaryScenario.expectedQuality)).toBeTruthy();
+        expect(component.getByText(`n=${boundaryScenario.sampleSize}`)).toBeTruthy();
+      });
+    });
+  });
+
+  describe('🕐 Fresh/Cache Transitions for Mood', () => {
+    beforeEach(async () => {
+      await clearAllTestData();
+    });
+
+    it('[QR:mood:cache] should transition from Fresh to Cache based on TTL', async () => {
+      await seedTestData('high', ['mood']);
+      
+      // First: Fresh result
+      const freshResult = createMockPipelineResult('unified', 'high', 'mood');
+      mockUnifiedPipeline.process.mockResolvedValueOnce(freshResult);
+      
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.highQuality,
+        meta: {
+          source: 'unified',
+          qualityLevel: 'high',
+          sampleSize: 16,
+          freshnessMs: 0
+        }
+      });
+
+      const component = render(
+        <AuthContext.Provider value={{ user: mockUser, loading: false }}>
+          <MoodPage />
+        </AuthContext.Provider>
+      );
+
+      // Should show Fresh initially
+      await waitFor(() => {
+        expect(component.getByText('Fresh')).toBeTruthy();
+      });
+
+      // Wait for test TTL to expire
+      await waitForDuration(TEST_ENV.TTL_MS + 1000);
+
+      // Second: Cached result
+      const cachedResult = createMockPipelineResult('cache', 'high', 'mood');
+      mockUnifiedPipeline.process.mockResolvedValueOnce(cachedResult);
+      
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.highQuality,
+        meta: {
+          source: 'cache',
+          qualityLevel: 'high',
+          sampleSize: 16,
+          freshnessMs: TEST_ENV.TTL_MS
+        }
+      });
+
+      // Trigger re-render by unmounting and remounting
+      component.unmount();
+      const newComponent = render(
+        <AuthContext.Provider value={{ user: mockUser, loading: false }}>
+          <MoodPage />
+        </AuthContext.Provider>
+      );
+
+      // Should now show Cache
+      await waitFor(() => {
+        expect(newComponent.getByText('Cache')).toBeTruthy();
+        expect(newComponent.getByText(/\d+[sm]/)).toBeTruthy(); // Age badge
+      }, { timeout: 8000 });
+    });
+  });
+
+  describe('🚫 Mood Quality Ribbon Hiding', () => {
+    beforeEach(async () => {
+      await clearAllTestData();
+    });
+
+    it('[QR:mood:hidden] should hide Quality Ribbon when mood suggestion metadata is missing', async () => {
+      await seedTestData('low', ['mood']);
+      
+      // Mock suggestion WITHOUT quality metadata
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.lowQuality,
+        meta: undefined // No metadata
+      });
+
+      const component = renderMoodPage();
+
+      await waitFor(() => {
+        // Suggestion card should appear
+        expect(component.getByTestId('adaptive-suggestion-card')).toBeTruthy();
+        
+        // Quality Ribbon should NOT appear
+        expect(component.queryByTestId('quality-ribbon')).toBeNull();
+        expect(component.queryByText('Fresh')).toBeNull();
+        expect(component.queryByText('Cache')).toBeNull();
+        expect(component.queryByText('Fast')).toBeNull();
+      });
+    });
+
+    it('[QR:mood:hidden] should hide Quality Ribbon when mood pipeline fails', async () => {
+      await seedTestData('medium', ['mood']);
+      
+      // Mock pipeline failure
+      mockUnifiedPipeline.process.mockRejectedValueOnce(new Error('Mood pipeline failed'));
+      
+      const component = renderMoodPage();
+
+      await waitFor(() => {
+        // Page should still render
+        expect(component.getByText('Mood Takibi')).toBeTruthy();
+        
+        // No adaptive suggestion should appear
+        expect(component.queryByTestId('adaptive-suggestion-card')).toBeNull();
+        expect(component.queryByTestId('quality-ribbon')).toBeNull();
+      });
+    });
+  });
+
+  describe('🧪 Test Mode Integration for Mood', () => {
+    beforeEach(async () => {
+      await clearAllTestData();
+    });
+
+    it('should respect TEST_TTL_MS for mood cache expiry', async () => {
+      expect(TEST_ENV.MODE).toBe(true);
+      expect(TEST_ENV.TTL_MS).toBe(5000);
+      
+      await seedTestData('high', ['mood']);
+      
+      const result = createMockPipelineResult('unified', 'high', 'mood');
+      mockUnifiedPipeline.process.mockResolvedValue(result);
+      
+      mockUseAdaptiveSuggestion.generateSuggestionFromPipeline.mockResolvedValueOnce({
+        ...mockAdaptiveSuggestions.highQuality,
+        meta: {
+          source: 'unified',
+          qualityLevel: 'high',
+          sampleSize: 16,
+          freshnessMs: 0
+        }
+      });
+
+      const component = renderMoodPage();
+
+      // Should render with test mode configuration
+      await waitFor(() => {
+        expect(component.getByText('Fresh')).toBeTruthy();
+        expect(component.getByText('High')).toBeTruthy();
+        expect(component.getByText('n=16')).toBeTruthy();
+      });
+      
+      // Verify test environment
+      expect(process.env.TEST_MODE).toBe('1');
+      expect(process.env.TEST_TTL_MS).toBe('5000');
     });
   });
 });

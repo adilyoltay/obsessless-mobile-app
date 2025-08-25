@@ -163,7 +163,19 @@ export default function SettingsScreen() {
     );
   };
 
-  // Development helpers removed
+  // Dev: Live Test Runner toggle (persisted)
+  const [showLiveRunner, setShowLiveRunner] = useState<boolean>(false);
+  useEffect(() => {
+    (async () => {
+      const v = await AsyncStorage.getItem('dev_show_live_runner');
+      setShowLiveRunner(v === '1');
+    })();
+  }, []);
+  const toggleLiveRunner = async (value: boolean) => {
+    setShowLiveRunner(value);
+    await AsyncStorage.setItem('dev_show_live_runner', value ? '1' : '0');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const handleDataExport = async () => {
     Alert.alert(
@@ -538,7 +550,23 @@ export default function SettingsScreen() {
 
 
 
-        {/* Developer Tools removed */}
+        {/* Geliştirici (Dev) Araçları */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Geliştirici</Text>
+          <View style={styles.sectionContent}>
+            {renderSettingItem(
+              'Live Test Runner Göster',
+              'flask-outline',
+              showLiveRunner,
+              (value) => toggleLiveRunner(value)
+            )}
+            {showLiveRunner && renderActionItem(
+              'Live Test Runnerı Aç',
+              'rocket-launch',
+              () => router.push('/live-test-runner')
+            )}
+          </View>
+        </View>
 
         {/* Account */}
         <View style={styles.section}>

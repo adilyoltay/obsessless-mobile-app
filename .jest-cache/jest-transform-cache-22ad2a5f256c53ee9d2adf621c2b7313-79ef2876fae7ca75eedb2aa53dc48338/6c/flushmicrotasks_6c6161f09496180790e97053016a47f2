@@ -1,0 +1,14 @@
+96bb4fe6c4ae9ca6c7701fabe31d34b4
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.flushMicroTasks = flushMicroTasks;
+var _timers = require("./helpers/timers");
+function flushMicroTasks() {
+  return new Promise(function (resolve) {
+    return (0, _timers.setImmediate)(resolve);
+  });
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfdGltZXJzIiwicmVxdWlyZSIsImZsdXNoTWljcm9UYXNrcyIsIlByb21pc2UiLCJyZXNvbHZlIiwic2V0SW1tZWRpYXRlIl0sInNvdXJjZXMiOlsiLi4vc3JjL2ZsdXNoLW1pY3JvLXRhc2tzLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHNldEltbWVkaWF0ZSB9IGZyb20gJy4vaGVscGVycy90aW1lcnMnO1xuXG5leHBvcnQgZnVuY3Rpb24gZmx1c2hNaWNyb1Rhc2tzKCkge1xuICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUpID0+IHNldEltbWVkaWF0ZShyZXNvbHZlKSk7XG59XG4iXSwibWFwcGluZ3MiOiI7Ozs7OztBQUFBLElBQUFBLE9BQUEsR0FBQUMsT0FBQTtBQUVPLFNBQVNDLGVBQWVBLENBQUEsRUFBRztFQUNoQyxPQUFPLElBQUlDLE9BQU8sQ0FBRSxVQUFBQyxPQUFPO0lBQUEsT0FBSyxJQUFBSixPQUFBLENBQUFLLFlBQVksRUFBQ0QsT0FBTyxDQUFDO0VBQUEsRUFBQztBQUN4RCIsImlnbm9yZUxpc3QiOltdfQ==

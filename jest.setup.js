@@ -2,6 +2,23 @@
 /* global jest, beforeAll */
 // Basic Jest setup for React Native + Expo environment
 
+// Load .env.local before anything else
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('dotenv').config({ path: '.env.local' });
+} catch (e) {}
+
+// Force assign critical env from .env.local if present
+process.env.EXPO_PUBLIC_SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Ensure critical test env flags are set BEFORE any module evaluations (featureFlags reads these at import time)
+process.env.TEST_MODE = process.env.TEST_MODE || '1';
+process.env.TEST_TTL_MS = process.env.TEST_TTL_MS || '5000';
+process.env.TEST_PIPELINE_STUB = process.env.TEST_PIPELINE_STUB || '1';
+process.env.TEST_SEED_USER_ID = process.env.TEST_SEED_USER_ID || 'test-user-1';
+process.env.EXPO_PUBLIC_ENABLE_AI = process.env.EXPO_PUBLIC_ENABLE_AI || 'true';
+
 // Mock AsyncStorage to avoid native module errors in Jest
 jest.mock('@react-native-async-storage/async-storage', () => {
   let store = new Map();
@@ -25,6 +42,26 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// Force-enable unified pipeline flag globally in tests via module mock
+jest.mock('@/constants/featureFlags', () => {
+  const actual = jest.requireActual('@/constants/featureFlags');
+  const original = actual.FEATURE_FLAGS;
+  const patched = {
+    ...original,
+    isEnabled: (feature) => {
+      if (feature === 'AI_UNIFIED_PIPELINE' || feature === 'AI_TELEMETRY') return true;
+      return original.isEnabled(feature);
+    },
+  };
+  return {
+    __esModule: true,
+    FEATURE_FLAGS: patched,
+  };
+});
+
+// Some modules may import without alias; patch that path too
+ 
+
 // Mock expo virtual env (ESM) used by expo packages
 jest.mock('expo/virtual/env', () => ({
   __esModule: true,
@@ -37,7 +74,18 @@ jest.mock('@expo/vector-icons', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    MaterialCommunityIcons: (props) => React.createElement(View, props),
+    MaterialCommunityIcons: (props) => {
+      // Preserve testID and other relevant props for testing
+      return React.createElement(View, {
+        ...props,
+        accessibilityRole: 'image',
+        accessibilityLabel: `Icon: ${props.name || 'unknown'}`,
+        // Preserve testID for queries
+        testID: props.testID,
+        // Store icon name as a data attribute for testing
+        'data-icon-name': props.name
+      });
+    },
   };
 });
 
@@ -142,25 +190,40 @@ jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(async () => ({ isConnected: false, isInternetReachable: false })),
 }));
 
-// Mock Supabase client to avoid ESM polyfill imports
-jest.mock('@/lib/supabase', () => ({
-  __esModule: true,
-  supabase: {
-    auth: {
-      getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
+// In live backend tests, make InteractionManager.runAfterInteractions synchronous to avoid teardown warnings
+try {
+  if (process.env.TEST_LIVE_BACKEND === '1') {
+    const RN = require('react-native');
+    if (RN && RN.InteractionManager) {
+      RN.InteractionManager.runAfterInteractions = (cb) => {
+        if (typeof cb === 'function') cb();
+        return { cancel: () => {} };
+      };
+    }
+  }
+} catch (e) {}
+
+// Mock Supabase only when not running live backend tests
+if (process.env.TEST_LIVE_BACKEND !== '1') {
+  jest.mock('@/lib/supabase', () => ({
+    __esModule: true,
+    supabase: {
+      auth: {
+        getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
+      },
+      from: jest.fn(() => ({ select: jest.fn().mockResolvedValue({ data: [], error: null }) })),
     },
-    from: jest.fn(() => ({ select: jest.fn().mockResolvedValue({ data: [], error: null }) })),
-  },
-}));
-jest.mock('@/services/supabase', () => ({
-  __esModule: true,
-  supabase: {
-    auth: {
-      getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
+  }));
+  jest.mock('@/services/supabase', () => ({
+    __esModule: true,
+    supabase: {
+      auth: {
+        getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
+      },
+      from: jest.fn(() => ({ select: jest.fn().mockResolvedValue({ data: [], error: null }) })),
     },
-    from: jest.fn(() => ({ select: jest.fn().mockResolvedValue({ data: [], error: null }) })),
-  },
-}));
+  }));
+}
 
 // Stub polyfill auto ESM to avoid transform issues
 jest.mock('react-native-url-polyfill/auto', () => ({}));
@@ -204,6 +267,53 @@ jest.mock('@/features/ai/cache/resultCache', () => ({
     clear: jest.fn().mockResolvedValue(undefined)
   }
 }));
+
+// ============================================================================
+// 🧪 QUALITY RIBBON TEST MODE INFRASTRUCTURE
+// ============================================================================
+
+// Set test mode environment variables
+process.env.TEST_MODE = process.env.TEST_MODE || '1';
+process.env.TEST_TTL_MS = process.env.TEST_TTL_MS || '5000';
+process.env.TEST_PIPELINE_STUB = process.env.TEST_PIPELINE_STUB || '1';
+process.env.TEST_SEED_USER_ID = process.env.TEST_SEED_USER_ID || 'test-user-1';
+process.env.EXPO_PUBLIC_ENABLE_AI = process.env.EXPO_PUBLIC_ENABLE_AI || 'true';
+
+// Force-enable unified pipeline in test runs (system-mode depends on this)
+try {
+  const { FEATURE_FLAGS } = require('./constants/featureFlags');
+  const originalIsEnabled = FEATURE_FLAGS.isEnabled.bind(FEATURE_FLAGS);
+  FEATURE_FLAGS.isEnabled = (flag) => {
+    if (flag === 'AI_UNIFIED_PIPELINE') return true;
+    return originalIsEnabled(flag);
+  };
+} catch (e) {
+  // If feature flags module path differs in tests, skip override
+}
+
+// Import and expose test utilities globally
+const { 
+  waitForElement, 
+  seedTestData, 
+  clearAllTestData, 
+  mockUnifiedPipelineProcess,
+  seedTrackingCompulsions,
+  seedCBTRecords,
+  seedOCDScenario,
+  cleanupSeeds,
+  TEST_ENV 
+} = require('./__tests__/fixtures/seedData');
+
+// Make test helpers available globally
+global.waitForElement = waitForElement;
+global.seedTestData = seedTestData;
+global.clearAllTestData = clearAllTestData;
+global.mockUnifiedPipelineProcess = mockUnifiedPipelineProcess;
+global.seedTrackingCompulsions = seedTrackingCompulsions;
+global.seedCBTRecords = seedCBTRecords;
+global.seedOCDScenario = seedOCDScenario;
+global.cleanupSeeds = cleanupSeeds;
+global.TEST_ENV = TEST_ENV;
 
 // Silence noisy React warnings in test output (ErrorBoundary scenarios etc.)
 beforeAll(() => {
