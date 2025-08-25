@@ -2,9 +2,11 @@
  * Supabase Edge Function: Analyze Audio via Storage
  * 🚀 BÜYÜK DOSYALAR için: Storage URL üzerinden ses analizi
  * Avantaj: Base64 encoding yok, memory efficient
+ * ✅ F-10 FIX: Added rate limiting (50 requests per 10 minutes per user)
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { withinRateLimit, createRateLimitResponse, logRateLimitHit } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -246,6 +248,32 @@ serve(async (req) => {
         JSON.stringify({ error: 'Missing required fields: audioPath, userId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ✅ F-10 FIX: Rate limiting check before expensive STT + Gemini processing
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { authorization: authHeader },
+        },
+      }
+    );
+    
+    const rateLimitWindowMinutes = 10;
+    const rateLimitMaxRequests = 50;
+    
+    const isWithinLimit = await withinRateLimit(supabaseClient, userId, rateLimitWindowMinutes, rateLimitMaxRequests);
+    
+    if (!isWithinLimit) {
+      console.log(`🚨 Rate limit exceeded for user ${userId.substring(0, 8)}... in analyze-audio-storage`);
+      
+      // Log rate limit hit for telemetry
+      await logRateLimitHit(supabaseClient, userId, 'analyze-audio-storage', rateLimitMaxRequests, rateLimitMaxRequests);
+      
+      // Return 429 rate limit response
+      return createRateLimitResponse(corsHeaders, rateLimitWindowMinutes, rateLimitMaxRequests);
     }
 
     console.log(`🚀 Processing Storage audio analysis:`, {

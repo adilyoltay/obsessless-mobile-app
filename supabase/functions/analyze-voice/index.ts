@@ -2,9 +2,11 @@
  * Supabase Edge Function: Analyze Voice
  * Kullanıcı ses girişlerini Gemini API ile analiz eder
  * Bu function, client tarafındaki API key güvenlik sorununu çözer
+ * ✅ F-10 FIX: Added rate limiting (50 requests per 10 minutes per user)
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { withinRateLimit, createRateLimitResponse, logRateLimitHit } from '../_shared/rateLimit.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -328,6 +330,22 @@ serve(async (req) => {
 
     // Allow test users and proceed with analysis
     console.log(`✅ Authorization passed for user: ${userId}`);
+
+    // ✅ F-10 FIX: Rate limiting check (50 requests per 10 minutes)
+    const rateLimitWindowMinutes = 10;
+    const rateLimitMaxRequests = 50;
+    
+    const isWithinLimit = await withinRateLimit(supabaseClient, userId, rateLimitWindowMinutes, rateLimitMaxRequests);
+    
+    if (!isWithinLimit) {
+      console.log(`🚨 Rate limit exceeded for user ${userId.substring(0, 8)}...`);
+      
+      // Log rate limit hit for telemetry
+      await logRateLimitHit(supabaseClient, userId, 'analyze-voice', rateLimitMaxRequests, rateLimitMaxRequests);
+      
+      // Return 429 rate limit response
+      return createRateLimitResponse(corsHeaders, rateLimitWindowMinutes, rateLimitMaxRequests);
+    }
 
     console.log(`Processing analysis request: ${analysisType} for user ${userId}`);
 
