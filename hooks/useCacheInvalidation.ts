@@ -7,10 +7,10 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
-import { EventEmitter } from 'events';
+import { DeviceEventEmitter } from 'react-native';
 
-// Global event emitter for cache invalidation events
-const cacheEvents = new EventEmitter();
+// Use React Native's DeviceEventEmitter instead of Node.js events
+const cacheEvents = DeviceEventEmitter;
 
 // ============================================================================
 // CACHE CONFIGURATION & CONSTANTS
@@ -282,10 +282,10 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
       }
     };
 
-    cacheEvents.on('sync:completed', handleSyncCompleted);
+    const subscription = cacheEvents.addListener('sync:completed', handleSyncCompleted);
     
     return () => {
-      cacheEvents.off('sync:completed', handleSyncCompleted);
+      subscription.remove();
     };
   }, [invalidateCompulsions, invalidateMoodEntries, invalidateThoughtRecords, invalidateVoiceCheckins, invalidateStats, invalidateAI]);
 
@@ -313,10 +313,10 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
       }
     };
 
-    cacheEvents.on('ai:invalidation', handleAIInvalidation);
+    const subscription = cacheEvents.addListener('ai:invalidation', handleAIInvalidation);
     
     return () => {
-      cacheEvents.off('ai:invalidation', handleAIInvalidation);
+      subscription.remove();
     };
   }, [invalidateAI, invalidateStats]);
 
@@ -329,8 +329,8 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     const aiCleanup = setupAIInvalidation();
     
     return () => {
-      syncCleanup();
-      aiCleanup();
+      if (syncCleanup) syncCleanup();
+      if (aiCleanup) aiCleanup();
     };
   }, [setupSyncInvalidation, setupAIInvalidation]);
 
