@@ -331,20 +331,24 @@ serve(async (req) => {
     // Allow test users and proceed with analysis
     console.log(`✅ Authorization passed for user: ${userId}`);
 
-    // ✅ F-10 FIX: Rate limiting check (50 requests per 10 minutes)
-    const rateLimitWindowMinutes = 10;
-    const rateLimitMaxRequests = 50;
-    
-    const isWithinLimit = await withinRateLimit(supabaseClient, userId, rateLimitWindowMinutes, rateLimitMaxRequests);
+    // ✅ F-10 FIX: Rate limiting check (ENV configurable, defaults: 50 req/10min)
+    const isWithinLimit = await withinRateLimit(supabaseClient, userId);
     
     if (!isWithinLimit) {
       console.log(`🚨 Rate limit exceeded for user ${userId.substring(0, 8)}...`);
       
+      // Get current config for telemetry and response
+      const config = { windowMinutes: 10, maxRequests: 50 }; // Fallback for display
+      try {
+        config.windowMinutes = parseInt(Deno.env.get('RATE_LIMIT_WINDOW_MIN') || '10', 10);
+        config.maxRequests = parseInt(Deno.env.get('RATE_LIMIT_MAX') || '50', 10);
+      } catch (e) { /* use fallback */ }
+      
       // Log rate limit hit for telemetry
-      await logRateLimitHit(supabaseClient, userId, 'analyze-voice', rateLimitMaxRequests, rateLimitMaxRequests);
+      await logRateLimitHit(supabaseClient, userId, 'analyze-voice', config.maxRequests, config.maxRequests);
       
       // Return 429 rate limit response
-      return createRateLimitResponse(corsHeaders, rateLimitWindowMinutes, rateLimitMaxRequests);
+      return createRateLimitResponse(corsHeaders, config.windowMinutes, config.maxRequests);
     }
 
     console.log(`Processing analysis request: ${analysisType} for user ${userId}`);

@@ -2440,7 +2440,7 @@ export class UnifiedAIPipeline {
   private async getFromSupabaseCache(key: string): Promise<UnifiedPipelineResult | null> {
     try {
       // ✅ FIXED: Use correct column names from ai_cache table schema
-      const { data, error } = await supabaseService.client
+      const { data, error } = await supabaseService.supabaseClient
         .from('ai_cache')
         .select('content, expires_at')  // 'content' not 'cached_result'
         .eq('cache_key', key)
@@ -2460,7 +2460,7 @@ export class UnifiedAIPipeline {
       const expiresAt = new Date(data.expires_at);
       if (now > expiresAt) {
         // Cleanup expired entry
-        await supabaseService.client
+        await supabaseService.supabaseClient
           .from('ai_cache')
           .delete()
           .eq('cache_key', key);
@@ -2481,7 +2481,7 @@ export class UnifiedAIPipeline {
       const ttlHours = this.MODULE_TTLS.default / (1000 * 60 * 60); // Convert ms to hours
       
       // ✅ FIXED: Use correct column names from ai_cache table schema
-      const { error } = await supabaseService.client
+      const { error } = await supabaseService.supabaseClient
         .from('ai_cache')
         .upsert({
           cache_key: key,

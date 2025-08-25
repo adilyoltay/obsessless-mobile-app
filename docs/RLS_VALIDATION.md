@@ -46,6 +46,11 @@ const accessToken = session?.access_token;
 // Bu token'ı TEST_USER_ACCESS_TOKEN_1 olarak kaydet
 ```
 
+**✅ POLISH SPRINT UPDATE**: RLS testleri artık gerçek JWT decode kullanıyor:
+- `jwt-decode` paketi ile user_id otomatik extract ediliyor
+- Fallback mekanizması: Token decode edilemezse mock ID kullanılıyor
+- İmproved error handling ve logging
+
 ### **Test Komutları**
 
 ```bash
@@ -168,6 +173,29 @@ fi
 - [ ] Rate limiting aktif (F-10)
 - [ ] JWT token validation çalışıyor
 - [ ] CORS headers doğru ayarlanmış
+
+## 🚀 **Production Features (Polish Sprint Updates)**
+
+### **Rate Limiting Configuration**
+
+**✅ ENV-Based Parameters**: Rate limiting artık environment variable'larla yönetilebilir:
+
+```bash
+# Edge Functions (.env)
+RATE_LIMIT_WINDOW_MIN=10    # Time window in minutes (1-60)
+RATE_LIMIT_MAX=50          # Max requests per window (1-1000)
+```
+
+**Default Values**: Window=10min, Max=50 requests per user
+**Production Ready**: Validation ile misconfiguration korunması
+**Logs**: Kullanılan parameters real-time görülüyor
+
+### **UnifiedAIPipeline Optimization**
+
+**✅ Client Standardization**: Tüm cache operations `supabaseService.supabaseClient` kullanıyor
+- TypeScript tip tutarlılığı sağlandı
+- IDE support iyileştirildi
+- Code style standardization
 
 ## 📊 **İzleme ve Alertler**
 

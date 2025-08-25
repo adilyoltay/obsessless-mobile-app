@@ -2,23 +2,42 @@
 // Shared rate limiting utility for analyze-voice and analyze-audio-storage
 
 /**
+ * Get rate limit parameters from environment or use defaults
+ */
+function getRateLimitConfig(): { windowMinutes: number; maxRequests: number } {
+  const windowMinutes = parseInt(Deno.env.get('RATE_LIMIT_WINDOW_MIN') || '10', 10);
+  const maxRequests = parseInt(Deno.env.get('RATE_LIMIT_MAX') || '50', 10);
+  
+  // Validation to prevent misconfigurations
+  const validWindow = Math.max(1, Math.min(windowMinutes, 60)); // 1-60 minutes
+  const validMax = Math.max(1, Math.min(maxRequests, 1000)); // 1-1000 requests
+  
+  return { windowMinutes: validWindow, maxRequests: validMax };
+}
+
+/**
  * Check if user is within rate limit for AI API calls
  * @param supabase - Supabase client instance
  * @param userId - User ID to check
- * @param windowMinutes - Time window in minutes (default: 10)
- * @param maxRequests - Maximum requests allowed in window (default: 50)
+ * @param windowMinutes - Time window in minutes (optional, uses ENV or default: 10)
+ * @param maxRequests - Maximum requests allowed in window (optional, uses ENV or default: 50)
  * @returns Promise<boolean> - true if within limit, false if exceeded
  */
 export async function withinRateLimit(
   supabase: any, 
   userId: string, 
-  windowMinutes: number = 10, 
-  maxRequests: number = 50
+  windowMinutes?: number, 
+  maxRequests?: number
 ): Promise<boolean> {
   try {
-    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+    // Use environment variables or passed parameters or defaults
+    const config = getRateLimitConfig();
+    const effectiveWindow = windowMinutes ?? config.windowMinutes;
+    const effectiveMax = maxRequests ?? config.maxRequests;
     
-    console.log(`🔍 Rate limit check: userId=${userId.substring(0, 8)}..., window=${windowMinutes}min, max=${maxRequests}`);
+    const windowStart = new Date(Date.now() - effectiveWindow * 60 * 1000).toISOString();
+    
+    console.log(`🔍 Rate limit check: userId=${userId.substring(0, 8)}..., window=${effectiveWindow}min, max=${effectiveMax} (ENV: RATE_LIMIT_WINDOW_MIN=${Deno.env.get('RATE_LIMIT_WINDOW_MIN') || 'default'}, RATE_LIMIT_MAX=${Deno.env.get('RATE_LIMIT_MAX') || 'default'})`);
     
     // Count AI telemetry events in the time window for this user
     const { count, error } = await supabase
@@ -35,9 +54,9 @@ export async function withinRateLimit(
     }
 
     const currentCount = count || 0;
-    const withinLimit = currentCount < maxRequests;
+    const withinLimit = currentCount < effectiveMax;
     
-    console.log(`📊 Rate limit status: ${currentCount}/${maxRequests} requests in last ${windowMinutes}min - ${withinLimit ? 'ALLOWED' : 'BLOCKED'}`);
+    console.log(`📊 Rate limit status: ${currentCount}/${effectiveMax} requests in last ${effectiveWindow}min - ${withinLimit ? 'ALLOWED' : 'BLOCKED'}`);
     
     return withinLimit;
     

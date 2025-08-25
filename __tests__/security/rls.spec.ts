@@ -11,6 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+import { jwtDecode } from 'jwt-decode';
 
 // Load environment variables
 dotenv.config();
@@ -31,6 +32,24 @@ const skipReason = envMissing ?
 
 // Skip tests if environment is not properly configured
 const describeTest = envMissing ? describe.skip : describe;
+
+/**
+ * Extract user_id from JWT token
+ * Falls back to mock IDs if JWT decode fails or no token provided
+ */
+function extractUserIdFromToken(token?: string): string {
+  if (!token) {
+    return 'test-user-mock-id';
+  }
+
+  try {
+    const decoded = jwtDecode<{ sub?: string; user_id?: string; id?: string }>(token);
+    return decoded.sub || decoded.user_id || decoded.id || 'test-user-jwt-fallback';
+  } catch (error) {
+    console.warn('⚠️ Failed to decode JWT token, using fallback user_id:', error);
+    return 'test-user-decode-failed';
+  }
+}
 
 describeTest('Row Level Security (RLS) Validation', () => {
   let supabaseUser1: any;
@@ -69,10 +88,11 @@ describeTest('Row Level Security (RLS) Validation', () => {
       }
     );
 
-    // Extract user IDs from JWT tokens (simplified - in real scenario you'd decode JWT)
-    // For testing purposes, we'll use mock user IDs
-    testUserId1 = 'test-user-1-id';
-    testUserId2 = 'test-user-2-id';
+    // ✅ POLISH 3: Extract real user IDs from JWT tokens
+    testUserId1 = extractUserIdFromToken(process.env.TEST_USER_ACCESS_TOKEN_1);
+    testUserId2 = extractUserIdFromToken(process.env.TEST_USER_ACCESS_TOKEN_2);
+    
+    console.log(`🔐 RLS Tests using user IDs: User1=${testUserId1.substring(0, 8)}..., User2=${testUserId2.substring(0, 8)}...`);
   });
 
   describe('SELECT Operations - Data Isolation', () => {
@@ -340,4 +360,11 @@ if (envMissing) {
   console.log(`   Required environment variables: ${requiredEnv.join(', ')}`);
   console.log(`   Missing: ${requiredEnv.filter(key => !process.env[key]).join(', ')}`);
   console.log(`   Tests will be SKIPPED until environment is properly configured.\n`);
+  console.log(`\n   💡 To run RLS tests, provide:`);
+  console.log(`      - SUPABASE_URL: Your project URL`);
+  console.log(`      - SUPABASE_ANON_KEY: Anonymous key from project settings`);
+  console.log(`      - TEST_USER_ACCESS_TOKEN_1: JWT token from test user login`);
+  console.log(`      - TEST_USER_ACCESS_TOKEN_2: JWT token from another test user\n`);
+} else {
+  console.log(`✅ RLS Tests environment configured - tests will run with JWT decode`);
 }

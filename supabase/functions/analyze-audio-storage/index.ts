@@ -250,7 +250,7 @@ serve(async (req) => {
       );
     }
 
-    // ✅ F-10 FIX: Rate limiting check before expensive STT + Gemini processing
+    // ✅ F-10 FIX: Rate limiting check before expensive STT + Gemini processing (ENV configurable)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -261,19 +261,23 @@ serve(async (req) => {
       }
     );
     
-    const rateLimitWindowMinutes = 10;
-    const rateLimitMaxRequests = 50;
-    
-    const isWithinLimit = await withinRateLimit(supabaseClient, userId, rateLimitWindowMinutes, rateLimitMaxRequests);
+    const isWithinLimit = await withinRateLimit(supabaseClient, userId);
     
     if (!isWithinLimit) {
       console.log(`🚨 Rate limit exceeded for user ${userId.substring(0, 8)}... in analyze-audio-storage`);
       
+      // Get current config for telemetry and response
+      const config = { windowMinutes: 10, maxRequests: 50 }; // Fallback for display
+      try {
+        config.windowMinutes = parseInt(Deno.env.get('RATE_LIMIT_WINDOW_MIN') || '10', 10);
+        config.maxRequests = parseInt(Deno.env.get('RATE_LIMIT_MAX') || '50', 10);
+      } catch (e) { /* use fallback */ }
+      
       // Log rate limit hit for telemetry
-      await logRateLimitHit(supabaseClient, userId, 'analyze-audio-storage', rateLimitMaxRequests, rateLimitMaxRequests);
+      await logRateLimitHit(supabaseClient, userId, 'analyze-audio-storage', config.maxRequests, config.maxRequests);
       
       // Return 429 rate limit response
-      return createRateLimitResponse(corsHeaders, rateLimitWindowMinutes, rateLimitMaxRequests);
+      return createRateLimitResponse(corsHeaders, config.windowMinutes, config.maxRequests);
     }
 
     console.log(`🚀 Processing Storage audio analysis:`, {
