@@ -81,12 +81,12 @@ class STTService {
       
       const body = {
         config: {
+          encoding: 'LINEAR16', // PCM 16-bit signed integer
+          sampleRateHertz: 16000, // Google optimal rate
           languageCode: req.languageCode || 'tr-TR',
           enableAutomaticPunctuation: req.enablePunctuation ?? true,
           maxAlternatives: req.maxAlternatives ?? 3,
-          model: 'latest_long',
-          encoding: 'LINEAR16',
-          sampleRateHertz: 16000
+          model: 'latest_long' // Best for long-form audio
         },
         audio: {
           content: base64Audio

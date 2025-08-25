@@ -26,6 +26,7 @@ import { contentFilterService } from '@/features/ai/safety/contentFilter';
 import { aiManager } from '@/features/ai/config/aiManager';
 import Constants from 'expo-constants';
 import { AI_CONFIG } from '@/constants/featureFlags';
+import { edgeAIService } from '@/services/edgeAIService';
 
 // =============================================================================
 // 🎯 AI PROVIDER DEFINITIONS
@@ -270,23 +271,28 @@ class ExternalAIService {
       if (__DEV__) console.warn(`⚠️ Only Gemini is supported. Configured provider '${selectedProvider}' will be ignored.`);
     }
 
-    // Gemini Configuration (only if selected)
-    const geminiKey = extra.EXPO_PUBLIC_GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    const geminiModel = extra.EXPO_PUBLIC_GEMINI_MODEL || process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
-    if (selectedProvider === 'gemini' && geminiKey && !isLikelyPlaceholder(geminiKey)) {
+    // Edge Function Configuration - Gemini API key'leri artık server-side
+    // Edge function availability check yapılacak, API key client tarafında gerekmiyor
+    const hasEdgeFunction = await edgeAIService.healthCheck();
+    
+    if (selectedProvider === 'gemini') {
       this.providers.set(AIProvider.GEMINI, {
         provider: AIProvider.GEMINI,
-        apiKey: geminiKey,
-        baseURL: 'https://generativelanguage.googleapis.com/v1',
-        model: geminiModel,
+        apiKey: hasEdgeFunction ? 'edge-function-proxy' : '', // Placeholder - gerçek key server-side
+        baseURL: 'edge-function',
+        model: 'gemini-1.5-flash',
         maxTokens: 4000,
         temperature: 0.7,
         timeout: 30000,
-        isAvailable: false,
+        isAvailable: hasEdgeFunction,
         lastHealthCheck: new Date(),
         errorCount: 0,
         successRate: 1.0
       });
+      
+      if (__DEV__) {
+        console.log(`✅ Edge Function configured: ${hasEdgeFunction ? 'Available' : 'Not Available'}`);
+      }
     }
 
     // Telemetry: configuration load summary (dinamik)
@@ -345,8 +351,22 @@ class ExternalAIService {
     const config = this.providers.get(provider);
     if (!config) return false;
 
+    // 🚀 EDGE FUNCTION HEALTH CHECK: Simple availability test
+    if (config.baseURL === 'edge-function') {
+      console.log('🚀 Checking Edge Function health...');
+      try {
+        // Use edgeAIService health check instead of full API request
+        const edgeHealthy = await edgeAIService.healthCheck();
+        console.log(`✅ Edge Function health check: ${edgeHealthy ? 'Healthy' : 'Unhealthy'}`);
+        return edgeHealthy;
+      } catch (error) {
+        console.warn('⚠️ Edge Function health check failed:', error);
+        return false;
+      }
+    }
+
     try {
-      // Simple health check request
+      // Traditional API health check (fallback - should not be used in production)
       const response = await this.makeProviderRequest(provider, {
         messages: [{ role: 'user', content: 'Test' }],
         maxTokens: 10,
@@ -654,7 +674,7 @@ class ExternalAIService {
   // =============================================================================
 
   /**
-   * AI'dan yanıt al - Ana metod (Cache & Rate Limiting ile)
+   * AI'dan yanıt al - Ana metod (Cache & Rate Limiting ile) - Edge Function entegrasyonu
    */
   async getAIResponse(
     messages: AIMessage[] = [],
@@ -668,6 +688,49 @@ class ExternalAIService {
       return this.getFallbackResponse(requestId, 0);
     }
     const startTime = Date.now();
+
+    // 🚀 EDGE FUNCTION ROUTE: Geçici olarak edge function kullan
+    const hasEdgeFunction = await edgeAIService.healthCheck();
+    if (hasEdgeFunction && userId) {
+      try {
+        // Messages'ı tek bir text string'e dönüştür
+        const combinedText = messages.map(m => m.content).join(' ');
+        
+        const edgeResult = await edgeAIService.analyzeText({
+          text: combinedText,
+          userId,
+          analysisType: 'mixed',
+          context: {
+            source: 'cbt',
+            metadata: context
+          }
+        });
+
+        if (edgeResult) {
+          return {
+            success: true,
+            content: edgeResult.summary,
+            requestId,
+            provider: 'edge-function',
+            model: 'gemini-via-edge',
+            latency: Date.now() - startTime,
+            tokens: {
+              prompt: combinedText.split(' ').length,
+              completion: edgeResult.summary.split(' ').length,
+              total: combinedText.split(' ').length + edgeResult.summary.split(' ').length
+            },
+            cached: false,
+            filtered: false,
+            metadata: {
+              confidence: edgeResult.confidence,
+              category: edgeResult.category
+            }
+          };
+        }
+      } catch (error) {
+        console.warn('🚨 Edge function failed, falling back to standard flow:', error);
+      }
+    }
 
     try {
       // 🔒 CRITICAL: PII Sanitization FIRST
@@ -880,8 +943,67 @@ class ExternalAIService {
     try {
       // Normalize request object
       const req: any = request && typeof request === 'object' ? request : {};
+      
+      // 🚀 EDGE FUNCTION ROUTE: Use Supabase Edge Functions for Gemini API calls
+      if (config?.baseURL === 'edge-function') {
+        console.log('🚀 Using Edge Function for Gemini API call...');
+        
+        // Extract messages from request
+        const safeMessages = Array.isArray(req.messages) ? (req.messages as any[]).filter(Boolean) : [];
+        const combinedText = safeMessages.map((m: any) => {
+          const text = (m && m.content != null) ? String(m.content) : '';
+          return text;
+        }).join(' ').trim();
+
+        if (!combinedText) {
+          const err = new Error('No text content provided for analysis');
+          (err as any).code = AIErrorCode.INVALID_REQUEST;
+          throw err;
+        }
+
+        // Call Edge Function via edgeAIService
+        const edgeResult = await edgeAIService.analyzeText({
+          text: combinedText,
+          userId: req.userId || 'unknown',
+          analysisType: 'mixed',
+          context: {
+            source: 'cbt',
+            metadata: req.context
+          }
+        });
+
+        if (edgeResult) {
+          console.log('✅ Edge Function Gemini call successful');
+          return {
+            success: true,
+            content: edgeResult.summary,
+            requestId: `edge_${Date.now()}`,
+            provider: 'edge-function',
+            model: 'gemini-1.5-flash',
+            latency: Date.now() - startTime,
+            tokens: {
+              prompt: combinedText.split(' ').length,
+              completion: edgeResult.summary.split(' ').length,
+              total: combinedText.split(' ').length + edgeResult.summary.split(' ').length
+            },
+            cached: false,
+            filtered: false,
+            metadata: {
+              confidence: edgeResult.confidence,
+              category: edgeResult.category
+            }
+          };
+        } else {
+          console.warn('⚠️ Edge Function returned null result');
+          const err = new Error('Edge Function analysis failed');
+          (err as any).code = AIErrorCode.PROVIDER_ERROR;
+          throw err;
+        }
+      }
+      
+      // Fallback: Traditional API key check (should not be reached in production)
       if (!config?.apiKey || !config?.baseURL || !config?.model) {
-        const err = new Error('Gemini configuration missing');
+        const err = new Error('Gemini configuration missing - API key should be in Edge Functions');
         (err as any).code = AIErrorCode.NO_PROVIDER_AVAILABLE;
         throw err;
       }

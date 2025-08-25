@@ -46,6 +46,8 @@ export interface TranscriptionResult {
   duration: number;
   timestamp: Date;
   alternatives?: string[];
+  // Secure pipeline: Include full analysis result
+  analysisResult?: any; // UnifiedAnalysisResult type from edgeAIService
 }
 
 // Ses ayarları
@@ -333,14 +335,88 @@ class VoiceRecognitionService {
   }
 
   /**
-   * Ses verisini transkribe et
+   * Ses verisini transkribe et - Güvenli Edge Function pipeline kullan
    */
   private async transcribeAudio(
     uri: string, 
     duration: number
   ): Promise<TranscriptionResult | null> {
     try {
-      // Try production STT first
+      // 🚀 SECURE PIPELINE: Use Edge Function for STT + Analysis
+      const { edgeAIService } = await import('@/services/edgeAIService');
+      
+      // Get user ID from auth context
+      let userId = 'anonymous-user';
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          userId = user.id;
+          console.log('🔐 Using authenticated user for secure transcription');
+        }
+      } catch (authError) {
+        console.warn('Could not get user ID for secure transcription, using anonymous', authError);
+      }
+      
+      console.log('🔐 Using secure Edge Function pipeline for audio analysis...');
+      
+      // 📊 Audio dosyası debug bilgileri
+      try {
+        const FileSystem = await import('expo-file-system');
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        console.log('🎵 Audio File Debug:', {
+          uri: uri.substring(uri.lastIndexOf('/') + 1),
+          exists: fileInfo.exists,
+          size: fileInfo.size ? `${Math.round(fileInfo.size / 1024)}KB` : 'unknown',
+          modificationTime: fileInfo.modificationTime
+        });
+      } catch (debugError) {
+        console.warn('🔍 Could not get file debug info:', debugError);
+      }
+      
+      // 🚀 YENİ: Storage-based yaklaşım - büyük dosyalar için
+      let analysisResult = await edgeAIService.analyzeAudioViaStorage(
+        uri, 
+        userId, 
+        this.settings.language,
+        {
+          source: 'today',
+          timestamp: Date.now()
+        }
+      );
+
+      // Fallback: Eğer storage başarısız olursa, eski base64 yöntemi dene
+      if (!analysisResult) {
+        console.log('🔄 Storage method failed, trying base64 fallback...');
+        analysisResult = await edgeAIService.analyzeAudio(
+          uri, 
+          userId, 
+          this.settings.language,
+          {
+            source: 'today',
+            timestamp: Date.now()
+          }
+        );
+      }
+
+      if (analysisResult && analysisResult.metadata?.transcribedText) {
+        console.log('✅ Secure transcription successful via Edge Function');
+        
+        return {
+          text: analysisResult.metadata.transcribedText,
+          confidence: analysisResult.metadata.transcriptionConfidence || 0.8,
+          language: this.settings.language,
+          duration,
+          timestamp: new Date(),
+          alternatives: [],
+          // Include analysis result for downstream processing
+          analysisResult
+        };
+      }
+
+      console.warn('⚠️ Edge Function analysis failed, trying fallback STT...');
+
+      // Fallback: Try local STT service
       const { sttService } = await import('@/features/ai/services/sttService');
       const stt = await sttService.transcribe({
         uri,
@@ -351,6 +427,7 @@ class VoiceRecognitionService {
       });
 
       if (stt?.text) {
+        console.log('✅ Fallback STT successful');
         return {
           text: stt.text,
           confidence: stt.confidence ?? 0.7,
@@ -361,17 +438,18 @@ class VoiceRecognitionService {
         };
       }
 
-      // Fallback mock
+      // Final fallback mock (only for development)
+      console.warn('⚠️ All STT methods failed, using development fallback');
       return {
-        text: "Bu bir test transkripsiyonudur",
-        confidence: 0.6,
+        text: "Ses analizi başarısız oldu, lütfen tekrar deneyin",
+        confidence: 0.3,
         language: this.settings.language,
         duration,
         timestamp: new Date(),
         alternatives: []
       };
     } catch (error) {
-      aiLogger.ai?.error?.('Transcription failed', error);
+      aiLogger.ai?.error?.('Secure transcription failed', error);
       return null;
     }
   }

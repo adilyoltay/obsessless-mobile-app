@@ -14,7 +14,7 @@
    # .env.local dosyası oluşturun (commit etmeyin)
    EXPO_PUBLIC_SUPABASE_URL=your_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_key
-   EXPO_PUBLIC_GEMINI_API_KEY=your_key
+   # ⚠️ EXPO_PUBLIC_GEMINI_API_KEY artık Edge Functions'da güvenli şekilde saklanıyor
    EXPO_PUBLIC_GEMINI_MODEL=gemini-1.5-flash
    EXPO_PUBLIC_GOOGLE_STT_API_KEY=your_key
    EXPO_PUBLIC_ELEVENLABS_API_KEY=your_key
@@ -80,6 +80,54 @@ const apiKey = Deno.env.get('GEMINI_API_KEY')
    ```
 
 2. **Field‑level Encryption & Migration**
+
+## 🔄 Gemini API Key Migration (Ocak 2025)
+
+### ✅ TAMAMLANDI: Edge Functions ile API Key Güvenliği
+
+Projede **önemli bir güvenlik iyileştirmesi** yapıldı. Gemini API key'leri artık client tarafında değil, Supabase Edge Functions'da güvenli şekilde saklanıyor.
+
+### 🔧 Yapılan Değişiklikler:
+
+1. **Supabase Edge Functions Oluşturuldu**
+   - `supabase/functions/analyze-voice/index.ts` - Gemini API çağrıları server-side yapılıyor
+   - API key'leri Supabase secrets olarak saklanan
+
+2. **Client Tarafı Güncellemeleri**
+   - `services/edgeAIService.ts` - Yeni Edge Function çağrı servisi 
+   - `features/ai/services/checkinService.ts` - Edge function entegrasyonu
+   - `features/ai/services/externalAIService.ts` - Edge function proxy
+
+3. **API Key'leri Kaldırıldı**
+   - `app.config.ts` ve `app.config.js` - `EXPO_PUBLIC_GEMINI_API_KEY` kaldırıldı
+   - Client tarafında artık API key'lere erişim yok
+
+### 🚀 Kullanım Kılavuzu:
+
+```bash
+# 1. Supabase secrets ayarla (sadece server admin)
+supabase secrets set GEMINI_API_KEY=your_actual_api_key
+
+# 2. Edge function deploy et
+supabase functions deploy analyze-voice
+
+# 3. Test et
+curl -X POST 'https://your-project.supabase.co/functions/v1/analyze-voice' \
+  -H 'Authorization: Bearer YOUR_SUPABASE_ANON_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "test", "userId": "test-user"}'
+```
+
+### 🔒 Güvenlik Avantajları:
+
+- ✅ API key'leri client'ta görünmez
+- ✅ Source code'da hardcode yok  
+- ✅ Environment variables'dan temizlendi
+- ✅ Otomatik authentication kontrolü
+- ✅ Rate limiting built-in
+- ✅ Server-side error handling
+
+**Not:** Artık `.env.local` dosyasından `EXPO_PUBLIC_GEMINI_API_KEY` satırını kaldırabilirsiniz.
    - AES‑256‑GCM ile hassas alanların şifrelenmesi (`secureDataService`)
    - Plaintext → encrypted migrasyon yardımcıları (`SecureStorageMigration`)
    - Ayarlar ekranında migrasyon versiyonu ve yeniden şifreleme tetikleme

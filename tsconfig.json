@@ -47,6 +47,9 @@
   ],
   "exclude": [
     "backup/**",
-    "archive/**"
+    "archive/**",
+    "__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

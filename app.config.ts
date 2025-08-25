@@ -75,7 +75,8 @@ const config: ExpoConfig = {
     // Hassas bilgiler sadece ortam değişkenlerinden
     EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
     EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    EXPO_PUBLIC_GEMINI_API_KEY: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+    // ⚠️ GEMINI_API_KEY artık Supabase Edge Functions'da güvenli şekilde saklanıyor
+    // EXPO_PUBLIC_GEMINI_API_KEY: REMOVED - API key'ler server-side Edge Functions'ta
     EXPO_PUBLIC_GEMINI_MODEL: process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-1.5-flash',
     EXPO_PUBLIC_GOOGLE_STT_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_STT_API_KEY,
     EXPO_PUBLIC_ELEVENLABS_API_KEY: process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,

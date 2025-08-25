@@ -1,215 +1,183 @@
-## Feature Flags ve Onboarding Davranışı
+# Supabase CLI
 
-Onboarding her zaman aktiftir ve en kapsamlı akış olan `OnboardingFlowV3` kullanılır. AI flag’leri onboarding’i kapatmaz; yalnızca ek AI modüllerini (analiz/telemetry) kontrol eder.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-- Onboarding akışı: Her zaman `/(auth)/onboarding` rotası.
-- AI runtime modülleri: `AI_RUNTIME_MODULES` flag’i ile kontrol edilir (default: master ile aynı).
-- Ek modüller (AI açık olduğunda devreye girenler):
-  - `AI_YBOCS_ANALYSIS`
-  - `AI_USER_PROFILING`
-  - `AI_TREATMENT_PLANNING`
-  - `AI_RISK_ASSESSMENT`
-  - `AI_TELEMETRY`
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-Notlar:
-- `AI_ONBOARDING_V2` her zaman true’dur. Onboarding hiçbir flag ile kapatılmaz.
-- Eski `/(auth)/ai-onboarding` rotası kaldırıldı; tek giriş `/(auth)/onboarding`.
-  - Today ekranındaki AI CTA, Settings → AI Onboarding devam butonu ve NavigationGuard/app giriş yönlendirmeleri güncellenmiştir.
-  - Onboarding tamamlanmadıysa otomatik yönlendirme `/(auth)/onboarding`'edir; tamamlandıysa CTA gizlenir.
+This repository contains all the functionality for Supabase CLI.
 
-# 🌟 ObsessLess Mobile App
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-## 📱 Genel Bakış
+## Getting started
 
-ObsessLess, OKB (Obsesif Kompulsif Bozukluk) ile yaşayan bireyler için tasarlanmış bir **"dijital sığınak"** uygulamasıdır. Kullanıcının OKB'nin getirdiği fırtınalı anlarda sığındığı, onu yargılamadan dinleyen, kanıta dayalı yöntemlerle güçlendiren ve kontrolü tekrar kendi eline almasına yardımcı olan dijital bir yol arkadaşıdır.
+### Install the CLI
 
-## 🚀 Son Güncellemeler (Ocak 2025)
-
-### 🌟 Unified AI Pipeline (YENİ - Ocak 2025)
-
-Tüm AI analizlerini tek pipeline'da toplayan yeni mimari devreye alındı:
-
-- **15→5 Servis İndirimi**: Voice + Pattern + Insights + CBT tek serviste birleştirildi
-- **24 Saat Cache**: TTL bazlı önbellekleme ile %85 daha hızlı yanıt
-- **Paralel İşleme**: Tüm analizler paralel çalışır
-- **Invalidation Hooks**: Akıllı cache temizleme tetikleyicileri
-- **Gradual Rollout**: %10→%50→%100 kademeli açılım
-
-**Performans Kazanımları:**
-- **Servis sayısı**: 15+ → 5 core servis (%67 azalma)
-- **API çağrıları**: 8-10/screen → 1-2/screen (%80 azalma)
-- **Response time (cache)**: 3-4s → <500ms (%85 iyileşme)
-- **Kod karmaşıklığı**: %60 azalma
-
-### 🎯 CoreAnalysisService v1 - AI Performans Devrimi
-- **Tek Giriş Noktası**: Tüm AI analizleri tek yerden yönetim
-- **LLM Gating**: %70 daha az API çağrısı, akıllı filtreleme
-- **Token Budget Manager**: Kullanıcı bazlı günlük limit (20K token)
-- **Similarity Dedup**: Tekrarlayan istekleri otomatik önleme
-- **Progressive UI**: 300ms'de hızlı yanıt, 3s'de derin analiz
-- **Multi-layer Cache**: Optimize TTL (24h insights, 1h voice)
-
-### ✨ Diğer Yeni Özellikler
-- **🎤 Unified Voice Analysis**: CoreAnalysisService ile entegre ses analizi
-- **🧠 CBT Düşünce Kaydı**: 4-adımlı bilişsel terapi formu
-- **🎨 Master Prompt Uyumlu Tasarım**: Sakinlik, güç, zahmetsizlik ilkeleri
-- **📱 BottomSheet Standardizasyonu**: Tutarlı kullanıcı deneyimi
-- **⚡ Otomatik Yönlendirme**: Ses analizi ile akıllı sayfa yönlendirmesi
-
-## 🎯 Temel Özellikler
-
-### 🏛️ **5 Ana Modül**
-
-1. **🎤 Akıllı Ses Analizi (YENİ)**
-   - Merkezi ses girişi (Today screen)
-   - AI destekli tip tespiti (Mood/CBT/OCD/ERP/Breathwork)
-   - Otomatik sayfa yönlendirmesi
-   - Heuristik fallback sistemi
-
-2. **🧠 CBT Düşünce Kaydı (YENİ)**
-   - 4-adımlı terapötik form
-   - AI destekli çarpıtma analizi
-   - Yeniden çerçeveleme önerileri
-   - Offline-first veri saklama
-
-3. **📋 OCD Takip Sistemi**
-   - Kompulsiyon kaydı ve analizi
-   - Direnç seviyesi takibi
-   - Pattern recognition
-   - İstatistiksel insights
-
-4. **🛡️ ERP Egzersizleri**
-   - Rehberli maruz kalma
-   - AI destekli egzersiz önerileri
-   - Gerçek zamanlı anksiyete takibi
-   - Güvenli çıkış protokolleri
-
-5. **🌬️ Nefes Egzersizleri**
-   - Guided breathing sessions
-   - Çeşitli teknikler (4-7-8, Box Breathing)
-   - Progress tracking
-   - Ses analizi entegrasyonu
-
-## 🛠️ Teknoloji Stack
-
-- **Framework:** React Native with Expo (SDK 51)
-- **Language:** TypeScript 5.x
-- **State Management:** Zustand + React Query
-- **Storage:** AsyncStorage (User-specific) + Supabase (sync)
-- **Navigation:** Expo Router (File-based)
-- **Animations:** React Native Reanimated + Lottie
-- **UI Components:** Custom components following Master Prompt principles
-- **AI Provider:** Gemini-only (AI Chat devre dışı, Crisis Detection kaldırıldı)
-- **AI Architecture:** CoreAnalysisService v1 (Single-entry point, LLM gating, Multi-layer cache)
-
-## 🎨 Tasarım İlkeleri
-
-### 🌿 **Sakinlik Her Şeyden Önce Gelir**
-- Minimalist tasarım
-- #10B981 yeşil tema rengi
-- Yumuşak animasyonlar ve geçişler
-
-### 💪 **Güç Kullanıcıdadır**
-- Şeffaf süreçler
-- Kişiselleştirilebilir deneyim
-- Kullanıcı kontrolü
-
-### ⚡ **Zahmetsizlik Esastır**
-- Minimum bilişsel yük
-- 1-2 tıkla erişim
-- Büyük dokunma alanları (min. 48x48px)
-
-## 🚀 Kurulum
-
-### Gereksinimler
-- Node.js (18+)
-- npm veya yarn
-- Expo CLI
-- iOS Simulator veya Android Emulator
-
-### Kurulum Adımları
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# Repository'yi klonla
-git clone https://github.com/adilyoltay/obsessless-mobile-app.git
-cd obsessless-mobile-app
-
-# Bağımlılıkları yükle
-npm install
-
-# iOS için CocoaPods yükle
-cd ios && pod install && cd ..
-
-# Metro server'ı başlat
-npm start
-
-# iOS'da çalıştır
-npm run ios
-
-npx eas build --platform ios --profile development
-
-# Android'de çalıştır
-npm run android
+npm i supabase --save-dev
 ```
 
-## 📱 Test Durumu
+To install the beta release channel:
 
-### ✅ **Çalışan Özellikler**
-- **Authentication:** Email/Password sistemi
-- **Biometric Support:** FaceID/TouchID entegrasyonu
-- **Onboarding:** 5 adımlı kurulum süreci
-- **OKB Takip:** Kompulsiyon kayıt sistemi
-- **ERP System:** Egzersiz takip sistemi
-- **Gamification:** Puan sistemi ve streak counter
-- **User-Specific Storage:** Kullanıcı bazlı veri yönetimi
+```bash
+npm i supabase@beta --save-dev
+```
 
-### 📊 **Test Metrikleri**
-- **Build Success:** ✅ iOS gerçek cihazda çalışıyor
-- **Authentication:** ✅ Login/logout fonksiyonel
-- **Onboarding:** ✅ 5 adım tamamlanıyor  
-- **Compulsion Recording:** ✅ Toast mesajları çalışıyor
-- **ERP Sessions:** ✅ Egzersizler mevcut ve çalışıyor
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-## 📖 Dokümentasyon
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
 
-- [`docs/obsessless-flow.md`](docs/obsessless-flow.md) - Uygulama akışları ve teknik detaylar
-- [`docs/obsessless-ui.md`](docs/obsessless-ui.md) - UI mockups ve tasarım rehberi
-- [`docs/test-scenarios.md`](docs/test-scenarios.md) - Test senaryoları ve validasyon
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
-## 🔧 Konfigürasyon
+<details>
+  <summary><b>macOS</b></summary>
 
-### Bundle Identifier
-- **iOS:** `com.adilyoltay.obslesstest`
-- **Android:** `com.adilyoltay.obslesstest`
-- **URL Scheme:** `obslesstest://`
+  Available via [Homebrew](https://brew.sh). To install:
 
-### Desteklenen Platformlar
-- **iOS:** 15.0+
-- **Android:** API Level 21+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
 
-## 🤝 Katkıda Bulunma
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
 
-## 📄 Lisans
+<details>
+  <summary><b>Windows</b></summary>
 
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakınız.
+  Available via [Scoop](https://scoop.sh). To install:
 
-## 👨‍💻 Geliştirici
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
 
-**Adil Yoltay**
-- GitHub: [@adilyoltay](https://github.com/adilyoltay)
-- Email: adil.yoltay@gmail.com
+  To upgrade:
 
-## 🙏 Teşekkürler
+  ```powershell
+  scoop update supabase
+  ```
+</details>
 
-Bu uygulama, OKB ile yaşayan bireylerin deneyimlerinden ilham alınarak geliştirilmiştir. Tüm geri bildirimler ve katkılar değerlidir.
+<details>
+  <summary><b>Linux</b></summary>
 
----
+  Available via [Homebrew](https://brew.sh) and Linux packages.
 
-**ObsessLess - Dijital Sığınak 🌟** 
- 
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
+```
+
+Or using npx:
+
+```bash
+npx supabase bootstrap
+```
+
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
+```

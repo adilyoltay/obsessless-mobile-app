@@ -260,6 +260,14 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       // Dinlemeyi başlat
       await voiceRecognitionService.startListening();
 
+      // ⏰ Otomatik timeout - 3 saniye sonra durdur (optimal boyut için)
+      setTimeout(async () => {
+        if (isListening) {
+          console.log('⏰ Auto-stopping recording after 3 seconds');
+          await handleStopListening();
+        }
+      }, 3000); // 3 seconds - optimal for 16kHz mono WAV
+
       // Accessibility
       AccessibilityInfo.announceForAccessibility('Dinleme başladı. Konuşabilirsiniz.');
     } catch (err) {
@@ -320,9 +328,42 @@ export const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }
   };
 
-  const playSound = async (_type: 'start' | 'stop') => {
-    // Ses dosyaları projeye eklenmediği için sessiz geç
-    return;
+  const playSound = async (type: 'start' | 'stop' | 'error') => {
+    try {
+      // 🔊 Kayıt başlama/bitiş bildirimleri - Speech API ile tonlar
+      if (type === 'start') {
+        console.log('🔊 Kayıt başlangıç sesi çalınıyor...');
+        
+        // Ses efekti yerine sadece haptic kullan (daha güvenilir)
+        
+        // Haptic feedback de ekle
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+      } else if (type === 'stop') {
+        console.log('🔊 Kayıt bitiş bildirimi');
+        
+        // Ses efekti yerine sadece haptic kullan (daha güvenilir)
+        
+        // Haptic feedback
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        
+      } else if (type === 'error') {
+        console.log('❌ Hata bildirimi');
+        
+        // Ses efekti yerine sadece haptic kullan (daha güvenilir)
+        
+        // Haptic feedback
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch (error) {
+      console.log('🔇 Ses/Haptic feedback hatası:', error);
+      // En azından basit haptic feedback dene
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch (hapticError) {
+        console.log('🔇 Haptic feedback de başarısız:', hapticError);
+      }
+    }
   };
 
   const getStateIcon = () => {

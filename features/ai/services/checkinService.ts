@@ -2,6 +2,7 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { AIEventType, trackAIInteraction, trackGatingDecision } from '@/features/ai/telemetry/aiTelemetry';
 import { makeGatingDecision } from '@/features/ai/core/needsLLMAnalysis';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { edgeAIService } from '@/services/edgeAIService';
 
 // TOKEN_USAGE_RECORDED will be used as AIEventType.TOKEN_USAGE_RECORDED
 
@@ -671,10 +672,21 @@ export async function multiIntentVoiceAnalysis(text: string, userId?: string): P
                    text.length > 100;
   
   if (needsLLM && FEATURE_FLAGS.isEnabled('AI_EXTERNAL_API')) {
-    console.log('🤖 Using LLM for multi-intent classification...');
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (apiKey) {
-      const llmResult = await analyzeWithGemini(text, apiKey);
+    console.log('🤖 Using Edge Function for multi-intent classification...');
+    const hasEdgeFunctionAccess = await edgeAIService.healthCheck();
+    if (hasEdgeFunctionAccess) {
+      // Edge function'dan analyze et
+      const edgeResult = await edgeAIService.analyzeVoiceInput(text, userId || 'unknown');
+      const llmResult = edgeResult ? {
+        modules: [{
+          module: edgeResult.category === 'UNKNOWN' ? 'MOOD' : edgeResult.category as ModuleType,
+          confidence: edgeResult.confidence,
+          clauses: [0],
+          fields: {}
+        }],
+        type: edgeResult.category,
+        confidence: edgeResult.confidence
+      } : null;
       if (llmResult?.modules && llmResult.modules.length > 0) {
         console.log(`✅ LLM detected ${llmResult.modules.length} modules`);
         
@@ -726,7 +738,7 @@ export async function multiIntentVoiceAnalysis(text: string, userId?: string): P
           modules: combinedModules,
           clauses,
           originalText: text,
-          suggestion: llmResult.suggestion || `${combinedModules.length} konu tespit edildi`
+          suggestion: `${combinedModules.length} konu tespit edildi`
         };
       }
     }
@@ -827,20 +839,16 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
     // Önce basit heuristik analiz
     const heuristicResult = heuristicVoiceAnalysis(text);
     
-    // Gemini API check
-    const Constants = require('expo-constants').default;
-    const geminiApiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_GEMINI_API_KEY || 
-                         Constants.manifest?.extra?.EXPO_PUBLIC_GEMINI_API_KEY ||
-                         process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    
-    console.log('🤖 Gemini API check:', {
-      hasKey: !!geminiApiKey,
-      keyLength: geminiApiKey?.length,
+    // Edge function check
+    console.log('🤖 Edge function check:', {
       featureEnabled: FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE'),
       text: text.substring(0, 50) + '...'
     });
     
-    if (geminiApiKey && FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) {
+    // Edge function availability check
+    const hasEdgeFunctionAccess = await edgeAIService.healthCheck();
+    
+    if (hasEdgeFunctionAccess && FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) {
       // 🚪 1. LLM GATING: Check if we need LLM analysis
       const gatingDecision = makeGatingDecisionForVoice({
         heuristicResult,
@@ -884,32 +892,44 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
           heuristicConfidence: heuristicResult.confidence
         });
         
-        const geminiResult = await analyzeWithGemini(text, geminiApiKey);
+        // 🚀 EDGE FUNCTION ÇAĞRİSİ - Güvenli API key yönetimi
+        const edgeResult = await edgeAIService.analyzeVoiceInput(text, userId || 'unknown');
         
-        if (geminiResult) {
+        if (edgeResult) {
+          // Edge function'dan gelen result'ı UnifiedAnalysisResult formatına dönüştür
+          const convertedResult: UnifiedAnalysisResult = {
+            type: edgeResult.category === 'UNKNOWN' ? 'ABSTAIN' : edgeResult.category as ModuleType,
+            confidence: edgeResult.confidence,
+            suggestion: edgeResult.summary,
+            originalText: text,
+            mood: edgeResult.insights?.mood?.intensity ? edgeResult.insights.mood.intensity * 10 : undefined,
+            trigger: edgeResult.insights?.mood?.triggers?.[0],
+            category: edgeResult.category.toLowerCase()
+          };
+          
           // 📊 4. RECORD TOKEN USAGE
           if (userId) {
-            await recordTokenUsage(userId, estimateTokenCount(text, geminiResult));
+            await recordTokenUsage(userId, estimateTokenCount(text, convertedResult));
           }
           
-          console.log('✅ Gemini analysis successful:', geminiResult);
+          console.log('✅ Edge AI analysis successful:', convertedResult);
           
           // Cache the result for similarity dedup
-          await cacheSimilarResult(text, geminiResult, userId);
+          await cacheSimilarResult(text, convertedResult, userId);
           
           // 📊 Track voice analysis completion
           await trackAIInteraction(AIEventType.VOICE_ANALYSIS_COMPLETED, {
             userId,
             textLength: text?.length || 0,
             processingTime: Date.now() - startTime,
-            analysisType: geminiResult.type,
-            confidence: geminiResult.confidence,
+            analysisType: convertedResult.type,
+            confidence: convertedResult.confidence,
             usedLLM: true
           });
           
-          return geminiResult;
+          return convertedResult;
         } else {
-          console.log('⚠️ Gemini returned null, falling back to heuristic');
+          console.log('⚠️ Edge AI returned null, falling back to heuristic');
         }
       } catch (error) {
         console.log('❌ Gemini API error, using heuristic analysis:', error);
