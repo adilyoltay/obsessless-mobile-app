@@ -1684,50 +1684,6 @@ export default function MoodScreen() {
         </View>
       </View>
 
-      {/* 🚨 DEBUG: Emergency Sync Fix Button (Development Only) */}
-      {__DEV__ && (
-        <View style={styles.debugContainer}>
-          <Pressable
-            style={styles.debugButton}
-            onPress={async () => {
-              try {
-                Alert.alert(
-                  '🚨 Emergency Sync Fix',
-                  `UI shows ${moodEntries.length} entries\nConsole shows different count\n\nThis will clear all local data and reload from Supabase`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Fix Sync',
-                      style: 'destructive',
-                      onPress: async () => {
-                        setIsLoading(true);
-                        try {
-                          console.log('🚨 STARTING EMERGENCY SYNC FIX...');
-                          await moodTracker.clearAllMoodDataAndResync(user?.id || '');
-                          // Reload the page
-                          await loadMoodEntries();
-                          setToastMessage('✅ Sync fixed successfully!');
-                          setShowToast(true);
-                        } catch (error) {
-                          console.error('❌ Emergency sync failed:', error);
-                          setToastMessage('❌ Sync fix failed, check console');
-                          setShowToast(true);
-                        } finally {
-                          setIsLoading(false);
-                        }
-                      }
-                    }
-                  ]
-                );
-              } catch (error) {
-                console.error('❌ Debug button error:', error);
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>🚨 Fix Sync ({moodEntries.length} entries)</Text>
-          </Pressable>
-        </View>
-      )}
 
       <ScrollView
         style={styles.container}
@@ -2379,27 +2335,5 @@ const styles = StyleSheet.create({
   
   bottomSpacing: {
     height: 100,
-  },
-  // 🚨 DEBUG STYLES
-  debugContainer: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 8,
-    padding: 8,
-  },
-  debugButton: {
-    backgroundColor: '#EF4444',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });

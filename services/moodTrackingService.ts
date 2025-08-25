@@ -399,40 +399,7 @@ class MoodTrackingService {
     }
   }
 
-  /**
-   * 🚨 EMERGENCY: Clear ALL mood data and force fresh sync from Supabase
-   * Use this when localStorage and Supabase are out of sync
-   */
-  async clearAllMoodDataAndResync(userId: string): Promise<void> {
-    try {
-      console.log('🚨 EMERGENCY SYNC FIX: Clearing all mood data...');
-      
-      // 1. Get all mood storage keys
-      const moodKeys = await this.getAllMoodStorageKeys();
-      console.log(`🧹 Found ${moodKeys.length} mood storage keys to clear`);
-      
-      // 2. Remove all mood-related storage
-      if (moodKeys.length > 0) {
-        await AsyncStorage.multiRemove(moodKeys);
-        console.log('✅ Cleared all mood storage keys');
-      }
-      
-      // 3. Also clear main storage key (fallback)
-      await AsyncStorage.removeItem(this.STORAGE_KEY);
-      console.log('✅ Cleared main mood storage');
-      
-      // 4. Force fresh sync from Supabase
-      console.log('🔄 Fetching fresh data from Supabase...');
-      const freshEntries = await this.getMoodEntries(userId, 30); // Get last 30 days
-      
-      console.log(`✅ Emergency sync completed: ${freshEntries.length} entries restored`);
-      return;
-      
-    } catch (error) {
-      console.error('❌ Emergency sync failed:', error);
-      throw error;
-    }
-  }
+
 }
 
 export const moodTracker = MoodTrackingService.getInstance();
