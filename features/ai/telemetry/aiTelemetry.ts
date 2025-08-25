@@ -190,6 +190,11 @@ export enum AIEventType {
   // Insights data insufficiency
   INSIGHTS_DATA_INSUFFICIENT = 'insights_data_insufficient'
   ,
+  // Offline Sync events (queue + replay)
+  DELETE_QUEUED_OFFLINE = 'delete_queued_offline',
+  DELETE_REPLAYED_SUCCESS = 'delete_replayed_success',
+  DELETE_REPLAYED_FAILED = 'delete_replayed_failed'
+  ,
   // Sprint 1: Voice mood check-in
   CHECKIN_STARTED = 'checkin_started',
   CHECKIN_COMPLETED = 'checkin_completed',

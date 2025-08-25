@@ -116,6 +116,18 @@ export class OfflineSyncService {
     this.syncQueue.push(syncItem);
     await this.saveSyncQueue();
 
+    // 📊 Telemetry: queued for offline delete
+    try {
+      if (syncItem.type === 'DELETE') {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+          entity: syncItem.entity,
+          id: syncItem.data?.id,
+          userId: syncItem.data?.user_id || syncItem.data?.userId
+        }, syncItem.data?.user_id || syncItem.data?.userId);
+      }
+    } catch {}
+
     // If online, try to sync immediately
     if (this.isOnline) {
       this.processSyncQueue();
@@ -262,7 +274,19 @@ export class OfflineSyncService {
         await (svc as any).saveCompulsion(resolved);
         break;
       case 'DELETE':
-        await (svc as any).deleteCompulsion(item.data.id);
+        try {
+          await (svc as any).deleteCompulsion(item.data.id);
+          try {
+            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'compulsion', id: item.data.id }, item.data.user_id);
+          } catch {}
+        } catch (error) {
+          try {
+            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'compulsion', id: item.data.id }, item.data.user_id);
+          } catch {}
+          throw error;
+        }
         break;
     }
   }
@@ -334,8 +358,16 @@ export class OfflineSyncService {
         try {
           await (svc as any).deleteMoodEntry(raw.id);
           console.log('✅ Mood entry deleted successfully:', raw.id);
+          try {
+            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'mood_entry', id: raw.id }, raw.user_id);
+          } catch {}
         } catch (error) {
           console.warn('⚠️ Mood entry deletion failed:', error);
+          try {
+            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'mood_entry', id: raw.id }, raw.user_id);
+          } catch {}
           throw error; // Let it retry via DLQ
         }
       } else {
@@ -379,8 +411,16 @@ export class OfflineSyncService {
           try {
             await (svc as any).deleteVoiceCheckin(item.data.id);
             console.log('✅ Voice checkin deleted successfully:', item.data.id);
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
+            } catch {}
           } catch (error) {
             console.warn('⚠️ Voice checkin deletion failed:', error);
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
+            } catch {}
             throw error; // Let it retry via DLQ
           }
         } else {
@@ -413,8 +453,16 @@ export class OfflineSyncService {
           try {
             await (svc as any).deleteThoughtRecord(item.data.id);
             console.log('✅ Thought record deleted successfully:', item.data.id);
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'thought_record', id: item.data.id }, item.data.user_id);
+            } catch {}
           } catch (error) {
             console.warn('⚠️ Thought record deletion failed:', error);
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'thought_record', id: item.data.id }, item.data.user_id);
+            } catch {}
             throw error; // Let it retry via DLQ
           }
         } else {

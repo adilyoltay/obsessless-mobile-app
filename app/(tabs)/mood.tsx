@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
+import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
 import { MoodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
@@ -1148,7 +1149,28 @@ export default function MoodScreen() {
                     await supabaseService.deleteMoodEntry(entryId);
                     console.log('✅ Mood entry deleted from server');
                   } catch (serverError) {
-                    console.warn('⚠️ Server delete failed, continuing with local delete:', serverError);
+                    console.warn('⚠️ Server delete failed, adding to offline queue:', serverError);
+                    
+                    // Add to offline sync queue for later deletion
+                    if (UUID_REGEX.test(entryId)) {
+                      await offlineSyncService.addToSyncQueue({
+                        type: 'DELETE',
+                        entity: 'mood_entry',
+                        data: {
+                          id: entryId,
+                          user_id: user.id
+                        }
+                      });
+                      console.log('📤 Added mood entry delete to offline queue');
+                      try {
+                        await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+                          entity: 'mood_entry', id: entryId, userId: user.id
+                        }, user.id);
+                      } catch {}
+                    } else {
+                      console.log('⏭️ Skipping offline queue for local-only ID:', entryId);
+                    }
+                    
                     // Continue with local deletion even if server fails
                   }
 

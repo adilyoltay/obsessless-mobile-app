@@ -50,7 +50,7 @@ class EnhancedAIDataAggregationService {
   }
   // ✅ REMOVED: fetchTerapiSessions method - ERP module deleted
   private async fetchMoodEntries(userId: string, days: number): Promise<any[]> {
-    // Prefer local cached by day, fallback remote
+    // Prefer local cached by day, fallback remote via supabaseService
     const entries: any[] = [];
     try {
       for (let i = 0; i < days; i++) {
@@ -61,27 +61,27 @@ class EnhancedAIDataAggregationService {
       }
       if (entries.length > 0) return entries;
     } catch {}
-    // Remote fallback
+    
+    // Remote fallback - Use supabaseService.getMoodEntries instead of direct mood_tracking query
     try {
-      const since = new Date(Date.now() - days * 86400000).toISOString();
-      const { data, error } = await (supabaseService as any).supabaseClient
-        .from('mood_tracking')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false });
-      if (!error && data) return data.map((d: any) => ({
-        id: d.id,
-        user_id: d.user_id,
-        mood_score: d.mood_score,
-        energy_level: d.energy_level,
-        anxiety_level: d.anxiety_level,
-        notes: d.notes,
-        triggers: d.triggers,
-        activities: d.activities,
-        timestamp: d.created_at
-      }));
-    } catch {}
+      const remoteData = await supabaseService.getMoodEntries(userId, days);
+      if (remoteData && remoteData.length > 0) {
+        // Map data to expected format (already in correct format from getMoodEntries)
+        return remoteData.map((d: any) => ({
+          id: d.id,
+          user_id: d.user_id,
+          mood_score: d.mood_score,
+          energy_level: d.energy_level,
+          anxiety_level: d.anxiety_level,
+          notes: d.notes,
+          triggers: d.triggers,
+          activities: d.activities,
+          timestamp: d.created_at || d.timestamp
+        }));
+      }
+    } catch (error) {
+      console.log('❌ Failed to fetch remote mood entries:', error);
+    }
     return entries;
   }
   private async fetchUserProfile(userId: string): Promise<any> {

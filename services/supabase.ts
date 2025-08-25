@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
+import { isUUID } from '@/utils/validators';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
@@ -642,26 +643,54 @@ class SupabaseNativeService {
         trigger: sanitizePII(compulsion.trigger || ''),
       };
       
-      // Map category to canonical/DB-safe and preserve original label in subcategory if provided
-      const mappedCompulsion = {
-        ...sanitizedCompulsion,
-        subcategory: sanitizedCompulsion.subcategory ?? sanitizedCompulsion.category,
-        category: this.mapCategoryForDatabase(sanitizedCompulsion.category),
-        timestamp: new Date().toISOString(),
+      // Map to compulsion_records table schema
+      const { mapToDatabaseCategory } = require('@/utils/categoryMapping');
+      const compulsionType = sanitizedCompulsion.subcategory || 
+                            mapToDatabaseCategory(sanitizedCompulsion.category);
+      
+      // Combine trigger and notes into description
+      let description = sanitizedCompulsion.notes || '';
+      if (sanitizedCompulsion.trigger && sanitizedCompulsion.trigger.trim()) {
+        description = `Trigger: ${sanitizedCompulsion.trigger}\n${description}`;
+      }
+      
+      // Map resistance_level (0-10) to intensity (0-100)
+      const intensity = Math.min(100, Math.max(0, 
+        (sanitizedCompulsion.resistance_level || 5) * 10
+      ));
+      
+      const recordPayload = {
+        user_id: compulsion.user_id,
+        compulsion_type: compulsionType,
+        description: description,
+        intensity: intensity,
+        created_at: new Date().toISOString(),
       };
       
-      // Standardize payload (date/category/limits)
-      const standardized = require('@/utils/dataStandardization').dataStandardizer.standardizeCompulsionData(mappedCompulsion);
+      // Compute content_hash for idempotency (user_id + type + day + description normalized)
+      const baseText = `${recordPayload.user_id}|${(recordPayload.compulsion_type || '').toLowerCase()}|${(recordPayload.description || '').trim().toLowerCase()}|${new Date().toISOString().slice(0,10)}`;
+      const content_hash = this.computeContentHash(baseText);
       
       const { data, error } = await this.client
-        .from('compulsions')
-        .upsert(standardized, { onConflict: 'id' })
+        .from('compulsion_records')
+        .upsert({ ...recordPayload, content_hash }, { onConflict: 'user_id,content_hash', ignoreDuplicates: true })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       console.log('✅ Compulsion saved to database:', data.id);
-      return data;
+      
+      // Map back to CompulsionRecord format
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        category: sanitizedCompulsion.category,
+        subcategory: data.compulsion_type,
+        resistance_level: sanitizedCompulsion.resistance_level || 5,
+        trigger: sanitizedCompulsion.trigger || '',
+        notes: sanitizedCompulsion.notes || '',
+        timestamp: data.created_at,
+      };
     } catch (error) {
       console.error('❌ Save compulsion failed:', error);
       throw error;
@@ -673,26 +702,48 @@ class SupabaseNativeService {
       console.log('🔍 Fetching compulsions from database...', { userId, startDate, endDate });
       
       let query = this.client
-        .from('compulsions')
-        .select('*')
+        .from('compulsion_records')
+        .select('id, user_id, compulsion_type, description, intensity, created_at')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false });
+        .order('created_at', { ascending: false });
 
-      if (startDate) query = query.gte('timestamp', startDate);
-      if (endDate) query = query.lte('timestamp', endDate);
+      if (startDate) query = query.gte('created_at', startDate);
+      if (endDate) query = query.lte('created_at', endDate);
 
       const { data, error } = await query;
 
       if (error) throw error;
       
-      // Restore original categories from subcategory field
-      const compulsions = (data || []).map(record => ({
-        ...record,
-        category: record.subcategory || record.category, // Use subcategory if available, fallback to category
-      }));
-
-      console.log(`✅ Fetched ${compulsions.length} compulsions from database`);
-      return compulsions;
+      console.log(`✅ Fetched ${data?.length || 0} compulsions`);
+      
+      // Map from compulsion_records to CompulsionRecord format
+      const { mapToCanonicalCategory } = require('@/utils/categoryMapping');
+      
+      return (data || []).map((record: any) => {
+        // Extract trigger from description if present
+        let trigger = '';
+        let notes = record.description || '';
+        
+        const triggerMatch = notes.match(/^Trigger: (.*)\n(.*)$/s);
+        if (triggerMatch) {
+          trigger = triggerMatch[1] || '';
+          notes = triggerMatch[2] || '';
+        }
+        
+        // Map intensity (0-100) back to resistance_level (0-10)
+        const resistance_level = Math.round((record.intensity || 50) / 10);
+        
+        return {
+          id: record.id,
+          user_id: record.user_id,
+          category: mapToCanonicalCategory(record.compulsion_type),
+          subcategory: record.compulsion_type,
+          resistance_level: resistance_level,
+          trigger: trigger,
+          notes: notes,
+          timestamp: record.created_at,
+        } as CompulsionRecord;
+      });
     } catch (error) {
       console.error('❌ Get compulsions failed:', error);
       return [];
@@ -704,14 +755,13 @@ class SupabaseNativeService {
       console.log('🗑️ Deleting compulsion from database...', id);
       
       // Check if ID is a valid UUID (Supabase format)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(id)) {
+      if (!isUUID(id)) {
         console.log('⚠️ Skipping database delete - ID is not a valid UUID (likely a local-only record):', id);
         return; // Skip database delete for local-only records
       }
       
       const { error } = await this.client
-        .from('compulsions')
+        .from('compulsion_records')
         .delete()
         .eq('id', id);
 
@@ -854,10 +904,10 @@ class SupabaseNativeService {
   async getUserCompulsions(userId: string, limit: number = 50): Promise<CompulsionRecord[]> {
     try {
       const { data, error } = await this.client
-        .from('compulsions')
-        .select('*')
+        .from('compulsion_records')
+        .select('id, user_id, compulsion_type, description, intensity, created_at')
         .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(limit);
       
       if (error) {
@@ -865,7 +915,34 @@ class SupabaseNativeService {
         return [];
       }
       
-      return data || [];
+      // Map from compulsion_records to CompulsionRecord format (same as getCompulsions)
+      const { mapToCanonicalCategory } = require('@/utils/categoryMapping');
+      
+      return (data || []).map((record: any) => {
+        // Extract trigger from description if present
+        let trigger = '';
+        let notes = record.description || '';
+        
+        const triggerMatch = notes.match(/^Trigger: (.*)\n(.*)$/s);
+        if (triggerMatch) {
+          trigger = triggerMatch[1] || '';
+          notes = triggerMatch[2] || '';
+        }
+        
+        // Map intensity (0-100) back to resistance_level (0-10)
+        const resistance_level = Math.round((record.intensity || 50) / 10);
+        
+        return {
+          id: record.id,
+          user_id: record.user_id,
+          category: mapToCanonicalCategory(record.compulsion_type),
+          subcategory: record.compulsion_type,
+          resistance_level: resistance_level,
+          trigger: trigger,
+          notes: notes,
+          timestamp: record.created_at,
+        } as CompulsionRecord;
+      });
     } catch (error) {
       console.error('❌ Failed to fetch compulsions:', error);
       return [];
@@ -1279,10 +1356,8 @@ class SupabaseNativeService {
     try {
       console.log('🗑️ Attempting to delete mood entry:', entryId);
       
-      // ✅ HOTFIX: Check if ID looks like a UUID
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entryId);
-      
-      if (!isUUID) {
+      // ✅ Use shared UUID validator
+      if (!isUUID(entryId)) {
         console.warn('⚠️ Invalid UUID format detected:', entryId);
         console.log('💡 This appears to be a client-generated ID (mood_timestamp_random)');
         console.log('🔄 Skipping server delete - entry was likely never synced or already deleted');
@@ -1310,10 +1385,8 @@ class SupabaseNativeService {
     try {
       console.log('🗑️ Attempting to delete voice checkin:', checkinId);
       
-      // ✅ HOTFIX: Check if ID looks like a UUID
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(checkinId);
-      
-      if (!isUUID) {
+      // ✅ Use shared UUID validator
+      if (!isUUID(checkinId)) {
         console.warn('⚠️ Invalid UUID format detected for voice checkin:', checkinId);
         console.log('🔄 Skipping server delete - entry may not exist on server');
         return;
@@ -1338,10 +1411,8 @@ class SupabaseNativeService {
     try {
       console.log('🗑️ Attempting to delete thought record:', recordId);
       
-      // ✅ HOTFIX: Check if ID looks like a UUID
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recordId);
-      
-      if (!isUUID) {
+      // ✅ Use shared UUID validator
+      if (!isUUID(recordId)) {
         console.warn('⚠️ Invalid UUID format detected for thought record:', recordId);
         console.log('🔄 Skipping server delete - entry may not exist on server');
         return;

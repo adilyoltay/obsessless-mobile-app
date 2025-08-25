@@ -112,7 +112,23 @@ Notlar:
 - Onboarding: UI → Zustand → AsyncStorage → Supabase (upsert) → AI Analiz → Telemetry
 - Kompulsiyon Kaydı: UI → AsyncStorage (offline) → Supabase (kanonik kategori + subcategory orijinal etiket) → Zod standardizasyon + PII maskeleme → Telemetry
 - ~~ERP Oturumu~~: **REMOVED** - ERP module kaldırıldı
-- Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_tracking` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
+- Mood Kaydı: UI → AsyncStorage (günlük anahtar) → (best‑effort) Supabase `mood_entries` → OfflineSync (başarısızsa) → AI Data Aggregation → Insights v2
+
+### Delete Flow (Offline‑First)
+
+- UI: Kullanıcı silme aksiyonu → Sunucu silme denemesi
+- Sunucu hatası/bağlantı yoksa: `offlineSync.addToSyncQueue({ type: 'DELETE', entity, data: { id, user_id } })`
+- Online olduğunda: OfflineSync DELETE replay → başarı/başarısızlık telemetrisi
+  - Telemetry: `DELETE_QUEUED_OFFLINE`, `DELETE_REPLAYED_SUCCESS`, `DELETE_REPLAYED_FAILED`
+- UUID kontrolü: Tüm silmelerde paylaşılan `isUUID()` ile sadece gerçek sunucu ID’leri hedeflenir
+
+### Idempotency Notları
+
+- Mood: `mood_entries(user_id, content_hash)` benzersiz; content_hash gün‑içi alanlardan türetilir
+- CBT/Voice: `content_hash` ile upsert; trigger sorunlarına karşı manuel hash desteği
+- Compulsions: `compulsion_records(user_id, content_hash)` benzersiz; hash şu bileşenlerden hesaplanır:
+  - `user_id | compulsion_type | description(normalized) | ISO‑day`
+  - Aynı gün aynı içerik ikinci kez yazılmaz (duplicate önlenir)
 - Breathwork: Contextual tetikleme → Protokol seçimi (anksiyete tabanlı) → AutoStart → Telemetry
 
 ## Kategori ve Tür Standartları

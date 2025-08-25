@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
+import { UUID_REGEX } from '@/utils/validators';
 import { mapToCanonicalCategory } from '@/utils/categoryMapping';
 
 export interface Compulsion {
@@ -205,7 +206,32 @@ const compulsionService = {
         await supabaseService.deleteCompulsion(id);
         if (__DEV__) console.log('✅ Compulsion deleted from Supabase');
       } catch (supabaseError) {
-        if (__DEV__) console.warn('⚠️ Supabase delete failed, compulsion deleted offline:', supabaseError);
+        if (__DEV__) console.warn('⚠️ Supabase delete failed, adding to offline queue:', supabaseError);
+        
+        // Add to offline sync queue for later deletion
+        if (UUID_REGEX.test(id)) {
+          try {
+            const { offlineSyncService } = await import('@/services/offlineSync');
+            await offlineSyncService.addToSyncQueue({
+              type: 'DELETE',
+              entity: 'compulsion',
+              data: {
+                id: id,
+                user_id: userId
+              }
+            });
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, { entity: 'compulsion', id, userId }, userId);
+            } catch {}
+            if (__DEV__) console.log('📤 Added compulsion delete to offline queue');
+          } catch (queueError) {
+            if (__DEV__) console.warn('⚠️ Failed to add to offline queue:', queueError);
+          }
+        } else {
+          if (__DEV__) console.log('⏭️ Skipping offline queue for local-only ID:', id);
+        }
+        
         // Continue with offline mode - data is already removed from AsyncStorage
       }
     } catch (error) {

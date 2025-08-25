@@ -25,6 +25,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { StorageKeys } from '@/utils/storage';
 import supabaseService from '@/services/supabase';
+import { UUID_REGEX } from '@/utils/validators';
+import { offlineSyncService } from '@/services/offlineSync';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
@@ -779,7 +781,34 @@ export default function CBTScreen() {
           onPress: async () => {
             try {
               // Delete from Supabase
-              await supabaseService.deleteCBTRecord(recordId);
+              try {
+                await supabaseService.deleteCBTRecord(recordId);
+                console.log('✅ CBT record deleted from server');
+              } catch (serverError) {
+                console.warn('⚠️ Server delete failed, adding to offline queue:', serverError);
+                
+                // Add to offline sync queue for later deletion
+                if (UUID_REGEX.test(recordId) && user?.id) {
+                  await offlineSyncService.addToSyncQueue({
+                    type: 'DELETE',
+                    entity: 'thought_record',
+                    data: {
+                      id: recordId,
+                      user_id: user.id
+                    }
+                  });
+                  console.log('📤 Added CBT record delete to offline queue');
+                  try {
+                    await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+                      entity: 'thought_record',
+                      id: recordId,
+                      userId: user.id
+                    }, user.id);
+                  } catch {}
+                } else {
+                  console.log('⏭️ Skipping offline queue for local-only ID:', recordId);
+                }
+              }
               
               // Also delete from local storage
               if (user?.id) {
