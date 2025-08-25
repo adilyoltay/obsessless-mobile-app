@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase as sharedClient } from '@/lib/supabase';
+import { sanitizePII } from '@/utils/privacy'; // ✅ F-06 FIX: Add PII sanitization
 
 // 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -626,6 +627,7 @@ class SupabaseNativeService {
     return mapToDatabaseCategory(category);
   }
 
+  // ✅ F-06 FIX: Add PII sanitization for server-bound writes
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
     try {
       console.log('🔄 Saving compulsion to database...', compulsion);
@@ -633,11 +635,18 @@ class SupabaseNativeService {
       // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
       
+      // ✅ Sanitize PII fields before server write
+      const sanitizedCompulsion = {
+        ...compulsion,
+        notes: sanitizePII(compulsion.notes || ''),
+        trigger: sanitizePII(compulsion.trigger || ''),
+      };
+      
       // Map category to canonical/DB-safe and preserve original label in subcategory if provided
       const mappedCompulsion = {
-        ...compulsion,
-        subcategory: compulsion.subcategory ?? compulsion.category, // keep caller-provided subcategory if exists
-        category: this.mapCategoryForDatabase(compulsion.category),
+        ...sanitizedCompulsion,
+        subcategory: sanitizedCompulsion.subcategory ?? sanitizedCompulsion.category,
+        category: this.mapCategoryForDatabase(sanitizedCompulsion.category),
         timestamp: new Date().toISOString(),
       };
       
@@ -885,22 +894,30 @@ class SupabaseNativeService {
     return Math.abs(hash).toString(16);
   }
 
+  // ✅ F-06 FIX: Add PII sanitization for voice checkin fields
   async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
       
-      // Compute content hash for idempotency
-      const contentHash = this.computeContentHash(record.text);
+      // ✅ Sanitize PII fields before server write
+      const sanitizedRecord = {
+        ...record,
+        text: sanitizePII(record.text || ''),
+        trigger: sanitizePII(record.trigger || ''),
+      };
+      
+      // Compute content hash for idempotency using sanitized text
+      const contentHash = this.computeContentHash(sanitizedRecord.text);
       
       const payload = {
-        user_id: record.user_id,
-        text: record.text,
-        mood: record.mood,
-        trigger: record.trigger,
-        confidence: record.confidence,
-        lang: record.lang,
+        user_id: sanitizedRecord.user_id,
+        text: sanitizedRecord.text,
+        mood: sanitizedRecord.mood,
+        trigger: sanitizedRecord.trigger,
+        confidence: sanitizedRecord.confidence,
+        lang: sanitizedRecord.lang,
         content_hash: contentHash,
-        created_at: record.created_at || new Date().toISOString(),
+        created_at: sanitizedRecord.created_at || new Date().toISOString(),
       };
       
       // Use idempotent upsert with content_hash
@@ -919,23 +936,33 @@ class SupabaseNativeService {
     }
   }
 
+  // ✅ F-06 FIX: Add PII sanitization for thought record fields
   async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
       
-      // Compute content hash from automatic thought
-      const contentHash = this.computeContentHash(record.automatic_thought || '');
+      // ✅ Sanitize PII fields before server write
+      const sanitizedRecord = {
+        ...record,
+        automatic_thought: sanitizePII(record.automatic_thought || ''),
+        evidence_for: sanitizePII(record.evidence_for || ''),
+        evidence_against: sanitizePII(record.evidence_against || ''),
+        new_view: sanitizePII(record.new_view || ''),
+      };
+      
+      // Compute content hash from sanitized automatic thought
+      const contentHash = this.computeContentHash(sanitizedRecord.automatic_thought);
       
       const payload = {
-        user_id: record.user_id,
-        automatic_thought: record.automatic_thought,
-        evidence_for: record.evidence_for,
-        evidence_against: record.evidence_against,
-        distortions: record.distortions,
-        new_view: record.new_view,
-        lang: record.lang,
+        user_id: sanitizedRecord.user_id,
+        automatic_thought: sanitizedRecord.automatic_thought,
+        evidence_for: sanitizedRecord.evidence_for,
+        evidence_against: sanitizedRecord.evidence_against,
+        distortions: sanitizedRecord.distortions,
+        new_view: sanitizedRecord.new_view,
+        lang: sanitizedRecord.lang,
         content_hash: contentHash,
-        created_at: record.created_at || new Date().toISOString(),
+        created_at: sanitizedRecord.created_at || new Date().toISOString(),
       };
       // Use idempotent upsert with content_hash
       const { error } = await this.client
@@ -957,6 +984,7 @@ class SupabaseNativeService {
   // CBT THOUGHT RECORDS
   // ===========================
 
+  // ✅ F-06 FIX: Add PII sanitization for CBT record fields
   async saveCBTRecord(record: {
     user_id: string;
     thought: string;
@@ -973,22 +1001,33 @@ class SupabaseNativeService {
     try {
       await this.ensureUserProfileExists(record.user_id);
       
+      // ✅ Sanitize PII fields before server write
+      const sanitizedRecord = {
+        ...record,
+        thought: sanitizePII(record.thought || ''),
+        evidence_for: sanitizePII(record.evidence_for || ''),
+        evidence_against: sanitizePII(record.evidence_against || ''),
+        reframe: sanitizePII(record.reframe || ''),
+        trigger: sanitizePII(record.trigger || ''),
+        notes: sanitizePII(record.notes || ''),
+      };
+      
       // Generate content_hash if not provided (to bypass problematic trigger)
-      const contentHash = record.content_hash || `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const contentHash = sanitizedRecord.content_hash || `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const { data, error } = await this.client
         .from('thought_records')
         .insert({
-          user_id: record.user_id,
-          thought: record.thought,
-          distortions: record.distortions || [],
-          evidence_for: record.evidence_for || null,
-          evidence_against: record.evidence_against || null,
-          reframe: record.reframe,
-          mood_before: record.mood_before,
-          mood_after: record.mood_after,
-          trigger: record.trigger || null,
-          notes: record.notes || null,
+          user_id: sanitizedRecord.user_id,
+          thought: sanitizedRecord.thought,
+          distortions: sanitizedRecord.distortions || [],
+          evidence_for: sanitizedRecord.evidence_for || null,
+          evidence_against: sanitizedRecord.evidence_against || null,
+          reframe: sanitizedRecord.reframe,
+          mood_before: sanitizedRecord.mood_before,
+          mood_after: sanitizedRecord.mood_after,
+          trigger: sanitizedRecord.trigger || null,
+          notes: sanitizedRecord.notes || null,
           content_hash: contentHash, // Manual hash to bypass trigger
           created_at: new Date().toISOString()
         })
@@ -1097,6 +1136,7 @@ class SupabaseNativeService {
   // MOOD METHODS
   // ===========================
   
+  // ✅ F-02 FIX: Standardize idempotency with content_hash and upsert
   async saveMoodEntry(entry: {
     user_id: string;
     mood_score: number;
@@ -1111,17 +1151,43 @@ class SupabaseNativeService {
       // Ensure user exists
       await this.ensureUserProfileExists(entry.user_id);
       
+      // ✅ F-06 FIX: Sanitize PII fields before server write
+      const sanitizedEntry = {
+        ...entry,
+        notes: sanitizePII(entry.notes || ''),
+        trigger: sanitizePII(entry.trigger || ''),
+      };
+      
+      // ✅ Generate content_hash for idempotency (client-side) using sanitized data
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${sanitizedEntry.trigger.trim().toLowerCase()}|${new Date().toISOString().slice(0,10)}`;
+      const content_hash = this.computeContentHash(contentText);
+      
+      const payload = {
+        ...sanitizedEntry,
+        content_hash,
+        created_at: new Date().toISOString(),
+      };
+      
+      // ✅ Use upsert with conflict resolution on (user_id, content_hash)
       const { data, error } = await this.client
         .from('mood_entries')
-        .insert({
-          ...entry,
-          created_at: new Date().toISOString(),
+        .upsert(payload, { 
+          onConflict: 'user_id,content_hash',
+          ignoreDuplicates: true 
         })
         .select()
         .single();
       
-      if (error) throw error;
-      console.log('✅ Mood entry saved:', data.id);
+      if (error) {
+        // ✅ Handle unique constraint violation gracefully
+        if (error.code === '23505' || error.message?.includes('duplicate')) {
+          console.log('ℹ️ Mood entry already exists (duplicate prevented)');
+          return null; // Graceful handling of duplicates
+        }
+        throw error;
+      }
+      
+      console.log('✅ Mood entry saved:', data?.id || 'duplicate_prevented');
       return data;
     } catch (error) {
       console.error('❌ Save mood entry failed:', error);
@@ -1200,6 +1266,42 @@ class SupabaseNativeService {
       if (error) throw error;
     } catch (error) {
       console.error('❌ Delete mood entry failed:', error);
+      throw error;
+    }
+  }
+
+  // ✅ F-04 FIX: Add missing deleteVoiceCheckin method
+  async deleteVoiceCheckin(checkinId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting voice checkin...', checkinId);
+      
+      const { error } = await this.client
+        .from('voice_checkins')
+        .delete()
+        .eq('id', checkinId);
+
+      if (error) throw error;
+      console.log('✅ Voice checkin deleted:', checkinId);
+    } catch (error) {
+      console.error('❌ Failed to delete voice checkin:', error);
+      throw error;
+    }
+  }
+
+  // ✅ F-04 FIX: Add missing deleteThoughtRecord method (separate from deleteCBTRecord)
+  async deleteThoughtRecord(recordId: string): Promise<void> {
+    try {
+      console.log('🗑️ Deleting thought record...', recordId);
+      
+      const { error } = await this.client
+        .from('thought_records')
+        .delete()
+        .eq('id', recordId);
+
+      if (error) throw error;
+      console.log('✅ Thought record deleted:', recordId);
+    } catch (error) {
+      console.error('❌ Failed to delete thought record:', error);
       throw error;
     }
   }

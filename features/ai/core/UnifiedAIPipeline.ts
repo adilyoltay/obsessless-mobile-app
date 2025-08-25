@@ -2508,24 +2508,25 @@ export class UnifiedAIPipeline {
   // INVALIDATION HOOKS
   // ============================================================================
   
+  // ✅ F-03 FIX: Invalidation hooks now accept userId parameter
   private setupInvalidationHooks(): void {
     // Hook: New compulsion recorded
-    this.invalidationHooks.set('compulsion_added', async () => {
+    this.invalidationHooks.set('compulsion_added', async (userId?: string) => {
       // ✅ FIXED: Invalidate patterns, insights, AND progress as per specification
-      await this.invalidateUserCache('patterns');
-      await this.invalidateUserCache('insights'); 
-      await this.invalidateUserCache('progress');
+      await this.invalidateUserCache('patterns', userId);
+      await this.invalidateUserCache('insights', userId); 
+      await this.invalidateUserCache('progress', userId);
       console.log('🔄 Cache invalidated: patterns + insights + progress (compulsion_added)');
     });
     
     // Hook: CBT thought record created/updated
-    this.invalidationHooks.set('cbt_record_added', async () => {
-      await this.invalidateUserCache('insights');
+    this.invalidationHooks.set('cbt_record_added', async (userId?: string) => {
+      await this.invalidateUserCache('insights', userId);
     });
     
     // Hook: Mood entry added
-    this.invalidationHooks.set('mood_added', async () => {
-      await this.invalidateUserCache('all');
+    this.invalidationHooks.set('mood_added', async (userId?: string) => {
+      await this.invalidateUserCache('all', userId);
     });
     
     // Hook: Manual refresh requested
@@ -2537,10 +2538,20 @@ export class UnifiedAIPipeline {
     // REMOVED: erp_completed - ERP module deleted
   }
   
+  // ✅ F-03 & F-08 FIX: triggerInvalidation with React Query integration
   public async triggerInvalidation(hook: string, userId?: string): Promise<void> {
     const handler = this.invalidationHooks.get(hook);
     if (handler) {
-      await handler();
+      await handler(userId); // ✅ Pass userId to handler
+    }
+    
+    // ✅ F-08 FIX: Emit React Query cache invalidation
+    try {
+      const { emitAIInvalidation } = await import('@/hooks/useCacheInvalidation');
+      emitAIInvalidation(hook, userId);
+      console.log('🤖 React Query AI invalidation triggered:', hook);
+    } catch (error) {
+      console.warn('⚠️ Failed to emit AI cache invalidation:', error);
     }
     
     // Track invalidation
@@ -2596,12 +2607,14 @@ export class UnifiedAIPipeline {
   /**
    * 🗑️ Supabase Cache Invalidation
    */
+  // ✅ F-03 FIX: Correct client getter and unified cache key filtering
   private async invalidateSupabaseCache(type: 'patterns' | 'insights' | 'all', userId?: string): Promise<void> {
     try {
-      let query = supabaseService.client
+      // ✅ Use correct client getter: supabaseService.supabaseClient (not .client)
+      let query = supabaseService.supabaseClient
         .from('ai_cache')
         .delete()
-        .eq('cache_type', 'unified_pipeline');
+        .like('cache_key', 'unified:%'); // ✅ Use LIKE for unified cache keys
       
       if (userId) {
         query = query.eq('user_id', userId);

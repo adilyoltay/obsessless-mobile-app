@@ -240,19 +240,44 @@ class EdgeAIService {
 
       console.log('📤 Starting Storage-based audio analysis...');
 
-      // 0. Bucket check devre dışı (RLS policy sorunu)
-      console.log('📋 Skipping bucket creation (will be created manually)');
+      // 0. Auto-create bucket if not exists
+      try {
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const bucketExists = buckets?.some(b => b.id === 'audio-temp');
+        
+        if (!bucketExists) {
+          console.log('📋 Creating audio-temp bucket...');
+          const { error: bucketError } = await supabase.storage.createBucket('audio-temp', {
+            public: false,
+            fileSizeLimit: 10485760, // 10MB
+            allowedMimeTypes: ['audio/wav', 'audio/webm', 'audio/mp4', 'audio/mpeg']
+          });
+          
+          if (bucketError && !bucketError.message.includes('already exists')) {
+            console.error('❌ Bucket creation failed:', bucketError);
+          } else {
+            console.log('✅ audio-temp bucket created successfully!');
+          }
+        } else {
+          console.log('✅ audio-temp bucket already exists');
+        }
+      } catch (bucketErr) {
+        console.log('⚠️ Bucket check/create failed, continuing with upload attempt...');
+      }
 
-      // 1. Audio dosyasını Supabase Storage'a upload et
+      // 1. Audio dosyasını Supabase Storage'a upload et (WAV format)
       const fileName = `voice-${userId.substring(0, 8)}-${Date.now()}.wav`;
       
-      // Audio dosyasını blob olarak oku
-      const audioBlob = await fetch(audioUri).then(r => r.blob());
+      // WAV dosyasını doğru şekilde oku ve upload et
+      const audioResponse = await fetch(audioUri);
+      const audioBlob = await audioResponse.blob();
+      
+      console.log(`📊 WAV file size: ${(audioBlob.size / 1024).toFixed(1)} KB`);
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio-temp')
         .upload(fileName, audioBlob, {
-          contentType: 'audio/wav',
+          contentType: 'audio/wav', // WAV MIME type
           cacheControl: '3600',
           upsert: false
         });
@@ -283,11 +308,8 @@ class EdgeAIService {
         }
       });
 
-      // 3. Temp dosyayı sil
-      setTimeout(async () => {
-        await supabase.storage.from('audio-temp').remove([fileName]);
-        console.log('🗑️ Temp audio file cleaned up');
-      }, 5000);
+      // ✅ F-05 FIX: Improved temp file cleanup with error handling
+      this.scheduleAudioCleanup(fileName);
 
       if (error) {
         console.error('EdgeAIService: Storage-based analysis error:', error);
@@ -399,6 +421,93 @@ class EdgeAIService {
     } catch (error) {
       console.error('EdgeAIService: Audio analysis unexpected error:', error);
       return null;
+    }
+  }
+
+  // ✅ F-05 FIX: Enhanced audio temp file cleanup
+  private scheduleAudioCleanup(fileName: string, timeoutMs: number = 5000): void {
+    // Immediate cleanup attempt
+    setTimeout(async () => {
+      try {
+        await this.cleanupAudioFile(fileName);
+        console.log('🗑️ Temp audio file cleaned up successfully:', fileName);
+      } catch (error) {
+        console.warn('⚠️ Initial cleanup failed, scheduling retry:', fileName, error);
+        // Retry after longer delay
+        setTimeout(() => this.cleanupAudioFile(fileName), 15000);
+      }
+    }, timeoutMs);
+
+    // Fallback cleanup after longer delay
+    setTimeout(async () => {
+      try {
+        await this.cleanupAudioFile(fileName);
+        console.log('🔄 Fallback cleanup executed for:', fileName);
+      } catch (error) {
+        console.warn('⚠️ Fallback cleanup also failed:', fileName, error);
+      }
+    }, 30000);
+  }
+
+  private async cleanupAudioFile(fileName: string): Promise<void> {
+    try {
+      const { error } = await supabase.storage
+        .from('audio-temp')
+        .remove([fileName]);
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      // Log but don't throw - this is best-effort cleanup
+      console.warn('⚠️ Audio file cleanup failed:', fileName, error);
+      throw error; // Re-throw for retry logic
+    }
+  }
+
+  // ✅ F-05 FIX: Bulk cleanup for old temp files (client-side maintenance)
+  async cleanupOldTempFiles(olderThanHours: number = 2): Promise<void> {
+    try {
+      console.log('🧹 Starting bulk cleanup of old temp audio files...');
+      
+      const { data: files, error } = await supabase.storage
+        .from('audio-temp')
+        .list('', { limit: 100 });
+
+      if (error) {
+        console.warn('⚠️ Failed to list audio-temp files for cleanup:', error);
+        return;
+      }
+
+      if (!files || files.length === 0) {
+        console.log('✅ No temp files found for cleanup');
+        return;
+      }
+
+      const threshold = Date.now() - (olderThanHours * 60 * 60 * 1000);
+      const filesToDelete = files.filter(file => {
+        const fileTime = new Date(file.created_at || file.updated_at || 0).getTime();
+        return fileTime < threshold;
+      }).map(file => file.name);
+
+      if (filesToDelete.length === 0) {
+        console.log('✅ No old temp files found for cleanup');
+        return;
+      }
+
+      console.log(`🗑️ Cleaning up ${filesToDelete.length} old temp files...`);
+      
+      const { error: deleteError } = await supabase.storage
+        .from('audio-temp')
+        .remove(filesToDelete);
+
+      if (deleteError) {
+        console.warn('⚠️ Bulk cleanup partially failed:', deleteError);
+      } else {
+        console.log(`✅ Successfully cleaned up ${filesToDelete.length} old temp files`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Bulk cleanup process failed:', error);
     }
   }
 }

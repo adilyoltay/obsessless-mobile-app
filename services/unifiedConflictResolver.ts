@@ -19,7 +19,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 // =============================================================================
 
 export type ConflictType = 'CREATE_DUPLICATE' | 'UPDATE_CONFLICT' | 'DELETE_CONFLICT' | 'NONE';
-export type EntityType = 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record' | 'erp_session';
+export type EntityType = 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record';
 
 export interface UnifiedDataConflict {
   id: string;

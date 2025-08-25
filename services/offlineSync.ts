@@ -84,6 +84,26 @@ export class OfflineSyncService {
   }
 
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
+    // ✅ F-01 FIX: Guard against unsupported entities (ERP remnants)
+    const SUPPORTED_ENTITIES = new Set([
+      'compulsion', 'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'thought_record'
+    ]);
+    
+    if (!SUPPORTED_ENTITIES.has(item.entity as any)) {
+      console.warn('🚫 Dropping unsupported entity from sync queue:', item.entity);
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'unsupported_entity_dropped',
+          entity: item.entity,
+          type: item.type
+        });
+      } catch (error) {
+        console.log('Failed to track unsupported entity drop:', error);
+      }
+      return; // Drop the item silently
+    }
+
     const syncItem: SyncQueueItem = {
       ...item,
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -148,6 +168,26 @@ export class OfflineSyncService {
 
       await this.saveSyncQueue();
       batchOptimizer.record(batchSize, summary.failed === 0, Date.now() - startBatchAt);
+      
+      // ✅ F-08 FIX: Emit cache invalidation events for successful syncs
+      if (summary.successful > 0) {
+        try {
+          const { emitSyncCompleted } = await import('@/hooks/useCacheInvalidation');
+          const syncedEntities = Array.from(new Set(
+            itemsToSync.slice(0, summary.successful).map(item => item.entity)
+          ));
+          
+          // Get userId from first successful item
+          const firstItem = itemsToSync.find(item => item.data?.user_id || item.data?.userId);
+          const userId = firstItem?.data?.user_id || firstItem?.data?.userId;
+          
+          emitSyncCompleted(syncedEntities, userId);
+          console.log('🔄 Cache invalidation triggered for:', syncedEntities);
+        } catch (error) {
+          console.warn('⚠️ Failed to emit cache invalidation:', error);
+        }
+      }
+      
       try {
         console.log('🧾 Sync summary:', summary);
         await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...summary, at: new Date().toISOString() }));
@@ -283,11 +323,29 @@ export class OfflineSyncService {
     }
   }
 
+  // ✅ F-04 FIX: Add DELETE handling to mood entry sync
   private async syncMoodEntry(item: SyncQueueItem): Promise<void> {
-    // Normalize payload and save to the new canonical table: mood_entries
     const raw = item.data || {};
     const { default: svc } = await import('@/services/supabase');
 
+    // Handle DELETE operations
+    if (item.type === 'DELETE') {
+      if (raw.id) {
+        try {
+          await (svc as any).deleteMoodEntry(raw.id);
+          console.log('✅ Mood entry deleted successfully:', raw.id);
+        } catch (error) {
+          console.warn('⚠️ Mood entry deletion failed:', error);
+          throw error; // Let it retry via DLQ
+        }
+      } else {
+        console.log('⚠️ DELETE skipped: missing mood entry id');
+      }
+      return;
+    }
+
+    // Handle CREATE/UPDATE operations
+    // Normalize payload and save to the new canonical table: mood_entries
     // Fallback user id acquisition
     let userId = raw.user_id || raw.userId;
     try {
@@ -307,6 +365,7 @@ export class OfflineSyncService {
     await (svc as any).saveMoodEntry(entry);
   }
 
+  // ✅ F-04 FIX: Complete DELETE implementation for voice checkins
   private async syncVoiceCheckin(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     switch (item.type) {
@@ -315,12 +374,23 @@ export class OfflineSyncService {
         await (svc as any).saveVoiceCheckin(item.data);
         break;
       case 'DELETE':
-        // Voice checkins typically aren't deleted
-        console.log('Voice checkin deletion not implemented');
+        // ✅ F-04 FIX: Implement voice checkin deletion
+        if (item.data?.id) {
+          try {
+            await (svc as any).deleteVoiceCheckin(item.data.id);
+            console.log('✅ Voice checkin deleted successfully:', item.data.id);
+          } catch (error) {
+            console.warn('⚠️ Voice checkin deletion failed:', error);
+            throw error; // Let it retry via DLQ
+          }
+        } else {
+          console.log('⚠️ DELETE skipped: missing voice checkin id');
+        }
         break;
     }
   }
 
+  // ✅ F-04 FIX: Complete DELETE implementation for thought records
   private async syncThoughtRecord(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     switch (item.type) {
@@ -338,8 +408,18 @@ export class OfflineSyncService {
         }
         break;
       case 'DELETE':
-        // Thought records typically aren't deleted
-        console.log('Thought record deletion not implemented');
+        // ✅ F-04 FIX: Implement thought record deletion
+        if (item.data?.id) {
+          try {
+            await (svc as any).deleteThoughtRecord(item.data.id);
+            console.log('✅ Thought record deleted successfully:', item.data.id);
+          } catch (error) {
+            console.warn('⚠️ Thought record deletion failed:', error);
+            throw error; // Let it retry via DLQ
+          }
+        } else {
+          console.log('⚠️ DELETE skipped: missing thought record id');
+        }
         break;
     }
   }
@@ -405,44 +485,10 @@ export class OfflineSyncService {
     }
   }
 
-  async storeERPSessionLocally(session: any): Promise<void> {
-    try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = `localERPSessions_${safeStorageKey(currentUserId as any)}`;
-      const stored = await AsyncStorage.getItem(localKey);
-      const sessions = stored ? JSON.parse(stored) : [];
-      
-      sessions.push({
-        ...session,
-        localId: `local_${Date.now()}`,
-        synced: false,
-        createdAt: new Date().toISOString(),
-      });
-      
-      await AsyncStorage.setItem(localKey, JSON.stringify(sessions));
-      
-      // Add to sync queue
-      await this.addToSyncQueue({
-        type: 'CREATE',
-        entity: 'erp_session',
-        data: session,
-      });
-    } catch (error) {
-      console.error('Error storing ERP session locally:', error);
-    }
-  }
-
-  async getLocalERPSessions(): Promise<any[]> {
-    try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = `localERPSessions_${safeStorageKey(currentUserId as any)}`;
-      const stored = await AsyncStorage.getItem(localKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error getting local ERP sessions:', error);
-      return [];
-    }
-  }
+  // ✅ F-01 FIX: ERP session methods REMOVED
+  // ERP module has been deleted from the application.
+  // These methods were creating ghost 'erp_session' entities in the sync queue.
+  // If legacy code calls these methods, they will be no-ops.
 
   isOnlineMode(): boolean {
     return this.isOnline;

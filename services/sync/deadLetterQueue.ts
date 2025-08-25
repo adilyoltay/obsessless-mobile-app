@@ -76,6 +76,13 @@ class DeadLetterQueueService {
     let retried = 0;
     let archived = 0;
     const items = await this.getQueue();
+    
+    // ✅ F-01 FIX: Define supported entities to match offlineSync
+    const SUPPORTED_ENTITIES = new Set([
+      'compulsion', 'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'thought_record'
+    ]);
+    const SUPPORTED_OPERATIONS = new Set(['CREATE', 'UPDATE', 'DELETE']);
+    
     // Network-aware: skip if offline
     try {
       const NetInfo = require('@react-native-community/netinfo').default;
@@ -83,8 +90,19 @@ class DeadLetterQueueService {
       const offline = !(state.isConnected && state.isInternetReachable !== false);
       if (offline) return { retried: 0, archived: archived + (await this.archiveOldItems()) };
     } catch {}
+    
     for (const item of items) {
       if (item.archived) continue;
+      
+      // ✅ F-01 FIX: Archive unsupported entities immediately
+      if (!SUPPORTED_OPERATIONS.has(item.type as any) || !SUPPORTED_ENTITIES.has(item.entity as any)) {
+        // Mark as archived instead of retrying
+        item.archived = true;
+        archived++;
+        console.warn('🗄️ Archived unsupported DLQ item:', { entity: item.entity, type: item.type });
+        continue;
+      }
+      
       if (item.canRetry && (item.retryCount || 0) < 5) {
         try {
           // Exponential backoff with jitter by retryCount
@@ -100,6 +118,12 @@ class DeadLetterQueueService {
         } catch {}
       }
     }
+    
+    // Save updated queue with archived items
+    if (archived > 0) {
+      await this.saveQueue(items);
+    }
+    
     archived += await this.archiveOldItems();
     return { retried, archived };
   }
