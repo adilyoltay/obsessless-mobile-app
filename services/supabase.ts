@@ -1258,12 +1258,27 @@ class SupabaseNativeService {
   
   async deleteMoodEntry(entryId: string): Promise<void> {
     try {
+      console.log('🗑️ Attempting to delete mood entry:', entryId);
+      
+      // ✅ HOTFIX: Check if ID looks like a UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entryId);
+      
+      if (!isUUID) {
+        console.warn('⚠️ Invalid UUID format detected:', entryId);
+        console.log('💡 This appears to be a client-generated ID (mood_timestamp_random)');
+        console.log('🔄 Skipping server delete - entry was likely never synced or already deleted');
+        // Gracefully skip - client-generated IDs don't exist on server
+        return;
+      }
+      
       const { error } = await this.client
         .from('mood_entries')
         .delete()
         .eq('id', entryId);
       
       if (error) throw error;
+      console.log('✅ Mood entry deleted successfully from server:', entryId);
+      
     } catch (error) {
       console.error('❌ Delete mood entry failed:', error);
       throw error;
@@ -1271,9 +1286,19 @@ class SupabaseNativeService {
   }
 
   // ✅ F-04 FIX: Add missing deleteVoiceCheckin method
+  // 🚨 HOTFIX: Handle potential UUID validation issues
   async deleteVoiceCheckin(checkinId: string): Promise<void> {
     try {
-      console.log('🗑️ Deleting voice checkin...', checkinId);
+      console.log('🗑️ Attempting to delete voice checkin:', checkinId);
+      
+      // ✅ HOTFIX: Check if ID looks like a UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(checkinId);
+      
+      if (!isUUID) {
+        console.warn('⚠️ Invalid UUID format detected for voice checkin:', checkinId);
+        console.log('🔄 Skipping server delete - entry may not exist on server');
+        return;
+      }
       
       const { error } = await this.client
         .from('voice_checkins')
@@ -1281,7 +1306,7 @@ class SupabaseNativeService {
         .eq('id', checkinId);
 
       if (error) throw error;
-      console.log('✅ Voice checkin deleted:', checkinId);
+      console.log('✅ Voice checkin deleted successfully from server:', checkinId);
     } catch (error) {
       console.error('❌ Failed to delete voice checkin:', error);
       throw error;
@@ -1289,9 +1314,19 @@ class SupabaseNativeService {
   }
 
   // ✅ F-04 FIX: Add missing deleteThoughtRecord method (separate from deleteCBTRecord)
+  // 🚨 HOTFIX: Handle potential UUID validation issues
   async deleteThoughtRecord(recordId: string): Promise<void> {
     try {
-      console.log('🗑️ Deleting thought record...', recordId);
+      console.log('🗑️ Attempting to delete thought record:', recordId);
+      
+      // ✅ HOTFIX: Check if ID looks like a UUID
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recordId);
+      
+      if (!isUUID) {
+        console.warn('⚠️ Invalid UUID format detected for thought record:', recordId);
+        console.log('🔄 Skipping server delete - entry may not exist on server');
+        return;
+      }
       
       const { error } = await this.client
         .from('thought_records')
@@ -1299,7 +1334,7 @@ class SupabaseNativeService {
         .eq('id', recordId);
 
       if (error) throw error;
-      console.log('✅ Thought record deleted:', recordId);
+      console.log('✅ Thought record deleted successfully from server:', recordId);
     } catch (error) {
       console.error('❌ Failed to delete thought record:', error);
       throw error;
