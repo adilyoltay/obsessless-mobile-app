@@ -37,7 +37,7 @@ ADD COLUMN IF NOT EXISTS content_hash TEXT;
 
 -- 4. Update existing entries to have content_hash for deduplication
 UPDATE public.mood_entries 
-SET content_hash = md5(user_id::text || mood_score::text || energy_level::text || anxiety_level::text || COALESCE(notes, '') || created_at::date::text)
+SET content_hash = md5(CAST(user_id AS text) || CAST(mood_score AS text) || CAST(energy_level AS text) || CAST(anxiety_level AS text) || COALESCE(notes, '') || DATE(created_at)::text)
 WHERE content_hash IS NULL;
 
 -- 5. Add unique constraint for deduplication (ignore conflicts if exists)
@@ -76,12 +76,12 @@ CREATE OR REPLACE FUNCTION generate_mood_entry_hash()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.content_hash = md5(
-    NEW.user_id::text || 
-    NEW.mood_score::text || 
-    NEW.energy_level::text || 
-    NEW.anxiety_level::text || 
+    CAST(NEW.user_id AS text) || 
+    CAST(NEW.mood_score AS text) || 
+    CAST(NEW.energy_level AS text) || 
+    CAST(NEW.anxiety_level AS text) || 
     COALESCE(NEW.notes, '') || 
-    NEW.created_at::date::text
+    DATE(NEW.created_at)::text
   );
   RETURN NEW;
 END;

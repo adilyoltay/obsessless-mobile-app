@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS public.mood_entries (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_mood_entries_user_id ON public.mood_entries(user_id);
-CREATE INDEX idx_mood_entries_created_at ON public.mood_entries(created_at DESC);
-CREATE INDEX idx_mood_entries_user_created ON public.mood_entries(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_user_id ON public.mood_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_created_at ON public.mood_entries(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mood_entries_user_created ON public.mood_entries(user_id, created_at DESC);
 
 -- Enable RLS (Row Level Security)
 ALTER TABLE public.mood_entries ENABLE ROW LEVEL SECURITY;
