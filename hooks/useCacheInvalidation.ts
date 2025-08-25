@@ -252,7 +252,7 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
   // EVENT-BASED INVALIDATION SETUP
   // ============================================================================
 
-  const setupSyncInvalidation = useCallback((): void => {
+  const setupSyncInvalidation = useCallback(() => {
     // Listen to sync completion events
     const handleSyncCompleted = async (data: { entities: string[]; userId?: string }) => {
       console.log('🔄 Sync completed, invalidating affected queries:', data.entities);
@@ -289,7 +289,7 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     };
   }, [invalidateCompulsions, invalidateMoodEntries, invalidateThoughtRecords, invalidateVoiceCheckins, invalidateStats, invalidateAI]);
 
-  const setupAIInvalidation = useCallback((): void => {
+  const setupAIInvalidation = useCallback(() => {
     // Listen to AI pipeline invalidation events
     const handleAIInvalidation = async (data: { hook: string; userId?: string }) => {
       console.log('🤖 AI invalidation triggered:', data.hook);
@@ -329,8 +329,8 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     const aiCleanup = setupAIInvalidation();
     
     return () => {
-      if (syncCleanup) syncCleanup();
-      if (aiCleanup) aiCleanup();
+      syncCleanup();
+      aiCleanup();
     };
   }, [setupSyncInvalidation, setupAIInvalidation]);
 
