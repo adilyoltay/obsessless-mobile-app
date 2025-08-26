@@ -34,10 +34,6 @@ CREATE POLICY "Users can update own profile" ON public.users
 CREATE TABLE public.user_profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  ocd_symptoms TEXT[] DEFAULT '{}',
-  daily_goal INTEGER DEFAULT 3,
-  ybocs_score INTEGER DEFAULT 0,
-  ybocs_severity TEXT DEFAULT 'mild',
   onboarding_completed BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -51,39 +47,6 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 -- Users can only see their own profile
 CREATE POLICY "Users can manage own profile" ON public.user_profiles
   FOR ALL USING (auth.uid() = user_id);
-
--- ================================
--- COMPULSIONS TABLE
--- ================================
-CREATE TABLE public.compulsions (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  category TEXT NOT NULL,
-  subcategory TEXT,
-  resistance_level INTEGER NOT NULL CHECK (resistance_level >= 1 AND resistance_level <= 10),
-  trigger TEXT,
-  notes TEXT,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  
-  -- Indexes for better performance
-  CONSTRAINT valid_category CHECK (category IN (
-    'contamination', 'harm', 'symmetry', 'religious', 'sexual', 'hoarding'
-  ))
-);
-
--- Create indexes
-CREATE INDEX idx_compulsions_user_id ON public.compulsions(user_id);
-CREATE INDEX idx_compulsions_timestamp ON public.compulsions(timestamp);
-CREATE INDEX idx_compulsions_category ON public.compulsions(category);
-
--- Enable RLS
-ALTER TABLE public.compulsions ENABLE ROW LEVEL SECURITY;
-
--- Users can only manage their own compulsions
-CREATE POLICY "Users can manage own compulsions" ON public.compulsions
-  FOR ALL USING (auth.uid() = user_id);
-
-
 
 -- ================================
 -- GAMIFICATION PROFILES TABLE
@@ -231,27 +194,9 @@ SET log_min_messages = 'log';
 -- VIEWS FOR ANALYTICS
 -- ================================
 
--- Daily compulsion stats view
-CREATE VIEW public.daily_compulsion_stats AS
-SELECT 
-  user_id,
-  DATE(timestamp) as date,
-  COUNT(*) as total_compulsions,
-  AVG(resistance_level) as avg_resistance,
-  array_agg(DISTINCT category) as categories
-FROM public.compulsions
-GROUP BY user_id, DATE(timestamp);
+-- Daily compulsion stats view removed
 
--- Weekly therapy stats view
-CREATE VIEW public.weekly_therapy_stats AS
-SELECT 
-  user_id,
-  DATE_TRUNC('week', timestamp) as week,
-  COUNT(*) as total_sessions,
-  AVG(duration_seconds) as avg_duration,
-  AVG(anxiety_initial - anxiety_final) as avg_anxiety_reduction
-FROM public.therapy_sessions
-GROUP BY user_id, DATE_TRUNC('week', timestamp);
+-- Weekly therapy stats view removed
 
 -- ================================
 -- AI PROFILE & PLANS (ALIGN WITH APP)
@@ -319,64 +264,13 @@ ALTER TABLE public.ai_telemetry ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can insert own ai telemetry" ON public.ai_telemetry FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 CREATE INDEX IF NOT EXISTS idx_ai_telemetry_user_time ON public.ai_telemetry(user_id, timestamp DESC);
 
--- ================================
--- CBT THOUGHT RECORDS TABLE  
--- ================================
-CREATE TABLE IF NOT EXISTS public.thought_records (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  thought TEXT NOT NULL,
-  distortions TEXT[] DEFAULT '{}',
-  evidence_for TEXT,
-  evidence_against TEXT,
-  reframe TEXT NOT NULL,
-  mood_before INTEGER NOT NULL CHECK (mood_before >= 1 AND mood_before <= 10),
-  mood_after INTEGER NOT NULL CHECK (mood_after >= 1 AND mood_after <= 10),
-  trigger TEXT,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_thought_records_user_id ON public.thought_records(user_id);
-CREATE INDEX IF NOT EXISTS idx_thought_records_created_at ON public.thought_records(created_at);
-CREATE INDEX IF NOT EXISTS idx_thought_records_mood_improvement ON public.thought_records((mood_after - mood_before));
-
--- Enable RLS (Row Level Security)
-ALTER TABLE public.thought_records ENABLE ROW LEVEL SECURITY;
-
--- Users can only manage their own thought records
-CREATE POLICY "Users can manage own thought records" ON public.thought_records
-  FOR ALL USING (auth.uid() = user_id);
-
--- Add updated_at trigger
-CREATE TRIGGER update_thought_records_updated_at
-  BEFORE UPDATE ON public.thought_records
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- CBT thought_records removed
 
 -- ================================
 -- SAMPLE DATA (for testing)
 -- ================================
 
--- Insert sample exercise categories (you can remove this in production)
-CREATE TABLE IF NOT EXISTS public.erp_exercise_categories (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  icon TEXT,
-  color TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-INSERT INTO public.erp_exercise_categories (id, title, description, icon, color) VALUES
-  ('contamination', 'Bulaşma/Temizlik', 'Kontaminasyon korkuları', 'hand-wash', '#3B82F6'),
-  ('harm', 'Zarar Verme', 'Zarar verme korkuları', 'alert-triangle', '#EF4444'),
-  ('symmetry', 'Simetri/Düzen', 'Düzen ve simetri obsesyonları', 'align-center', '#F59E0B'),
-  ('religious', 'Dini/Ahlaki', 'Dini ve ahlaki obsesyonlar', 'heart', '#8B5CF6'),
-  ('sexual', 'Cinsel', 'Cinsel obsesyonlar', 'user', '#EC4899'),
-  ('hoarding', 'Biriktirme', 'Biriktirme obsesyonları', 'archive', '#10B981')
-ON CONFLICT (id) DO NOTHING;
+-- ERP sample data removed
 
 -- ================================
 -- SECURITY NOTES
