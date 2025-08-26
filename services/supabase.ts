@@ -1247,16 +1247,10 @@ class SupabaseNativeService {
   // ===========================
   
   // ✅ F-02 FIX: Standardize idempotency with content_hash and upsert
-  async saveMoodEntry(entry: {
-    user_id: string;
-    mood_score: number;
-    energy_level: number;
-    anxiety_level: number;
-    notes?: string;
-    trigger?: string;
-    triggers?: string[];
-    activities?: string[];
-  }): Promise<any> {
+  async saveMoodEntry(entry: any): Promise<any> {
+    if (!isUUID(entry.user_id)) {
+      throw Object.assign(new Error('invalid user_id'), { code: 'CLIENT_INVALID_USER_ID' });
+    }
     try {
       console.log('🔄 Saving mood entry...', entry);
       

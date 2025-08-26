@@ -115,6 +115,16 @@ export class OfflineSyncService {
       return; // Drop the item silently
     }
 
+    // Sanitize invalid user ids early (e.g., 'anon') so we can resolve later
+    try {
+      if (item.data && typeof item.data === 'object' && 'user_id' in item.data && !isUUID((item.data as any).user_id)) {
+        delete (item.data as any).user_id;
+      }
+      if (item.data && typeof item.data === 'object' && 'userId' in item.data && !isUUID((item.data as any).userId)) {
+        delete (item.data as any).userId;
+      }
+    } catch {}
+
     const syncItem: SyncQueueItem = {
       ...item,
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
