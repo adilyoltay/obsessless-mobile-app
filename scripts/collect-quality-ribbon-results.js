@@ -131,22 +131,16 @@ function categorizeQualityRibbonTests(jestResults) {
     today: { fresh: [], cache: [], hidden: [], total: 0 },
     mood: { high: [], medium: [], low: [], cache: [], hidden: [], total: 0 },
     tracking: { fresh: [], cache: [], hidden: [], total: 0 },
-    cbt: { fresh: [], cache: [], hidden: [], total: 0 },
-    ocd: { fresh: [], cache: [], hidden: [], total: 0 },
     smoke: { e2e_today: [], e2e_mood: [], e2e_voice: [], total: 0 },
     // System-mode (QRsys) categories
     system_today: { fresh: [], cache: [], invalidate: [], total: 0 },
     system_mood: { cache: [], hidden: [], total: 0 },
     system_tracking: { fresh: [], cache: [], hidden: [], total: 0 },
-    system_cbt: { fresh: [], cache: [], hidden: [], total: 0 },
-    system_ocd: { fresh: [], cache: [], hidden: [], total: 0 },
     system_voice: { fallback: [], total: 0 },
     // Live (QRlive) categories
     system_live_today: { fresh: [], cache: [], invalidate: [], total: 0 },
     system_live_mood: { cache: [], hidden: [], total: 0 },
     system_live_tracking: { fresh: [], cache: [], hidden: [], total: 0 },
-    system_live_cbt: { fresh: [], cache: [], hidden: [], total: 0 },
-    system_live_ocd: { fresh: [], cache: [], hidden: [], total: 0 },
     system_live_voice: { fallback: [], total: 0 },
     unit: { component: [], mapping: [], total: 0 }
   };
@@ -218,16 +212,8 @@ function categorizeQualityRibbonTests(jestResults) {
             if (sysSub === 'fresh') categories.system_tracking.fresh.push(testInfo);
             else if (sysSub === 'cache') categories.system_tracking.cache.push(testInfo);
             else if (sysSub === 'hidden') categories.system_tracking.hidden.push(testInfo);
-          } else if (sysCategory === 'cbt') {
-            categories.system_cbt.total++;
-            if (sysSub === 'fresh') categories.system_cbt.fresh.push(testInfo);
-            else if (sysSub === 'cache') categories.system_cbt.cache.push(testInfo);
-            else if (sysSub === 'hidden') categories.system_cbt.hidden.push(testInfo);
-          } else if (sysCategory === 'ocd') {
-            categories.system_ocd.total++;
-            if (sysSub === 'fresh') categories.system_ocd.fresh.push(testInfo);
-            else if (sysSub === 'cache') categories.system_ocd.cache.push(testInfo);
-            else if (sysSub === 'hidden') categories.system_ocd.hidden.push(testInfo);
+          } else if (sysCategory === 'cbt' || sysCategory === 'ocd') {
+            // removed categories
           } else if (sysCategory === 'voice') {
             categories.system_voice.total++;
             if (sysSub === 'fallback') categories.system_voice.fallback.push(testInfo);
@@ -261,16 +247,8 @@ function categorizeQualityRibbonTests(jestResults) {
             if (subCategory === 'fresh') categories.tracking.fresh.push(testInfo);
             else if (subCategory === 'cache') categories.tracking.cache.push(testInfo);
             else if (subCategory === 'hidden') categories.tracking.hidden.push(testInfo);
-          } else if (category === 'cbt') {
-            categories.cbt.total++;
-            if (subCategory === 'fresh') categories.cbt.fresh.push(testInfo);
-            else if (subCategory === 'cache') categories.cbt.cache.push(testInfo);
-            else if (subCategory === 'hidden') categories.cbt.hidden.push(testInfo);
-          } else if (category === 'ocd') {
-            categories.ocd.total++;
-            if (subCategory === 'fresh') categories.ocd.fresh.push(testInfo);
-            else if (subCategory === 'cache') categories.ocd.cache.push(testInfo);
-            else if (subCategory === 'hidden') categories.ocd.hidden.push(testInfo);
+          } else if (category === 'cbt' || category === 'ocd') {
+            // removed categories
           } else if (category === 'smoke') {
             categories.smoke.total++;
             if (subCategory === 'today') categories.smoke.e2e_today.push(testInfo);
@@ -326,26 +304,12 @@ function categorizeQualityRibbonTests(jestResults) {
       
       // CBT page tests
       else if (filePath.includes('CBTQualityRibbon') || testName.includes('cbt')) {
-        categories.cbt.total++;
-        if (testName.includes('fresh')) {
-          categories.cbt.fresh.push(testInfo);
-        } else if (testName.includes('cache')) {
-          categories.cbt.cache.push(testInfo);
-        } else if (testName.includes('hidden') || testName.includes('hide')) {
-          categories.cbt.hidden.push(testInfo);
-        }
+        // removed
       }
       
       // OCD page tests
       else if (filePath.includes('OCDQualityRibbon') || testName.includes('ocd')) {
-        categories.ocd.total++;
-        if (testName.includes('fresh')) {
-          categories.ocd.fresh.push(testInfo);
-        } else if (testName.includes('cache')) {
-          categories.ocd.cache.push(testInfo);
-        } else if (testName.includes('hidden') || testName.includes('hide')) {
-          categories.ocd.hidden.push(testInfo);
-        }
+        // removed
       }
       
       // Smoke tests
@@ -409,14 +373,7 @@ function generateAnalysis(categorizedResults) {
     criticalIssues.push('No coverage for Tracking page integration tests');
     recommendations.push('Add Tracking page Fresh/Cache/Hidden scenario tests');
   }
-  if (categories.cbt.total === 0) {
-    criticalIssues.push('No coverage for CBT page integration tests');
-    recommendations.push('Add CBT page Fresh/Cache/Hidden scenario tests');
-  }
-  if (categories.ocd.total === 0) {
-    criticalIssues.push('No coverage for OCD page integration tests');
-    recommendations.push('Add OCD page Fresh/Cache/Hidden scenario tests');
-  }
+  // CBT/OCD integration checks removed
   if (categories.smoke.total === 0) {
     criticalIssues.push('No coverage for Smoke E2E tests');
     recommendations.push('Add Smoke tests for Today/Mood/Voice scenarios');
@@ -524,13 +481,8 @@ function generateAnalysis(categorizedResults) {
   const systemTrackingTotal = (categories.system_tracking.fresh||[]).length + (categories.system_tracking.cache||[]).length + (categories.system_tracking.hidden||[]).length;
   const systemTrackingPassRate = systemTrackingTotal > 0 ? Math.round((systemTrackingPassed / systemTrackingTotal) * 100) : 0;
 
-  const systemCbtPassed = (categories.system_cbt.fresh||[]).filter(t => t.status==='passed').length + (categories.system_cbt.cache||[]).filter(t => t.status==='passed').length + (categories.system_cbt.hidden||[]).filter(t => t.status==='passed').length;
-  const systemCbtTotal = (categories.system_cbt.fresh||[]).length + (categories.system_cbt.cache||[]).length + (categories.system_cbt.hidden||[]).length;
-  const systemCbtPassRate = systemCbtTotal > 0 ? Math.round((systemCbtPassed / systemCbtTotal) * 100) : 0;
-
-  const systemOcdPassed = (categories.system_ocd.fresh||[]).filter(t => t.status==='passed').length + (categories.system_ocd.cache||[]).filter(t => t.status==='passed').length + (categories.system_ocd.hidden||[]).filter(t => t.status==='passed').length;
-  const systemOcdTotal = (categories.system_ocd.fresh||[]).length + (categories.system_ocd.cache||[]).length + (categories.system_ocd.hidden||[]).length;
-  const systemOcdPassRate = systemOcdTotal > 0 ? Math.round((systemOcdPassed / systemOcdTotal) * 100) : 0;
+  const systemCbtPassRate = 0;
+  const systemOcdPassRate = 0;
 
   const systemVoicePassed = (categories.system_voice.fallback||[]).filter(t => t.status==='passed').length;
   const systemVoiceTotal = (categories.system_voice.fallback||[]).length;
@@ -561,8 +513,7 @@ function generateAnalysis(categorizedResults) {
     { name: 'System Today', total: systemTodayTotal, passRate: systemTodayPassRate },
     { name: 'System Mood', total: systemMoodTotal, passRate: systemMoodPassRate },
     { name: 'System Tracking', total: systemTrackingTotal, passRate: systemTrackingPassRate },
-    { name: 'System CBT', total: systemCbtTotal, passRate: systemCbtPassRate },
-    { name: 'System OCD', total: systemOcdTotal, passRate: systemOcdPassRate },
+    // system CBT/OCD removed
     { name: 'System Voice', total: systemVoiceTotal, passRate: systemVoicePassRate },
     { name: 'System Live Today', total: liveTodayTotal, passRate: systemLiveTodayPassRate },
     { name: 'System Live Mood', total: liveMoodTotal, passRate: systemLiveMoodPassRate },
