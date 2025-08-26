@@ -79,7 +79,7 @@ class DeadLetterQueueService {
     
     // ✅ F-01 FIX: Define supported entities to match offlineSync
     const SUPPORTED_ENTITIES = new Set([
-      'compulsion', 'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'thought_record'
+      'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin'
     ]);
     const SUPPORTED_OPERATIONS = new Set(['CREATE', 'UPDATE', 'DELETE']);
     

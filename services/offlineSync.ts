@@ -406,45 +406,7 @@ export class OfflineSyncService {
     }
   }
 
-  // Local storage methods for offline operations
-  async storeCompulsionLocally(compulsion: any): Promise<void> {
-    try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = `localCompulsions_${safeStorageKey(currentUserId as any)}`;
-      const stored = await AsyncStorage.getItem(localKey);
-      const compulsions = stored ? JSON.parse(stored) : [];
-      
-      compulsions.push({
-        ...compulsion,
-        localId: `local_${Date.now()}`,
-        synced: false,
-        createdAt: new Date().toISOString(),
-      });
-      
-      await AsyncStorage.setItem(localKey, JSON.stringify(compulsions));
-      
-      // Add to sync queue
-      await this.addToSyncQueue({
-        type: 'CREATE',
-        entity: 'compulsion',
-        data: compulsion,
-      });
-    } catch (error) {
-      console.error('Error storing compulsion locally:', error);
-    }
-  }
-
-  async getLocalCompulsions(): Promise<any[]> {
-    try {
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const localKey = `localCompulsions_${safeStorageKey(currentUserId as any)}`;
-      const stored = await AsyncStorage.getItem(localKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.error('Error getting local compulsions:', error);
-      return [];
-    }
-  }
+  // compulsion offline helpers removed
 
   // ✅ F-01 FIX: ERP session methods REMOVED
   // ERP module has been deleted from the application.

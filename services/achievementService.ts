@@ -34,24 +34,20 @@ export interface StreakData {
   lastActivity: Date;
   activities: {
     date: string;
-    type: 'compulsion' | 'assessment';
+    type: 'assessment';
     count: number;
   }[];
 }
 
-// Achievement definitions
+// Achievement definitions (compulsion/ERP removed; keep assessment/streak/time)
 const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt' | 'isUnlocked'>[] = [
-  // Compulsion tracking achievements removed
-
-  // ERP Exercise Achievements removed
-
   // Assessment Achievements
   {
     id: 'first_assessment',
     title: 'Kendini Tanı',
     titleEn: 'Know Yourself',
-    description: 'İlk Y-BOCS değerlendirmenizi tamamladınız',
-    descriptionEn: 'Completed your first Y-BOCS assessment',
+    description: 'İlk değerlendirmeyi tamamladınız',
+    descriptionEn: 'Completed your first assessment',
     icon: '📊',
     color: '#84CC16',
     category: 'assessment',
@@ -62,7 +58,7 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
   },
   {
     id: 'monthly_assessments',
-    title: 'Düzenli Değerlendirici',
+    title: 'Düzenli Değerlendirme',
     titleEn: 'Regular Assessor',
     description: '4 hafta üst üste değerlendirme yaptınız',
     descriptionEn: 'Completed assessments for 4 consecutive weeks',
@@ -74,7 +70,6 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     rarity: 'rare',
     points: 60,
   },
-
   // Streak Achievements
   {
     id: 'week_streak',
@@ -104,24 +99,6 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     rarity: 'legendary',
     points: 200,
   },
-
-  // Progress Achievements
-  // compulsion-specific progress removed
-  {
-    id: 'anxiety_reducer',
-    title: 'Kaygı Azaltıcı',
-    titleEn: 'Anxiety Reducer',
-    description: 'Terapi egzersizlerinde %50 kaygı azalması sağladınız',
-    descriptionEn: 'Achieved 50% anxiety reduction in ERP exercises',
-    icon: '📉',
-    color: '#0EA5E9',
-    category: 'progress',
-    type: 'milestone',
-    target: 50,
-    rarity: 'rare',
-    points: 80,
-  },
-
   // Time-based Achievements
   {
     id: 'early_bird',
@@ -151,9 +128,6 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
     rarity: 'rare',
     points: 40,
   },
-
-  // Special Achievements
-  // compulsion special removed
 ];
 
 class AchievementService {
@@ -181,7 +155,6 @@ class AchievementService {
       if (savedAchievements) {
         this.achievements = JSON.parse(savedAchievements);
       } else {
-        // Initialize with default achievements
         this.achievements = ACHIEVEMENT_DEFINITIONS.map(def => ({
           ...def,
           currentProgress: 0,
@@ -218,7 +191,7 @@ class AchievementService {
       achievement.isUnlocked = true;
       achievement.unlockedAt = new Date();
       await this.saveAchievements();
-      return true; // Achievement unlocked
+      return true;
     }
 
     await this.saveAchievements();
@@ -236,33 +209,23 @@ class AchievementService {
     const today = new Date().toISOString().split('T')[0];
     const unlockedAchievements: Achievement[] = [];
 
-    // Update streak
     await this.updateStreak('assessment');
 
-    // Track specific achievements based on activity type
     await this.trackAssessmentAchievements(data, unlockedAchievements);
 
-    // Check streak achievements
     await this.checkStreakAchievements(unlockedAchievements);
 
-    // Check time-based achievements
     await this.checkTimeBasedAchievements('assessment', unlockedAchievements);
 
     await this.saveAchievements();
     return unlockedAchievements;
   }
 
-  // compulsion achievements removed
-
-  // ERP achievements removed
-
   private async trackAssessmentAchievements(data: any, unlockedAchievements: Achievement[]): Promise<void> {
-    // First assessment
     if (await this.incrementProgress('first_assessment')) {
       unlockedAchievements.push(this.achievements.find(a => a.id === 'first_assessment')!);
     }
 
-    // Monthly assessments
     const weeklyAssessments = await this.getConsecutiveWeeklyAssessments();
     if (await this.updateProgress('monthly_assessments', weeklyAssessments)) {
       unlockedAchievements.push(this.achievements.find(a => a.id === 'monthly_assessments')!);
@@ -270,119 +233,30 @@ class AchievementService {
   }
 
   private async checkStreakAchievements(unlockedAchievements: Achievement[]): Promise<void> {
-    // Week streak
     if (await this.updateProgress('week_streak', this.streakData.current >= 7 ? 1 : 0)) {
       unlockedAchievements.push(this.achievements.find(a => a.id === 'week_streak')!);
     }
 
-    // Month streak
     if (await this.updateProgress('month_streak', this.streakData.current >= 30 ? 1 : 0)) {
       unlockedAchievements.push(this.achievements.find(a => a.id === 'month_streak')!);
     }
-
-    // Persistent tracker
-    // compulsion-based streak removed
   }
-
-  private async checkTimeBasedAchievements(type: string, unlockedAchievements: Achievement[]): Promise<void> {
-    const now = new Date();
-    const hour = now.getHours();
-
-    // Early bird (before 8 AM)
-    if (hour < 8) {
-      const earlyBirdCount = await this.getEarlyBirdActivities();
-      if (await this.updateProgress('early_bird', earlyBirdCount)) {
-        unlockedAchievements.push(this.achievements.find(a => a.id === 'early_bird')!);
-      }
-    }
-
-    // Night owl (after 10 PM)
-    if (hour >= 22) {
-      const nightOwlCount = await this.getNightOwlActivities();
-      if (await this.updateProgress('night_owl', nightOwlCount)) {
-        unlockedAchievements.push(this.achievements.find(a => a.id === 'night_owl')!);
-      }
-    }
-  }
-
-  private async updateStreak(type: 'compulsion' | 'erp' | 'assessment'): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const lastActivityDate = this.streakData.lastActivity.toISOString().split('T')[0];
-
-    // Check if we need to update streak
-    if (lastActivityDate === today) {
-      // Activity already recorded today
-      return;
-    }
-
-    if (lastActivityDate === yesterday) {
-      // Continue streak
-      this.streakData.current += 1;
-    } else {
-      // Reset streak
-      this.streakData.current = 1;
-    }
-
-    // Update longest streak
-    if (this.streakData.current > this.streakData.longest) {
-      this.streakData.longest = this.streakData.current;
-    }
-
-    // Update last activity
-    this.streakData.lastActivity = new Date();
-
-    // Add to activities
-    this.streakData.activities.push({
-      date: today,
-      type,
-      count: 1,
-    });
-
-    // Keep only last 90 days
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    this.streakData.activities = this.streakData.activities.filter(a => a.date >= ninetyDaysAgo);
-  }
-
-  // Helper methods for achievement progress calculation
-  // compulsion metrics removed
-
-  private async getTotalERPSessions(): Promise<number> {
-    try {
-      const sessions = await AsyncStorage.getItem('erp_sessions');
-      return sessions ? JSON.parse(sessions).length : 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  // compulsion metrics removed
-
-  // compulsion metrics removed
-
-
 
   private async getConsecutiveWeeklyAssessments(): Promise<number> {
     try {
       const assessments = await AsyncStorage.getItem('ybocs_history');
       if (!assessments) return 0;
-
       const parsedAssessments = JSON.parse(assessments);
-      // Implementation for calculating consecutive weekly assessments
-      // This would need to check for assessments in consecutive weeks
-      return parsedAssessments.length; // Simplified for now
+      return parsedAssessments.length;
     } catch {
       return 0;
     }
   }
 
-  // compulsion metrics removed
-
   private async getEarlyBirdActivities(): Promise<number> {
     try {
       const logs = await AsyncStorage.getItem('activity_logs');
       if (!logs) return 0;
-
       const parsedLogs = JSON.parse(logs);
       return parsedLogs.filter((log: any) => {
         const hour = new Date(log.timestamp).getHours();
@@ -397,7 +271,6 @@ class AchievementService {
     try {
       const logs = await AsyncStorage.getItem('activity_logs');
       if (!logs) return 0;
-
       const parsedLogs = JSON.parse(logs);
       return parsedLogs.filter((log: any) => {
         const hour = new Date(log.timestamp).getHours();
@@ -408,7 +281,6 @@ class AchievementService {
     }
   }
 
-  // Public getters
   getUserAchievements(): UserAchievements {
     const unlockedCount = this.achievements.filter(a => a.isUnlocked).length;
     const totalPoints = this.achievements

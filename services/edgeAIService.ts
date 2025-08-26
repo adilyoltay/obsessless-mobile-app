@@ -10,37 +10,23 @@ export interface AnalysisRequest {
   userId: string;
   analysisType?: 'voice' | 'data' | 'mixed';
   context?: {
-    source: 'today' | 'mood' | 'tracking' | 'cbt';
+    source: 'today' | 'mood';
     timestamp?: number;
     metadata?: any;
   };
 }
 
 export interface UnifiedAnalysisResult {
-  category: 'MOOD' | 'CBT' | 'OCD' | 'ERP' | 'BREATHWORK' | 'UNKNOWN';
+  category: 'MOOD' | 'BREATHWORK' | 'UNKNOWN';
   confidence: number;
   summary: string;
   suggestions: string[];
   insights: {
-    cbt?: {
-      automaticThought: string;
-      cognitiveDistortions: string[];
-      evidenceFor: string[];
-      evidenceAgainst: string[];
-      balancedThought: string;
-      mood: number;
-    };
     mood?: {
       detectedMood: string;
       intensity: number;
       triggers: string[];
       suggestions: string[];
-    };
-    ocd?: {
-      obsession: string;
-      compulsion: string;
-      avoidance: string[];
-      erpSuggestion: string;
     };
     breathwork?: {
       technique: string;
@@ -123,7 +109,7 @@ class EdgeAIService {
     text: string, 
     userId: string,
     context?: {
-      source: 'today' | 'mood' | 'tracking' | 'cbt';
+      source: 'today' | 'mood';
       timestamp?: number;
       metadata?: any;
     }
@@ -147,7 +133,7 @@ class EdgeAIService {
     text: string, 
     userId: string,
     context?: {
-      source: 'today' | 'mood' | 'tracking' | 'cbt';
+      source: 'today' | 'mood';
       timestamp?: number;
       metadata?: any;
     }
@@ -167,22 +153,7 @@ class EdgeAIService {
   /**
    * CBT analizi için özel fonksiyon
    */
-  async analyzeCBTInput(
-    text: string,
-    userId: string,
-    metadata?: any
-  ): Promise<UnifiedAnalysisResult | null> {
-    return this.analyzeText({
-      text,
-      userId,
-      analysisType: 'mixed',
-      context: {
-        source: 'cbt',
-        timestamp: Date.now(),
-        metadata
-      }
-    });
-  }
+  async analyzeCBTInput(): Promise<UnifiedAnalysisResult | null> { return null; }
 
   /**
    * Health check - Edge function'ın çalışıp çalışmadığını kontrol eder
