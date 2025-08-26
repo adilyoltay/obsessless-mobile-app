@@ -1469,6 +1469,43 @@ class SupabaseNativeService {
   get supabaseClient() {
     return this.client;
   }
+
+  /**
+   * Upsert user profile with onboarding v2 payload
+   */
+  async upsertUserProfile(userId: string, payload: any): Promise<void> {
+    const body: any = {
+      user_id: userId,
+      age: payload?.profile?.age,
+      gender: payload?.profile?.gender,
+      locale: payload?.profile?.locale,
+      timezone: payload?.reminders?.timezone,
+      motivations: payload?.motivation || [],
+      first_mood_score: payload?.first_mood?.score != null ? Number(payload.first_mood.score) : null,
+      first_mood_tags: payload?.first_mood?.tags || [],
+      lifestyle_sleep_hours: payload?.lifestyle?.sleep_hours,
+      lifestyle_exercise: payload?.lifestyle?.exercise,
+      lifestyle_social: payload?.lifestyle?.social,
+      reminder_enabled: !!payload?.reminders?.enabled,
+      reminder_time: payload?.reminders?.time || null,
+      reminder_days: payload?.reminders?.days || [],
+      feature_flags: payload?.feature_flags || {},
+      consent_accepted: !!payload?.consent?.accepted,
+      consent_at: payload?.consent?.accepted ? new Date().toISOString() : null,
+      onboarding_version: 2,
+      onboarding_completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    // Remove undefined to avoid constraint issues
+    Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
+
+    const { error } = await this.client
+      .from('user_profiles')
+      .upsert(body, { onConflict: 'user_id' })
+      .single();
+    if (error) throw error;
+  }
 }
 
 // ===========================

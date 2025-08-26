@@ -434,6 +434,31 @@ export class UnifiedAIPipeline {
       // Tracking/compulsion analytics removed
     }
     
+    // Load lightweight user profile context (non-blocking)
+    let userProfileCtx: any = null;
+    try {
+      const { loadUserProfileContext } = await import('@/features/ai/context/userProfileAdapter');
+      userProfileCtx = await loadUserProfileContext(input.userId);
+    } catch {}
+    
+    // After generating insights/suggestions, apply subtle weighting
+    const result: UnifiedPipelineResult = {
+      ...result,
+      metadata: {
+        ...result.metadata,
+        source: 'fresh',
+        processingTime: Date.now() - startTime
+      }
+    } as any;
+    if (userProfileCtx) {
+      // Example: if reminders enabled, increase freshness TTL for today digest
+      if (result.analytics && userProfileCtx.remindersEnabled) {
+        try {
+          (result as any).metadata = { ...(result as any).metadata, reminderBoost: true };
+        } catch {}
+      }
+    }
+    
     return result;
   }
   

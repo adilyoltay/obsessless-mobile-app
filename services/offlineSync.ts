@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin';
+  entity: 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -86,7 +86,7 @@ export class OfflineSyncService {
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
     // ✅ F-01 FIX: Guard against unsupported entities (ERP remnants)
     const SUPPORTED_ENTITIES = new Set([
-      'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin'
+      'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'user_profile'
     ]);
     
     if (!SUPPORTED_ENTITIES.has(item.entity as any)) {
@@ -218,6 +218,9 @@ export class OfflineSyncService {
 
   private async syncItem(item: SyncQueueItem): Promise<void> {
     switch (item.entity) {
+      case 'user_profile':
+        await this.syncUserProfile(item);
+        break;
       // compulsion removed
       // thought_record removed
       case 'ai_profile':
@@ -249,6 +252,12 @@ export class OfflineSyncService {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
     await (svc as any).upsertAIProfile(d.user_id, d.profile_data, !!d.onboarding_completed);
+  }
+
+  private async syncUserProfile(item: SyncQueueItem): Promise<void> {
+    const { default: svc } = await import('@/services/supabase');
+    const d = item.data || {};
+    await (svc as any).upsertUserProfile(d.user_id || d.userId, d.payload || d);
   }
 
   private async syncTreatmentPlan(item: SyncQueueItem): Promise<void> {

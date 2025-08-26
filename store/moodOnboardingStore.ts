@@ -89,6 +89,20 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         await supabaseService.updateUser(userId, meta);
       } catch {}
 
+      // Upsert user profile (v2)
+      try {
+        await supabaseService.upsertUserProfile(userId, payload);
+      } catch (error) {
+        try {
+          const { offlineSyncService } = await import('@/services/offlineSync');
+          await offlineSyncService.addToSyncQueue({
+            entity: 'user_profile',
+            type: 'UPDATE',
+            data: { user_id: userId, payload, version: 2 }
+          });
+        } catch {}
+      }
+
       // Schedule notifications if enabled (best effort)
       try {
         if (payload.reminders?.enabled && payload.reminders.time) {
