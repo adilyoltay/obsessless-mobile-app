@@ -724,22 +724,7 @@ export class UnifiedAIPipeline {
       // 7. CONFIDENCE CALCULATION
       analysis.metadata.confidence = this.calculateCBTConfidence(detectedDistortions, text.length);
       
-      // Try to use cbtEngine if available (fallback to built-in logic)
-      try {
-        const { cbtEngine } = await import('../engines/cbtEngine');
-        
-        if (cbtEngine.enabled) {
-          const engineDistortions = await cbtEngine.detectDistortions(text);
-          const engineReframes = await cbtEngine.suggestReframes(text, engineDistortions);
-          
-          // Merge engine results with built-in analysis
-          analysis.distortions = [...analysis.distortions, ...engineDistortions.map(d => ({ name: d.name, confidence: d.confidence }))];
-          analysis.reframes = [...analysis.reframes, ...engineReframes];
-          analysis.metadata.confidence = Math.max(analysis.metadata.confidence, 0.85);
-        }
-      } catch (engineError) {
-        console.warn('CBT Engine unavailable, using built-in analysis:', engineError);
-      }
+      // CBT engine removed; rely on built-in heuristics only
       
       return analysis;
     } catch (error) {

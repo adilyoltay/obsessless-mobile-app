@@ -107,13 +107,9 @@ export class ModuleOrchestrator {
     // Register MOOD handler
     this.registerModule('mood', new MoodHandler());
 
-    // Register CBT handler
-    if (FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE')) {
-      this.registerModule('cbt', new CBTHandler());
-    }
+    // CBT handler removed
 
-    // Register OCD handler
-    this.registerModule('ocd', new OCDHandler());
+    // OCD handler removed
 
     // (Removed) Register Terapi handler
 
@@ -322,58 +318,12 @@ class MoodHandler implements IModuleHandler {
 /**
  * CBT module handler
  */
-class CBTHandler implements IModuleHandler {
-  name = 'CBTHandler';
-
-  canHandle(quickClass: QuickClass): boolean {
-    return quickClass === 'CBT';
-  }
-
-  async process(result: AnalysisResult): Promise<ModuleResponse> {
-    return {
-      success: true,
-      action: 'OPEN_SCREEN',
-      data: {
-        screen: 'cbt',
-        params: {
-          prefill: true,
-          text: result.payload?.originalText,
-          trigger: 'voice',
-        },
-        message: 'Düşünce kaydı açılıyor',
-        processed: true,
-      },
-    };
-  }
-}
+// CBTHandler removed
 
 /**
  * OCD module handler
  */
-class OCDHandler implements IModuleHandler {
-  name = 'OCDHandler';
-
-  canHandle(quickClass: QuickClass): boolean {
-    return quickClass === 'OCD';
-  }
-
-  async process(result: AnalysisResult): Promise<ModuleResponse> {
-    return {
-      success: true,
-      action: 'OPEN_SCREEN',
-      data: {
-        screen: 'tracking',
-        params: {
-          prefill: true,
-          category: result.payload?.category || 'other',
-          text: result.payload?.originalText,
-        },
-        message: 'Takıntı kaydı açılıyor',
-        processed: true,
-      },
-    };
-  }
-}
+// OCDHandler removed
 
 /**
  * Terapi module handler

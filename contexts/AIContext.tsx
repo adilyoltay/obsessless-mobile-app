@@ -242,14 +242,7 @@ export function AIProvider({ children }: AIProviderProps) {
             await externalAIService.initialize();
           }
         },
-        {
-          name: 'AI_CBT_ENGINE',
-          enabled: FEATURE_FLAGS.isEnabled('AI_CBT_ENGINE'),
-          task: async () => {
-            const { cbtEngine } = await import('@/features/ai/engines/cbtEngine');
-            await cbtEngine.initialize();
-          }
-        },
+        // CBT engine removed with module cleanup
         {
           name: 'AI_INSIGHTS_ENGINE_V2',
           enabled: FEATURE_FLAGS.isEnabled('AI_INSIGHTS_ENGINE_V2'),

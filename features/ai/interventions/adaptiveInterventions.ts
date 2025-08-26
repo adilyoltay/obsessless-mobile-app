@@ -17,7 +17,8 @@ import {
   AIErrorCode,
   ErrorSeverity
 } from '@/features/ai/types';
-import { CBTTechnique } from '@/features/ai/engines/cbtEngine';
+// CBTTechnique moved: use InterventionType from types
+import { InterventionType as CBTTechnique } from '@/features/ai/types';
 import { 
   ContextAnalysisResult, 
   StressLevel, 
@@ -819,10 +820,10 @@ class AdaptiveInterventionsEngine {
 
   private mapCategoryToCBTTechnique(category: InterventionCategory): CBTTechnique | undefined {
     switch (category) {
-      case InterventionCategory.STRESS_REDUCTION: return CBTTechnique.MINDFULNESS_INTEGRATION;
+      case InterventionCategory.STRESS_REDUCTION: return CBTTechnique.PSYCHOEDUCATION;
       case InterventionCategory.MOOD_REGULATION: return CBTTechnique.COGNITIVE_RESTRUCTURING;
-      case InterventionCategory.CBT_TECHNIQUE: return CBTTechnique.SOCRATIC_QUESTIONING;
-      case InterventionCategory.BEHAVIORAL_ACTIVATION: return CBTTechnique.BEHAVIORAL_EXPERIMENT;
+      case InterventionCategory.CBT_TECHNIQUE: return CBTTechnique.COGNITIVE_RESTRUCTURING;
+      case InterventionCategory.BEHAVIORAL_ACTIVATION: return CBTTechnique.BEHAVIORAL_ACTIVATION;
       default: return undefined;
     }
   }

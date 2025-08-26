@@ -58,13 +58,7 @@ export default function VoiceMoodCheckin({
   const [tooShort, setTooShort] = useState<boolean>(false);
   const [lowConfidence, setLowConfidence] = useState<boolean>(false);
   const [showReframe, setShowReframe] = useState<boolean>(false);
-  const [showCBTFlow, setShowCBTFlow] = useState<boolean>(false);
-  const [cbtStep, setCbtStep] = useState<'distortions' | 'evidence' | 'reframe'>('distortions');
-  const [detectedDistortions, setDetectedDistortions] = useState<string[]>([]);
-  const [selectedDistortions, setSelectedDistortions] = useState<string[]>([]);
-  const [evidenceFor, setEvidenceFor] = useState<string>('');
-  const [evidenceAgainst, setEvidenceAgainst] = useState<string>('');
-  const [cbtSuggestion, setCbtSuggestion] = useState<string>('');
+  // CBT flow removed
   const [cbtAutoStarted, setCbtAutoStarted] = useState<boolean>(false);
   const [reframes, setReframes] = useState<string[]>([]);
 
@@ -184,65 +178,7 @@ export default function VoiceMoodCheckin({
       });
     } catch {}
     
-    // Otomatik bilişsel çarpıtma tespiti
-    console.log('🔍 CBT analizi başlatılıyor...', res.text);
-    try {
-      const { cbtEngine } = await import('@/features/ai/engines/cbtEngine');
-      console.log('✅ CBT Engine yüklendi');
-      
-      const mockMessage = { 
-        content: res.text, 
-        role: 'user' as const,
-        timestamp: new Date().toISOString(),
-        id: `msg_${Date.now()}`
-      };
-      const mockContext = {
-        conversationId: `conv_${Date.now()}`,
-        userId: user?.id || 'anonymous',
-        sessionStartTime: new Date().toISOString(),
-        messages: [mockMessage],
-        currentPhase: 'assessment' as const
-      };
-      
-      console.log('📝 CBT parametreleri hazırlandı:', { message: mockMessage.content, userId: mockContext.userId });
-      
-      const assessment = await cbtEngine.detectCognitiveDistortions(mockMessage, mockContext);
-      console.log('🧠 CBT Çarpıtma Analizi SONUCU:', assessment);
-      
-      if (assessment && assessment.detectedDistortions && assessment.detectedDistortions.length > 0) {
-        console.log('🎯 Çarpıtmalar tespit edildi:', assessment.detectedDistortions);
-        const distortionNames = assessment.detectedDistortions.map(d => {
-          switch(d.type) {
-            case 'CATASTROPHIZING': return 'Felaketleştirme';
-            case 'ALL_OR_NOTHING': return 'Ya Hep Ya Hiç';
-            case 'OVERGENERALIZATION': return 'Aşırı Genelleme';
-            case 'MIND_READING': return 'Zihin Okuma';
-            case 'LABELING': return 'Etiketleme';
-            case 'FORTUNE_TELLING': return 'Falcılık';
-            default: return d.type;
-          }
-        });
-        setDetectedDistortions(distortionNames);
-        // Çarpıtma varsa CBT akışını otomatik başlat
-        setShowCBTFlow(true);
-        setCbtStep('distortions');
-        console.log('✅ CBT akışı başlatıldı, tespit edilen çarpıtmalar:', distortionNames);
-      } else {
-        console.log('❌ Hiç çarpıtma tespit edilmedi');
-        // Heuristik fallback: felaketleştirme benzeri ifadeler için CBT'yi yine de başlat
-        const lower = (res.text || '').toLowerCase();
-        const looksCatastrophizing = /(ya\s|eğer\s|kesin|mutlaka|asla|olmazsa|hırsız|mahvolurum|felaket)/.test(lower);
-        if (looksCatastrophizing && lower.length > 8) {
-          setDetectedDistortions(['Felaketleştirme']);
-          setSelectedDistortions(['Felaketleştirme']);
-          setShowCBTFlow(true);
-          setCbtStep('distortions');
-          console.log('✅ Heuristik nedeniyle CBT akışı başlatıldı (Felaketleştirme)');
-        }
-      }
-    } catch (cbtError) {
-      console.log('❌ CBT analizi başarısız:', cbtError);
-    }
+    // CBT analizi kaldırıldı
     
     await persistCheckin(res.text, n);
   };
@@ -261,75 +197,7 @@ export default function VoiceMoodCheckin({
     }
   }, [params.cbtText, cbtAutoStarted]);
 
-  const saveCBTRecord = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const moodBefore = Math.round((nlu?.mood || 50) / 10);
-      const moodAfter = Math.min(moodBefore + 2, 10); // Simüle edilmiş iyileşme (max 10)
-      
-      const record = {
-        user_id: user.id,
-        thought: transcript,
-        distortions: selectedDistortions,
-        evidence_for: evidenceFor,
-        evidence_against: evidenceAgainst,
-        reframe: reframes[0] || '',
-        mood_before: moodBefore,
-        mood_after: moodAfter,
-        trigger: nlu?.trigger,
-        notes: ''
-      };
-      
-      // Save to Supabase first
-      try {
-        const supabaseService = (await import('@/services/supabase')).default;
-        const result = await supabaseService.saveCBTRecord(record);
-        console.log('✅ CBT record saved to Supabase:', result?.id);
-        
-        // ✅ FIXED: Trigger cache invalidation for CBT insights
-        if (result?.id) {
-          unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
-          console.log('🔄 CBT cache invalidation triggered');
-        }
-      } catch (error) {
-        console.warn('⚠️ Supabase save failed, using local storage:', error);
-      }
-      
-      // Also save to local storage for offline access
-      const localRecord = {
-        id: `cbt_${Date.now()}`,
-        ...record,
-        created_at: new Date().toISOString(),
-        timestamp: new Date() // For backward compatibility
-      };
-      
-      const key = StorageKeys.THOUGHT_RECORDS?.(user.id) || `thought_records_${user.id}`;
-      const existing = await loadUserData<any[]>(key) || [];
-      await saveUserData(key, [...existing, localRecord]);
-      
-      // Gamification
-      try {
-        const { useGamificationStore } = await import('@/store/gamificationStore');
-        const { awardMicroReward } = useGamificationStore.getState();
-        await awardMicroReward('cbt_completed', 15);
-      } catch {}
-      
-      // Callback
-      if (onSave) {
-        onSave();
-      }
-      
-      // Reset
-      setShowCBTFlow(false);
-      setCbtStep('distortions');
-      setSelectedDistortions([]);
-      setEvidenceFor('');
-      setEvidenceAgainst('');
-    } catch (error) {
-      console.error('CBT kaydetme hatası:', error);
-    }
-  };
+  // CBT kayıt akışı kaldırıldı
 
   const handleSelect = async (route: 'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
@@ -360,7 +228,7 @@ export default function VoiceMoodCheckin({
         </Card>
       )}
       {nlu && (
-        <SuggestionCard nlu={nlu} onSelect={handleSelect} lowConfidence={lowConfidence} cbtSuggestion={cbtSuggestion} />
+        <SuggestionCard nlu={nlu} onSelect={handleSelect} lowConfidence={lowConfidence} />
       )}
 
       {/* Reframe Bottom Sheet */}
@@ -371,103 +239,7 @@ export default function VoiceMoodCheckin({
         ))}
       </BottomSheet>
 
-      {/* CBT Flow Bottom Sheet */}
-      <BottomSheet isVisible={showCBTFlow} onClose={() => setShowCBTFlow(false)}>
-        <Text style={styles.sheetTitle}>Düşünce Kaydı</Text>
-        <Text style={styles.cbtThought}>{transcript}</Text>
-        {cbtStep === 'distortions' && (
-          <View style={{ marginTop: 8 }}>
-            <Text style={styles.sectionLabel}>Olası Bilişsel Çarpıtmalar</Text>
-            <View style={styles.distortionChips}>
-              {(detectedDistortions.length ? detectedDistortions : ['Felaketleştirme','Ya Hep Ya Hiç','Aşırı Genelleme']).map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() => setSelectedDistortions(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}
-                  style={[styles.chip, selectedDistortions.includes(d) && styles.chipSelected]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Çarpıtma: ${d}`}
-                >
-                  <Text style={[styles.chipText, selectedDistortions.includes(d) && styles.chipTextSelected]}>{d}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.sheetActions}>
-              <Button 
-                title="Devam" 
-                onPress={() => setCbtStep('evidence')} 
-                variant="primary"
-                style={styles.actionButton}
-              />
-            </View>
-          </View>
-        )}
-        {cbtStep === 'evidence' && (
-          <View>
-            <ScrollView style={{ maxHeight: 200 }}>
-              <Text style={styles.sectionLabel}>Lehine Kanıtlar</Text>
-              <TextInput
-                placeholder="Bu düşünceyi destekleyen kanıtlar..."
-                style={styles.input}
-                multiline
-                value={evidenceFor}
-                onChangeText={setEvidenceFor}
-              />
-              <Text style={styles.sectionLabel}>Aleyhine Kanıtlar</Text>
-              <TextInput
-                placeholder="Bu düşünceye karşı kanıtlar..."
-                style={styles.input}
-                multiline
-                value={evidenceAgainst}
-                onChangeText={setEvidenceAgainst}
-              />
-            </ScrollView>
-            <View style={styles.sheetActions}>
-              <Button 
-                title="Geri" 
-                onPress={() => setCbtStep('distortions')} 
-                variant="secondary"
-                style={styles.actionButton}
-              />
-              <Button 
-                title="Devam" 
-                onPress={async () => {
-                  if (reframes.length === 0) {
-                    try {
-                      const suggestions = await generateReframes({ text: transcript, lang: (nlu?.lang || 'tr') as any });
-                      setReframes(suggestions.map(s => s.text));
-                    } catch {}
-                  }
-                  setCbtStep('reframe');
-                }} 
-                variant="primary"
-                style={styles.actionButton}
-              />
-            </View>
-          </View>
-        )}
-        {cbtStep === 'reframe' && (
-          <View>
-            <Text style={styles.sectionLabel}>Daha Dengeli Düşünceler</Text>
-            {(reframes.length ? reframes : ['Dışarıda risk her zaman vardır ama kapıyı çoğu zaman kilitlediğim gerçeğini de hatırlayabilirim.','Kontrol etmeden de güvende olabilirim; hatırlatıcı listem var.']).map((r, i) => (
-              <Text key={i} style={styles.sheetItem}>• {r}</Text>
-            ))}
-            <View style={styles.sheetActions}>
-              <Button 
-                title="Geri" 
-                onPress={() => setCbtStep('evidence')} 
-                variant="secondary"
-                style={styles.actionButton}
-              />
-              <Button 
-                title="Tamamla" 
-                onPress={saveCBTRecord} 
-                variant="primary"
-                style={styles.actionButton}
-              />
-            </View>
-          </View>
-        )}
-      </BottomSheet>
+      {/* CBT Flow removed */}
     </View>
   );
 }

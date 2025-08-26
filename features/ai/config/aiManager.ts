@@ -125,7 +125,7 @@ export class AIManager {
     // Phase 1: critical & independent
     const phase1 = [
       (async () => (await import('@/features/ai/services/externalAIService')).externalAIService.initialize())(),
-      (async () => (await import('@/features/ai/engines/cbtEngine')).cbtEngine.initialize())(),
+      // CBT engine removed
       (async () => (await import('@/features/ai/prompts/therapeuticPrompts')).therapeuticPromptEngine.initialize())(),
     ];
     const phase1Results = await Promise.allSettled(phase1);
@@ -159,7 +159,7 @@ export class AIManager {
 
     // Update health map (best-effort)
     this.healthStatus.set('externalAI', true);
-    this.healthStatus.set('cbtEngine', true);
+    // cbtEngine removed
     this.healthStatus.set('therapeuticPrompts', true);
     this.healthStatus.set('insightsV2', true);
     this.healthStatus.set('patternV2', true);

@@ -17,7 +17,16 @@ import {
   ConversationState,
   RiskLevel as CrisisRiskLevel
 } from '@/features/ai/types';
-import { CBTTechnique, CognitiveDistortion, CBTIntervention } from '@/features/ai/engines/cbtEngine';
+import { InterventionType as CBTTechnique } from '@/features/ai/types';
+type CognitiveDistortion = string;
+interface CBTIntervention {
+  title: string;
+  description: string;
+  userPrompt: string;
+  followUpQuestions: string[];
+  expectedOutcome: string;
+  contraindications?: string[];
+}
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // =============================================================================
@@ -461,15 +470,13 @@ KÜLTÜREL UYARLAMALAR:
 
     if (context.detectedDistortions) {
       context.detectedDistortions.forEach(distortion => {
-        switch (distortion) {
-          case CognitiveDistortion.ALL_OR_NOTHING:
-            techniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING);
-            break;
-          case CognitiveDistortion.CATASTROPHIZING:
-            techniques.push(CBTTechnique.THOUGHT_CHALLENGING);
-            break;
-          default:
-            techniques.push(CBTTechnique.SOCRATIC_QUESTIONING);
+        const key = String(distortion).toLowerCase();
+        if (key.includes('all') || key.includes('hep') || key.includes('hiç')) {
+          techniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING);
+        } else if (key.includes('catas') || key.includes('felaket')) {
+          techniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING);
+        } else {
+          techniques.push(CBTTechnique.PSYCHOEDUCATION);
         }
       });
     }
