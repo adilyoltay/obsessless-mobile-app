@@ -102,7 +102,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       // Analytics tracking
       try {
         const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED as any, {
+        await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
           userId,
           durationMs,
           steps: get().step+1,

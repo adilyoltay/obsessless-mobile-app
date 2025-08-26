@@ -17,7 +17,7 @@ export async function trackOnbReminder(enabled: boolean, time?: string, days_cou
 }
 
 export async function trackOnbComplete(steps_completed: number, flags: Record<string, any>, duration_ms: number) {
-  await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED as any, { steps_completed, flags, duration_ms });
+  await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, { steps_completed, flags, duration_ms });
 }
 
 

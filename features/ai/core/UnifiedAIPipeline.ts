@@ -46,7 +46,7 @@ export interface UnifiedPipelineInput {
   content: string | any; // Voice text, user data, etc.
   type: 'voice' | 'data' | 'mixed';
   context?: {
-    source: 'today' | 'tracking' | 'cbt' | 'mood';
+    source: 'today' | 'mood';
     timestamp?: number;
     metadata?: Record<string, any>;
   };
@@ -55,7 +55,7 @@ export interface UnifiedPipelineInput {
 export interface UnifiedPipelineResult {
   // Voice Analysis Results
   voice?: {
-    category: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK' | 'OTHER';
+    category: 'MOOD' | 'BREATHWORK' | 'OTHER';
     confidence: number;
     suggestion?: string;
     route?: string;
@@ -271,7 +271,7 @@ export class UnifiedAIPipeline {
           pipelineVersion: '1.0.0',
           processedAt: Date.now(),
           cacheTTL: 0,
-          source: 'disabled',
+          source: 'cache',
           processingTime: Date.now() - startTime
         }
       };
@@ -371,14 +371,7 @@ export class UnifiedAIPipeline {
       })
     );
     
-    // 3. CBT Analysis (if relevant)
-    if (this.shouldRunCBT(input)) {
-      promises.push(
-        this.processCBTAnalysis(input).then(cbt => {
-          result.cbt = cbt;
-        })
-      );
-    }
+    // CBT analysis removed
     
     // 4. Breathwork Analysis (NEW - Week 2)
     if (this.shouldRunBreathwork(input)) {

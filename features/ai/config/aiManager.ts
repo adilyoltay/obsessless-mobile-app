@@ -172,10 +172,10 @@ export class AIManager {
         await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_STARTED, {
           activatedAt: Date.now(),
           environment: __DEV__ ? 'development' : 'production',
-          rolloutPercentage: FEATURE_FLAGS.AI_UNIFIED_PIPELINE_PERCENTAGE,
+          // rolloutPercentage removed
           enabledModules: {
             voice: FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE'),
-            patterns: FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS'), 
+            patterns: FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS'),
             insights: FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS')
           }
         });

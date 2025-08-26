@@ -109,6 +109,7 @@ export enum AIEventType {
   ONBOARDING_SELECT = 'onboarding_select',
   ONBOARDING_SKIP = 'onboarding_skip',
   ONBOARDING_SET_REMINDER = 'onboarding_set_reminder',
+  ONBOARDING_COMPLETED = 'onboarding_completed',
   YBOCS_ANALYSIS_COMPLETED = 'assessment_completed',
   TREATMENT_PLAN_GENERATED = 'treatment_plan_generated',
   JITAI_SHUTDOWN = 'jitai_shutdown',

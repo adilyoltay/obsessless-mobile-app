@@ -42,6 +42,7 @@ export interface UserProfile {
   updated_at: string;
 }
 
+// OCDProfile removed; keep minimal placeholder to avoid breakage if referenced
 export interface OCDProfile {
   id: string;
   user_id: string;

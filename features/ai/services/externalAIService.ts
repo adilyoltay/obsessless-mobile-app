@@ -711,7 +711,7 @@ class ExternalAIService {
             success: true,
             content: edgeResult.summary,
             requestId,
-            provider: 'edge-function',
+            provider: AIProvider.LOCAL,
             model: 'gemini-via-edge',
             latency: Date.now() - startTime,
             tokens: {
@@ -957,7 +957,7 @@ class ExternalAIService {
 
         if (!combinedText) {
           const err = new Error('No text content provided for analysis');
-          (err as any).code = AIErrorCode.INVALID_REQUEST;
+          (err as any).code = AIErrorCode.MODEL_ERROR;
           throw err;
         }
 
@@ -978,7 +978,7 @@ class ExternalAIService {
             success: true,
             content: edgeResult.summary,
             requestId: `edge_${Date.now()}`,
-            provider: 'edge-function',
+            provider: AIProvider.LOCAL,
             model: 'gemini-1.5-flash',
             latency: Date.now() - startTime,
             tokens: {
