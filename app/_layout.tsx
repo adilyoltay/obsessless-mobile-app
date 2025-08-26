@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
@@ -41,6 +42,37 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  // One-time storage cleanup for legacy CBT/OCD/ERP keys
+  useEffect(() => {
+    (async () => {
+      try {
+        const FLAG = '__legacy_cleanup_v1_done__';
+        const done = await AsyncStorage.getItem(FLAG);
+        if (done === '1') return;
+        const allKeys = await AsyncStorage.getAllKeys();
+        const shouldRemove = (key: string) => (
+          key === 'compulsion_logs' ||
+          key === 'ybocs_history' ||
+          key === 'compulsionEntries' ||
+          key.startsWith('therapy_sessions_') ||
+          key.startsWith('erp_sessions_') ||
+          key.startsWith('compulsions_') ||
+          key.startsWith('last_compulsion_') ||
+          key.startsWith('thought_records_') ||
+          key.startsWith('thought_record_draft_') ||
+          key.startsWith('ocd_profile_')
+        );
+        const keysToRemove = allKeys.filter(shouldRemove);
+        if (keysToRemove.length > 0) {
+          await AsyncStorage.multiRemove(keysToRemove);
+        }
+        await AsyncStorage.setItem(FLAG, '1');
+      } catch (e) {
+        if (__DEV__) console.warn('Storage cleanup skipped:', e);
+      }
+    })();
+  }, []);
 
   // Foreground DLQ scheduler: process periodically when app is active
   useEffect(() => {
