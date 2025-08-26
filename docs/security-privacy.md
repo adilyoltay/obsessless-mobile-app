@@ -27,31 +27,23 @@ enum DataSensitivity {
 **File**: `services/encryption/secureDataService.ts`
 
 ```typescript
-class SecureDataService {
-  async encrypt(data: string, key?: string): Promise<EncryptedData> {
-    const derivedKey = await this.deriveKey(key);
-    const iv = crypto.getRandomValues(new Uint8Array(12)); // 96 bits
-    
-    const cipher = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      derivedKey,
-      new TextEncoder().encode(data)
-    );
-    
-    return {
-      data: Array.from(new Uint8Array(cipher)),
-      iv: Array.from(iv),
-      algorithm: 'AES-256-GCM'
-    };
-  }
-}
+// React Native (Expo/Hermes) uyumlu AES-256-GCM
+import 'react-native-get-random-values';
+const { createCipheriv, createDecipheriv, randomBytes, Buffer } = require('react-native-quick-crypto');
+
+const iv = randomBytes(12); // 96-bit IV
+const cipher = createCipheriv('aes-256-gcm', key, iv);
+const ct = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+const tag = cipher.getAuthTag();
+// Depolamada: base64(ct || ct+tag)
 ```
 
 **Configuration**:
-- **Algorithm**: AES-256-GCM
-- **IV Length**: 96-bit initialization vector
-- **Key Derivation**: PBKDF2 with 100,000 iterations
-- **Authentication**: 128-bit authentication tag
+- **Algorithm**: AES-256-GCM (auth tag dahil)
+- **IV Length**: 96-bit
+- **Key Size**: 256-bit
+
+Fallback: AES-GCM desteklenmeyen runtime’larda sadece non‑secret telemetry hash’leri için `SHA256_FALLBACK` kullanılır.
 
 ### Secure Storage Keys
 ```typescript

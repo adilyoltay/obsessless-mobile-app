@@ -19,6 +19,11 @@ Ana işlevler:
 - Dead Letter Queue (DLQ) handling
 - Cache invalidation coordination
 
+Ek notlar:
+- DLQ: `services/sync/deadLetterQueue.ts` içinde `SUPPORTED_ENTITIES` listesi `user_profile` dahil olacak şekilde tutulur.
+- Concurrency: Küçük eşzamanlılık (2) uygulanır ve aynı kullanıcıya ait item’larda sıralama korunur (aynı kullanıcı için aynı anda sadece bir iş yürütülür).
+- Invalidation: Sadece başarıyla senkronize edilen entity’ler `emitSyncCompleted([...entities], userId)` ile yayınlanır.
+
 ## Queue Yapısı
 
 ### SyncQueueItem Interface

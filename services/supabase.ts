@@ -1472,13 +1472,29 @@ class SupabaseNativeService {
       return allowed.includes(base) ? base : undefined;
     };
 
-    const gender = mapEnum(payload?.profile?.gender, ['female','male','non_binary','prefer_not_to_say']);
-    const lifestyle_exercise = mapEnum(payload?.lifestyle?.exercise, ['none','light','moderate','intense']);
-    const lifestyle_social = mapEnum(payload?.lifestyle?.social, ['low','medium','high']);
+    const genderRaw = payload?.profile?.gender;
+    const lifestyleExerciseRaw = payload?.lifestyle?.exercise;
+    const lifestyleSocialRaw = payload?.lifestyle?.social;
+
+    const gender = mapEnum(genderRaw, ['female','male','non_binary','prefer_not_to_say']);
+    const lifestyle_exercise = mapEnum(lifestyleExerciseRaw, ['none','light','moderate','intense']);
+    const lifestyle_social = mapEnum(lifestyleSocialRaw, ['low','medium','high']);
     const motivations = Array.isArray(payload?.motivation) ? payload.motivation.filter((m: any) => typeof m === 'string') : [];
     const firstMoodScoreRaw = payload?.first_mood?.score;
     const first_mood_score = typeof firstMoodScoreRaw === 'number' ? Math.min(5, Math.max(1, firstMoodScoreRaw)) : (firstMoodScoreRaw != null ? Number(firstMoodScoreRaw) : null);
     const first_mood_tags = Array.isArray(payload?.first_mood?.tags) ? payload.first_mood.tags.filter((t: any) => typeof t === 'string') : [];
+
+    // Telemetry for invalid enums (omit with warning)
+    try {
+      const invalids: Record<string, any> = {};
+      if (genderRaw && !gender) invalids.gender = genderRaw;
+      if (lifestyleExerciseRaw && !lifestyle_exercise) invalids.lifestyle_exercise = lifestyleExerciseRaw;
+      if (lifestyleSocialRaw && !lifestyle_social) invalids.lifestyle_social = lifestyleSocialRaw;
+      if (Object.keys(invalids).length > 0) {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'validation_warning', entity: 'user_profile', fields: invalids, userId });
+      }
+    } catch {}
 
     const body: any = {
       user_id: userId,

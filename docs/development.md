@@ -183,7 +183,9 @@ src/
 - **`app/(tabs)/_layout.tsx`**: Tab navigation yapılandırması
 
 #### Services
-- **`services/encryption/secureDataService.ts`**: AES-GCM şifreleme
+- **`services/encryption/secureDataService.ts`**: AES-GCM şifreleme (RN uyumlu: `react-native-quick-crypto` + `react-native-get-random-values`). Expo/Hermes ortamında Web Crypto bağımlılığı kaldırılmıştır. Fallback: `SHA256_FALLBACK` sadece non-secret telemetry hash için.
+  - Kurulum: `yarn add react-native-quick-crypto react-native-get-random-values`
+  - Test: `__tests__/unit/secureDataService.roundtrip.test.ts` büyük veri + Unicode round‑trip
 - **`services/telemetry/performanceMetricsService.ts`**: Performance tracking
 - **`services/autoRecordService.ts`**: Otomatik kayıt servisi
 

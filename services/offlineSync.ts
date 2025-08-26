@@ -172,47 +172,70 @@ export class OfflineSyncService {
       const failed: SyncQueueItem[] = [];
       const latencies: number[] = [];
 
-      // Small concurrency limiter (2)
+      // Small concurrency limiter (2) with per-user ordering
       const concurrency = 2;
-      let index = 0;
+      const inflightUsers = new Set<string>();
+      const consumed = new Set<string>();
 
-      const runNext = async (): Promise<void> => {
-        if (index >= itemsToSync.length) return;
-        const current = itemsToSync[index++];
+      const deriveUserId = (it: SyncQueueItem): string | null => {
         try {
-          const startedAt = Date.now();
-          await syncCircuitBreaker.execute(() => this.syncItem(current));
-          const latencyMs = Date.now() - startedAt;
-          successful.push(current);
-          latencies.push(latencyMs);
-          // Remove from queue if successful
-          this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
-          // Telemetry (non-blocking)
+          return it?.data?.user_id || it?.data?.userId || null;
+        } catch { return null; }
+      };
+
+      const pickCandidate = (): SyncQueueItem | undefined => {
+        for (let i = 0; i < itemsToSync.length; i++) {
+          const cand = itemsToSync[i];
+          if (consumed.has(cand.id)) continue;
+          const uid = deriveUserId(cand);
+          if (uid && inflightUsers.has(uid)) continue;
+          return cand;
+        }
+        return undefined;
+      };
+
+      const runWorker = async (): Promise<void> => {
+        while (true) {
+          const current = pickCandidate();
+          if (!current) break;
+          const uid = deriveUserId(current);
+          if (uid) inflightUsers.add(uid);
+          consumed.add(current.id);
           try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-            await trackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
-          } catch {}
-        } catch (error) {
-          // Increment retry count and backoff per-item
-          const queueItem = this.syncQueue.find(q => q.id === current.id);
-          if (queueItem) {
-            queueItem.retryCount = (queueItem.retryCount || 0) + 1;
-            failed.push(queueItem);
-            const attempt = queueItem.retryCount;
-            const base = 2000;
-            const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
-            await new Promise(res => setTimeout(res, delay));
-            if (attempt >= 8) {
-              this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
-              await this.handleFailedSync(queueItem);
+            const startedAt = Date.now();
+            await syncCircuitBreaker.execute(() => this.syncItem(current));
+            const latencyMs = Date.now() - startedAt;
+            successful.push(current);
+            latencies.push(latencyMs);
+            // Remove from queue if successful
+            this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
+            // Telemetry (non-blocking)
+            try {
+              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await trackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
+            } catch {}
+          } catch (error) {
+            // Increment retry count and backoff per-item
+            const queueItem = this.syncQueue.find(q => q.id === current.id);
+            if (queueItem) {
+              queueItem.retryCount = (queueItem.retryCount || 0) + 1;
+              failed.push(queueItem);
+              const attempt = queueItem.retryCount;
+              const base = 2000;
+              const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
+              await new Promise(res => setTimeout(res, delay));
+              if (attempt >= 8) {
+                this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
+                await this.handleFailedSync(queueItem);
+              }
             }
+          } finally {
+            if (uid) inflightUsers.delete(uid);
           }
-        } finally {
-          await runNext();
         }
       };
 
-      const workers = Array.from({ length: Math.min(concurrency, itemsToSync.length) }, () => runNext());
+      const workers = Array.from({ length: Math.min(concurrency, itemsToSync.length) }, () => runWorker());
       await Promise.all(workers);
 
       await this.saveSyncQueue();

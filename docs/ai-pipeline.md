@@ -173,3 +173,22 @@ Pipeline metadata'da non-breaking ağırlıklandırma:
 - [**Architecture**](./architecture.md) – System design overview
 - [**Data Model**](./data-model.md) – Context data structures
 - [**Troubleshooting**](./troubleshooting.md) – AI pipeline issues and solutions
+
+## Cache TTL ve Progressive UI Metadata
+
+Modül bazlı TTL varsayılanları pipeline içinde tanımlıdır; ortam değişkenleri ile override edilebilir:
+
+```
+PIPELINE_TTL_DEFAULT_MS
+PIPELINE_TTL_VOICE_MS
+PIPELINE_TTL_PATTERNS_MS
+PIPELINE_TTL_INSIGHTS_MS
+PIPELINE_TTL_PROGRESS_MS
+TEST_TTL_MS
+```
+
+Progressive UI ağırlıklandırması için sonuç metadata:
+
+```
+result.metadata.heuristicConfidence // 0..1 (ör. voice.confidence)
+```
