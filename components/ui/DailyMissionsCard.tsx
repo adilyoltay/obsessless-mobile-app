@@ -218,7 +218,7 @@ export default function DailyMissionsCard({
           return (
             <View key={mission.id} style={styles.missionContainer}>
               <LinearGradient
-                colors={isCompleted ? ['#E8F5E8', '#C8E6C9'] : difficultyConfig.gradient}
+                colors={isCompleted ? ['#E8F5E8', '#C8E6C9'] : (difficultyConfig.gradient as [string, string])}
                 style={[styles.missionCard, isCompleted && styles.completedCard]}
               >
                 {/* Mission Header */}

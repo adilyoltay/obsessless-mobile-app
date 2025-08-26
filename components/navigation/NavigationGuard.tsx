@@ -33,7 +33,8 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       const currentPath = segments.join('/');
       const inTabsGroup = segments[0] === '(tabs)';
       const inAuthGroup = segments[0] === '(auth)';
-      const inOnboardingRoute = inAuthGroup && (segments[1] === 'onboarding' || currentPath.startsWith('(auth)/onboarding'));
+      const second = (segments as any)[1] || '';
+      const inOnboardingRoute = inAuthGroup && (second === 'onboarding' || currentPath.startsWith('(auth)/onboarding'));
 
       if (!router || typeof router.replace !== 'function') { setIsChecking(false); return; }
 

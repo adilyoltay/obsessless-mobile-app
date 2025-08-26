@@ -526,10 +526,10 @@ export default function DebugAIPipelineOverlay() {
         timestamp: new Date().toISOString(),
         totalEvents: events.length,
         events: events.map(event => ({
-          timestamp: event.timestamp,
-          type: event.type,
-          metadata: event.metadata,
-          duration: event.duration ? `${event.duration}ms` : undefined
+          timestamp: (event as any).timestamp,
+          type: (event as any).type,
+          metadata: (event as any).metadata,
+          duration: (event as any).duration ? `${(event as any).duration}ms` : undefined
         }))
       };
 
