@@ -38,10 +38,7 @@ export default function Welcome() {
         <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '700' }}>Hadi Başlayalım</Text>
       </Pressable>
 
-      <View style={{ height: 12 }} />
-      <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')}>
-        <Text style={{ color: '#6B7280', textAlign: 'center' }}>Daha sonra</Text>
-      </Pressable>
+      {/* Skip kaldırıldı: Onboarding tamamlanmadan uygulamaya geçilemez */}
     </View>
   );
 }
