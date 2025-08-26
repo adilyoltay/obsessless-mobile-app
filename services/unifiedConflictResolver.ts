@@ -429,9 +429,6 @@ class UnifiedConflictResolverService {
         return strategies.find(s => s.name === 'Last Write Wins') || strategies[0];
       
       case 'UPDATE_CONFLICT':
-        if (entityType === 'compulsion') {
-          return strategies.find(s => s.name === 'Prefer Higher Severity') || strategies[0];
-        }
         return strategies.find(s => s.name === 'Intelligent Merge') || strategies[0];
       
       case 'DELETE_CONFLICT':
