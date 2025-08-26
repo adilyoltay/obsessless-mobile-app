@@ -140,7 +140,7 @@ export default function LoginScreen() {
           <Animated.View entering={FadeInDown.delay(600)} style={styles.footer}>
             <Text style={styles.footerText}>
               Hesabınız yok mu?{' '}
-              <Text style={styles.signupLink} onPress={() => router.push('/(auth)/signup')}>
+              <Text style={styles.signupLink} onPress={() => router.push('/signup')}>
                 Kayıt Olun
               </Text>
             </Text>
