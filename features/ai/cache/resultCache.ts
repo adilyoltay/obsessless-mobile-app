@@ -464,4 +464,3 @@ export class ResultCache {
 // =============================================================================
 
 export default ResultCache;
-export type { CacheEntry, CacheStats, CacheType };

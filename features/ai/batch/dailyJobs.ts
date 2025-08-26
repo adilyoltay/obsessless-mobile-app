@@ -232,7 +232,6 @@ export class DailyJobsManager {
         metrics: {
           compulsionTrend: 0,
           moodTrend: this.calculateTrend(moods7d.map(m => m.value)),
-          erpComplianceTrend: 0,
           resistanceTrend: 0,
         },
         insights: [],
@@ -243,7 +242,6 @@ export class DailyJobsManager {
         metrics: {
           compulsionTrend: 0,
           moodTrend: this.calculateTrend(moods28d.map(m => m.value)),
-          erpComplianceTrend: 0,
           resistanceTrend: 0,
         },
         insights: [],
@@ -375,10 +373,7 @@ export class DailyJobsManager {
       if (compulsionTrend > 0.3) riskDelta += 0.05;
       if (compulsionTrend < -0.3) riskDelta -= 0.05;
       
-      // Decrease risk if Terapi compliance is good
-      const erpCompliance = recentTerapi.filter(e => e.completed).length / Math.max(recentTerapi.length, 1);
-      if (erpCompliance > 0.7) riskDelta -= 0.05;
-      if (erpCompliance < 0.3) riskDelta += 0.05;
+      // ✅ REMOVED: ERP compliance checks - ERP module deleted
       
       // Apply delta if significant (≥0.15)
       const newRisk = Math.max(0, Math.min(1, currentRisk + riskDelta));
@@ -499,10 +494,12 @@ export class DailyJobsManager {
           userId,
           content: digest,
           context: {
-            source: 'batch-today-digest',
-            cacheKey,
+            source: 'today',
+            metadata: { cacheKey },
             timestamp: Date.now()
           }
+        ,
+          type: 'data'
         });
         console.log('✅ Daily digest processed through UnifiedAIPipeline');
       } catch (error) {
@@ -617,7 +614,7 @@ export class DailyJobsManager {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      const key = StorageKeys.COMPULSIONS(userId);
+      const key = StorageKeys.CHECKINS(userId); // use generic checkins key; compulsion store removed
       const stored = await AsyncStorage.getItem(key);
       const allCompulsions = stored ? JSON.parse(stored) : [];
       
@@ -650,9 +647,9 @@ export class DailyJobsManager {
       
       // Fetch from Supabase or local storage
       try {
-        const moods = await supabaseService.getMoodEntries(userId, dateStr, dateStr);
+        const moods = await supabaseService.getMoodEntries(userId, 1);
         if (moods && moods.length > 0) {
-          const avgMood = moods.reduce((sum, m) => sum + m.mood, 0) / moods.length;
+          const avgMood = moods.reduce((sum, m) => sum + (m.mood || m.mood_score || 50), 0) / moods.length;
           data.push({
             date: dateStr,
             value: avgMood,

@@ -205,17 +205,23 @@ class AchievementService {
     return this.updateProgress(achievementId, achievement.currentProgress + amount);
   }
 
-  async trackActivity(type: 'assessment', data?: any): Promise<Achievement[]> {
+  async trackActivity(type: 'assessment', data?: any, userId?: string): Promise<Achievement[]> {
     const today = new Date().toISOString().split('T')[0];
     const unlockedAchievements: Achievement[] = [];
 
-    await this.updateStreak('assessment');
+    if ((this as any).updateStreak) {
+      await (this as any).updateStreak(userId);
+    } else {
+      await this.checkStreakAchievements(unlockedAchievements);
+    }
 
     await this.trackAssessmentAchievements(data, unlockedAchievements);
 
     await this.checkStreakAchievements(unlockedAchievements);
 
-    await this.checkTimeBasedAchievements('assessment', unlockedAchievements);
+    if ((this as any).checkTimeBasedAchievements) {
+      await (this as any).checkTimeBasedAchievements(userId);
+    }
 
     await this.saveAchievements();
     return unlockedAchievements;

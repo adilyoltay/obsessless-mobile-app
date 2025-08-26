@@ -383,8 +383,8 @@ class EdgeAIService {
       console.log('✅ Secure audio analysis completed:', {
         category: data.result.category,
         confidence: data.result.confidence,
-        sttSuccess: !data.result.metadata?.sttFailed,
-        transcribedText: data.result.metadata?.transcribedText?.substring(0, 50) + '...'
+        sttSuccess: !(data.result as any).metadata?.sttFailed,
+        transcribedText: ((data.result as any).metadata?.transcribedText || '').substring(0, 50) + '...'
       });
 
       return data.result;

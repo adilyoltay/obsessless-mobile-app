@@ -479,6 +479,5 @@ export class CacheInvalidation {
 // Export singleton instance
 export const cacheInvalidation = CacheInvalidation.getInstance();
 
-// Export types
+// Export default only to avoid duplicate type export conflicts
 export default CacheInvalidation;
-export type { InvalidationContext, InvalidationStrategy, InvalidationResult };

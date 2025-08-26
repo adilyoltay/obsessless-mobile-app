@@ -134,10 +134,10 @@ export function mapUnifiedResultToRegistryItems(
   // 1. Map therapeutic insights → kind='insight'
   if (result.insights?.therapeutic) {
     result.insights.therapeutic.forEach((insight, index) => {
-      const confidence = insight.confidence || 0.7;
+      const confidence = (insight as any).confidence || 0.7;
       const quality: InsightRegistryItem['quality'] = {
         confidence,
-        sampleSize: insight.dataPoints || 0,
+        sampleSize: (insight as any).dataPoints || 0,
         dataQuality: confidence, // Use confidence as proxy for data quality
         freshnessMs,
         stability: insight.priority === 'high' ? 0.9 : 0.7, // High priority = more stable
@@ -170,7 +170,7 @@ export function mapUnifiedResultToRegistryItems(
       const confidence = 0.8; // Progress metrics typically high confidence
       const quality: InsightRegistryItem['quality'] = {
         confidence,
-        sampleSize: progress.dataPoints || 1,
+        sampleSize: (progress as any).dataPoints || 1,
         dataQuality: 0.8,
         freshnessMs,
         stability: 0.8,
@@ -191,7 +191,7 @@ export function mapUnifiedResultToRegistryItems(
             metric: progress.metric,
             value: progress.value,
             change: progress.change,
-            changeDirection: progress.changeDirection,
+            changeDirection: (progress as any).changeDirection,
           },
           actions: [], // Analytics don't have direct actions
         },

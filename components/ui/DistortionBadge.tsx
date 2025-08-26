@@ -230,11 +230,11 @@ export function MultiDistortionAnalysis({
   const possibleDistortions = sortedDistortions.filter(d => d.confidence < 0.60);
   
   return (
-    <View style={styles.multiAnalysisContainer}>
+    <View style={(styles as any).multiAnalysisContainer}>
       {primaryDistortions.length > 0 && (
-        <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>● Birincil Çarpıtmalar</Text>
-          <View style={styles.badgeContainer}>
+        <View style={(styles as any).distortionLevel}>
+          <Text style={(styles as any).levelTitle}>● Birincil Çarpıtmalar</Text>
+          <View style={(styles as any).badgeContainer}>
             {primaryDistortions.map((d) => (
               <DistortionBadge
                 key={d.id}
@@ -249,9 +249,9 @@ export function MultiDistortionAnalysis({
       )}
       
       {secondaryDistortions.length > 0 && (
-        <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>◐ İkincil Çarpıtmalar</Text>
-          <View style={styles.badgeContainer}>
+        <View style={(styles as any).distortionLevel}>
+          <Text style={(styles as any).levelTitle}>◐ İkincil Çarpıtmalar</Text>
+          <View style={(styles as any).badgeContainer}>
             {secondaryDistortions.map((d) => (
               <DistortionBadge
                 key={d.id}
@@ -266,9 +266,9 @@ export function MultiDistortionAnalysis({
       )}
       
       {possibleDistortions.length > 0 && (
-        <View style={styles.distortionLevel}>
-          <Text style={styles.levelTitle}>○ Olası Çarpıtmalar</Text>
-          <View style={styles.badgeContainer}>
+        <View style={(styles as any).distortionLevel}>
+          <Text style={(styles as any).levelTitle}>○ Olası Çarpıtmalar</Text>
+          <View style={(styles as any).badgeContainer}>
             {possibleDistortions.map((d) => (
               <DistortionBadge
                 key={d.id}
@@ -307,4 +307,9 @@ const multiStyles = StyleSheet.create({
 });
 
 // Merge styles
-Object.assign(styles, multiStyles);
+const merged: any = { ...styles };
+Object.assign(merged, multiStyles);
+(styles as any).multiAnalysisContainer = multiStyles.multiAnalysisContainer;
+(styles as any).distortionLevel = multiStyles.distortionLevel;
+(styles as any).levelTitle = multiStyles.levelTitle;
+(styles as any).badgeContainer = multiStyles.badgeContainer;

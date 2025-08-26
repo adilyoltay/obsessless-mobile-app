@@ -257,7 +257,7 @@ export class BreathworkSuggestionService {
       console.error('Breathwork suggestion generation failed:', error);
       await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
         error: error instanceof Error ? error.message : String(error),
-        userId: context?.userId || this.userId,
+        userId: context?.userId,
         component: 'BreathworkSuggestionService'
       });
       return null;
@@ -800,7 +800,7 @@ export class BreathworkSuggestionService {
       voiceGuidance: true, // Default to true for guidance
       background: trigger.type === 'sleep_prep' ? 'nature' : 
                  trigger.type === 'panic_episode' ? 'silence' : 'music',
-      hapticFeedback: trigger.urgency === 'high' || trigger.type === 'panic_episode',
+      hapticFeedback: trigger.type === 'panic_episode',
       visualCue: trigger.type === 'low_mood' ? 'nature_scene' : 'breathing_circle',
       adaptToProgress: userProfile.adaptations.consistencyScore > 0.7 // Only for consistent users
     };
@@ -827,16 +827,9 @@ export class BreathworkSuggestionService {
       fallbacks.push(BREATHWORK_PROTOCOLS['quick_calm']);
     }
     
-    // Add box breathing if not primary
-    if (primary.name !== 'box') {
-      fallbacks.push(BREATHWORK_PROTOCOLS['box']);
-    }
-    
-    // Add appropriate secondary option based on trigger
-    if (trigger.type === 'anxiety' && primary.name !== '4-7-8') {
+    // Include protocol based on trigger type
+    if (trigger.type === 'sleep_prep' && primary.name !== '4-7-8') {
       fallbacks.push(BREATHWORK_PROTOCOLS['4-7-8']);
-    } else if (trigger.type === 'low_mood' && primary.name !== 'paced') {
-      fallbacks.push(BREATHWORK_PROTOCOLS['paced']);
     }
     
     return fallbacks.slice(0, 2); // Max 2 fallback options
@@ -844,11 +837,11 @@ export class BreathworkSuggestionService {
   
   private async saveSuggestion(suggestion: BreathworkSuggestion): Promise<void> {
     try {
-      const storageKey = `breathwork_suggestion_${suggestion.userId}`;
+      const storageKey = `breathwork_suggestion_${suggestion.metadata.userId}`;
       await AsyncStorage.setItem(storageKey, JSON.stringify(suggestion));
       
       // Update daily count
-      const delayKey = `breathwork_delays_${suggestion.userId}`;
+      const delayKey = `breathwork_delays_${suggestion.metadata.userId}`;
       const delayData = await AsyncStorage.getItem(delayKey);
       const delays = delayData ? JSON.parse(delayData) : {};
       

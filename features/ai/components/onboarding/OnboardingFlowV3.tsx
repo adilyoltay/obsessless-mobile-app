@@ -582,7 +582,8 @@ export const OnboardingFlowV3: React.FC<OnboardingFlowV3Props> = ({
       // AI destekli analiz (fallback manuel)
       let analysis;
       try {
-        analysis = await ybocsAnalysisService.analyzeYBOCS(ybocsResponses as any, { enhanceWithAI: true });
+        // ybocsAnalysisService removed; use local calculation only
+        throw new Error('ybocsAnalysisService removed');
       } catch {
         analysis = { totalScore: calculateYBOCSScore(), subscores: { obsessions: 0, compulsions: 0 }, severityLevel: 'moderate', dominantSymptoms: [], riskFactors: [], confidence: 0.5, culturalConsiderations: [], recommendedInterventions: [] } as OCDAnalysis;
       }

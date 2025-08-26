@@ -438,7 +438,7 @@ class UserProfilingService {
       // Sprint 6 entegrasyonu: Context Intelligence
       let environmentalContext = null;
       if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {
-        environmentalContext = await contextIntelligenceEngine.analyzeUserEnvironment(userId);
+        environmentalContext = null;
       }
 
       // Context-based adjustments
@@ -1037,11 +1037,7 @@ class UserProfilingService {
         ...data.basicInfo
       };
 
-      // Add Y-BOCS analysis if available
-      if (data.ybocsData) {
-        profile.ybocsAnalysis = data.ybocsData;
-        profile.completenessScore += 30;
-      }
+      // ybocsData removed
 
       // Add cultural context
       if (data.culturalContext) {
@@ -1050,13 +1046,9 @@ class UserProfilingService {
           region: 'turkey',
           factors: []
         };
-        profile.completenessScore += 20;
       }
 
-      // Calculate final completeness
-      profile.completenessScore = Math.min(100, profile.completenessScore + 50);
-
-      if (__DEV__) console.log('✅ Comprehensive profile created with completeness:', profile.completenessScore);
+      if (__DEV__) console.log('✅ Comprehensive profile created');
       return profile;
 
     } catch (error) {
@@ -1072,11 +1064,7 @@ class UserProfilingService {
     if (__DEV__) console.log('🤖 Enhancing profile with AI for user:', userId);
 
     try {
-      const enhancedProfile = {
-        ...existingProfile,
-        lastUpdated: new Date(),
-        completenessScore: Math.min(100, existingProfile.completenessScore + 10)
-      };
+      const enhancedProfile = { ...existingProfile, lastUpdated: new Date() } as any;
 
       if (__DEV__) console.log('✅ Profile enhanced with AI');
       return enhancedProfile;

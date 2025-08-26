@@ -432,10 +432,7 @@ class ModernOnboardingEngine {
   private async initializeDependentServices(): Promise<void> {
     const services = [];
     
-    // Y-BOCS Analysis Service
-    if (FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS')) {
-      services.push(ybocsAnalysisService.initialize());
-    }
+    // Y-BOCS Analysis Service removed (OCD cleanup)
     
     // Sprint 6 services (optional)
     if (FEATURE_FLAGS.isEnabled('AI_CONTEXT_INTELLIGENCE')) {

@@ -270,7 +270,7 @@ export function isTimeSensitive(quickClass: QuickClass, keywords: string[]): boo
   const urgentKeywords = ['acil', 'hemen', 'şimdi', 'yardım', 'panik'];
   const hasUrgentKeyword = keywords.some(k => urgentKeywords.includes(k.toLowerCase()));
   
-  const urgentClasses: QuickClass[] = ['Terapi', 'BREATHWORK'];
+  const urgentClasses: QuickClass[] = ['BREATHWORK'];
   const isUrgentClass = urgentClasses.includes(quickClass);
   
   return hasUrgentKeyword || isUrgentClass;
@@ -281,4 +281,4 @@ export function isTimeSensitive(quickClass: QuickClass, keywords: string[]): boo
 // =============================================================================
 
 export default needsLLMAnalysis;
-export type { LLMGatingParams, GatingDecision };
+// Types are declared above; avoid re-export conflicts

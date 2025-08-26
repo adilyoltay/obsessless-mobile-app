@@ -456,7 +456,7 @@ export class UnifiedAIPipeline {
         category: analysis.type,
         confidence: analysis.confidence,
         suggestion: analysis.suggestion,
-        route: analysis.route
+        route: (analysis as any).route
       };
     } catch (error) {
       console.warn('Voice analysis failed, using heuristic fallback:', error);
@@ -503,8 +503,8 @@ export class UnifiedAIPipeline {
           console.log('📊 Mood analytics result:', moodAnalytics);
           if (moodAnalytics) {
             // Store analytics in result for dashboard consumption
-            patterns.moodAnalytics = moodAnalytics;
-            patterns.metadata.hasAdvancedAnalytics = true;
+            (patterns as any).moodAnalytics = moodAnalytics;
+            (patterns.metadata as any).hasAdvancedAnalytics = true;
             
             // 📊 Telemetry: Track mood analytics computation
             try {
@@ -1752,11 +1752,11 @@ export class UnifiedAIPipeline {
     const patterns = [];
     const maxPatterns = 5; // Limit patterns to prevent over-processing
     
-    Object.entries(hourGroups)
+    Object.entries(hourGroups as any)
       .sort(([,a], [,b]) => (b as number) - (a as number)) // Sort by frequency
       .forEach(([hour, count]) => {
         if (patterns.length >= maxPatterns) return; // Early exit
-        if (count > 2) {
+        if ((count as number) > 2) {
           patterns.push({
             type: 'peak_hour',
             frequency: count as number,
@@ -1776,8 +1776,8 @@ export class UnifiedAIPipeline {
     
     // 🚀 PERFORMANCE OPTIMIZATION: Sample recent entries only
     const SAMPLE_SIZE = 50; // Process max 50 recent entries instead of all 101+
-    const recentCompulsions = compulsions
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    const recentCompulsions = (compulsions as any[])
+      .sort((a, b) => new Date((b as any).timestamp).getTime() - new Date((a as any).timestamp).getTime())
       .slice(0, SAMPLE_SIZE);
     
     // Group by trigger
@@ -1819,7 +1819,6 @@ export class UnifiedAIPipeline {
   
   private shouldRunCBT(input: UnifiedPipelineInput): boolean {
     return input.type === 'voice' || 
-           input.context?.source === 'cbt' ||
            (typeof input.content === 'string' && input.content.length > 50);
   }
   
@@ -1988,8 +1987,8 @@ export class UnifiedAIPipeline {
   private countTotalInsights(result: UnifiedPipelineResult): number {
     if (!result.insights) return 0;
     
-    const { therapeutic = [], progress = [], behavioral = [], motivational = [] } = result.insights;
-    return therapeutic.length + progress.length + behavioral.length + motivational.length;
+    const { therapeutic = [], progress = [] } = result.insights;
+    return therapeutic.length + progress.length;
   }
 
   /**
@@ -2439,7 +2438,7 @@ export class UnifiedAIPipeline {
     });
   }
   
-  private async invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'cbt' | 'voice' | 'all', userId?: string): Promise<void> {
+  private async invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'voice' | 'all', userId?: string): Promise<void> {
     const keysToDelete: string[] = [];
     
     this.cache.forEach((_, key) => {
@@ -2478,7 +2477,8 @@ export class UnifiedAIPipeline {
     }
     
     // Also invalidate Supabase cache
-    await this.invalidateSupabaseCache(type, userId);
+    const normalizedType = (type === 'patterns' || type === 'insights' || type === 'all') ? type : 'all';
+    await this.invalidateSupabaseCache(normalizedType, userId);
   }
   
   /**
@@ -3879,41 +3879,7 @@ export class UnifiedAIPipeline {
 
 
 
-  /**
-   * Extract environmental triggers from compulsions
-   */
-  private extractEnvironmentalTriggers(compulsions: any[]): any[] {
-    if (!compulsions || !Array.isArray(compulsions)) return [];
-    
-    const patterns = [];
-    
-    // Trigger keyword extraction
-    const triggerCounts: Record<string, number> = {};
-    compulsions.forEach(c => {
-      if (c.trigger && typeof c.trigger === 'string') {
-        const keywords = c.trigger.toLowerCase().split(/\s+/);
-        keywords.forEach(keyword => {
-          if (keyword.length > 2) { // Ignore short words
-            triggerCounts[keyword] = (triggerCounts[keyword] || 0) + 1;
-          }
-        });
-      }
-    });
-    
-    // Convert to patterns
-    for (const [trigger, count] of Object.entries(triggerCounts)) {
-      if (count > 1) { // Multiple occurrences
-        patterns.push({
-          type: 'environmental_trigger',
-          trigger: trigger,
-          frequency: count,
-          confidence: this.calculatePatternConfidence(count)
-        });
-      }
-    }
-    
-    return patterns;
-  }
+  // (duplicate of extractEnvironmentalTriggers removed)
 
   /**
    * Extract mood-related temporal patterns by hour (OPTIMIZED - lightweight version)
@@ -4098,54 +4064,7 @@ export class UnifiedAIPipeline {
   /**
    * 🎯 Main mood analytics processor - generates clinical-grade insights
    */
-  private processMoodAnalytics(moods: any[]): any {
-    try {
-      console.log(`🧮 Processing mood analytics for ${moods.length} entries`);
-      
-      if (!moods || !Array.isArray(moods) || moods.length < 3) {
-        console.warn('⚠️ Insufficient mood data for analytics', moods?.length || 0);
-        return null;
-      }
-
-      // Limit to latest 50 entries for performance
-      const recentMoods = moods.slice(0, 50);
-      console.log(`📊 Using ${recentMoods.length} recent mood entries for analysis`);
-
-      // Calculate all clinical metrics
-      const weeklyDelta = this.calculateAnalyticsWeeklyDelta(recentMoods);
-      const volatility = this.calculateAnalyticsVolatility(recentMoods);
-      const baselines = this.calculateAnalyticsBaselines(recentMoods);
-      const correlations = this.calculateAnalyticsMEACorrelations(recentMoods);
-      const dataQuality = this.assessAnalyticsDataQuality(recentMoods);
-      const profile = this.classifyAnalyticsEmotionalProfile(recentMoods, baselines, weeklyDelta, volatility, correlations);
-      const bestTimes = this.analyzeAnalyticsBestTimes(recentMoods);
-      const confidence = this.calculateAnalyticsGlobalConfidence(recentMoods, dataQuality, profile);
-
-      const result = {
-        weeklyDelta: weeklyDelta,
-        volatility: volatility,
-        baselines: baselines,
-        correlations: correlations,
-        profile: profile,
-        bestTimes: bestTimes,
-        sampleSize: recentMoods.length,
-        dataQuality: dataQuality,
-        confidence: confidence
-      };
-
-      console.log('✅ Mood analytics completed:', {
-        weeklyDelta,
-        volatility,
-        profileType: profile?.type,
-        confidence
-      });
-
-      return result;
-    } catch (error) {
-      console.error('❌ Mood analytics processing failed:', error);
-      return null;
-    }
-  }
+  // duplicate removed
 
   // ============================================================================
   // 📊 MOOD ANALYTICS HELPER FUNCTIONS

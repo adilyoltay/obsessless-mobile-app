@@ -104,7 +104,8 @@ const EVIDENCE_BASED_PROTOCOLS = {
  * Intervention Library - Symptom Specific
  */
 const INTERVENTION_LIBRARY = {
-  [InterventionType.EXPOSURE_RESPONSE_PREVENTION]: {
+  // ERP removed: map to RELAPSE_PREVENTION category for compatibility
+  [InterventionType.RELAPSE_PREVENTION]: {
     contamination: [
       {
         name: 'Kademeli Temizlik Maruziyeti',

@@ -305,7 +305,7 @@ class MoodHandler implements IModuleHandler {
       data: {
         screen: 'mood',
         params: {
-          mood: result.payload?.mood || 50,
+          mood: (result.payload as any)?.mood ?? (result.payload as any)?.estimatedMood ?? 50,
           confidence: result.confidence,
         },
         message: 'Ruh haliniz kaydedildi',
@@ -326,34 +326,6 @@ class MoodHandler implements IModuleHandler {
 // OCDHandler removed
 
 /**
- * Terapi module handler
- */
-class TerapiHandler implements IModuleHandler {
-  name = 'TerapiHandler';
-
-  canHandle(quickClass: QuickClass): boolean {
-    return quickClass === 'Terapi';
-  }
-
-  async process(result: AnalysisResult): Promise<ModuleResponse> {
-    return {
-      success: true,
-      action: 'OPEN_SCREEN',
-      data: {
-        screen: 'erp',
-        params: {
-          prefill: true,
-          category: result.payload?.category,
-          text: result.payload?.originalText,
-        },
-        message: 'Terapi egzersizi başlatılıyor',
-        processed: true,
-      },
-    };
-  }
-}
-
-/**
  * BREATHWORK module handler
  */
 class BreathworkHandler implements IModuleHandler {
@@ -366,7 +338,7 @@ class BreathworkHandler implements IModuleHandler {
   async process(result: AnalysisResult): Promise<ModuleResponse> {
     // Determine protocol based on anxiety level
     let protocol: 'box' | '478' | 'paced' = 'box';
-    const anxietyLevel = result.payload?.anxietyLevel;
+    const anxietyLevel = (result.payload as any)?.anxietyLevel;
     
     if (anxietyLevel && anxietyLevel >= 7) {
       protocol = '478'; // High anxiety
@@ -419,4 +391,4 @@ class OtherHandler implements IModuleHandler {
 // =============================================================================
 
 export default ModuleOrchestrator;
-export type { IModuleHandler, ModuleResponse, OrchestrationOptions };
+// Types are already exported above via interface declarations

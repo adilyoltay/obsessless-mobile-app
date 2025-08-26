@@ -359,7 +359,7 @@ class AdvancedRiskAssessmentService {
    */
   async assessInitialRisk(
     userProfile: UserTherapeuticProfile,
-    ybocsData: YBOCSAnswer[],
+    ybocsData: any,
     culturalContext: CulturalContext,
     additionalData?: any
   ): Promise<RiskAssessment> {
@@ -1237,7 +1237,7 @@ KISITLAR: Tanı/ilaç önerme yok, kriz çağrısı gerektiğinde sadece genel �
     }
 
     // Functional impairment risk
-    if (ybocsData.totalScore > 20) {
+    if ((ybocsData as any)?.totalScore > 20) {
       risks.push({
         category: RiskCategory.CLINICAL,
         description: 'Günlük yaşam işlevselliğinde bozulma',

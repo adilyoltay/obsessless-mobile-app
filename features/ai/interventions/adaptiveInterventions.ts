@@ -398,7 +398,7 @@ class AdaptiveInterventionsEngine {
       },
       
       createdAt: new Date(),
-      cbtTechnique: CBTTechnique.MINDFULNESS_INTEGRATION,
+      cbtTechnique: CBTTechnique.MINDFULNESS_TRAINING,
       relatedInterventions: [],
       adaptationHistory: []
     };

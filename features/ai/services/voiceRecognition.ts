@@ -363,13 +363,15 @@ class VoiceRecognitionService {
       // 📊 Audio dosyası debug bilgileri
       try {
         const FileSystem = await import('expo-file-system');
-        const fileInfo = await FileSystem.getInfoAsync(uri);
-        console.log('🎵 Audio File Debug:', {
-          uri: uri.substring(uri.lastIndexOf('/') + 1),
-          exists: fileInfo.exists,
-          size: fileInfo.size ? `${Math.round(fileInfo.size / 1024)}KB` : 'unknown',
-          modificationTime: fileInfo.modificationTime
-        });
+        const fileInfo: any = await FileSystem.getInfoAsync(uri);
+        if (fileInfo && typeof fileInfo.size === 'number' && typeof fileInfo.modificationTime === 'number') {
+          console.log('🎵 Audio File Debug:', {
+            uri: uri.substring(uri.lastIndexOf('/') + 1),
+            exists: fileInfo.exists,
+            size: fileInfo.size ? `${Math.round(fileInfo.size / 1024)}KB` : 'unknown',
+            modificationTime: fileInfo.modificationTime
+          });
+        }
       } catch (debugError) {
         console.warn('🔍 Could not get file debug info:', debugError);
       }
@@ -399,12 +401,12 @@ class VoiceRecognitionService {
         );
       }
 
-      if (analysisResult && analysisResult.metadata?.transcribedText) {
+      if (analysisResult && (analysisResult as any).metadata?.transcribedText) {
         console.log('✅ Secure transcription successful via Edge Function');
         
         return {
-          text: analysisResult.metadata.transcribedText,
-          confidence: analysisResult.metadata.transcriptionConfidence || 0.8,
+          text: (analysisResult as any).metadata.transcribedText,
+          confidence: (analysisResult as any).metadata.transcriptionConfidence || 0.8,
           language: this.settings.language,
           duration,
           timestamp: new Date(),

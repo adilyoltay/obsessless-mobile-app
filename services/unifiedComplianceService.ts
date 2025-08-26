@@ -784,10 +784,4 @@ class UnifiedComplianceService {
 
 export const unifiedComplianceService = UnifiedComplianceService.getInstance();
 export default unifiedComplianceService;
-export type { 
-  ConsentRecord, 
-  AuditLog, 
-  DataExportRequest, 
-  DeletionRequest, 
-  ComplianceStatus 
-};
+// Types are defined above; do not re-export to avoid conflicts

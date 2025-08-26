@@ -721,10 +721,7 @@ class ExternalAIService {
             },
             cached: false,
             filtered: false,
-            metadata: {
-              confidence: edgeResult.confidence,
-              category: edgeResult.category
-            }
+            timestamp: new Date()
           };
         }
       } catch (error) {
@@ -988,10 +985,7 @@ class ExternalAIService {
             },
             cached: false,
             filtered: false,
-            metadata: {
-              confidence: edgeResult.confidence,
-              category: edgeResult.category
-            }
+            timestamp: new Date()
           };
         } else {
           console.warn('⚠️ Edge Function returned null result');

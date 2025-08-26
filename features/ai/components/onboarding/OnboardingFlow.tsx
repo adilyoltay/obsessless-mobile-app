@@ -392,7 +392,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
       setState(prev => ({
         ...prev,
-        userProfile: enhancedProfile,
+        userProfile: enhancedProfile as any,
         canProceed: true,
         isLoading: false
       }));
@@ -400,8 +400,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       // Track profile generation
       await trackAIInteraction(AIEventType.USER_PROFILE_GENERATED, {
         sessionId: state.session.id,
-        profileCompleteness: enhancedProfile.completenessScore,
-        primaryGoals: enhancedProfile.therapeuticGoals?.slice(0, 3)
+        // completenessScore removed from telemetry to match relaxed profile shape
+        primaryGoals: (enhancedProfile as any).therapeuticGoals?.slice(0, 3)
       });
 
       // 🚀 CRITICAL: Move to next step after profile completion

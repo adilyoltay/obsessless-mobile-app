@@ -4,8 +4,7 @@ import * as Crypto from 'expo-crypto';
 export interface EncryptedData {
   ciphertext: string;
   iv: string;
-  algorithm: 'AES-256-GCM';
-  tag?: string; // kept for compatibility, not used explicitly by simple-crypto
+  algorithm: 'AES-256-GCM' | 'SHA256_FALLBACK';
   version: number;
 }
 
@@ -58,12 +57,12 @@ class SecureDataService {
       // Generate random IV (96-bit for GCM)
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
-      const ptBytes = this.utf8ToArrayBuffer(plaintext);
+      const ptBytesArr = this.utf8ToArrayBuffer(plaintext);
       
       const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv },
         keyObject,
-        ptBytes
+        ptBytesArr
       );
       
       return {
@@ -99,22 +98,24 @@ class SecureDataService {
       const key = await this.getOrCreateKey();
       const keyObject = await crypto.subtle.importKey(
         'raw',
-        key,
+        key as ArrayBuffer,
         { name: 'AES-GCM' },
         false,
         ['decrypt']
       );
       
-      const iv = this.base64ToArrayBuffer(payload.iv);
-      const ciphertext = this.base64ToArrayBuffer(payload.ciphertext);
+      const ivBuf = this.base64ToArrayBuffer(payload.iv);
+      const ctBuf = this.base64ToArrayBuffer(payload.ciphertext);
+      const iv = new Uint8Array(ivBuf).buffer as ArrayBuffer;
+      const ciphertext = new Uint8Array(ctBuf).buffer as ArrayBuffer;
       
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv },
+      const decryptedAny: any = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv as any },
         keyObject,
         ciphertext
       );
-      
-      const text = this.arrayBufferToUtf8(decrypted);
+      const decryptedBytes = new Uint8Array(new Uint8Array(decryptedAny).slice());
+      const text = new TextDecoder().decode(decryptedBytes);
       try {
         return JSON.parse(text);
       } catch {
@@ -145,14 +146,15 @@ class SecureDataService {
     return bytes.buffer;
   }
 
-  private utf8ToArrayBuffer(str: string): ArrayBuffer {
+  private utf8ToArrayBuffer(str: string): Uint8Array {
     const encoder = new TextEncoder();
-    return encoder.encode(str).buffer;
+    return encoder.encode(str);
   }
 
-  private arrayBufferToUtf8(buffer: ArrayBuffer): string {
+  private arrayBufferToUtf8(buffer: ArrayBufferLike): string {
     const decoder = new TextDecoder();
-    return decoder.decode(buffer);
+    const view = new Uint8Array(buffer as ArrayBufferLike);
+    return decoder.decode(view);
   }
 
   /**

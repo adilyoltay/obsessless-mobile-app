@@ -474,4 +474,4 @@ class UnifiedConflictResolverService {
 
 export const unifiedConflictResolver = UnifiedConflictResolverService.getInstance();
 export default unifiedConflictResolver;
-export type { UnifiedDataConflict, ConflictResolutionResult, ConflictLogItem, EntityType, ConflictType };
+// Types are defined above; do not re-export to avoid conflicts

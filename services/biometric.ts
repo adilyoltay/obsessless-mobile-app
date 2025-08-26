@@ -74,12 +74,8 @@ export class BiometricService {
 
       if (result.success) {
         return { success: true };
-      } else {
-        return { 
-          success: false, 
-          error: result.error === 'user_cancel' ? 'İşlem iptal edildi' : 'Biometric doğrulama başarısız' 
-        };
       }
+      return { success: false, error: 'Biometric doğrulama başarısız' };
     } catch (error) {
       console.error('Biometric authentication error:', error);
       return { success: false, error: 'Biometric doğrulama sırasında hata oluştu' };

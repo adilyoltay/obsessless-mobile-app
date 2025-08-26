@@ -192,7 +192,7 @@ export class MoodPatternAnalysisService {
     
     entries.forEach(entry => {
       // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
-      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const dateValue = (entry as any).timestamp || (entry as any).created_at || Date.now();
       const hour = new Date(dateValue).getHours();
       
       // Validate hour is a valid number
@@ -291,7 +291,7 @@ export class MoodPatternAnalysisService {
     
     entries.forEach(entry => {
       // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
-      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const dateValue = (entry as any).timestamp || (entry as any).created_at || Date.now();
       const dayOfWeek = new Date(dateValue).getDay();
       
       // Validate dayOfWeek is a valid number
@@ -497,7 +497,7 @@ export class MoodPatternAnalysisService {
     
     entries.forEach(entry => {
       // ✅ FIXED: Handle both timestamp and created_at fields, with fallback
-      const dateValue = entry.timestamp || entry.created_at || Date.now();
+      const dateValue = (entry as any).timestamp || (entry as any).created_at || Date.now();
       const dayOfWeek = new Date(dateValue).getDay();
       
       // Validate dayOfWeek is a valid number

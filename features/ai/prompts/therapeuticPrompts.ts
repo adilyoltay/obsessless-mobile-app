@@ -15,9 +15,10 @@ import {
   ConversationContext, 
   UserTherapeuticProfile,
   ConversationState,
-  RiskLevel as CrisisRiskLevel
+  RiskLevel as CrisisRiskLevel,
+  CBTTechnique
 } from '@/features/ai/types';
-import { InterventionType as CBTTechnique } from '@/features/ai/types';
+import { InterventionType } from '@/features/ai/types';
 type CognitiveDistortion = string;
 interface CBTIntervention {
   title: string;
@@ -476,7 +477,7 @@ KÜLTÜREL UYARLAMALAR:
         } else if (key.includes('catas') || key.includes('felaket')) {
           techniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING);
         } else {
-          techniques.push(CBTTechnique.PSYCHOEDUCATION);
+          techniques.push(CBTTechnique.MINDFULNESS);
         }
       });
     }
@@ -596,11 +597,10 @@ ACİL DURUM PROTOKOLLERİ:
 
   private getCBTTone(technique: CBTTechnique): 'supportive' | 'challenging' | 'validating' | 'educational' {
     switch (technique) {
-      case CBTTechnique.SOCRATIC_QUESTIONING: return 'challenging';
+      case CBTTechnique.PROBLEM_SOLVING: return 'educational';
       case CBTTechnique.COGNITIVE_RESTRUCTURING: return 'educational';
-      case CBTTechnique.MINDFULNESS_INTEGRATION: return 'supportive';
-      case CBTTechnique.THOUGHT_CHALLENGING: return 'challenging';
-      case CBTTechnique.PROGRESS_CELEBRATION: return 'validating';
+      case CBTTechnique.MINDFULNESS: return 'supportive';
+      case CBTTechnique.BEHAVIORAL_EXPERIMENT: return 'challenging';
       default: return 'supportive';
     }
   }

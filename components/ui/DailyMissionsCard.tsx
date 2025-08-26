@@ -228,7 +228,7 @@ export default function DailyMissionsCard({
                 >
                   <View style={styles.missionHeaderLeft}>
                     <MaterialCommunityIcons 
-                      name={categoryIcon} 
+                      name={categoryIcon as any} 
                       size={24} 
                       color={isCompleted ? '#4CAF50' : difficultyConfig.color} 
                     />
@@ -238,7 +238,7 @@ export default function DailyMissionsCard({
                       </Text>
                       <View style={styles.missionMeta}>
                         <View style={[styles.difficultyBadge, { backgroundColor: difficultyConfig.color }]}>
-                          <MaterialCommunityIcons name={difficultyConfig.icon} size={12} color="white" />
+                          <MaterialCommunityIcons name={difficultyConfig.icon as any} size={12} color="white" />
                           <Text style={styles.difficultyText}>{difficultyConfig.label}</Text>
                         </View>
                         <Text style={styles.pointsText}>+{mission.healingPoints}✨</Text>

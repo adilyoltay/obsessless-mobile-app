@@ -343,7 +343,8 @@ export const TreatmentPlanPreview: React.FC<TreatmentPlanPreviewProps> = ({
             <Text style={styles.subsectionTitle}>⚡ Müdahaleler</Text>
             {selectedPhaseData.interventions.map((intervention, index) => {
               const isExpanded = state.expandedIntervention === intervention.id;
-              const interventionColor = INTERVENTION_COLORS[intervention.type as keyof typeof INTERVENTION_COLORS] || '#6b7280';
+              const interventionTypeKey = (intervention as any).type as keyof typeof INTERVENTION_COLORS;
+              const interventionColor = INTERVENTION_COLORS[interventionTypeKey] || '#6b7280';
 
               return (
                 <View key={index} style={styles.interventionItem}>

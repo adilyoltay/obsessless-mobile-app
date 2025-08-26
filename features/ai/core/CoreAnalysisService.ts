@@ -1070,7 +1070,7 @@ class CoreAnalysisService implements ICoreAnalysisService {
       confidence: 0,
       needsLLM: false,
       route: 'AUTO_SAVE',
-      payload: { error: true },
+      payload: { message: 'İşlem sırasında bir hata oluştu', data: { error: true } },
       cacheKey: this.generateCacheKey(input),
       computedAt: Date.now(),
       source: 'heuristic',
@@ -1089,5 +1089,4 @@ class CoreAnalysisService implements ICoreAnalysisService {
 // Export singleton instance
 export const coreAnalysisService = CoreAnalysisService.getInstance();
 
-// Export types
-export type { ICoreAnalysisService, AnalysisStats };
+// Avoid duplicate type re-exports; interfaces above are already exported

@@ -492,8 +492,7 @@ class SupabaseNativeService {
           ybocs_score: 12,
           ybocs_severity: 'mild',
           onboarding_completed: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: new Date().toISOString()
         };
       }
       
