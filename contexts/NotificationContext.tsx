@@ -166,49 +166,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  const scheduleCompulsionReminder = async (time: string, enabled: boolean = true) => {
-    if (!notificationEnabled || Platform.OS === 'web') return;
-
-    try {
-      const [hours, minutes] = time.split(':').map(Number);
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Kompulsiyon Takibi 📝',
-          body: 'Bugünkü kompulsiyonlarınızı kaydetmeyi unutmayın',
-          sound: 'default',
-          data: { type: 'compulsion_reminder' },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-          hour: hours,
-          minute: minutes,
-          repeats: true,
-        } as Notifications.CalendarTriggerInput,
-      });
-
-      const newReminder = {
-        id: `compulsion_${hours}_${minutes}`,
-        type: 'compulsion',
-        time,
-        enabled,
-        title: 'Kompulsiyon Takibi'
-      };
-
-      const updatedReminders = [...dailyReminders.filter(r => r.id !== newReminder.id), newReminder];
-      setDailyReminders(updatedReminders);
-
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const safeUserId = (typeof currentUserId === 'string' && currentUserId.length > 0) ? currentUserId : 'anon';
-      const settingsKey = `notificationSettings_${safeUserId}`;
-      await AsyncStorage.setItem(settingsKey, JSON.stringify({
-        dailyReminders: updatedReminders
-      }));
-
-    } catch (error) {
-      console.error('Schedule compulsion reminder error:', error);
-    }
-  };
+  // Removed: compulsion-specific reminder scheduler
 
   // (Removed) scheduleERPReminderInternal function
 
@@ -269,7 +227,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Internal helpers also exposed for existing usages
     notificationEnabled,
     dailyReminders,
-    scheduleCompulsionReminder,
+    // scheduleCompulsionReminder removed
     // scheduleERPReminderInternal, // Removed
     sendMotivationalNotification,
     cancelAllReminders,
