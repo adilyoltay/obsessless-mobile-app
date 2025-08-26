@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [migrationVersion, setMigrationVersion] = useState<number>(0);
   // Daily metrics removed - performance summary section removed
-  const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending'; requestedAt?: string; scheduledAt?: string; remainingDays?: number }>({ status: 'none' });
+  const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'grace_period' | 'scheduled'; requestedAt?: string; scheduledAt?: string; remainingDays?: number; canCancel?: boolean }>({ status: 'none' });
   const [consentHistory, setConsentHistory] = useState<any[]>([]);
   
   const [settings, setSettings] = useState<SettingsData>({
@@ -188,7 +188,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               if (!user?.id) return;
-              const json = await unifiedComplianceService.exportUserData(user.id);
+              const json = await unifiedComplianceService.createDataExport(user.id);
               await Share.share({
                 title: 'ObsessLess Veri İndirimi',
                 message: json,
@@ -213,7 +213,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               if (!user?.id) return;
-              const json = await unifiedComplianceService.exportUserData(user.id);
+              const json = await unifiedComplianceService.createDataExport(user.id);
               const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
               const fileName = `obsessless_export_${dateStr}.json`;
               const fileUri = FileSystem.documentDirectory + fileName;
@@ -254,7 +254,7 @@ export default function SettingsScreen() {
         { text: 'Onayla', style: 'destructive', onPress: async () => {
           try {
             if (!user?.id) return;
-            await unifiedComplianceService.deleteAllUserData(user.id);
+            await unifiedComplianceService.initiateDataDeletion(user.id);
             Alert.alert('Talep Alındı', 'Silme talebiniz alındı. 30 gün sonra kalıcı silme planlandı.');
           } catch {
             Alert.alert('Hata', 'İşlem tamamlanamadı.');

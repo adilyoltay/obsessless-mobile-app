@@ -36,7 +36,7 @@ export default function LiveTestRunnerScreen() {
     append('▶ today:fresh');
     const moods = Array.from({ length: 6 }, (_, i) => ({ timestamp: Date.now() - i * 900e3, mood_score: 6 }));
     const r = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
-    const pass = r.metadata.source === 'fresh' || r.metadata.source === 'fresh_cache';
+    const pass = r.metadata.source === 'fresh';
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:today:fresh]', status: pass ? 'pass' : 'fail', details: r.metadata });
     append(`✔ today:fresh => ${pass ? 'pass' : 'fail'}`);
   };
