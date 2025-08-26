@@ -75,7 +75,7 @@ export default function SettingsScreen() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [migrationVersion, setMigrationVersion] = useState<number>(0);
   // Daily metrics removed - performance summary section removed
-  const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'grace_period' | 'scheduled'; requestedAt?: string; scheduledAt?: string; remainingDays?: number; canCancel?: boolean }>({ status: 'none' });
+  const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending' | 'grace_period' | 'scheduled'; requestedAt?: string; scheduledAt?: string; remainingDays?: number; canCancel?: boolean }>({ status: 'none' });
   const [consentHistory, setConsentHistory] = useState<any[]>([]);
   
   const [settings, setSettings] = useState<SettingsData>({

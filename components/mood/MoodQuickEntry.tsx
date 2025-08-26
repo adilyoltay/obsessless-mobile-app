@@ -65,7 +65,7 @@ export function MoodQuickEntry({
       
       // Convert mood score to emotion for the wheel
       const moodScore = editingEntry.mood_score;
-      const emotionFromScore = getMoodScoreAsEmotion(moodScore);
+      const emotionFromScore = getEmotionFromMoodScore(moodScore);
       setSelectedEmotion(emotionFromScore);
       
       console.log('📝 Pre-filled form for editing:', {
@@ -84,7 +84,7 @@ export function MoodQuickEntry({
       if (initialData.trigger) setSelectedTrigger(initialData.trigger);
       
       if (initialData.mood !== undefined) {
-        const emotionFromScore = getMoodScoreAsEmotion(initialData.mood);
+        const emotionFromScore = getEmotionFromMoodScore(initialData.mood);
         setSelectedEmotion(emotionFromScore);
       }
     } else {

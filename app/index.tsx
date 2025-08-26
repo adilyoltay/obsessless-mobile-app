@@ -88,7 +88,7 @@ export default function Index() {
         // Default: go to main app (authenticated)
         try {
           // Run a background cross-device sync (non-blocking)
-          crossDeviceSync.runInitialCrossDeviceSync(user.id);
+          crossDeviceSync.performSync();
         } catch {}
         console.log('🏠 User authenticated, redirecting to main app');
         router.replace('/(tabs)');

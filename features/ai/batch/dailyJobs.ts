@@ -215,10 +215,9 @@ export class DailyJobsManager {
     
     try {
       // Fetch historical data
-      const [compulsions7d, compulsions28d] = await Promise.all([
-        this.fetchCompulsionData(userId, 7),
-        this.fetchCompulsionData(userId, 28),
-      ]);
+      // Compulsion data removed
+      const compulsions7d: any[] = [];
+      const compulsions28d: any[] = [];
 
       const [moods7d, moods28d] = await Promise.all([
         this.fetchMoodData(userId, 7),
@@ -231,10 +230,10 @@ export class DailyJobsManager {
       const trends7d: TrendAnalysis = {
         period: '7d',
         metrics: {
-          compulsionTrend: this.calculateTrend(compulsions7d.map(c => c.count)),
+          compulsionTrend: 0,
           moodTrend: this.calculateTrend(moods7d.map(m => m.value)),
-          erpComplianceTrend: this.calculateTrend(erp7d.map(e => e.completed ? 1 : 0)),
-          resistanceTrend: this.calculateTrend(compulsions7d.map(c => c.avgResistance)),
+          erpComplianceTrend: 0,
+          resistanceTrend: 0,
         },
         insights: [],
       };
@@ -242,24 +241,16 @@ export class DailyJobsManager {
       const trends28d: TrendAnalysis = {
         period: '28d',
         metrics: {
-          compulsionTrend: this.calculateTrend(compulsions28d.map(c => c.count)),
+          compulsionTrend: 0,
           moodTrend: this.calculateTrend(moods28d.map(m => m.value)),
-          erpComplianceTrend: this.calculateTrend(erp28d.map(e => e.completed ? 1 : 0)),
-          resistanceTrend: this.calculateTrend(compulsions28d.map(c => c.avgResistance)),
+          erpComplianceTrend: 0,
+          resistanceTrend: 0,
         },
         insights: [],
       };
 
       // Generate insights based on trends
-      if (trends7d.metrics.compulsionTrend < -0.2) {
-        trends7d.insights.push('Kompulsiyonlarında son 7 günde azalma var, harika gidiyorsun!');
-      }
-      if (trends7d.metrics.resistanceTrend > 0.3) {
-        trends7d.insights.push('Direnç gücün artıyor, bu çok değerli bir ilerleme');
-      }
-      if (trends28d.metrics.erpComplianceTrend > 0.5) {
-        trends28d.insights.push('Terapi egzersizlerine düzenli devam ediyorsun, tedavi uyumun mükemmel');
-      }
+      // Compulsion/ERP insights removed
 
       // Store trends in cache
       const cacheKey7d = `ai:${userId}:${new Date().toISOString().split('T')[0]}:trends:7d`;

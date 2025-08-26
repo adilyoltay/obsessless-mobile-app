@@ -60,13 +60,11 @@ const getDifficultyConfig = (difficulty: UnifiedMission['difficulty']) => {
 
 const getCategoryIcon = (category: UnifiedMission['category']) => {
   const icons = {
-    compulsion: 'shield-check',
-
     mood: 'weather-cloudy',
     breathwork: 'meditation',
     consistency: 'calendar-check',
     challenge: 'lightning-bolt'
-  };
+  } as Record<string, any>;
   
   return icons[category] || 'target';
 };
@@ -77,7 +75,7 @@ export default function DailyMissionsCard({
 }: DailyMissionsCardProps) {
   const { 
     currentMissions, 
-    generateDailyMissions, 
+    generateUnifiedMissions, 
     updateMissionProgress, 
     getMissionsForToday,
     currentUserId 
@@ -109,7 +107,7 @@ export default function DailyMissionsCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      const newMissions = await generateDailyMissions();
+      const newMissions = await generateUnifiedMissions();
       if (newMissions.length > 0) {
         setTodayMissions(newMissions);
         

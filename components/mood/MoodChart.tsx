@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import Svg, { Line, Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Line, Circle, Path, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 80;
@@ -149,7 +149,7 @@ export function MoodChart({ entries, period }: MoodChartProps) {
 
         {/* Date labels */}
         {labels.map((point, index) => (
-          <Text
+          <SvgText
             key={index}
             x={point.x}
             y={CHART_HEIGHT + 15}
@@ -158,14 +158,14 @@ export function MoodChart({ entries, period }: MoodChartProps) {
             textAnchor="middle"
           >
             {getDateLabel(point.date)}
-          </Text>
+          </SvgText>
         ))}
 
         {/* Y-axis labels */}
         {[0, 50, 100].map((value) => {
           const y = CHART_HEIGHT - PADDING - (value - minMood) * yScale;
           return (
-            <Text
+            <SvgText
               key={value}
               x={CHART_WIDTH + 10}
               y={y + 4}
@@ -173,7 +173,7 @@ export function MoodChart({ entries, period }: MoodChartProps) {
               fill="#6B7280"
             >
               {value}
-            </Text>
+            </SvgText>
           );
         })}
       </Svg>
