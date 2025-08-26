@@ -49,8 +49,17 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
         // Strict: require onboarding completion
         const aiKey = `ai_onboarding_completed_${user.id}`;
-        const localOnb = await AsyncStorage.getItem(aiKey);
-        const aiCompleted = localOnb === 'true';
+        let localOnb = await AsyncStorage.getItem(aiKey);
+        let aiCompleted = localOnb === 'true';
+        if (!aiCompleted) {
+          // Fallback to generic key (pre-auth completion)
+          const generic = await AsyncStorage.getItem('ai_onboarding_completed');
+          aiCompleted = generic === 'true';
+          // Migrate to user-specific for future checks
+          if (aiCompleted) {
+            try { await AsyncStorage.setItem(aiKey, 'true'); } catch {}
+          }
+        }
 
         if (!aiCompleted) {
           if (!inOnboardingRoute) {

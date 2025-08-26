@@ -55,13 +55,31 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     try {
       // Persist locally
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      await AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true');
+      // Always set a generic completion flag to avoid loops before auth resolves
+      await AsyncStorage.setItem('ai_onboarding_completed', 'true');
+      await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
+      // Best-effort resolve a valid user id for user-specific key
+      let uidForKey = userId;
+      if (!isUUID(uidForKey)) {
+        try {
+          const { default: svc } = await import('@/services/supabase');
+          const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
+          if (current && typeof current === 'object' && current.id) uidForKey = current.id;
+        } catch {}
+      }
+      if (!isUUID(uidForKey)) {
+        const stored = await AsyncStorage.getItem('currentUserId');
+        if (stored && isUUID(stored)) uidForKey = stored as any;
+      }
+      if (isUUID(uidForKey)) {
+        await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
+      }
 
       // First mood (best effort)
-      if (payload.first_mood?.score && isUUID(userId)) {
+      if (payload.first_mood?.score && isUUID(uidForKey)) {
         try {
           await moodTracker.saveMoodEntry({
-            user_id: userId,
+            user_id: uidForKey,
             mood_score: Math.max(1, Math.min(10, (payload.first_mood.score*2)+1)),
             energy_level: 5,
             anxiety_level: 5,
@@ -74,7 +92,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
       // Preferences/metadata (best effort)
       try {
-        if (!isUUID(userId)) throw new Error('no-auth-user');
+        if (!isUUID(uidForKey)) throw new Error('no-auth-user');
         const meta = {
           metadata: {
             ...(payload.feature_flags ? { feature_flags: payload.feature_flags } : {}),
@@ -88,13 +106,13 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
           },
           locale: payload.profile?.locale
         } as any;
-        await supabaseService.updateUser(userId, meta);
+        await supabaseService.updateUser(uidForKey, meta);
       } catch {}
 
       // Upsert user profile (v2)
       try {
-        if (!isUUID(userId)) throw new Error('no-auth-user');
-        await supabaseService.upsertUserProfile(userId, payload);
+        if (!isUUID(uidForKey)) throw new Error('no-auth-user');
+        await supabaseService.upsertUserProfile(uidForKey, payload);
       } catch (error) {
         try {
           const { offlineSyncService } = await import('@/services/offlineSync');
@@ -120,7 +138,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       try {
         const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
         await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
-          userId,
+          userId: uidForKey || userId,
           durationMs,
           steps: get().step+1,
           motivations: payload.motivation,

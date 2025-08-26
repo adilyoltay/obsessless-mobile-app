@@ -2,17 +2,22 @@ import React, { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProgressDots from '@/components/onboarding/ProgressDots';
 
 export default function Summary() {
   const router = useRouter();
   const { step, totalSteps, setStep, payload, complete } = useMoodOnboardingStore();
+  const { user } = useAuth();
 
   useEffect(() => { setStep(5); }, [setStep]);
 
   const onFinish = async () => {
-    // userId alınması: mevcut auth context üzerinden navigate eden guard tamamlamayı algılar
-    const userId = (global as any).__OBSESS_USER_ID || 'anon';
+    // Best-effort: mark generic completion first to avoid loop before auth resolves
+    try { await AsyncStorage.setItem('ai_onboarding_completed', 'true'); } catch {}
+    // Prefer auth user id, else fallback
+    const userId = user?.id || (global as any).__OBSESS_USER_ID || 'anon';
     await complete(userId);
     router.replace('/(tabs)');
   };
