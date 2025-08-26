@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deriveFeatureFlags, applyReminderRule } from '@/features/onboarding/lib/deriveFeatureFlags';
 import type { OnboardingPayload, MotivationKey } from '@/features/onboarding/types';
 import moodTracker from '@/services/moodTrackingService';
+import { isUUID } from '@/utils/validators';
 import supabaseService from '@/services/supabase';
 import { NotificationScheduler } from '@/services/notificationScheduler';
 
@@ -57,7 +58,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       await AsyncStorage.setItem(`ai_onboarding_completed_${userId}`, 'true');
 
       // First mood (best effort)
-      if (payload.first_mood?.score) {
+      if (payload.first_mood?.score && isUUID(userId)) {
         try {
           await moodTracker.saveMoodEntry({
             user_id: userId,
@@ -73,6 +74,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
       // Preferences/metadata (best effort)
       try {
+        if (!isUUID(userId)) throw new Error('no-auth-user');
         const meta = {
           metadata: {
             ...(payload.feature_flags ? { feature_flags: payload.feature_flags } : {}),
@@ -91,6 +93,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
       // Upsert user profile (v2)
       try {
+        if (!isUUID(userId)) throw new Error('no-auth-user');
         await supabaseService.upsertUserProfile(userId, payload);
       } catch (error) {
         try {
@@ -98,7 +101,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
           await offlineSyncService.addToSyncQueue({
             entity: 'user_profile',
             type: 'UPDATE',
-            data: { user_id: userId, payload, version: 2 }
+            data: { payload, version: 2 }
           });
         } catch {}
       }

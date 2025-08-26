@@ -257,7 +257,15 @@ export class OfflineSyncService {
   private async syncUserProfile(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
-    await (svc as any).upsertUserProfile(d.user_id || d.userId, d.payload || d);
+    let uid = d.user_id || d.userId;
+    if (!uid) {
+      try {
+        const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
+        if (current && typeof current === 'object' && current.id) uid = current.id;
+      } catch {}
+    }
+    if (!uid) throw new Error('No user id available for user_profile sync');
+    await (svc as any).upsertUserProfile(uid, d.payload || d);
   }
 
   private async syncTreatmentPlan(item: SyncQueueItem): Promise<void> {
