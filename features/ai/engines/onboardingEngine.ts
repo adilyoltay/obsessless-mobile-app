@@ -30,7 +30,7 @@ import {
   ErrorSeverity
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 import { contextIntelligenceEngine } from '@/features/ai/context/contextIntelligence';
 import { adaptiveInterventionsEngine } from '@/features/ai/interventions/adaptiveInterventions';
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
@@ -891,7 +891,13 @@ class ModernOnboardingEngine {
     session.ybocsData = answers;
 
     // Preliminary analysis
-    const preliminaryAnalysis = await ybocsAnalysisService.analyzeResponses(answers);
+    const preliminaryAnalysis = (() => {
+      try {
+        const totalScore = (answers || []).reduce((s: number, a: any) => s + (Number(a?.response ?? 0) || 0), 0);
+        const severityLevel = totalScore > 31 ? 'extreme' : totalScore > 23 ? 'severe' : totalScore > 15 ? 'moderate' : totalScore > 7 ? 'mild' : 'minimal';
+        return { totalScore, severityLevel, culturalConsiderations: [] } as any;
+      } catch { return { totalScore: 0, severityLevel: 'minimal', culturalConsiderations: [] } as any; }
+    })();
     
     // Immediate risk check
     if (preliminaryAnalysis.severityLevel === 'extreme') {

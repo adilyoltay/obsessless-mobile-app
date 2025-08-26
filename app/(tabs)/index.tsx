@@ -937,8 +937,9 @@ export default function TodayScreen() {
           break;
           
         case '/(tabs)/cbt':
+          // Remap CBT CTA to Mood
           router.push({
-            pathname: '/(tabs)/cbt' as any,
+            pathname: '/(tabs)/mood' as any,
             params: {
               source: 'adaptive_suggestion',
               ...(suggestion.cta.params || {})
@@ -957,8 +958,9 @@ export default function TodayScreen() {
           break;
           
         case '/(tabs)/tracking':
+          // Remap Tracking CTA to Breathwork
           router.push({
-            pathname: '/(tabs)/tracking' as any,
+            pathname: '/(tabs)/breathwork' as any,
             params: {
               source: 'adaptive_suggestion',
               ...(suggestion.cta.params || {})
@@ -1025,12 +1027,20 @@ export default function TodayScreen() {
       
       // Auto-navigate based on AI analysis (optional - user can dismiss)
       const shouldAutoNavigate = routingResult.confidence > 0.7;
-      
-      if (shouldAutoNavigate && routingResult.screen) {
+
+      // Remap legacy screens before navigation
+      let remappedScreen = routingResult.screen;
+      if (routingResult.type === 'CBT') {
+        remappedScreen = 'mood';
+      } else if (routingResult.type === 'OCD') {
+        remappedScreen = 'breathwork';
+      }
+
+      if (shouldAutoNavigate && remappedScreen) {
         setTimeout(() => {
           // Give user a moment to see the analysis, then navigate
           router.push({
-            pathname: `/(tabs)/${routingResult.screen}` as any,
+            pathname: `/(tabs)/${remappedScreen}` as any,
             params: {
               ...routingResult.params,
               source: 'ai_routing',
@@ -1109,46 +1119,6 @@ export default function TodayScreen() {
       </View>
       
       <View style={styles.moduleGrid}>
-        {/* OCD Tracking Özet */}
-        <Pressable 
-          style={styles.moduleCard}
-          onPress={() => router.push('/(tabs)/tracking')}
-        >
-          <View style={styles.moduleHeader}>
-            <MaterialCommunityIcons name="heart-pulse" size={18} color="#10B981" />
-            <Text style={styles.moduleTitle}>OCD</Text>
-            </View>
-          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.compulsions}</Text>
-          <Text style={styles.moduleSubtext}>
-            {todayStats.weeklyProgress.compulsions > 0 
-              ? `${todayStats.resistanceWins}/${todayStats.compulsions} direnç` 
-              : 'Kayıt bekliyor'}
-          </Text>
-          <View style={styles.moduleFooter}>
-            <Text style={styles.moduleAction}>Detaylar →</Text>
-            </View>
-        </Pressable>
-        
-        {/* CBT Özet */}
-        <Pressable 
-          style={styles.moduleCard}
-          onPress={() => router.push('/(tabs)/cbt')}
-        >
-          <View style={styles.moduleHeader}>
-            <MaterialCommunityIcons name="brain" size={18} color="#3B82F6" />
-            <Text style={styles.moduleTitle}>CBT</Text>
-          </View>
-          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.cbt}</Text>
-          <Text style={styles.moduleSubtext}>
-            {todayStats.weeklyProgress.cbt > 0 
-              ? `Mood +${todayStats.cbtMoodDelta > 0 ? todayStats.cbtMoodDelta : 0}` 
-              : 'Henüz kayıt yok'}
-          </Text>
-          <View style={styles.moduleFooter}>
-            <Text style={styles.moduleAction}>Devam Et →</Text>
-          </View>
-        </Pressable>
-
         {/* Mood Özet */}
         <Pressable 
           style={styles.moduleCard}

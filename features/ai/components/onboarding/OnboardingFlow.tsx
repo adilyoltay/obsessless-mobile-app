@@ -40,7 +40,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
 // Sprint 7 Backend Services
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 import { modernOnboardingEngine as onboardingEngine } from '@/features/ai/engines/onboardingEngine';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
@@ -312,13 +312,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Analyze Y-BOCS responses
-      console.log('📊 Calling ybocsAnalysisService.analyzeYBOCS...');
-      const analysis = await ybocsAnalysisService.analyzeYBOCS(answers, {
-        culturalContext: 'turkish',
-        enhanceWithAI: true,
-        personalizeRecommendations: true
-      });
+      // Analyze Y-BOCS responses (minimal local analysis)
+      const analysis = (() => {
+        const totalScore = (answers || []).reduce((s: number, a: any) => s + (Number(a?.response ?? 0) || 0), 0);
+        const severityLevel = totalScore > 31 ? 'extreme' : totalScore > 23 ? 'severe' : totalScore > 15 ? 'moderate' : totalScore > 7 ? 'mild' : 'minimal';
+        return { totalScore, severityLevel, dominantSymptoms: [], riskFactors: [] } as any;
+      })();
       console.log('✅ Y-BOCS analysis completed:', { 
         severityLevel: analysis.severityLevel, 
         totalScore: analysis.totalScore 

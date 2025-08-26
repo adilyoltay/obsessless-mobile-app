@@ -83,7 +83,7 @@ export function useDeepLinking() {
 
   const handleDeepLink = useCallback((url: string) => {
     // obsessless://dashboard -> /(tabs)/
-    // obsessless://tracking -> /(tabs)/tracking
+    // obsessless://tracking -> /(tabs)/breathwork (remapped)
     // obsessless://assessment -> /ybocs-assessment
     
     const urlObj = new URL(url);
@@ -94,7 +94,7 @@ export function useDeepLinking() {
         router.push('/(tabs)/');
         break;
       case '/tracking':
-        router.push('/(tabs)/tracking');
+        router.push('/(tabs)/breathwork');
         break;
       // case '/erp': // Removed ERP
       case '/settings':

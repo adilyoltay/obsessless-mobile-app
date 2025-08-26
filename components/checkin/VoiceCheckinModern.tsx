@@ -696,29 +696,7 @@ export default function VoiceCheckinModern({
             <View style={styles.quickActions}>
               <Text style={styles.quickTitle}>Veya hızlı erişim:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <Pressable
-                  style={[styles.quickButton, { backgroundColor: '#E8F5E9' }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
-                    router.push('/(tabs)/cbt');
-                  }}
-                >
-                  <MaterialCommunityIcons name="head-cog-outline" size={20} color="#4CAF50" />
-                  <Text style={styles.quickButtonText}>CBT</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.quickButton, { backgroundColor: '#FFF3E0' }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
-                    router.push('/(tabs)/tracking');
-                  }}
-                >
-                  <MaterialCommunityIcons name="pulse" size={20} color="#FF9800" />
-                  <Text style={styles.quickButtonText}>Takip</Text>
-                </Pressable>
+                
 
                 <Pressable
                   style={[styles.quickButton, { backgroundColor: '#F3E5F5' }]}

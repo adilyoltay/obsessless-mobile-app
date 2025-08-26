@@ -29,7 +29,6 @@ import {
 } from '@/features/ai/types';
 import type { TreatmentPlan } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 // Crisis detection removed - using standalone risk assessment
 import contextIntelligenceEngine from '@/features/ai/context/contextIntelligence';
@@ -376,8 +375,18 @@ class AdvancedRiskAssessmentService {
     }
 
     try {
-      // Y-BOCS analysis for clinical context
-      const ybocsAnalysis = await ybocsAnalysisService.analyzeResponses(ybocsData);
+      // Y-BOCS analysis removed: compute minimal analysis locally
+      const ybocsAnalysis = (() => {
+        try {
+          const totalScore = Array.isArray(ybocsData)
+            ? ybocsData.reduce((sum: number, ans: any) => sum + (Number(ans?.response ?? 0) || 0), 0)
+            : Number(ybocsData?.totalScore ?? 0) || 0;
+          const severityLevel = totalScore > 31 ? 'extreme' : totalScore > 23 ? 'severe' : totalScore > 15 ? 'moderate' : totalScore > 7 ? 'mild' : 'minimal';
+          return { totalScore, severityLevel } as any;
+        } catch {
+          return { totalScore: 0, severityLevel: 'minimal' } as any;
+        }
+      })();
       
       // Multi-dimensional risk analysis
       const clinicalRisks = this.assessClinicalRisks(userProfile, ybocsAnalysis);

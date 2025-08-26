@@ -29,7 +29,7 @@ import {
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 import contextIntelligence from '@/features/ai/context/contextIntelligence';
 import adaptiveInterventions from '@/features/ai/interventions/adaptiveInterventions';
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';

@@ -69,7 +69,7 @@ const result = await unifiedPipeline.process({
 - Voice Analysis
 - Pattern Recognition  
 - CBT Analysis
-→ Hepsi paralel çalışır, sonuçlar birleştirilir
+→ Hepsi paralel çalışır, sonuçlar birleştirilir (UI yönlendirme: CBT→Mood, OCD→Breathwork)
 
 ### 3. 24 Saat Cache
 - TTL: 24 saat (configurable)

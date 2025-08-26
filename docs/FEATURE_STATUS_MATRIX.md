@@ -9,8 +9,8 @@
 | Özellik | Durum | Versiyon | Not |
 |---|---|---|---|
 | **Unified Voice Analysis** | ✅ Aktif | v2.0 | Merkezi ses analizi sistemi - Gemini API entegrasyonu |
-| **CBT Düşünce Kaydı** | ✅ Aktif | v2.0 | 4-adımlı form, BottomSheet, Master Prompt uyumlu |
-| **OCD Tracking** | ✅ Aktif | v2.1 | **ENHANCED!** Voice severity prefill, Y-BOCS integration, User-Centric Dashboard, automated triggers, Turkish cultural adaptations, privacy-first |
+| **CBT Düşünce Kaydı** | ❌ REMOVED | - | UI kaldırıldı; analizler Mood/Breathwork'e remap |
+| **OCD Tracking** | ❌ REMOVED | - | UI kaldırıldı; yönlendirme Breathwork/Mood |
 | ~~**Therapy Sessions**~~ | ❌ REMOVED | - | **ERP module tamamen kaldırıldı** |
 | **Breathwork** | ✅ Aktif | v2.0 | Akıllı tetikleme sistemi, contextual öneriler, protokol seçimi |
 | **Today Screen** | ✅ Aktif | v2.0 | Merkezi ses girişi, otomatik yönlendirme |
@@ -39,11 +39,11 @@
 | **BottomSheet Components** | ✅ Aktif | v2.0 | Tutarlı tasarım sistemi |
 | **Master Prompt Compliance** | ✅ Aktif | v2.0 | Sakinlik, güç, zahmetsizlik ilkeleri |
 | **FAB Navigation** | ✅ Aktif | v2.0 | Tüm ana sayfalarda tutarlı |
-| **Bottom Tab Navigation** | ✅ Aktif | v2.0 | CBT tab kaldırıldı |
+| **Bottom Tab Navigation** | ✅ Aktif | v2.0 | CBT ve OCD tab kaldırıldı |
 | **Mood Tracking (UI)** | ✅ Aktif | v1.0 | Kayıt + Geçmiş (14 gün) |
-| **User-Centric CBT Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 3-tab modal, dinamik achievements, sakin tasarım |
+| **User-Centric CBT Dashboard** | ❌ REMOVED | - | Özellik kaldırıldı |
 | **User-Centric Mood Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 4-tab modal (Journey/Spectrum/Patterns/Prediction), dinamik veri |
-| **User-Centric OCD Dashboard** | ✅ Aktif | v2.1 | **YENİ!** 4-tab recovery journey (Journey/Patterns/Assessment/Triggers), dinamik achievements |
+| **User-Centric OCD Dashboard** | ❌ REMOVED | - | Özellik kaldırıldı |
 
 ## 🔧 Teknik Özellikler
 

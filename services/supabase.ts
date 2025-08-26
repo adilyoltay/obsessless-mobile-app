@@ -500,6 +500,39 @@ class SupabaseNativeService {
     }
   }
 
+  /**
+   * Update current auth user's metadata/preferences and persist locally.
+   * Note: Supabase auth.updateUser updates the currently authenticated user; userId is for validation/logging.
+   */
+  async updateUser(userId: string, updates: { metadata?: any; locale?: string }): Promise<void> {
+    try {
+      // Ensure user row exists for cross-table consistency (no-op if already exists)
+      await this.ensureUserProfileExists(userId);
+
+      // Only proceed if we have a logged-in user matching userId
+      const current = this.currentUser || (await this.client.auth.getUser()).data.user;
+      if (!current || current.id !== userId) {
+        console.warn('⚠️ updateUser called without matching authenticated user; skipping auth metadata update');
+      } else {
+        const data: any = { ...(updates?.metadata || {}) };
+        if (updates?.locale) data.locale = updates.locale;
+        const { error } = await this.client.auth.updateUser({ data } as any);
+        if (error) throw error;
+      }
+
+      // Persist locally for offline-first access
+      try {
+        await AsyncStorage.setItem(
+          `ai_user_metadata_${userId}`,
+          JSON.stringify({ ...(updates?.metadata || {}), locale: updates?.locale, updatedAt: new Date().toISOString() })
+        );
+      } catch {}
+    } catch (error) {
+      console.error('❌ updateUser failed:', error);
+      throw error;
+    }
+  }
+
   async createUserProfile(userId: string, email: string, name: string, provider: 'email' | 'google'): Promise<UserProfile> {
     try {
       const { data, error } = await this.client

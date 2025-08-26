@@ -32,7 +32,7 @@ import {
   TherapeuticGoal
 } from '@/features/ai/types';
 import { trackAIInteraction, trackAIError, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 import { contextIntelligenceEngine } from '@/features/ai/context/contextIntelligence';
 import { therapeuticPromptEngine } from '@/features/ai/prompts/therapeuticPrompts';
 import { externalAIService } from '@/features/ai/services/externalAIService';
@@ -277,8 +277,16 @@ class UserProfilingService {
     }
 
     try {
-      // Y-BOCS analizi
-      const ybocsAnalysis = await ybocsAnalysisService.analyzeResponses(ybocsData);
+      // Y-BOCS analizi kaldırıldı: yerel minimal değerlendirme
+      const ybocsAnalysis = (() => {
+        try {
+          const totalScore = (ybocsData || []).reduce((sum: number, ans: any) => sum + (Number(ans?.response ?? 0) || 0), 0);
+          const severityLevel = totalScore > 31 ? 'extreme' : totalScore > 23 ? 'severe' : totalScore > 15 ? 'moderate' : totalScore > 7 ? 'mild' : 'minimal';
+          return { totalScore, severityLevel, dominantSymptoms: [], riskFactors: [] } as any;
+        } catch {
+          return { totalScore: 0, severityLevel: 'minimal', dominantSymptoms: [], riskFactors: [] } as any;
+        }
+      })();
       
       // Basic profile structure
       const baseProfile: UserTherapeuticProfile = {

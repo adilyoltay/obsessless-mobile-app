@@ -86,35 +86,7 @@ export default function TabLayout() {
         }}
       />
       
-      <Tabs.Screen
-        name="cbt"
-        options={{
-          title: 'CBT',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon 
-              name={focused ? 'bulb' : 'bulb-outline'} 
-              color={focused ? '#A78BFA' : '#9CA3AF'} 
-              size={26} 
-            />
-          ),
-          tabBarActiveTintColor: '#A78BFA', // Daha sakin mor
-        }}
-      />
       
-      <Tabs.Screen
-        name="tracking"
-        options={{
-          title: 'OCD',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon 
-              name={focused ? 'pulse' : 'pulse-outline'} 
-              color={focused ? '#34D399' : '#9CA3AF'} 
-              size={26} 
-            />
-          ),
-          tabBarActiveTintColor: '#34D399', // Daha sakin yeşil
-        }}
-      />
 
 
       <Tabs.Screen

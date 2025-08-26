@@ -75,7 +75,7 @@ import { OCDAnalysis } from '@/features/ai/types';
 
 // Telemetry
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed; use local fallback analysis
 
 // Using global design tokens
 

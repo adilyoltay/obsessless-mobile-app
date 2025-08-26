@@ -88,6 +88,8 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
   AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
   AI_DASHBOARD: AI_MASTER_ENABLED,
+  // 🚀 Onboarding v1 (mood-first)
+  ONBOARDING_V1: true,
   // Onboarding Flow varsayılan olarak aktif; ayrı V2 flag kaldırıldı
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,

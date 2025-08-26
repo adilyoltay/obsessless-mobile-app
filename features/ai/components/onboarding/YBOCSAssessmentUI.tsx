@@ -31,7 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
 // Sprint 7 Backend Integration
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 // Crisis detection tamamen kaldırıldı; güvenlik için sadece içerik filtreleme ve yönlendirmeler kullanılır
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 

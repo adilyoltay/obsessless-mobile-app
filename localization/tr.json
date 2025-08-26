@@ -1,8 +1,6 @@
 {
   "navigation": {
     "today": "Bugün",
-    "tracking": "Takip",
-
     "settings": "Ayarlar",
     "back": "Geri",
     "home": "Ana Sayfa",
@@ -67,8 +65,7 @@
     "todaysStats": "Bugünkü İstatistikler",
     "recentActivity": "Son Aktiviteler",
     "tipOfTheDay": "Günün İpucu",
-    "logCompulsion": "Kompülsiyon Kaydet",
-    "ybocs": "Y-BOCS Testi",
+    
     "viewHistory": "Geçmişi Görüntüle",
     "motivation": {
       "focus": "Odaklan",
@@ -76,149 +73,31 @@
       "progress": "İlerleme"
     }
   },
-  "categoriesCanonical": {
-    "contamination": "Bulaşma/Temizlik",
-    "checking": "Kontrol Etme",
-    "symmetry": "Simetri/Düzen",
-    "mental": "Zihinsel Ritüeller",
-    "hoarding": "Biriktirme",
-    "other": "Diğer"
+  
+  "onb": {
+    "welcome_title": "ObsessLess'e Hoş Geldin",
+    "welcome_desc": "Daha sakin, daha farkında bir gün için küçük adımlarla başlayalım.",
+    "start": "Hadi Başlayalım",
+    "later": "Daha sonra",
+    "motivation_title": "Neden buradasın?",
+    "motivation_hint": "İstediğin kadar seçebilirsin.",
+    "first_mood_title": "Şu an nasıl hissediyorsun?",
+    "add_tag": "Ekle",
+    "lifestyle_title": "Yaşam tarzın (opsiyonel)",
+    "sleep_hours": "Günlük uyku (saat)",
+    "exercise": "Egzersiz",
+    "social": "Sosyal aktivite",
+    "notifications_title": "Günlük hatırlatma (opsiyonel)",
+    "reminders": "Hatırlatmalar",
+    "summary_title": "Senin için açılanlar",
+    "begin": "Başla",
+    "skip": "Atla",
+    "back": "Geri",
+    "next": "Devam"
   },
-  "compulsions": {
-    "compulsion": "Kompülsiyon",
-    "compulsions": "Kompülsiyonlar",
-    "trackCompulsion": "Kompülsiyon Takibi",
-    "logCompulsion": "Kompülsiyon Kaydet",
-    "compulsionHistory": "Kompülsiyon Geçmişi",
-    "type": "Tür",
-    "intensity": "Şiddet",
-    "resistance": "Direnç",
-    "duration": "Süre",
-    "mood": "Ruh Hali",
-    "triggers": "Tetikleyiciler",
-    "location": "Konum",
-    "notes": "Notlar",
-    "completed": "Tamamlandı",
-    "stopped": "Durduruldu",
-    "helpUsed": "Yardım Kullanıldı",
-    "categories": {
-      "washing": "Yıkama/Temizlik",
-      "checking": "Kontrol Etme",
-      "counting": "Sayma",
-      "ordering": "Düzenleme/Sıralama",
-      "mental": "Zihinsel Ritüeller",
-      "reassurance": "Güvence Arama",
-      "avoidance": "Kaçınma",
-      "touching": "Dokunma"
-    },
-    "intensityLevels": {
-      "1": "Çok Hafif",
-      "2": "Hafif",
-      "3": "Hafif-Orta",
-      "4": "Orta",
-      "5": "Orta-Şiddetli",
-      "6": "Şiddetli",
-      "7": "Çok Şiddetli",
-      "8": "Aşırı",
-      "9": "Çok Aşırı",
-      "10": "Dayanılmaz"
-    },
-    "resistanceLevels": {
-      "1": "Hiç Direnmedim",
-      "2": "Çok Az Direndim",
-      "3": "Az Direndim",
-      "4": "Biraz Direndim",
-      "5": "Orta Direndim",
-      "6": "İyi Direndim",
-      "7": "Çok İyi Direndim",
-      "8": "Mükemmel Direndim",
-      "9": "Çok Başarılı Direndim",
-      "10": "Tamamen Direndim"
-    },
-    "moods": {
-      "very_anxious": "Çok Kaygılı",
-      "anxious": "Kaygılı",
-      "neutral": "Nötr",
-      "calm": "Sakin",
-      "very_calm": "Çok Sakin"
-    },
-    "summaryPeriods": {
-      "today": "Bugün",
-      "week": "Bu Hafta",
-      "month": "Bu Ay"
-    },
-    "stats": {
-      "totalEntries": "Toplam Kayıt",
-      "averageIntensity": "Ortalama Şiddet",
-      "averageResistance": "Ortalama Direnç",
-      "longestDuration": "En Uzun Süre",
-      "mostCommonType": "En Yaygın Tür",
-      "dailyTrend": "Günlük Trend"
-    },
-    "filters": {
-      "filtersAndSorting": "Filtreler ve Sıralama",
-      "compulsionType": "Kompülsiyon Türü",
-      "sorting": "Sıralama",
-      "byDate": "Tarihe Göre",
-      "byIntensity": "Şiddete Göre",
-      "byResistance": "Dirençe Göre",
-      "ascending": "Artan",
-      "descending": "Azalan",
-      "clearFilters": "Filtreleri Temizle"
-    },
-    "messages": {
-      "noRecords": "Henüz kayıt yok",
-      "noRecordsSubtitle": "İlk kompülsiyonunuzu kaydetmek için Takip sekmesini kullanın",
-      "noDataForPeriod": "için henüz kompülsiyon kaydı bulunmuyor",
-      "compulsionSaved": "Kompülsiyon kaydedildi",
-      "compulsionDeleted": "Kompülsiyon silindi",
-      "loadingRecords": "Kayıtlar yükleniyor..."
-    }
-  },
-  "ybocs": {
-    "title": "Y-BOCS Değerlendirmesi",
-    "subtitle": "Yale-Brown Obsesif Kompulsif Ölçeği",
-    "description": "Bu test OKB belirtilerinizin şiddetini değerlendirmek için kullanılır.",
-    "question": "Soru",
-    "of": "/",
-    "next": "Sonraki",
-    "previous": "Önceki",
-    "submit": "Gönder",
-    "results": "Sonuçlar",
-    "score": "Puan",
-    "interpretation": "Yorumlama",
-    "categories": {
-      "minimal": "Minimal",
-      "mild": "Hafif",
-      "moderate": "Orta",
-      "severe": "Şiddetli",
-      "extreme": "Aşırı"
-    },
-    "interpretations": {
-      "minimal": "Minimal OKB belirtileri",
-      "mild": "Hafif OKB belirtileri",
-      "moderate": "Orta düzeyde OKB belirtileri",
-      "severe": "Şiddetli OKB belirtileri",
-      "extreme": "Aşırı düzeyde OKB belirtileri"
-    },
-    "retakeTest": "Testi Tekrar Al",
-    "disclaimer": "Bu test tanı amaçlı değildir. Profesyonel yardım alınması önerilir."
-  },
-  "assessment": {
-    "ocdProfile": "OKB Profili",
-    "createProfile": "Profil Oluştur",
-    "updateProfile": "Profili Güncelle",
-    "profileCreated": "Profil oluşturuldu",
-    "profileUpdated": "Profil güncellendi",
-    "mainConcerns": "Ana Endişeler",
-    "obsessionTypes": "Obsesyon Türleri",
-    "compulsionTypes": "Kompülsiyon Türleri",
-    "severity": "Şiddet",
-    "impactOnLife": "Hayat Üzerindeki Etkisi",
-    "treatmentHistory": "Tedavi Geçmişi",
-    "medications": "İlaçlar",
-    "therapy": "Terapi"
-  },
+  
+  
+  
   "settings": {
     "title": "Ayarlar",
     "account": "Hesap",
@@ -251,50 +130,8 @@
     "sessionExpired": "Oturum süresi doldu",
     "rateLimitExceeded": "Hız sınırı aşıldı"
   },
-  "tips": {
-    "tip1": "Kompülsiyonlarınızla başa çıkarken, küçük adımlar atmanın büyük değişimler yaratabileceğini unutmayın.",
-    "tip2": "Her direnişiniz bir başarıdır! Kendinizi tebrik etmeyi unutmayın.",
-    "tip3": "Nefes egzersizlerini düzenli yapmak, zamanla kaygı seviyenizi azaltacaktır.",
-    "tip4": "Kompülsiyonları takip etmek, tetikleyicilerinizi anlamanıza yardımcı olur.",
-    "tip5": "Sabır gösterin - iyileşme zaman alır ve her küçük adım önemlidir."
-  },
-  "cbt": {
-    "title": "Nazikçe Düşünce Kaydı",
-    "subtitle": "Adım adım ilerleyelim. Dilediğin an durabilirsin.",
-    "formLabel": "CBT düşünce kaydı formu",
-    "step": "Adım",
-    "step1": "Adım 1: Otomatik düşünce",
-    "step2": "Adım 2: Çarpıtmalar ve kanıtlar",
-    "step3": "Adım 3: Yeni bakış açısı",
-    "autoThought": "Otomatik Düşünce",
-    "autoThoughtPh": "Aklımdan geçen düşünce...",
-    "hintShort": "İpucu: Kısa ve net yazmak işini kolaylaştırır.",
-    "distortions": "Bilişsel Çarpıtmalar",
-    "distortions": {
-      "mind_reading": "Zihin Okuma",
-      "catastrophizing": "Felaketleştirme",
-      "should_statements": "Meli/Malı Düşünceleri",
-      "all_or_nothing": "Ya Hep Ya Hiç",
-      "overgeneralization": "Aşırı Genelleme",
-      "labeling": "Etiketleme",
-      "mental_filter": "Zihinsel Süzgeç",
-      "disqualifying_the_positive": "Olumluyu Geçersiz Kılma",
-      "emotional_reasoning": "Duygusal Akıl Yürütme",
-      "personalization": "Kişiselleştirme"
-    },
-    "evidenceFor": "Kanıtlar",
-    "evidenceForPh": "Bu düşünceyi destekleyen kanıtlar...",
-    "evidenceAgainst": "Karşı Kanıtlar",
-    "evidenceAgainstPh": "Bu düşünceye karşı kanıtlar...",
-    "newView": "Yeni Bakış Açım (≤140)",
-    "newViewPh": "Nazik, gerçekçi ve kısa bir alternatif...",
-    "getReframe": "Öneri Al",
-    "altShort": "Kısa Alternatifler",
-    "reframesReady": "Yeni bakış açıları hazır",
-    "saved": "Kayıt alındı.",
-    "autoThoughtRequired": "Otomatik düşünce boş olamaz.",
-    "maxDistortions": "En fazla 3 bilişsel çarpıtma seçebilirsiniz."
-  },
+  
+  
   "assessment": {
       "title": "Y-BOCS Değerlendirme",
       "subtitle": "OKB şiddetinizi değerlendirin",

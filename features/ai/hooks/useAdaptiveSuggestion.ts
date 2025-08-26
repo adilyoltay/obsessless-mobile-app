@@ -548,15 +548,15 @@ export function useAdaptiveSuggestion() {
       };
     }
 
-    // High compulsions, low CBT → CBT suggestion
+    // High compulsions, low CBT → Remap to Mood suggestion
     if ((recentActivity?.compulsionCount || 0) > 5 && (recentActivity?.cbtRecords || 0) === 0) {
       return {
         show: true,
-        title: "Düşünce Kaydı",
-        content: "Son günlerde biraz zorlanıyor gibisiniz. Düşüncelerinizi kaydetmek yardımcı olabilir.",
-        category: 'cbt',
+        title: "Nasıl Hissediyorsun?",
+        content: "Son günlerde biraz zorlanıyor gibisiniz. Kısa bir mood kaydı iyi gelebilir.",
+        category: 'mood',
         cta: {
-          screen: '/(tabs)/cbt'
+          screen: '/(tabs)/mood'
         }
       };
     }
@@ -932,14 +932,14 @@ export function useAdaptiveSuggestion() {
    * 😊 Generate mood-specific suggestions
    */
   const generateMoodSuggestion = (weeklyDelta: number, volatility: number, baselines: any, sampleSize: number): any => {
-    // Improvement → CBT reinforcement
+    // Improvement → Remap reinforcement to Mood
     if (weeklyDelta > 10 && sampleSize >= 5) {
       return {
         show: true,
         title: "Güzel İvme!",
-        content: "Mood'un bu hafta iyileşmiş. Bunu bir CBT kaydı ile pekiştirmek ister misin?",
-        category: 'cbt',
-        cta: { screen: '/(tabs)/cbt' }
+        content: "Mood'un bu hafta iyileşmiş. Devam etmek için kısa bir mood kaydı ekleyebilirsin.",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
       };
     }
 
@@ -994,14 +994,14 @@ export function useAdaptiveSuggestion() {
       };
     }
 
-    // Low CBT activity → encourage
+    // Low CBT activity → Remap encourage to Mood
     if (sampleSize < 2) {
       return {
         show: true,
-        title: "Düşünce Analizi",
-        content: "Düşüncelerini analiz etmek için güzel bir zaman. Başlamaya ne dersin?",
-        category: 'cbt',
-        cta: { screen: '/(tabs)/cbt' }
+        title: "Kısa Bir Check-in",
+        content: "Kendini nasıl hissettiğini kaydetmek iyi gelebilir.",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
       };
     }
 
@@ -1023,14 +1023,14 @@ export function useAdaptiveSuggestion() {
       };
     }
 
-    // Good resistance progress → CBT analysis
+    // Good resistance progress → Remap to Mood
     if (weeklyDelta < -10 && sampleSize >= 5) {
       return {
         show: true,
-        title: "Başarını Analiz Et",
-        content: "Direnç oranın harika! Bu pattern'i CBT kaydı ile analiz etmek ister misin?",
-        category: 'cbt',
-        cta: { screen: '/(tabs)/cbt' }
+        title: "Başarını Kaydet",
+        content: "Direnç oranın harika! Bunu kısa bir mood kaydı ile işaretlemek ister misin?",
+        category: 'mood',
+        cta: { screen: '/(tabs)/mood' }
       };
     }
 

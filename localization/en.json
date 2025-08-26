@@ -1,7 +1,6 @@
 {
   "navigation": {
     "today": "Today",
-    "tracking": "Tracking",
     "therapy": "Therapy",
     "settings": "Settings",
     "back": "Back",
@@ -67,8 +66,7 @@
     "todaysStats": "Today's Statistics",
     "recentActivity": "Recent Activity",
     "tipOfTheDay": "Tip of the Day",
-    "logCompulsion": "Log Compulsion",
-    "ybocs": "Y-BOCS Test",
+    
     "therapyExercise": "Therapy Exercise",
     "viewHistory": "View History",
     "motivation": {
@@ -77,168 +75,11 @@
       "progress": "Progress"
     }
   },
-  "categoriesCanonical": {
-    "contamination": "Contamination/Cleaning",
-    "checking": "Checking",
-    "symmetry": "Symmetry/Ordering",
-    "mental": "Mental Rituals",
-    "hoarding": "Hoarding",
-    "other": "Other"
-  },
-  "compulsions": {
-    "compulsion": "Compulsion",
-    "compulsions": "Compulsions",
-    "trackCompulsion": "Track Compulsion",
-    "logCompulsion": "Log Compulsion",
-    "compulsionHistory": "Compulsion History",
-    "type": "Type",
-    "intensity": "Intensity",
-    "resistance": "Resistance",
-    "duration": "Duration",
-    "mood": "Mood",
-    "triggers": "Triggers",
-    "location": "Location",
-    "notes": "Notes",
-    "completed": "Completed",
-    "stopped": "Stopped",
-    "helpUsed": "Help Used",
-    "categories": {
-      "washing": "Washing/Cleaning",
-      "checking": "Checking",
-      "counting": "Counting",
-      "ordering": "Ordering/Arranging",
-      "mental": "Mental Rituals",
-      "reassurance": "Reassurance Seeking",
-      "avoidance": "Avoidance",
-      "touching": "Touching"
-    },
-    "intensityLevels": {
-      "1": "Very Mild",
-      "2": "Mild",
-      "3": "Mild-Moderate",
-      "4": "Moderate",
-      "5": "Moderate-Severe",
-      "6": "Severe",
-      "7": "Very Severe",
-      "8": "Extreme",
-      "9": "Very Extreme",
-      "10": "Unbearable"
-    },
-    "resistanceLevels": {
-      "1": "No Resistance",
-      "2": "Very Little Resistance",
-      "3": "Little Resistance",
-      "4": "Some Resistance",
-      "5": "Moderate Resistance",
-      "6": "Good Resistance",
-      "7": "Very Good Resistance",
-      "8": "Excellent Resistance",
-      "9": "Very Successful Resistance",
-      "10": "Complete Resistance"
-    },
-    "moods": {
-      "very_anxious": "Very Anxious",
-      "anxious": "Anxious",
-      "neutral": "Neutral",
-      "calm": "Calm",
-      "very_calm": "Very Calm"
-    },
-    "summaryPeriods": {
-      "today": "Today",
-      "week": "This Week",
-      "month": "This Month"
-    },
-    "stats": {
-      "totalEntries": "Total Entries",
-      "averageIntensity": "Average Intensity",
-      "averageResistance": "Average Resistance",
-      "longestDuration": "Longest Duration",
-      "mostCommonType": "Most Common Type",
-      "dailyTrend": "Daily Trend"
-    },
-    "filters": {
-      "filtersAndSorting": "Filters and Sorting",
-      "compulsionType": "Compulsion Type",
-      "sorting": "Sorting",
-      "byDate": "By Date",
-      "byIntensity": "By Intensity",
-      "byResistance": "By Resistance",
-      "ascending": "Ascending",
-      "descending": "Descending",
-      "clearFilters": "Clear Filters"
-    },
-    "messages": {
-      "noRecords": "No records yet",
-      "noRecordsSubtitle": "Use the Tracking tab to log your first compulsion",
-      "noDataForPeriod": "No compulsion records found for",
-      "compulsionSaved": "Compulsion saved",
-      "compulsionDeleted": "Compulsion deleted",
-      "loadingRecords": "Loading records..."
-    }
-  },
-  "ybocs": {
-    "title": "Y-BOCS Assessment",
-    "subtitle": "Yale-Brown Obsessive Compulsive Scale",
-    "description": "This test is used to assess the severity of your OCD symptoms.",
-    "question": "Question",
-    "of": " of ",
-    "next": "Next",
-    "previous": "Previous",
-    "submit": "Submit",
-    "results": "Results",
-    "score": "Score",
-    "interpretation": "Interpretation",
-    "categories": {
-      "minimal": "Minimal",
-      "mild": "Mild",
-      "moderate": "Moderate",
-      "severe": "Severe",
-      "extreme": "Extreme"
-    },
-    "interpretations": {
-      "minimal": "Minimal OCD symptoms",
-      "mild": "Mild OCD symptoms",
-      "moderate": "Moderate OCD symptoms",
-      "severe": "Severe OCD symptoms",
-      "extreme": "Extreme OCD symptoms"
-    },
-    "retakeTest": "Retake Test",
-    "disclaimer": "This test is not for diagnostic purposes. Professional help is recommended."
-  },
-  "erp": {
-    "title": "ERP Exercises",
-    "subtitle": "Exposure and Response Prevention",
-    "startExercise": "Start Exercise",
-    "stopExercise": "Stop Exercise",
-    "pauseExercise": "Pause",
-    "resumeExercise": "Resume",
-    "completeExercise": "Complete Exercise",
-    "anxietyLevel": "Anxiety Level",
-    "duration": "Duration",
-    "targetDuration": "Target Duration",
-    "currentAnxiety": "Current Anxiety",
-    "exerciseComplete": "Exercise Complete",
-    "sessionSummary": "Session Summary",
-    "totalTime": "Total Time",
-    "peakAnxiety": "Peak Anxiety",
-    "finalAnxiety": "Final Anxiety",
-    "improvement": "Improvement"
-  },
-  "assessment": {
-    "ocdProfile": "OCD Profile",
-    "createProfile": "Create Profile",
-    "updateProfile": "Update Profile",
-    "profileCreated": "Profile created",
-    "profileUpdated": "Profile updated",
-    "mainConcerns": "Main Concerns",
-    "obsessionTypes": "Obsession Types",
-    "compulsionTypes": "Compulsion Types",
-    "severity": "Severity",
-    "impactOnLife": "Impact on Life",
-    "treatmentHistory": "Treatment History",
-    "medications": "Medications",
-    "therapy": "Therapy"
-  },
+  
+  
+  
+  
+  
   "settings": {
     "title": "Settings",
     "account": "Account",

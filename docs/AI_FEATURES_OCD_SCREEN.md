@@ -1,4 +1,4 @@
-# 🔍 OCD Screen - AI Destekli Özellikler Rehberi
+# 🔍 OCD Screen - Kaldırıldı
 
 > **Son Güncelleme**: Ocak 2025 - Unified AI Pipeline v1.0 + UserCentric Dashboard  
 > **Implementation Status**: ✅ PROD READY - Tüm core özellikler aktif  
@@ -6,7 +6,7 @@
 
 ## 📋 Genel Bakış
 
-OCD (Obsessive-Compulsive Disorder) Screen, kullanıcının **takıntı ve kompulsiyon takibini** yapmak ve **OKB pattern'lerini analiz etmek** için tasarlanmış AI destekli bir klinik modüldür. **UnifiedAIPipeline** mimarisi ile kanıta dayalı OKB tedavi teknikleri ve AI pattern recognition'ı birleştirerek kişiselleştirilmiş terapötik destek sunar.
+Bu modül UI seviyesinde kaldırıldı. Voice ve analiz akışları, uygun olduğunda Breathwork veya Mood'a remap edilmektedir. UnifiedAIPipeline kontratları korunmuştur.
 
 ### 🎯 Ana Misyon
 - **Pattern Recognition**: OKB kalıplarını otomatik tespit etme

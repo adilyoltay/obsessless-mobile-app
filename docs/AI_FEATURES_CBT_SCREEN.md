@@ -1,11 +1,11 @@
-# 🧠 CBT Screen - AI Destekli Özellikler Rehberi
+# 🧠 CBT Screen - Kaldırıldı
 
 > **Güncelleme**: Ocak 2025 - Unified AI Pipeline v1.0  
 > **Hedef Kitle**: Geliştirici ekibi ve product team
 
 ## 📋 Genel Bakış
 
-CBT (Cognitive Behavioral Therapy) Screen, kullanıcının **olumsuz düşünce kalıplarını tanıması** ve **sağlıklı bakış açıları geliştirmesi** için tasarlanmış AI destekli bir terapi modülüdür. Kanıta dayalı CBT tekniklerini AI ile birleştirerek kişiselleştirilmiş terapötik destek sunar.
+Bu modül UI seviyesinde kaldırıldı. UnifiedAIPipeline analizleri, ilgili durumda Mood veya Breathwork ekranlarına remap edilir. Kontratlar korunmuş, yönlendirme no-op adaptörle sağlanmıştır.
 
 ### 🎯 Ana Misyon
 - **Cognitive Restructuring**: Düşünce kalıplarını yeniden yapılandırma

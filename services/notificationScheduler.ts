@@ -8,7 +8,7 @@ const isExpoGo = Constants.appOwnership === 'expo';
 
 export interface NotificationSchedule {
   id: string;
-  type: 'daily_tracking' | 'motivation' | 'milestone';
+  type: 'daily_tracking' | 'motivation' | 'milestone' | 'daily_mood';
   title: string;
   body: string;
   scheduledTime: Date;
@@ -79,6 +79,40 @@ export class NotificationScheduler {
       type: 'daily_tracking',
       title: '📊 Günlük Takip',
       body: 'Bugünün kompulsiyonlarını kaydetmeyi unutma!',
+      scheduledTime: time,
+      isActive: true,
+      frequency: 'daily'
+    });
+
+    return identifier;
+  }
+
+  static async scheduleDailyMoodReminder(time: Date): Promise<string> {
+    // Skip notification scheduling in Expo Go (SDK 53+)
+    if (isExpoGo) {
+      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
+      return 'expo-go-mock-id';
+    }
+    
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🌤️ Günlük Mood',
+        body: 'Bugünkü ruh halini kaydetmeyi unutma.',
+        data: { type: 'daily_mood' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        hour: time.getHours(),
+        minute: time.getMinutes(),
+        repeats: true,
+      } as Notifications.CalendarTriggerInput,
+    });
+
+    await this.saveNotificationSchedule({
+      id: identifier,
+      type: 'daily_mood',
+      title: '🌤️ Günlük Mood',
+      body: 'Bugünkü ruh halini kaydetmeyi unutma.',
       scheduledTime: time,
       isActive: true,
       frequency: 'daily'

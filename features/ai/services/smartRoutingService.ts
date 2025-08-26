@@ -80,30 +80,27 @@ const SCREEN_CONFIGS = {
       trigger: (val: any) => ['voice', 'manual', 'scheduled', 'reminder'].includes(val)
     }
   },
-  
+  // No-op adapter: legacy 'cbt' routes now map to Mood screen
   'cbt': {
-    path: '/(tabs)/cbt',
-    supportedParams: ['prefill', 'text', 'trigger', 'confidence', 'distortions', 'situation', 'thoughts', 'mood_before', 'mood_after'],
-    requiredForPrefill: ['text'],
+    path: '/(tabs)/mood',
+    supportedParams: ['prefill', 'mood', 'text', 'trigger', 'timestamp', 'context'],
+    requiredForPrefill: ['mood'],
     validation: {
-      text: (val: any) => typeof val === 'string' && val.length >= 3,
-      confidence: (val: any) => typeof val === 'number' && val >= 0 && val <= 1,
-      distortions: (val: any) => Array.isArray(val),
-      mood_before: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
-      mood_after: (val: any) => typeof val === 'number' && val >= 1 && val <= 10
+      mood: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
+      text: (val: any) => typeof val === 'string' && val.length <= 500,
+      trigger: (val: any) => ['voice', 'manual', 'scheduled', 'reminder'].includes(val)
     }
   },
-  
+  // No-op adapter: legacy 'tracking' routes now map to Breathwork screen
   'tracking': {
-    path: '/(tabs)/tracking',
-    supportedParams: ['prefill', 'text', 'category', 'trigger', 'confidence', 'resistanceLevel', 'intensity', 'severity', 'duration', 'location'],
-    requiredForPrefill: ['category'],
+    path: '/(tabs)/breathwork',
+    supportedParams: ['protocol', 'duration', 'autoStart', 'source', 'suggestionId', 'urgency', 'customization', 'anxietyLevel'],
+    requiredForPrefill: ['protocol'],
     validation: {
-      category: (val: any) => typeof val === 'string' && val.length > 0,
-      resistanceLevel: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
-      intensity: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
-      severity: (val: any) => typeof val === 'number' && val >= 1 && val <= 10,
-      duration: (val: any) => typeof val === 'number' && val > 0
+      protocol: (val: any) => ['4-7-8', 'box', 'paced', 'extended', 'quick_calm', 'custom'].includes(val),
+      duration: (val: any) => typeof val === 'number' && val > 0,
+      autoStart: (val: any) => ['true', 'false'].includes(String(val)),
+      anxietyLevel: (val: any) => typeof val === 'number' && val >= 1 && val <= 10
     }
   },
 
@@ -627,17 +624,19 @@ export class SmartRoutingService {
     // Primary routing logic based on analysis type
     switch (type) {
       case 'CBT':
-        targetScreen = 'cbt';
+        // Remapped to Mood
+        targetScreen = 'mood';
         priority = 8;
         routeConfidence = confidence;
-        reasoning.push(`CBT analysis detected with ${Math.round(confidence * 100)}% confidence`);
+        reasoning.push(`CBT analysis remapped to Mood with ${Math.round(confidence * 100)}% confidence`);
         break;
-        
+
       case 'OCD':
-        targetScreen = 'tracking';
-        priority = 7;
+        // Remapped to Breathwork
+        targetScreen = 'breathwork';
+        priority = urgency === 'critical' ? 10 : 7;
         routeConfidence = confidence;
-        reasoning.push(`OCD patterns detected with ${Math.round(confidence * 100)}% confidence`);
+        reasoning.push(`OCD patterns remapped to Breathwork with ${Math.round(confidence * 100)}% confidence`);
         break;
         
 
@@ -767,12 +766,12 @@ export class SmartRoutingService {
   ): SmartRouteConfig {
     // Simple fallback routing
     const fallbackScreens = {
-      'CBT': 'cbt',
-      'OCD': 'tracking',
+      'CBT': 'mood',
+      'OCD': 'breathwork',
 
       'MOOD': 'mood',
       'BREATHWORK': 'breathwork'
-    };
+    } as Record<string, string>;
     
     const screen = fallbackScreens[analysisResult.type] || 'mood';
     
@@ -802,13 +801,15 @@ export class SmartRoutingService {
     userId: string
   ): Promise<SmartRouteConfig[]> {
     const alternatives: SmartRouteConfig[] = [];
+    const allowedScreens = new Set(['mood', 'breathwork']);
     
     // Add user's frequently used screens as alternatives
     const frequentScreens = Object.entries(userPreferences.screenSuccessRates)
       .filter(([_, rate]) => rate > 0.6)
       .sort(([_, a], [__, b]) => b - a)
       .slice(0, 2)
-      .map(([screen]) => screen);
+      .map(([screen]) => screen)
+      .filter((screen) => allowedScreens.has(screen));
     
     for (const screen of frequentScreens) {
       if (screen !== analysisResult.type.toLowerCase()) {
@@ -873,7 +874,7 @@ export class SmartRoutingService {
       
       // Default preferences
       return {
-        preferredScreens: ['mood', 'cbt'],
+        preferredScreens: ['mood'],
         formPrefillPreference: 'contextual',
         navigationStyle: 'direct',
         lastUsedScreens: [],

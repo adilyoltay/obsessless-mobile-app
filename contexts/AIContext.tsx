@@ -33,7 +33,7 @@ import adaptiveInterventionsEngine from '@/features/ai/interventions/adaptiveInt
 const contextIntelligence = contextIntelligenceEngine;
 const adaptiveInterventions = adaptiveInterventionsEngine;
 import { jitaiEngine } from '@/features/ai/jitai/jitaiEngine';
-import { ybocsAnalysisService } from '@/features/ai/services/ybocsAnalysisService';
+// ybocsAnalysisService removed with OCD module cleanup
 // Note: onboardingEngine removed - OnboardingFlowV3 uses direct state management
 import { userProfilingService } from '@/features/ai/services/userProfilingService';
 import { adaptiveTreatmentPlanningEngine as treatmentPlanningEngine } from '@/features/ai/engines/treatmentPlanningEngine';
@@ -222,17 +222,7 @@ export function AIProvider({ children }: AIProviderProps) {
           enabled: FEATURE_FLAGS.isEnabled('AI_JITAI_SYSTEM'),
           task: async () => await jitaiEngine.initialize()
         },
-        {
-          name: 'AI_YBOCS_ANALYSIS',
-          enabled: FEATURE_FLAGS.isEnabled('AI_YBOCS_ANALYSIS'),
-          task: async () => {
-            if (ybocsAnalysisService && typeof ybocsAnalysisService.initialize === 'function') {
-              await ybocsAnalysisService.initialize();
-            } else {
-              throw new Error('Y-BOCS Analysis service not available');
-            }
-          }
-        },
+        // Y-BOCS analysis removed with OCD module
         {
           name: 'AI_USER_PROFILING',
           enabled: FEATURE_FLAGS.isEnabled('AI_USER_PROFILING'),
