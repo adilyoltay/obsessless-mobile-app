@@ -111,6 +111,39 @@ export class CircuitBreaker {
     return { state: this.state, failureCount: this.failureCount, successCount: this.successCount, lastFailureTime: this.lastFailureTime };
   }
 
+  /**
+   * 📊 Enhanced statistics with health metrics
+   */
+  getHealthMetrics(): {
+    state: CircuitState;
+    failureCount: number;
+    successCount: number;
+    lastFailureTime: number | null;
+    successRate: number;
+    isHealthy: boolean;
+    timeToReset?: number;
+  } {
+    const total = this.failureCount + this.successCount;
+    const successRate = total > 0 ? this.successCount / total : 1;
+    const isHealthy = this.state === CircuitState.CLOSED && this.failureCount < this.config.failureThreshold / 2;
+    
+    let timeToReset: number | undefined;
+    if (this.state === CircuitState.OPEN && this.lastFailureTime) {
+      const elapsed = Date.now() - this.lastFailureTime;
+      timeToReset = Math.max(0, this.config.resetTimeout - elapsed);
+    }
+    
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      successCount: this.successCount,
+      lastFailureTime: this.lastFailureTime,
+      successRate,
+      isHealthy,
+      timeToReset
+    };
+  }
+
   reset(): void {
     this.transitionTo(CircuitState.CLOSED);
     this.failureCount = 0;

@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import * as BackgroundFetch from 'expo-background-fetch'; // DISABLED: Not available in development
 import { Platform } from 'react-native';
 import { StorageKeys } from '@/utils/storage';
-import { unifiedPipeline } from '../core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 import supabaseService from '@/services/supabase';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -490,7 +490,7 @@ export class DailyJobsManager {
 
       // Process digest through UnifiedAIPipeline for comprehensive analysis
       try {
-        await unifiedPipeline.process({
+        await pipeline.process({
           userId,
           content: digest,
           context: {

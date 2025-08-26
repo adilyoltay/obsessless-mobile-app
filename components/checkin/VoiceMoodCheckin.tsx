@@ -11,7 +11,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { saveUserData, loadUserData, StorageKeys } from '@/utils/storage';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 

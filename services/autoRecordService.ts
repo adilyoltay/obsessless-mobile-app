@@ -8,7 +8,7 @@ import supabaseService from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { offlineSyncService } from '@/services/offlineSync';
 import * as Haptics from 'expo-haptics';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 
 interface AutoRecordData {
   type: 'MOOD';
@@ -209,7 +209,7 @@ export async function saveAutoRecord(
     // 🗑️ Invalidate AI cache based on record type
     switch (recordType) {
       case 'MOOD':
-        unifiedPipeline.triggerInvalidation('mood_added', data.userId);
+        pipeline.triggerInvalidation('mood_added', data.userId);
         break;
     }
     

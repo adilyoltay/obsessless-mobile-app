@@ -12,7 +12,7 @@ jest.mock('@/services/supabase', () => {
   };
 });
 
-const { unifiedPipeline } = require('@/features/ai/core/UnifiedAIPipeline');
+import * as pipeline from '@/features/ai/pipeline';
 const { createSupabaseTestClient } = require('./utils/supabaseTestClient');
 
 const userId = process.env.TEST_SEED_USER_ID || '00000000-0000-0000-0000-000000000001';
@@ -39,7 +39,7 @@ describe('Live Telemetry Supabase', () => {
 
   it('[QRlive:telemetry:started] and [QRlive:telemetry:completed] are recorded', async () => {
     const moods = Array.from({ length: 6 }, (_, i) => ({ timestamp: Date.now() - i * 900e3, mood_score: 6 }));
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     // Poll until telemetry rows appear
     let data: any[] | null = null;
     let error: any = null;

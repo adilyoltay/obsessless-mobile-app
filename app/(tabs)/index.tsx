@@ -54,7 +54,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 // Removed CoreAnalysisService - using UnifiedAIPipeline only
 
 // Unified AI Pipeline (ACTIVE - Jan 2025)
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 // import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
 
 import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
@@ -340,7 +340,7 @@ export default function TodayScreen() {
           let pipelineResult = null;
           try {
             // Process all module data through unified pipeline
-            pipelineResult = await unifiedPipeline.process({
+            pipelineResult = await pipeline.process({
               userId: user.id,
               content: {
                 moodEntries,
@@ -510,7 +510,7 @@ export default function TodayScreen() {
       }
       
       // 🗑️ Manual refresh - invalidate all AI caches
-      unifiedPipeline.triggerInvalidation('manual_refresh', user.id);
+      pipeline.triggerInvalidation('manual_refresh', user.id);
 
       // ✅ GENIŞLETILDI: Mood ve Nefes verilerini topla
       const today = new Date().toDateString();

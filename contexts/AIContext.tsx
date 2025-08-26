@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 // AI Services - Sprint Integration
 import { aiManager } from '@/features/ai/config/aiManager';
 // import { insightsCoordinator } from '@/features/ai/coordinators/insightsCoordinator'; // DEPRECATED - moved to UnifiedAIPipeline
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import contextIntelligenceEngine from '@/features/ai/context/contextIntelligence';
 import adaptiveInterventionsEngine from '@/features/ai/interventions/adaptiveInterventions';
 
@@ -820,8 +820,8 @@ export function AIProvider({ children }: AIProviderProps) {
       }
 
       // Use UnifiedAIPipeline for insights generation
-      if (unifiedPipeline) {
-        const result = await unifiedPipeline.process({
+      if (pipeline.unifiedPipeline) {
+        const result = await pipeline.unifiedPipeline.process({
           userId: user.id,
           content: behavioralData || {},
           type: 'data',

@@ -72,16 +72,11 @@ class SecureDataService {
         version: 1,
       };
     } catch (rnError) {
-      // As a last resort, avoid storing plaintext; hash-only fallback is allowed for non-secret telemetry
-      console.warn('⚠️ AES-GCM unavailable on this runtime, using SHA256_FALLBACK');
-      const json = JSON.stringify(data);
-      const hash = await this.createHash(json);
-      return {
-        ciphertext: hash,
-        iv: '',
-        algorithm: 'SHA256_FALLBACK',
-        version: 0,
-      };
+      // Privacy-first: do not persist any form if strong encryption is unavailable
+      console.error('❌ AES-256-GCM unavailable in this runtime. Aborting encryption.');
+      const err: any = new Error('ENCRYPTION_UNAVAILABLE');
+      err.code = 'ENCRYPTION_UNAVAILABLE';
+      throw err;
     }
   }
 
@@ -219,21 +214,11 @@ class SecureDataService {
       };
       
     } catch (error) {
-      console.error('❌ AES-256 encryption failed:', error);
-      
-      // Generate fallback hash instead of storing plaintext
-      const json = JSON.stringify(data);
-      const fallbackHash = await this.createHash(json);
-      
-      console.warn('⚠️ Encryption failed, using sanitized data:', error);
-      return {
-        encrypted: fallbackHash,
-        iv: '',
-        algorithm: 'SHA256_FALLBACK',
-        version: 0,
-        hash: fallbackHash,
-        timestamp: timestamp
-      };
+      // Privacy-first: do not store, let caller decide
+      console.error('❌ AES-256 encryption failed. Data will NOT be stored.', error);
+      const err: any = new Error('ENCRYPTION_FAILED_DO_NOT_STORE');
+      err.code = 'ENCRYPTION_FAILED_DO_NOT_STORE';
+      throw err;
     }
   }
   

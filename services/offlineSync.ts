@@ -95,38 +95,54 @@ export class OfflineSyncService {
   }
 
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
-    // ✅ F-01 FIX: Guard against unsupported entities (ERP remnants)
-    const SUPPORTED_ENTITIES = new Set([
-      'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'user_profile'
-    ]);
+    // ✅ Enhanced validation using QueueValidator
+    const { queueValidator } = await import('@/services/sync/queueValidator');
     
-    if (!SUPPORTED_ENTITIES.has(item.entity as any)) {
-      console.warn('🚫 Dropping unsupported entity from sync queue:', item.entity);
+    // Create temporary item for validation
+    const tempItem: SyncQueueItem = {
+      ...item,
+      id: `temp_${Date.now()}`,
+      timestamp: Date.now(),
+      retryCount: 0
+    };
+
+    // Validate and sanitize the item
+    const validation = queueValidator.validateItem(tempItem);
+    
+    if (!validation.isValid) {
+      console.warn('🚫 Dropping invalid sync queue item:', {
+        entity: item.entity,
+        type: item.type,
+        errors: validation.errors
+      });
+      
       try {
         const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-          event: 'unsupported_entity_dropped',
+          event: 'invalid_sync_item_dropped',
           entity: item.entity,
-          type: item.type
+          type: item.type,
+          errors: validation.errors
         });
       } catch (error) {
-        console.log('Failed to track unsupported entity drop:', error);
+        console.log('Failed to track invalid item drop:', error);
       }
-      return; // Drop the item silently
+      return; // Drop the item
     }
 
-    // Sanitize invalid user ids early (e.g., 'anon') so we can resolve later
-    try {
-      if (item.data && typeof item.data === 'object' && 'user_id' in item.data && !isUUID((item.data as any).user_id)) {
-        delete (item.data as any).user_id;
-      }
-      if (item.data && typeof item.data === 'object' && 'userId' in item.data && !isUUID((item.data as any).userId)) {
-        delete (item.data as any).userId;
-      }
-    } catch {}
+    // Log warnings but continue processing
+    if (validation.warnings.length > 0) {
+      console.warn('⚠️ Sync item validation warnings:', {
+        entity: item.entity,
+        warnings: validation.warnings
+      });
+    }
+
+    // Sanitize the item to fix common issues
+    const sanitizedTempItem = queueValidator.sanitizeItem(tempItem);
 
     const syncItem: SyncQueueItem = {
-      ...item,
+      ...sanitizedTempItem,
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: Date.now(),
       retryCount: 0,
@@ -426,7 +442,8 @@ export class OfflineSyncService {
       energy_level: raw.energy_level ?? raw.energy ?? 5,
       anxiety_level: raw.anxiety_level ?? raw.anxiety ?? 5,
       notes: raw.notes || '',
-      trigger: raw.trigger || '',
+      triggers: raw.triggers || (raw.trigger ? [raw.trigger] : []),
+      activities: raw.activities || [],
     };
 
     await (svc as any).saveMoodEntry(entry);

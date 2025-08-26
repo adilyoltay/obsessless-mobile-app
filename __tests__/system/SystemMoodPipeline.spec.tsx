@@ -6,7 +6,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-let unifiedPipeline: any;
+import * as pipeline from '@/features/ai/pipeline';
 
 const actualTelemetry = jest.requireActual('@/features/ai/telemetry/aiTelemetry');
 import type { AIEventType as AIEventTypeType } from '@/features/ai/telemetry/aiTelemetry';
@@ -50,7 +50,7 @@ describe('System Mood - Unified Pipeline', () => {
     process.env.EXPO_PUBLIC_ENABLE_AI = 'true';
     jest.resetModules();
     // feature flags mocked globally in jest.setup.js
-    unifiedPipeline = require('@/features/ai/core/UnifiedAIPipeline').unifiedPipeline;
+    // unifiedPipeline = require('@/features/ai/core/UnifiedAIPipeline').unifiedPipeline; // This line is removed
   });
 
   beforeEach(async () => {
@@ -62,10 +62,10 @@ describe('System Mood - Unified Pipeline', () => {
     const moodsRaw = generateMoodData(MOOD_SCENARIOS.high);
     const moods = moodsRaw.map(m => ({ ...m, timestamp: m.created_at, mood_score: m.mood_level }));
 
-    const first = await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const first = await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     expect(first.metadata.source).toBe('fresh');
 
-    const second = await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const second = await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     expect(second.metadata.source).toBe('cache');
 
     const calls = (trackAIInteraction as jest.Mock).mock.calls.map(args => args[0]);
@@ -74,7 +74,7 @@ describe('System Mood - Unified Pipeline', () => {
   });
 
   it('[QRsys:mood:hidden] real pipeline has no qualityMetadata (hidden by UI)', async () => {
-    const result = await unifiedPipeline.process({ userId, type: 'data', content: {}, context: { source: 'mood' } });
+    const result = await pipeline.process({ userId, type: 'data', content: {}, context: { source: 'mood' } });
 
     expect('qualityMetadata' in (result as any)).toBe(false);
   });

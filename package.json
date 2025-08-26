@@ -34,7 +34,8 @@
     "validate:expo": "expo-doctor",
     "scan:secrets": "gitleaks detect --redact",
     "scan:deprecated": "bash scripts/find-deprecated-features.sh",
-    "docs:deprecate": "ts-node scripts/update-documentation.ts"
+    "docs:deprecate": "ts-node scripts/update-documentation.ts",
+    "health:check": "node scripts/production-health-check.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",

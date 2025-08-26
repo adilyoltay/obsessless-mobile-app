@@ -24,8 +24,8 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useERPSettingsStore } from '@/store/erpSettingsStore';
 
-// AI - Unified Pipeline
-import { unifiedPipeline, type UnifiedPipelineResult } from '@/features/ai/core/UnifiedAIPipeline';
+// AI - Unified Pipeline (via facade)
+import { process as pipelineProcess, type UnifiedPipelineResult } from '@/features/ai/pipeline';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
@@ -77,7 +77,7 @@ export default function TodayScreenUnified() {
       const localData = await loadLocalData();
       
       // Call Unified Pipeline (single call for everything!)
-      const result = await unifiedPipeline.process({
+      const result = await pipelineProcess({
         userId: user.id,
         content: {
           compulsions: localData.compulsions,
@@ -139,7 +139,7 @@ export default function TodayScreenUnified() {
     setTimeout(async () => {
       try {
         // Force fresh analysis (bypass cache)
-        const deepResult = await unifiedPipeline.process({
+        const deepResult = await pipelineProcess({
           userId: user.id,
           content: await loadLocalData(),
           type: 'mixed',

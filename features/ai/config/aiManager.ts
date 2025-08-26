@@ -102,8 +102,8 @@ export class AIManager {
       console.log('🚀 UnifiedAIPipeline is ACTIVE - Legacy overlapping services will be skipped');
     }
 
-    // Phase 0: CoreAnalysisService (if enabled)
-    if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS')) {
+    // Phase 0: CoreAnalysisService (only when Unified Pipeline is disabled)
+    if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS') && !FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
       try {
         const { coreAnalysisService } = await import('@/features/ai/core/CoreAnalysisService');
         await coreAnalysisService.initialize();

@@ -1265,10 +1265,16 @@ class SupabaseNativeService {
         activities: entry.activities?.map(a => sanitizePII(a)) || [],
       };
       
-      // ✅ Generate content_hash for idempotency (client-side) using sanitized data
-      const triggerText = sanitizedEntry.triggers.join(',').toLowerCase();
-      const activityText = sanitizedEntry.activities.join(',').toLowerCase();
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${triggerText}|${activityText}|${new Date().toISOString().slice(0,10)}`;
+      // ✅ Use provided created_at/timestamp if available (offline-first correctness)
+      const createdAtIso: string = (
+        sanitizedEntry.created_at ||
+        sanitizedEntry.timestamp ||
+        new Date().toISOString()
+      );
+      const createdDay = createdAtIso.slice(0, 10); // UTC day
+      
+      // ✅ Generate content_hash (canonical): exclude triggers/activities; UTC day
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${createdDay}`;
       const content_hash = this.computeContentHash(contentText);
       
       const payload = {
@@ -1280,7 +1286,7 @@ class SupabaseNativeService {
         triggers: sanitizedEntry.triggers,
         activities: sanitizedEntry.activities,
         content_hash,
-        created_at: new Date().toISOString(),
+        created_at: createdAtIso,
       };
       
       // ✅ Use upsert with conflict resolution on (user_id, content_hash)
@@ -1289,10 +1295,9 @@ class SupabaseNativeService {
         .from('mood_entries')
         .upsert(payload, { 
           onConflict: 'user_id,content_hash',
-          ignoreDuplicates: true 
-        })
-        .select()
-        .maybeSingle();
+          ignoreDuplicates: true,
+          returning: 'minimal'
+        });
       
       if (error) {
         // ✅ Handle unique/duplicate or no-row return cases gracefully
@@ -1303,12 +1308,13 @@ class SupabaseNativeService {
           /multiple \(or no\) rows returned/i.test(error.message || '')
         ) {
           console.log('ℹ️ Mood entry already exists or not returned (idempotent upsert)');
+          try { await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, { kind: 'duplicate_prevented', userId: sanitizedEntry.user_id }); } catch {}
           return null;
         }
         throw error;
       }
       
-      console.log('✅ Mood entry saved:', data?.id || 'duplicate_prevented');
+      console.log('✅ Mood entry saved:', data ? (Array.isArray(data) ? data[0]?.id : (data as any)?.id) : 'duplicate_prevented');
       return data;
     } catch (error) {
       console.error('❌ Save mood entry failed:', error);
@@ -1359,12 +1365,19 @@ class SupabaseNativeService {
     energy_level: number;
     anxiety_level: number;
     notes: string;
-    trigger: string;
+    triggers: string[];
+    activities: string[];
   }>): Promise<any> {
     try {
+      // Sanitize PII for text fields
+      const payload: any = { ...updates };
+      if (typeof payload.notes === 'string') payload.notes = sanitizePII(payload.notes);
+      if (Array.isArray(payload.triggers)) payload.triggers = payload.triggers.map((t: string) => sanitizePII(t));
+      if (Array.isArray(payload.activities)) payload.activities = payload.activities.map((a: string) => sanitizePII(a));
+
       const { data, error } = await this.client
         .from('mood_entries')
-        .update(updates)
+        .update(payload)
         .eq('id', entryId)
         .select()
         .single();

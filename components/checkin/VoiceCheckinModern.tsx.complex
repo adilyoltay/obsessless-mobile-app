@@ -17,7 +17,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Toast } from '@/components/ui/Toast';
 
 // Services
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { process as pipelineProcess } from '@/features/ai/pipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -213,7 +213,7 @@ export default function VoiceCheckinModern({
     if (!user?.id || !text) return;
 
     try {
-      const pipelineResult = await unifiedPipeline.process({
+      const pipelineResult = await pipelineProcess({
         userId: user.id,
         content: text,
         type: 'voice' as const,

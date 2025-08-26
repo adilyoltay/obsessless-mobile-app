@@ -51,6 +51,7 @@ class MoodTrackingService {
         triggers: moodEntry.triggers || [], // Send full triggers array
         activities: moodEntry.activities || [], // Send activities array
         trigger: moodEntry.triggers?.[0] || '', // Keep backward compatibility
+        timestamp: moodEntry.timestamp, // Preserve original creation time for idempotency
       });
       await this.markAsSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
@@ -129,6 +130,7 @@ class MoodTrackingService {
               triggers: entry.triggers || [], // Send full triggers array
               activities: entry.activities || [], // Send activities array
               trigger: entry.triggers?.[0] || '', // Keep backward compatibility
+              timestamp: entry.timestamp, // Preserve original creation time for idempotency
             });
           } catch (e) {
             batchError = e;

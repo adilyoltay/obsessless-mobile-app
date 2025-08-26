@@ -10,7 +10,7 @@ import type {
   ProvenanceSource, 
   QualityLevel 
 } from '@/features/ai/insights/insightRegistry';
-import type { UnifiedPipelineResult } from '@/features/ai/core/UnifiedAIPipeline';
+import type { UnifiedPipelineResult } from '@/features/ai/pipeline';
 
 // ============================================================================
 // TEST ENVIRONMENT CONFIGURATION

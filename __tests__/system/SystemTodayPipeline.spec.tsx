@@ -9,6 +9,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as pipeline from '@/features/ai/pipeline';
 // unifiedPipeline will be required after env is set
 let unifiedPipeline: any;
 
@@ -89,7 +90,7 @@ describe('System Today - Unified Pipeline', () => {
       mood_score: m.mood_level,
     }));
 
-    const result = await unifiedPipeline.process({
+    const result = await pipeline.process({
       userId,
       type: 'data',
       content: { moods },
@@ -110,8 +111,8 @@ describe('System Today - Unified Pipeline', () => {
     const moodsRaw = generateMoodData(MOOD_SCENARIOS.medium);
     const moods = moodsRaw.map(m => ({ ...m, timestamp: m.created_at, mood_score: m.mood_level }));
 
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
-    const second = await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const second = await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
 
     expect(second.metadata.source).toBe('cache');
 
@@ -124,10 +125,10 @@ describe('System Today - Unified Pipeline', () => {
     const moodsRaw = generateMoodData(MOOD_SCENARIOS.low);
     const moods = moodsRaw.map(m => ({ ...m, timestamp: m.created_at, mood_score: m.mood_level }));
 
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
 
     // Trigger invalidation (clears memory cache + emits event, Supabase deletion mocked)
-    await unifiedPipeline.triggerInvalidation('mood_added', userId);
+    await pipeline.triggerInvalidation('mood_added', userId);
 
     // Verify telemetry and event emission
     const eventTypes = (trackAIInteraction as jest.Mock).mock.calls.map(args => args[0]);
@@ -135,7 +136,7 @@ describe('System Today - Unified Pipeline', () => {
     // UI-level invalidation emitter may be bypassed in system mode; rely on telemetry assertion above
 
     // Run again — may read from AsyncStorage (cache) but should record start/complete again
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     const afterInvalidate = (trackAIInteraction as jest.Mock).mock.calls.filter(c => [
       AIEventType.UNIFIED_PIPELINE_STARTED,
       AIEventType.UNIFIED_PIPELINE_COMPLETED

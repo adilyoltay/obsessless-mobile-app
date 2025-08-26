@@ -20,7 +20,7 @@ import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
 import { Toast } from '@/components/ui/Toast';
 
 // Services
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import { process as pipelineProcess } from '@/features/ai/pipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -169,7 +169,7 @@ export default function VoiceCheckinModern({
         try {
           console.log('🚀 Using UnifiedAIPipeline fallback');
           
-          const pipelineResult = await unifiedPipeline.process({
+          const pipelineResult = await pipeline.process({
             userId: user.id,
             content: res.text || '',
             type: 'voice' as const,
@@ -318,7 +318,7 @@ export default function VoiceCheckinModern({
           // Trigger cache invalidation for single module MOOD
           if (!silent && user?.id) {
             try {
-              await unifiedPipeline.triggerInvalidation('mood_added', user.id);
+              await pipeline.triggerInvalidation('mood_added', user.id);
               console.log('🔄 Single MOOD cache invalidated');
             } catch (invalidationError) {
               console.warn('⚠️ Cache invalidation failed:', invalidationError);
@@ -398,7 +398,7 @@ export default function VoiceCheckinModern({
                 if (user?.id && results.length > 0) {
                   for (const result of results) {
                     if (result.module === 'MOOD') {
-                      await unifiedPipeline.triggerInvalidation('mood_added', user.id);
+                      await pipeline.triggerInvalidation('mood_added', user.id);
                       console.log('🔄 MOOD cache invalidated');
                     } else if (result.module === 'BREATHWORK') {
                       console.log('🧘 BREATHWORK - no cache invalidation needed');

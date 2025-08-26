@@ -33,7 +33,7 @@ import { offlineSyncService } from '@/services/offlineSync';
 import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
 import { MoodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
 import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -136,7 +136,7 @@ export default function MoodScreen() {
     // 🔄 FORCE CACHE INVALIDATION for fresh analytics
     console.log('🔄 Force invalidating cache to get fresh mood analytics...');
     try {
-      await unifiedPipeline.triggerInvalidation('manual_refresh', user.id);
+      await pipeline.triggerInvalidation('manual_refresh', user.id);
       console.log('✅ Cache invalidated - will get fresh analytics');
     } catch (invalidationError) {
       console.warn('⚠️ Cache invalidation failed:', invalidationError);
@@ -171,7 +171,7 @@ export default function MoodScreen() {
       }
 
       // 🚀 UNIFIED PIPELINE: Process mood data
-      const result = await unifiedPipeline.process({
+      const result = await pipeline.process({
         userId: user.id,
         type: 'data',
         content: { moods: sanitized },
@@ -943,7 +943,7 @@ export default function MoodScreen() {
       
       // 🔄 FIXED: Trigger cache invalidation after mood entry save
       try {
-        await unifiedPipeline.triggerInvalidation('mood_added', user.id);
+        await pipeline.triggerInvalidation('mood_added', user.id);
         console.log('🔄 Cache invalidated after mood entry: patterns + insights + progress');
       } catch (invalidationError) {
         console.warn('⚠️ Cache invalidation failed (non-critical):', invalidationError);

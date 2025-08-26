@@ -72,6 +72,55 @@ class DeadLetterQueueService {
     return archived;
   }
 
+  /**
+   * 🧹 DLQ Cleanup: Permanently remove archived items older than retention period
+   */
+  async cleanupArchivedItems(): Promise<number> {
+    const queue = await this.getQueue();
+    const retentionDays = this.MAX_ARCHIVE_DAYS * 2; // Keep archived items for 60 days total
+    const cutoff = new Date(Date.now() - retentionDays * 86400000);
+    
+    const beforeCount = queue.length;
+    const filtered = queue.filter(item => {
+      // Keep non-archived items
+      if (!item.archived) return true;
+      // Keep archived items within retention period
+      return new Date(item.failedAt) >= cutoff;
+    });
+    
+    const removed = beforeCount - filtered.length;
+    if (removed > 0) {
+      await this.saveQueue(filtered);
+      console.log(`🧹 DLQ cleanup: removed ${removed} old archived items`);
+      
+      // Telemetry for cleanup
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'dlq_cleanup_completed',
+          removedCount: removed,
+          retentionDays
+        });
+      } catch {}
+    }
+    
+    return removed;
+  }
+
+  /**
+   * 🔄 Scheduled DLQ maintenance: archive old items + cleanup very old archived items
+   */
+  async performScheduledMaintenance(): Promise<{ archived: number; cleaned: number }> {
+    const archived = await this.archiveOldItems();
+    const cleaned = await this.cleanupArchivedItems();
+    
+    if (archived > 0 || cleaned > 0) {
+      console.log(`🔄 DLQ maintenance completed: ${archived} archived, ${cleaned} cleaned`);
+    }
+    
+    return { archived, cleaned };
+  }
+
   async processDeadLetterQueue(): Promise<{ retried: number; archived: number }> {
     let retried = 0;
     let archived = 0;

@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Button, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import supabaseService from '@/services/supabase';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import { postLiveResult } from '@/features/dev/liveTestResults';
 
 export default function LiveTestRunnerScreen() {
@@ -13,7 +13,7 @@ export default function LiveTestRunnerScreen() {
   const [log, setLog] = useState<string[]>([]);
   const [dbWrite, setDbWrite] = useState<boolean>(false);
 
-  useMemo(() => {
+  useEffect(() => {
     (async () => {
       const { data } = await supabaseService.supabaseClient.auth.getSession();
       setUserId(data?.session?.user?.id || null);
@@ -35,7 +35,7 @@ export default function LiveTestRunnerScreen() {
     const uid = guardUser();
     append('▶ today:fresh');
     const moods = Array.from({ length: 6 }, (_, i) => ({ timestamp: Date.now() - i * 900e3, mood_score: 6 }));
-    const r = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const r = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     const pass = r.metadata.source === 'fresh';
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:today:fresh]', status: pass ? 'pass' : 'fail', details: r.metadata });
     append(`✔ today:fresh => ${pass ? 'pass' : 'fail'}`);
@@ -45,8 +45,8 @@ export default function LiveTestRunnerScreen() {
     const uid = guardUser();
     append('▶ today:cache');
     const moods = Array.from({ length: 6 }, (_, i) => ({ timestamp: Date.now() - i * 900e3, mood_score: 6 }));
-    await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
-    const second = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const second = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     const pass = second.metadata.source === 'cache';
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:today:cache]', status: pass ? 'pass' : 'fail', details: second.metadata });
     append(`✔ today:cache => ${pass ? 'pass' : 'fail'}`);
@@ -55,7 +55,7 @@ export default function LiveTestRunnerScreen() {
   const runTodayInvalidate = async () => {
     const uid = guardUser();
     append('▶ today:invalidate');
-    await unifiedPipeline.triggerInvalidation('mood_added', uid);
+    await pipeline.triggerInvalidation('mood_added', uid);
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:today:invalidate]', status: 'pass', details: {} });
     append('✔ today:invalidate => pass');
   };
@@ -110,11 +110,11 @@ export default function LiveTestRunnerScreen() {
       }
     }
 
-    const moodRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const moodRes = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
     // Tracking/CBT/OCD runs removed
     if (dbWrite) {
-      await unifiedPipeline.triggerInvalidation('mood_added', uid);
+      await pipeline.triggerInvalidation('mood_added', uid);
       // invalidations simplified
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
@@ -156,13 +156,13 @@ export default function LiveTestRunnerScreen() {
       }
     }
 
-    const moodRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const moodRes = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
     // tracking/cbt/ocd runs removed
     if (dbWrite) {
-      await unifiedPipeline.triggerInvalidation('mood_added', uid);
-      await unifiedPipeline.triggerInvalidation('cbt_record_added', uid);
-      await unifiedPipeline.triggerInvalidation('compulsion_added', uid);
+      await pipeline.triggerInvalidation('mood_added', uid);
+      await pipeline.triggerInvalidation('cbt_record_added', uid);
+      await pipeline.triggerInvalidation('compulsion_added', uid);
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
         append(`✓ supabase mood (7gün): ${moodsFetched?.length ?? 0}`);
@@ -199,11 +199,11 @@ export default function LiveTestRunnerScreen() {
       }
     }
     try {
-      const res = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
+      const res = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
       await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:fresh]', status: res?.metadata?.source ? 'pass' : 'fail', details: res?.metadata || {} });
     } catch {}
     if (dbWrite) {
-      await unifiedPipeline.triggerInvalidation('mood_added', uid);
+      await pipeline.triggerInvalidation('mood_added', uid);
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
         append(`✓ supabase mood (7gün): ${moodsFetched?.length ?? 0}`);

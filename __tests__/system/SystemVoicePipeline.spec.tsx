@@ -6,7 +6,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 
 // Keep actual enums available
 const actualTelemetry = jest.requireActual('@/features/ai/telemetry/aiTelemetry');
@@ -51,7 +51,7 @@ describe('System Voice - Unified Pipeline', () => {
     const userId = process.env.TEST_SEED_USER_ID || 'test-user-1';
     const text = 'Bugün biraz yorgun ve stresliyim, nefes egzersizi iyi gelebilir.';
 
-    const result = await unifiedPipeline.process({
+    const result = await pipeline.process({
       userId,
       type: 'voice',
       content: text,

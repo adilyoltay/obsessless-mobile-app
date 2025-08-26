@@ -13,7 +13,7 @@ jest.mock('@/services/supabase', () => {
   };
 });
 
-const { unifiedPipeline } = require('@/features/ai/core/UnifiedAIPipeline');
+import * as pipeline from '@/features/ai/pipeline';
 const { createSupabaseTestClient } = require('./utils/supabaseTestClient');
 
 const userId = process.env.TEST_SEED_USER_ID || '00000000-0000-0000-0000-000000000001';
@@ -41,7 +41,7 @@ describe('Live Today Supabase', () => {
 
   it('[QRlive:today:fresh] writes ai_cache on fresh run', async () => {
     const moods = Array.from({ length: 10 }, (_, i) => ({ timestamp: Date.now() - i * 3600e3, mood_score: 7 }));
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     // Poll briefly to allow DB upsert
     let data: any[] | null = null;
     let error: any = null;
@@ -62,13 +62,13 @@ describe('Live Today Supabase', () => {
 
   it('[QRlive:today:cache] reads from cache on second run', async () => {
     const moods = Array.from({ length: 8 }, (_, i) => ({ timestamp: Date.now() - i * 1800e3, mood_score: 6.5 }));
-    await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
-    const second = await unifiedPipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
+    const second = await pipeline.process({ userId, type: 'data', content: { moods }, context: { source: 'mood' } });
     expect(second.metadata.source).toBe('cache');
   });
 
   it('[QRlive:today:invalidate] deletes ai_cache rows on invalidation', async () => {
-    await unifiedPipeline.triggerInvalidation('mood_added', userId);
+    await pipeline.triggerInvalidation('mood_added', userId);
     // Poll for deletion
     let rows: any[] | null = null;
     let err: any = null;

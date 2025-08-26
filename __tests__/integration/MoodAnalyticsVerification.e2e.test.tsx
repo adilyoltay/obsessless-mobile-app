@@ -9,7 +9,7 @@ import React from 'react';
 import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
 import { View, Text, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UnifiedAIPipeline } from '@/features/ai/core/UnifiedAIPipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import { useAdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
 
 // Mock dependencies
@@ -30,7 +30,7 @@ const MoodAnalyticsTestComponent: React.FC = () => {
     console.log('🎯 Processing enhanced mood analytics');
     
     // Simulate UnifiedAIPipeline processing
-    const pipeline = new UnifiedAIPipeline();
+    const pipeline = new pipeline.UnifiedAIPipeline();
     const result = await pipeline.process({
       userId: 'test-user-123',
       content: mockMoodEntries,
@@ -150,7 +150,7 @@ describe('Mood Analytics Verification E2E', () => {
     const mockPipeline = {
       process: jest.fn().mockResolvedValue(mockPipelineResult)
     };
-    (UnifiedAIPipeline as any).mockImplementation(() => mockPipeline);
+    (pipeline.UnifiedAIPipeline as any).mockImplementation(() => mockPipeline);
   });
 
   afterEach(() => {

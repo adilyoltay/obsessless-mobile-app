@@ -104,7 +104,8 @@ const featureFlagState: Record<string, boolean | number> = {
   // KALDIRILDI: AI_CRISIS_DETECTION
   
     // 🚀 CoreAnalysisService v1 flags
-  AI_CORE_ANALYSIS: true, // Yeni CoreAnalysisService (ACTIVATED)
+  // CoreAnalysisService sadece Unified Pipeline kapalıysa etkinleştirilmeli
+  AI_CORE_ANALYSIS: false, // Deprecated as standalone - use Unified Pipeline facade
   AI_LLM_GATING: true, // LLM gating logic (ACTIVATED)
   AI_PROGRESSIVE: true, // Progressive UI updates (ACTIVATED)
   AI_ONBOARDING_REFINE: true, // Onboarding skeleton->refine (ACTIVATED)
