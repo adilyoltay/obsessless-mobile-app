@@ -41,7 +41,7 @@ interface VoiceMoodCheckinProps {
   onClose?: () => void;
   onSave?: () => void;
   initialText?: string;
-  mode?: 'mood' | 'cbt';
+  mode?: 'mood';
 }
 
 export default function VoiceMoodCheckin({ 
@@ -71,17 +71,11 @@ export default function VoiceMoodCheckin({
     }
   }, [nlu]);
 
-  // Auto-trigger CBT flow if cbtText parameter or initialText is provided
+  // Auto-start transcription if initialText provided
   useEffect(() => {
-    const textToProcess = params.cbtText || initialText;
+    const textToProcess = initialText;
     if (textToProcess && !cbtAutoStarted) {
-      console.log('🎯 Auto-triggering CBT from parameter:', textToProcess);
       setCbtAutoStarted(true);
-      // CBT modunda doğrudan CBT akışını başlat
-      if (mode === 'cbt') {
-        setShowCBTFlow(true);
-        setCbtStep('distortions');
-      }
       handleTranscription({
         text: textToProcess,
         confidence: 0.9,
@@ -91,7 +85,7 @@ export default function VoiceMoodCheckin({
         alternatives: []
       });
     }
-  }, [params.cbtText, initialText, mode, cbtAutoStarted]);
+  }, [initialText, cbtAutoStarted]);
 
   const persistCheckin = async (text: string, n: NLUResult) => {
     if (!user?.id) return;
@@ -183,21 +177,7 @@ export default function VoiceMoodCheckin({
     await persistCheckin(res.text, n);
   };
 
-  // Eğer route paramları ile bir CBT metni geldiyse otomatik başlat
-  useEffect(() => {
-    const incoming = typeof params.cbtText === 'string' ? params.cbtText.trim() : '';
-    if (!cbtAutoStarted && incoming.length > 0) {
-      setCbtAutoStarted(true);
-      handleTranscription({
-        text: incoming,
-        confidence: 0.9,
-        language: 'tr-TR',
-        duration: 5000
-      } as any);
-    }
-  }, [params.cbtText, cbtAutoStarted]);
-
-  // CBT kayıt akışı kaldırıldı
+  // Route param-based trigger removed
 
   const handleSelect = async (route: 'REFRAME') => {
     await trackRouteSuggested(route, { mood: nlu?.mood, trigger: nlu?.trigger, confidence: nlu?.confidence });
