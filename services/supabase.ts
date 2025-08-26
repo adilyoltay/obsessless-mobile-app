@@ -484,16 +484,7 @@ class SupabaseNativeService {
       // 🔧 DEV MODE: Return fallback profile to prevent app crashes
       if (__DEV__) {
         console.log('🔧 DEV: Returning fallback profile to continue app functionality');
-        return {
-          id: userId,
-          user_id: userId,
-          ocd_symptoms: ['contamination', 'checking'], // Default symptoms
-          daily_goal: 3,
-          ybocs_score: 12,
-          ybocs_severity: 'mild',
-          onboarding_completed: true,
-          created_at: new Date().toISOString()
-        };
+        return { id: userId, user_id: userId, created_at: new Date().toISOString() } as any;
       }
       
       return null;
@@ -1503,7 +1494,6 @@ class SupabaseNativeService {
       onboarding_version: 2,
       onboarding_completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
     };
     // Remove undefined to avoid constraint issues
     Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });

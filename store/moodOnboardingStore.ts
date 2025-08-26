@@ -55,6 +55,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     try {
       // Persist locally
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      try { await AsyncStorage.setItem('profile_v2', JSON.stringify({ userId: uidForKey || userId, payload, savedAt: new Date().toISOString() })); } catch {}
       // Always set a generic completion flag to avoid loops before auth resolves
       await AsyncStorage.setItem('ai_onboarding_completed', 'true');
       await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());

@@ -10,6 +10,16 @@ export interface UserProfileContext {
 export async function loadUserProfileContext(userId: string): Promise<UserProfileContext> {
   // Try local first
   try {
+    const snap = await AsyncStorage.getItem('profile_v2');
+    if (snap) {
+      const s = JSON.parse(snap);
+      const p = s?.payload || {};
+      return {
+        motivations: Array.isArray(p?.motivation) ? p.motivation : [],
+        sleepHours: p?.lifestyle?.sleep_hours,
+        remindersEnabled: !!p?.reminders?.enabled,
+      };
+    }
     const raw = await AsyncStorage.getItem('onb_v1_payload');
     if (raw) {
       const p = JSON.parse(raw);
