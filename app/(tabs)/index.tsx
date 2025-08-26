@@ -119,8 +119,6 @@ export default function TodayScreen() {
   
   // ✅ OPTIMIZATION: Cache loaded module data to avoid duplicate AsyncStorage reads
   const moduleDataCacheRef = useRef<{
-    allCompulsions: any[];
-    allCBTRecords: any[];
     moodEntries: any[];
     allBreathworkSessions: any[];
     lastUpdated: number;
@@ -142,22 +140,13 @@ export default function TodayScreen() {
 
   // Today's stats - Genişletildi: Tüm modüller
   const [todayStats, setTodayStats] = useState({
-    compulsions: 0,
     healingPoints: 0,
-    resistanceWins: 0,
-    // ✅ YENİ: Diğer modül verileri
-    cbtRecords: 0,
     moodCheckins: 0,
     breathworkSessions: 0,
     weeklyProgress: {
-      compulsions: 0,
-      cbt: 0,
       mood: 0,
       breathwork: 0
     },
-    // ✅ YENİ: CBT mood improvement bilgisi
-    cbtMoodDelta: 0,  // Avg mood improvement from CBT records
-    // ✅ YENİ: Breathwork anxiety reduction bilgisi
     breathworkAnxietyDelta: 0  // Avg anxiety reduction from breathwork sessions
   });
 
@@ -326,25 +315,17 @@ export default function TodayScreen() {
           console.log('🚀 Phase 2: Starting deep analysis with ALL MODULE DATA...');
           
           // ✅ OPTIMIZATION: Use cached module data to avoid duplicate AsyncStorage reads
-          let allCompulsions, allCBTRecords, moodEntries, allBreathworkSessions;
+          let moodEntries, allBreathworkSessions;
           
           if (moduleDataCacheRef.current && (Date.now() - moduleDataCacheRef.current.lastUpdated) < 60000) {
             // Use cached data if fresh (< 1 minute old)
             console.log('✅ Using cached module data for deep analysis');
-            ({ allCompulsions, allCBTRecords, moodEntries, allBreathworkSessions } = moduleDataCacheRef.current);
+            ({ moodEntries, allBreathworkSessions } = moduleDataCacheRef.current);
           } else {
             // Fallback to AsyncStorage if cache is stale or missing
             console.log('⚠️ Cache stale or missing, reading from AsyncStorage');
             const today = new Date().toDateString();
             const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-            const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
-            const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-            allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-
-            const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
-            const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
-            allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
 
             moodEntries = await moodTracker.getMoodEntries(user.id, 7);
 
@@ -362,8 +343,6 @@ export default function TodayScreen() {
             pipelineResult = await unifiedPipeline.process({
               userId: user.id,
               content: {
-                compulsions: allCompulsions,
-                cbtRecords: allCBTRecords,
                 moodEntries,
                 breathworkSessions: allBreathworkSessions
               },
@@ -408,15 +387,9 @@ export default function TodayScreen() {
                 try {
                   if (pipelineResult) {
                     // Use pipeline result to generate quality metadata (like mood page)
-                    // Map suggestion category to InsightCategory
-                    const getInsightCategory = (suggestedCategory?: string): 'mood' | 'cbt' | 'ocd' | 'breathwork' | 'timeline' => {
-                      switch (suggestedCategory) {
-                        case 'breathwork': return 'breathwork';
-                        case 'cbt': return 'cbt';
-                        case 'mood': return 'mood';
-                        case 'tracking': return 'ocd'; // tracking suggestions map to OCD category
-                        default: return 'mood'; // default fallback
-                      }
+                    // Map suggestion category to InsightCategory (mood/breathwork only)
+                    const getInsightCategory = (suggestedCategory?: string): 'mood' | 'breathwork' | 'timeline' => {
+                      return suggestedCategory === 'breathwork' ? 'breathwork' : 'mood';
                     };
 
                     const registryItems = mapUnifiedResultToRegistryItems(pipelineResult, 'today', {
@@ -486,145 +459,9 @@ export default function TodayScreen() {
       const currentDay = today.toLocaleDateString('tr-TR', { weekday: 'long' });
       const currentHour = today.getHours();
 
-      // Get compulsions data
-      const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
-      const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-      const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-      const weekCompulsions = allCompulsions.filter((c: any) => 
-        new Date(c.timestamp) >= weekAgo
-      );
-
       // Get mood data
       const weekMoods = await moodTracker.getMoodEntries(user.id, 7);
-
-      // Get CBT records
-      const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
-      const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
-      const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
-      const weekCBT = allCBTRecords.filter((r: any) => 
-        new Date(r.timestamp) >= weekAgo
-      );
-
-      // 🎯 PATTERN ANALYSIS 1: Daily patterns
-      if (weekCompulsions.length > 0) {
-        const dayPatterns = weekCompulsions.reduce((acc: any, c: any) => {
-          const day = new Date(c.timestamp).toLocaleDateString('tr-TR', { weekday: 'long' });
-          acc[day] = (acc[day] || 0) + 1;
-          return acc;
-        }, {});
-
-        const maxDay = Object.entries(dayPatterns).reduce((a: any, b: any) => 
-          dayPatterns[a[0]] > dayPatterns[b[0]] ? a : b
-        )[0] as string;
-
-        if (currentDay === maxDay && dayPatterns[maxDay] >= 3) {
-          quickInsights.push({
-            text: `${currentDay} günleri genellikle biraz daha zorlayıcı geçiyor. Bugün kendine ekstra şefkat göster 💙`,
-            category: 'pattern',
-            priority: 'high'
-          });
-        }
-      }
-
-      // 🎯 PATTERN ANALYSIS 2: Time-based patterns
-      if (weekCompulsions.length > 0) {
-        const hourPatterns = weekCompulsions.reduce((acc: any, c: any) => {
-          const hour = new Date(c.timestamp).getHours();
-          const timeSlot = hour < 6 ? 'gece' : 
-                         hour < 12 ? 'sabah' : 
-                         hour < 18 ? 'öğleden sonra' : 'akşam';
-          acc[timeSlot] = (acc[timeSlot] || 0) + 1;
-          return acc;
-        }, {});
-
-        const currentTimeSlot = currentHour < 6 ? 'gece' : 
-                               currentHour < 12 ? 'sabah' : 
-                               currentHour < 18 ? 'öğleden sonra' : 'akşam';
-
-        if (hourPatterns[currentTimeSlot] && hourPatterns[currentTimeSlot] >= 3) {
-          const timeAdvice = currentTimeSlot === 'sabah' ? 'güçlü başla' :
-                            currentTimeSlot === 'öğleden sonra' ? 'ara ver, nefes al' :
-                            currentTimeSlot === 'akşam' ? 'gevşeme zamanı' : 'dinlen';
-          
-          quickInsights.push({
-            text: `${currentTimeSlot.charAt(0).toUpperCase() + currentTimeSlot.slice(1)} saatleri biraz daha hassas. ${timeAdvice} 🌟`,
-            category: 'timing',
-            priority: 'medium'
-          });
-        }
-      }
-
-      // 🎯 PATTERN ANALYSIS 3: Weekly trends
-      if (weekCompulsions.length >= 3) {
-        const recentDays = weekCompulsions.filter((c: any) => 
-          new Date(c.timestamp) >= new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-        );
-        const olderDays = weekCompulsions.filter((c: any) => 
-          new Date(c.timestamp) < new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-        );
-
-        const recentAvg = recentDays.length / 3;
-        const olderAvg = olderDays.length / 4;
-
-        if (recentAvg < olderAvg * 0.7) {
-          quickInsights.push({
-            text: "Son günlerde gerçekten ilerliyorsun! Bu pozitif momentum'u korumaya devam et ⬆️",
-            category: 'trend',
-            priority: 'high'
-          });
-        } else if (recentAvg > olderAvg * 1.3) {
-          quickInsights.push({
-            text: "Bu hafta biraz daha zorlu geçiyor gibi. Normal, dalgalanmalar olabilir. Kendine nazik ol 🤗",
-            category: 'trend',
-            priority: 'medium'
-          });
-        }
-      }
-
-      // 🎯 PATTERN ANALYSIS 4: CBT & Mood correlation
-      if (weekCBT.length > 0 && weekMoods.length > 0) {
-        const cbtDays = weekCBT.map((c: { timestamp: string }) => new Date(c.timestamp).toDateString());
-        const moodOnCBTDays = weekMoods.filter(m => 
-          cbtDays.includes(new Date(m.timestamp).toDateString())
-        );
-
-        if (moodOnCBTDays.length >= 2) {
-          const avgMoodOnCBTDays = moodOnCBTDays.reduce((sum, m) => sum + (m.mood_score || 50), 0) / moodOnCBTDays.length;
-          const otherMoods = weekMoods.filter(m => 
-            !cbtDays.includes(new Date(m.timestamp).toDateString())
-          );
-          const avgOtherMoods = otherMoods.length > 0 ? 
-            otherMoods.reduce((sum, m) => sum + (m.mood_score || 50), 0) / otherMoods.length : 50;
-
-          if (avgMoodOnCBTDays > avgOtherMoods + 1) {
-            quickInsights.push({
-              text: "Düşünce kayıtları tuttuğun günlerde mood'un genellikle daha iyi. Bugün de bir düşünce kaydı alabilirsin 📝",
-              category: 'correlation',
-              priority: 'medium'
-            });
-          }
-        }
-      }
-
-      // 🎯 PATTERN ANALYSIS 5: Resistance success patterns
-      if (weekCompulsions.length > 0) {
-        const resistanceWins = weekCompulsions.filter((c: any) => (c.resistanceLevel || 0) >= 3).length;
-        const resistanceRate = resistanceWins / weekCompulsions.length;
-
-        if (resistanceRate > 0.6) {
-          quickInsights.push({
-            text: `Bu hafta direnç oranın %${Math.round(resistanceRate * 100)}! Mücadele gücün gerçekten güçlü 💪`,
-            category: 'success',
-            priority: 'high'
-          });
-        } else if (resistanceRate < 0.3 && weekCompulsions.length >= 5) {
-          quickInsights.push({
-            text: "Bu hafta biraz daha zorlandın. Hatırla: her küçük adım bile değerli. Kendi hızında ilerle 🌱",
-            category: 'encouragement',
-            priority: 'medium'
-          });
-        }
-      }
+      
 
       // 🎯 Fallback: Time-based contextual insights if no patterns found
       if (quickInsights.length === 0) {
@@ -675,53 +512,17 @@ export default function TodayScreen() {
       // 🗑️ Manual refresh - invalidate all AI caches
       unifiedPipeline.triggerInvalidation('manual_refresh', user.id);
 
-      // ✅ GENIŞLETILDI: Tüm modüllerden veri topla
+      // ✅ GENIŞLETILDI: Mood ve Nefes verilerini topla
       const today = new Date().toDateString();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-      // 1. Compulsions (mevcut)
-      const compulsionsKey = StorageKeys.COMPULSIONS(user.id);
-      const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-      const allCompulsions = compulsionsData ? JSON.parse(compulsionsData) : [];
-      const todayCompulsions = allCompulsions.filter((c: { timestamp: string }) => 
-        new Date(c.timestamp).toDateString() === today
-      );
-      const weeklyCompulsions = allCompulsions.filter((c: { timestamp: string }) => 
-        new Date(c.timestamp) >= weekAgo
-      );
       
-      // 2. ✅ YENİ: CBT Records
-      const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(user.id);
-      const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
-      const allCBTRecords = cbtData ? JSON.parse(cbtData) : [];
-      const todayCBT = allCBTRecords.filter((r: any) => 
-        new Date(r.timestamp).toDateString() === today
-      );
-      const weeklyCBT = allCBTRecords.filter((r: any) => 
-        new Date(r.timestamp) >= weekAgo
-      );
-      
-      // ✅ Calculate CBT mood improvement (avg delta)
-      let cbtMoodDelta = 0;
-      if (weeklyCBT.length > 0) {
-        const validCBTRecords = weeklyCBT.filter((r: any) => 
-          r.mood_before != null && r.mood_after != null
-        );
-        if (validCBTRecords.length > 0) {
-          const totalMoodImprovement = validCBTRecords.reduce((sum: number, r: any) => 
-            sum + (r.mood_after - r.mood_before), 0
-          );
-          cbtMoodDelta = Math.round((totalMoodImprovement / validCBTRecords.length) * 10) / 10; // 1 decimal place
-        }
-      }
-      
-      // 3. ✅ YENİ: Mood Entries
+      // 1. ✅ Mood Entries
       const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
       const todayMood = moodEntries.filter((m: any) => 
         new Date(m.timestamp).toDateString() === today
       );
       
-      // 4. ✅ YENİ: Breathwork Sessions
+      // 2. ✅ Breathwork Sessions
       const breathworkKey = StorageKeys.BREATH_SESSIONS(user.id);
       const breathworkData = await AsyncStorage.getItem(breathworkKey);
       const allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
@@ -746,31 +547,20 @@ export default function TodayScreen() {
         }
       }
       
-      // Calculate resistance wins
-      const resistanceWins = todayCompulsions.filter((c: { resistanceLevel?: number }) => (c.resistanceLevel || 0) >= 3).length;
-      
       // ✅ GÜNCEL: Tüm modül verilerini set et
       setTodayStats({
-        compulsions: todayCompulsions.length,
         healingPoints: profile.healingPointsToday,
-        resistanceWins,
-        cbtRecords: todayCBT.length,
         moodCheckins: todayMood.length,
         breathworkSessions: todayBreathwork.length,
         weeklyProgress: {
-          compulsions: weeklyCompulsions.length,
-          cbt: weeklyCBT.length,
           mood: moodEntries.length,
           breathwork: weeklyBreathwork.length
         },
-        cbtMoodDelta, // ✅ CBT mood improvement average
         breathworkAnxietyDelta // ✅ Breathwork anxiety reduction average
       });
 
       // ✅ OPTIMIZATION: Cache module data to avoid duplicate AsyncStorage reads in loadAIInsights
       moduleDataCacheRef.current = {
-        allCompulsions,
-        allCBTRecords,
         moodEntries,
         allBreathworkSessions,
         lastUpdated: Date.now()
@@ -784,16 +574,11 @@ export default function TodayScreen() {
       
 
       
-      console.log('📊 Today stats updated (TÜM MODÜLLER):', {
-        compulsions: todayCompulsions.length,
-        cbt: todayCBT.length,
+      console.log('📊 Today stats updated:', {
         mood: todayMood.length,
         breathwork: todayBreathwork.length,
         healingPoints: profile.healingPointsToday,
-        resistanceWins,
         weeklyTotals: {
-          compulsions: weeklyCompulsions.length,
-          cbt: weeklyCBT.length,
           mood: moodEntries.length,
           breathwork: weeklyBreathwork.length
         }
@@ -804,14 +589,10 @@ export default function TodayScreen() {
         const summaryCache = {
           timestamp: Date.now(),
           weeklyTotals: {
-            compulsions: weeklyCompulsions.length,
-            cbt: weeklyCBT.length,
             mood: moodEntries.length,
             breathwork: weeklyBreathwork.length
           },
           todayTotals: {
-            compulsions: todayCompulsions.length,
-            cbt: todayCBT.length,
             mood: todayMood.length,
             breathwork: todayBreathwork.length
           }
@@ -1087,8 +868,8 @@ export default function TodayScreen() {
     <View style={styles.quickStatsSection}>
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="calendar-today" size={30} color="#10B981" />
-        <Text style={styles.quickStatValue}>{todayStats.compulsions}</Text>
-        <Text style={styles.quickStatLabel}>Kayıt (Bugün)</Text>      {/* ✅ POLISH: Etiket hizalama */}
+        <Text style={styles.quickStatValue}>{todayStats.moodCheckins}</Text>
+        <Text style={styles.quickStatLabel}>Mood (Bugün)</Text>      {/* ✅ POLISH: Etiket hizalama */}
       </View>
       <View style={styles.quickStatCard}>
         <MaterialCommunityIcons name="fire" size={30} color="#F59E0B" />

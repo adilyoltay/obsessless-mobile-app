@@ -36,7 +36,7 @@ import { multiIntentVoiceAnalysis } from '@/features/ai/services/checkinService'
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 // Types
-import type { CompulsionEntry } from '@/types/compulsion';
+// Compulsion types removed
 
 // Utils
 import { sanitizePII } from '@/utils/privacy';
@@ -295,101 +295,7 @@ export default function VoiceCheckinModern({
     });
     
     try {
-      if (analysis.type === 'OCD') {
-        // Validate user_id first
-        if (!user?.id) {
-          throw new Error('User not authenticated');
-        }
-        
-        // Extract OCD data
-        const extractedData = {
-          category: analysis.fields?.category === 'washing' ? 'contamination' :
-                   analysis.fields?.category === 'checking' ? 'harm' :
-                   analysis.fields?.category === 'symmetry' ? 'symmetry' :
-                   analysis.fields?.category === 'cleaning' ? 'contamination' :
-                   'contamination', // Default fallback
-          severity: analysis.fields?.severity || 5,
-          trigger: text.substring(0, 100),
-          notes: text,
-          timestamp: new Date(),
-          resistanceLevel: analysis.fields?.resistance || 5
-        };
-        
-        // Use standardized supabaseService.saveCompulsion (includes PII sanitization, DLQ, standardization)
-        const compulsionData = {
-          user_id: user.id,
-          category: extractedData.category,
-          subcategory: null,
-          notes: extractedData.notes, // PII sanitization handled in supabaseService
-          resistance_level: extractedData.resistanceLevel,
-          trigger: extractedData.trigger || '',
-          timestamp: extractedData.timestamp.toISOString()
-        };
-        
-        const data = await supabaseService.saveCompulsion(compulsionData);
-        console.log(`✅ OCD record auto-saved: ${extractedData.category}`);
-        
-        // Trigger cache invalidation for single module OCD
-        if (!silent && user?.id) {
-          try {
-            await unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
-            console.log('🔄 Single OCD cache invalidated');
-          } catch (invalidationError) {
-            console.warn('⚠️ Cache invalidation failed:', invalidationError);
-          }
-        }
-        
-        return { module: 'OCD', success: true, data };
-        
-      } else if (analysis.type === 'CBT') {
-        // CBT logic with trigger bypass fix
-        console.log('📝 CBT analysis fields:', analysis);
-        
-        if (!user?.id) {
-          throw new Error('User not authenticated');
-        }
-        
-        // Manual content_hash to bypass trigger completely
-        const thoughtText = analysis.automatic_thought || analysis.thought || text;
-        const contentHash = `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        const cbtData = {
-          user_id: user.id,
-          thought: thoughtText,
-          distortions: analysis.distortions || [],
-          evidence_for: analysis.evidence_for || null,
-          evidence_against: analysis.evidence_against || null,
-          reframe: analysis.reframe || 'Bu düşünceyi yeniden değerlendir',
-          mood_before: Math.max(1, Math.min(10, analysis.mood_before || 5)),
-          mood_after: Math.max(1, Math.min(10, analysis.mood_after || Math.max(5, (analysis.mood_before || 5) + 1))),
-          trigger: analysis.trigger || '',
-          notes: analysis.notes || text,
-          content_hash: contentHash // Manual hash to bypass trigger
-        };
-        
-        // Use standardized supabaseService.saveCBTRecord (includes PII sanitization, DLQ, standardization)
-        const data = await supabaseService.saveCBTRecord(cbtData);
-        
-        if (!data) {
-          const error = new Error('CBT record save returned no data');
-          console.error('❌ CBT Supabase error:', error);
-          throw error;
-        }
-        console.log('✅ CBT record auto-saved:', data);
-        
-        // Trigger cache invalidation for single module CBT
-        if (!silent && user?.id) {
-          try {
-            await unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
-            console.log('🔄 Single CBT cache invalidated');
-          } catch (invalidationError) {
-            console.warn('⚠️ Cache invalidation failed:', invalidationError);
-          }
-        }
-        
-        return { module: 'CBT', success: true, data };
-        
-      } else if (analysis.type === 'MOOD') {
+      if (analysis.type === 'MOOD') {
         console.log('💭 MOOD analysis fields:', analysis);
         
         if (!user?.id) {
@@ -491,13 +397,7 @@ export default function VoiceCheckinModern({
               try {
                 if (user?.id && results.length > 0) {
                   for (const result of results) {
-                    if (result.module === 'OCD') {
-                      await unifiedPipeline.triggerInvalidation('compulsion_added', user.id);
-                      console.log('🔄 OCD cache invalidated');
-                    } else if (result.module === 'CBT') {
-                      await unifiedPipeline.triggerInvalidation('cbt_record_added', user.id);
-                      console.log('🔄 CBT cache invalidated');
-                    } else if (result.module === 'MOOD') {
+                    if (result.module === 'MOOD') {
                       await unifiedPipeline.triggerInvalidation('mood_added', user.id);
                       console.log('🔄 MOOD cache invalidated');
                     } else if (result.module === 'BREATHWORK') {
@@ -536,8 +436,6 @@ export default function VoiceCheckinModern({
       const moduleNames = analysis.modules.map((m: any) => {
         const moduleLabels: Record<string, string> = {
           'MOOD': '😊 Duygu Durumu',
-          'OCD': '🔄 Kompulsiyon',
-          'CBT': '💭 Düşünce Kaydı',
           'BREATHWORK': '🧘 Nefes Egzersizi'
         };
         return moduleLabels[m.module] || m.module;
@@ -562,7 +460,7 @@ export default function VoiceCheckinModern({
     }
     
     // Single module processing
-    if (analysis.type && ['OCD', 'CBT', 'MOOD', 'BREATHWORK'].includes(analysis.type)) {
+    if (analysis.type && ['MOOD', 'BREATHWORK'].includes(analysis.type)) {
       const singleModule = {
         module: analysis.type,
         confidence: analysis.confidence,

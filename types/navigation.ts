@@ -10,17 +10,14 @@ export type AuthStackParamList = {
 // Main Tab Navigator - Ana sekme navigasyonu
 export type MainTabParamList = {
   index: undefined;        // Today/Dashboard
-  tracking: undefined;     // Kompulsiyon takibi
+  // tracking removed
 
   settings: undefined;    // Ayarlar
 };
 
 // Tracking Stack - Takip alt navigasyonu
 export type TrackingStackParamList = {
-  'compulsion-list': undefined;
-  'compulsion-detail': { id: string };
-  'add-compulsion': undefined;
-  'compulsion-history': { compulsionId: string };
+  // Removed compulsion routes
 };
 
 
@@ -39,7 +36,7 @@ export type SettingsStackParamList = {
 export type RootStackParamList = {
   '(auth)': undefined;
   '(tabs)': undefined;
-  'ybocs-assessment': undefined;
+  // 'ybocs-assessment' removed
   achievements: undefined;
   'crisis-support': undefined;
   modal: undefined;

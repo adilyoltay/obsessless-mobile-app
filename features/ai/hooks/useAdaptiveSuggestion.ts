@@ -31,7 +31,7 @@ interface AdaptiveSuggestion {
     params?: any;
   };
   confidence?: number;
-  category?: 'breathwork' | 'cbt' | 'mood' | 'tracking';
+  category?: 'breathwork' | 'mood';
 }
 
 interface MinimalContext {
@@ -101,49 +101,7 @@ export function useAdaptiveSuggestion() {
       // Get basic counts without PII
       const { StorageKeys } = await import('@/utils/storage');
       
-      // Compulsions count
-      try {
-        const compulsionsKey = StorageKeys.COMPULSIONS(userId);
-        const compulsionsData = await AsyncStorage.getItem(compulsionsKey);
-        if (compulsionsData) {
-          const compulsions = JSON.parse(compulsionsData);
-          const recentCompulsions = compulsions.filter((c: any) => 
-            c.timestamp >= threeDaysAgo
-          );
-          context.recentActivity = context.recentActivity || {};
-          context.recentActivity.compulsionCount = recentCompulsions.length;
-          
-          // Infer stress level from recent activity
-          if (recentCompulsions.length > 10) {
-            context.currentContext.userState.stressLevel = 'high';
-            context.currentContext.userState.energyLevel = 30;
-          } else if (recentCompulsions.length > 5) {
-            context.currentContext.userState.stressLevel = 'moderate';
-            context.currentContext.userState.energyLevel = 50;
-          } else {
-            context.currentContext.userState.stressLevel = 'low';
-            context.currentContext.userState.energyLevel = 70;
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to get compulsions data for context:', error);
-      }
-
-      // CBT records count
-      try {
-        const thoughtRecordsKey = StorageKeys.THOUGHT_RECORDS(userId);
-        const cbtData = await AsyncStorage.getItem(thoughtRecordsKey);
-        if (cbtData) {
-          const records = JSON.parse(cbtData);
-          const recentRecords = records.filter((r: any) => 
-            r.timestamp >= threeDaysAgo
-          );
-          context.recentActivity = context.recentActivity || {};
-          context.recentActivity.cbtRecords = recentRecords.length;
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to get CBT data for context:', error);
-      }
+      // Compulsion/CBT data removed
 
       // Mood entries count
       try {
@@ -738,57 +696,7 @@ export function useAdaptiveSuggestion() {
         else {
           console.log(`⚡ Analytics absent for ${source}, using enhanced fallbacks`);
           
-          if (source === 'cbt') {
-            // CBT: infer progress from insights.therapeutic and insights.progress with enhanced confidence
-            const therapeuticCount = result.insights?.therapeutic?.length || 0;
-            const progressCount = result.insights?.progress?.length || 0;
-            const totalInsights = therapeuticCount + progressCount;
-            
-            if (totalInsights > 0) {
-              sampleSize = Math.max(totalInsights, result.metadata?.processingTime ? Math.min(10, Math.floor(result.metadata.processingTime / 800)) : 0);
-              
-              // Enhanced volatility inference from insight diversity and patterns
-              const patternDiversity = Array.isArray(result.patterns) ? result.patterns.length : 0;
-              volatility = therapeuticCount > 5 ? 30 : // High therapeutic activity
-                          therapeuticCount > 3 ? 20 : // Moderate activity
-                          therapeuticCount > 1 ? 15 : 10; // Low activity
-              
-              // Sophisticated weekly delta from therapeutic vs progress balance
-              const therapeuticRatio = totalInsights > 0 ? therapeuticCount / totalInsights : 0;
-              weeklyDelta = therapeuticRatio > 0.7 ? 8 : // High therapeutic focus = good progress
-                           therapeuticRatio > 0.4 ? 5 : // Balanced insights
-                           progressCount > 3 ? 3 : 0; // Progress-heavy but modest improvement
-              
-              // Dynamic baseline based on insight quality
-              baselines.cbt = progressCount >= 3 ? 7 : // Good progress evidence
-                             therapeuticCount >= 2 ? 5 : // Some therapeutic work
-                             3; // Minimal baseline
-              
-              // Add pattern context if available
-              if (patternDiversity > 0) {
-                volatility = Math.min(volatility + patternDiversity * 2, 35); // Cap volatility
-                weeklyDelta = Math.max(weeklyDelta - 1, 0); // Patterns suggest complexity, reduce optimism slightly
-              }
-            } else {
-              // Enhanced fallback for no insights - use metadata context
-              const processingTime = result.metadata?.processingTime || 0;
-              if (processingTime > 2000) {
-                // Long processing suggests complex data, infer minimal activity
-                sampleSize = 1;
-                volatility = 5;
-                weeklyDelta = -2; // Slight negative trend assumption
-                baselines.cbt = 4;
-              } else {
-                // Short processing = no data
-                sampleSize = 0;
-                volatility = 0;
-                weeklyDelta = 0;
-                baselines.cbt = 3;
-              }
-            }
-            console.log(`🧠 CBT enhanced fallback: insights=${totalInsights}, sampleSize=${sampleSize}, volatility=${volatility}, weeklyDelta=${weeklyDelta}`);
-            
-          } else if (source === 'tracking') {
+          if (source === 'tracking') {
             // Tracking: enhanced trend analysis with pattern sophistication
             if (Array.isArray(result.patterns) && result.patterns.length > 0) {
               const temporalPatterns = result.patterns.filter((p: any) => p.temporal === true || p.type?.includes('temporal'));
@@ -826,13 +734,7 @@ export function useAdaptiveSuggestion() {
               volatility = (patternConflict * 6) + (patternConsistency > 0.6 ? 0 : 10); // Conflict + inconsistency
               
               // Smart baseline inference
-              if (decreasingPatterns > increasingPatterns && decreasingPatterns >= 2) {
-                baselines.compulsions = 4; // Improving trend = lower baseline
-              } else if (increasingPatterns > decreasingPatterns && increasingPatterns >= 2) {
-                baselines.compulsions = 8; // Worsening trend = higher baseline  
-              } else {
-                baselines.compulsions = 6; // Stable/mixed trend = moderate baseline
-              }
+              // Neutral baseline mapping removed
               
               console.log(`📊 Tracking enhanced fallback: patterns=${allPatterns.length}, inc=${increasingPatterns}, dec=${decreasingPatterns}, stable=${stablePatterns}, weeklyDelta=${weeklyDelta}`);
             } else {

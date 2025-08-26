@@ -48,8 +48,7 @@ const getIconForCategory = (category?: string): keyof typeof MaterialCommunityIc
   switch (category) {
     case 'breathwork':
       return 'meditation';
-    case 'cbt':
-      return 'brain';
+    // 'cbt' removed
     case 'mood':
       return 'emoticon-happy-outline';
     case 'tracking':
@@ -66,8 +65,7 @@ const getColorForCategory = (category?: string): string => {
   switch (category) {
     case 'breathwork':
       return '#8B5CF6'; // Purple
-    case 'cbt':
-      return '#3B82F6'; // Blue
+    // 'cbt' removed
     case 'mood':
       return '#F59E0B'; // Amber
     case 'tracking':
@@ -126,7 +124,6 @@ export function AdaptiveSuggestionCard({
           />
           <Text style={[styles.category, { color: accentColor }]}>
             {suggestion.category === 'breathwork' ? 'Nefes Egzersizi' :
-             suggestion.category === 'cbt' ? 'Düşünce Kaydı' :
              suggestion.category === 'mood' ? 'Mood Check-in' :
              suggestion.category === 'tracking' ? 'Takip' : 'Öneri'}
           </Text>

@@ -105,15 +105,15 @@ export enum AIEventType {
   ONBOARDING_STEP_UPDATED = 'onboarding_step_updated',
   ONBOARDING_SESSION_COMPLETED = 'onboarding_session_completed',
   ONBOARDING_ENGINE_SHUTDOWN = 'onboarding_engine_shutdown',
-  YBOCS_ANALYSIS_COMPLETED = 'ybocs_analysis_completed',
+  YBOCS_ANALYSIS_COMPLETED = 'assessment_completed',
   TREATMENT_PLAN_GENERATED = 'treatment_plan_generated',
   JITAI_SHUTDOWN = 'jitai_shutdown',
   
-  // Sprint 4: CBT Engine events
-  CBT_ENGINE_INITIALIZED = 'cbt_engine_initialized',
-  CBT_ANALYSIS_COMPLETED = 'cbt_analysis_completed',
-  CBT_TECHNIQUE_APPLIED = 'cbt_technique_applied',
-  CBT_ENGINE_SHUTDOWN = 'cbt_engine_shutdown',
+  // Sprint 4: Thought Analysis (neutralized from CBT)
+  CBT_ENGINE_INITIALIZED = 'thought_engine_initialized',
+  CBT_ANALYSIS_COMPLETED = 'thought_analysis_completed',
+  CBT_TECHNIQUE_APPLIED = 'thought_technique_applied',
+  CBT_ENGINE_SHUTDOWN = 'thought_engine_shutdown',
   
   // Sprint 5: Insights System events  
   INSIGHTS_COORDINATOR_INITIALIZED = 'insights_coordinator_initialized',
@@ -123,8 +123,8 @@ export enum AIEventType {
   INSIGHTS_DELIVERED = 'insights_delivered',
   
   // Sprint 7: AI Onboarding Recreation events (consolidated)
-  YBOCS_ANALYSIS_STARTED = 'ybocs_analysis_started',
-  YBOCS_ENHANCEMENT_APPLIED = 'ybocs_enhancement_applied',
+  YBOCS_ANALYSIS_STARTED = 'assessment_started',
+  YBOCS_ENHANCEMENT_APPLIED = 'assessment_enhancement_applied',
   ONBOARDING_SESSION_STARTED = 'onboarding_session_started',
   
   USER_PROFILE_GENERATED = 'user_profile_generated',
@@ -205,11 +205,11 @@ export enum AIEventType {
   JITAI_TRIGGER_FIRED = 'jitai_trigger_fired',
   GUARDRAIL_TRIGGERED = 'guardrail_triggered',
   
-  // Sprint 2: Compulsion quick entry
-  COMPULSION_PROMPTED = 'compulsion_prompted',
-  COMPULSION_LOGGED = 'compulsion_logged',
-  COMPULSION_DISMISSED = 'compulsion_dismissed',
-  COMPULSION_SNOOZED = 'compulsion_snoozed',
+  // Sprint 2: Behavior entry (neutralized from compulsion)
+  COMPULSION_PROMPTED = 'behavior_prompted',
+  COMPULSION_LOGGED = 'behavior_logged',
+  COMPULSION_DISMISSED = 'behavior_dismissed',
+  COMPULSION_SNOOZED = 'behavior_snoozed',
   
   // Sprint 2: Relapse window
   RELAPSE_WINDOW_DETECTED = 'relapse_window_detected',
@@ -226,10 +226,10 @@ export enum AIEventType {
   BREATH_PAUSED = 'breath_paused',
   BREATH_RESUMED = 'breath_resumed',
   BREATH_COMPLETED = 'breath_completed',
-  // Sprint 1: CBT Thought Record
-  REFRAME_STARTED = 'reframe_started',
-  REFRAME_COMPLETED = 'reframe_completed',
-  DISTORTION_SELECTED = 'distortion_selected'
+  // Sprint 1: Thought reframing (neutralized)
+  REFRAME_STARTED = 'thought_reframe_started',
+  REFRAME_COMPLETED = 'thought_reframe_completed',
+  DISTORTION_SELECTED = 'thought_pattern_selected'
   // Missing events added for stability
   ,
   INSIGHTS_FEEDBACK = 'insights_feedback',
@@ -305,9 +305,9 @@ export enum AIEventType {
   ARTWORK_SAVED = 'artwork_saved',
   ART_THERAPY_STARTED = 'art_therapy_started',
   ART_THERAPY_COMPLETED = 'art_therapy_completed',
-  AI_ANALYSIS_COMPLETED = 'cbt_analysis_completed',
+  AI_ANALYSIS_COMPLETED = 'ai_analysis_completed',
   PROFILE_CREATED = 'user_profile_generated',
-  YBOCS_COMPLETED = 'ybocs_analysis_completed',
+  YBOCS_COMPLETED = 'assessment_completed',
   INTERVENTION_COMPLETED = 'intervention_delivered',
   
   // 🎯 Adaptive Suggestions / JITAI events

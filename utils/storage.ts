@@ -8,14 +8,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const StorageKeys = {
   // Profile & Auth
   PROFILE_COMPLETED: 'profileCompleted',
-  OCD_PROFILE: (userId: string) => `ocd_profile_${userId}`,
+  // OCD profile removed
   
   // Compulsions
-  COMPULSIONS: (userId: string) => `compulsions_${userId}`,
+  // Compulsions removed
   
   // Terapi Sessions
-  Terapi_SESSIONS: (userId: string, date?: string) => 
-    date ? `therapy_sessions_${userId}_${date}` : `therapy_sessions_${userId}`,
+  // Therapy sessions removed
   
   // Breathwork Sessions
   BREATH_SESSIONS: (userId: string, date?: string) =>
@@ -29,8 +28,8 @@ export const StorageKeys = {
   SETTINGS: 'app_settings',
   
   // Last used items (for smart suggestions)
-  LAST_COMPULSION: (userId: string) => `last_compulsion_${userId}`,
-  LAST_Terapi_EXERCISE: (userId: string) => `last_therapy_${userId}`,
+  // LAST_COMPULSION removed
+  // LAST_Terapi_EXERCISE removed
 
   // Voice & Check-in
   CHECKINS: (userId: string) => `checkins_${userId}`,
@@ -38,8 +37,7 @@ export const StorageKeys = {
   VOICE_CONSENT_TTS: (userId: string) => `consent_tts_${userId}`,
 
   // CBT Thought Record
-  THOUGHT_RECORDS: (userId: string) => `thought_records_${userId}`,
-  THOUGHT_RECORD_DRAFT: (userId: string) => `thought_record_draft_${userId}`,
+  // Thought records removed
 } as const;
 
 /**
@@ -110,13 +108,7 @@ export const clearUserData = async (userId: string): Promise<void> => {
  */
 export const migrateToUserSpecificStorage = async (userId: string): Promise<void> => {
   try {
-    // Migrate compulsions
-    const oldCompulsions = await AsyncStorage.getItem('compulsionEntries');
-    if (oldCompulsions) {
-      await AsyncStorage.setItem(StorageKeys.COMPULSIONS(userId), oldCompulsions);
-      await AsyncStorage.removeItem('compulsionEntries');
-      console.log('✅ Migrated compulsions data');
-    }
+    // Compulsions migration removed
     
     // Migrate settings
     const oldSettings = await AsyncStorage.getItem('user_settings');
