@@ -38,6 +38,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
       const currentPath = segments.join('/');
       const inTabsGroup = segments[0] === '(tabs)';
       const inAuthGroup = segments[0] === '(auth)';
+      const inOnboardingRoute = inAuthGroup && (segments[1] === 'onboarding' || currentPath.startsWith('(auth)/onboarding'));
       
       // If already in tabs group, don't navigate again
       if (hasNavigatedRef.current && inTabsGroup) {
@@ -152,7 +153,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
             // Onboarding her zaman kullanılabilir: AI flags sadece ek modülleri kontrol eder
             if (true) {
               if (!aiOnboardingCompleted) {
-                if (currentPath !== '(auth)/onboarding') {
+                if (!inOnboardingRoute) {
                   console.log('👤 Redirecting to AI Onboarding v2 - not completed');
                   console.log('🔄 Navigation details:', { currentPath, inAuthGroup, hasNavigated: hasNavigatedRef.current });
 
@@ -171,7 +172,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
                   }, 200);
                   return;
                 } else {
-                  console.log('🧭 Already in AI onboarding, staying here');
+                  console.log('🧭 Already in AI onboarding (any step), staying here');
                 }
               } else {
                 // AI onboarding completed: ensure we are in tabs

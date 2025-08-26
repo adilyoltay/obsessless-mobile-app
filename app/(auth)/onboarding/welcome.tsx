@@ -11,10 +11,11 @@ export default function Welcome() {
 
   useEffect(() => { setStep(0); }, [setStep]);
 
-  if (!FEATURE_FLAGS.isEnabled('ONBOARDING_V1')) {
-    router.replace('/(tabs)');
-    return null;
-  }
+  useEffect(() => {
+    if (!FEATURE_FLAGS.isEnabled('ONBOARDING_V1')) {
+      router.replace('/(tabs)');
+    }
+  }, []);
 
   return (
     <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF', justifyContent: 'center' }}>
