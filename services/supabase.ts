@@ -1487,7 +1487,7 @@ class SupabaseNativeService {
       age: payload?.profile?.age,
       gender,
       locale: payload?.profile?.locale,
-      timezone: payload?.reminders?.timezone,
+      timezone: payload?.profile?.timezone || payload?.reminders?.timezone,
       motivations,
       first_mood_score: first_mood_score != null ? Number(first_mood_score) : null,
       first_mood_tags,
