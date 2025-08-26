@@ -8,6 +8,7 @@ import { unifiedConflictResolver, UnifiedDataConflict, EntityType } from './unif
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { syncCircuitBreaker } from '@/utils/circuitBreaker';
 import batchOptimizer from '@/services/sync/batchOptimizer';
+import { isUUID } from '@/utils/validators';
 
 export interface SyncQueueItem {
   id: string;
@@ -81,6 +82,16 @@ export class OfflineSyncService {
     } catch (error) {
       console.error('Error saving sync queue:', error);
     }
+  }
+
+  private async resolveValidUserId(candidate?: string | null): Promise<string> {
+    if (candidate && isUUID(candidate)) return candidate;
+    try {
+      const { default: svc } = await import('@/services/supabase');
+      const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
+      if (current && typeof current === 'object' && isUUID(current.id)) return current.id;
+    } catch {}
+    throw new Error('No valid user id available');
   }
 
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
@@ -251,7 +262,8 @@ export class OfflineSyncService {
   private async syncAIProfile(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
-    await (svc as any).upsertAIProfile(d.user_id, d.profile_data, !!d.onboarding_completed);
+    const uid = await this.resolveValidUserId(d.user_id || d.userId);
+    await (svc as any).upsertAIProfile(uid, d.profile_data, !!d.onboarding_completed);
   }
 
   private async syncUserProfile(item: SyncQueueItem): Promise<void> {
@@ -271,7 +283,8 @@ export class OfflineSyncService {
   private async syncTreatmentPlan(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
-    await (svc as any).upsertAITreatmentPlan(d.user_id, d.plan_data, d.status || 'active');
+    const uid = await this.resolveValidUserId(d.user_id || d.userId);
+    await (svc as any).upsertAITreatmentPlan(uid, d.plan_data, d.status || 'active');
   }
 
   // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)
@@ -348,11 +361,7 @@ export class OfflineSyncService {
     // Handle CREATE/UPDATE operations
     // Normalize payload and save to the new canonical table: mood_entries
     // Fallback user id acquisition
-    let userId = raw.user_id || raw.userId;
-    try {
-      const uid = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
-      if (!userId && uid && typeof uid === 'object' && uid.id) userId = uid.id;
-    } catch {}
+    const userId = await this.resolveValidUserId(raw.user_id || raw.userId);
 
     const entry = {
       user_id: userId,
@@ -372,7 +381,11 @@ export class OfflineSyncService {
     switch (item.type) {
       case 'CREATE':
       case 'UPDATE':
-        await (svc as any).saveVoiceCheckin(item.data);
+        {
+          const d = item.data || {};
+          const uid = await this.resolveValidUserId(d.user_id || d.userId);
+          await (svc as any).saveVoiceCheckin({ ...d, user_id: uid });
+        }
         break;
       case 'DELETE':
         // ✅ F-04 FIX: Implement voice checkin deletion
