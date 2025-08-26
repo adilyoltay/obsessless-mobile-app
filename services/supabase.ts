@@ -1468,18 +1468,32 @@ class SupabaseNativeService {
    * Upsert user profile with onboarding v2 payload
    */
   async upsertUserProfile(userId: string, payload: any): Promise<void> {
+    const mapEnum = (val: any, allowed: string[], normalize?: (s: string) => string): string | undefined => {
+      if (!val || typeof val !== 'string') return undefined;
+      const base = (normalize ? normalize(val) : val).trim().toLowerCase().replace(/-/g, '_');
+      return allowed.includes(base) ? base : undefined;
+    };
+
+    const gender = mapEnum(payload?.profile?.gender, ['female','male','non_binary','prefer_not_to_say']);
+    const lifestyle_exercise = mapEnum(payload?.lifestyle?.exercise, ['none','light','moderate','intense']);
+    const lifestyle_social = mapEnum(payload?.lifestyle?.social, ['low','medium','high']);
+    const motivations = Array.isArray(payload?.motivation) ? payload.motivation.filter((m: any) => typeof m === 'string') : [];
+    const firstMoodScoreRaw = payload?.first_mood?.score;
+    const first_mood_score = typeof firstMoodScoreRaw === 'number' ? Math.min(5, Math.max(1, firstMoodScoreRaw)) : (firstMoodScoreRaw != null ? Number(firstMoodScoreRaw) : null);
+    const first_mood_tags = Array.isArray(payload?.first_mood?.tags) ? payload.first_mood.tags.filter((t: any) => typeof t === 'string') : [];
+
     const body: any = {
       user_id: userId,
       age: payload?.profile?.age,
-      gender: payload?.profile?.gender,
+      gender,
       locale: payload?.profile?.locale,
       timezone: payload?.reminders?.timezone,
-      motivations: payload?.motivation || [],
-      first_mood_score: payload?.first_mood?.score != null ? Number(payload.first_mood.score) : null,
-      first_mood_tags: payload?.first_mood?.tags || [],
+      motivations,
+      first_mood_score: first_mood_score != null ? Number(first_mood_score) : null,
+      first_mood_tags,
       lifestyle_sleep_hours: payload?.lifestyle?.sleep_hours,
-      lifestyle_exercise: payload?.lifestyle?.exercise,
-      lifestyle_social: payload?.lifestyle?.social,
+      lifestyle_exercise,
+      lifestyle_social,
       reminder_enabled: !!payload?.reminders?.enabled,
       reminder_time: payload?.reminders?.time || null,
       reminder_days: payload?.reminders?.days || [],
