@@ -55,7 +55,6 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     try {
       // Persist locally
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      try { await AsyncStorage.setItem('profile_v2', JSON.stringify({ userId: uidForKey || userId, payload, savedAt: new Date().toISOString() })); } catch {}
       // Always set a generic completion flag to avoid loops before auth resolves
       await AsyncStorage.setItem('ai_onboarding_completed', 'true');
       await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
@@ -72,6 +71,8 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         const stored = await AsyncStorage.getItem('currentUserId');
         if (stored && isUUID(stored)) uidForKey = stored as any;
       }
+      // Write profile_v2 snapshot after resolving a stable uid
+      try { await AsyncStorage.setItem('profile_v2', JSON.stringify({ userId: isUUID(uidForKey) ? uidForKey : userId, payload, savedAt: new Date().toISOString() })); } catch {}
       if (isUUID(uidForKey)) {
         await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
       }
