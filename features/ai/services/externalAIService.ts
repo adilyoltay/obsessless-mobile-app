@@ -701,7 +701,7 @@ class ExternalAIService {
           userId,
           analysisType: 'mixed',
           context: {
-            source: 'cbt',
+            source: 'mood',
             metadata: context
           }
         });
@@ -967,7 +967,7 @@ class ExternalAIService {
           userId: req.userId || 'unknown',
           analysisType: 'mixed',
           context: {
-            source: 'cbt',
+            source: 'mood',
             metadata: req.context
           }
         });

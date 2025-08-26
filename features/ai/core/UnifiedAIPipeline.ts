@@ -172,13 +172,7 @@ export interface UnifiedPipelineResult {
     }>;
   };
   
-  // CBT Analysis Results
-  cbt?: {
-    distortions: string[];
-    reframes: string[];
-    techniques: string[];
-    confidence: number;
-  };
+  // CBT analysis removed
   
   // Metadata
   metadata: {
@@ -208,7 +202,7 @@ export class UnifiedAIPipeline {
     patterns: 12 * 60 * 60 * 1000,    // 12 hours  
     voice: 1 * 60 * 60 * 1000,        // 1 hour
     progress: 6 * 60 * 60 * 1000,     // 6 hours
-    cbt: 24 * 60 * 60 * 1000,         // 24 hours (same as insights)
+    // cbt removed
     default: 24 * 60 * 60 * 1000      // 24 hours fallback
   };
   
@@ -241,8 +235,7 @@ export class UnifiedAIPipeline {
       case 'data':
         // For data inputs, determine by context source
         if (input.context?.source === 'mood') return this.MODULE_TTLS.patterns;
-        if (input.context?.source === 'cbt') return this.MODULE_TTLS.cbt;
-        if (input.context?.source === 'tracking') return this.MODULE_TTLS.patterns;
+        // cbt/tracking removed
         return this.MODULE_TTLS.insights; // Default for data
       case 'mixed':
         // Mixed inputs typically generate insights
