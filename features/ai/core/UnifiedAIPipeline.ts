@@ -49,6 +49,7 @@ export interface UnifiedPipelineInput {
     source: 'today' | 'mood';
     timestamp?: number;
     metadata?: Record<string, any>;
+    hints?: Record<string, any>;
   };
 }
 
@@ -60,6 +61,8 @@ export interface UnifiedPipelineResult {
     suggestion?: string;
     route?: string;
   };
+  // Breathwork Analysis (optional)
+  breathwork?: any;
   
   // 🚀 ENHANCED ANALYTICS: Clinical-grade mood analytics
   analytics?: {
@@ -206,7 +209,7 @@ export class UnifiedAIPipeline {
     default: 24 * 60 * 60 * 1000      // 24 hours fallback
   };
   
-  private invalidationHooks: Map<string, () => void> = new Map();
+  private invalidationHooks: Map<string, (userId?: string) => void> = new Map();
   
   private constructor() {
     this.setupInvalidationHooks();

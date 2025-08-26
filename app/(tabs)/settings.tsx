@@ -580,7 +580,7 @@ export default function SettingsScreen() {
             )}
           </View>
           {/* Deletion status */}
-          {deletionStatus.status === 'pending' && (
+          {deletionStatus.status !== 'none' && (
             <View style={{ marginTop: 12, padding: 12, backgroundColor: '#FFFBEB', borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A' }}>
               <Text style={{ color: '#92400E', fontWeight: '600' }}>Silme Talebi Beklemede</Text>
               <Text style={{ color: '#92400E', marginTop: 4 }}>Talep: {new Date(deletionStatus.requestedAt || '').toLocaleString('tr-TR')}</Text>
