@@ -1008,7 +1008,7 @@ export default function TodayScreen() {
   };
 
   const handleCheckinComplete = (routingResult?: {
-    type: 'MOOD' | 'CBT' | 'OCD' | 'BREATHWORK';
+    type: 'MOOD' | 'BREATHWORK' | 'UNKNOWN';
     confidence: number;
     screen?: string;
     params?: any;
@@ -1028,13 +1028,8 @@ export default function TodayScreen() {
       // Auto-navigate based on AI analysis (optional - user can dismiss)
       const shouldAutoNavigate = routingResult.confidence > 0.7;
 
-      // Remap legacy screens before navigation
+      // Remap legacy screens removed
       let remappedScreen = routingResult.screen;
-      if (routingResult.type === 'CBT') {
-        remappedScreen = 'mood';
-      } else if (routingResult.type === 'OCD') {
-        remappedScreen = 'breathwork';
-      }
 
       if (shouldAutoNavigate && remappedScreen) {
         setTimeout(() => {

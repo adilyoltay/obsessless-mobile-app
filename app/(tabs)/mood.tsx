@@ -2045,7 +2045,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   
-  // Header Styles - Matching OCD/ERP
+  // Header Styles
   headerContainer: {
     backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
@@ -2076,7 +2076,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   
-  // Tab Styles - Matching OCD/ERP
+  // Tab Styles
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -2116,7 +2116,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   
-  // Stats Card - Matching OCD/ERP Design
+  // Stats Card Styles
   weekStatsCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
@@ -2226,7 +2226,7 @@ const styles = StyleSheet.create({
   
   // ✅ REMOVED: Spectrum, monthly view styles moved to dashboard
   
-  // List Section - Matching OCD/ERP
+  // List Section Styles
   listSection: {
     paddingHorizontal: 16,
     marginTop: 24,
@@ -2260,7 +2260,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   
-  // Recording Cards - Matching OCD/ERP
+  // Recording Cards Styles
   recordingsContainer: {
     gap: 12,
   },
