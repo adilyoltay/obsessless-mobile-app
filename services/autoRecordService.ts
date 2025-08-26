@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { unifiedPipeline } from '@/features/ai/core/UnifiedAIPipeline';
 
 interface AutoRecordData {
-  type: 'OCD' | 'CBT' | 'MOOD';
+  type: 'MOOD';
   data: any;
   confidence: number;
   shouldAutoSave: boolean;
@@ -40,38 +40,6 @@ export function prepareAutoRecord(
   }
 
   switch (analysis.type) {
-    case 'OCD':
-      return {
-        type: 'OCD',
-        data: {
-          userId,
-          category: analysis.category || 'other',
-          resistanceLevel: estimateResistanceLevel(analysis.originalText),
-          trigger: analysis.trigger || '',
-          notes: '',
-          timestamp: new Date().toISOString(),
-        },
-        confidence: analysis.confidence,
-        shouldAutoSave: analysis.confidence >= 0.85,
-      };
-
-    case 'CBT':
-      return {
-        type: 'CBT',
-        data: {
-          userId,
-          thought: analysis.originalText,
-          distortionType: detectDistortionType(analysis.originalText),
-          emotions: '',
-          reframe: '',
-          moodBefore: 50,
-          moodAfter: 50,
-          timestamp: new Date().toISOString(),
-        },
-        confidence: analysis.confidence,
-        shouldAutoSave: false, // CBT her zaman kullanıcı düzenlemeli
-      };
-
     case 'MOOD':
       return {
         type: 'MOOD',
@@ -197,7 +165,7 @@ function detectDistortionType(text: string): string {
  * Otomatik kaydı veritabanına kaydeder
  */
 export async function saveAutoRecord(
-  recordType: 'OCD' | 'CBT' | 'MOOD',
+  recordType: 'MOOD',
   data: any
 ): Promise<{ success: boolean; error?: string; recordId?: string }> {
   try {
@@ -212,42 +180,6 @@ export async function saveAutoRecord(
     } catch {}
     let savedRecord;
     switch (recordType) {
-      case 'OCD':
-        console.log('📝 Saving OCD compulsion:', data);
-        {
-          const { sanitizePII } = await import('@/utils/privacy');
-          savedRecord = await supabaseService.saveCompulsion({
-            user_id: data.userId,
-            category: data.category,
-            subcategory: data.category,
-            resistance_level: data.resistanceLevel,
-            trigger: data.trigger,
-            notes: sanitizePII(data.notes || ''),
-          });
-        }
-        console.log('✅ OCD compulsion saved:', savedRecord);
-        break;
-
-      case 'CBT':
-        console.log('📝 Saving CBT record:', data);
-        {
-          const { sanitizePII } = await import('@/utils/privacy');
-          savedRecord = await supabaseService.saveCBTRecord({
-            user_id: data.userId,
-            thought: sanitizePII(data.thought || ''),
-            distortions: [data.distortionType],
-            evidence_for: '',
-            evidence_against: '',
-            reframe: sanitizePII(data.reframe || ''),
-            mood_before: data.moodBefore,
-            mood_after: data.moodAfter,
-            trigger: '',
-            notes: '',
-          });
-        }
-        console.log('✅ CBT record saved:', savedRecord);
-        break;
-
       case 'MOOD':
         console.log('📝 Saving MOOD entry:', data);
         {
@@ -276,15 +208,8 @@ export async function saveAutoRecord(
     
     // 🗑️ Invalidate AI cache based on record type
     switch (recordType) {
-      case 'OCD':
-        unifiedPipeline.triggerInvalidation('compulsion_added', data.userId);
-        break;
       case 'MOOD':
         unifiedPipeline.triggerInvalidation('mood_added', data.userId);
-        break;
-      case 'CBT':
-        // CBT affects patterns too
-        unifiedPipeline.triggerInvalidation('compulsion_added', data.userId);
         break;
     }
     
@@ -295,36 +220,9 @@ export async function saveAutoRecord(
     // Offline queue'ya ekle
     try {
       // Map camelCase to snake_case for offline sync compatibility
-      let entity: 'compulsion' | 'thought_record' | 'mood_entry' = 'mood_entry';
+      let entity: 'mood_entry' = 'mood_entry';
       let mapped: any = {};
-      if (recordType === 'OCD') {
-        entity = 'compulsion';
-        const { sanitizePII } = await import('@/utils/privacy');
-        mapped = {
-          user_id: data.userId,
-          category: data.category,
-          subcategory: data.category,
-          resistance_level: data.resistanceLevel,
-          trigger: data.trigger || '',
-          notes: sanitizePII(data.notes || '')
-        };
-      } else if (recordType === 'CBT') {
-        // CBT için özel şema: thought_record yerine cbt_records (saveCBTRecord ile aynı alanlar)
-        entity = 'thought_record'; // Queue entity aynı kalsa da data CBT şemasına yakın tutulur
-        const { sanitizePII } = await import('@/utils/privacy');
-        mapped = {
-          user_id: data.userId,
-          thought: sanitizePII(data.thought || ''),
-          distortions: [data.distortionType],
-          evidence_for: '',
-          evidence_against: '',
-          reframe: sanitizePII(data.reframe || ''),
-          mood_before: data.moodBefore || 50,
-          mood_after: data.moodAfter || 50,
-          trigger: data.trigger || '',
-          notes: sanitizePII(data.notes || '')
-        };
-      } else if (recordType === 'MOOD') {
+      if (recordType === 'MOOD') {
         entity = 'mood_entry';
         const { sanitizePII } = await import('@/utils/privacy');
         mapped = {
@@ -335,9 +233,6 @@ export async function saveAutoRecord(
           notes: sanitizePII(data.notes || ''),
           trigger: data.trigger || ''
         };
-      } else {
-        // ✅ REMOVED: ERP auto record handling - ERP module deleted
-        throw new Error('Unsupported record type: ' + recordType);
       }
 
       await offlineSyncService.addToSyncQueue({

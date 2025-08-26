@@ -12,7 +12,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record'; // ✅ REMOVED: 'erp_session'
+  entity: 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -86,7 +86,7 @@ export class OfflineSyncService {
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
     // ✅ F-01 FIX: Guard against unsupported entities (ERP remnants)
     const SUPPORTED_ENTITIES = new Set([
-      'compulsion', 'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'thought_record'
+      'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin'
     ]);
     
     if (!SUPPORTED_ENTITIES.has(item.entity as any)) {
@@ -218,10 +218,8 @@ export class OfflineSyncService {
 
   private async syncItem(item: SyncQueueItem): Promise<void> {
     switch (item.entity) {
-      case 'compulsion':
-        await this.syncCompulsion(item);
-        break;
-      // ✅ REMOVED: erp_session case - ERP module deleted
+      // compulsion removed
+      // thought_record removed
       case 'ai_profile':
         await this.syncAIProfile(item);
         break;
@@ -237,59 +235,13 @@ export class OfflineSyncService {
       case 'voice_checkin':
         await this.syncVoiceCheckin(item);
         break;
-      case 'thought_record':
-        await this.syncThoughtRecord(item);
-        break;
+      // thought_record removed
       default:
         throw new Error(`Unknown entity type: ${item.entity}`);
     }
   }
 
-  private async syncCompulsion(item: SyncQueueItem): Promise<void> {
-    // Fetch server state if applicable (best-effort) via Supabase
-    let remote: any = null;
-    try {
-      if (item.type !== 'CREATE' && item.data?.id) {
-        const { default: svc } = await import('@/services/supabase');
-        const list = await (svc as any).getCompulsions(item.data.user_id);
-        remote = Array.isArray(list) ? list.find((x: any) => x.id === item.data.id) : null;
-      }
-    } catch {}
-
-          // Resolve conflicts using unified resolver
-      const conflictResult = await unifiedConflictResolver.resolveConflict(
-        'compulsion', 
-        item.data, 
-        remote, 
-        item.data.user_id
-      );
-      const resolved = conflictResult.resultData;
-
-    const { default: svc } = await import('@/services/supabase');
-    switch (item.type) {
-      case 'CREATE':
-        await (svc as any).saveCompulsion(resolved);
-        break;
-      case 'UPDATE':
-        await (svc as any).saveCompulsion(resolved);
-        break;
-      case 'DELETE':
-        try {
-          await (svc as any).deleteCompulsion(item.data.id);
-          try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-            await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'compulsion', id: item.data.id }, item.data.user_id);
-          } catch {}
-        } catch (error) {
-          try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-            await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'compulsion', id: item.data.id }, item.data.user_id);
-          } catch {}
-          throw error;
-        }
-        break;
-    }
-  }
+  // compulsion sync removed
 
   // ✅ REMOVED: syncERPSession method - ERP module deleted
 
@@ -431,46 +383,7 @@ export class OfflineSyncService {
   }
 
   // ✅ F-04 FIX: Complete DELETE implementation for thought records
-  private async syncThoughtRecord(item: SyncQueueItem): Promise<void> {
-    const { default: svc } = await import('@/services/supabase');
-    switch (item.type) {
-      case 'CREATE':
-      case 'UPDATE':
-        // Check if it's a CBT record or regular thought record
-        if (item.data.thought && item.data.distortions) {
-          // CBT record format
-          await (svc as any).saveCBTRecord(item.data);
-        } else if (item.data.automatic_thought) {
-          // Regular thought record
-          await (svc as any).saveThoughtRecord(item.data);
-        } else {
-          console.warn('Unknown thought record format:', item.data);
-        }
-        break;
-      case 'DELETE':
-        // ✅ F-04 FIX: Implement thought record deletion
-        if (item.data?.id) {
-          try {
-            await (svc as any).deleteThoughtRecord(item.data.id);
-            console.log('✅ Thought record deleted successfully:', item.data.id);
-            try {
-              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-              await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'thought_record', id: item.data.id }, item.data.user_id);
-            } catch {}
-          } catch (error) {
-            console.warn('⚠️ Thought record deletion failed:', error);
-            try {
-              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-              await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'thought_record', id: item.data.id }, item.data.user_id);
-            } catch {}
-            throw error; // Let it retry via DLQ
-          }
-        } else {
-          console.log('⚠️ DELETE skipped: missing thought record id');
-        }
-        break;
-    }
-  }
+  // thought record sync removed
 
   private async handleFailedSync(item: SyncQueueItem): Promise<void> {
     console.error('Failed to sync item after max retries:', item);

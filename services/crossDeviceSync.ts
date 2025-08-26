@@ -120,7 +120,7 @@ class CrossDeviceSyncService {
   }
 
   private async syncData(userId: string, result: SyncResult): Promise<void> {
-    const dataTypes = ['compulsions', 'thought_records', 'voice_checkins', 'mood_entries'];
+    const dataTypes = ['voice_checkins', 'mood_entries'];
     
     for (const dataType of dataTypes) {
       try {
@@ -162,46 +162,9 @@ class CrossDeviceSyncService {
   private async uploadItem(dataType: string, item: any, userId: string): Promise<void> {
     const { sanitizePII } = await import('@/utils/privacy');
     switch (dataType) {
-      case 'compulsions':
-        // Map field names from camelCase to snake_case
-        const compulsionData = {
-          user_id: item.userId || item.user_id || userId,
-          category: item.type || item.category,
-          subcategory: item.subcategory || item.type,
-          resistance_level: item.resistanceLevel || item.resistance_level || 0,
-          trigger: item.trigger || '',
-          notes: sanitizePII(item.notes || '')
-        };
-        await supabaseService.saveCompulsion(compulsionData);
-        break;
+      // compulsion sync removed
       // ✅ REMOVED: erp_sessions case - ERP module deleted
-      case 'thought_records':
-        if (item.thought && item.distortions) {
-          // CBT record format - map field names
-          const cbtData = {
-            user_id: item.userId || item.user_id || userId,
-            thought: sanitizePII(item.thought || ''),
-            distortions: item.distortions,
-            evidence_for: item.evidenceFor || item.evidence_for || '',
-            evidence_against: item.evidenceAgainst || item.evidence_against || '',
-            reframe: sanitizePII(item.reframe || ''),
-            mood_before: item.moodBefore || item.mood_before || 5,
-            mood_after: item.moodAfter || item.mood_after || 5,
-            trigger: item.trigger || '',
-            notes: sanitizePII(item.notes || '')
-          };
-          await supabaseService.saveCBTRecord(cbtData);
-        } else if (item.automatic_thought || item.automaticThought) {
-          // Regular thought record format
-          const thoughtData = {
-            user_id: item.userId || item.user_id || userId,
-            automatic_thought: sanitizePII(item.automaticThought || item.automatic_thought || ''),
-            emotions: item.emotions || [],
-            balanced_thought: sanitizePII(item.balancedThought || item.balanced_thought || '')
-          };
-          await supabaseService.saveThoughtRecord(thoughtData);
-        }
-        break;
+      // thought_records sync removed
       case 'voice_checkins':
         // Map field names if needed
         const voiceData = {
