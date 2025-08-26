@@ -760,14 +760,14 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // DB davranışsal veri çekimi (OCD/ERP kaldırıldı)
       const today = new Date().toDateString();
-      const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
+      // Compulsion data removed
 
       // ERP sessions removed - no longer needed
       // const erpKey = `erp_sessions_${safeStorageKey(user.id)}_${today}`;
       // const erpRaw = await AsyncStorage.getItem(erpKey);
       // const todayErpSessions = erpRaw ? JSON.parse(erpRaw) : [];
 
-      const compulsions = dbCompulsions.length ? dbCompulsions : todayCompulsions;
+      // Compulsions removed
       // ERP sessions removed - no longer using erpSessions
 
       // 📊 FIXED: Fetch mood data for AI pipeline analysis
@@ -791,7 +791,7 @@ export function AIProvider({ children }: AIProviderProps) {
       }
 
       const behavioralData = {
-        compulsions,
+        // compulsions removed
         moods, // ✅ FIXED: Now populated with real mood data
         exercises: [], // ERP sessions removed
         achievements: [],
@@ -800,7 +800,7 @@ export function AIProvider({ children }: AIProviderProps) {
 
       // Veri yeterlilik guard'ı
       const hasProfile = !!userProfile;
-      const interactionsCount = (compulsions?.length || 0); // ERP sessions removed
+      const interactionsCount = (moods?.length || 0);
       if (!hasProfile || interactionsCount === 0) {
         try {
           await trackAIInteraction(AIEventType.INSIGHTS_MISSING_REQUIRED_FIELDS, {
@@ -813,7 +813,7 @@ export function AIProvider({ children }: AIProviderProps) {
         return [{
           id: 'data_insufficient_notice',
           type: 'system',
-          content: 'Daha anlamlı içgörüler için bugün en az bir kayıt ekleyin (kompulsiyon veya mood).',
+          content: 'Daha anlamlı içgörüler için bugün en az bir mood kaydı ekleyin.',
           timestamp: new Date(),
           priority: 'low'
         }];
