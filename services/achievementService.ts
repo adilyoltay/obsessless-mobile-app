@@ -8,7 +8,7 @@ export interface Achievement {
   descriptionEn: string;
   icon: string;
   color: string;
-  category: 'compulsion' | 'assessment' | 'streak' | 'progress' | 'time';
+  category: 'assessment' | 'streak' | 'progress' | 'time';
   type: 'count' | 'streak' | 'milestone' | 'special';
   target: number;
   currentProgress: number;
@@ -41,93 +41,9 @@ export interface StreakData {
 
 // Achievement definitions
 const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt' | 'isUnlocked'>[] = [
-  // Compulsion Tracking Achievements
-  {
-    id: 'first_log',
-    title: 'İlk Adım',
-    titleEn: 'First Step',
-    description: 'İlk kompulsiyon kaydınızı oluşturdunuz',
-    descriptionEn: 'Created your first compulsion log',
-    icon: '🎯',
-    color: '#10B981',
-    category: 'compulsion',
-    type: 'milestone',
-    target: 1,
-    rarity: 'common',
-    points: 10,
-  },
-  {
-    id: 'persistent_tracker',
-    title: 'Kararlı Takipçi',
-    titleEn: 'Persistent Tracker',
-    description: '7 gün üst üste kompulsiyon kaydı tuttunuz',
-    descriptionEn: 'Tracked compulsions for 7 consecutive days',
-    icon: '📈',
-    color: '#3B82F6',
-    category: 'streak',
-    type: 'streak',
-    target: 7,
-    rarity: 'rare',
-    points: 50,
-  },
-  {
-    id: 'hundred_logs',
-    title: 'Yüz Kayıt',
-    titleEn: 'Hundred Logs',
-    description: '100 kompulsiyon kaydı oluşturdunuz',
-    descriptionEn: 'Created 100 compulsion logs',
-    icon: '💯',
-    color: '#8B5CF6',
-    category: 'compulsion',
-    type: 'count',
-    target: 100,
-    rarity: 'epic',
-    points: 100,
-  },
+  // Compulsion tracking achievements removed
 
-  // (Removed) ERP Exercise Achievements
-  {
-    id: 'first_therapy',
-    title: 'Cesur Başlangıç',
-    titleEn: 'Brave Beginning',
-    description: 'İlk terapi egzersizinizi tamamladınız',
-    descriptionEn: 'Completed your first therapy exercise',
-    icon: '🦸',
-    color: '#EF4444',
-    category: 'therapy',
-    type: 'milestone',
-    target: 1,
-    rarity: 'common',
-    points: 20,
-  },
-  {
-    id: 'therapy_warrior',
-    title: 'ERP Savaşçısı',
-    titleEn: 'ERP Warrior',
-    description: '10 Terapi egzersizi tamamladınız',
-    descriptionEn: 'Completed 10 ERP exercises',
-    icon: '⚔️',
-    color: '#F59E0B',
-    category: 'therapy',
-    type: 'count',
-    target: 10,
-    rarity: 'rare',
-    points: 75,
-  },
-  {
-    id: 'long_session',
-    title: 'Uzun Nefes',
-    titleEn: 'Long Breath',
-    description: '60 dakikalık ERP oturumu tamamladınız',
-    descriptionEn: 'Completed a 60-minute ERP session',
-    icon: '⏰',
-    color: '#06B6D4',
-    category: 'therapy',
-    type: 'milestone',
-    target: 60,
-    rarity: 'epic',
-    points: 150,
-  },
+  // ERP Exercise Achievements removed
 
   // Assessment Achievements
   {
@@ -190,20 +106,7 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
   },
 
   // Progress Achievements
-  {
-    id: 'resistance_master',
-    title: 'Direnç Ustası',
-    titleEn: 'Resistance Master',
-    description: 'Kompulsiyonlara karşı ortalama 8+ direnç gösterdiniz',
-    descriptionEn: 'Showed average 8+ resistance against compulsions',
-    icon: '🛡️',
-    color: '#059669',
-    category: 'progress',
-    type: 'milestone',
-    target: 8,
-    rarity: 'epic',
-    points: 120,
-  },
+  // compulsion-specific progress removed
   {
     id: 'anxiety_reducer',
     title: 'Kaygı Azaltıcı',
@@ -250,20 +153,7 @@ const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'currentProgress' | 'unlockedAt
   },
 
   // Special Achievements
-  {
-    id: 'perfectionist',
-    title: 'Mükemmeliyetçi',
-    titleEn: 'Perfectionist',
-    description: 'Bir günde 5 farklı kompulsiyon türü kaydettiniz',
-    descriptionEn: 'Logged 5 different compulsion types in one day',
-    icon: '✨',
-    color: '#A855F7',
-    category: 'compulsion',
-    type: 'special',
-    target: 5,
-    rarity: 'epic',
-    points: 100,
-  },
+  // compulsion special removed
 ];
 
 class AchievementService {
@@ -342,89 +232,29 @@ class AchievementService {
     return this.updateProgress(achievementId, achievement.currentProgress + amount);
   }
 
-  async trackActivity(type: 'compulsion' | 'erp' | 'assessment', data?: any): Promise<Achievement[]> {
+  async trackActivity(type: 'assessment', data?: any): Promise<Achievement[]> {
     const today = new Date().toISOString().split('T')[0];
     const unlockedAchievements: Achievement[] = [];
 
     // Update streak
-    await this.updateStreak(type);
+    await this.updateStreak('assessment');
 
     // Track specific achievements based on activity type
-    switch (type) {
-      case 'compulsion':
-        await this.trackCompulsionAchievements(data, unlockedAchievements);
-        break;
-      case 'erp':
-        await this.trackERPAchievements(data, unlockedAchievements);
-        break;
-      case 'assessment':
-        await this.trackAssessmentAchievements(data, unlockedAchievements);
-        break;
-    }
+    await this.trackAssessmentAchievements(data, unlockedAchievements);
 
     // Check streak achievements
     await this.checkStreakAchievements(unlockedAchievements);
 
     // Check time-based achievements
-    await this.checkTimeBasedAchievements(type, unlockedAchievements);
+    await this.checkTimeBasedAchievements('assessment', unlockedAchievements);
 
     await this.saveAchievements();
     return unlockedAchievements;
   }
 
-  private async trackCompulsionAchievements(data: any, unlockedAchievements: Achievement[]): Promise<void> {
-    // First log
-    if (await this.incrementProgress('first_log')) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'first_log')!);
-    }
+  // compulsion achievements removed
 
-    // Count-based achievements
-    const totalLogs = await this.getTotalCompulsionLogs();
-    if (await this.updateProgress('hundred_logs', totalLogs)) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'hundred_logs')!);
-    }
-
-    // Check resistance level
-    if (data?.resistance >= 8) {
-      const avgResistance = await this.getAverageResistance();
-      if (await this.updateProgress('resistance_master', avgResistance >= 8 ? 1 : 0)) {
-        unlockedAchievements.push(this.achievements.find(a => a.id === 'resistance_master')!);
-      }
-    }
-
-    // Check perfectionist (5 different types in one day)
-    const todayTypes = await this.getTodayCompulsionTypes();
-    if (await this.updateProgress('perfectionist', todayTypes.length >= 5 ? 1 : 0)) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'perfectionist')!);
-    }
-  }
-
-  private async trackERPAchievements(data: any, unlockedAchievements: Achievement[]): Promise<void> {
-    // First ERP
-    if (await this.incrementProgress('first_erp')) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'first_erp')!);
-    }
-
-    // Count-based achievements
-    const totalERPs = await this.getTotalERPSessions();
-    if (await this.updateProgress('therapy_warrior', totalERPs)) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'therapy_warrior')!);
-    }
-
-    // Long session achievement
-    if (data?.duration >= 60) {
-      if (await this.updateProgress('long_session', 1)) {
-        unlockedAchievements.push(this.achievements.find(a => a.id === 'long_session')!);
-      }
-    }
-
-    // Anxiety reduction achievement
-    if (data?.anxietyReduction >= 50) {
-      if (await this.updateProgress('anxiety_reducer', 1)) {
-        unlockedAchievements.push(this.achievements.find(a => a.id === 'anxiety_reducer')!);
-      }
-    }
-  }
+  // ERP achievements removed
 
   private async trackAssessmentAchievements(data: any, unlockedAchievements: Achievement[]): Promise<void> {
     // First assessment
@@ -451,10 +281,7 @@ class AchievementService {
     }
 
     // Persistent tracker
-    const consecutiveDays = await this.getConsecutiveCompulsionDays();
-    if (await this.updateProgress('persistent_tracker', consecutiveDays)) {
-      unlockedAchievements.push(this.achievements.find(a => a.id === 'persistent_tracker')!);
-    }
+    // compulsion-based streak removed
   }
 
   private async checkTimeBasedAchievements(type: string, unlockedAchievements: Achievement[]): Promise<void> {
@@ -518,14 +345,7 @@ class AchievementService {
   }
 
   // Helper methods for achievement progress calculation
-  private async getTotalCompulsionLogs(): Promise<number> {
-    try {
-      const logs = await AsyncStorage.getItem('compulsion_logs');
-      return logs ? JSON.parse(logs).length : 0;
-    } catch {
-      return 0;
-    }
-  }
+  // compulsion metrics removed
 
   private async getTotalERPSessions(): Promise<number> {
     try {
@@ -536,35 +356,9 @@ class AchievementService {
     }
   }
 
-  private async getAverageResistance(): Promise<number> {
-    try {
-      const logs = await AsyncStorage.getItem('compulsion_logs');
-      if (!logs) return 0;
+  // compulsion metrics removed
 
-      const parsedLogs = JSON.parse(logs);
-      const resistanceSum = parsedLogs.reduce((sum: number, log: any) => sum + (log.resistance || 0), 0);
-      return parsedLogs.length > 0 ? resistanceSum / parsedLogs.length : 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  private async getTodayCompulsionTypes(): Promise<string[]> {
-    try {
-      const logs = await AsyncStorage.getItem('compulsion_logs');
-      if (!logs) return [];
-
-      const today = new Date().toISOString().split('T')[0];
-      const parsedLogs = JSON.parse(logs);
-      const todayLogs = parsedLogs.filter((log: any) => 
-        new Date(log.timestamp).toISOString().split('T')[0] === today
-      );
-
-      return [...new Set(todayLogs.map((log: any) => log.type))] as string[];
-    } catch {
-      return [];
-    }
-  }
+  // compulsion metrics removed
 
 
 
@@ -582,14 +376,11 @@ class AchievementService {
     }
   }
 
-  private async getConsecutiveCompulsionDays(): Promise<number> {
-    // Implementation for calculating consecutive days with compulsion logs
-    return this.streakData.current;
-  }
+  // compulsion metrics removed
 
   private async getEarlyBirdActivities(): Promise<number> {
     try {
-      const logs = await AsyncStorage.getItem('compulsion_logs');
+      const logs = await AsyncStorage.getItem('activity_logs');
       if (!logs) return 0;
 
       const parsedLogs = JSON.parse(logs);
@@ -604,7 +395,7 @@ class AchievementService {
 
   private async getNightOwlActivities(): Promise<number> {
     try {
-      const logs = await AsyncStorage.getItem('compulsion_logs');
+      const logs = await AsyncStorage.getItem('activity_logs');
       if (!logs) return 0;
 
       const parsedLogs = JSON.parse(logs);

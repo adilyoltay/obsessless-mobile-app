@@ -71,25 +71,7 @@ export const apiService = {
     },
   },
 
-  // Compulsion tracking endpoints
-  compulsions: {
-    getAll: async () => {
-      const response = await api.get('/compulsions');
-      return response.data;
-    },
-    create: async (data: any) => {
-      const response = await api.post('/compulsions', data);
-      return response.data;
-    },
-    update: async (id: string, data: any) => {
-      const response = await api.put(`/compulsions/${id}`, data);
-      return response.data;
-    },
-    delete: async (id: string) => {
-      const response = await api.delete(`/compulsions/${id}`);
-      return response.data;
-    },
-  },
+  // Compulsion endpoints removed
 
   // (Removed) ERP exercises endpoints
 };

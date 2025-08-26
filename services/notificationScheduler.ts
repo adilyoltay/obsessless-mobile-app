@@ -19,39 +19,7 @@ export interface NotificationSchedule {
 export class NotificationScheduler {
   private static STORAGE_KEY = 'scheduledNotifications';
 
-  static async scheduleERPReminder(time: Date): Promise<string> {
-    // Skip notification scheduling in Expo Go (SDK 53+)
-    if (isExpoGo) {
-      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
-      return 'expo-go-mock-id';
-    }
-    
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🧠 ERP Egzersiz Zamanı',
-        body: 'Bugünün maruz bırakma egzersizini yapmayı unutma!',
-        data: { type: 'erp_reminder' },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        hour: time.getHours(),
-        minute: time.getMinutes(),
-        repeats: true,
-      } as Notifications.CalendarTriggerInput,
-    });
-
-    await this.saveNotificationSchedule({
-      id: identifier,
-      type: 'erp_reminder',
-      title: '🧠 ERP Egzersiz Zamanı',
-      body: 'Bugünün maruz bırakma egzersizini yapmayı unutma!',
-      scheduledTime: time,
-      isActive: true,
-      frequency: 'daily'
-    });
-
-    return identifier;
-  }
+  // ERP reminders removed
 
   static async scheduleDailyTrackingReminder(time: Date): Promise<string> {
     // Skip notification scheduling in Expo Go (SDK 53+)
@@ -63,7 +31,7 @@ export class NotificationScheduler {
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: '📊 Günlük Takip',
-        body: 'Bugünün kompulsiyonlarını kaydetmeyi unutma!',
+        body: 'Bugünkü ilerlemeni kaydetmeyi unutma!',
         data: { type: 'daily_tracking' },
       },
       trigger: {
@@ -78,7 +46,7 @@ export class NotificationScheduler {
       id: identifier,
       type: 'daily_tracking',
       title: '📊 Günlük Takip',
-      body: 'Bugünün kompulsiyonlarını kaydetmeyi unutma!',
+      body: 'Bugünkü ilerlemeni kaydetmeyi unutma!',
       scheduledTime: time,
       isActive: true,
       frequency: 'daily'

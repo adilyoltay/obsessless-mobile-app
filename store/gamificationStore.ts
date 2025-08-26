@@ -98,72 +98,10 @@ const ACHIEVEMENTS: AchievementDefinition[] = [
 
 // Micro-reward definitions
 const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
-  compulsion_recorded: {
-    points: 10,
-    message: '+10 ✨',
-    trigger: 'compulsion_recorded'
-  },
-  // erp_completed: { // Removed ERP micro reward
-  //   points: 20,
-  //   message: '+20 ✨',
-  //   trigger: 'erp_completed'
-  // },
-  high_resistance: {
-    points: 15,
-    message: '+15 ✨ Güçlü direnç!',
-    trigger: 'high_resistance'
-  },
-  anxiety_reduced: {
-    points: 25,
-    message: '+25 ✨ Anksiyete azaldı!',
-    trigger: 'anxiety_reduced'
-  },
-  daily_goal_met: {
-    points: 50,
-    message: '+50 ✨ Günlük hedef!',
-    trigger: 'daily_goal_met'
-  },
-
-  planning_ahead: {
-    points: 8,
-    message: '+8 ✨ Planlama yapıyor!',
-    trigger: 'planning_ahead'
-  },
-  compulsion_quick_entry: {
-    points: 12,
-    message: '+12 ✨ Hızlı kayıt!',
-    trigger: 'compulsion_quick_entry'
-  },
-  pattern_recognition: {
-    points: 18,
-    message: '+18 ✨ Örüntü farkındalığı!',
-    trigger: 'pattern_recognition'
-  },
-  consistent_tracking: {
-    points: 30,
-    message: '+30 ✨ Düzenli takip!',
-    trigger: 'consistent_tracking'
-  },
-  resistance_improvement: {
-    points: 22,
-    message: '+22 ✨ Direnç gelişimi!',
-    trigger: 'resistance_improvement'
-  },
-
-  urge_resistance: {
-    points: 15,
-    message: '+15 ✨ Dürtüye direndi!',
-    trigger: 'urge_resistance'
-  },
   voice_mood_checkin: {
     points: 1,
     message: '+1 ✨ Mood Check‑in',
     trigger: 'voice_mood_checkin'
-  },
-  cbt_completed: {
-    points: 15,
-    message: '+15 ✨ CBT kaydı!',
-    trigger: 'cbt_completed'
   },
 };
 
@@ -308,11 +246,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       let shouldUnlock = false;
       
       switch (achievement.id) {
-        case 'resistance_wall':
-          if (type === 'compulsion' && data?.dailyHighResistance >= 5) {
-            shouldUnlock = true;
-          }
-          break;
+        // compulsion-based achievements removed
           
         case 'mindful_tracker':
           if (profile.streakCurrent >= 7) {

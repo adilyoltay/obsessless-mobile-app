@@ -4,7 +4,7 @@ type SyncStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
 export interface SyncOperation {
   id: string;
-  entity: 'compulsion' | 'erp_session' | 'user_profile';
+  entity: 'user_profile' | 'mood_entry' | 'voice_checkin' | 'achievement' | 'ai_profile' | 'treatment_plan';
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   payload: any;
   priority: number;

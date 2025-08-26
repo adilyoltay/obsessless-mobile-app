@@ -12,7 +12,7 @@ export class ConflictDetector {
       if (this.hasConflict(local, server)) {
         conflicts.push({
           id: local.id,
-          entityType: (local.type as SyncEntityType) || 'compulsion',
+          entityType: (local.type as SyncEntityType) || 'mood_entry',
           localData: local,
           serverData: server,
           localTimestamp: new Date(String(local.updated_at || new Date())),

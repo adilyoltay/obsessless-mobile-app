@@ -10,7 +10,7 @@ export enum ConflictResolutionStrategy {
   MANUAL_MERGE = 'manual_merge'        // Kullanıcıya sor
 }
 
-export type SyncEntityType = 'compulsion' | 'erp_session' | 'user_profile';
+export type SyncEntityType = 'user_profile' | 'mood_entry' | 'voice_checkin' | 'achievement' | 'ai_profile' | 'treatment_plan';
 
 export interface SyncConflict<TLocal = any, TServer = any> {
   id: string;

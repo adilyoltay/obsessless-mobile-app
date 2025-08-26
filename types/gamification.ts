@@ -46,21 +46,7 @@ export interface HealingPoints {
 
 // Micro-reward triggers
 export type MicroRewardTrigger =
-  | 'compulsion_recorded'
-
-  | 'high_resistance'
-  | 'anxiety_reduced'
-  | 'daily_goal_met'
-
-  | 'planning_ahead'
-  | 'compulsion_quick_entry'
-  | 'pattern_recognition'
-  | 'consistent_tracking'
-  | 'resistance_improvement'
-
-  | 'urge_resistance'
-  | 'voice_mood_checkin'
-  | 'cbt_completed';
+  | 'voice_mood_checkin';
 
 export interface MicroReward {
   points: number;

@@ -19,7 +19,7 @@ import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelem
 // =============================================================================
 
 export type ConflictType = 'CREATE_DUPLICATE' | 'UPDATE_CONFLICT' | 'DELETE_CONFLICT' | 'NONE';
-export type EntityType = 'compulsion' | 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'thought_record';
+export type EntityType = 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin';
 
 export interface UnifiedDataConflict {
   id: string;
@@ -107,8 +107,6 @@ export class ConflictDetectionEngine {
     try {
       // Entity-specific comparison logic
       switch (entityType) {
-        case 'compulsion':
-          return this.compareCompulsions(a, b);
         case 'mood_entry':
           return this.compareMoodEntries(a, b);
         case 'voice_checkin':
@@ -122,14 +120,7 @@ export class ConflictDetectionEngine {
     }
   }
   
-  private static compareCompulsions(a: any, b: any): boolean {
-    if (!a || !b) return false;
-    return (
-      (a.type === b.subcategory || a.type === b.category) &&
-      Math.abs((a.severity || a.resistance_level || 0) - (b.resistance_level || b.severity || 0)) <= 1 &&
-      a.trigger === b.trigger
-    );
-  }
+  // compulsion comparison removed
   
   private static compareMoodEntries(a: any, b: any): boolean {
     if (!a || !b) return false;
@@ -207,8 +198,6 @@ export class ResolutionStrategies {
         const entityType = context?.entityType;
         
         switch (entityType) {
-          case 'compulsion':
-            return ResolutionStrategies.mergeCompulsions(local, remote);
           case 'mood_entry':
             return ResolutionStrategies.mergeMoodEntries(local, remote);
           default:
@@ -217,25 +206,7 @@ export class ResolutionStrategies {
       }
     },
     
-    prefer_higher_severity: {
-      name: 'Prefer Higher Severity',
-      description: 'For compulsions, prefer data with higher severity/resistance',
-      canAutoResolve: true,
-      priority: 3,
-      apply: (local: any, remote: any) => {
-        const localSeverity = local?.resistance_level || local?.severity || local?.anxiety_initial || 0;
-        const remoteSeverity = remote?.resistance_level || remote?.severity || remote?.anxiety_initial || 0;
-        
-        if (localSeverity === remoteSeverity) {
-          // Fall back to last write wins
-          const localTime = new Date(local?.updated_at || local?.timestamp || 0).getTime();
-          const remoteTime = new Date(remote?.updated_at || remote?.timestamp || 0).getTime();
-          return localTime >= remoteTime ? local : remote;
-        }
-        
-        return localSeverity >= remoteSeverity ? local : remote;
-      }
-    }
+    // compulsion-specific strategy removed
   };
   
   static getStrategy(name: string): ResolutionStrategy | null {
@@ -246,40 +217,7 @@ export class ResolutionStrategies {
     return Object.values(this.strategies).sort((a, b) => a.priority - b.priority);
   }
   
-  private static mergeCompulsions(local: any, remote: any): any {
-    return {
-      ...remote,
-      ...local,
-      // Prefer higher severity/anxiety
-      resistance_level: Math.max(
-        Number(remote?.resistance_level || 0), 
-        Number(local?.resistance_level || 0)
-      ) || local?.resistance_level || remote?.resistance_level,
-      
-      anxiety_initial: Math.max(
-        Number(remote?.anxiety_initial || 0), 
-        Number(local?.anxiety_initial || 0)
-      ) || local?.anxiety_initial || remote?.anxiety_initial,
-      
-      anxiety_final: Math.max(
-        Number(remote?.anxiety_final || 0), 
-        Number(local?.anxiety_final || 0)
-      ) || local?.anxiety_final || remote?.anxiety_final,
-      
-      // Combine notes if different
-      notes: local?.notes !== remote?.notes && local?.notes && remote?.notes 
-        ? `${remote.notes} | ${local.notes}` 
-        : local?.notes || remote?.notes,
-      
-      // Metadata about the merge
-      conflict_resolved: true,
-      merged_at: new Date().toISOString(),
-      conflict_history: [
-        { type: 'remote', data: remote, at: new Date().toISOString() },
-        { type: 'local', data: local, at: new Date().toISOString() }
-      ]
-    };
-  }
+  // compulsion merge removed
   
   private static mergeMoodEntries(local: any, remote: any): any {
     return {
@@ -445,71 +383,7 @@ class UnifiedConflictResolverService {
   /**
    * Resolve compulsion-specific conflicts (from old conflictResolver.ts)
    */
-  async resolveCompulsionConflict(
-    userId: string,
-    compulsionId: string,
-    choice: 'local' | 'remote'
-  ): Promise<boolean> {
-    try {
-      const conflicts = await this.getConflictLogs();
-      let resolved = false;
-      
-      for (const entry of conflicts) {
-        if (entry.entity !== 'compulsion') continue;
-        
-        const conflictIndex = entry.conflicts.findIndex(c => c.id === compulsionId);
-        if (conflictIndex === -1) continue;
-        
-        const conflict = entry.conflicts[conflictIndex];
-        
-        // Load local compulsions
-        const localKey = `compulsions_${userId}`;
-        const stored = await AsyncStorage.getItem(localKey);
-        const compulsions = stored ? JSON.parse(stored) : [];
-        
-        // Convert remote data to local format
-        const localFormat = this.convertRemoteToLocal(conflict.remote);
-        const chosenData = choice === 'local' ? conflict.local : localFormat;
-        
-        // Update local storage
-        const existingIndex = compulsions.findIndex((c: any) => c.id === compulsionId);
-        if (existingIndex >= 0) {
-          compulsions[existingIndex] = chosenData;
-        } else {
-          compulsions.push(chosenData);
-        }
-        
-        await AsyncStorage.setItem(localKey, JSON.stringify(compulsions));
-        
-        // Remove resolved conflict
-        entry.conflicts.splice(conflictIndex, 1);
-        entry.count = Math.max(0, entry.count - 1);
-        resolved = true;
-        
-        // Track resolution
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-          event: 'compulsion_conflict_resolved',
-          compulsionId,
-          resolution: choice,
-          userId
-        });
-        
-        break;
-      }
-      
-      // Update conflict log
-      if (resolved) {
-        const filteredConflicts = conflicts.filter(e => e.count > 0);
-        await AsyncStorage.setItem('unified_sync_conflicts', JSON.stringify(filteredConflicts));
-      }
-      
-      return resolved;
-      
-    } catch (error) {
-      console.error('Compulsion conflict resolution failed:', error);
-      return false;
-    }
-  }
+  // compulsion conflict resolver removed
   
   /**
    * List all current conflicts
@@ -594,20 +468,7 @@ class UnifiedConflictResolverService {
     }
   }
   
-  private convertRemoteToLocal(remoteData: any): any {
-    // Convert remote compulsion format to local format
-    return {
-      id: remoteData.id,
-      type: remoteData.subcategory || remoteData.category,
-      severity: remoteData.resistance_level || 5,
-      resistanceLevel: remoteData.resistance_level,
-      duration: 0,
-      trigger: remoteData.trigger,
-      notes: remoteData.notes,
-      timestamp: remoteData.timestamp,
-      userId: remoteData.user_id
-    };
-  }
+  // convertRemoteToLocal for compulsions removed
 }
 
 // =============================================================================

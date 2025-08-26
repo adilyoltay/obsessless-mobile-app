@@ -2,7 +2,7 @@
 import { Share, Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { CompulsionEntry } from '@/types/compulsion';
+// Removed compulsion export service (unused)
 
 interface ExportOptions {
   format: 'pdf' | 'csv' | 'json';
