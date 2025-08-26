@@ -1,7 +1,12 @@
-import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { router } from 'expo-router';
 
 export default function OnboardingIndex() {
-  return <Redirect href="/(auth)/onboarding/welcome" />;
+  useEffect(() => {
+    // Redirect to the first step
+    router.replace('/(auth)/onboarding/welcome');
+  }, []);
+  return null;
 }
 
 

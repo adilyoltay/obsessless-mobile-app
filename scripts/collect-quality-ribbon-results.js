@@ -179,6 +179,7 @@ function categorizeQualityRibbonTests(jestResults) {
         failureMessages: test.failureMessages || [],
         file: path.basename(filePath)
       };
+      const testName = (test.fullName || '').toLowerCase();
 
       if (test.status === 'passed') {
         passedQRTests++;
@@ -260,7 +261,6 @@ function categorizeQualityRibbonTests(jestResults) {
       
       // Fallback categorization (for tests without tags)
       if (!categorized) {
-        const testName = test.fullName.toLowerCase();
         
         // Today page tests
         if (filePath.includes('TodayPage') || testName.includes('today')) {
