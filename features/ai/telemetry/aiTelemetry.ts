@@ -238,7 +238,7 @@ export enum AIEventType {
   ,
   INSIGHTS_FEEDBACK = 'insights_feedback',
   INTERVENTION_RECOMMENDED = 'intervention_recommended',
-  YBOCS_QUESTION_VIEWED = 'ybocs_question_viewed',
+  YBOCS_QUESTION_VIEWED = 'assessment_question_viewed',
   
   // CoreAnalysisService v1 events
   BATCH_JOB_STARTED = 'batch_job_started',
