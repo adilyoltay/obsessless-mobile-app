@@ -453,6 +453,13 @@ class SupabaseNativeService {
     return this.currentUser;
   }
 
+  /**
+   * Public getter: return current user id or null
+   */
+  getCurrentUserId(): string | null {
+    return this.currentUser?.id ?? null;
+  }
+
   // ===========================
   // DATABASE OPERATIONS
   // ===========================

@@ -56,8 +56,8 @@ export class OfflineSyncService {
       let currentUserId = await AsyncStorage.getItem('currentUserId');
       try {
         const { default: supabase } = await import('@/services/supabase');
-        const uid = (supabase as any)?.getCurrentUser?.() || (supabase as any)?.currentUser || null;
-        if (uid && typeof uid === 'object' && uid.id) currentUserId = uid.id;
+        const uid = (supabase as any)?.getCurrentUserId?.() || null;
+        if (uid && typeof uid === 'string') currentUserId = uid;
       } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       const queueData = await AsyncStorage.getItem(queueKey);
@@ -74,8 +74,8 @@ export class OfflineSyncService {
       let currentUserId = await AsyncStorage.getItem('currentUserId');
       try {
         const { default: supabase } = await import('@/services/supabase');
-        const uid = (supabase as any)?.getCurrentUser?.() || (supabase as any)?.currentUser || null;
-        if (uid && typeof uid === 'object' && uid.id) currentUserId = uid.id;
+        const uid = (supabase as any)?.getCurrentUserId?.() || null;
+        if (uid && typeof uid === 'string') currentUserId = uid;
       } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
       await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
@@ -88,8 +88,8 @@ export class OfflineSyncService {
     if (candidate && isUUID(candidate)) return candidate;
     try {
       const { default: svc } = await import('@/services/supabase');
-      const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
-      if (current && typeof current === 'object' && isUUID(current.id)) return current.id;
+      const uid = (svc as any)?.getCurrentUserId?.() || null;
+      if (uid && isUUID(uid)) return uid;
     } catch {}
     throw new Error('No valid user id available');
   }
@@ -163,73 +163,97 @@ export class OfflineSyncService {
     this.isSyncing = true;
 
     try {
-      const summary = { successful: 0, failed: 0, conflicts: 0 };
+      const summary = { successful: 0, failed: 0, conflicts: 0 } as const;
       const itemsToSync = [...this.syncQueue];
       const batchSize = batchOptimizer.calculate(itemsToSync.length);
       const startBatchAt = Date.now();
-      
-      for (let i = 0; i < itemsToSync.length; i++) {
-        const item = itemsToSync[i];
-        
+
+      const successful: SyncQueueItem[] = [];
+      const failed: SyncQueueItem[] = [];
+      const latencies: number[] = [];
+
+      // Small concurrency limiter (2)
+      const concurrency = 2;
+      let index = 0;
+
+      const runNext = async (): Promise<void> => {
+        if (index >= itemsToSync.length) return;
+        const current = itemsToSync[index++];
         try {
-          await syncCircuitBreaker.execute(() => this.syncItem(item));
-          summary.successful++;
-          
+          const startedAt = Date.now();
+          await syncCircuitBreaker.execute(() => this.syncItem(current));
+          const latencyMs = Date.now() - startedAt;
+          successful.push(current);
+          latencies.push(latencyMs);
           // Remove from queue if successful
-          this.syncQueue = this.syncQueue.filter(queueItem => queueItem.id !== item.id);
+          this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
+          // Telemetry (non-blocking)
+          try {
+            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await trackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
+          } catch {}
         } catch (error) {
-          console.error('Error syncing item:', error);
-          
-          // Increment retry count
-          const queueItem = this.syncQueue.find(q => q.id === item.id);
+          // Increment retry count and backoff per-item
+          const queueItem = this.syncQueue.find(q => q.id === current.id);
           if (queueItem) {
-            queueItem.retryCount++;
-            
-            // Exponential backoff with jitter
-            const base = 2000; // 2s
-            const delay = Math.min(base * Math.pow(2, queueItem.retryCount), 60000) + Math.floor(Math.random() * 500);
+            queueItem.retryCount = (queueItem.retryCount || 0) + 1;
+            failed.push(queueItem);
+            const attempt = queueItem.retryCount;
+            const base = 2000;
+            const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
             await new Promise(res => setTimeout(res, delay));
-            // Remove to dead-letter if max retries reached
-            if (queueItem.retryCount >= 8) {
-              this.syncQueue = this.syncQueue.filter(q => q.id !== item.id);
+            if (attempt >= 8) {
+              this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
               await this.handleFailedSync(queueItem);
-              summary.failed++;
             }
           }
+        } finally {
+          await runNext();
+        }
+      };
+
+      const workers = Array.from({ length: Math.min(concurrency, itemsToSync.length) }, () => runNext());
+      await Promise.all(workers);
+
+      await this.saveSyncQueue();
+      batchOptimizer.record(batchSize, failed.length === 0, Date.now() - startBatchAt);
+
+      // Emit cache invalidation for only successfully synced entities
+      if (successful.length > 0) {
+        try {
+          const { emitSyncCompleted } = await import('@/hooks/useCacheInvalidation');
+          const syncedEntities = Array.from(new Set(successful.map(item => item.entity)));
+          const firstSuccessfulUserId = successful[0]?.data?.user_id || successful[0]?.data?.userId;
+          emitSyncCompleted(syncedEntities, firstSuccessfulUserId);
+          if (__DEV__) console.log('🔄 Cache invalidation triggered for:', syncedEntities);
+        } catch (error) {
+          if (__DEV__) console.warn('⚠️ Failed to emit cache invalidation:', error);
         }
       }
 
-      await this.saveSyncQueue();
-      batchOptimizer.record(batchSize, summary.failed === 0, Date.now() - startBatchAt);
-      
-      // ✅ F-08 FIX: Emit cache invalidation events for successful syncs
-      if (summary.successful > 0) {
-        try {
-          const { emitSyncCompleted } = await import('@/hooks/useCacheInvalidation');
-          const syncedEntities = Array.from(new Set(
-            itemsToSync.slice(0, summary.successful).map(item => item.entity)
-          ));
-          
-          // Get userId from first successful item
-          const firstItem = itemsToSync.find(item => item.data?.user_id || item.data?.userId);
-          const userId = firstItem?.data?.user_id || firstItem?.data?.userId;
-          
-          emitSyncCompleted(syncedEntities, userId);
-          console.log('🔄 Cache invalidation triggered for:', syncedEntities);
-        } catch (error) {
-          console.warn('⚠️ Failed to emit cache invalidation:', error);
-        }
-      }
-      
+      // Persist summary + telemetry
       try {
-        console.log('🧾 Sync summary:', summary);
-        await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...summary, at: new Date().toISOString() }));
-        // Persist daily conflictRate for tracking charts
+        const attempted = itemsToSync.length;
+        const succeeded = successful.length;
+        const failedCount = failed.length;
+        await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ attempted, succeeded, failed: failedCount, at: new Date().toISOString() }));
         try {
           const { default: performanceMetricsService } = await import('@/services/telemetry/performanceMetricsService');
-          const total = summary.successful + summary.failed + summary.conflicts;
-          const conflictRate = total > 0 ? summary.conflicts / total : 0;
-          await performanceMetricsService.recordToday({ sync: { conflictRate } });
+          const successRate = attempted > 0 ? succeeded / attempted : 1;
+          const avgResponseMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+          await performanceMetricsService.recordToday({ sync: { successRate, avgResponseMs } });
+        } catch {}
+        // Telemetry aggregation (avg latency)
+        try {
+          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          const avgLatencyMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'sync_batch_completed',
+            attempted,
+            succeeded,
+            failed: failedCount,
+            avgLatencyMs
+          });
         } catch {}
       } catch {}
     } finally {
@@ -282,8 +306,8 @@ export class OfflineSyncService {
     let uid = d.user_id || d.userId;
     if (!uid) {
       try {
-        const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
-        if (current && typeof current === 'object' && current.id) uid = current.id;
+        const cur = (svc as any)?.getCurrentUserId?.();
+        if (cur) uid = cur;
       } catch {}
     }
     if (!uid) throw new Error('No user id available for user_profile sync');

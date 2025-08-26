@@ -39,7 +39,7 @@ import {
  * AI Event türleri
  */
 export enum AIEventType {
-  // System events
+  // System events (core)
   SYSTEM_INITIALIZED = 'system_initialized',
   SYSTEM_STARTED = 'system_started',
   SYSTEM_STOPPED = 'system_stopped',
@@ -254,7 +254,7 @@ export enum AIEventType {
   PROGRESSIVE_UI_UPDATE = 'progressive_ui_update',
 
   
-  // Unified AI Pipeline events (NEW - Jan 2025)
+  // Unified AI Pipeline events (core)
   UNIFIED_PIPELINE_STARTED = 'unified_pipeline_started',
   UNIFIED_PIPELINE_COMPLETED = 'unified_pipeline_completed',
   UNIFIED_PIPELINE_ERROR = 'unified_pipeline_error',
@@ -302,7 +302,8 @@ export enum AIEventType {
   ROUTE_SUGGESTION_PROVIDED = 'route_suggestion_provided',
   PREFILL_DATA_EXTRACTED = 'prefill_data_extracted',
   
-  // Legacy aliases (compat)
+  // Legacy/Deprecated aliases (kept for backward compatibility)
+  // Deprecated block - do not use in new code
   SERVICE_ACCESSED = 'service_accessed',
   SERVICE_INITIALIZED = 'service_initialized',
   SESSION_STARTED = 'session_started',

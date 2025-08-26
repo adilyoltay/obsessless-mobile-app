@@ -184,6 +184,8 @@ export interface UnifiedPipelineResult {
     cacheTTL: number;
     source: 'cache' | 'fresh';
     processingTime: number;
+    // Progressive UI weighting: attach heuristic confidence when available
+    heuristicConfidence?: number;
   };
 }
 
@@ -201,12 +203,12 @@ export class UnifiedAIPipeline {
   
   // ✅ FIXED: Module-specific cache TTLs as per specification  
   private readonly MODULE_TTLS = {
-    insights: 24 * 60 * 60 * 1000,    // 24 hours
-    patterns: 12 * 60 * 60 * 1000,    // 12 hours  
-    voice: 1 * 60 * 60 * 1000,        // 1 hour
-    progress: 6 * 60 * 60 * 1000,     // 6 hours
+    insights: parseInt(process.env.PIPELINE_TTL_INSIGHTS_MS || String(24 * 60 * 60 * 1000), 10),
+    patterns: parseInt(process.env.PIPELINE_TTL_PATTERNS_MS || String(12 * 60 * 60 * 1000), 10),
+    voice: parseInt(process.env.PIPELINE_TTL_VOICE_MS || String(1 * 60 * 60 * 1000), 10),
+    progress: parseInt(process.env.PIPELINE_TTL_PROGRESS_MS || String(6 * 60 * 60 * 1000), 10),
     // cbt removed
-    default: 24 * 60 * 60 * 1000      // 24 hours fallback
+    default: parseInt(process.env.PIPELINE_TTL_DEFAULT_MS || String(24 * 60 * 60 * 1000), 10)
   };
   
   private invalidationHooks: Map<string, (userId?: string) => void> = new Map();
@@ -332,7 +334,8 @@ export class UnifiedAIPipeline {
       metadata: {
         ...result.metadata,
         source: 'fresh',
-        processingTime: Date.now() - startTime
+        processingTime: Date.now() - startTime,
+        heuristicConfidence: (result as any)?.voice?.confidence ?? undefined
       }
     };
   }
@@ -351,7 +354,8 @@ export class UnifiedAIPipeline {
         processedAt: Date.now(),
         cacheTTL: moduleTTL,
         source: 'fresh',
-        processingTime: 0 // Will be updated by main process method
+        processingTime: 0, // Will be updated by main process method
+        heuristicConfidence: undefined
       }
     };
     

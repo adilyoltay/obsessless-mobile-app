@@ -165,9 +165,20 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     }
   }, [queryClient]);
 
-  // ============================================================================
+  // =========================================================================
+  // NEW: USER PROFILE INVALIDATION
+  // =========================================================================
+  const invalidateUserProfile = useCallback(async (userId?: string): Promise<void> => {
+    if (userId) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.userProfile(userId) });
+    } else {
+      await queryClient.invalidateQueries({ queryKey: ['user_profile'] });
+    }
+  }, [queryClient]);
+
+  // =========================================================================
   // STATISTICS INVALIDATION
-  // ============================================================================
+  // =========================================================================
 
   const invalidateStats = useCallback(async (
     userId?: string, 
@@ -194,9 +205,9 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     }
   }, [queryClient]);
 
-  // ============================================================================
+  // =========================================================================
   // AI INVALIDATION
-  // ============================================================================
+  // =========================================================================
 
   const invalidateAI = useCallback(async (
     userId?: string, 
@@ -223,9 +234,9 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     }
   }, [queryClient]);
 
-  // ============================================================================
+  // =========================================================================
   // BULK INVALIDATION
-  // ============================================================================
+  // =========================================================================
 
   const invalidateUserData = useCallback(async (userId: string): Promise<void> => {
     console.log('🔄 Invalidating all data for user:', userId.substring(0, 8));
@@ -248,18 +259,19 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     await queryClient.invalidateQueries();
   }, [queryClient]);
 
-  // ============================================================================
+  // =========================================================================
   // EVENT-BASED INVALIDATION SETUP
-  // ============================================================================
+  // =========================================================================
 
   const setupSyncInvalidation = useCallback(() => {
     // Listen to sync completion events
     const handleSyncCompleted = async (data: { entities: string[]; userId?: string }) => {
-      console.log('🔄 Sync completed, invalidating affected queries:', data.entities);
+      if (__DEV__) console.log('🔄 Sync completed, invalidating affected queries:', data.entities);
       
       for (const entity of data.entities) {
         switch (entity) {
           case 'compulsion':
+            // Deprecated entity
             await invalidateCompulsions(data.userId);
             await invalidateStats(data.userId, 'compulsion');
             break;
@@ -268,10 +280,14 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
             await invalidateStats(data.userId, 'mood');
             break;
           case 'thought_record':
+            // Deprecated entity
             await invalidateThoughtRecords(data.userId);
             break;
           case 'voice_checkin':
             await invalidateVoiceCheckins(data.userId);
+            break;
+          case 'user_profile':
+            await invalidateUserProfile(data.userId);
             break;
         }
       }
@@ -287,7 +303,7 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     return () => {
       subscription.remove();
     };
-  }, [invalidateCompulsions, invalidateMoodEntries, invalidateThoughtRecords, invalidateVoiceCheckins, invalidateStats, invalidateAI]);
+  }, [invalidateCompulsions, invalidateMoodEntries, invalidateThoughtRecords, invalidateVoiceCheckins, invalidateUserProfile, invalidateStats, invalidateAI]);
 
   const setupAIInvalidation = useCallback(() => {
     // Listen to AI pipeline invalidation events
@@ -320,9 +336,9 @@ export function useCacheInvalidation(): CacheInvalidationHelpers {
     };
   }, [invalidateAI, invalidateStats]);
 
-  // ============================================================================
+  // =========================================================================
   // SETUP EFFECT
-  // ============================================================================
+  // =========================================================================
 
   useEffect(() => {
     const syncCleanup = setupSyncInvalidation();

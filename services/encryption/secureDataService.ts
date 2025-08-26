@@ -44,36 +44,36 @@ class SecureDataService {
   }
 
   async encryptData(data: unknown): Promise<EncryptedData> {
+    // Prefer RN Quick Crypto (Node-style) for AES-256-GCM
     try {
-      const key = await this.getOrCreateKey();
-      const keyObject = await crypto.subtle.importKey(
-        'raw',
-        key,
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt']
-      );
-      
-      // Generate random IV (96-bit for GCM)
-      const iv = crypto.getRandomValues(new Uint8Array(12));
+      // Dynamically require to avoid bundling issues on web
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { createCipheriv, randomBytes, Buffer }: any = require('react-native-quick-crypto');
+
+      const keyAb = await this.getOrCreateKey();
+      const key = Buffer.from(new Uint8Array(keyAb));
+      if (key.length !== 32) {
+        throw new Error('Invalid key length for AES-256-GCM');
+      }
+
+      const iv = randomBytes(12);
       const plaintext = typeof data === 'string' ? data : JSON.stringify(data);
-      const ptBytesArr = this.utf8ToArrayBuffer(plaintext);
-      
-      const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: iv },
-        keyObject,
-        ptBytesArr
-      );
-      
+      const ptBuf = Buffer.from(plaintext, 'utf8');
+
+      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const encrypted = Buffer.concat([cipher.update(ptBuf), cipher.final()]);
+      const tag = cipher.getAuthTag(); // 16 bytes
+      const combined = Buffer.concat([encrypted, tag]);
+
       return {
-        ciphertext: this.arrayBufferToBase64(encrypted),
-        iv: this.arrayBufferToBase64(iv.buffer),
+        ciphertext: combined.toString('base64'),
+        iv: iv.toString('base64'),
         algorithm: 'AES-256-GCM',
         version: 1,
       };
-    } catch (error) {
-      console.warn('⚠️ Web Crypto API not available, using fallback');
-      // Fallback: return hashed data instead of encrypted
+    } catch (rnError) {
+      // As a last resort, avoid storing plaintext; hash-only fallback is allowed for non-secret telemetry
+      console.warn('⚠️ AES-GCM unavailable on this runtime, using SHA256_FALLBACK');
       const json = JSON.stringify(data);
       const hash = await this.createHash(json);
       return {
@@ -89,33 +89,29 @@ class SecureDataService {
     if (payload.algorithm === 'SHA256_FALLBACK') {
       throw new Error('Cannot decrypt hashed data - use SHA256_FALLBACK only as last resort');
     }
-    
     if (payload.algorithm !== 'AES-256-GCM') {
       throw new Error('Unsupported encryption algorithm');
     }
-    
     try {
-      const key = await this.getOrCreateKey();
-      const keyObject = await crypto.subtle.importKey(
-        'raw',
-        key as ArrayBuffer,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-      );
-      
-      const ivBuf = this.base64ToArrayBuffer(payload.iv);
-      const ctBuf = this.base64ToArrayBuffer(payload.ciphertext);
-      const iv = new Uint8Array(ivBuf).buffer as ArrayBuffer;
-      const ciphertext = new Uint8Array(ctBuf).buffer as ArrayBuffer;
-      
-      const decryptedAny: any = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: iv as any },
-        keyObject,
-        ciphertext
-      );
-      const decryptedBytes = new Uint8Array(new Uint8Array(decryptedAny).slice());
-      const text = new TextDecoder().decode(decryptedBytes);
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { createDecipheriv, Buffer }: any = require('react-native-quick-crypto');
+
+      const keyAb = await this.getOrCreateKey();
+      const key = Buffer.from(new Uint8Array(keyAb));
+      if (key.length !== 32) {
+        throw new Error('Invalid key length for AES-256-GCM');
+      }
+
+      const iv = Buffer.from(payload.iv, 'base64');
+      const combined = Buffer.from(payload.ciphertext, 'base64');
+      if (combined.length < 17) throw new Error('Ciphertext too short');
+      const tag = combined.slice(combined.length - 16);
+      const enc = combined.slice(0, combined.length - 16);
+
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+      const decrypted = Buffer.concat([decipher.update(enc), decipher.final()]);
+      const text = decrypted.toString('utf8');
       try {
         return JSON.parse(text);
       } catch {
@@ -129,21 +125,33 @@ class SecureDataService {
 
   // ✅ FIXED: Custom utility methods to replace undefined library functions
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Buffer }: any = require('react-native-quick-crypto');
+      return Buffer.from(new Uint8Array(buffer)).toString('base64');
+    } catch {
+      // Minimal fallback (should rarely be used in RN)
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      // @ts-ignore
+      return typeof btoa === 'function' ? btoa(binary) : binary;
     }
-    return btoa(binary);
   }
 
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Buffer }: any = require('react-native-quick-crypto');
+      const buf = Buffer.from(base64, 'base64');
+      return new Uint8Array(buf).buffer;
+    } catch {
+      // @ts-ignore
+      const binaryString = typeof atob === 'function' ? atob(base64) : '';
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+      return bytes.buffer;
     }
-    return bytes.buffer;
   }
 
   private utf8ToArrayBuffer(str: string): Uint8Array {
