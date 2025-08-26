@@ -1,4 +1,4 @@
-import supabaseService from '@/services/supabase';
+// supabaseService not needed after compulsion removal
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface UserDataAggregate {
@@ -19,14 +19,12 @@ class AIDataAggregationService {
 
   async aggregateUserData(userId: string): Promise<UserDataAggregate> {
     // Pull core sources
-    const [compulsions, moodEntries] = await Promise.all([
-      supabaseService.getCompulsions(userId),
-
+    const [moodEntries] = await Promise.all([
       this.readRecentMoodEntries(userId, 14)
     ]);
 
-    const performance = this.calculatePerformanceMetrics(compulsions, moodEntries);
-    const patterns = this.extractPatterns(compulsions, moodEntries);
+    const performance = this.calculatePerformanceMetrics(moodEntries);
+    const patterns = this.extractPatterns([], moodEntries);
 
     return {
       profile: {},
@@ -60,7 +58,7 @@ class AIDataAggregationService {
     return entries;
   }
 
-  private extractPatterns(compulsions: any[], moods: any[]): any {
+  private extractPatterns(_compulsions: any[], moods: any[]): any {
     // Common triggers from moods
     const triggerCounts: Record<string, number> = {};
     for (const m of moods) {
@@ -101,9 +99,9 @@ class AIDataAggregationService {
     };
   }
 
-  private calculatePerformanceMetrics(compulsions: any[], moods: any[]) {
+  private calculatePerformanceMetrics(moods: any[]) {
     // ✅ REMOVED: erpSessions parameter and ERP calculations - ERP module deleted
-    const compulsionCount = Array.isArray(compulsions) ? compulsions.length : 0;
+    const compulsionCount = 0;
     const moodCount = Array.isArray(moods) ? moods.length : 0;
     let overallCompletionRate = 100;
     try {

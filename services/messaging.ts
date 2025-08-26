@@ -113,7 +113,7 @@ export class MessagingService {
         {
           type: 'reminder',
           title: 'Günaydın! 🌅',
-          body: 'Bugünkü OCD takibinizi yapmayı unutmayın. Küçük adımlar büyük değişimler yaratır.',
+          body: 'Bugünkü mood check-in’ini yapmayı unutma. Küçük adımlar büyük değişim getirir.',
         },
         {
           hour: 9,
@@ -127,7 +127,7 @@ export class MessagingService {
         {
           type: 'reminder',
           title: 'Günlük Değerlendirme Zamanı 📝',
-          body: 'Bugünkü kompülsiyonlarınızı kaydetmeyi ve başarılarınızı kutlamayı unutmayın.',
+          body: 'Bugünkü duygu durumunu kaydet ve küçük başarılarını kutla.',
         },
         {
           hour: 20,

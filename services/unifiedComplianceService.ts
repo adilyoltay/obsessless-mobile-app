@@ -395,10 +395,8 @@ class UnifiedComplianceService {
           consentHistory: await this.getConsentHistory(userId)
         },
         applicationData: {
-          compulsions: await this.exportCompulsions(userId),
           moodEntries: await this.exportMoodEntries(userId),
           voiceCheckins: await this.exportVoiceCheckins(userId),
-          thoughtRecords: await this.exportThoughtRecords(userId),
           achievements: await this.exportAchievements(userId),
           breathworkSessions: await this.exportBreathworkSessions(userId)
         },
@@ -726,14 +724,7 @@ class UnifiedComplianceService {
     }
   }
 
-  private async exportCompulsions(userId: string): Promise<any[]> {
-    try {
-      const stored = await AsyncStorage.getItem(`compulsions_${userId}`);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  }
+  // exportCompulsions removed
 
   private async exportMoodEntries(userId: string): Promise<any[]> {
     const entries: any[] = [];
@@ -766,14 +757,7 @@ class UnifiedComplianceService {
     }
   }
 
-  private async exportThoughtRecords(userId: string): Promise<any[]> {
-    try {
-      const stored = await AsyncStorage.getItem(`thought_records_${userId}`);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  }
+  // exportThoughtRecords removed
 
   private async exportAchievements(userId: string): Promise<any[]> {
     try {

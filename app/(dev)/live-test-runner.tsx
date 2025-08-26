@@ -82,17 +82,7 @@ export default function LiveTestRunnerScreen() {
     // Mood across morning/afternoon/evening (low mood)
     const moodTimes = makeTimestamps([48, 36, 30, 24, 18, 12, 8, 6, 4, 2]);
     const moods = moodTimes.map((ts, i) => ({ timestamp: ts, mood_score: i % 3 === 0 ? 3 : 4 }));
-    // Contamination compulsions across the day
-    const compulsionTimes = makeTimestamps([36, 20, 14, 7, 3, 1.5]);
-    const compulsions = compulsionTimes.map((ts, i) => ({
-      id: `cmp_${i}_${ts}`,
-      user_id: uid,
-      timestamp: ts,
-      category: 'contamination',
-      trigger: i % 2 === 0 ? 'Kirli kapı kolu' : 'Toplu taşımada temas',
-      notes: 'Ellerimi defalarca yıkama ihtiyacı hissettim',
-      severity: i % 2 === 0 ? 7 : 6
-    }));
+    // Compulsion seed removed
     // CBT negative thought
     const cbt = {
       description:
@@ -114,32 +104,7 @@ export default function LiveTestRunnerScreen() {
           });
           append(`✓ mood[A#${i}] -> ${savedMood?.id || 'duplicate_prevented'}`);
         }
-        for (let i = 0; i < compulsions.length; i++) {
-          const c = compulsions[i];
-          const savedC = await (supabaseService as any).saveCompulsion({
-            user_id: uid,
-            category: 'contamination',
-            subcategory: 'contamination',
-            notes: c.notes,
-            trigger: c.trigger,
-            resistance_level: Math.max(1, Math.min(10, c.severity || 6))
-          });
-          append(`✓ compulsion[A#${i}] -> ${savedC?.id || 'ok'}`);
-        }
-        const savedCbtA = await (supabaseService as any).saveCBTRecord({
-          user_id: uid,
-          thought: `DEV SEED A: ${cbt.description}`,
-          distortions: ['catastrophizing','should_statements'],
-          evidence_for: 'Kir mikroplar hastalık yapar',
-          evidence_against: 'Aşırı yıkama cildi tahriş eder',
-          reframe: 'Makül hijyen yeterlidir',
-          mood_before: 4,
-          mood_after: 5,
-          trigger: 'contamination_seed',
-          notes: 'dev_seed_A',
-          content_hash: `cbtA_${Date.now()}_${Math.random().toString(36).slice(2)}`
-        });
-        append(`✓ cbt[A] -> ${savedCbtA?.id || 'queued_offline'}`);
+        // CBT/Compulsion seeding removed
       } catch (e) {
         append('❗DB write failed (A)');
       }
@@ -147,21 +112,14 @@ export default function LiveTestRunnerScreen() {
 
     const moodRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
-    const trackRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { compulsions }, context: { source: 'tracking' } });
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:tracking:fresh]', status: 'pass', details: trackRes?.metadata || {} });
-    const cbtRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: cbt, context: { source: 'cbt' } });
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:cbt:fresh]', status: 'pass', details: cbtRes?.cbt?.metadata || {} });
-    // Also count as OCD scenario coverage
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:ocd:fresh]', status: 'pass', details: { category: 'contamination' } });
+    // Tracking/CBT/OCD runs removed
     if (dbWrite) {
       await unifiedPipeline.triggerInvalidation('mood_added', uid);
-      await unifiedPipeline.triggerInvalidation('cbt_record_added', uid);
-      await unifiedPipeline.triggerInvalidation('compulsion_added', uid);
+      // invalidations simplified
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
         append(`✓ supabase mood (7gün): ${moodsFetched?.length ?? 0}`);
-        const cbtFetched = await (supabaseService as any).getCBTRecords(uid);
-        append(`✓ supabase cbt toplam: ${cbtFetched?.length ?? 0}`);
+        // cbt fetch removed
       } catch {}
     }
     append('✔ scenarioA:sad+contamination => pass');
@@ -173,15 +131,7 @@ export default function LiveTestRunnerScreen() {
     // Mood with mid-low, anxiety implied
     const moodTimes = makeTimestamps([72, 60, 48, 36, 24, 12, 6, 3]);
     const moods = moodTimes.map((ts, i) => ({ timestamp: ts, mood_score: i % 2 === 0 ? 5 : 4 }));
-    const compulsions = makeTimestamps([30, 16, 8, 2]).map((ts, i) => ({
-      id: `chk_${i}_${ts}`,
-      user_id: uid,
-      timestamp: ts,
-      category: 'checking',
-      trigger: i % 2 === 0 ? 'Kapı kilitli mi?' : 'Ocağı kapattım mı?',
-      notes: 'Defalarca kontrol etme isteği',
-      severity: 6
-    }));
+    // Compulsion seed removed
     const cbt = {
       description:
         'Evi kilitlemediğimi düşünürsem kesin hırsız girecek ve sorumlusu ben olacağım. O yüzden tekrar tekrar kontrol etmeliyim.'
@@ -200,32 +150,7 @@ export default function LiveTestRunnerScreen() {
           });
           append(`✓ mood[B#${i}] -> ${savedMood?.id || 'duplicate_prevented'}`);
         }
-        for (let i = 0; i < compulsions.length; i++) {
-          const c = compulsions[i];
-          const savedC = await (supabaseService as any).saveCompulsion({
-            user_id: uid,
-            category: 'checking',
-            subcategory: 'checking',
-            notes: c.notes,
-            trigger: c.trigger,
-            resistance_level: Math.max(1, Math.min(10, c.severity || 6))
-          });
-          append(`✓ compulsion[B#${i}] -> ${savedC?.id || 'ok'}`);
-        }
-        const savedCbtB = await (supabaseService as any).saveCBTRecord({
-          user_id: uid,
-          thought: `DEV SEED B: ${cbt.description}`,
-          distortions: ['overgeneralization','catastrophizing'],
-          evidence_for: 'Bazen kontrol etmeyi unutabilirim',
-          evidence_against: 'Çoğunlukla dikkatliyim, risk düşük',
-          reframe: 'Tek sefer sağlam kontrol yeterlidir',
-          mood_before: 5,
-          mood_after: 6,
-          trigger: 'checking_seed',
-          notes: 'dev_seed_B',
-          content_hash: `cbtB_${Date.now()}_${Math.random().toString(36).slice(2)}`
-        });
-        append(`✓ cbt[B] -> ${savedCbtB?.id || 'queued_offline'}`);
+        // CBT/Compulsion seeding removed
       } catch (e) {
         append('❗DB write failed (B)');
       }
@@ -233,11 +158,7 @@ export default function LiveTestRunnerScreen() {
 
     const moodRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
-    const trackRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: { compulsions }, context: { source: 'tracking' } });
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:tracking:fresh]', status: 'pass', details: trackRes?.metadata || {} });
-    const cbtRes = await unifiedPipeline.process({ userId: uid, type: 'data', content: cbt, context: { source: 'cbt' } });
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:cbt:fresh]', status: 'pass', details: cbtRes?.cbt?.metadata || {} });
-    await postLiveResult({ runId, userId: uid, tag: '[QRlive:ocd:fresh]', status: 'pass', details: { category: 'checking' } });
+    // tracking/cbt/ocd runs removed
     if (dbWrite) {
       await unifiedPipeline.triggerInvalidation('mood_added', uid);
       await unifiedPipeline.triggerInvalidation('cbt_record_added', uid);
