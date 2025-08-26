@@ -1931,7 +1931,7 @@ export class UnifiedAIPipeline {
     if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE')) modules.push('voice');
     if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS')) modules.push('patterns');
     if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS')) modules.push('insights');
-    if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_CBT')) modules.push('cbt');
+    // CBT module removed
     return modules;
   }
   

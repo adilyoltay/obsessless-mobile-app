@@ -3,18 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 import { setAuthProfile } from '@/contexts/authBridge';
 
-interface UserOCDProfile {
-  primarySymptoms: string[]; // e.g., ['contamination', 'checking']
-  ybocsLiteScore: number;
-  ybocsSeverity: 'Subclinical' | 'Mild' | 'Moderate' | 'Severe' | 'Extreme';
-  dailyGoal: number; // Hedeflenen günlük egzersiz sayısı
-  onboardingCompleted: boolean;
-}
+// OCD onboarding profile removed
 
 interface OnboardingState {
   currentStep: number;
-  profile: Partial<UserOCDProfile>;
-  ybocsAnswers: number[];
+  profile: Record<string, any>;
+  ybocsAnswers: number[]; // legacy
   startTime: number;
   
   // Actions
@@ -32,10 +26,6 @@ interface OnboardingState {
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   currentStep: 0,
   profile: {
-    primarySymptoms: [],
-    ybocsLiteScore: 0,
-    ybocsSeverity: 'Subclinical',
-    dailyGoal: 3,
     onboardingCompleted: false,
   },
   ybocsAnswers: [],
@@ -63,25 +53,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     profile: { ...state.profile, dailyGoal: goal }
   })),
 
-  calculateYbocsSeverity: () => {
-    const { ybocsAnswers } = get();
-    const totalScore = ybocsAnswers.reduce((sum, answer) => sum + answer, 0);
-    
-    let severity: UserOCDProfile['ybocsSeverity'];
-    if (totalScore <= 7) severity = 'Subclinical';
-    else if (totalScore <= 15) severity = 'Mild';
-    else if (totalScore <= 23) severity = 'Moderate';
-    else if (totalScore <= 31) severity = 'Severe';
-    else severity = 'Extreme';
-
-    set((state) => ({
-      profile: { 
-        ...state.profile, 
-        ybocsLiteScore: totalScore,
-        ybocsSeverity: severity
-      }
-    }));
-  },
+  calculateYbocsSeverity: () => {},
 
   completeOnboarding: async (userId) => {
     const endTime = Date.now();
@@ -102,36 +74,11 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
           completedAt: new Date().toISOString()
         };
         
-        await AsyncStorage.setItem(
-          `ocd_profile_${userId}`,
-          JSON.stringify(completeProfile)
-        );
+        // Removed ocd_profile storage
         
         console.log('✅ Profile saved to AsyncStorage');
 
-        // Save to Supabase database
-        try {
-          await supabaseService.saveUserProfile({
-            user_id: userId,
-            ocd_symptoms: profile.primarySymptoms || [],
-            daily_goal: profile.dailyGoal || 3,
-            ybocs_score: profile.ybocsLiteScore || 0,
-            ybocs_severity: profile.ybocsSeverity || 'Subclinical',
-            onboarding_completed: true,
-          });
-          console.log('✅ User profile saved to database');
-          try { setAuthProfile({
-            user_id: userId,
-            ocd_symptoms: profile.primarySymptoms || [],
-            daily_goal: profile.dailyGoal || 3,
-            ybocs_score: profile.ybocsLiteScore || 0,
-            ybocs_severity: profile.ybocsSeverity || 'Subclinical',
-            onboarding_completed: true,
-          } as any); } catch {}
-        } catch (dbError) {
-          console.error('❌ Database save failed (offline mode):', dbError);
-          // Continue with offline mode - data is already in AsyncStorage
-        }
+        // Removed Supabase user profile save (OCD-specific)
       }
     } catch (error) {
       console.error('❌ Failed to save profile:', error);

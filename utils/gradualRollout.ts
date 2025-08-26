@@ -74,7 +74,7 @@ export function getRolloutStats(): {
       voice: FEATURE_FLAGS.AI_UNIFIED_VOICE,
       patterns: FEATURE_FLAGS.AI_UNIFIED_PATTERNS,
       insights: FEATURE_FLAGS.AI_UNIFIED_INSIGHTS,
-      cbt: FEATURE_FLAGS.AI_UNIFIED_CBT
+      // cbt removed
     }
   };
 }

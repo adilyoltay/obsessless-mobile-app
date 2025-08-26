@@ -72,7 +72,7 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_ONBOARDING: AI_MASTER_ENABLED,
   AI_INSIGHTS: AI_MASTER_ENABLED,
   AI_VOICE: AI_MASTER_ENABLED,
-  AI_CBT_ENGINE: AI_MASTER_ENABLED,
+  // AI_CBT_ENGINE removed
   AI_EXTERNAL_API: AI_MASTER_ENABLED,
   AI_THERAPEUTIC_PROMPTS: AI_MASTER_ENABLED,
   AI_REAL_RESPONSES: AI_MASTER_ENABLED,
@@ -116,7 +116,7 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_UNIFIED_VOICE: true, // Voice module in pipeline
   AI_UNIFIED_PATTERNS: true, // Pattern recognition in pipeline
   AI_UNIFIED_INSIGHTS: true, // Insights generation in pipeline
-  AI_UNIFIED_CBT: true, // CBT analysis in pipeline
+  // AI_UNIFIED_CBT removed
   
   // 🌬️ Breathwork Suggestions (NEW - Week 2)
   AI_BREATHWORK_SUGGESTIONS: true, // AI-powered breathwork recommendations
@@ -133,8 +133,7 @@ const featureFlagState: Record<string, boolean | number> = {
   MULTI_INTENT_VOICE: AI_MASTER_ENABLED, // Çoklu modül desteği
   
   // 🎯 OCD AI Services (NEW - Critical for OCD functionality)
-  AI_TRIGGER_DETECTION: AI_MASTER_ENABLED, // OCD trigger detection service
-  TURKISH_CULTURAL_OCD: AI_MASTER_ENABLED, // Turkish cultural adaptation for OCD
+  // OCD services removed
   AI_OCD_PATTERN_ANALYSIS: AI_MASTER_ENABLED, // OCD pattern recognition
   
   // 🔀 LLM Flags (aliases → AI master)

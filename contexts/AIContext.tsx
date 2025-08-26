@@ -758,25 +758,8 @@ export function AIProvider({ children }: AIProviderProps) {
       const startISO = start.toISOString();
       const endISO = end.toISOString();
 
-      // DB'den davranışsal veriler (paralel)
-      let dbCompulsions: any[] = [];
-      // let dbErpSessions: any[] = []; // Removed ERP sessions
-      try {
-        const [compList] = await Promise.all([
-          (async () => await (await import('@/services/supabase')).supabaseService.getCompulsions(user.id, startISO, endISO))(),
-
-        ]);
-        dbCompulsions = compList || [];
-        // dbErpSessions = erpList || []; // Removed ERP sessions
-      } catch (e) {
-        if (__DEV__) console.warn('⚠️ DB behavioral fetch failed, will use local fallbacks');
-      }
-
-      // Local fallbacks
+      // DB davranışsal veri çekimi (OCD/ERP kaldırıldı)
       const today = new Date().toDateString();
-      const compulsionsKey = `compulsions_${safeStorageKey(user.id)}`;
-      const compulsionsRaw = await AsyncStorage.getItem(compulsionsKey);
-      const allCompulsions = compulsionsRaw ? JSON.parse(compulsionsRaw) : [];
       const todayCompulsions = allCompulsions.filter((c: any) => new Date(c.timestamp).toDateString() === today);
 
       // ERP sessions removed - no longer needed

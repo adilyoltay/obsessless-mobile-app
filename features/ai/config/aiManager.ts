@@ -176,8 +176,7 @@ export class AIManager {
           enabledModules: {
             voice: FEATURE_FLAGS.isEnabled('AI_UNIFIED_VOICE'),
             patterns: FEATURE_FLAGS.isEnabled('AI_UNIFIED_PATTERNS'), 
-            insights: FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS'),
-            cbt: FEATURE_FLAGS.isEnabled('AI_UNIFIED_CBT')
+            insights: FEATURE_FLAGS.isEnabled('AI_UNIFIED_INSIGHTS')
           }
         });
         console.log('📊 UnifiedAIPipeline activation tracked');
