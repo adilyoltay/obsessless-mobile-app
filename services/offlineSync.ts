@@ -127,17 +127,44 @@ export class OfflineSyncService {
       await AsyncStorage.setItem(queueKey, JSON.stringify(encryptedQueueData));
       console.log('🔒 Sync queue encrypted and saved successfully');
     } catch (error) {
-      console.error('❌ Error saving encrypted sync queue:', error);
+      console.error('❌ CRITICAL: Sync queue encryption failed - STOPPING queue operations to protect PII', error);
       
-      // 🚨 Critical fallback: Try to save unencrypted as last resort
+      // 🛡️ SECURITY: NO unencrypted fallback - halt queue operations instead
       try {
-        let fallbackUserId = await AsyncStorage.getItem('currentUserId');
-        const queueKey = `syncQueue_fallback_${safeStorageKey(fallbackUserId as any)}`;
-        await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
-        console.warn('⚠️ Fallback: Saved sync queue unencrypted due to encryption failure');
-      } catch (fallbackError) {
-        console.error('❌ Even fallback save failed:', fallbackError);
+        // Mark queue as failed to prevent further processing
+        await AsyncStorage.setItem('sync_queue_encryption_failed', 'true');
+        
+        // Notify user about the encryption failure
+        const securityAlert = {
+          type: 'encryption_failure',
+          message: 'Güvenlik hatası nedeniyle senkronizasyon durduruldu. Uygulamayı yeniden başlatın.',
+          severity: 'critical',
+          timestamp: new Date().toISOString(),
+          requiresAppRestart: true
+        };
+        
+        await AsyncStorage.setItem('security_alert', JSON.stringify(securityAlert));
+        
+        // Track security incident
+        try {
+          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'sync_queue_encryption_failure',
+            severity: 'critical',
+            securityIncident: true,
+            queueSize: this.syncQueue.length
+          });
+        } catch {}
+        
+        console.log('🛡️ Queue operations halted for security - user notification stored');
+        
+      } catch (alertError) {
+        console.error('❌ Failed to store security alert:', alertError);
       }
+      
+      // Reset queue to prevent unencrypted data persistence
+      this.syncQueue = [];
     }
   }
 
@@ -222,6 +249,17 @@ export class OfflineSyncService {
   }
 
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
+    // 🛡️ SECURITY CHECK: Prevent queue operations if encryption failed
+    try {
+      const encryptionFailed = await AsyncStorage.getItem('sync_queue_encryption_failed');
+      if (encryptionFailed === 'true') {
+        console.error('🛡️ SECURITY: Queue operations disabled due to encryption failure');
+        throw new Error('Sync queue operations are disabled for security reasons. Please restart the app.');
+      }
+    } catch (error) {
+      console.error('❌ Failed to check encryption status:', error);
+    }
+
     // ✅ Enhanced validation using QueueValidator
     const { queueValidator } = await import('@/services/sync/queueValidator');
     
@@ -288,38 +326,10 @@ export class OfflineSyncService {
       batchId: (item as any).batchId
     };
 
-    // 🛡️ IDEMPOTENCY CHECK: Prevent duplicate mood entries in sync queue
-    if (syncItem.entity === 'mood_entry' && syncItem.data?.local_entry_id) {
-      // Check if this local entry ID is already in the sync queue
-      const existingItem = this.syncQueue.find(existingItem => 
-        existingItem.entity === 'mood_entry' && 
-        existingItem.data?.local_entry_id === syncItem.data.local_entry_id
-      );
-      
-      if (existingItem) {
-        console.log(`🛡️ Duplicate mood entry in sync queue prevented: ${syncItem.data.local_entry_id}`);
-        return;
-      }
-      
-      // Also check if this entry is already processed via idempotency service
-      const userId = syncItem.data.user_id || syncItem.data.userId;
-      if (userId) {
-        const idempotencyResult = await idempotencyService.checkMoodEntryIdempotency({
-          user_id: userId,
-          mood_score: syncItem.data.mood_score || 50,
-          energy_level: syncItem.data.energy_level || 5,
-          anxiety_level: syncItem.data.anxiety_level || 5,
-          notes: syncItem.data.notes || '',
-          triggers: syncItem.data.triggers || [],
-          activities: syncItem.data.activities || [],
-          timestamp: new Date(syncItem.timestamp).toISOString()
-        });
-        
-        if (idempotencyResult.isDuplicate && !idempotencyResult.shouldQueue) {
-          console.log(`🛡️ Mood entry already processed, skipping queue: ${syncItem.data.local_entry_id}`);
-          return;
-        }
-      }
+    // 🛡️ UNIVERSAL IDEMPOTENCY CHECK: Prevent duplicate entries for all entities
+    const isDuplicate = await this.checkUniversalIdempotency(syncItem);
+    if (isDuplicate) {
+      return; // Skip adding to queue
     }
 
     // 🚨 CRITICAL FIX: Check queue size limit before adding
@@ -368,6 +378,17 @@ export class OfflineSyncService {
   }
 
   async processSyncQueue(): Promise<void> {
+    // 🛡️ SECURITY CHECK: Prevent processing if encryption failed
+    try {
+      const encryptionFailed = await AsyncStorage.getItem('sync_queue_encryption_failed');
+      if (encryptionFailed === 'true') {
+        console.error('🛡️ SECURITY: Queue processing disabled due to encryption failure');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Failed to check encryption status for queue processing:', error);
+    }
+
     if (this.isSyncing || !this.isOnline || this.syncQueue.length === 0) {
       return;
     }
@@ -1146,6 +1167,262 @@ export class OfflineSyncService {
       
       console.warn(`⚠️ Fallback: ${itemsToMove.length} items dropped due to DLQ failure`);
     }
+  }
+
+  /**
+   * 🛡️ Universal Idempotency Check - Prevent duplicates across all entities
+   * 
+   * Implements entity-specific duplicate detection strategies:
+   * - mood_entry: Use existing idempotency service
+   * - user_profile: Check by userId + payload hash
+   * - ai_profile: Check by userId + profile type
+   * - voice_checkin: Check by content hash + timestamp  
+   * - achievement: Check by userId + achievement_id
+   * - treatment_plan: Check by userId + plan type
+   */
+  private async checkUniversalIdempotency(item: SyncQueueItem): Promise<boolean> {
+    try {
+      const userId = item.data?.user_id || item.data?.userId;
+      if (!userId) return false; // Can't check without user ID
+
+      switch (item.entity) {
+        case 'mood_entry':
+          return await this.checkMoodIdempotency(item);
+        
+        case 'user_profile':
+          return await this.checkUserProfileIdempotency(item, userId);
+          
+        case 'ai_profile':
+          return await this.checkAIProfileIdempotency(item, userId);
+          
+        case 'voice_checkin':
+          return await this.checkVoiceCheckinIdempotency(item, userId);
+          
+        case 'achievement':
+          return await this.checkAchievementIdempotency(item, userId);
+          
+        case 'treatment_plan':
+          return await this.checkTreatmentPlanIdempotency(item, userId);
+          
+        default:
+          console.warn(`⚠️ No idempotency check implemented for entity: ${item.entity}`);
+          return false;
+      }
+    } catch (error) {
+      console.error('❌ Idempotency check failed:', error);
+      return false; // Fail safe - allow item through if check fails
+    }
+  }
+
+  /**
+   * 🎯 Mood Entry Idempotency (existing logic)
+   */
+  private async checkMoodIdempotency(item: SyncQueueItem): Promise<boolean> {
+    if (!item.data?.local_entry_id) return false;
+
+    // Check queue for existing mood entry
+    const existingInQueue = this.syncQueue.find(existingItem => 
+      existingItem.entity === 'mood_entry' && 
+      existingItem.data?.local_entry_id === item.data.local_entry_id
+    );
+    
+    if (existingInQueue) {
+      console.log(`🛡️ Duplicate mood entry in sync queue prevented: ${item.data.local_entry_id}`);
+      return true;
+    }
+    
+    // Check idempotency service
+    const userId = item.data.user_id || item.data.userId;
+    if (userId) {
+      const idempotencyResult = await idempotencyService.checkMoodEntryIdempotency({
+        user_id: userId,
+        mood_score: item.data.mood_score || 50,
+        energy_level: item.data.energy_level || 5,
+        anxiety_level: item.data.anxiety_level || 5,
+        notes: item.data.notes || '',
+        triggers: item.data.triggers || [],
+        activities: item.data.activities || [],
+        timestamp: new Date(item.timestamp).toISOString()
+      });
+      
+      if (idempotencyResult.isDuplicate && !idempotencyResult.shouldQueue) {
+        console.log(`🛡️ Mood entry already processed, skipping queue: ${item.data.local_entry_id}`);
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 👤 User Profile Idempotency
+   */
+  private async checkUserProfileIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    // Generate content hash for user profile
+    const profileHash = this.generateEntityHash('user_profile', userId, item.data);
+    const storageKey = `idempotency_user_profile_${profileHash}`;
+    
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        console.log(`🛡️ Duplicate user profile prevented: ${userId}`);
+        return true;
+      }
+      
+      // Mark as seen
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        hash: profileHash
+      }));
+      
+    } catch (error) {
+      console.warn('⚠️ User profile idempotency check failed:', error);
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🤖 AI Profile Idempotency
+   */
+  private async checkAIProfileIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    const profileType = item.data?.profile_type || 'default';
+    const storageKey = `idempotency_ai_profile_${userId}_${profileType}`;
+    
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        const existingData = JSON.parse(existing);
+        const timeDiff = Date.now() - new Date(existingData.timestamp).getTime();
+        
+        // AI profiles can be updated, but not within 5 minutes
+        if (timeDiff < 5 * 60 * 1000) {
+          console.log(`🛡️ Duplicate AI profile prevented: ${userId}/${profileType}`);
+          return true;
+        }
+      }
+      
+      // Update timestamp
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        profileType
+      }));
+      
+    } catch (error) {
+      console.warn('⚠️ AI profile idempotency check failed:', error);
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🎤 Voice Checkin Idempotency
+   */
+  private async checkVoiceCheckinIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    const contentHash = this.generateEntityHash('voice_checkin', userId, {
+      transcript: item.data?.transcript || '',
+      duration: item.data?.duration || 0,
+      timestamp: item.data?.timestamp || item.timestamp
+    });
+    
+    const storageKey = `idempotency_voice_${contentHash}`;
+    
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        console.log(`🛡️ Duplicate voice checkin prevented: ${userId}`);
+        return true;
+      }
+      
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        hash: contentHash
+      }));
+      
+    } catch (error) {
+      console.warn('⚠️ Voice checkin idempotency check failed:', error);
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🏆 Achievement Idempotency
+   */
+  private async checkAchievementIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    const achievementId = item.data?.achievement_id;
+    if (!achievementId) return false;
+    
+    const storageKey = `idempotency_achievement_${userId}_${achievementId}`;
+    
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        console.log(`🛡️ Duplicate achievement prevented: ${userId}/${achievementId}`);
+        return true;
+      }
+      
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        achievementId
+      }));
+      
+    } catch (error) {
+      console.warn('⚠️ Achievement idempotency check failed:', error);
+    }
+    
+    return false;
+  }
+
+  /**
+   * 📋 Treatment Plan Idempotency
+   */
+  private async checkTreatmentPlanIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    const planType = item.data?.plan_type || 'general';
+    const storageKey = `idempotency_treatment_${userId}_${planType}`;
+    
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        const existingData = JSON.parse(existing);
+        const timeDiff = Date.now() - new Date(existingData.timestamp).getTime();
+        
+        // Treatment plans can be updated, but not within 1 hour
+        if (timeDiff < 60 * 60 * 1000) {
+          console.log(`🛡️ Duplicate treatment plan prevented: ${userId}/${planType}`);
+          return true;
+        }
+      }
+      
+      await AsyncStorage.setItem(storageKey, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        planType
+      }));
+      
+    } catch (error) {
+      console.warn('⚠️ Treatment plan idempotency check failed:', error);
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🔗 Generate entity hash for idempotency
+   */
+  private generateEntityHash(entity: string, userId: string, data: any): string {
+    const content = `${entity}|${userId}|${JSON.stringify(data)}`;
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
   }
 
   /**

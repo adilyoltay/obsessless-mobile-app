@@ -23,6 +23,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ConflictNotificationBanner from '@/components/ui/ConflictNotificationBanner';
+import { SyncStatusNotification } from '@/components/ui/SyncStatusNotification';
 
 // Import debug helpers in development
 if (__DEV__) {
@@ -120,6 +121,7 @@ export default function RootLayout() {
                     <GestureHandlerRootView style={{ flex: 1 }}>
                       <Slot />
                       <ConflictNotificationBanner />
+                      <SyncStatusNotification />
                       <GlobalLoading />
                       <Toast />
                     </GestureHandlerRootView>

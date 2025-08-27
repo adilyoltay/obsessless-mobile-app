@@ -457,29 +457,34 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       }
     }
 
-    // ✅ STEP 5: CRITICAL - Supabase Profile Sync (essential for remote data)
+    // ✅ STEP 5: CRITICAL - Supabase Profile Sync + Offline Queue Insurance
+    
+    // 🛡️ PROACTIVE: Always add profile to offline queue first (insurance against network issues)
+    try {
+      const { offlineSyncService } = await import('@/services/offlineSync');
+      await offlineSyncService.addToSyncQueue({
+        type: 'CREATE',
+        entity: 'user_profile',
+        data: { payload, userId: uidForKey },
+        priority: 'critical' as any,
+      });
+      console.log('🛡️ Profile data proactively queued for offline sync (insurance)');
+    } catch (queueError) {
+      console.error('❌ CRITICAL: Failed to queue profile for offline sync:', queueError);
+      result.criticalErrors.push('Failed to queue profile for offline sync');
+    }
+
+    // 🚀 IMMEDIATE: Try direct Supabase sync (if online)
     try {
       await get().syncToSupabase(uidForKey);
       console.log('✅ Supabase profile sync completed');
     } catch (error) {
-      const errorMsg = 'Supabase profile sync failed';
-      result.criticalErrors.push(errorMsg);
-      console.error('❌ CRITICAL:', errorMsg, error);
+      const errorMsg = 'Supabase profile sync failed (queued for retry)';
+      result.warnings.push(errorMsg); // Downgraded from critical error since we have offline queue
+      console.warn('⚠️ WARNING:', errorMsg, error);
       
-      // Attempt offline queue fallback for critical profile data
-      try {
-        const { offlineSyncService } = await import('@/services/offlineSync');
-        await offlineSyncService.addToSyncQueue({
-          type: 'CREATE',
-          entity: 'user_profile',
-          data: { payload, userId: uidForKey },
-          priority: 'critical' as any,
-        });
-        console.log('🔄 Profile data queued for offline sync as fallback');
-        result.warnings.push('Profile synced via offline queue (delayed)');
-      } catch (queueError) {
-        console.error('❌ Even offline queue failed:', queueError);
-      }
+      // Profile is already in offline queue, so sync will happen when online
+      console.log('📋 Profile will sync when network is available (already queued)');
     }
 
     // ✅ STEP 6: NON-CRITICAL - Notification Scheduling (user can enable later)
