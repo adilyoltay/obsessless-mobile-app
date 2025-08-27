@@ -363,8 +363,9 @@ class SecureDataService {
 
   /**
    * Create SHA-256 hash using expo-crypto
+   * 🔓 MADE PUBLIC: For telemetry user ID anonymization
    */
-  private async createHash(data: string): Promise<string> {
+  async createHash(data: string): Promise<string> {
     try {
       return await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,

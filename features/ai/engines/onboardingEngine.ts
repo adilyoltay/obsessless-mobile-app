@@ -760,7 +760,7 @@ class ModernOnboardingEngine {
 
       // Session'ı temizle
       this.activeSessions.delete(sessionId);
-      await this.cleanupSession(sessionId);
+      await this.cleanupSession(session.userId);
 
       await trackAIInteraction(AIEventType.ONBOARDING_SESSION_COMPLETED, {
         sessionId: (session as any).id ?? (session as any).sessionId ?? sessionId,
@@ -1153,11 +1153,14 @@ class ModernOnboardingEngine {
 
   /**
    * Session'ı persist et
+   * 🔧 FIX: Use userId-based key for consistent resume functionality
    */
   private async persistSession(session: OnboardingSession): Promise<void> {
     try {
-      const key = `onboarding_session_${session.id}`;
+      // 🚀 CONSISTENT KEY: Use userId for resume compatibility across all flows
+      const key = `onboarding_session_${session.userId || 'anon'}`;
       await AsyncStorage.setItem(key, JSON.stringify(session));
+      console.log(`📱 Session persisted with key: ${key} (sessionId: ${session.id})`);
     } catch (error) {
       console.error('Session persistence failed:', error);
     }
@@ -1165,11 +1168,14 @@ class ModernOnboardingEngine {
 
   /**
    * Session temizle
+   * 🔧 FIX: Use userId-based key for consistent cleanup with persist
    */
-  private async cleanupSession(sessionId: string): Promise<void> {
+  private async cleanupSession(userId: string): Promise<void> {
     try {
-      const key = `onboarding_session_${sessionId}`;
+      // 🚀 CONSISTENT KEY: Use same userId-based key as persistence
+      const key = `onboarding_session_${userId || 'anon'}`;
       await AsyncStorage.removeItem(key);
+      console.log(`🧹 Session cleaned up with key: ${key}`);
     } catch (error) {
       console.error('Session cleanup failed:', error);
     }

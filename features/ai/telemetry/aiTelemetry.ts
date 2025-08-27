@@ -755,7 +755,8 @@ class AITelemetryManager {
     const sanitized = { ...metadata };
     
     // PII olabilecek field'ları çıkar
-    const piiFields = ['email', 'phone', 'name', 'address', 'content', 'message'];
+    // 🔐 PRIVACY EXPANSION: Added 'text' and other potential PII fields
+    const piiFields = ['email', 'phone', 'name', 'address', 'content', 'message', 'text', 'transcript', 'voice_text', 'speech_text', 'user_input'];
     
     for (const field of piiFields) {
       if (sanitized[field]) {
@@ -840,18 +841,39 @@ class AITelemetryManager {
       try {
         if (FEATURE_FLAGS.isEnabled('AI_TELEMETRY')) {
           const { default: supabaseService } = await import('@/services/supabase');
-          const payload = this.eventBuffer.map(evt => ({
-            event_type: evt.eventType,
-            metadata: evt.metadata,
-            session_id: evt.sessionId,
-            // Prefer raw userId from metadata when available; evt.userId is hashed for privacy
-            user_id: (evt as any)?.metadata?.userId && typeof (evt as any).metadata.userId === 'string'
+          const { default: secureDataService } = await import('@/services/encryption/secureDataService');
+          
+          // 🔐 PRIVACY FIX: Hash all user IDs before sending to Supabase
+          const payload = await Promise.all(this.eventBuffer.map(async (evt) => {
+            let hashedUserId: string | null = null;
+            
+            // Get userId from metadata or evt.userId
+            const rawUserId = (evt as any)?.metadata?.userId && typeof (evt as any).metadata.userId === 'string'
               ? (evt as any).metadata.userId
-              : null,
-            consent_level: evt.consentLevel,
-            anonymized: evt.anonymized,
-            occurred_at: evt.timestamp
+              : evt.userId;
+            
+            // Hash the userId if present
+            if (rawUserId && typeof rawUserId === 'string') {
+              try {
+                hashedUserId = await secureDataService.createHash(rawUserId);
+                console.log(`🔐 User ID anonymized: ${rawUserId.substring(0, 8)}... -> ${hashedUserId.substring(0, 16)}...`);
+              } catch (hashError) {
+                console.warn('⚠️ Failed to hash userId, using null for privacy:', hashError);
+                hashedUserId = null;
+              }
+            }
+            
+            return {
+              event_type: evt.eventType,
+              metadata: evt.metadata,
+              session_id: evt.sessionId,
+              user_id: hashedUserId, // 🚀 ANONYMOUS: Always hashed, never raw
+              consent_level: evt.consentLevel,
+              anonymized: true, // 🛡️ Always true since we hash the userId
+              occurred_at: evt.timestamp
+            };
           }));
+          
           // Non-blocking, error-safe insert
           await supabaseService.supabaseClient
             .from('ai_telemetry')
