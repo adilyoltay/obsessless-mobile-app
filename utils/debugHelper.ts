@@ -130,4 +130,11 @@ export const DebugHelper = {
 // Export for use in development
 if (__DEV__) {
   (global as any).DebugHelper = DebugHelper;
+  
+  // 🧪 Load queue overflow test functions in development
+  import('./debugQueueTest').then(() => {
+    console.log('🧪 Queue debug tests loaded - see console for commands');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load queue debug tests:', error);
+  });
 } 

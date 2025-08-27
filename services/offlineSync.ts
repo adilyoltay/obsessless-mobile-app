@@ -31,13 +31,17 @@ export class OfflineSyncService {
   private syncQueue: SyncQueueItem[] = [];
   private isSyncing: boolean = false;
   
+  // 🚨 CRITICAL FIX: Queue size limit to prevent unbounded growth
+  private static readonly MAX_QUEUE_SIZE = 1000;
+  
   // ✅ NEW: Performance metrics tracking
   private syncMetrics = {
     successRate: 0,
     avgResponseTime: 0,
     lastSyncTime: 0,
     totalSynced: 0,
-    totalFailed: 0
+    totalFailed: 0,
+    queueOverflows: 0 // Track how often we hit the limit
   };
 
   // 🧹 MEMORY LEAK FIX: Store NetInfo listener for cleanup
@@ -237,8 +241,26 @@ export class OfflineSyncService {
       batchId: (item as any).batchId
     };
 
+    // 🚨 CRITICAL FIX: Check queue size limit before adding
+    if (this.syncQueue.length >= OfflineSyncService.MAX_QUEUE_SIZE) {
+      await this.handleQueueOverflow();
+    }
+
     this.syncQueue.push(syncItem);
     await this.saveSyncQueue();
+
+    // 📊 Queue health telemetry
+    if (this.syncQueue.length > OfflineSyncService.MAX_QUEUE_SIZE * 0.8) {
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'sync_queue_near_capacity',
+          queueSize: this.syncQueue.length,
+          maxSize: OfflineSyncService.MAX_QUEUE_SIZE,
+          utilizationPercent: Math.round((this.syncQueue.length / OfflineSyncService.MAX_QUEUE_SIZE) * 100)
+        });
+      } catch {}
+    }
 
     // 📊 Telemetry: queued for offline delete
     try {
@@ -887,6 +909,100 @@ export class OfflineSyncService {
   }
 
   /**
+   * 🚨 CRITICAL: Handle queue overflow when MAX_QUEUE_SIZE is reached
+   * Strategy: Move oldest low/normal priority items to Dead Letter Queue
+   */
+  private async handleQueueOverflow(): Promise<void> {
+    const overflowCount = Math.ceil(OfflineSyncService.MAX_QUEUE_SIZE * 0.1); // Remove 10% to free space
+    this.syncMetrics.queueOverflows++;
+
+    console.warn(`🚨 Queue overflow! Size: ${this.syncQueue.length}/${OfflineSyncService.MAX_QUEUE_SIZE}, removing ${overflowCount} oldest items`);
+
+    // Sort queue by timestamp (oldest first) and priority (high/critical items preserved)
+    const sortedQueue = [...this.syncQueue].sort((a, b) => {
+      // Preserve critical/high priority items
+      if (a.priority === 'critical' && b.priority !== 'critical') return 1;
+      if (b.priority === 'critical' && a.priority !== 'critical') return -1;
+      if (a.priority === 'high' && !['critical', 'high'].includes(b.priority || 'normal')) return 1;
+      if (b.priority === 'high' && !['critical', 'high'].includes(a.priority || 'normal')) return -1;
+      
+      // Among same priority, oldest first
+      return a.timestamp - b.timestamp;
+    });
+
+    // Take oldest low/normal priority items for removal
+    const itemsToMove = sortedQueue.slice(0, overflowCount);
+    const itemsToKeep = sortedQueue.slice(overflowCount);
+
+    // Move overflow items to Dead Letter Queue for later retry
+    try {
+      const { default: deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+      for (const item of itemsToMove) {
+        await deadLetterQueue.addToDeadLetter({
+          id: item.id,
+          type: item.type,
+          entity: item.entity,
+          data: item.data,
+          retryCount: item.retryCount + 1,
+          errorMessage: 'Queue overflow - moved to DLQ for retry'
+        });
+      }
+      
+      // Update in-memory queue
+      this.syncQueue = itemsToKeep;
+      await this.saveSyncQueue();
+
+      // 📊 Telemetry: Report queue overflow
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'sync_queue_overflow_handled',
+          movedToDLQ: itemsToMove.length,
+          newQueueSize: this.syncQueue.length,
+          overflowCount: this.syncMetrics.queueOverflows,
+          highPriorityPreserved: itemsToKeep.filter(i => ['high', 'critical'].includes(i.priority || 'normal')).length
+        });
+      } catch {}
+
+      console.log(`✅ Queue overflow handled: ${itemsToMove.length} items moved to DLQ, ${itemsToKeep.length} items retained`);
+      
+    } catch (error) {
+      console.error('❌ Failed to handle queue overflow:', error);
+      
+      // Fallback: Just drop oldest items (data loss risk but prevents memory issues)
+      this.syncQueue = itemsToKeep;
+      await this.saveSyncQueue();
+      
+      console.warn(`⚠️ Fallback: ${itemsToMove.length} items dropped due to DLQ failure`);
+    }
+  }
+
+  /**
+   * 📊 Get queue health statistics for monitoring
+   */
+  public getQueueStats() {
+    const priorityCounts = this.syncQueue.reduce((acc, item) => {
+      const priority = item.priority || 'normal';
+      acc[priority] = (acc[priority] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const oldestItem = this.syncQueue.length > 0 
+      ? Math.min(...this.syncQueue.map(item => item.timestamp))
+      : null;
+
+    return {
+      size: this.syncQueue.length,
+      maxSize: OfflineSyncService.MAX_QUEUE_SIZE,
+      utilizationPercent: Math.round((this.syncQueue.length / OfflineSyncService.MAX_QUEUE_SIZE) * 100),
+      priorityCounts,
+      oldestItemAge: oldestItem ? Date.now() - oldestItem : null,
+      overflowCount: this.syncMetrics.queueOverflows,
+      isNearCapacity: this.syncQueue.length > OfflineSyncService.MAX_QUEUE_SIZE * 0.8
+    };
+  }
+
+  /**
    * 🧹 CLEANUP: Properly teardown all listeners and prevent memory leaks
    * Call this when the service is no longer needed (app shutdown, user logout, etc.)
    */
@@ -912,7 +1028,8 @@ export class OfflineSyncService {
       avgResponseTime: 0,
       lastSyncTime: 0,
       totalSynced: 0,
-      totalFailed: 0
+      totalFailed: 0,
+      queueOverflows: 0
     };
     
     console.log('✅ OfflineSyncService cleanup completed');
