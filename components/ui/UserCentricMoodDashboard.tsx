@@ -294,37 +294,112 @@ export default function UserCentricMoodDashboard({
   };
 
   // 🎯 ENHANCED: Calculate min/max mood days with highlights
+  /**
+   * 🛡️ ROBUST DATA VALIDATION: Enhanced weekly colors with comprehensive validation
+   * Fixes placeholder detection and handles corrupted data gracefully
+   */
   const getEnhancedWeeklyColors = () => {
     const colors = moodJourney.emotionalSpectrum.weeklyColors;
     
-    if (colors.length === 0) {
+    if (!colors || colors.length === 0) {
       return { enhancedColors: [], minDay: null, maxDay: null, hasData: false };
     }
     
-    // Find actual min/max mood days (excluding placeholder days)
-    const realDays = colors.filter(day => day.mood !== 50); // Filter out placeholder moods
+    // 🔍 ENHANCED: Multi-criteria placeholder detection
+    const isPlaceholderDay = (day: any) => {
+      // Null or undefined mood
+      if (day.mood == null) return true;
+      
+      // Invalid mood range (must be 0-100)
+      if (typeof day.mood !== 'number' || day.mood < 0 || day.mood > 100) return true;
+      
+      // Common placeholder values
+      if (day.mood === 50 || day.mood === 0) return true;
+      
+      // Missing or invalid day identifier
+      if (!day.day || typeof day.day !== 'string') return true;
+      
+      // Invalid color (suggests generated placeholder)
+      if (!day.color || day.color === '#66BB6A' || day.color === '#E5E7EB') return true;
+      
+      return false;
+    };
+    
+    // 🔍 ENHANCED: Find actual mood days with robust validation
+    const realDays = colors.filter(day => {
+      try {
+        return !isPlaceholderDay(day);
+      } catch (error) {
+        console.warn('⚠️ Invalid day data detected, treating as placeholder:', day);
+        return false;
+      }
+    });
+    
+    console.log(`📊 Spectrum validation: ${realDays.length}/${colors.length} real days, ${colors.length - realDays.length} placeholders`);
     
     if (realDays.length === 0) {
-      return { enhancedColors: colors, minDay: null, maxDay: null, hasData: false };
+      console.log('📊 No real mood data found - all days are placeholders');
+      return { 
+        enhancedColors: colors.map(day => ({ ...day, isPlaceholder: true })), 
+        minDay: null, 
+        maxDay: null, 
+        hasData: false,
+        validationWarning: 'No valid mood data found'
+      };
     }
     
-    const minMoodDay = realDays.reduce((min, current) => current.mood < min.mood ? current : min);
-    const maxMoodDay = realDays.reduce((max, current) => current.mood > max.mood ? current : max);
+    // 🔍 ENHANCED: Safe min/max calculation with error handling
+    let minMoodDay, maxMoodDay;
+    try {
+      minMoodDay = realDays.reduce((min, current) => {
+        if (typeof current.mood !== 'number' || typeof min.mood !== 'number') {
+          console.warn('⚠️ Invalid mood data in min calculation:', { current, min });
+          return min;
+        }
+        return current.mood < min.mood ? current : min;
+      });
+      
+      maxMoodDay = realDays.reduce((max, current) => {
+        if (typeof current.mood !== 'number' || typeof max.mood !== 'number') {
+          console.warn('⚠️ Invalid mood data in max calculation:', { current, max });
+          return max;
+        }
+        return current.mood > max.mood ? current : max;
+      });
+    } catch (error) {
+      console.error('❌ Error calculating min/max mood days:', error);
+      return { 
+        enhancedColors: colors.map(day => ({ ...day, isPlaceholder: isPlaceholderDay(day) })), 
+        minDay: null, 
+        maxDay: null, 
+        hasData: false,
+        validationError: 'Failed to calculate min/max values'
+      };
+    }
     
-    // Enhance colors with min/max highlights
+    // 🎯 ENHANCED: Mood difference threshold for meaningful highlights
+    const moodDifference = maxMoodDay.mood - minMoodDay.mood;
+    const shouldHighlight = moodDifference >= 10; // Only highlight if there's significant difference
+    
+    // 🎨 ENHANCED: Enhanced colors with better validation
     const enhancedColors = colors.map(day => {
+      const isPlaceholder = isPlaceholderDay(day);
       let enhancedHighlight = day.highlight;
       let isMinDay = false;
       let isMaxDay = false;
       
-      // Only highlight if this is a real day (not placeholder)
-      if (day.mood !== 50) {
-        if (day.day === minMoodDay.day && day.mood === minMoodDay.mood) {
-          enhancedHighlight = '📉 En düşük';
-          isMinDay = true;
-        } else if (day.day === maxMoodDay.day && day.mood === maxMoodDay.mood) {
-          enhancedHighlight = '📈 En yüksek';
-          isMaxDay = true;
+      // Only highlight real days with significant mood differences
+      if (!isPlaceholder && shouldHighlight) {
+        try {
+          if (day.day === minMoodDay.day && Math.abs(day.mood - minMoodDay.mood) < 0.1) {
+            enhancedHighlight = `📉 En düşük (${Math.round(day.mood)})`;
+            isMinDay = true;
+          } else if (day.day === maxMoodDay.day && Math.abs(day.mood - maxMoodDay.mood) < 0.1) {
+            enhancedHighlight = `📈 En yüksek (${Math.round(day.mood)})`;
+            isMaxDay = true;
+          }
+        } catch (error) {
+          console.warn('⚠️ Error enhancing day highlight:', day, error);
         }
       }
       
@@ -333,8 +408,19 @@ export default function UserCentricMoodDashboard({
         highlight: enhancedHighlight,
         isMinDay,
         isMaxDay,
-        isPlaceholder: day.mood === 50
+        isPlaceholder,
+        // 🛡️ VALIDATION: Ensure mood is within valid range
+        mood: isPlaceholder ? (day.mood || 50) : Math.max(0, Math.min(100, day.mood || 50))
       };
+    });
+    
+    console.log('✅ Enhanced weekly colors calculated:', {
+      total: colors.length,
+      real: realDays.length,
+      minMood: minMoodDay.mood,
+      maxMood: maxMoodDay.mood,
+      difference: moodDifference,
+      highlighted: shouldHighlight
     });
     
     return {
@@ -342,7 +428,10 @@ export default function UserCentricMoodDashboard({
       minDay: minMoodDay,
       maxDay: maxMoodDay,
       hasData: realDays.length > 0,
-      realDaysCount: realDays.length
+      realDaysCount: realDays.length,
+      moodDifference,
+      shouldHighlight,
+      validationPassed: true
     };
   };
 
