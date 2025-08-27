@@ -373,7 +373,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         },
         type: 'data',
         context: {
-          source: 'onboarding',
+          source: 'today',
           timestamp: Date.now(),
           metadata: {
             isInitialProfile: true,
@@ -383,18 +383,18 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         }
       });
 
-      // Cache AI profile for immediate use
-      if (aiResult?.profile || aiResult?.insights) {
+      // Cache AI result for immediate use
+      if (aiResult?.insights || aiResult?.patterns) {
         await AsyncStorage.setItem(
           `ai_profile_${uidForKey}`,
           JSON.stringify({
-            profile: aiResult.profile,
             insights: aiResult.insights || [],
+            patterns: aiResult.patterns || [],
             generatedAt: new Date().toISOString(),
             source: 'onboarding_completion'
           })
         );
-        console.log('✅ AI profile generated and cached');
+        console.log('✅ AI insights generated and cached');
       }
 
     } catch (error) {
