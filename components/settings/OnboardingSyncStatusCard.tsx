@@ -30,7 +30,7 @@ const UIColors = {
   white: '#FFFFFF',
 };
 import { onboardingSyncErrorService } from '@/features/ai/services/onboardingSyncErrorService';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface OnboardingSyncError {
   id: string;
@@ -46,7 +46,7 @@ export default function OnboardingSyncStatusCard() {
   const [syncErrors, setSyncErrors] = useState<OnboardingSyncError[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRetrying, setIsRetrying] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user } = useAuthContext();
 
   useEffect(() => {
     if (user?.id) {
