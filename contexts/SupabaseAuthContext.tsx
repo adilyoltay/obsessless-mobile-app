@@ -256,6 +256,30 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       
       if (!userProfile) {
         console.log('📝 No onboarding profile found - user needs to complete onboarding');
+        
+        // 🚀 ONBOARDING FIX: Clear onboarding completion flags for new users
+        console.log('🔄 New user detected - clearing onboarding flags for:', user.id);
+        try {
+          await AsyncStorage.removeItem(`ai_onboarding_completed_${user.id}`);
+          await AsyncStorage.removeItem('ai_onboarding_completed'); // Generic fallback
+          
+          // 🔄 CACHE CLEAR: Reset NavigationGuard cache to force fresh check
+          // Import dynamically to avoid circular dependencies
+          try {
+            const navigationModule = await import('@/components/navigation/NavigationGuard');
+            // Clear the onboarding check cache for immediate effect
+            if (typeof (navigationModule as any).clearOnboardingCache === 'function') {
+              (navigationModule as any).clearOnboardingCache(user.id);
+              console.log('🔄 NavigationGuard cache cleared for fresh onboarding check');
+            }
+          } catch (cacheError) {
+            console.log('ℹ️ NavigationGuard cache clear not available (expected)');
+          }
+          
+          console.log('✅ Onboarding flags cleared - NavigationGuard will redirect to onboarding');
+        } catch (flagError) {
+          console.warn('⚠️ Failed to clear onboarding flags in loadUserProfile:', flagError);
+        }
       } else {
         console.log('✅ User profile loaded:', user.email);
       }
@@ -296,6 +320,18 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         console.log('📧 Email confirmation required');
       } else {
         console.log('✅ Immediate signup success, auth state will update');
+        
+        // 🚀 ONBOARDING FIX: Clear onboarding completion flags for new users
+        if (result.user?.id) {
+          console.log('🔄 New user signup - clearing onboarding flags for:', result.user.id);
+          try {
+            await AsyncStorage.removeItem(`ai_onboarding_completed_${result.user.id}`);
+            await AsyncStorage.removeItem('ai_onboarding_completed'); // Generic fallback
+            console.log('✅ Onboarding flags cleared - user will be directed to onboarding');
+          } catch (flagError) {
+            console.warn('⚠️ Failed to clear onboarding flags:', flagError);
+          }
+        }
       }
       
       return result;

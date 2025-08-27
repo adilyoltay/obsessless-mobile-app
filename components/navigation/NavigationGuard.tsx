@@ -15,6 +15,16 @@ const onboardingCheckCache = new Map<string, { result: boolean; timestamp: numbe
 const CACHE_DURATION = 30 * 1000; // 30 seconds cache
 
 /**
+ * 🔄 Clear onboarding check cache for a specific user
+ * Called when user's onboarding status changes (e.g., new user signup)
+ */
+export function clearOnboardingCache(userId: string): void {
+  const keys = Array.from(onboardingCheckCache.keys()).filter(key => key.includes(userId));
+  keys.forEach(key => onboardingCheckCache.delete(key));
+  console.log(`🔄 Cleared onboarding cache for user ${userId}: ${keys.length} entries removed`);
+}
+
+/**
  * 🛡️ Robust Onboarding Completion Check (Cached)
  * 
  * Implements multi-layer validation with caching:
@@ -50,6 +60,10 @@ async function checkOnboardingCompletion(userId: string, localKey: string): Prom
       }
     }
     
+    // LAYER 2: Remote verification (only when needed)  
+    let remoteCompleted = false;
+    let remoteCheckFailed = false;
+    
     // EARLY RETURN: If local is definitively true and we're not forcing remote check
     if (localCompleted && !remoteCheckFailed) {
       // Cache the positive result
@@ -57,10 +71,6 @@ async function checkOnboardingCompletion(userId: string, localKey: string): Prom
       console.log('✅ Early return - Local completed, cached');
       return true;
     }
-
-    // LAYER 2: Remote verification (only when needed)
-    let remoteCompleted = false;
-    let remoteCheckFailed = false;
     
     // Only do remote check if local is false or we need verification
     if (!localCompleted || (!cached && Math.random() < 0.1)) { // 10% chance for periodic verification
