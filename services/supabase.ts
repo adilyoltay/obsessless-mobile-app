@@ -1242,6 +1242,17 @@ class SupabaseNativeService {
   // UTILITY METHODS
   // ===========================
   
+  /**
+   * 🌍 Get local date string for consistent date keys (YYYY-MM-DD)
+   * Avoids UTC timezone issues where entries appear in wrong day
+   */
+  private getLocalDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  
   // ===========================
   // MOOD METHODS
   // ===========================
@@ -1273,10 +1284,15 @@ class SupabaseNativeService {
         sanitizedEntry.timestamp ||
         new Date().toISOString()
       );
-      const createdDay = createdAtIso.slice(0, 10); // UTC day
       
-      // ✅ Generate content_hash (canonical): exclude triggers/activities; UTC day
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${createdDay}`;
+      // 🌍 TIMEZONE FIX: Use local date instead of UTC for content hash consistency
+      const createdDate = new Date(createdAtIso);
+      const localDay = this.getLocalDateKey(createdDate);
+      
+      // ✅ Generate content_hash (canonical): exclude triggers/activities; LOCAL day
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${localDay}`;
+      
+      console.log(`🌍 Content hash using local date: ${localDay} (from timestamp: ${createdAtIso})`);
       const content_hash = this.computeContentHash(contentText);
       
       const payload = {

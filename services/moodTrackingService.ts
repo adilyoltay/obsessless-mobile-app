@@ -290,7 +290,12 @@ class MoodTrackingService {
   }
 
   private async saveToLocalStorage(entry: MoodEntry): Promise<void> {
-    const key = `${this.STORAGE_KEY}_${entry.user_id}_${entry.timestamp.split('T')[0]}`;
+    // 🌍 TIMEZONE FIX: Use local date for storage key instead of UTC
+    const entryDate = new Date(entry.timestamp);
+    const localDateKey = this.getLocalDateKey(entryDate);
+    const key = `${this.STORAGE_KEY}_${entry.user_id}_${localDateKey}`;
+    
+    console.log(`🌍 Using local date key: ${localDateKey} (from timestamp: ${entry.timestamp})`);
     
     try {
       // 🔒 ENCRYPT SENSITIVE DATA
@@ -541,13 +546,27 @@ class MoodTrackingService {
     return unsynced;
   }
 
+  // 🌍 TIMEZONE FIX: Generate local date keys instead of UTC
   private async getRecentDates(days: number): Promise<string[]> {
     const dates: string[] = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(Date.now() - i * 86400000);
-      dates.push(d.toISOString().split('T')[0]);
+      // 🔧 Use LOCAL date instead of UTC
+      const localDate = this.getLocalDateKey(d);
+      dates.push(localDate);
     }
     return dates;
+  }
+
+  /**
+   * 🌍 Get local date string for storage key (YYYY-MM-DD)
+   * Avoids UTC timezone issues where mood entries appear in wrong day
+   */
+  private getLocalDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**

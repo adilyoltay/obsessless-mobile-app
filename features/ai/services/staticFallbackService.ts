@@ -289,7 +289,7 @@ export class StaticFallbackService {
         actionable: false,
         source: 'static_fallback'
       });
-    } else if (context.entriesCount && context.entriesCount >= 3) {
+    } else if (context.entriesCount && context.entriesCount >= 7) {
       insights.push({
         id: 'good_start',
         title: '🌟 İyi Başlangıç',

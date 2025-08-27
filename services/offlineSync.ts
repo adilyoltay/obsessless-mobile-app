@@ -271,6 +271,17 @@ export class OfflineSyncService {
     throw new Error('No valid user id available');
   }
 
+  /**
+   * 🌍 Get local date string for consistent date keys (YYYY-MM-DD)
+   * Avoids UTC timezone issues where entries appear in wrong day
+   */
+  private getLocalDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
     // 🛡️ SECURITY CHECK: Prevent queue operations if encryption failed
     try {
@@ -709,34 +720,44 @@ export class OfflineSyncService {
       return;
     }
 
-    // Handle CREATE/UPDATE operations
-    // Normalize payload and save to the new canonical table: mood_entries
-    // Fallback user id acquisition
-    const userId = await this.resolveValidUserId(raw.user_id || raw.userId);
+      // Handle CREATE/UPDATE operations
+  // Normalize payload and save to the new canonical table: mood_entries
+  // Fallback user id acquisition
+  const userId = await this.resolveValidUserId(raw.user_id || raw.userId);
 
-    const entry = {
-      user_id: userId,
-      mood_score: raw.mood_score ?? raw.mood ?? 50,
-      energy_level: raw.energy_level ?? raw.energy ?? 5,
-      anxiety_level: raw.anxiety_level ?? raw.anxiety ?? 5,
-      notes: raw.notes || '',
-      triggers: raw.triggers || (raw.trigger ? [raw.trigger] : []),
-      activities: raw.activities || [],
-      // 🕐 TIMESTAMP PRESERVATION: Always preserve original creation time for offline entries
-      timestamp: raw.timestamp || raw.created_at || new Date().toISOString(),
-      created_at: raw.timestamp || raw.created_at || new Date().toISOString(),
-    };
+  // 🔒 IDEMPOTENCY FIX: Ensure consistent timestamp for duplicate prevention
+  // Use original creation time from queue item, never generate new timestamp
+  const originalTimestamp = raw.timestamp || raw.created_at || new Date(item.timestamp).toISOString();
 
-    await (svc as any).saveMoodEntry(entry);
+  const entry = {
+    user_id: userId,
+    mood_score: raw.mood_score ?? raw.mood ?? 50,
+    energy_level: raw.energy_level ?? raw.energy ?? 5,
+    anxiety_level: raw.anxiety_level ?? raw.anxiety ?? 5,
+    notes: raw.notes || '',
+    triggers: raw.triggers || (raw.trigger ? [raw.trigger] : []),
+    activities: raw.activities || [],
+    // 🔒 CRITICAL: Use consistent timestamp - NEVER generate new ones in sync!
+    timestamp: originalTimestamp,
+    created_at: originalTimestamp,
+  };
+
+  console.log(`🔄 Syncing mood entry with consistent timestamp: ${originalTimestamp}`);
+  await (svc as any).saveMoodEntry(entry);
     
     // ✅ Mark as successfully synced in idempotency service
     if (raw.local_entry_id) {
       try {
-        // Generate content hash for marking as processed  
-        const timestamp = raw.timestamp || new Date().toISOString();
-        const utcDay = timestamp.slice(0, 10);
+        // 🔒 IDEMPOTENCY FIX: Use same content hash algorithm as supabaseService
+        // Must be consistent with supabaseService.computeContentHash()
+        // 🌍 TIMEZONE FIX: Use local date instead of UTC for consistency
+        const createdDate = new Date(originalTimestamp);
+        const localDay = this.getLocalDateKey(createdDate);
         const notes = (entry.notes || '').trim().toLowerCase();
-        const contentText = `${entry.user_id}|${Math.round(entry.mood_score)}|${Math.round(entry.energy_level)}|${Math.round(entry.anxiety_level)}|${notes}|${utcDay}`;
+        const contentText = `${entry.user_id}|${Math.round(entry.mood_score)}|${Math.round(entry.energy_level)}|${Math.round(entry.anxiety_level)}|${notes}|${localDay}`;
+        
+        console.log(`🌍 OfflineSync: Using local date for content hash: ${localDay}`);
+        
         let hash = 0;
         for (let i = 0; i < contentText.length; i++) {
           const char = contentText.charCodeAt(i);
@@ -745,6 +766,7 @@ export class OfflineSyncService {
         }
         const contentHash = Math.abs(hash).toString(36);
         
+        console.log(`🔒 Content hash for idempotency: ${contentHash} (from: ${contentText})`);
         await idempotencyService.markAsProcessed(raw.local_entry_id, contentHash, userId);
         console.log(`✅ Marked mood entry as synced: ${raw.local_entry_id}`);
       } catch (error) {

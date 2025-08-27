@@ -43,6 +43,7 @@ import { useRouter } from 'expo-router';
 import { Modal } from 'react-native';
 import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 import SecureStorageMigration from '@/utils/secureStorageMigration';
+import OnboardingSyncStatusCard from '@/components/settings/OnboardingSyncStatusCard';
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 interface SettingsData {
@@ -684,7 +685,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-
+        {/* Onboarding Sync Status */}
+        <OnboardingSyncStatusCard />
 
         {/* Support */}
         <View style={styles.section}>

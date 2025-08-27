@@ -421,8 +421,8 @@ export class BreathworkSuggestionService {
         };
       }
       
-      // Check daily limit (max 5 suggestions per day)
-      if (todayData.suggestionCount >= 5) {
+      // 🎯 REQUIREMENT UPDATE: Check daily limit (max 3 suggestions per day)
+      if (todayData.suggestionCount >= 3) {
         return {
           canSuggest: false,
           reason: 'daily_limit',

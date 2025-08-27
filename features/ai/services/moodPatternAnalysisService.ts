@@ -112,7 +112,8 @@ export class MoodPatternAnalysisService {
       if (validEntries.length < MIN_ENTRIES_BASIC) {
         console.warn(`⚠️ Insufficient data for pattern analysis (need at least ${MIN_ENTRIES_BASIC} entries, got ${validEntries.length})`);
         
-        // 📈 PARTIAL ANALYSIS: If we have some data (3-6 entries), provide limited insights with confidence warning
+        // 📈 PARTIAL ANALYSIS: If we have some data (3-6 entries), provide limited insights with low confidence
+        // Note: Full reliable analysis requires 7+ entries, but we still show basic patterns for engagement
         if (validEntries.length >= 3) {
           const limitedPattern: MoodPattern = {
             id: `limited_${Date.now()}`,

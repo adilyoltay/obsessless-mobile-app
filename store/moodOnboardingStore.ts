@@ -471,20 +471,60 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       console.log('🛡️ Profile data proactively queued for offline sync (insurance)');
     } catch (queueError) {
       console.error('❌ CRITICAL: Failed to queue profile for offline sync:', queueError);
-      result.criticalErrors.push('Failed to queue profile for offline sync');
+      
+      // 🚨 ENHANCED ERROR HANDLING: Track queue failure with user notification
+      try {
+        const { onboardingSyncErrorService } = await import('@/features/ai/services/onboardingSyncErrorService');
+        await onboardingSyncErrorService.trackSyncError(
+          uidForKey,
+          'queue_failed',
+          `Queue failed: ${queueError.message || 'Unknown error'}`,
+          {
+            showAlert: true,
+            showNotification: true,
+            immediate: true,
+            delay: 10000 // Retry in 10 seconds
+          }
+        );
+      } catch (trackingError) {
+        console.error('Failed to track queue error:', trackingError);
+      }
+      
+      result.criticalErrors.push('Profile queue failed - user will be notified and retry scheduled');
     }
 
     // 🚀 IMMEDIATE: Try direct Supabase sync (if online)
     try {
       await get().syncToSupabase(uidForKey);
       console.log('✅ Supabase profile sync completed');
+      
+      // 🎉 SUCCESS: Record successful sync timestamp
+      await AsyncStorage.setItem('last_profile_sync', new Date().toISOString());
     } catch (error) {
       const errorMsg = 'Supabase profile sync failed (queued for retry)';
-      result.warnings.push(errorMsg); // Downgraded from critical error since we have offline queue
       console.warn('⚠️ WARNING:', errorMsg, error);
       
+      // 🚨 ENHANCED ERROR HANDLING: Track Supabase failure with user notification
+      try {
+        const { onboardingSyncErrorService } = await import('@/features/ai/services/onboardingSyncErrorService');
+        await onboardingSyncErrorService.trackSyncError(
+          uidForKey,
+          'supabase_failed', 
+          `Supabase sync failed: ${error.message || 'Network or server error'}`,
+          {
+            showNotification: true, // Show notification, but not immediate alert (less disruptive)
+            immediate: true,
+            delay: 30000, // Retry in 30 seconds
+            persistError: true
+          }
+        );
+      } catch (trackingError) {
+        console.error('Failed to track Supabase error:', trackingError);
+      }
+      
       // Profile is already in offline queue, so sync will happen when online
-      console.log('📋 Profile will sync when network is available (already queued)');
+      result.warnings.push('Profile sync will complete when network is stable (you\'ll be notified)');
+      console.log('📋 Profile will sync when network is available (already queued with error tracking)');
     }
 
     // ✅ STEP 6: NON-CRITICAL - Notification Scheduling (user can enable later)

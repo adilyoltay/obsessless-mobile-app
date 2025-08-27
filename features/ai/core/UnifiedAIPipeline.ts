@@ -3276,8 +3276,9 @@ export class UnifiedAIPipeline {
     try {
       console.log(`📊 Starting comprehensive mood analytics for ${moods.length} entries`);
       
-      if (!moods || moods.length < 3) {
-        console.log('⚠️ Insufficient data for mood analytics');
+      // 📊 THRESHOLD UPDATE: Require 7+ entries for reliable mood analytics
+      if (!moods || moods.length < 7) {
+        console.log('⚠️ Insufficient data for mood analytics (need 7+ entries for reliable analysis)');
         return null;
       }
 
@@ -3287,15 +3288,16 @@ export class UnifiedAIPipeline {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 50);
 
-      if (recentMoods.length < 3) {
+      // 📊 THRESHOLD UPDATE: 7+ entries required for reliable analytics
+      if (recentMoods.length < 7) {
         return {
           weeklyDelta: 0,
           volatility: 0,
           baselines: { mood: 50, energy: 50, anxiety: 50 },
           correlations: {},
           sampleSize: recentMoods.length,
-          dataQuality: 0.1,
-          confidence: 0.1
+          dataQuality: 0.2, // Slightly higher than before but still low
+          confidence: 0.15   // Slightly higher confidence for fallback
         };
       }
 
