@@ -32,6 +32,8 @@ ObsessLess mobil uygulaması, offline-first yaklaşımı benimseyen, katmanlı b
 - **Progressive UI**: Immediate heuristic + background LLM
 - **Context Injection**: User profile adaptation
 - **Telemetry Integration**: Comprehensive tracking
+- **Helper Classes**: Confidence, PatternMatcher, Cache, Telemetry wrappers
+- **Debug Tools**: MoodDataFlowTester for data flow validation
 
 ## Veri Akışı
 

@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ import { MoodPatternAnalysisService } from '@/features/ai/services/moodPatternAn
 import * as pipeline from '@/features/ai/pipeline';
 import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
 import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
+import { moodDataFlowTester } from '@/features/ai/core/MoodDataFlowTester';
 import { useGamificationStore } from '@/store/gamificationStore';
 import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -89,6 +91,10 @@ export default function MoodScreen() {
   const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
   const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
   const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
+  
+  // 🧪 DEBUG: Mood Data Flow Testing
+  const [showMoodDebug, setShowMoodDebug] = useState(false);
+  const [debugReport, setDebugReport] = useState<any>(null);
 
   // Pre-fill from voice trigger if available (only once)
   useEffect(() => {
@@ -895,6 +901,37 @@ export default function MoodScreen() {
     return 'Kızgın';
   };
 
+  // 🧪 DEBUG: Test mood data flow
+  const handleMoodDebugTest = async () => {
+    if (!user?.id) return;
+    
+    // Open modal and start testing
+    setShowMoodDebug(true);
+    setDebugReport({ status: 'testing', message: 'Running mood data flow test...' });
+    
+    try {
+      const report = await moodDataFlowTester.runCompleteTest(user.id);
+      const summary = await moodDataFlowTester.getMoodDataSummary(user.id);
+      
+      setDebugReport({
+        status: 'completed',
+        report,
+        summary,
+        timestamp: Date.now()
+      });
+      
+      console.log('🧪 Mood data flow test completed:', report);
+      
+    } catch (error) {
+      setDebugReport({
+        status: 'error',
+        error: error.message,
+        timestamp: Date.now()
+      });
+      console.error('🚨 Mood debug test failed:', error);
+    }
+  };
+
   const handleQuickEntry = async (data: {
     mood: number;
     energy: number;
@@ -1653,16 +1690,28 @@ export default function MoodScreen() {
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
           <Text style={styles.headerTitle}>Mood Takibi</Text>
-          <Pressable 
-            style={styles.headerRight}
-            onPress={() => {
-              console.log('🎭 Opening Mood Dashboard');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowMoodDashboard(true);
-            }}
-          >
-            <MaterialCommunityIcons name="chart-line" size={24} color="#EC4899" />
-          </Pressable>
+          <View style={styles.headerRight}>
+            {/* 🧪 DEBUG: Mood Data Flow Test Button (Dev only) */}
+            {(__DEV__ || process.env.NODE_ENV === 'development') && (
+              <Pressable 
+                style={[styles.debugButton, { marginRight: 12 }]}
+                onPress={handleMoodDebugTest}
+              >
+                <MaterialCommunityIcons name="bug" size={20} color="#FF6B35" />
+              </Pressable>
+            )}
+            
+            <Pressable 
+              style={styles.dashboardButton}
+              onPress={() => {
+                console.log('🎭 Opening Mood Dashboard');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowMoodDashboard(true);
+              }}
+            >
+              <MaterialCommunityIcons name="chart-line" size={24} color="#EC4899" />
+            </Pressable>
+          </View>
         </View>
         
         {/* Time Range Tabs */}
@@ -1931,6 +1980,83 @@ export default function MoodScreen() {
         onHide={() => setShowToast(false)}
         type={toastMessage.includes('✅') ? 'success' : 'info'}
       />
+
+      {/* 🧪 DEBUG: Mood Data Flow Report Modal */}
+      {debugReport && (
+        <Modal
+          visible={showMoodDebug}
+          transparent
+          animationType="slide"
+        >
+          <View style={styles.debugModalOverlay}>
+            <View style={styles.debugModalContainer}>
+              <View style={styles.debugModalHeader}>
+                <Text style={styles.debugModalTitle}>🧪 Mood Data Flow Test</Text>
+                <Pressable 
+                  style={styles.debugModalClose}
+                  onPress={() => setShowMoodDebug(false)}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#666" />
+                </Pressable>
+              </View>
+              
+              <ScrollView style={styles.debugModalContent}>
+                {debugReport.status === 'testing' && (
+                  <Text style={styles.debugTestingText}>🔄 {debugReport.message}</Text>
+                )}
+                
+                {debugReport.status === 'error' && (
+                  <View style={styles.debugErrorContainer}>
+                    <Text style={styles.debugErrorTitle}>❌ Test Failed</Text>
+                    <Text style={styles.debugErrorText}>{debugReport.error}</Text>
+                  </View>
+                )}
+                
+                {debugReport.status === 'completed' && debugReport.report && (
+                  <View style={styles.debugReportContainer}>
+                    <Text style={styles.debugSectionTitle}>📊 Test Results</Text>
+                    {Object.entries(debugReport.report.results).map(([key, value]) => (
+                      <View key={key} style={styles.debugResultRow}>
+                        <Text style={styles.debugResultLabel}>
+                          {value ? '✅' : '❌'} {key.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                        </Text>
+                      </View>
+                    ))}
+                    
+                    {debugReport.summary && (
+                      <View style={styles.debugSummaryContainer}>
+                        <Text style={styles.debugSectionTitle}>📈 Data Summary</Text>
+                        <Text style={styles.debugSummaryText}>
+                          Total Entries: {debugReport.summary.totalEntries}
+                        </Text>
+                        <Text style={styles.debugSummaryText}>
+                          Cache Keys: {debugReport.summary.cacheKeys.length}
+                        </Text>
+                        {debugReport.summary.lastEntry && (
+                          <Text style={styles.debugSummaryText}>
+                            Last Entry: {new Date(debugReport.summary.lastEntry.timestamp || debugReport.summary.lastEntry.created_at).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                    
+                    {debugReport.report.recommendations.length > 0 && (
+                      <View style={styles.debugRecommendationsContainer}>
+                        <Text style={styles.debugSectionTitle}>💡 Recommendations</Text>
+                        {debugReport.report.recommendations.map((rec, index) => (
+                          <Text key={index} style={styles.debugRecommendationText}>
+                            • {rec}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* ✅ NEW: User-Centric Mood Dashboard */}
       <UserCentricMoodDashboard
@@ -2354,6 +2480,121 @@ const styles = StyleSheet.create({
   },
 
   // ✅ REMOVED: Pattern analysis styles moved to dashboard
+
+  // 🧪 DEBUG: Mood Data Flow Debug Styles
+  debugButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#FFF5F5',
+  },
+  dashboardButton: {
+    // Keeping existing dashboard button styles
+  },
+  debugModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  debugModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  debugModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  debugModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    fontFamily: 'Inter',
+  },
+  debugModalClose: {
+    padding: 4,
+  },
+  debugModalContent: {
+    padding: 16,
+  },
+  debugTestingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  debugErrorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  debugErrorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 8,
+  },
+  debugErrorText: {
+    fontSize: 14,
+    color: '#7F1D1D',
+    lineHeight: 20,
+  },
+  debugReportContainer: {
+    marginBottom: 16,
+  },
+  debugSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  debugResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  debugResultLabel: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  debugSummaryContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  debugSummaryText: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 4,
+  },
+  debugRecommendationsContainer: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  debugRecommendationText: {
+    fontSize: 14,
+    color: '#92400E',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
   
   bottomSpacing: {
     height: 100,

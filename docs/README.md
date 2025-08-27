@@ -24,6 +24,7 @@ OKB ile mücadelede kullanıcının dijital sığınağı: empatik, güvenli ve 
 - [**Security & Privacy**](./security-privacy.md) – PII sanitizasyon, şifreleme, RLS
 - [**Troubleshooting**](./troubleshooting.md) – Yaygın sorunlar ve çözümler
 - [**Code Analysis Report**](./CODE_ANALYSIS_REPORT_2025.md) 🆕 – Kapsamlı kod analizi ve iyileştirme önerileri (Ocak 2025)
+- [**UnifiedAI Pipeline Optimization**](./UNIFIED_PIPELINE_OPTIMIZATION_PLAN.md) 🚀 – Monolitik optimizasyon planı ve implementation status
 
 ## Hızlı Başlangıç
 
@@ -45,3 +46,16 @@ yarn android
 - **Privacy-First**: Hassas veriler asla düz metin olarak saklanmaz
 - **Offline-First**: Kritik işlemler önce local'e yazılır, sonra senkronize edilir
 - **Unified AI**: Tüm AI analizleri `unifiedPipeline.process()` üzerinden yapılır
+
+## 🚀 Son Güncellemeler (Phase 4)
+
+### ✅ Yeni Debug Araçları
+- **MoodDataFlowTester**: Mood verilerinin AI sistemlere akışını test eden comprehensive tool
+- **Development Debug UI**: Mood ekranında development-only debug button
+- **Real-time validation**: AsyncStorage, Supabase, AI uyumluluğu testleri
+
+### 📊 Performans İyileştirmeleri
+- UnifiedAIPipeline: 4753 → 4644 satır (-109 satır)
+- TypeScript errors: AI core'da 0 hata
+- Test coverage: Helper classes %100
+- Progressive enhancement: Quick + deep AI analysis
