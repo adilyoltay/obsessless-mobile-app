@@ -202,7 +202,10 @@ class CrossDeviceSyncService {
           mood_score: item.moodScore || item.mood_score || 5,
           energy_level: item.energyLevel || item.energy_level || 5,
           anxiety_level: item.anxietyLevel || item.anxiety_level || 5,
-          notes: sanitizePII(item.notes || '')
+          notes: sanitizePII(item.notes || ''),
+          // 🕐 TIMESTAMP PRESERVATION: Always preserve original creation time
+          timestamp: item.timestamp || item.created_at || new Date().toISOString(),
+          created_at: item.timestamp || item.created_at || new Date().toISOString()
         };
         await supabaseService.saveMoodEntry(moodData);
         break;

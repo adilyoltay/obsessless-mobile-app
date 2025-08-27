@@ -722,6 +722,9 @@ export class OfflineSyncService {
       notes: raw.notes || '',
       triggers: raw.triggers || (raw.trigger ? [raw.trigger] : []),
       activities: raw.activities || [],
+      // 🕐 TIMESTAMP PRESERVATION: Always preserve original creation time for offline entries
+      timestamp: raw.timestamp || raw.created_at || new Date().toISOString(),
+      created_at: raw.timestamp || raw.created_at || new Date().toISOString(),
     };
 
     await (svc as any).saveMoodEntry(entry);

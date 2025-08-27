@@ -28,7 +28,13 @@ export default function OfflineBanner({ message }: OfflineBannerProps) {
         } catch {}
       }, 5000);
     } catch {}
-    return () => unsub();
+    // 🧹 CLEANUP: Clear both NetInfo listener and timer interval
+    return () => {
+      unsub();
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
   }, []);
 
   if (!isOffline) return null;

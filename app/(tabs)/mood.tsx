@@ -987,6 +987,52 @@ export default function MoodScreen() {
     if (!user?.id) return;
 
     try {
+      // 🔄 EDIT MODE: Handle updating existing entries
+      if (editingEntry) {
+        console.log('✏️ Updating existing mood entry:', editingEntry.id);
+        
+        // Add to sync queue for UPDATE operation
+        await offlineSyncService.addToSyncQueue({
+          type: 'UPDATE',
+          entity: 'mood_entry',
+          data: {
+            id: editingEntry.id,
+            user_id: user.id,
+            mood_score: data.mood,
+            energy_level: data.energy,
+            anxiety_level: data.anxiety,
+            notes: data.notes,
+            triggers: data.trigger ? [data.trigger] : [],
+            activities: [],
+            timestamp: editingEntry.created_at || editingEntry.timestamp, // Preserve original timestamp
+            updated_at: new Date().toISOString(),
+          },
+          priority: 'high' as any,
+        });
+        
+        // Update local state immediately for optimistic UI
+        setMoodEntries(prev => prev.map(entry => 
+          entry.id === editingEntry.id 
+            ? {
+                ...entry,
+                mood_score: data.mood,
+                energy_level: data.energy,
+                anxiety_level: data.anxiety,
+                notes: data.notes,
+                triggers: data.trigger ? [data.trigger] : [],
+              }
+            : entry
+        ));
+        
+        setToastMessage('Mood kaydı güncellendi ✏️');
+        setShowToast(true);
+        setShowQuickEntry(false);
+        setEditingEntry(null); // Clear editing state
+        
+        // Haptic feedback
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return;
+      }
       // 🔄 FIXED: Use moodTracker for consistent table handling (mood_entries canonical table)
       const moodEntry = {
         user_id: user.id,
