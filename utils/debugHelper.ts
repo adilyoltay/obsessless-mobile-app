@@ -182,4 +182,12 @@ if (__DEV__) {
   }).catch(error => {
     console.warn('⚠️ Failed to load simple debug tests:', error);
   });
+  
+  // Deletion cache debug tools
+  import('@/services/moodDeletionCache').then((module) => {
+    (global as any).moodDeletionCache = module.moodDeletionCache;
+    console.log('🗑️ Mood Deletion Cache loaded - use moodDeletionCache.getStats(), moodDeletionCache.getRecentlyDeletedIds(userId)');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load deletion cache:', error);
+  });
 } 

@@ -31,6 +31,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
+import { moodDeletionCache } from '@/services/moodDeletionCache';
 import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
 import * as pipeline from '@/features/ai/pipeline';
@@ -1294,6 +1295,10 @@ export default function MoodScreen() {
                   await moodTracker.deleteMoodEntry(entryId);
                   console.log('✅ Mood entry deleted from local storage');
 
+                  // 🗑️ MARK AS DELETED: Prevent IntelligentMerge from restoring
+                  await moodDeletionCache.markAsDeleted(entryId, user.id, 'user_initiated');
+                  console.log('✅ Entry marked as deleted in cache - IntelligentMerge will ignore');
+
                   // 🔍 DEBUG: Verify deletion worked
                   console.log(`🔍 Verifying deletion of entry: ${entryId}`);
                   
@@ -1357,6 +1362,10 @@ export default function MoodScreen() {
                   
                   // Remove from local storage
                   await moodTracker.deleteMoodEntry(entryId);
+                  
+                  // 🗑️ MARK AS DELETED: Prevent IntelligentMerge from restoring (offline mode)
+                  await moodDeletionCache.markAsDeleted(entryId, user.id, 'user_initiated_offline');
+                  console.log('✅ Entry marked as deleted in cache (offline mode)');
                   
                   // Remove from UI state immediately
                   setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));

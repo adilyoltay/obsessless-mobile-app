@@ -14,6 +14,7 @@
 
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { MoodEntry } from '@/services/moodTrackingService';
+import { moodDeletionCache } from '@/services/moodDeletionCache';
 
 // =============================================================================
 // TYPES & INTERFACES
@@ -107,8 +108,27 @@ export class IntelligentMoodMergeService {
     });
 
     try {
+      // 0. DELETION AWARENESS - Filter out recently deleted entries
+      console.log('🗑️ Checking for recently deleted entries...');
+      const recentlyDeletedIds = await moodDeletionCache.getRecentlyDeletedIds(userId);
+      
+      const filteredLocal = localEntries.filter(entry => !recentlyDeletedIds.includes(entry.id));
+      const filteredRemote = remoteEntries.filter(entry => {
+        const isDeleted = recentlyDeletedIds.includes(entry.id);
+        if (isDeleted) {
+          console.log(`🗑️ Filtering out recently deleted entry from remote: ${entry.id}`);
+        }
+        return !isDeleted;
+      });
+      
+      if (recentlyDeletedIds.length > 0) {
+        console.log(`🗑️ Filtered out ${recentlyDeletedIds.length} recently deleted entries`);
+        console.log(`   Local: ${localEntries.length} → ${filteredLocal.length}`);
+        console.log(`   Remote: ${remoteEntries.length} → ${filteredRemote.length}`);
+      }
+
       // 1. DEDUPLICATION - Remove obvious duplicates first
-      const { dedupedLocal, dedupedRemote, duplicatesRemoved } = this.removeDuplicates(localEntries, remoteEntries);
+      const { dedupedLocal, dedupedRemote, duplicatesRemoved } = this.removeDuplicates(filteredLocal, filteredRemote);
 
       // 2. CONFLICT DETECTION - Find entries that need resolution
       const conflicts = this.detectConflicts(dedupedLocal, dedupedRemote);
