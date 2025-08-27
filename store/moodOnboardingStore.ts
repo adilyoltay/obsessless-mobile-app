@@ -33,6 +33,10 @@ interface MoodOnboardingState {
   
   finalizeFlags: () => void;
   complete: (userId: string) => Promise<{ success: boolean; criticalErrors: string[]; warnings: string[] }>;
+  
+  // Progressive AI insight methods
+  collectProgressiveInsights: () => Promise<Record<string, any>>;
+  cleanupProgressiveCache: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'onb_v1_payload';
@@ -56,12 +60,92 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     set((st) => ({ payload: { ...st.payload, motivation: m } }));
     // Auto-persist on change
     setTimeout(() => get().persistToStorage(), 100);
+    
+    // 🤖 Progressive AI Analysis: Analyze motivations for personalization
+    setTimeout(async () => {
+      try {
+        if (m && m.length > 0 && typeof window !== 'undefined') {
+          console.log('🎯 Progressive AI: Analyzing motivation patterns...');
+          
+          const aiResult = await pipeline.unifiedPipeline.process({
+            userId: 'temp_onboarding',
+            content: {
+              type: 'onboarding_motivation',
+              motivations: m,
+              context: 'user_goals_analysis'
+            },
+            type: 'data',
+            context: {
+              source: 'today',
+              metadata: {
+                isOnboardingStep: true,
+                progressiveAnalysis: true,
+                step: 'motivation'
+              }
+            }
+          });
+          
+          // Cache motivation insights
+          if (aiResult?.insights || aiResult?.patterns) {
+            await AsyncStorage.setItem('onboarding_motivation_insights', JSON.stringify({
+              insights: aiResult.insights || [],
+              patterns: aiResult.patterns || [],
+              personalizedGoals: (aiResult as any).personalizedGoals || [],
+              generatedAt: new Date().toISOString()
+            }));
+            console.log('✅ Progressive AI: Motivation insights cached');
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Progressive AI motivation analysis failed (non-blocking):', error);
+      }
+    }, 700);
   },
   
   setFirstMood: (score, tags) => {
     set((st) => ({ payload: { ...st.payload, first_mood: { score, tags, source: 'onboarding' } } }));
     // Auto-persist on change
     setTimeout(() => get().persistToStorage(), 100);
+    
+    // 🤖 Progressive AI Analysis: Generate baseline mood insights
+    setTimeout(async () => {
+      try {
+        const { payload } = get();
+        if (score && typeof window !== 'undefined') {
+          console.log('🎯 Progressive AI: Analyzing first mood data...');
+          
+          const aiResult = await pipeline.unifiedPipeline.process({
+            userId: 'temp_onboarding', // Will be updated with real userId on completion
+            content: {
+              type: 'onboarding_first_mood',
+              mood_score: score * 20, // 1-5 → 20-100 mapping
+              tags: tags || [],
+              context: 'initial_baseline'
+            },
+            type: 'data',
+            context: {
+              source: 'today',
+              metadata: {
+                isOnboardingStep: true,
+                progressiveAnalysis: true,
+                step: 'first_mood'
+              }
+            }
+          });
+          
+          // Cache early insights for completion phase
+          if (aiResult?.insights) {
+            await AsyncStorage.setItem('onboarding_mood_insights', JSON.stringify({
+              insights: aiResult.insights,
+              generatedAt: new Date().toISOString()
+            }));
+            console.log('✅ Progressive AI: First mood insights cached');
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Progressive AI analysis failed (non-blocking):', error);
+      }
+    }, 500);
   },
   
   setLifestyle: (data) => {
@@ -231,6 +315,42 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     console.log('🔄 Onboarding store reset');
   },
 
+  // Helper methods for progressive AI insights
+  collectProgressiveInsights: async () => {
+    const insights: Record<string, any> = {};
+    
+    try {
+      // Collect mood insights
+      const moodInsights = await AsyncStorage.getItem('onboarding_mood_insights');
+      if (moodInsights) {
+        insights.mood = JSON.parse(moodInsights);
+      }
+      
+      // Collect motivation insights  
+      const motivationInsights = await AsyncStorage.getItem('onboarding_motivation_insights');
+      if (motivationInsights) {
+        insights.motivation = JSON.parse(motivationInsights);
+      }
+      
+      return insights;
+    } catch (error) {
+      console.warn('⚠️ Failed to collect progressive insights:', error);
+      return {};
+    }
+  },
+
+  cleanupProgressiveCache: async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        'onboarding_mood_insights',
+        'onboarding_motivation_insights'
+      ]);
+      console.log('🧹 Progressive insight cache cleaned up');
+    } catch (error) {
+      console.warn('⚠️ Failed to cleanup progressive cache:', error);
+    }
+  },
+
   complete: async (userId: string): Promise<{ success: boolean; criticalErrors: string[]; warnings: string[] }> => {
     const { payload, startedAt } = get();
     const durationMs = Date.now() - startedAt;
@@ -293,10 +413,10 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       try {
         await moodTracker.saveMoodEntry({
           user_id: uidForKey,
-          mood_score: Math.max(1, Math.min(10, (payload.first_mood.score*2)+1)),
-          energy_level: 5,
-          anxiety_level: 5,
-          notes: 'İlk onboarding ruh hali kaydı',
+          mood_score: Math.max(10, Math.min(100, payload.first_mood.score * 20)), // 1-5 → 20-100 consistent mapping
+          energy_level: 50, // Default neutral energy
+          anxiety_level: 50, // Default neutral anxiety  
+          notes: 'İlk onboarding ruh hali kaydı - Baseline ölçüm',
           triggers: payload.first_mood.tags || [],
           activities: [],
         });
@@ -359,17 +479,23 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       }
     }
 
-    // ✅ STEP 7: NON-CRITICAL - AI Integration with UnifiedAIPipeline
+    // ✅ STEP 7: ENHANCED AI INTEGRATION - Merge Progressive Insights + Final Analysis
     try {
-      console.log('🤖 Generating AI profile from onboarding data...');
+      console.log('🤖 Generating comprehensive AI profile from onboarding data...');
       
+      // 1. Collect all progressive insights gathered during onboarding
+      const progressiveInsights = await get().collectProgressiveInsights();
+      console.log(`🔍 Collected ${Object.keys(progressiveInsights).length} progressive insight sets`);
+      
+      // 2. Run final comprehensive analysis with all data
       const aiResult = await pipeline.unifiedPipeline.process({
         userId: uidForKey,
         content: {
           type: 'onboarding_completion',
           payload,
           duration: durationMs,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
+          progressiveInsights // Include previously gathered insights
         },
         type: 'data',
         context: {
@@ -378,24 +504,64 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
           metadata: {
             isInitialProfile: true,
             generatePersonalization: true,
-            enableInsights: true
+            enableInsights: true,
+            enhancedAnalysis: true,
+            progressiveDataAvailable: Object.keys(progressiveInsights).length > 0
           }
         }
       });
 
-      // Cache AI result for immediate use
-      if (aiResult?.insights || aiResult?.patterns) {
+      // 3. Create comprehensive AI profile merging all insights
+      const insightsArray = Array.isArray(aiResult?.insights) ? aiResult.insights : [];
+      const patternsArray = Array.isArray(aiResult?.patterns) ? aiResult.patterns : [];
+      
+      const comprehensiveProfile = {
+        // Final analysis insights
+        insights: insightsArray,
+        patterns: patternsArray,
+        
+        // Progressive insights collected during onboarding
+        baseline: {
+          moodInsights: progressiveInsights.mood || [],
+          motivationAnalysis: progressiveInsights.motivation || [],
+          personalizedGoals: progressiveInsights.motivation?.personalizedGoals || []
+        },
+        
+        // Profile metadata
+        generatedAt: new Date().toISOString(),
+        source: 'onboarding_completion_enhanced',
+        profileVersion: '2.0',
+        dataPoints: {
+          motivations: payload.motivation?.length || 0,
+          firstMoodScore: payload.first_mood?.score,
+          lifestyleData: !!payload.lifestyle,
+          remindersEnabled: payload.reminders?.enabled || false
+        }
+      };
+
+      // 4. Cache comprehensive profile for immediate use
+      await AsyncStorage.setItem(
+        `ai_profile_${uidForKey}`,
+        JSON.stringify(comprehensiveProfile)
+      );
+      
+      // 5. Also cache as initial insights for Today page
+      if (comprehensiveProfile.insights.length > 0) {
         await AsyncStorage.setItem(
-          `ai_profile_${uidForKey}`,
+          `initial_insights_${uidForKey}`,
           JSON.stringify({
-            insights: aiResult.insights || [],
-            patterns: aiResult.patterns || [],
-            generatedAt: new Date().toISOString(),
-            source: 'onboarding_completion'
+            insights: comprehensiveProfile.insights,
+            fromOnboarding: true,
+            generatedAt: new Date().toISOString()
           })
         );
-        console.log('✅ AI insights generated and cached');
       }
+      
+      console.log('✅ Comprehensive AI profile generated and cached');
+      console.log(`📊 Profile stats: ${insightsArray.length} insights, ${patternsArray.length} patterns`);
+
+      // 6. Clean up temporary progressive caches
+      await get().cleanupProgressiveCache();
 
     } catch (error) {
       const warningMsg = 'AI profile generation failed (non-critical)';

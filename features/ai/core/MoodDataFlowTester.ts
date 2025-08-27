@@ -191,7 +191,23 @@ export class MoodDataFlowTester {
       if (data) {
         const entries = JSON.parse(data);
         if (Array.isArray(entries) && entries.length > 0) {
-          const entry = entries[0];
+          const rawEntry = entries[0];
+          
+          // Handle both v1 (plain) and v2 (encrypted) storage formats
+          let entry: any;
+          
+          if (rawEntry.storageVersion === 2 && rawEntry.metadata) {
+            // V2 Encrypted format: data is in metadata
+            entry = rawEntry.metadata;
+            console.log('🔍 Testing v2 encrypted storage format');
+          } else if (rawEntry.storageVersion === 1 || !rawEntry.storageVersion) {
+            // V1 Plain format: data is at root level
+            entry = rawEntry;
+            console.log('🔍 Testing v1 plain storage format');
+          } else {
+            console.log('❌ Unknown storage format version:', rawEntry.storageVersion);
+            return false;
+          }
           
           // Check required fields AI modules expect
           const requiredFields = ['user_id', 'mood_score', 'energy_level', 'anxiety_level', 'timestamp'];
@@ -199,9 +215,17 @@ export class MoodDataFlowTester {
           
           if (hasRequiredFields) {
             console.log('✅ Data format compatibility test passed');
+            console.log('📊 Entry format:', {
+              storageVersion: rawEntry.storageVersion || 1,
+              fields: Object.keys(entry),
+              hasAllRequired: requiredFields.map(field => ({ [field]: entry[field] !== undefined }))
+            });
             return true;
           } else {
-            console.log('❌ Missing required fields:', requiredFields.filter(f => entry[f] === undefined));
+            const missingFields = requiredFields.filter(f => entry[f] === undefined);
+            console.log('❌ Missing required fields:', missingFields);
+            console.log('📊 Available fields:', Object.keys(entry));
+            console.log('📊 Sample data:', entry);
             return false;
           }
         }

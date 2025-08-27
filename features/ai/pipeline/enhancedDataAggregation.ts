@@ -62,7 +62,7 @@ class EnhancedAIDataAggregationService {
       if (entries.length > 0) return entries;
     } catch {}
     
-    // Remote fallback - Use supabaseService.getMoodEntries instead of direct mood_tracking query
+    // Remote fallback - Use supabaseService.getMoodEntries (canonical mood_entries table)
     try {
       const remoteData = await supabaseService.getMoodEntries(userId, days);
       if (remoteData && remoteData.length > 0) {

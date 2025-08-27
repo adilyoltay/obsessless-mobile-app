@@ -33,9 +33,7 @@ import supabaseService from '@/services/supabase';
 import { offlineSyncService } from '@/services/offlineSync';
 import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
-import { MoodPatternAnalysisService } from '@/features/ai/services/moodPatternAnalysisService';
 import * as pipeline from '@/features/ai/pipeline';
-import { SmartMoodJournalingService } from '@/features/ai/services/smartMoodJournalingService';
 import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
 import { moodDataFlowTester } from '@/features/ai/core/MoodDataFlowTester';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -502,46 +500,61 @@ export default function MoodScreen() {
         fallbackTriggered: true
       }, user.id);
       
-      // 🔄 FALLBACK: Use existing MoodPatternAnalysisService as fallback
-      console.log('🔄 Falling back to MoodPatternAnalysisService...');
-      await runLegacyMoodAnalysis(entries);
+      // 🚀 FALLBACK: Use UnifiedAIPipeline as fallback
+      console.log('🚀 Falling back to UnifiedAIPipeline...');
+      await runUnifiedMoodAnalysis(entries);
     }
   };
 
   /**
-   * 🔄 FALLBACK: Legacy mood analysis using MoodPatternAnalysisService
+   * 🚀 UNIFIED FALLBACK: Use UnifiedAIPipeline for mood pattern analysis
+   * Replaces legacy MoodPatternAnalysisService with unified approach
    */
-  const runLegacyMoodAnalysis = async (entries: MoodEntry[]) => {
+  const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
     if (!user?.id) return;
     
     try {
-      const serviceEntries = entries.map(entry => ({
-        id: entry.id,
-        user_id: entry.user_id,
-        mood_score: entry.mood_score,
-        energy_level: entry.energy_level,
-        anxiety_level: entry.anxiety_level,
-        notes: entry.notes || '',
-        trigger: (entry as any).trigger || '',
-        created_at: entry.created_at,
-        timestamp: entry.created_at,
-        synced: true
-      }));
-
-      const patternService = MoodPatternAnalysisService.getInstance();
-      const deepPatterns = await patternService.analyzeMoodPatterns(
-        serviceEntries as any[],
-        user.id,
-        'full'
-      );
-
-      console.log('🔄 Fallback analysis completed:', deepPatterns);
+      console.log('🚀 Running unified mood analysis fallback...');
       
-      // Merge with existing heuristic patterns
-      const mergedPatterns = mergeHeuristicAndAIPatterns(moodPatterns, deepPatterns);
+      // Use UnifiedAIPipeline instead of legacy service
+      const result = await pipeline.process({
+        userId: user.id,
+        type: 'data',
+        content: { moods: entries },
+        context: {
+          source: 'mood',
+          timestamp: Date.now(),
+          metadata: {
+            dataType: 'mood_patterns',
+            fallbackMode: true,
+            entriesCount: entries.length
+          }
+        }
+      });
+
+      console.log('🔄 Unified fallback analysis completed:', result);
+      
+      // Extract patterns from unified result
+      const unifiedPatterns = result?.patterns || [];
+      
+      // Handle patterns array format properly
+      const patternsArray = Array.isArray(unifiedPatterns) ? unifiedPatterns : [];
+      
+      // Merge with existing heuristic patterns if any
+      const mergedPatterns = moodPatterns && moodPatterns.length > 0 
+        ? mergeHeuristicAndAIPatterns(moodPatterns, patternsArray)
+        : patternsArray;
+        
       setMoodPatterns(mergedPatterns);
+      
+      // Also update insights if available (insights are managed in parent component)
+      if (result?.insights) {
+        const formattedInsights = Array.isArray(result.insights) ? result.insights : [];
+        console.log(`📊 Generated ${formattedInsights.length} insights from unified analysis`);
+      }
+      
     } catch (fallbackError) {
-      console.error('❌ Fallback mood analysis also failed:', fallbackError);
+      console.error('❌ Unified fallback analysis also failed:', fallbackError);
       // Keep existing heuristic patterns as final fallback
     }
   };
@@ -580,8 +593,8 @@ export default function MoodScreen() {
         if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
           await loadMoodAIWithUnifiedPipeline(moodEntries);
         } else {
-          // Legacy mode: Use MoodPatternAnalysisService
-          await runLegacyMoodAnalysis(serviceEntries);
+          // Unified mode: Use UnifiedAIPipeline
+          await runUnifiedMoodAnalysis(moodEntries);
         }
       }
 
@@ -942,7 +955,7 @@ export default function MoodScreen() {
     if (!user?.id) return;
 
     try {
-      // 🔄 FIXED: Use moodTracker for consistent table handling (mood_tracking + intelligent merge)
+      // 🔄 FIXED: Use moodTracker for consistent table handling (mood_entries canonical table)
       const moodEntry = {
         user_id: user.id,
         mood_score: data.mood,
@@ -954,23 +967,43 @@ export default function MoodScreen() {
         sync_attempts: 0
       };
 
-      // 📝 SMART MOOD JOURNALING ANALYSIS
+      // 🚀 UNIFIED MOOD JOURNALING ANALYSIS
       let journalAnalysis = null;
       if (data.notes && data.notes.trim().length > 10) {
         try {
-          console.log('📝 Analyzing mood journal entry...');
-          const journalingService = new SmartMoodJournalingService();
-          journalAnalysis = await journalingService.analyzeJournalEntry(
-            user.id,
-            data.notes,
-            {
-              existingMoodScore: data.mood,
-              timestamp: new Date()
+          console.log('🚀 Analyzing mood journal entry with UnifiedAIPipeline...');
+          
+          const analysisResult = await pipeline.process({
+            userId: user.id,
+            type: 'voice', // Journal notes treated as voice input for sentiment analysis
+            content: data.notes,
+            context: {
+              source: 'mood',
+              timestamp: Date.now(),
+              metadata: {
+                existingMoodScore: data.mood,
+                energyLevel: data.energy,
+                anxietyLevel: data.anxiety,
+                trigger: data.trigger,
+                dataType: 'mood_journal_analysis',
+                contextualAnalysis: true
+              }
             }
-          );
-          console.log('📊 Journal analysis completed:', journalAnalysis);
+          });
+          
+          // Format analysis result for compatibility
+          journalAnalysis = {
+            sentiment: (analysisResult as any)?.voice?.sentiment || 'neutral',
+            emotions: (analysisResult as any)?.voice?.emotions || [],
+            triggers: (analysisResult as any)?.voice?.triggers || [],
+            insights: analysisResult?.insights || [],
+            confidence: (analysisResult as any)?.voice?.confidence || 0.5,
+            suggestion: (analysisResult as any)?.suggestion || 'Mood kaydınız başarıyla analiz edildi'
+          };
+          
+          console.log('📊 Unified journal analysis completed:', journalAnalysis);
         } catch (analysisError) {
-          console.error('⚠️ Journal analysis failed:', analysisError);
+          console.error('⚠️ Unified journal analysis failed:', analysisError);
           // Continue with entry save even if analysis fails
         }
       }

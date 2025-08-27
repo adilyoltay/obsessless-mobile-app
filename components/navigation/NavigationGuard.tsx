@@ -51,10 +51,23 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
         const aiKey = `ai_onboarding_completed_${user.id}`;
         let localOnb = await AsyncStorage.getItem(aiKey);
         let aiCompleted = localOnb === 'true';
+        
+        // 🐛 DEBUG: Log current onboarding status for troubleshooting
+        console.log('🔍 NavigationGuard onboarding check:', {
+          userId: user.id,
+          currentPath,
+          aiKey,
+          localOnb,
+          aiCompleted,
+          inOnboardingRoute
+        });
+        
         if (!aiCompleted) {
           // Fallback to generic key (pre-auth completion)
           const generic = await AsyncStorage.getItem('ai_onboarding_completed');
           aiCompleted = generic === 'true';
+          console.log('🔄 Fallback check - generic key:', { generic, aiCompleted });
+          
           // Migrate to user-specific for future checks
           if (aiCompleted) {
             try { await AsyncStorage.setItem(aiKey, 'true'); } catch {}
@@ -62,12 +75,15 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
         }
 
         if (!aiCompleted) {
+          console.log('❌ Onboarding NOT completed - redirecting to onboarding');
           if (!inOnboardingRoute) {
             hasNavigatedRef.current = true;
             router.replace('/(auth)/onboarding');
           }
           return;
         }
+        
+        console.log('✅ Onboarding completed - allowing normal navigation');
 
         // If completed, allow tabs; if currently in auth, go to tabs
         if (inAuthGroup) {

@@ -7,22 +7,22 @@
  * - Predictable patterns (time-based component)
  * - Not cryptographically secure
  * 
- * ✅ SOLUTION: UUID v4 (RFC 4122) with crypto-secure randomness
+ * ✅ SOLUTION: UUID v4 (RFC 4122) with expo-crypto randomness
  * - 2^122 possible values (collision probability ~0)
- * - Cryptographically secure random generation
+ * - React Native compatible (no polyfill needed)
  * - Industry standard for unique identifiers
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 
 /**
  * 🔐 Generate cryptographically secure UUID v4
- * Replaces all Date.now() + Math.random() patterns
+ * Uses expo-crypto for React Native compatibility (no polyfill needed)
  * 
  * @returns UUID v4 string (e.g., "550e8400-e29b-41d4-a716-446655440000")
  */
 export function generateSecureId(): string {
-  return uuidv4();
+  return Crypto.randomUUID();
 }
 
 /**
@@ -33,7 +33,7 @@ export function generateSecureId(): string {
  * @returns Prefixed UUID (e.g., "mood_550e8400-e29b-41d4-a716-446655440000")
  */
 export function generatePrefixedId(prefix: string): string {
-  return `${prefix}_${uuidv4()}`;
+  return `${prefix}_${Crypto.randomUUID()}`;
 }
 
 /**
@@ -45,7 +45,7 @@ export function generatePrefixedId(prefix: string): string {
  * @returns Short secure ID (e.g., "op_550e8400e29b")
  */
 export function generateShortSecureId(prefix?: string): string {
-  const shortId = uuidv4().replace(/-/g, '').substring(0, 12);
+  const shortId = Crypto.randomUUID().replace(/-/g, '').substring(0, 12);
   return prefix ? `${prefix}_${shortId}` : shortId;
 }
 
@@ -59,12 +59,13 @@ export function generateShortSecureId(prefix?: string): string {
  * - Predictability: High (timestamp visible)
  * - Entropy: ~52 bits
  * 
- * NEW (SECURE):
- * UUID v4: "550e8400-e29b-41d4-a716-446655440000"  
+ * NEW (SECURE + REACT NATIVE COMPATIBLE):
+ * expo-crypto UUID: "550e8400-e29b-41d4-a716-446655440000"  
  * - Format: Standard RFC 4122
- * - Collision risk: Negligible (2^122 space)
+ * - Collision risk: Negligible (2^122 space)  
  * - Predictability: None (crypto-secure random)
  * - Entropy: 122 bits
+ * - React Native: Native support (no polyfill)
  * 
  * SECURITY IMPROVEMENT: ~2^70 times more secure
  */
