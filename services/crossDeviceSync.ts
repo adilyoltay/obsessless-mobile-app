@@ -94,7 +94,13 @@ class CrossDeviceSyncService {
     };
 
     try {
-      console.log('🔄 Starting cross-device sync...');
+      // 🔇 THROTTLE: Only log sync starts once per minute to reduce spam
+      const lastSyncLogTime = (global as any).__lastSyncLogTime || 0;
+      const now = Date.now();
+      if (now - lastSyncLogTime > 60000) { // 1 minute
+        console.log('🔄 Starting cross-device sync...');
+        (global as any).__lastSyncLogTime = now;
+      }
       
       const netInfo = await NetInfo.fetch();
       if (!netInfo.isConnected) {
@@ -104,7 +110,13 @@ class CrossDeviceSyncService {
 
       const currentUser = supabaseService.getCurrentUser();
       if (!currentUser) {
-        console.log('👤 No user logged in');
+        // 🔇 THROTTLE: Only log "no user" once per 2 minutes
+        const lastNoUserLogTime = (global as any).__lastNoUserLogTime || 0;
+        const now = Date.now();
+        if (now - lastNoUserLogTime > 120000) { // 2 minutes
+          console.log('👤 No user logged in');
+          (global as any).__lastNoUserLogTime = now;
+        }
         return result;
       }
 

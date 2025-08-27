@@ -182,9 +182,15 @@ export const FEATURE_FLAGS = {
     // Kullanım sayacı
     featureUsageLog[feature] = (featureUsageLog[feature] || 0) + 1;
     
-    // Geliştirme modunda log
+    // Geliştirme modunda log (throttled)
     if (__DEV__) {
-      console.log(`🏳️ Feature Flag Check: ${feature} = ${featureFlagState[feature]}`);
+      // 🔇 THROTTLE: Only log first 3 calls per feature to reduce console spam
+      const logKey = `__flag_logged_${feature}`;
+      const logCount = (global as any)[logKey] || 0;
+      if (logCount < 3) {
+        console.log(`🏳️ Feature Flag Check: ${feature} = ${featureFlagState[feature]}`);
+        (global as any)[logKey] = logCount + 1;
+      }
     }
     
     // Master AI switch kontrolü

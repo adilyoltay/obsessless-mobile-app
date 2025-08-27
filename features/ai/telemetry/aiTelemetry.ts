@@ -557,8 +557,16 @@ class AITelemetryManager {
         }
       } catch {}
 
-      // Debug log (sadece development)
-      if (__DEV__) console.log(`📊 AI Telemetry: ${eventType}`, JSON.stringify(metadata));
+      // Debug log (sadece development) - throttled
+      if (__DEV__) {
+        // 🔇 THROTTLE: Only log first 2 calls per event type to reduce spam
+        const logKey = `__telemetry_logged_${eventType}`;
+        const logCount = (global as any)[logKey] || 0;
+        if (logCount < 2) {
+          console.log(`📊 AI Telemetry: ${eventType}`, JSON.stringify(metadata));
+          (global as any)[logKey] = logCount + 1;
+        }
+      }
 
       // Debug listener'ları bilgilendir (sadece development)
       notifyTelemetryDebugListeners(event);
@@ -853,7 +861,15 @@ class AITelemetryManager {
         if (__DEV__) console.warn('📊 Telemetry bulk persist failed (will remain in offline storage):', persistErr);
       }
 
-      if (__DEV__) console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
+      // 🔇 THROTTLE: Only log flush operations once per minute
+      if (__DEV__) {
+        const lastFlushLogTime = (global as any).__lastFlushLogTime || 0;
+        const now = Date.now();
+        if (now - lastFlushLogTime > 60000) { // 1 minute
+          console.log(`📊 Flushed ${this.eventBuffer.length} telemetry events`);
+          (global as any).__lastFlushLogTime = now;
+        }
+      }
 
       // Buffer'ı temizle
       this.eventBuffer = [];

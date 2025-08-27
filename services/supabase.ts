@@ -1325,7 +1325,14 @@ class SupabaseNativeService {
   
   async getMoodEntries(userId: string, days: number = 7): Promise<any[]> {
     try {
-      console.log('🔍 Fetching mood entries...', { userId, days });
+      // 🔇 THROTTLE: Only log mood fetches once per 30 seconds per user
+      const logKey = `__mood_fetch_logged_${userId}`;
+      const lastLogTime = (global as any)[logKey] || 0;
+      const now = Date.now();
+      if (now - lastLogTime > 30000) { // 30 seconds
+        console.log('🔍 Fetching mood entries...', { userId, days });
+        (global as any)[logKey] = now;
+      }
       
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
