@@ -103,9 +103,9 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
   // KALDIRILDI: AI_CRISIS_DETECTION
   
-    // 🚀 CoreAnalysisService v1 flags
-  // CoreAnalysisService sadece Unified Pipeline kapalıysa etkinleştirilmeli
-  AI_CORE_ANALYSIS: false, // Deprecated as standalone - use Unified Pipeline facade
+    // 🚀 Legacy AI flags (deprecated/cleanup)
+  AI_CORE_ANALYSIS: false, // ❌ REMOVED - CoreAnalysisService deleted (use UnifiedAIPipeline)
+  AI_BATCH_JOBS: true, // Daily AI batch processing (independent service)
   AI_LLM_GATING: true, // LLM gating logic (ACTIVATED)
   AI_PROGRESSIVE: true, // Progressive UI updates (ACTIVATED)
   AI_ONBOARDING_REFINE: true, // Onboarding skeleton->refine (ACTIVATED)

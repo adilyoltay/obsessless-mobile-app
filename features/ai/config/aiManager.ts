@@ -102,22 +102,16 @@ export class AIManager {
       console.log('🚀 UnifiedAIPipeline is ACTIVE - Legacy overlapping services will be skipped');
     }
 
-    // Phase 0: CoreAnalysisService (only when Unified Pipeline is disabled)
-    if (FEATURE_FLAGS.isEnabled('AI_CORE_ANALYSIS') && !FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+    // ✅ REMOVED: CoreAnalysisService (legacy) - Using UnifiedAIPipeline only
+    // Initialize batch jobs independently (no longer tied to CoreAnalysisService)
+    if (FEATURE_FLAGS.isEnabled('AI_BATCH_JOBS')) {
       try {
-        const { coreAnalysisService } = await import('@/features/ai/core/CoreAnalysisService');
-        await coreAnalysisService.initialize();
-        console.log('✅ CoreAnalysisService initialized');
-        this.healthStatus.set('coreAnalysis', true);
-        
-        // Initialize batch jobs if enabled
         const { dailyJobsManager } = await import('@/features/ai/batch/dailyJobs');
         await dailyJobsManager.initialize();
         console.log('✅ Daily batch jobs initialized');
         this.healthStatus.set('batchJobs', true);
       } catch (error) {
-        console.warn('⚠️ CoreAnalysisService/BatchJobs initialization failed:', error);
-        this.healthStatus.set('coreAnalysis', false);
+        console.warn('⚠️ Daily batch jobs initialization failed:', error);
         this.healthStatus.set('batchJobs', false);
       }
     }
