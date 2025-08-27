@@ -45,7 +45,7 @@ export class TelemetryWrapper {
     try {
       // Track start event
       if (eventType || context?.module) {
-        await this.trackEvent(
+        await this.trackEventInternal(
           eventType || AIEventType.UNIFIED_PIPELINE_STARTED,
           {
             ...context?.metadata,
@@ -104,7 +104,7 @@ export class TelemetryWrapper {
       const duration = Date.now() - startTime;
       
       // Fire and forget telemetry
-      this.trackEvent(
+      this.trackEventInternal(
         AIEventType.UNIFIED_PIPELINE_COMPLETED,
         {
           ...context?.metadata,
@@ -121,7 +121,7 @@ export class TelemetryWrapper {
       const duration = Date.now() - startTime;
       
       // Fire and forget error telemetry
-      this.trackEvent(
+      this.trackEventInternal(
         AIEventType.UNIFIED_PIPELINE_ERROR,
         {
           ...context?.metadata,
@@ -152,7 +152,7 @@ export class TelemetryWrapper {
     const results: OperationResult<T>[] = [];
     
     // Track batch start
-    await this.trackEvent(
+    await this.trackEventInternal(
       AIEventType.BATCH_OPERATION_STARTED,
       {
         batchId,
@@ -186,7 +186,7 @@ export class TelemetryWrapper {
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
     
-    await this.trackEvent(
+    await this.trackEventInternal(
       AIEventType.BATCH_OPERATION_COMPLETED,
       {
         batchId,
@@ -259,7 +259,7 @@ export class TelemetryWrapper {
     },
     userId?: string
   ): Promise<void> {
-    await this.trackEvent(
+    await this.trackEventInternal(
       AIEventType.PERFORMANCE_METRIC,
       {
         operation,
@@ -278,7 +278,7 @@ export class TelemetryWrapper {
     context?: Record<string, any>,
     userId?: string
   ): Promise<void> {
-    await this.trackEvent(
+    await this.trackEventInternal(
       AIEventType.WARNING,
       {
         message,
@@ -328,7 +328,7 @@ export class TelemetryWrapper {
     eventType: AIEventType,
     context?: TelemetryContext
   ): Promise<void> {
-    await this.trackEvent(
+    await this.trackEventInternal(
       eventType,
       {
         ...context?.metadata,
@@ -351,7 +351,7 @@ export class TelemetryWrapper {
     eventType: AIEventType,
     context?: TelemetryContext
   ): Promise<void> {
-    await this.trackEvent(
+    await this.trackEventInternal(
       eventType,
       {
         ...context?.metadata,
@@ -367,9 +367,20 @@ export class TelemetryWrapper {
   }
   
   /**
+   * Public: Track a simple event (for UnifiedAIPipeline compatibility)
+   */
+  async trackEvent(
+    eventType: AIEventType,
+    data: Record<string, any>
+  ): Promise<void> {
+    const userId = data.userId || data.user_id;
+    return this.trackEventInternal(eventType, data, userId);
+  }
+
+  /**
    * Private: Core track event method
    */
-  private async trackEvent(
+  private async trackEventInternal(
     eventType: AIEventType,
     data: Record<string, any>,
     userId?: string

@@ -46,6 +46,9 @@ export class PipelineCacheManager {
     ['breathwork', { ttl: 7200, keyPrefix: 'ai:breath:', strategy: 'lru' }],
   ]);
   
+  // Cache storage
+  private readonly caches: Map<string, Map<string, CacheEntry<any>>> = new Map();
+  
   // Cache statistics
   private stats: CacheStats = {
     hits: 0,
@@ -1074,6 +1077,83 @@ export class PipelineCacheManager {
       console.error('❌ Cache cleanup failed:', error);
       return { invalidated: invalidatedCount, reason: 'cleanup_failed' };
     }
+  }
+  
+  /**
+   * Clear all cache
+   */
+  async clear(): Promise<number> {
+    let clearedCount = 0;
+    
+    // Clear memory cache
+    for (const [type, cache] of this.caches.entries()) {
+      clearedCount += cache.size;
+      cache.clear();
+    }
+    
+    // Clear AsyncStorage cache
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const cacheKeys = allKeys.filter(key => 
+        key.startsWith('ai:') || key.startsWith('unified:')
+      );
+      
+      await AsyncStorage.multiRemove(cacheKeys);
+      clearedCount += cacheKeys.length;
+      
+    } catch (error) {
+      console.warn('AsyncStorage cache clear failed:', error);
+    }
+    
+    console.log(`🗑️ Cleared ${clearedCount} cache entries`);
+    return clearedCount;
+  }
+  
+  /**
+   * Periodic cache cleanup
+   */
+  async cleanup(): Promise<void> {
+    let cleanedCount = 0;
+    
+    // Clean expired entries from memory cache
+    for (const [type, cache] of this.caches.entries()) {
+      const config = this.getConfig(type);
+      const now = Date.now();
+      
+      for (const [key, entry] of cache.entries()) {
+        if (now > entry.timestamp + (config.ttl * 1000)) {
+          cache.delete(key);
+          cleanedCount++;
+        }
+      }
+    }
+    
+    // Clean expired AsyncStorage entries
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const unifiedKeys = allKeys.filter(key => key.startsWith('unified:'));
+      
+      for (const key of unifiedKeys) {
+        try {
+          const stored = await AsyncStorage.getItem(key);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.expires && parsed.expires < Date.now()) {
+              await AsyncStorage.removeItem(key);
+              cleanedCount++;
+            }
+          }
+        } catch (error) {
+          // Remove corrupted entries
+          await AsyncStorage.removeItem(key);
+          cleanedCount++;
+        }
+      }
+    } catch (error) {
+      console.warn('AsyncStorage cleanup failed:', error);
+    }
+    
+    console.log(`🧹 Cleaned ${cleanedCount} expired cache entries`);
   }
   
   /**

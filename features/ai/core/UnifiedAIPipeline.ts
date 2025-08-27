@@ -23,7 +23,7 @@
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
+import { AIEventType } from '../telemetry/aiTelemetry';
 import supabaseService from '@/services/supabase';
 import { smartMoodJournalingService } from '../services/smartMoodJournalingService';
 
@@ -211,7 +211,6 @@ export interface UnifiedPipelineResult {
 
 export class UnifiedAIPipeline {
   private static instance: UnifiedAIPipeline;
-  private cache: Map<string, { result: UnifiedPipelineResult; expires: number }> = new Map();
   
   // Helper instances for optimization
   private readonly confidenceCalculator = getConfidenceCalculator();
@@ -235,6 +234,7 @@ export class UnifiedAIPipeline {
   };
   
   private invalidationHooks: Map<string, (userId?: string) => void> = new Map();
+  private cleanupTimer?: NodeJS.Timeout;
   
   private constructor() {
     this.setupInvalidationHooks();
@@ -285,7 +285,7 @@ export class UnifiedAIPipeline {
       console.log('⚠️ UnifiedAIPipeline: Feature disabled, returning empty result');
       
       // Track disabled pipeline attempt
-      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_DISABLED, {
+      await this.telemetryWrapper.trackEvent(AIEventType.UNIFIED_PIPELINE_DISABLED, {
         userId: input.userId,
         inputType: input.type,
         pipeline: 'unified',
@@ -308,7 +308,7 @@ export class UnifiedAIPipeline {
     const cacheKey = this.generateCacheKey(input);
     
     // 📊 Track pipeline start
-    await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_STARTED, {
+    await this.telemetryWrapper.trackEvent(AIEventType.UNIFIED_PIPELINE_STARTED, {
       userId: input.userId,
       inputType: input.type,
       pipeline: 'unified',
@@ -319,7 +319,7 @@ export class UnifiedAIPipeline {
     // 1. Check cache first
     const cached = await this.getFromCache(cacheKey);
     if (cached) {
-      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
+      await this.telemetryWrapper.trackEvent(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
         userId: input.userId,
         pipeline: 'unified',
         cacheKey,
@@ -570,7 +570,7 @@ export class UnifiedAIPipeline {
             
             // 📊 Telemetry: Track mood analytics computation
             try {
-              trackAIInteraction(AIEventType.MOOD_ANALYTICS_COMPUTED, {
+              this.telemetryWrapper.trackEvent(AIEventType.MOOD_ANALYTICS_COMPUTED, {
                 weeklyDelta: moodAnalytics.weeklyDelta,
                 volatility: moodAnalytics.volatility,
                 profile: moodAnalytics.profile?.type,
@@ -1123,7 +1123,7 @@ export class UnifiedAIPipeline {
         
         // 📊 Track voice insights application
         try {
-          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          await this.telemetryWrapper.trackEvent(AIEventType.INSIGHTS_DELIVERED, {
             userId: input.userId,
             source: 'voice_enhanced_insights',
             insightsHintsApplied: true,
@@ -1199,7 +1199,7 @@ export class UnifiedAIPipeline {
         insights.progress.push(...fallbackInsights.progress);
         
         // Track fallback usage for monitoring
-        trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        this.telemetryWrapper.trackEvent(AIEventType.INSIGHTS_DELIVERED, {
           userId: input.userId,
           source: 'fallback',
           reason: 'no_primary_insights',
@@ -2271,8 +2271,8 @@ export class UnifiedAIPipeline {
     });
     
     // Hook: Manual refresh requested
-    this.invalidationHooks.set('manual_refresh', () => {
-      this.cache.clear();
+    this.invalidationHooks.set('manual_refresh', async () => {
+      await this.cacheManager.clear();
     });
     
     // REMOVED: therapy_completed - ERP module deleted
@@ -2296,7 +2296,7 @@ export class UnifiedAIPipeline {
     }
     
     // Track invalidation
-    await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
+    await this.telemetryWrapper.trackEvent(AIEventType.CACHE_INVALIDATION, {
       hook,
       userId,
       timestamp: Date.now()
@@ -2304,46 +2304,12 @@ export class UnifiedAIPipeline {
   }
   
   private async invalidateUserCache(type: 'patterns' | 'insights' | 'progress' | 'voice' | 'all', userId?: string): Promise<void> {
-    const keysToDelete: string[] = [];
+    // Delegate to PipelineCacheManager for cache invalidation
+    const deletedCount = userId ? 
+      await this.cacheManager.invalidateUserCache(userId, type) : 
+      await this.cacheManager.clear();
     
-    this.cache.forEach((_, key) => {
-      // For unified pipeline cache keys, we need to match user and invalidate based on type
-      if (userId && !key.includes(userId)) return;
-      
-      // Since unified pipeline cache keys are "unified:userId:hash", we need to invalidate differently
-      if (type === 'all') {
-        // Invalidate all unified pipeline keys for this user
-        if (key.startsWith('unified:')) {
-          keysToDelete.push(key);
-        }
-      } else {
-        // For specific types, invalidate all unified keys (since they contain mixed data)
-        // This ensures any cache that might contain the changed data type is cleared
-        if (key.startsWith('unified:')) {
-          keysToDelete.push(key);
-        }
-      }
-    });
-    
-    const deletedCount = keysToDelete.length;
-    keysToDelete.forEach(key => this.cache.delete(key));
-    
-    // 📊 CRITICAL FIX: Track cache invalidation telemetry
-    if (deletedCount > 0) {
-      await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
-        userId: userId || 'unknown',
-        invalidationType: type,
-        keysDeleted: deletedCount,
-        cacheKeys: keysToDelete.slice(0, 3), // First 3 keys for debugging
-        timestamp: Date.now()
-      });
-      
-      console.log(`🗑️ Cache invalidated: ${type} (${deletedCount} keys deleted)`);
-    }
-    
-    // Also invalidate Supabase cache
-    const normalizedType = (type === 'patterns' || type === 'insights' || type === 'all') ? type : 'all';
-    await this.invalidateSupabaseCache(normalizedType, userId);
+    console.log(`🗑️ Cache invalidated: ${type} (${deletedCount} keys deleted)`);
   }
   
   /**
@@ -2374,23 +2340,36 @@ export class UnifiedAIPipeline {
   // ============================================================================
   
   private startCacheCleanup(): void {
-    // Run cleanup every hour
-    setInterval(() => {
-      const now = Date.now();
-      const keysToDelete: string[] = [];
-      
-      this.cache.forEach((value, key) => {
-        if (value.expires < now) {
-          keysToDelete.push(key);
-        }
-      });
-      
-      keysToDelete.forEach(key => this.cache.delete(key));
-      
-      if (keysToDelete.length > 0) {
-        console.log(`🧹 Cleaned ${keysToDelete.length} expired cache entries`);
+    // Clear existing timer if any
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+    
+    // Run cleanup every hour with proper cleanup
+    this.cleanupTimer = setInterval(async () => {
+      try {
+        await this.cacheManager.cleanup();
+        console.log('🧹 Automated cache cleanup completed');
+      } catch (error) {
+        console.warn('⚠️ Cache cleanup failed:', error);
       }
     }, 60 * 60 * 1000); // 1 hour
+  }
+  
+  /**
+   * Cleanup method to prevent memory leaks
+   */
+  public cleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
+    }
+    
+    // Clear cache through manager
+    this.cacheManager.clear();
+    this.invalidationHooks.clear();
+    
+    console.log('🧹 UnifiedAIPipeline cleanup completed');
   }
 
   // ============================================================================
@@ -2434,7 +2413,7 @@ export class UnifiedAIPipeline {
     const startTime = Date.now();
     
     // Track intervention analysis start
-    await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+    await this.telemetryWrapper.trackEvent(AIEventType.INSIGHTS_REQUESTED, {
       userId,
       dataType: 'predictive_mood_intervention',
       entryCount: recentMoodEntries.length,
@@ -2469,7 +2448,7 @@ export class UnifiedAIPipeline {
       };
 
       // Track successful intervention analysis
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+      await this.telemetryWrapper.trackEvent(AIEventType.INSIGHTS_DELIVERED, {
         userId,
         source: 'predictive_mood_intervention',
         insightsCount: interventions.length,
@@ -2484,7 +2463,7 @@ export class UnifiedAIPipeline {
     } catch (error) {
       console.error('❌ Predictive mood intervention failed:', error);
       
-      await trackAIInteraction(AIEventType.SYSTEM_ERROR, {
+      await this.telemetryWrapper.trackEvent(AIEventType.SYSTEM_ERROR, {
         userId,
         component: 'predictiveMoodIntervention',
         error: error instanceof Error ? error.message : String(error),
@@ -4569,11 +4548,11 @@ export class UnifiedAIPipeline {
         },
         
         metadata: {
+          pipelineVersion: '2.0.0',
           source: 'fresh' as const,
           processedAt: Date.now(),
           cacheTTL: 5 * 60 * 1000, // 5 min for quick results
-          processingTime: 0, // Quick should be <100ms
-          isProgressive: true
+          processingTime: 0 // Quick should be <100ms
         }
       };
       
@@ -4584,11 +4563,11 @@ export class UnifiedAIPipeline {
       // Fallback to minimal result
       return {
         metadata: {
+          pipelineVersion: '2.0.0',
           source: 'fresh' as const,
           processedAt: Date.now(),
           cacheTTL: 5 * 60 * 1000,
-          processingTime: 0,
-          isProgressive: true
+          processingTime: 0
         }
       };
     }
@@ -4620,21 +4599,16 @@ export class UnifiedAIPipeline {
         },
         
         // Add pattern information if available
-        patterns: deepResult.patterns ? {
-          behavioral: deepResult.patterns.filter((p: any) => p.pattern?.category === 'behavioral') || [],
-          temporal: [],
-          metadata: {
-            confidence: deepResult.confidence,
-            dataPoints: deepResult.patterns.length
-          }
-        } : undefined,
+        patterns: deepResult.patterns ? deepResult.patterns.filter((p: any) => 
+          p.pattern?.category === 'behavioral' || p.pattern?.category === 'temporal'
+        ) : undefined,
         
         metadata: {
+          pipelineVersion: '2.0.0',
           source: 'fresh' as const,
           processedAt: Date.now(),
           cacheTTL: this.cacheManager.getModuleTTL(input),
-          processingTime: 0, // Will be updated by telemetry
-          isProgressive: true
+          processingTime: 0 // Will be updated by telemetry
         }
       };
       
