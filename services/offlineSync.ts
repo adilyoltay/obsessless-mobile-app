@@ -11,6 +11,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 import { isUUID } from '@/utils/validators';
 import { generateSecureId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
+import { secureDataService } from '@/services/encryption/secureDataService';
 
 export interface SyncQueueItem {
   id: string;
@@ -80,6 +81,7 @@ export class OfflineSyncService {
     });
   }
 
+  // 🔐 PRIVACY-FIRST: Load encrypted sync queue
   private async loadSyncQueue(): Promise<void> {
     try {
       let currentUserId = await AsyncStorage.getItem('currentUserId');
@@ -89,15 +91,27 @@ export class OfflineSyncService {
         if (uid && typeof uid === 'string') currentUserId = uid;
       } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
-      const queueData = await AsyncStorage.getItem(queueKey);
-      if (queueData) {
-        this.syncQueue = JSON.parse(queueData);
+      const encryptedQueueData = await AsyncStorage.getItem(queueKey);
+      
+      if (encryptedQueueData) {
+        try {
+          // 🔓 Decrypt the queue data before parsing
+          const encryptedObj = JSON.parse(encryptedQueueData);
+          const decryptedData = await secureDataService.decryptData(encryptedObj);
+          this.syncQueue = Array.isArray(decryptedData) ? decryptedData : [];
+          console.log('🔓 Sync queue decrypted and loaded successfully');
+        } catch (decryptError) {
+          console.warn('⚠️ Failed to decrypt sync queue, starting with empty queue:', decryptError);
+          this.syncQueue = [];
+        }
       }
     } catch (error) {
-      console.error('Error loading sync queue:', error);
+      console.error('❌ Error loading sync queue:', error);
+      this.syncQueue = [];
     }
   }
 
+  // 🔐 PRIVACY-FIRST: Save encrypted sync queue  
   private async saveSyncQueue(): Promise<void> {
     try {
       let currentUserId = await AsyncStorage.getItem('currentUserId');
@@ -107,9 +121,23 @@ export class OfflineSyncService {
         if (uid && typeof uid === 'string') currentUserId = uid;
       } catch {}
       const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
-      await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
+      
+      // 🔒 Encrypt the queue before storing
+      const encryptedQueueData = await secureDataService.encryptData(this.syncQueue);
+      await AsyncStorage.setItem(queueKey, JSON.stringify(encryptedQueueData));
+      console.log('🔒 Sync queue encrypted and saved successfully');
     } catch (error) {
-      console.error('Error saving sync queue:', error);
+      console.error('❌ Error saving encrypted sync queue:', error);
+      
+      // 🚨 Critical fallback: Try to save unencrypted as last resort
+      try {
+        let fallbackUserId = await AsyncStorage.getItem('currentUserId');
+        const queueKey = `syncQueue_fallback_${safeStorageKey(fallbackUserId as any)}`;
+        await AsyncStorage.setItem(queueKey, JSON.stringify(this.syncQueue));
+        console.warn('⚠️ Fallback: Saved sync queue unencrypted due to encryption failure');
+      } catch (fallbackError) {
+        console.error('❌ Even fallback save failed:', fallbackError);
+      }
     }
   }
 
@@ -320,11 +348,12 @@ export class OfflineSyncService {
       } catch {}
     }
 
-    // 📊 Telemetry: queued for offline delete
+    // 📊 Telemetry: queued for offline delete (with feature flag check)
     try {
       if (syncItem.type === 'DELETE') {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await safeTrackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
           entity: syncItem.entity,
           id: syncItem.data?.id,
           userId: syncItem.data?.user_id || syncItem.data?.userId
@@ -397,10 +426,11 @@ export class OfflineSyncService {
             this.updateMetrics(true, latencyMs);
             // Remove from queue if successful
             this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
-            // Telemetry (non-blocking)
+            // Telemetry (non-blocking) with feature flag check
             try {
-              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-              await trackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
+              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await safeTrackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
             } catch {}
           } catch (error) {
             // ✅ NEW: Update performance metrics for failed sync
@@ -467,11 +497,12 @@ export class OfflineSyncService {
           const avgResponseMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
           await performanceMetricsService.recordToday({ sync: { successRate, avgResponseMs } });
         } catch {}
-        // Telemetry aggregation (avg latency)
+        // Telemetry aggregation (avg latency) with feature flag check
         try {
-          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
           const avgLatencyMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
-          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'sync_batch_completed',
             attempted,
             succeeded,
@@ -694,14 +725,16 @@ export class OfflineSyncService {
             await (svc as any).deleteVoiceCheckin(item.data.id);
             console.log('✅ Voice checkin deleted successfully:', item.data.id);
             try {
-              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-              await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
+              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
             } catch {}
           } catch (error) {
             console.warn('⚠️ Voice checkin deletion failed:', error);
             try {
-              const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-              await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
+              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
             } catch {}
             throw error; // Let it retry via DLQ
           }
@@ -1080,11 +1113,89 @@ export class OfflineSyncService {
     } catch (error) {
       console.error('❌ Failed to handle queue overflow:', error);
       
-      // Fallback: Just drop oldest items (data loss risk but prevents memory issues)
+      // 🚨 ENHANCED FALLBACK: Create emergency local backup before dropping items
+      try {
+        const emergencyBackup = {
+          timestamp: new Date().toISOString(),
+          droppedItems: itemsToMove,
+          reason: 'queue_overflow_dlq_failed',
+          userId: await AsyncStorage.getItem('currentUserId')
+        };
+        
+        // Save emergency backup (encrypted if possible)
+        try {
+          const encryptedBackup = await secureDataService.encryptData(emergencyBackup);
+          await AsyncStorage.setItem('emergency_sync_backup', JSON.stringify(encryptedBackup));
+          console.log('🆘 Emergency backup created with encryption');
+        } catch {
+          // Fallback to unencrypted if encryption fails
+          await AsyncStorage.setItem('emergency_sync_backup_raw', JSON.stringify(emergencyBackup));
+          console.log('🆘 Emergency backup created (unencrypted fallback)');
+        }
+        
+        // 📢 Notify user about potential data loss
+        await this.notifyUserOfDataRisk(itemsToMove.length);
+        
+      } catch (backupError) {
+        console.error('❌ Emergency backup also failed:', backupError);
+      }
+      
+      // Fallback: Drop oldest items (data loss risk but prevents memory issues)
       this.syncQueue = itemsToKeep;
       await this.saveSyncQueue();
       
       console.warn(`⚠️ Fallback: ${itemsToMove.length} items dropped due to DLQ failure`);
+    }
+  }
+
+  /**
+   * 📢 Notify user about potential data loss due to queue overflow
+   * This creates a notification that the user can see to take action
+   */
+  private async notifyUserOfDataRisk(droppedItemCount: number): Promise<void> {
+    try {
+      // Store notification for UI to display
+      const riskNotification = {
+        type: 'queue_overflow_risk',
+        message: `${droppedItemCount} kayıt senkronizasyon kuyruğundan çıkarıldı. Veri kaybını önlemek için internet bağlantınızı kontrol edin.`,
+        severity: 'high',
+        timestamp: new Date().toISOString(),
+        actionRequired: true,
+        droppedItemCount
+      };
+
+      // Store for UI to pick up
+      await AsyncStorage.setItem('sync_risk_notification', JSON.stringify(riskNotification));
+      
+      // Try to show immediate notification using Expo Notifications API
+      try {
+        const Notifications = await import('expo-notifications');
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Senkronizasyon Uyarısı',
+            body: riskNotification.message,
+            data: { type: 'queue_overflow' }
+          },
+          trigger: null // Immediate notification
+        });
+        console.log('📱 Queue overflow notification sent to user');
+      } catch (notifError) {
+        console.warn('⚠️ Failed to show immediate notification:', notifError);
+      }
+
+      // Telemetry for monitoring
+      try {
+        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'user_notified_queue_overflow',
+          droppedItemCount,
+          notificationDelivered: true
+        });
+      } catch {}
+
+    } catch (error) {
+      console.error('❌ Failed to notify user of data risk:', error);
     }
   }
 

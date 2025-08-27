@@ -32,10 +32,45 @@ export async function process(input: Parameters<typeof unifiedPipeline.process>[
 
     return result;
   } catch (error: any) {
+    // Enhanced error handling with user feedback
     await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
       userId: input.userId,
       message: error?.message || String(error),
     });
+    
+    // 🚨 USER FEEDBACK: Show user-friendly error and fallback options
+    try {
+      const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+      
+      // Determine error type based on error message/type
+      let errorType = AIErrorType.LLM_SERVICE_UNAVAILABLE;
+      const errorMessage = error?.message || String(error);
+      
+      if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+        errorType = AIErrorType.NETWORK_ERROR;
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+        errorType = AIErrorType.RATE_LIMIT_EXCEEDED;
+      } else if (errorMessage.includes('voice') || errorMessage.includes('audio')) {
+        errorType = AIErrorType.VOICE_ANALYSIS_FAILED;
+      }
+      
+      await aiErrorFeedbackService.handleAIError(errorType, {
+        userId: input.userId,
+        feature: 'unified_pipeline',
+        heuristicFallback: false,
+        retryable: true,
+        userVisible: true,
+        metadata: {
+          inputType: input.type,
+          source: input.context?.source,
+          errorMessage
+        }
+      });
+      
+    } catch (feedbackError) {
+      console.warn('⚠️ Failed to show pipeline error feedback:', feedbackError);
+    }
+    
     throw error;
   }
 }

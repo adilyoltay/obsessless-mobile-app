@@ -88,9 +88,10 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_PERFORMANCE_MONITORING: AI_MASTER_ENABLED,
   AI_ADVANCED_ANALYTICS: AI_MASTER_ENABLED,
   AI_DASHBOARD: AI_MASTER_ENABLED,
-  // 🚀 Onboarding v1 (mood-first)
-  ONBOARDING_V1: true,
-  // Onboarding Flow varsayılan olarak aktif; ayrı V2 flag kaldırıldı
+  // 🚀 Onboarding v2 (enhanced with AI personalization)
+  ONBOARDING_V1: false, // DEPRECATED - switched to V2
+  ONBOARDING_V2: true,  // NEW - Enhanced onboarding with progressive AI insights
+  // Onboarding Flow varsayılan olarak aktif; V2 ile AI destekli kişiselleştirme aktif
   AI_YBOCS_ANALYSIS: AI_MASTER_ENABLED,
   AI_USER_PROFILING: AI_MASTER_ENABLED,
   AI_TREATMENT_PLANNING: AI_MASTER_ENABLED,

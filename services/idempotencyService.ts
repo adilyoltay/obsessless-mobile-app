@@ -57,13 +57,38 @@ interface IdempotencyResult {
 class IdempotencyService {
   private static instance: IdempotencyService;
   private readonly STORAGE_PREFIX = 'idempotency_mood_';
-  private readonly RETENTION_DAYS = 7;
+  
+  // 🚀 CONFIGURABLE: Retention period in days (default 7, can be overridden via config)
+  private retentionDays: number = parseInt(process.env.IDEMPOTENCY_RETENTION_DAYS || '7', 10);
 
   public static getInstance(): IdempotencyService {
     if (!IdempotencyService.instance) {
       IdempotencyService.instance = new IdempotencyService();
     }
     return IdempotencyService.instance;
+  }
+
+  /**
+   * 🔧 Configure retention period dynamically
+   * 
+   * @param days Number of days to retain idempotency entries
+   */
+  public setRetentionPeriod(days: number): void {
+    if (days < 1 || days > 365) {
+      throw new Error('Retention period must be between 1 and 365 days');
+    }
+    
+    const oldRetention = this.retentionDays;
+    this.retentionDays = days;
+    
+    console.log(`🔧 Idempotency retention period updated: ${oldRetention} → ${days} days`);
+  }
+
+  /**
+   * 📊 Get current retention period
+   */
+  public getRetentionPeriod(): number {
+    return this.retentionDays;
   }
 
   /**
@@ -337,14 +362,14 @@ class IdempotencyService {
    * 🧹 Cleanup old idempotency entries
    * 
    * Called periodically to prevent storage bloat.
-   * Removes entries older than RETENTION_DAYS.
+   * Removes entries older than configured retention period.
    */
   public async cleanupOldEntries(): Promise<number> {
     try {
       const allKeys = await AsyncStorage.getAllKeys();
       const idempotencyKeys = allKeys.filter(key => key.startsWith(this.STORAGE_PREFIX));
       
-      const cutoffTime = Date.now() - (this.RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const cutoffTime = Date.now() - (this.retentionDays * 24 * 60 * 60 * 1000);
       let deletedCount = 0;
       
       for (const key of idempotencyKeys) {
@@ -366,7 +391,7 @@ class IdempotencyService {
         }
       }
       
-      console.log(`🧹 Cleaned up ${deletedCount} old idempotency entries`);
+      console.log(`🧹 Cleaned up ${deletedCount} old idempotency entries (retention: ${this.retentionDays} days)`);
       return deletedCount;
       
     } catch (error) {

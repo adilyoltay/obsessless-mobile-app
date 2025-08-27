@@ -39,7 +39,9 @@ interface MoodOnboardingState {
   cleanupProgressiveCache: () => Promise<void>;
 }
 
-const STORAGE_KEY = 'onb_v1_payload';
+// 🚀 V2: Updated storage keys for enhanced onboarding
+const STORAGE_KEY_PAYLOAD = 'profile_v2_payload';
+const STORAGE_KEY_STEP = 'profile_v2_current_step';
 
 export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => ({
   step: 0,
@@ -178,13 +180,20 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     try {
       set({ isLoading: true, isHydrated: false });
       
-      // Try to restore payload from storage
-      const storedPayload = await AsyncStorage.getItem(STORAGE_KEY);
+      // 🚀 V2: Restore both payload and step information
+      const storedPayload = await AsyncStorage.getItem(STORAGE_KEY_PAYLOAD);
+      const storedStep = await AsyncStorage.getItem(STORAGE_KEY_STEP);
       let restoredPayload: OnboardingPayload | null = null;
+      let restoredStep = 0;
       
       if (storedPayload) {
         restoredPayload = JSON.parse(storedPayload);
-        console.log('🔄 Onboarding data restored from AsyncStorage:', restoredPayload);
+        console.log('🔄 V2 Onboarding data restored from AsyncStorage:', restoredPayload);
+      }
+      
+      if (storedStep) {
+        restoredStep = parseInt(storedStep, 10) || 0;
+        console.log('📍 V2 Onboarding step restored:', restoredStep);
       }
       
       // Try to restore user-specific profile_v2 snapshot
@@ -224,7 +233,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         
         set({
           payload: validPayload,
-          step,
+          step: Math.max(step, restoredStep), // Use the higher of calculated vs stored step
           isHydrated: true,
           isLoading: false,
           startedAt: validPayload.meta.created_at ? new Date(validPayload.meta.created_at).getTime() : Date.now()
@@ -244,11 +253,17 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
   persistToStorage: async () => {
     try {
-      const { payload } = get();
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      console.log('💾 Onboarding data persisted to AsyncStorage');
+      const { payload, step } = get();
+      
+      // 🚀 V2: Persist both payload and current step for seamless resume
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEY_PAYLOAD, JSON.stringify(payload)),
+        AsyncStorage.setItem(STORAGE_KEY_STEP, step.toString())
+      ]);
+      
+      console.log(`💾 V2 Onboarding data persisted: step ${step}, payload stored`);
     } catch (error) {
-      console.error('❌ Failed to persist onboarding data:', error);
+      console.error('❌ Failed to persist V2 onboarding data:', error);
     }
   },
 
@@ -360,9 +375,12 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
     // ✅ STEP 1: CRITICAL - Local Persistence (rarely fails but essential)
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      // 🚫 REMOVED: Completion flags moved to end after all critical operations succeed
-      console.log('✅ Local persistence completed');
+      // 🚀 V2: Persist with new storage keys  
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEY_PAYLOAD, JSON.stringify(payload)),
+        AsyncStorage.setItem(STORAGE_KEY_STEP, '6') // Mark as completed (step 6)
+      ]);
+      console.log('✅ V2 Local persistence completed');
     } catch (error) {
       const errorMsg = 'Local storage persistence failed';
       result.criticalErrors.push(errorMsg);
