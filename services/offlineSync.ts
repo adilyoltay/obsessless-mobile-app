@@ -12,6 +12,7 @@ import { isUUID } from '@/utils/validators';
 import { generateSecureId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
 import { secureDataService } from '@/services/encryption/secureDataService';
+import offlineSyncUserFeedbackService from '@/services/offlineSyncUserFeedbackService';
 
 export interface SyncQueueItem {
   id: string;
@@ -29,6 +30,7 @@ export interface SyncQueueItem {
 
 export class OfflineSyncService {
   private static instance: OfflineSyncService;
+  private readonly MAX_RETRY_COUNT = 8;
   private isOnline: boolean = true;
   private syncQueue: SyncQueueItem[] = [];
   private isSyncing: boolean = false;
@@ -512,7 +514,21 @@ export class OfflineSyncService {
               await new Promise(res => setTimeout(res, delay));
               if (attempt >= 8) {
                 this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
-                await this.handleFailedSync(queueItem);
+                await this.handleFailedSync(queueItem, error instanceof Error ? error.message : String(error));
+              } else {
+                // 🔔 USER FEEDBACK: Record intermediate sync errors (not max retries yet)
+                try {
+                  await offlineSyncUserFeedbackService.recordSyncError(
+                    queueItem.id,
+                    queueItem.entity,
+                    queueItem.type,
+                    error instanceof Error ? error.message : String(error),
+                    queueItem.retryCount,
+                    8 // MAX_RETRY_COUNT
+                  );
+                } catch (feedbackError) {
+                  console.warn('⚠️ Failed to record intermediate sync error:', feedbackError);
+                }
               }
             }
           } finally {
@@ -537,6 +553,19 @@ export class OfflineSyncService {
           if (__DEV__) console.log('🔄 Cache invalidation triggered for:', syncedEntities);
         } catch (error) {
           if (__DEV__) console.warn('⚠️ Failed to emit cache invalidation:', error);
+        }
+
+        // 🔔 USER FEEDBACK: Mark successfully synced items as resolved
+        try {
+          for (const successfulItem of successful) {
+            await offlineSyncUserFeedbackService.markErrorResolved(successfulItem.id);
+          }
+          
+          if (successful.length > 0) {
+            console.log(`✅ Marked ${successful.length} sync errors as resolved`);
+          }
+        } catch (feedbackError) {
+          console.warn('⚠️ Failed to mark sync errors as resolved:', feedbackError);
         }
       }
 
@@ -817,15 +846,30 @@ export class OfflineSyncService {
   // ✅ F-04 FIX: Complete DELETE implementation for thought records
   // thought record sync removed
 
-  private async handleFailedSync(item: SyncQueueItem): Promise<void> {
+  private async handleFailedSync(item: SyncQueueItem, lastError?: string): Promise<void> {
     console.error('Failed to sync item after max retries:', item);
+    
+    // 🔔 USER FEEDBACK: Record error for user notification
+    try {
+      await offlineSyncUserFeedbackService.recordSyncError(
+        item.id,
+        item.entity,
+        item.type,
+        lastError || 'Max retries exceeded',
+        item.retryCount || 0,
+        this.MAX_RETRY_COUNT
+      );
+    } catch (feedbackError) {
+      console.warn('⚠️ Failed to record user feedback for sync error:', feedbackError);
+    }
+    
     try {
       await deadLetterQueue.addToDeadLetter({
         id: item.id,
         type: item.type,
         entity: item.entity,
         data: item.data,
-        errorMessage: 'Max retries exceeded',
+        errorMessage: lastError || 'Max retries exceeded',
       });
     } catch (e) {
       // Fallback: persist minimal info
@@ -1544,16 +1588,7 @@ export class OfflineSyncService {
   /**
    * 🔗 Generate entity hash for idempotency
    */
-  private generateEntityHash(entity: string, userId: string, data: any): string {
-    const content = `${entity}|${userId}|${JSON.stringify(data)}`;
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36);
-  }
+
 
   /**
    * 📢 Notify user about potential data loss due to queue overflow

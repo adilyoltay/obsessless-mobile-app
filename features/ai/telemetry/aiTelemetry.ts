@@ -174,6 +174,13 @@ export enum AIEventType {
   PATTERN_CACHE_SAVED = 'pattern_cache_saved',
   PATTERN_CACHE_INVALIDATED = 'pattern_cache_invalidated',
   
+  // Offline Sync User Feedback
+  SYNC_ERROR_RECORDED = 'sync_error_recorded',
+  SYNC_ERROR_USER_NOTIFIED = 'sync_error_user_notified', 
+  SYNC_ERROR_RESOLVED = 'sync_error_resolved',
+  MANUAL_SYNC_TRIGGERED = 'manual_sync_triggered',
+  SYNC_ITEM_RETRY = 'sync_item_retry',
+  
   // Insights Engine V2
   INSIGHTS_ENGINE_INITIALIZED = 'insights_engine_initialized',
   INSIGHTS_GENERATED = 'insights_generated',

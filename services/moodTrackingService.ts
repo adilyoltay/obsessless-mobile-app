@@ -221,6 +221,21 @@ class MoodTrackingService {
         return moodEntry;
       }
       
+      // 🔔 USER FEEDBACK: Record initial mood entry sync error
+      try {
+        const { default: offlineSyncUserFeedbackService } = await import('@/services/offlineSyncUserFeedbackService');
+        await offlineSyncUserFeedbackService.recordSyncError(
+          moodEntry.id,
+          'mood_entry',
+          'CREATE',
+          e instanceof Error ? e.message : String(e),
+          0, // Initial attempt
+          8  // Max retries in offline sync
+        );
+      } catch (feedbackError) {
+        console.warn('⚠️ Failed to record mood entry sync error for user feedback:', feedbackError);
+      }
+      
       // ✅ FIXED: Increment sync attempt for tracking
       await this.incrementSyncAttempt(moodEntry.id, moodEntry.user_id);
       
@@ -400,6 +415,15 @@ class MoodTrackingService {
           if (foundAndUpdated) {
             await AsyncStorage.setItem(key, JSON.stringify(updatedEntries));
             console.log('✅ Mood entry marked as synced:', id);
+
+            // 🔔 USER FEEDBACK: Mark any sync errors for this entry as resolved
+            try {
+              const { default: offlineSyncUserFeedbackService } = await import('@/services/offlineSyncUserFeedbackService');
+              await offlineSyncUserFeedbackService.markErrorResolved(id);
+            } catch (feedbackError) {
+              console.warn('⚠️ Failed to mark sync error as resolved:', feedbackError);
+            }
+
             break;
           }
         } catch (error) {

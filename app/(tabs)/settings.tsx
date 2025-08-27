@@ -44,6 +44,7 @@ import { Modal } from 'react-native';
 import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 import SecureStorageMigration from '@/utils/secureStorageMigration';
 import OnboardingSyncStatusCard from '@/components/settings/OnboardingSyncStatusCard';
+import SyncErrorSummaryCard from '@/components/ui/SyncErrorSummaryCard';
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 interface SettingsData {
@@ -687,6 +688,20 @@ export default function SettingsScreen() {
 
         {/* Onboarding Sync Status */}
         <OnboardingSyncStatusCard />
+
+        {/* Sync Error Summary */}
+        <SyncErrorSummaryCard 
+          style={{ marginHorizontal: 16, marginBottom: 16 }}
+          onManualSync={async () => {
+            try {
+              const { offlineSyncService } = await import('@/services/offlineSync');
+              await offlineSyncService.processSyncQueue();
+            } catch (error) {
+              console.error('❌ Manual sync from settings failed:', error);
+              throw error;
+            }
+          }}
+        />
 
         {/* Support */}
         <View style={styles.section}>
