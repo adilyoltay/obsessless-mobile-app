@@ -98,8 +98,17 @@ BEFORE INSERT OR UPDATE ON mood_entries
 FOR EACH ROW
 EXECUTE FUNCTION set_mood_content_hash();
 
--- Step 6: Drop mood_tracking table if it exists (will replace with view)
-DROP TABLE IF EXISTS mood_tracking CASCADE;
+-- Step 6: Drop mood_tracking table/view if it exists (will replace with view)
+-- First try to drop as view, then as table if that fails
+DO $$
+BEGIN
+  -- Try to drop as VIEW first
+  DROP VIEW IF EXISTS mood_tracking CASCADE;
+EXCEPTION
+  WHEN wrong_object_type THEN
+    -- If it's not a view, try to drop as TABLE
+    DROP TABLE IF EXISTS mood_tracking CASCADE;
+END $$;
 
 -- Step 7: Create mood_tracking as a VIEW for backward compatibility
 CREATE OR REPLACE VIEW mood_tracking AS
