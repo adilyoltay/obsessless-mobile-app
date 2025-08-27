@@ -155,6 +155,19 @@ class SecureDataService {
   }
 
   async decryptData(payload: EncryptedData): Promise<unknown> {
+    // 🛡️ VALIDATION: Ensure payload is properly formatted
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('Invalid encryption payload: must be an object');
+    }
+    
+    if (!payload.algorithm) {
+      throw new Error('Invalid encryption payload: missing algorithm');
+    }
+    
+    if (!payload.ciphertext) {
+      throw new Error('Invalid encryption payload: missing ciphertext');
+    }
+    
     if (payload.algorithm === 'SHA256_FALLBACK') {
       throw new Error('Cannot decrypt hashed data - use SHA256_FALLBACK only as last resort');
     }

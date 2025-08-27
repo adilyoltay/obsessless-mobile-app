@@ -95,13 +95,36 @@ export class OfflineSyncService {
       
       if (encryptedQueueData) {
         try {
-          // 🔓 Decrypt the queue data before parsing
-          const encryptedObj = JSON.parse(encryptedQueueData);
-          const decryptedData = await secureDataService.decryptData(encryptedObj);
-          this.syncQueue = Array.isArray(decryptedData) ? decryptedData : [];
-          console.log('🔓 Sync queue decrypted and loaded successfully');
-        } catch (decryptError) {
-          console.warn('⚠️ Failed to decrypt sync queue, starting with empty queue:', decryptError);
+          // 🔍 BACKWARD COMPATIBILITY: Check if data is encrypted or legacy format
+          const parsedData = JSON.parse(encryptedQueueData);
+          
+          // Check if it's an encrypted payload (has algorithm, ciphertext, iv)
+          if (parsedData.algorithm && parsedData.ciphertext && parsedData.iv) {
+            console.log('🔓 Detected encrypted queue data, decrypting...');
+            const decryptedData = await secureDataService.decryptData(parsedData);
+            this.syncQueue = Array.isArray(decryptedData) ? decryptedData : [];
+            console.log('✅ Encrypted sync queue loaded successfully');
+          } else if (Array.isArray(parsedData)) {
+            // Legacy unencrypted format - migrate to encrypted
+            console.log('🔄 Detected legacy unencrypted queue, migrating...');
+            this.syncQueue = parsedData;
+            
+            // Immediately save in encrypted format
+            await this.saveSyncQueue();
+            console.log('✅ Legacy queue migrated to encrypted format');
+          } else {
+            console.warn('⚠️ Unknown queue data format, starting fresh');
+            this.syncQueue = [];
+          }
+        } catch (parseError) {
+          console.warn('⚠️ Failed to parse/decrypt sync queue, starting with empty queue:', parseError);
+          
+          // Try to clear corrupted data
+          try {
+            await AsyncStorage.removeItem(queueKey);
+            console.log('🧹 Cleared corrupted queue data');
+          } catch {}
+          
           this.syncQueue = [];
         }
       }
