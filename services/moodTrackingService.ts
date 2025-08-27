@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
+import { secureDataService } from '@/services/encryption/secureDataService';
 
 export interface MoodEntry {
   id: string;
@@ -18,6 +19,36 @@ export interface MoodEntry {
   last_sync_attempt?: string;
 }
 
+/**
+ * 🔒 ENCRYPTED STORAGE FORMAT
+ * Separates non-sensitive metadata from encrypted sensitive data
+ */
+interface EncryptedMoodStorage {
+  // Non-sensitive metadata (queryable, indexable)
+  metadata: {
+    id: string;
+    user_id: string;
+    mood_score: number;
+    energy_level: number;
+    anxiety_level: number;
+    timestamp: string;
+    synced: boolean;
+    sync_attempts?: number;
+    last_sync_attempt?: string;
+  };
+  // 🔒 Encrypted sensitive data (AES-256-GCM)
+  encryptedData: {
+    encrypted: string;
+    iv: string;
+    algorithm: string;
+    version: number;
+    hash: string;
+    timestamp: number;
+  };
+  // Schema versioning for migration
+  storageVersion: number;
+}
+
 class MoodTrackingService {
   private static instance: MoodTrackingService;
   private readonly STORAGE_KEY = 'mood_entries';
@@ -27,6 +58,83 @@ class MoodTrackingService {
       MoodTrackingService.instance = new MoodTrackingService();
     }
     return MoodTrackingService.instance;
+  }
+
+  /**
+   * 🔒 DECRYPT MOOD ENTRY WITH BACKWARDS COMPATIBILITY
+   * Handles both v1 (plain) and v2 (encrypted) storage formats
+   */
+  private async decryptMoodEntry(rawEntry: any): Promise<MoodEntry | null> {
+    try {
+      // 📋 V2 FORMAT: Encrypted storage
+      if (rawEntry.storageVersion === 2 && rawEntry.encryptedData && rawEntry.metadata) {
+        console.log('🔓 Decrypting v2 encrypted mood entry...');
+        
+        const sensitiveData = await secureDataService.decryptSensitiveData(rawEntry.encryptedData);
+        
+        return {
+          ...rawEntry.metadata,
+          notes: sensitiveData.notes || '',
+          triggers: sensitiveData.triggers || [],
+          activities: sensitiveData.activities || []
+        };
+      }
+      
+      // 📋 V1 FORMAT: Legacy plain storage (backwards compatibility)
+      else if (!rawEntry.storageVersion || rawEntry.storageVersion === 1) {
+        console.log('⚠️ Loading v1 plain mood entry (migration needed)');
+        
+        // Direct migration from old format
+        const moodEntry: MoodEntry = {
+          id: rawEntry.id,
+          user_id: rawEntry.user_id,
+          mood_score: rawEntry.mood_score,
+          energy_level: rawEntry.energy_level,
+          anxiety_level: rawEntry.anxiety_level,
+          notes: rawEntry.notes || '',
+          triggers: rawEntry.triggers || [],
+          activities: rawEntry.activities || [],
+          timestamp: rawEntry.timestamp,
+          synced: rawEntry.synced,
+          sync_attempts: rawEntry.sync_attempts,
+          last_sync_attempt: rawEntry.last_sync_attempt,
+        };
+        
+        // 🔒 AUTO-MIGRATE: Re-encrypt legacy entry for future
+        try {
+          console.log('🔄 Auto-migrating v1 entry to encrypted format...');
+          await this.migrateEntryToEncrypted(moodEntry);
+        } catch (migrationError) {
+          console.warn('⚠️ Migration failed for entry, keeping as-is:', migrationError);
+        }
+        
+        return moodEntry;
+      }
+      
+      else {
+        console.error('❌ Unknown storage format version:', rawEntry.storageVersion);
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Mood entry decryption failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔄 MIGRATE LEGACY ENTRY TO ENCRYPTED FORMAT
+   * Automatically upgrades v1 entries to v2 encrypted format
+   */
+  private async migrateEntryToEncrypted(entry: MoodEntry): Promise<void> {
+    try {
+      // Re-save with encryption (will create v2 format)
+      await this.saveToLocalStorage(entry);
+      console.log('✅ Entry migrated to encrypted format:', entry.id);
+    } catch (error) {
+      console.error('❌ Failed to migrate entry to encrypted format:', error);
+      // Don't throw - migration failure shouldn't break read operations
+    }
   }
 
   async saveMoodEntry(entry: Omit<MoodEntry, 'id' | 'timestamp' | 'synced'>): Promise<MoodEntry> {
@@ -119,10 +227,52 @@ class MoodTrackingService {
 
   private async saveToLocalStorage(entry: MoodEntry): Promise<void> {
     const key = `${this.STORAGE_KEY}_${entry.user_id}_${entry.timestamp.split('T')[0]}`;
-    const existing = await AsyncStorage.getItem(key);
-    const entries = existing ? JSON.parse(existing) : [];
-    entries.push(entry);
-    await AsyncStorage.setItem(key, JSON.stringify(entries));
+    
+    try {
+      // 🔒 ENCRYPT SENSITIVE DATA
+      const sensitiveData = {
+        notes: entry.notes || '',
+        triggers: entry.triggers || [],
+        activities: entry.activities || []
+      };
+      
+      const encryptedSensitiveData = await secureDataService.encryptSensitiveData(sensitiveData);
+      
+      // 📋 CREATE ENCRYPTED STORAGE ENTRY
+      const encryptedEntry: EncryptedMoodStorage = {
+        metadata: {
+          id: entry.id,
+          user_id: entry.user_id,
+          mood_score: entry.mood_score,
+          energy_level: entry.energy_level,
+          anxiety_level: entry.anxiety_level,
+          timestamp: entry.timestamp,
+          synced: entry.synced,
+          sync_attempts: entry.sync_attempts,
+          last_sync_attempt: entry.last_sync_attempt,
+        },
+        encryptedData: encryptedSensitiveData,
+        storageVersion: 2 // v2 = encrypted format
+      };
+      
+      // 📦 SAVE TO ASYNCSTORAGE
+      const existing = await AsyncStorage.getItem(key);
+      const entries: EncryptedMoodStorage[] = existing ? JSON.parse(existing) : [];
+      entries.push(encryptedEntry);
+      await AsyncStorage.setItem(key, JSON.stringify(entries));
+      
+      console.log('🔒 Mood entry saved with AES-256-GCM encryption');
+      
+    } catch (error) {
+      // 🚨 CRITICAL: Never store unencrypted if encryption fails
+      if (error && (error as any).code === 'ENCRYPTION_FAILED_DO_NOT_STORE') {
+        console.error('❌ CRITICAL: Encryption failed, mood entry NOT STORED for security');
+        throw new Error('MOOD_ENCRYPTION_FAILED');
+      } else {
+        console.error('❌ Unexpected error during encrypted mood save:', error);
+        throw error;
+      }
+    }
   }
 
   private async markAsSynced(id: string, userId: string): Promise<void> {
@@ -131,13 +281,48 @@ class MoodTrackingService {
       const key = `${this.STORAGE_KEY}_${userId}_${date}`;
       const existing = await AsyncStorage.getItem(key);
       if (existing) {
-        const entries: MoodEntry[] = JSON.parse(existing);
-        const updated = entries.map(e =>
-          e.id === id
-            ? { ...e, synced: true, last_sync_attempt: new Date().toISOString() }
-            : e
-        );
-        await AsyncStorage.setItem(key, JSON.stringify(updated));
+        try {
+          const rawEntries = JSON.parse(existing);
+          let foundAndUpdated = false;
+          
+          // 🔒 UPDATE ENCRYPTED STORAGE WITH SYNC STATUS
+          const updatedEntries = rawEntries.map((rawEntry: any) => {
+            // Handle both v1 and v2 formats for sync marking
+            const entryId = rawEntry.storageVersion === 2 ? rawEntry.metadata?.id : rawEntry.id;
+            
+            if (entryId === id) {
+              foundAndUpdated = true;
+              
+              if (rawEntry.storageVersion === 2) {
+                // V2 format: Update metadata
+                return {
+                  ...rawEntry,
+                  metadata: {
+                    ...rawEntry.metadata,
+                    synced: true,
+                    last_sync_attempt: new Date().toISOString()
+                  }
+                };
+              } else {
+                // V1 format: Update directly (backwards compatibility)
+                return {
+                  ...rawEntry,
+                  synced: true,
+                  last_sync_attempt: new Date().toISOString()
+                };
+              }
+            }
+            return rawEntry;
+          });
+          
+          if (foundAndUpdated) {
+            await AsyncStorage.setItem(key, JSON.stringify(updatedEntries));
+            console.log('✅ Mood entry marked as synced:', id);
+            break;
+          }
+        } catch (error) {
+          console.error('❌ Failed to mark mood entry as synced:', error);
+        }
       }
     }
   }
@@ -148,17 +333,48 @@ class MoodTrackingService {
       const key = `${this.STORAGE_KEY}_${userId}_${date}`;
       const existing = await AsyncStorage.getItem(key);
       if (existing) {
-        const entries: MoodEntry[] = JSON.parse(existing);
-        const updated = entries.map(e =>
-          e.id === id
-            ? {
-                ...e,
-                sync_attempts: (e.sync_attempts || 0) + 1,
-                last_sync_attempt: new Date().toISOString(),
+        try {
+          const rawEntries = JSON.parse(existing);
+          let foundAndUpdated = false;
+          
+          // 🔒 UPDATE ENCRYPTED STORAGE WITH SYNC ATTEMPT COUNT
+          const updatedEntries = rawEntries.map((rawEntry: any) => {
+            // Handle both v1 and v2 formats for sync attempt increment
+            const entryId = rawEntry.storageVersion === 2 ? rawEntry.metadata?.id : rawEntry.id;
+            
+            if (entryId === id) {
+              foundAndUpdated = true;
+              
+              if (rawEntry.storageVersion === 2) {
+                // V2 format: Update metadata
+                return {
+                  ...rawEntry,
+                  metadata: {
+                    ...rawEntry.metadata,
+                    sync_attempts: (rawEntry.metadata.sync_attempts || 0) + 1,
+                    last_sync_attempt: new Date().toISOString()
+                  }
+                };
+              } else {
+                // V1 format: Update directly (backwards compatibility)
+                return {
+                  ...rawEntry,
+                  sync_attempts: (rawEntry.sync_attempts || 0) + 1,
+                  last_sync_attempt: new Date().toISOString()
+                };
               }
-            : e
-        );
-        await AsyncStorage.setItem(key, JSON.stringify(updated));
+            }
+            return rawEntry;
+          });
+          
+          if (foundAndUpdated) {
+            await AsyncStorage.setItem(key, JSON.stringify(updatedEntries));
+            console.log('🔄 Sync attempt incremented for mood entry:', id);
+            break;
+          }
+        } catch (error) {
+          console.error('❌ Failed to increment sync attempt:', error);
+        }
       }
     }
   }
@@ -319,10 +535,30 @@ class MoodTrackingService {
   async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
     const localEntries: MoodEntry[] = [];
     const dates = await this.getRecentDates(days);
+    
     for (const date of dates) {
       const key = `${this.STORAGE_KEY}_${userId}_${date}`;
       const existing = await AsyncStorage.getItem(key);
-      if (existing) localEntries.push(...JSON.parse(existing));
+      if (existing) {
+        try {
+          const parsedData = JSON.parse(existing);
+          
+          // 🔒 DECRYPT ENTRIES WITH BACKWARDS COMPATIBILITY
+          for (const rawEntry of parsedData) {
+            try {
+              const decryptedEntry = await this.decryptMoodEntry(rawEntry);
+              if (decryptedEntry) {
+                localEntries.push(decryptedEntry);
+              }
+            } catch (decryptError) {
+              console.warn('⚠️ Failed to decrypt mood entry, skipping:', decryptError);
+              // Don't break the entire flow for one corrupted entry
+            }
+          }
+        } catch (parseError) {
+          console.error('❌ Failed to parse mood entries from storage:', parseError);
+        }
+      }
     }
     
     try {

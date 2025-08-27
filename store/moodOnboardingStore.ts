@@ -29,7 +29,7 @@ interface MoodOnboardingState {
   reset: () => void;
   
   finalizeFlags: () => void;
-  complete: (userId: string) => Promise<void>;
+  complete: (userId: string) => Promise<{ success: boolean; criticalErrors: string[]; warnings: string[] }>;
 }
 
 const STORAGE_KEY = 'onb_v1_payload';
@@ -228,80 +228,163 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     console.log('🔄 Onboarding store reset');
   },
 
-  complete: async (userId: string) => {
+  complete: async (userId: string): Promise<{ success: boolean; criticalErrors: string[]; warnings: string[] }> => {
     const { payload, startedAt } = get();
     const durationMs = Date.now() - startedAt;
+    const result = { success: true, criticalErrors: [] as string[], warnings: [] as string[] };
+    
+    console.log('🔄 Starting enhanced onboarding completion...');
+
+    // ✅ STEP 1: CRITICAL - Local Persistence (rarely fails but essential)
     try {
-      // Persist locally
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      // Always set a generic completion flag to avoid loops before auth resolves
       await AsyncStorage.setItem('ai_onboarding_completed', 'true');
       await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
-      // Best-effort resolve a valid user id for user-specific key
-      let uidForKey = userId;
-      if (!isUUID(uidForKey)) {
-        try {
-          const { default: svc } = await import('@/services/supabase');
-          const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
-          if (current && typeof current === 'object' && current.id) uidForKey = current.id;
-        } catch {}
-      }
+      console.log('✅ Local persistence completed');
+    } catch (error) {
+      const errorMsg = 'Local storage persistence failed';
+      result.criticalErrors.push(errorMsg);
+      console.error('❌ CRITICAL:', errorMsg, error);
+    }
+
+    // ✅ STEP 2: User ID Resolution (critical for all user-specific operations)
+    let uidForKey = userId;
+    if (!isUUID(uidForKey)) {
+      try {
+        const { default: svc } = await import('@/services/supabase');
+        const current = (svc as any)?.getCurrentUser?.() || (svc as any)?.currentUser || null;
+        if (current && typeof current === 'object' && current.id) uidForKey = current.id;
+      } catch {}
+      
       if (!isUUID(uidForKey)) {
         const stored = await AsyncStorage.getItem('currentUserId');
         if (stored && isUUID(stored)) uidForKey = stored as any;
       }
-      // Write profile_v2 snapshot after resolving a stable uid
-      try { await AsyncStorage.setItem('profile_v2', JSON.stringify({ userId: isUUID(uidForKey) ? uidForKey : userId, payload, savedAt: new Date().toISOString() })); } catch {}
-      if (isUUID(uidForKey)) {
-        await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
-      }
+    }
 
-      // First mood (best effort)
-      if (payload.first_mood?.score && isUUID(uidForKey)) {
+    if (!isUUID(uidForKey)) {
+      const errorMsg = 'Unable to resolve valid user ID';
+      result.criticalErrors.push(errorMsg);
+      result.success = false;
+      console.error('❌ CRITICAL:', errorMsg);
+      return result; // Can't proceed without valid user ID
+    }
+
+    // ✅ STEP 3: User-specific storage (critical for user data integrity)  
+    try {
+      await AsyncStorage.setItem('profile_v2', JSON.stringify({ 
+        userId: uidForKey, 
+        payload, 
+        savedAt: new Date().toISOString() 
+      }));
+      await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
+      console.log('✅ User-specific storage completed');
+    } catch (error) {
+      const errorMsg = 'User-specific storage failed';
+      result.criticalErrors.push(errorMsg);
+      console.error('❌ CRITICAL:', errorMsg, error);
+    }
+
+    // ✅ STEP 4: CRITICAL - First Mood Entry (important baseline data)
+    if (payload.first_mood?.score) {
+      try {
+        await moodTracker.saveMoodEntry({
+          user_id: uidForKey,
+          mood_score: Math.max(1, Math.min(10, (payload.first_mood.score*2)+1)),
+          energy_level: 5,
+          anxiety_level: 5,
+          notes: 'İlk onboarding ruh hali kaydı',
+          triggers: payload.first_mood.tags || [],
+          activities: [],
+        });
+        console.log('✅ First mood entry saved successfully');
+      } catch (error) {
+        const errorMsg = 'First mood entry save failed';
+        result.criticalErrors.push(errorMsg);
+        console.error('❌ CRITICAL:', errorMsg, error);
+        
+        // Try to track the failure for recovery later
         try {
-          await moodTracker.saveMoodEntry({
-            user_id: uidForKey,
-            mood_score: Math.max(1, Math.min(10, (payload.first_mood.score*2)+1)),
-            energy_level: 5,
-            anxiety_level: 5,
-            notes: undefined,
-            triggers: payload.first_mood.tags || [],
-            activities: [],
+          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'onboarding_mood_save_failed',
+            userId: uidForKey,
+            moodScore: payload.first_mood.score,
+            error: error instanceof Error ? error.message : String(error)
           });
         } catch {}
       }
-
-      // Sync to Supabase using new method
-      if (isUUID(uidForKey)) {
-        await get().syncToSupabase(uidForKey);
-      } else {
-        console.warn('⚠️ Unable to sync to Supabase: Invalid user ID');
-      }
-
-      // Schedule notifications if enabled (best effort)
-      try {
-        if (payload.reminders?.enabled && payload.reminders.time) {
-          const [h, m] = (payload.reminders.time || '09:00').split(':').map(Number);
-          const now = new Date();
-          const scheduleAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 9, m || 0, 0);
-          await NotificationScheduler.scheduleDailyMoodReminder(scheduleAt);
-        }
-      } catch {}
-
-      // Analytics tracking
-      try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
-          userId: uidForKey || userId,
-          durationMs,
-          steps: get().step+1,
-          motivations: payload.motivation,
-          hasReminder: !!payload.reminders?.enabled,
-        });
-      } catch {}
-    } finally {
-      // no-op
     }
+
+    // ✅ STEP 5: CRITICAL - Supabase Profile Sync (essential for remote data)
+    try {
+      await get().syncToSupabase(uidForKey);
+      console.log('✅ Supabase profile sync completed');
+    } catch (error) {
+      const errorMsg = 'Supabase profile sync failed';
+      result.criticalErrors.push(errorMsg);
+      console.error('❌ CRITICAL:', errorMsg, error);
+      
+      // Attempt offline queue fallback for critical profile data
+      try {
+        const { offlineSyncService } = await import('@/services/offlineSync');
+        await offlineSyncService.addToSyncQueue({
+          type: 'CREATE',
+          entity: 'user_profile',
+          data: { payload, userId: uidForKey },
+          priority: 'critical' as any,
+        });
+        console.log('🔄 Profile data queued for offline sync as fallback');
+        result.warnings.push('Profile synced via offline queue (delayed)');
+      } catch (queueError) {
+        console.error('❌ Even offline queue failed:', queueError);
+      }
+    }
+
+    // ✅ STEP 6: NON-CRITICAL - Notification Scheduling (user can enable later)
+    if (payload.reminders?.enabled && payload.reminders.time) {
+      try {
+        const [h, m] = (payload.reminders.time || '09:00').split(':').map(Number);
+        const now = new Date();
+        const scheduleAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 9, m || 0, 0);
+        await NotificationScheduler.scheduleDailyMoodReminder(scheduleAt);
+        console.log('✅ Daily reminder scheduled successfully');
+      } catch (error) {
+        const warningMsg = 'Notification scheduling failed (can be enabled later in settings)';
+        result.warnings.push(warningMsg);
+        console.warn('⚠️ WARNING:', warningMsg, error);
+      }
+    }
+
+    // ✅ STEP 7: NON-CRITICAL - Analytics Tracking (important but not blocking)
+    try {
+      const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+      await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
+        userId: uidForKey,
+        durationMs,
+        steps: get().step + 1,
+        motivations: payload.motivation,
+        hasReminder: !!payload.reminders?.enabled,
+        criticalErrorCount: result.criticalErrors.length,
+        warningCount: result.warnings.length,
+        success: result.success
+      });
+      console.log('✅ Completion analytics tracked');
+    } catch (error) {
+      const warningMsg = 'Analytics tracking failed (telemetry issue)';
+      result.warnings.push(warningMsg);
+      console.warn('⚠️ WARNING:', warningMsg, error);
+    }
+
+    // ✅ FINAL: Determine overall success
+    if (result.criticalErrors.length > 0) {
+      result.success = false;
+      console.error(`❌ Onboarding completion had ${result.criticalErrors.length} critical errors`);
+    } else {
+      console.log(`✅ Onboarding completion successful! ${result.warnings.length} warnings (non-critical)`);
+    }
+
+    return result;
   }
 }));
 
