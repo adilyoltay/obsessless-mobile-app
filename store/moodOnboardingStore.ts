@@ -361,8 +361,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     // ✅ STEP 1: CRITICAL - Local Persistence (rarely fails but essential)
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      await AsyncStorage.setItem('ai_onboarding_completed', 'true');
-      await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
+      // 🚫 REMOVED: Completion flags moved to end after all critical operations succeed
       console.log('✅ Local persistence completed');
     } catch (error) {
       const errorMsg = 'Local storage persistence failed';
@@ -400,7 +399,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         payload, 
         savedAt: new Date().toISOString() 
       }));
-      await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
+      // 🚫 REMOVED: User-specific completion flag moved to end after all critical operations succeed
       console.log('✅ User-specific storage completed');
     } catch (error) {
       const errorMsg = 'User-specific storage failed';
@@ -592,8 +591,21 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     if (result.criticalErrors.length > 0) {
       result.success = false;
       console.error(`❌ Onboarding completion had ${result.criticalErrors.length} critical errors`);
+      console.error('🚫 Completion flags NOT set due to critical errors - user can retry onboarding');
     } else {
       console.log(`✅ Onboarding completion successful! ${result.warnings.length} warnings (non-critical)`);
+      
+      // 🎉 SUCCESS: Now safe to set completion flags after all critical operations succeeded
+      try {
+        await AsyncStorage.setItem('ai_onboarding_completed', 'true');
+        await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
+        await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
+        console.log('🎯 Completion flags set successfully - user can now access main app');
+      } catch (flagError) {
+        console.error('❌ Failed to set completion flags:', flagError);
+        // This is bad but not critical enough to fail the whole onboarding
+        result.warnings.push('Completion flags failed to set - may need manual intervention');
+      }
     }
 
     return result;
