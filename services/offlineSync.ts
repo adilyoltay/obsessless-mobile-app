@@ -19,6 +19,9 @@ export interface SyncQueueItem {
   retryCount: number;
   deviceId?: string;
   lastModified?: number;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+  isBulkOperation?: boolean;
+  batchId?: string;
 }
 
 export class OfflineSyncService {
@@ -26,6 +29,15 @@ export class OfflineSyncService {
   private isOnline: boolean = true;
   private syncQueue: SyncQueueItem[] = [];
   private isSyncing: boolean = false;
+  
+  // ✅ NEW: Performance metrics tracking
+  private syncMetrics = {
+    successRate: 0,
+    avgResponseTime: 0,
+    lastSyncTime: 0,
+    totalSynced: 0,
+    totalFailed: 0
+  };
 
   public static getInstance(): OfflineSyncService {
     if (!OfflineSyncService.instance) {
@@ -82,6 +94,60 @@ export class OfflineSyncService {
     } catch (error) {
       console.error('Error saving sync queue:', error);
     }
+  }
+
+  // ✅ NEW: Priority system helper methods
+  private determinePriority(entity: SyncQueueItem['entity']): 'low' | 'normal' | 'high' | 'critical' {
+    switch (entity) {
+      case 'mood_entry': return 'high';        // Mood data is critical for user experience
+      case 'user_profile': return 'high';      // Profile updates are important for personalization
+      case 'voice_checkin': return 'normal';   // Voice data is important but not critical
+      case 'ai_profile': return 'normal';      // AI profiles can be delayed
+      case 'treatment_plan': return 'normal';  // Treatment plans are important but not urgent
+      case 'achievement': return 'low';        // Achievements can wait
+      default: return 'normal';
+    }
+  }
+
+  private getPriorityWeight(priority?: 'low' | 'normal' | 'high' | 'critical'): number {
+    switch (priority) {
+      case 'critical': return 4;
+      case 'high': return 3;
+      case 'normal': return 2;
+      case 'low': return 1;
+      default: return 2;
+    }
+  }
+
+  private sortQueueByPriority(items: SyncQueueItem[]): SyncQueueItem[] {
+    return items.sort((a, b) => {
+      const priorityDiff = this.getPriorityWeight(b.priority) - this.getPriorityWeight(a.priority);
+      if (priorityDiff !== 0) return priorityDiff;
+      // Secondary sort by timestamp (oldest first)
+      return a.timestamp - b.timestamp;
+    });
+  }
+
+  // ✅ NEW: Performance metrics methods
+  private updateMetrics(success: boolean, responseTime: number): void {
+    this.syncMetrics.totalSynced += success ? 1 : 0;
+    this.syncMetrics.totalFailed += success ? 0 : 1;
+    
+    const total = this.syncMetrics.totalSynced + this.syncMetrics.totalFailed;
+    this.syncMetrics.successRate = total > 0 ? (this.syncMetrics.totalSynced / total) * 100 : 0;
+    
+    // Exponential moving average for response time
+    if (success) {
+      this.syncMetrics.avgResponseTime = this.syncMetrics.avgResponseTime === 0 
+        ? responseTime 
+        : (this.syncMetrics.avgResponseTime * 0.7) + (responseTime * 0.3);
+    }
+    
+    this.syncMetrics.lastSyncTime = Date.now();
+  }
+
+  public getSyncMetrics(): typeof this.syncMetrics {
+    return { ...this.syncMetrics };
   }
 
   private async resolveValidUserId(candidate?: string | null): Promise<string> {
@@ -141,6 +207,9 @@ export class OfflineSyncService {
     // Sanitize the item to fix common issues
     const sanitizedTempItem = queueValidator.sanitizeItem(tempItem);
 
+    // ✅ NEW: Determine priority for the item
+    const priority = this.determinePriority(sanitizedTempItem.entity as SyncQueueItem['entity']);
+
     const syncItem: SyncQueueItem = {
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: sanitizedTempItem.type,
@@ -149,7 +218,10 @@ export class OfflineSyncService {
       timestamp: Date.now(),
       retryCount: 0,
       deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device',
-      lastModified: Date.now()
+      lastModified: Date.now(),
+      priority: priority,
+      isBulkOperation: (item as any).isBulkOperation || false,
+      batchId: (item as any).batchId
     };
 
     this.syncQueue.push(syncItem);
@@ -182,9 +254,12 @@ export class OfflineSyncService {
 
     try {
       const summary = { successful: 0, failed: 0, conflicts: 0 } as const;
-      const itemsToSync = [...this.syncQueue];
+      // ✅ NEW: Sort queue by priority before processing
+      const itemsToSync = this.sortQueueByPriority([...this.syncQueue]);
       const batchSize = batchOptimizer.calculate(itemsToSync.length);
       const startBatchAt = Date.now();
+
+      console.log(`🔄 Processing sync queue: ${itemsToSync.length} items (Priorities: ${itemsToSync.slice(0, 5).map(i => i.priority).join(', ')}${itemsToSync.length > 5 ? '...' : ''})`);
 
       const successful: SyncQueueItem[] = [];
       const failed: SyncQueueItem[] = [];
@@ -219,12 +294,14 @@ export class OfflineSyncService {
           const uid = deriveUserId(current);
           if (uid) inflightUsers.add(uid);
           consumed.add(current.id);
+          const startedAt = Date.now();
           try {
-            const startedAt = Date.now();
             await syncCircuitBreaker.execute(() => this.syncItem(current));
             const latencyMs = Date.now() - startedAt;
             successful.push(current);
             latencies.push(latencyMs);
+            // ✅ NEW: Update performance metrics
+            this.updateMetrics(true, latencyMs);
             // Remove from queue if successful
             this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
             // Telemetry (non-blocking)
@@ -233,6 +310,8 @@ export class OfflineSyncService {
               await trackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
             } catch {}
           } catch (error) {
+            // ✅ NEW: Update performance metrics for failed sync
+            this.updateMetrics(false, Date.now() - startedAt);
             // Increment retry count and backoff per-item
             const queueItem = this.syncQueue.find(q => q.id === current.id);
             if (queueItem) {
@@ -652,6 +731,111 @@ export class OfflineSyncService {
     }
     try { await AsyncStorage.setItem('last_sync_summary', JSON.stringify({ ...result, at: new Date().toISOString() })); } catch {}
     return result;
+  }
+
+  // ✅ NEW: Bulk operations for mood entries
+  async bulkSyncMoodEntries(entries: any[], userId: string): Promise<{ synced: number; failed: number }> {
+    const result = { synced: 0, failed: 0 };
+    
+    if (!entries.length || !isUUID(userId)) {
+      return result;
+    }
+
+    const batchId = `mood_bulk_${Date.now()}_${userId}`;
+    console.log(`🔄 Starting bulk mood sync: ${entries.length} entries (Batch: ${batchId})`);
+
+    try {
+      // Add all entries to sync queue as a batch
+      const promises = entries.map((entry, index) => {
+        const priority = 'high'; // Mood entries are high priority
+        return this.addToSyncQueue({
+          type: 'CREATE',
+          entity: 'mood_entry',
+          data: {
+            user_id: userId,
+            mood_score: entry.mood_score ?? entry.mood ?? 50,
+            energy_level: entry.energy_level ?? entry.energy ?? 5,
+            anxiety_level: entry.anxiety_level ?? entry.anxiety ?? 5,
+            notes: entry.notes || '',
+            triggers: entry.triggers || [],
+            activities: entry.activities || [],
+            timestamp: entry.timestamp || entry.created_at || new Date().toISOString(),
+          },
+          priority: priority as any,
+          isBulkOperation: true,
+          batchId: batchId
+        });
+      });
+
+      await Promise.allSettled(promises);
+      
+      // Wait briefly for queue processing to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Process the queue immediately if we're online
+      if (this.isOnline) {
+        await this.processSyncQueue();
+      }
+
+      // Count successful items from the batch
+      const remainingBatchItems = this.syncQueue.filter(item => item.batchId === batchId);
+      result.synced = entries.length - remainingBatchItems.length;
+      result.failed = remainingBatchItems.length;
+
+      console.log(`✅ Bulk mood sync completed: ${result.synced}/${entries.length} synced (Batch: ${batchId})`);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Bulk mood sync failed:', error);
+      result.failed = entries.length;
+      return result;
+    }
+  }
+
+  // ✅ NEW: Smart retry with network awareness
+  private async smartRetry<T>(
+    operation: () => Promise<T>, 
+    context: { entity: string; userId?: string; priority?: string }
+  ): Promise<T> {
+    const maxRetries = context.priority === 'critical' ? 5 : 3;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Check network status before retry
+        try {
+          const NetInfo = require('@react-native-community/netinfo').default;
+          const state = await NetInfo.fetch();
+          const isConnected = state.isConnected && state.isInternetReachable !== false;
+          
+          if (!isConnected && attempt > 0) {
+            // If network is down, wait longer before retry
+            const networkWaitTime = Math.min(5000 * Math.pow(2, attempt), 30000);
+            console.log(`📡 Network down, waiting ${networkWaitTime}ms before retry (attempt ${attempt + 1})`);
+            await new Promise(resolve => setTimeout(resolve, networkWaitTime));
+            continue;
+          }
+        } catch {}
+
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (attempt < maxRetries - 1) {
+          // Exponential backoff with jitter
+          const baseDelay = context.priority === 'critical' ? 1000 : 2000;
+          const delay = Math.min(
+            baseDelay * Math.pow(2, attempt), 
+            context.priority === 'critical' ? 15000 : 30000
+          ) + Math.floor(Math.random() * 1000);
+          
+          console.log(`⏳ Retrying ${context.entity} sync in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw lastError || new Error('Smart retry failed');
   }
 }
 

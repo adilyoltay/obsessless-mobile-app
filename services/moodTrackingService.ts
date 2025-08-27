@@ -112,52 +112,83 @@ class MoodTrackingService {
     const pending = await this.getUnsyncedEntries(userId);
     if (pending.length === 0) return result;
 
-    // Dinamik batch boyutu
-    const BATCH_SIZE = Math.max(1, batchOptimizer.calculate(pending.length, 'normal'));
-    for (let i = 0; i < pending.length; i += BATCH_SIZE) {
-      const batch = pending.slice(i, i + BATCH_SIZE);
-      try {
-        // Use standardized batch processing with supabaseService.saveMoodEntry
-        let batchError = null;
-        for (const entry of batch) {
-          try {
-            await supabaseService.saveMoodEntry({
-              user_id: entry.user_id,
-              mood_score: entry.mood_score,
-              energy_level: entry.energy_level,
-              anxiety_level: entry.anxiety_level,
-              notes: entry.notes,
-              triggers: entry.triggers || [], // Send full triggers array
-              activities: entry.activities || [], // Send activities array
-              trigger: entry.triggers?.[0] || '', // Keep backward compatibility
-              timestamp: entry.timestamp, // Preserve original creation time for idempotency
-            });
-          } catch (e) {
-            batchError = e;
-            break; // Stop on first error to maintain original batch behavior
-          }
+    console.log(`🔄 Syncing ${pending.length} pending mood entries for user ${userId}`);
+
+    try {
+      // ✅ NEW: Use bulk sync for better performance
+      const { offlineSyncService } = await import('@/services/offlineSync');
+      const bulkResult = await offlineSyncService.bulkSyncMoodEntries(pending, userId);
+      
+      // Mark successfully synced entries as synced
+      if (bulkResult.synced > 0) {
+        const syncedEntries = pending.slice(0, bulkResult.synced);
+        for (const entry of syncedEntries) {
+          await this.markAsSynced(entry.id, userId);
+          result.synced++;
         }
-        const error = batchError;
-        if (!error) {
-          for (const item of batch) {
-            await this.markAsSynced(item.id, userId);
-            result.synced++;
+      }
+      
+      // Update retry count for failed entries
+      if (bulkResult.failed > 0) {
+        const failedEntries = pending.slice(bulkResult.synced);
+        for (const entry of failedEntries) {
+          await this.incrementSyncAttempt(entry.id, userId);
+          result.failed++;
+        }
+      }
+
+      console.log(`✅ Mood sync completed: ${result.synced} synced, ${result.failed} failed`);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Bulk mood sync failed, falling back to individual sync:', error);
+      
+      // Fallback to individual sync if bulk fails
+      const BATCH_SIZE = Math.max(1, batchOptimizer.calculate(pending.length, 'normal'));
+      for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+        const batch = pending.slice(i, i + BATCH_SIZE);
+        try {
+          let batchError = null;
+          for (const entry of batch) {
+            try {
+              await supabaseService.saveMoodEntry({
+                user_id: entry.user_id,
+                mood_score: entry.mood_score,
+                energy_level: entry.energy_level,
+                anxiety_level: entry.anxiety_level,
+                notes: entry.notes,
+                triggers: entry.triggers || [], // Send full triggers array
+                activities: entry.activities || [], // Send activities array
+                trigger: entry.triggers?.[0] || '', // Keep backward compatibility
+                timestamp: entry.timestamp, // Preserve original creation time for idempotency
+              });
+            } catch (e) {
+              batchError = e;
+              break;
+            }
           }
-        } else {
+          const error = batchError;
+          if (!error) {
+            for (const item of batch) {
+              await this.markAsSynced(item.id, userId);
+              result.synced++;
+            }
+          } else {
+            result.failed += batch.length;
+            for (const item of batch) {
+              await this.incrementSyncAttempt(item.id, userId);
+            }
+          }
+        } catch (e) {
           result.failed += batch.length;
           for (const item of batch) {
             await this.incrementSyncAttempt(item.id, userId);
           }
         }
-      } catch (e) {
-        result.failed += batch.length;
-        for (const item of batch) {
-          await this.incrementSyncAttempt(item.id, userId);
-        }
       }
-    }
 
-    return result;
+      return result;
+    }
   }
 
   private async getUnsyncedEntries(userId: string): Promise<MoodEntry[]> {
