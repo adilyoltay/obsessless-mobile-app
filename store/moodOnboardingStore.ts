@@ -431,8 +431,8 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         await moodTracker.saveMoodEntry({
           user_id: uidForKey,
           mood_score: Math.max(10, Math.min(100, payload.first_mood.score * 20)), // 1-5 → 20-100 consistent mapping
-          energy_level: 50, // Default neutral energy
-          anxiety_level: 50, // Default neutral anxiety  
+          energy_level: 5, // Default neutral energy (1-10 scale)
+          anxiety_level: 5, // Default neutral anxiety (1-10 scale)
           notes: 'İlk onboarding ruh hali kaydı - Baseline ölçüm',
           triggers: payload.first_mood.tags || [],
           activities: [],

@@ -1285,21 +1285,44 @@ class SupabaseNativeService {
         new Date().toISOString()
       );
       
+      // ✅ VALIDATION: Ensure values are within database constraints
+      const validateRange = (value: any, min: number, max: number, defaultVal: number): number => {
+        const num = parseInt(value, 10);
+        if (isNaN(num)) return defaultVal;
+        return Math.max(min, Math.min(max, num));
+      };
+
+      // Validate values before using them
+      const validatedMood = validateRange(sanitizedEntry.mood_score, 0, 100, 50);
+      const validatedEnergy = validateRange(sanitizedEntry.energy_level, 1, 10, 5);
+      const validatedAnxiety = validateRange(sanitizedEntry.anxiety_level, 1, 10, 5);
+      
+      // Log if values were corrected
+      if (validatedAnxiety !== sanitizedEntry.anxiety_level) {
+        console.log(`⚠️ Corrected anxiety_level: ${sanitizedEntry.anxiety_level} → ${validatedAnxiety} (must be 1-10)`);
+      }
+      if (validatedEnergy !== sanitizedEntry.energy_level) {
+        console.log(`⚠️ Corrected energy_level: ${sanitizedEntry.energy_level} → ${validatedEnergy} (must be 1-10)`);
+      }
+      if (validatedMood !== sanitizedEntry.mood_score) {
+        console.log(`⚠️ Corrected mood_score: ${sanitizedEntry.mood_score} → ${validatedMood} (must be 0-100)`);
+      }
+
       // 🌍 TIMEZONE FIX: Use local date instead of UTC for content hash consistency
       const createdDate = new Date(createdAtIso);
       const localDay = this.getLocalDateKey(createdDate);
       
-      // ✅ Generate content_hash (canonical): exclude triggers/activities; LOCAL day
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(sanitizedEntry.mood_score)}|${Math.round(sanitizedEntry.energy_level)}|${Math.round(sanitizedEntry.anxiety_level)}|${sanitizedEntry.notes.trim().toLowerCase()}|${localDay}`;
+      // ✅ Generate content_hash (canonical): Use VALIDATED values, exclude triggers/activities; LOCAL day
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(validatedMood)}|${Math.round(validatedEnergy)}|${Math.round(validatedAnxiety)}|${sanitizedEntry.notes.trim().toLowerCase()}|${localDay}`;
       
       console.log(`🌍 Content hash using local date: ${localDay} (from timestamp: ${createdAtIso})`);
       const content_hash = this.computeContentHash(contentText);
-      
+
       const payload = {
         user_id: sanitizedEntry.user_id,
-        mood_score: sanitizedEntry.mood_score,
-        energy_level: sanitizedEntry.energy_level,
-        anxiety_level: sanitizedEntry.anxiety_level,
+        mood_score: validatedMood,
+        energy_level: validatedEnergy,
+        anxiety_level: validatedAnxiety,
         notes: sanitizedEntry.notes,
         triggers: sanitizedEntry.triggers,
         activities: sanitizedEntry.activities,
