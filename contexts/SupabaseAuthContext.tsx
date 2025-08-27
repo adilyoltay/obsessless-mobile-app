@@ -230,6 +230,15 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       // Initialize gamification for this user (idempotent at store level)
       await initializeGamification(user.id);
       
+      // Hydrate onboarding store from storage
+      try {
+        const { useMoodOnboardingStore } = await import('@/store/moodOnboardingStore');
+        await useMoodOnboardingStore.getState().hydrateFromStorage(user.id);
+        console.log('🔄 Onboarding store hydrated for user:', user.id);
+      } catch (error) {
+        console.error('❌ Failed to hydrate onboarding store:', error);
+      }
+      
       // Check if onboarding profile exists in user_profiles table
       let userProfile = await supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
       

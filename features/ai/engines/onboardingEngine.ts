@@ -23,8 +23,30 @@ import {
   PartialUserProfile,
   TherapeuticPreferences,
   TreatmentPlan,
+  TreatmentPhase,
   RiskAssessment,
+  RiskLevel,
+  RiskCategory,
+  RiskFactor,
+  ProtectiveFactor,
+  ImmediateAction,
+  MonitoringPlan,
+  Safeguard,
+  EvidenceBasedIntervention,
+  ExpectedOutcome,
+  SuccessMetric,
+  AdaptationTrigger,
+  FallbackStrategy,
+  EmergencyProtocol,
   FollowUpSchedule,
+  CommunicationStyle,
+  DiagnosticInfo,
+  TreatmentHistory,
+  TreatmentType,
+  CBTTechnique,
+  Intervention,
+  InterventionType,
+  Milestone,
   AIError,
   AIErrorCode,
   ErrorSeverity
@@ -1197,7 +1219,137 @@ class ModernOnboardingEngine {
   // Placeholder methods for missing implementations
   private analyzeCulturalFactors(data: any): string[] { return ['Cultural analysis needed']; }
   private triggerImmediateSupport(session: OnboardingSession, analysis: OCDAnalysis): Promise<void> { return Promise.resolve(); }
-  private analyzeSymptomPatterns(symptoms: string[], triggers: string[]): Promise<any> { return Promise.resolve({}); }
+  private async analyzeSymptomPatterns(symptoms: string[], triggers: string[]): Promise<any> {
+    try {
+      const patterns: any = {
+        dominant_symptoms: [],
+        trigger_correlations: [],
+        severity_indicators: [],
+        recommended_focus_areas: [],
+        risk_level: 'low',
+        confidence: 0.8
+      };
+      
+      // Analyze dominant symptoms
+      const symptomFrequency: { [key: string]: number } = {};
+      symptoms.forEach(symptom => {
+        const cleanSymptom = symptom.toLowerCase();
+        symptomFrequency[cleanSymptom] = (symptomFrequency[cleanSymptom] || 0) + 1;
+      });
+      
+      // Extract most common symptoms
+      patterns.dominant_symptoms = Object.entries(symptomFrequency)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([symptom, count]) => ({
+          name: symptom,
+          frequency: count,
+          severity: count >= 3 ? 'high' : count >= 2 ? 'medium' : 'low'
+        }));
+      
+      // Analyze trigger patterns
+      const triggerTypes = {
+        emotional: ['stres', 'anksiyete', 'üzüntü', 'öfke', 'kaygı'],
+        situational: ['iş', 'okul', 'aile', 'sosyal', 'sınav'],
+        physical: ['yorgunluk', 'ağrı', 'uyku', 'beslenme'],
+        social: ['çevre', 'arkadaş', 'kalabalık', 'yalnızlık']
+      };
+      
+      triggers.forEach(trigger => {
+        const cleanTrigger = trigger.toLowerCase();
+        Object.entries(triggerTypes).forEach(([type, keywords]) => {
+          if (keywords.some(keyword => cleanTrigger.includes(keyword))) {
+            const existing = patterns.trigger_correlations.find((t: any) => t.type === type);
+            if (existing) {
+              existing.count++;
+              existing.triggers.push(trigger);
+            } else {
+              patterns.trigger_correlations.push({
+                type,
+                count: 1,
+                triggers: [trigger],
+                impact: 'medium'
+              });
+            }
+          }
+        });
+      });
+      
+      // Determine severity indicators
+      let overallSeverity = 0;
+      if (patterns.dominant_symptoms.length >= 3) overallSeverity += 2;
+      if (patterns.trigger_correlations.length >= 3) overallSeverity += 2;
+      
+      const highSeveritySymptoms = patterns.dominant_symptoms.filter(
+        (s: any) => s.severity === 'high'
+      ).length;
+      overallSeverity += highSeveritySymptoms;
+      
+      patterns.severity_indicators = [
+        `${patterns.dominant_symptoms.length} farklı semptom türü`,
+        `${patterns.trigger_correlations.length} tetikleyici kategori`,
+        `Genel şiddet seviyesi: ${overallSeverity >= 5 ? 'yüksek' : overallSeverity >= 3 ? 'orta' : 'düşük'}`
+      ];
+      
+      // Risk level assessment
+      if (overallSeverity >= 5) {
+        patterns.risk_level = 'high';
+        patterns.confidence = 0.9;
+      } else if (overallSeverity >= 3) {
+        patterns.risk_level = 'medium';
+        patterns.confidence = 0.8;
+      } else {
+        patterns.risk_level = 'low';
+        patterns.confidence = 0.7;
+      }
+      
+      // Recommended focus areas
+      const emotionalTriggers = patterns.trigger_correlations.find((t: any) => t.type === 'emotional');
+      if (emotionalTriggers && emotionalTriggers.count >= 2) {
+        patterns.recommended_focus_areas.push('Duygusal düzenleme becerileri');
+      }
+      
+      const situationalTriggers = patterns.trigger_correlations.find((t: any) => t.type === 'situational');
+      if (situationalTriggers && situationalTriggers.count >= 2) {
+        patterns.recommended_focus_areas.push('Stres yönetimi ve başa çıkma stratejileri');
+      }
+      
+      if (patterns.dominant_symptoms.some((s: any) => 
+        ['uyku', 'yorgunluk', 'enerji'].some(keyword => s.name.includes(keyword))
+      )) {
+        patterns.recommended_focus_areas.push('Uyku hijyeni ve yaşam tarzı düzenlemeleri');
+      }
+      
+      // Default recommendations
+      if (patterns.recommended_focus_areas.length === 0) {
+        patterns.recommended_focus_areas.push('Genel mood takibi ve öz-farkındalık');
+      }
+      
+      return patterns;
+      
+    } catch (error) {
+      console.error('Symptom pattern analysis failed:', error);
+      
+      // Fallback analysis
+      return {
+        dominant_symptoms: symptoms.slice(0, 2).map(s => ({
+          name: s,
+          frequency: 1,
+          severity: 'medium'
+        })),
+        trigger_correlations: triggers.slice(0, 2).map(t => ({
+          type: 'general',
+          count: 1,
+          triggers: [t],
+          impact: 'medium'
+        })),
+        severity_indicators: ['Temel analiz yapıldı'],
+        recommended_focus_areas: ['Genel mood takibi'],
+        risk_level: 'low',
+        confidence: 0.6
+      };
+    }
+  }
   private generateApproachRecommendations(data: any): string[] { return ['CBT recommended']; }
   private conductRiskAssessment(session: OnboardingSession, data: any): Promise<RiskAssessment> { 
     return Promise.resolve({} as RiskAssessment); 
@@ -1209,9 +1361,560 @@ class ModernOnboardingEngine {
   private generateCompletionSummary(session: OnboardingSession): any { return {}; }
   private finalizeYBOCSAnalysis(session: OnboardingSession): Promise<OCDAnalysis> { return Promise.resolve({} as OCDAnalysis); }
   private generateEnhancedScore(session: OnboardingSession, analysis: OCDAnalysis): Promise<any> { return Promise.resolve({}); }
-  private generateRiskAssessment(session: OnboardingSession): Promise<RiskAssessment> { return Promise.resolve({} as RiskAssessment); }
-  private generateCompleteUserProfile(session: OnboardingSession): Promise<UserTherapeuticProfile> { return Promise.resolve({} as UserTherapeuticProfile); }
-  private generateTreatmentPlan(session: OnboardingSession, profile: UserTherapeuticProfile): Promise<TreatmentPlan> { return Promise.resolve({} as TreatmentPlan); }
+  private async generateRiskAssessment(session: OnboardingSession): Promise<RiskAssessment> {
+    try {
+      const riskFactors: RiskFactor[] = [];
+      const protectiveFactors: ProtectiveFactor[] = [];
+      const immediateActions: ImmediateAction[] = [];
+      
+      // Analyze mood indicators from user profile and session data
+      const profile = session.userProfile;
+      // Access onboarding-specific data from session metadata or userProfile extensions
+      const sessionData = (session.userProfile as any) || {};
+      let immediateRisk = RiskLevel.LOW;
+      let shortTermRisk = RiskLevel.LOW;
+      let longTermRisk = RiskLevel.LOW;
+      
+      // Check for mood-related risk indicators
+      if (sessionData.first_mood?.score !== undefined) {
+        const moodScore = sessionData.first_mood.score; // 0-5 scale
+        
+        // Critical mood indicators
+        if (moodScore <= 1) {
+          immediateRisk = RiskLevel.HIGH;
+          riskFactors.push({
+            category: RiskCategory.CLINICAL,
+            description: 'Çok düşük mood skoru tespit edildi',
+            severity: RiskLevel.HIGH,
+            modifiable: true,
+            timeframe: 'immediate'
+          });
+          
+          immediateActions.push({
+            id: `immediate_mood_${Date.now()}`,
+            priority: 'high',
+            description: 'Derhal ruh sağlığı uzmanı ile görüşme önerilir',
+            timeframe: '24 saat içinde',
+            assignee: 'kullanıcı'
+          });
+        } else if (moodScore <= 2) {
+          immediateRisk = RiskLevel.MEDIUM;
+          shortTermRisk = RiskLevel.MEDIUM;
+          
+          riskFactors.push({
+            category: RiskCategory.CLINICAL,
+            description: 'Düşük mood seviyesi',
+            severity: RiskLevel.MEDIUM,
+            modifiable: true,
+            timeframe: 'short_term'
+          });
+          
+          immediateActions.push({
+            id: `mood_support_${Date.now()}`,
+            priority: 'medium',
+            description: 'Günlük mood takibi ve nefes egzersizleri önerilir',
+            timeframe: '1 hafta içinde',
+            assignee: 'kullanıcı'
+          });
+        }
+      }
+      
+      // Check for anxiety indicators
+      if (sessionData.first_mood?.tags && Array.isArray(sessionData.first_mood.tags)) {
+        const anxietyTags = sessionData.first_mood.tags.filter(tag => 
+          ['anksiyete', 'kaygı', 'endişe', 'korku', 'panik'].some(keyword => 
+            tag.toLowerCase().includes(keyword)
+          )
+        );
+        
+        if (anxietyTags.length > 0) {
+          if (anxietyTags.length >= 3) {
+            if (shortTermRisk !== RiskLevel.HIGH) {
+              shortTermRisk = RiskLevel.MEDIUM;
+            }
+          }
+          
+          riskFactors.push({
+            category: RiskCategory.CLINICAL,
+            description: `Anksiyete belirtileri: ${anxietyTags.join(', ')}`,
+            severity: anxietyTags.length >= 3 ? RiskLevel.MEDIUM : RiskLevel.LOW,
+            modifiable: true,
+            timeframe: 'short_term'
+          });
+        }
+      }
+      
+      // Check for motivation as protective factor
+      if (sessionData.motivation && Array.isArray(sessionData.motivation) && sessionData.motivation.length > 0) {
+        protectiveFactors.push({
+          category: 'motivasyonel',
+          description: `Güçlü motivasyon: ${sessionData.motivation.join(', ')}`,
+          strength: sessionData.motivation.length >= 3 ? 'strong' : 'moderate',
+          reinforceable: true
+        });
+      }
+      
+      // Lifestyle protective factors
+      if (sessionData.lifestyle?.sleep_hours && sessionData.lifestyle.sleep_hours >= 7) {
+        protectiveFactors.push({
+          category: 'yaşam_tarzı',
+          description: 'Yeterli uyku süresi',
+          strength: 'moderate',
+          reinforceable: true
+        });
+      }
+      
+      // Support system check
+      if (sessionData.reminders?.enabled) {
+        protectiveFactors.push({
+          category: 'destek',
+          description: 'Hatırlatma sistemi aktif',
+          strength: 'weak',
+          reinforceable: true
+        });
+      }
+      
+      // Default immediate actions for all users
+      immediateActions.push({
+        id: `welcome_plan_${Date.now()}`,
+        priority: 'low',
+        description: 'Günlük mood takibi başlatın',
+        timeframe: 'Hemen',
+        assignee: 'kullanıcı'
+      });
+      
+      return {
+        id: `risk_${session.userId}_${Date.now()}`,
+        userId: session.userId,
+        timestamp: new Date(),
+        immediateRisk,
+        shortTermRisk,
+        longTermRisk,
+        identifiedRisks: riskFactors,
+        protectiveFactors,
+        immediateActions,
+        monitoringPlan: {
+          frequency: immediateRisk === RiskLevel.HIGH ? 'daily' : 'weekly',
+          indicators: ['mood_score', 'anxiety_level', 'stress_indicators'],
+          triggers: sessionData.first_mood?.tags || []
+        },
+        safeguards: [{
+          id: `safeguard_${Date.now()}`,
+          type: 'crisis_support',
+          description: 'Kriz durumunda profesyonel destek',
+          contactInfo: 'Acil durumlarda 112 arayın'
+        }],
+        confidence: 0.8,
+        humanReviewRequired: immediateRisk === RiskLevel.HIGH,
+        reassessmentInterval: immediateRisk === RiskLevel.HIGH ? 1 : 7
+      };
+      
+    } catch (error) {
+      console.error('Risk assessment generation failed:', error);
+      
+      // Fallback safe assessment
+      return {
+        id: `risk_fallback_${session.userId}_${Date.now()}`,
+        userId: session.userId,
+        timestamp: new Date(),
+        immediateRisk: RiskLevel.LOW,
+        shortTermRisk: RiskLevel.LOW,
+        longTermRisk: RiskLevel.LOW,
+        identifiedRisks: [],
+        protectiveFactors: [{
+          category: 'engagement',
+          description: 'Uygulamaya katılım gösterdi',
+          strength: 'weak',
+          reinforceable: true
+        }],
+        immediateActions: [{
+          id: `fallback_${Date.now()}`,
+          priority: 'low',
+          description: 'Mood takibi başlatın',
+          timeframe: 'Hemen'
+        }],
+        monitoringPlan: {
+          frequency: 'weekly',
+          indicators: ['basic_mood'],
+          triggers: []
+        },
+        safeguards: [{
+          id: `fallback_safeguard_${Date.now()}`,
+          type: 'basic_support',
+          description: 'Temel destek',
+        }],
+        confidence: 0.5,
+        humanReviewRequired: false,
+        reassessmentInterval: 7
+      };
+    }
+  }
+  private async generateCompleteUserProfile(session: OnboardingSession): Promise<UserTherapeuticProfile> {
+    try {
+      const profile = session.userProfile;
+      const sessionData = (session.userProfile as any) || {};
+      
+      // Determine symptom severity based on mood data
+      let symptomSeverity = 5; // Default moderate
+      if (sessionData.first_mood?.score !== undefined) {
+        const moodScore = sessionData.first_mood.score; // 0-5 scale
+        // Convert mood score to severity (inverse relationship)
+        symptomSeverity = Math.max(1, Math.min(10, Math.round((5 - moodScore) * 2)));
+      }
+      
+      // Build trigger words from mood tags
+      const triggerWords: string[] = [];
+      if (sessionData.first_mood?.tags && Array.isArray(sessionData.first_mood.tags)) {
+        triggerWords.push(...sessionData.first_mood.tags);
+      }
+      
+      // Add common mood triggers
+      if (symptomSeverity >= 7) {
+        triggerWords.push('stres', 'yorgunluk', 'yalnızlık', 'baskı');
+      }
+      
+      // Determine communication style based on profile
+      let communicationStyle: CommunicationStyle = {
+        formality: 'warm',
+        directness: 'gentle',
+        supportStyle: 'nurturing',
+        humorAcceptable: true,
+        preferredPronoun: 'sen'
+      };
+      
+      if (sessionData.motivation && Array.isArray(sessionData.motivation)) {
+        const hasEmotionalGoals = sessionData.motivation.some(m => 
+          ['mutluluk', 'huzur', 'rahatlama', 'iyileşme'].some(keyword => 
+            m.toLowerCase().includes(keyword)
+          )
+        );
+        if (hasEmotionalGoals) {
+          communicationStyle.directness = 'gentle';
+          communicationStyle.supportStyle = 'nurturing';
+        }
+        
+        const hasActionGoals = sessionData.motivation.some(m => 
+          ['başarı', 'hedef', 'ilerleme', 'gelişim'].some(keyword => 
+            m.toLowerCase().includes(keyword)
+          )
+        );
+        if (hasActionGoals) {
+          communicationStyle.directness = 'direct';
+          communicationStyle.supportStyle = 'challenging';
+        }
+      }
+      
+      // Generate therapeutic goals based on user input
+      const therapeuticGoals: string[] = [];
+      if (sessionData.motivation && Array.isArray(sessionData.motivation)) {
+        therapeuticGoals.push(...sessionData.motivation.map(m => `Hedef: ${m}`));
+      }
+      
+      // Add mood-specific goals
+      if (symptomSeverity >= 6) {
+        therapeuticGoals.push('Günlük mood seviyesini stabilize etmek');
+        therapeuticGoals.push('Stres yönetimi becerilerini geliştirmek');
+      }
+      
+      if (triggerWords.length > 0) {
+        therapeuticGoals.push('Kişisel tetikleyicileri tanımak ve yönetmek');
+      }
+      
+      therapeuticGoals.push('Düzenli mood takibi yaparak öz-farkındalık geliştirmek');
+      
+      // Preferred CBT techniques based on mood profile
+      const preferredCBTTechniques: CBTTechnique[] = [];
+      if (symptomSeverity >= 7) {
+        preferredCBTTechniques.push(CBTTechnique.COGNITIVE_RESTRUCTURING, CBTTechnique.BEHAVIORAL_EXPERIMENT);
+      } else if (symptomSeverity >= 5) {
+        preferredCBTTechniques.push(CBTTechnique.ACTIVITY_SCHEDULING, CBTTechnique.THOUGHT_CHALLENGING);
+      }
+      
+      // Always add mindfulness for anxiety
+      if (triggerWords.some(word => ['anksiyete', 'kaygı', 'korku'].includes(word.toLowerCase()))) {
+        preferredCBTTechniques.push(CBTTechnique.MINDFULNESS);
+      }
+      
+      // Avoidance topics based on risk level
+      const avoidanceTopics: string[] = [];
+      if (symptomSeverity >= 8) {
+        avoidanceTopics.push('kritik değerlendirme', 'başarısızlık', 'performans baskısı');
+      }
+      
+      // Cultural context
+      let culturalContext = 'Türk kültürü';
+      if (sessionData.culture) {
+        culturalContext = sessionData.culture;
+      }
+      
+      // Build diagnostic info if applicable
+      let diagnosticInfo: DiagnosticInfo | undefined;
+      if (symptomSeverity >= 7) {
+        diagnosticInfo = {
+          primaryDiagnosis: 'Mood ile ilgili zorluklar',
+          severityLevel: symptomSeverity,
+          diagnosisDate: new Date()
+        };
+      }
+      
+      // Treatment history from profile
+      let treatmentHistory: TreatmentHistory | undefined;
+      if (sessionData.feature_flags?.professional_support) {
+        treatmentHistory = {
+          previousTreatments: [TreatmentType.CBT],
+          treatmentResponse: 'Profesyonel destek kullanıyor'
+        };
+      }
+      
+      return {
+        preferredLanguage: 'tr',
+        culturalContext,
+        symptomSeverity,
+        diagnosticInfo,
+        treatmentHistory,
+        communicationStyle,
+        triggerWords: [...new Set(triggerWords)], // Remove duplicates
+        avoidanceTopics,
+        preferredCBTTechniques,
+        therapeuticGoals,
+        riskFactors: triggerWords.length > 3 ? ['Yüksek tetikleyici sayısı'] : []
+      };
+      
+    } catch (error) {
+      console.error('User profile generation failed:', error);
+      
+      // Fallback profile
+      return {
+        preferredLanguage: 'tr',
+        culturalContext: 'Türk kültürü',
+        symptomSeverity: 5,
+        communicationStyle: {
+          formality: 'warm',
+          directness: 'gentle',
+          supportStyle: 'nurturing',
+          humorAcceptable: true,
+          preferredPronoun: 'sen'
+        },
+        triggerWords: [],
+        avoidanceTopics: [],
+        preferredCBTTechniques: [CBTTechnique.ACTIVITY_SCHEDULING],
+        therapeuticGoals: ['Günlük mood takibi yaparak öz-farkındalık geliştirmek'],
+        riskFactors: []
+      };
+    }
+  }
+  private async generateTreatmentPlan(session: OnboardingSession, profile: UserTherapeuticProfile): Promise<TreatmentPlan> {
+    try {
+      const phases: TreatmentPhase[] = [];
+      
+      // Phase 1: Foundation & Assessment (Week 1-2)
+      phases.push({
+        id: `phase_1_${Date.now()}`,
+        name: 'Temel & Değerlendirme',
+        description: 'Mood takibi temellerini öğrenme ve kişisel kalıpları anlama',
+        estimatedDuration: 2,
+        objectives: [
+          'Günlük mood takibi alışkanlığı geliştirmek',
+          'Kişisel mood tetikleyicilerini keşfetmek',
+          'Temel nefes egzersizlerini öğrenmek'
+        ],
+        interventions: [
+          {
+            id: `int_mood_tracking_${Date.now()}`,
+            name: 'Günlük Mood Takibi',
+            type: InterventionType.PSYCHOEDUCATION,
+            description: 'Her gün mood seviyesi, enerji ve anksiyete kaydetme',
+            frequency: 'Günlük'
+          },
+          {
+            id: `int_breathing_${Date.now()}`,
+            name: 'Temel Nefes Egzersizleri',
+            type: InterventionType.MINDFULNESS_TRAINING,
+            description: '4-7-8 nefes tekniği ve derin nefes alma',
+            frequency: 'Günde 2 kez'
+          }
+        ],
+        milestones: [
+          {
+            id: `milestone_1_${Date.now()}`,
+            description: '7 gün ardışık mood kaydı tamamlama',
+            dueInWeeks: 1
+          },
+          {
+            id: `milestone_2_${Date.now()}`,
+            description: 'En az 3 kişisel tetikleyici belirleme',
+            dueInWeeks: 2
+          }
+        ],
+        successCriteria: [
+          'Günlük mood takibini 7 gün boyunca tutarlı şekilde yapma',
+          'Kişisel mood tetikleyicilerini fark etme',
+          'Nefes egzersizlerini doğru şekilde uygulama'
+        ]
+      });
+      
+      // Phase 2: Skill Building (Week 3-6)
+      if (profile.symptomSeverity >= 5) {
+        phases.push({
+          id: `phase_2_${Date.now()}`,
+          name: 'Beceri Geliştirme',
+          description: 'Mood yönetimi becerileri ve stratejiler geliştirme',
+          estimatedDuration: 4,
+          objectives: [
+            'Etkili mood yönetimi stratejileri öğrenmek',
+            'Olumsuz düşünce kalıplarını tanımak',
+            'Günlük aktivite planlaması yapmak'
+          ],
+          interventions: [
+            {
+              id: `int_cognitive_${Date.now()}`,
+              name: 'Bilişsel Yeniden Yapılandırma',
+              type: InterventionType.COGNITIVE_RESTRUCTURING,
+              description: 'Olumsuz düşünceleri objektif gözle değerlendirme',
+              frequency: 'Haftada 3 kez'
+            },
+            {
+              id: `int_activity_${Date.now()}`,
+              name: 'Aktivite Planlama',
+              type: InterventionType.BEHAVIORAL_ACTIVATION,
+              description: 'Mood artırıcı aktiviteleri günlük rutine ekleme',
+              frequency: 'Haftalık planlama'
+            }
+          ],
+          milestones: [
+            {
+              id: `milestone_3_${Date.now()}`,
+              description: 'Olumsuz düşünce kalıbı günlüğü tutma',
+              dueInWeeks: 4
+            },
+            {
+              id: `milestone_4_${Date.now()}`,
+              description: 'Haftalık aktivite planı oluşturma',
+              dueInWeeks: 6
+            }
+          ],
+          successCriteria: [
+            'Olumsuz düşünceleri fark etme ve alternatifler üretebilme',
+            'Düzenli aktivite planı yapma ve uygulama',
+            'Mood seviyesinde %20 iyileşme'
+          ]
+        });
+      }
+      
+      // Phase 3: Integration & Relapse Prevention (Week 7-12)
+      if (profile.symptomSeverity >= 6) {
+        phases.push({
+          id: `phase_3_${Date.now()}`,
+          name: 'Entegrasyon & Sürdürme',
+          description: 'Öğrenilen becerileri kalıcı hale getirme ve geleceğe hazırlanma',
+          estimatedDuration: 6,
+          objectives: [
+            'Öğrenilen becerileri günlük yaşama entegre etmek',
+            'Kriz anlarına yönelik plan geliştirmek',
+            'Uzun vadeli sürdürülebilirlik sağlamak'
+          ],
+          interventions: [
+            {
+              id: `int_relapse_${Date.now()}`,
+              name: 'Nüksetme Önleme',
+              type: InterventionType.RELAPSE_PREVENTION,
+              description: 'Erken uyarı işaretlerini tanıma ve müdahale planı',
+              frequency: 'Haftalık değerlendirme'
+            },
+            {
+              id: `int_maintenance_${Date.now()}`,
+              name: 'Sürdürme Planı',
+              type: InterventionType.PSYCHOEDUCATION,
+              description: 'Uzun vadeli mood sağlığı için yaşam tarzı düzenlemeleri',
+              frequency: 'Aylık planlama'
+            }
+          ],
+          milestones: [
+            {
+              id: `milestone_5_${Date.now()}`,
+              description: 'Kişisel kriz müdahale planı oluşturma',
+              dueInWeeks: 10
+            },
+            {
+              id: `milestone_6_${Date.now()}`,
+              description: 'Sürdürülebilir günlük rutin oluşturma',
+              dueInWeeks: 12
+            }
+          ],
+          successCriteria: [
+            'Kriz anlarında etkili müdahale edebilme',
+            'Öğrenilen becerileri günlük yaşamda uygulama',
+            'Mood seviyesinde %40 iyileşme ve sürdürme'
+          ]
+        });
+      }
+      
+      // Cultural adaptations
+      const culturalAdaptations: string[] = [
+        'Türk kültürünün aile değerlerini göz önünde bulundurma',
+        'Dini ve manevi boyutları destekleme',
+        'Sosyal çevre baskısını anlama ve başa çıkma stratejileri'
+      ];
+      
+      // Accessibility accommodations based on profile
+      const accessibilityAccommodations: string[] = [];
+      if (profile.communicationStyle.preferredPronoun === 'siz') {
+        accessibilityAccommodations.push('Resmi hitap dilini kullanma');
+      }
+      
+      if (profile.triggerWords.length > 0) {
+        accessibilityAccommodations.push('Tetikleyici kelimeleri önleme');
+      }
+      
+      return {
+        id: `treatment_${session.userId}_${Date.now()}`,
+        userId: session.userId,
+        createdAt: new Date(),
+        lastUpdated: new Date(),
+        phases,
+        currentPhase: 0,
+        estimatedDuration: phases.reduce((total, phase) => total + phase.estimatedDuration, 0),
+        userProfile: profile,
+        culturalAdaptations,
+        accessibilityAccommodations
+      };
+      
+    } catch (error) {
+      console.error('Treatment plan generation failed:', error);
+      
+      // Fallback minimal plan
+      return {
+        id: `treatment_fallback_${session.userId}_${Date.now()}`,
+        userId: session.userId,
+        createdAt: new Date(),
+        lastUpdated: new Date(),
+        phases: [{
+          id: `fallback_phase_${Date.now()}`,
+          name: 'Temel Mood Takibi',
+          description: 'Günlük mood takibi ile başlangıç',
+          estimatedDuration: 4,
+          objectives: ['Mood takibi alışkanlığı geliştirmek'],
+          interventions: [{
+            id: `fallback_int_${Date.now()}`,
+            name: 'Günlük Mood Kaydı',
+            type: InterventionType.PSYCHOEDUCATION,
+            description: 'Günlük mood seviyesi kaydetme'
+          }],
+          milestones: [{
+            id: `fallback_milestone_${Date.now()}`,
+            description: '1 hafta boyunca mood kaydı yapma',
+            dueInWeeks: 1
+          }],
+          successCriteria: ['Tutarlı mood takibi yapma']
+        }],
+        currentPhase: 0,
+        estimatedDuration: 4,
+        userProfile: profile,
+        culturalAdaptations: ['Türk kültürü değerlerini göz önünde bulundurma'],
+        accessibilityAccommodations: []
+      };
+    }
+  }
   private generateFollowUpSchedule(session: OnboardingSession, risk: RiskAssessment): Promise<FollowUpSchedule> { return Promise.resolve({} as FollowUpSchedule); }
   private generateNextSteps(session: OnboardingSession, risk: RiskAssessment): string[] { return []; }
 
