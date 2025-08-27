@@ -61,6 +61,19 @@ class MoodTrackingService {
     }
     return MoodTrackingService.instance;
   }
+  
+  /**
+   * Get current user ID from AsyncStorage
+   */
+  private async getCurrentUserId(): Promise<string | null> {
+    try {
+      const userId = await AsyncStorage.getItem('currentUserId');
+      return userId;
+    } catch (error) {
+      console.warn('⚠️ Could not get current user ID:', error);
+      return null;
+    }
+  }
 
   /**
    * 🔒 DECRYPT MOOD ENTRY WITH BACKWARDS COMPATIBILITY
@@ -790,6 +803,14 @@ class MoodTrackingService {
     try {
       console.log('🔥 FORCE DELETING mood entry from local storage:', entryId);
       
+      // 🚀 CRITICAL: Mark entry as deleted in cache FIRST to prevent re-add
+      const userId = await this.getCurrentUserId();
+      if (userId) {
+        const { moodDeletionCache } = await import('@/services/moodDeletionCache');
+        await moodDeletionCache.markAsDeleted(entryId, userId, 'cleanup');
+        console.log('✅ Entry marked in deletion cache (FORCE mode)');
+      }
+      
       let deletionSuccess = false;
       let keysProcessed = 0;
       
@@ -924,6 +945,14 @@ class MoodTrackingService {
   async deleteMoodEntry(entryId: string): Promise<void> {
     try {
       console.log('🗑️ Starting mood entry deletion from local storage:', entryId);
+      
+      // 🚀 CRITICAL: Mark entry as deleted in cache FIRST to prevent re-add
+      const userId = await this.getCurrentUserId();
+      if (userId) {
+        const { moodDeletionCache } = await import('@/services/moodDeletionCache');
+        await moodDeletionCache.markAsDeleted(entryId, userId, 'user_initiated');
+        console.log('✅ Entry marked in deletion cache to prevent re-add');
+      }
       
       let entryFound = false;
       let totalKeysChecked = 0;
