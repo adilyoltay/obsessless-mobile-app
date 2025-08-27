@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase as sharedClient } from '@/lib/supabase';
 import { sanitizePII } from '@/utils/privacy'; // ✅ F-06 FIX: Add PII sanitization
+import { generatePrefixedId } from '@/utils/idGenerator';
 
 // 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -1121,7 +1122,8 @@ class SupabaseNativeService {
       };
       
       // Generate content_hash if not provided (to bypass problematic trigger)
-      const contentHash = sanitizedRecord.content_hash || `cbt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+      const contentHash = sanitizedRecord.content_hash || generatePrefixedId('cbt');
       
       const { data, error } = await this.client
         .from('thought_records')

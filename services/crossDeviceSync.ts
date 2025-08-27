@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import supabaseService from '@/services/supabase';
+import { generatePrefixedId } from '@/utils/idGenerator';
 
 // Try to import expo-device, fallback if not available
 let Device: any = null;
@@ -44,7 +45,8 @@ class CrossDeviceSyncService {
     try {
       let storedDeviceId = await AsyncStorage.getItem('device_id');
       if (!storedDeviceId) {
-        storedDeviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+        storedDeviceId = generatePrefixedId('device');
         await AsyncStorage.setItem('device_id', storedDeviceId);
       }
       this.deviceId = storedDeviceId;

@@ -10,6 +10,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
+import { generatePrefixedId } from '@/utils/idGenerator';
 // In test/live environments, avoid scheduling after interactions to prevent teardown issues
 function scheduleAfterInteractions(cb: () => void) {
   try {
@@ -796,10 +797,11 @@ class AITelemetryManager {
   }
 
   /**
-   * Session ID generate et
+   * Session ID generate et - crypto-secure UUID
    */
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+    return generatePrefixedId('session');
   }
 
   /**

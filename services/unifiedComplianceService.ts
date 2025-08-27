@@ -13,6 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { generatePrefixedId } from '@/utils/idGenerator';
 import { dataStandardizer } from '@/utils/dataStandardization';
 import supabaseService from '@/services/supabase';
 import { secureDataService } from '@/services/encryption/secureDataService';
@@ -370,7 +371,8 @@ class UnifiedComplianceService {
     try {
       // Create export request record
       const exportRequest: DataExportRequest = {
-        id: `export_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+        id: generatePrefixedId('export'),
         userId,
         requestedAt: new Date().toISOString(),
         status: 'processing',
@@ -468,7 +470,8 @@ class UnifiedComplianceService {
   ): Promise<DeletionRequest> {
     try {
       const deletionRequest: DeletionRequest = {
-        id: `deletion_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+        id: generatePrefixedId('deletion'),
         userId,
         requestedAt: new Date().toISOString(),
         scheduledAt: new Date(Date.now() + gracePeriodDays * 24 * 60 * 60 * 1000).toISOString(),
@@ -594,7 +597,8 @@ class UnifiedComplianceService {
       const validation = ComplianceValidator.validateSensitiveData({ action, entity, metadata });
       
       const log: AuditLog = {
-        id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+        id: generatePrefixedId('audit'),
         userId,
         action,
         entity,

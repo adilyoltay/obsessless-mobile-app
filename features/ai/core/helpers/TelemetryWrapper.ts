@@ -8,6 +8,7 @@
  */
 
 import { trackAIInteraction, AIEventType } from '../../telemetry/aiTelemetry';
+import { generateShortSecureId } from '@/utils/idGenerator';
 
 export interface TelemetryContext {
   userId?: string;
@@ -291,10 +292,11 @@ export class TelemetryWrapper {
   }
   
   /**
-   * Private: Generate operation ID
+   * Private: Generate operation ID - crypto-secure short ID
    */
   private generateOperationId(): string {
-    return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+    return generateShortSecureId('op');
   }
   
   /**

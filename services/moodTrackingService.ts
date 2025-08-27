@@ -3,6 +3,7 @@ import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
 import { secureDataService } from '@/services/encryption/secureDataService';
+import { generatePrefixedId } from '@/utils/idGenerator';
 
 export interface MoodEntry {
   id: string;
@@ -140,7 +141,8 @@ class MoodTrackingService {
   async saveMoodEntry(entry: Omit<MoodEntry, 'id' | 'timestamp' | 'synced'>): Promise<MoodEntry> {
     const moodEntry: MoodEntry = {
       ...entry,
-      id: `mood_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+      id: generatePrefixedId('mood'),
       timestamp: new Date().toISOString(),
       synced: false,
       sync_attempts: 0,

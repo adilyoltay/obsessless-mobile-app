@@ -13,6 +13,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { generatePrefixedId } from '@/utils/idGenerator';
 
 // =============================================================================
 // TYPES AND INTERFACES (Unified from both services)
@@ -298,7 +299,8 @@ class UnifiedConflictResolverService {
       
       // Create conflict object
       const conflict: UnifiedDataConflict = {
-        id: `conflict_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+        id: generatePrefixedId('conflict'),
         entityType,
         localData,
         remoteData,

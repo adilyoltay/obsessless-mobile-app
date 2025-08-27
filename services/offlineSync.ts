@@ -9,6 +9,7 @@ import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { syncCircuitBreaker } from '@/utils/circuitBreaker';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { isUUID } from '@/utils/validators';
+import { generateSecureId } from '@/utils/idGenerator';
 
 export interface SyncQueueItem {
   id: string;
@@ -222,7 +223,8 @@ export class OfflineSyncService {
     const priority = this.determinePriority(sanitizedTempItem.entity as SyncQueueItem['entity']);
 
     const syncItem: SyncQueueItem = {
-      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
+      id: generateSecureId(),
       type: sanitizedTempItem.type,
       entity: sanitizedTempItem.entity as 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile',
       data: sanitizedTempItem.data,
