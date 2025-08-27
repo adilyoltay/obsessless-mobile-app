@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -150,6 +150,13 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
   const lastUserIdRef = useRef<string | null>(null);
   const lastCheckRef = useRef<number>(0);
 
+  // Memoize segments to prevent unnecessary re-runs
+  // Only trigger when primary route group changes (e.g., (auth) <-> (tabs))
+  const stableSegments = useMemo(() => {
+    const primarySegment = segments[0] || '';
+    return { primary: primarySegment, segments };
+  }, [segments[0]]);
+
   useEffect(() => {
     const currentUserId = user?.id || null;
     if (lastUserIdRef.current !== currentUserId) {
@@ -164,27 +171,50 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
     const checkNavigation = async () => {
       // Throttle navigation checks to prevent excessive calls
       const now = Date.now();
-      if (now - lastCheckRef.current < 1000) { // 1 second throttle
+      if (now - lastCheckRef.current < 2000) { // Increase to 2 second throttle
         console.log('🚦 Navigation check throttled');
         setIsChecking(false);
         return;
       }
       lastCheckRef.current = now;
 
-      const currentPath = segments.join('/');
-      const inTabsGroup = segments[0] === '(tabs)';
-      const inAuthGroup = segments[0] === '(auth)';
-      const second = (segments as any)[1] || '';
+      // Use segments from stable reference to prevent loops
+      const currentSegments = stableSegments.segments;
+      const currentPath = currentSegments.join('/');
+      const inTabsGroup = currentSegments[0] === '(tabs)';
+      const inAuthGroup = currentSegments[0] === '(auth)';
+      const second = (currentSegments as any)[1] || '';
       const inOnboardingRoute = inAuthGroup && (second === 'onboarding' || currentPath.startsWith('(auth)/onboarding'));
 
-      if (!router || typeof router.replace !== 'function') { setIsChecking(false); return; }
+      console.log('🔍 Navigation check - Current state:', {
+        currentPath,
+        inTabsGroup,
+        inAuthGroup,
+        inOnboardingRoute,
+        hasNavigated: hasNavigatedRef.current,
+        userId: user?.id
+      });
+
+      if (!router || typeof router.replace !== 'function') { 
+        setIsChecking(false); 
+        return; 
+      }
 
       try {
         if (!user) {
+          console.log('👤 No user - checking auth group');
           if (!inAuthGroup) {
+            console.log('🚀 Redirecting to login');
             hasNavigatedRef.current = true;
             router.replace('/(auth)/login');
           }
+          return;
+        }
+
+        // Skip check if already navigated and seems stable (but allow re-check if in wrong route)
+        if (hasNavigatedRef.current && (inTabsGroup || inOnboardingRoute)) {
+          console.log('✅ Navigation already completed and in correct location, skipping further checks');
+          setIsChecking(false);
           return;
         }
 
@@ -204,35 +234,35 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
         if (!aiCompleted) {
           console.log('❌ Onboarding NOT completed - redirecting to onboarding');
           if (!inOnboardingRoute) {
+            console.log('🚀 Redirecting to onboarding');
             hasNavigatedRef.current = true;
             router.replace('/(auth)/onboarding');
+          } else {
+            console.log('✅ Already in onboarding route');
           }
           return;
         }
         
-        console.log('✅ Onboarding completed - allowing normal navigation');
+        console.log('✅ Onboarding completed - checking if redirect needed');
 
         // If completed, allow tabs; if currently in auth, go to tabs
         if (inAuthGroup) {
+          console.log('🚀 Onboarding complete, redirecting to tabs');
           hasNavigatedRef.current = true;
           router.replace('/(tabs)');
           return;
         }
+
+        console.log('✅ User in correct location, no redirect needed');
+        hasNavigatedRef.current = true; // Mark as handled
       } finally {
         setIsChecking(false);
       }
     };
 
-    // Only run navigation check when necessary to prevent infinite loops
-    if (hasNavigatedRef.current && user) {
-      // If we've already navigated and user is stable, no need to re-check frequently
-      setIsChecking(false);
-      return;
-    }
-
-    const timer = setTimeout(checkNavigation, 200);
+    const timer = setTimeout(checkNavigation, 300); // Slight delay
     return () => clearTimeout(timer);
-  }, [user?.id, authLoading]); // Removed segments dependency to prevent loop
+  }, [user?.id, authLoading, stableSegments]); // Use memoized stable segments to prevent excessive re-runs
 
   if (authLoading || isChecking) {
     return (
