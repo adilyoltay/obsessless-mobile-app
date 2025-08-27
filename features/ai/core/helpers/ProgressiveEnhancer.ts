@@ -7,9 +7,53 @@
  * @since 2025-01 - Monolitik Optimizasyon
  */
 
-import { EventEmitter } from 'events';
 import { getPatternMatcher } from './BasePatternMatcher';
 import { getConfidenceCalculator } from './UnifiedConfidenceCalculator';
+
+/**
+ * Simple React Native compatible EventEmitter alternative
+ */
+class SimpleEventEmitter {
+  private listeners: Map<string, ((data: any) => void)[]> = new Map();
+  
+  emit(event: string, data?: any): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach(listener => {
+        try {
+          listener(data);
+        } catch (error) {
+          console.warn('EventEmitter listener error:', error);
+        }
+      });
+    }
+  }
+  
+  on(event: string, listener: (data: any) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event)!.push(listener);
+  }
+  
+  off(event: string, listener: (data: any) => void): void {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(listener);
+      if (index > -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+  }
+  
+  removeAllListeners(event?: string): void {
+    if (event) {
+      this.listeners.delete(event);
+    } else {
+      this.listeners.clear();
+    }
+  }
+}
 
 export interface QuickResult {
   confidence: number;
@@ -40,8 +84,8 @@ export interface ProgressiveOptions {
   enableDeepAnalysis?: boolean;
 }
 
-export class ProgressiveEnhancer extends EventEmitter {
-  private deepAnalysisQueue: Map<string, NodeJS.Timeout> = new Map();
+export class ProgressiveEnhancer extends SimpleEventEmitter {
+  private deepAnalysisQueue: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private activeAnalyses: Map<string, Promise<DeepResult>> = new Map();
   private readonly patternMatcher = getPatternMatcher();
   private readonly confidenceCalculator = getConfidenceCalculator();
