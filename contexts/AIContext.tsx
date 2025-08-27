@@ -1059,6 +1059,22 @@ export function AIProvider({ children }: AIProviderProps) {
       setTreatmentPlan(null);
       setCurrentRiskAssessment(null);
       setOnboardingSession(null);
+      
+      // 🧹 CRITICAL FIX: Cleanup services to prevent memory leaks on AIContext unmount
+      try {
+        console.log('🧹 Cleaning up services on AIContext unmount...');
+        import('@/services/offlineSync').then(({ offlineSyncService }) => {
+          offlineSyncService.cleanup();
+        }).catch(() => {});
+        
+        import('@/services/crossDeviceSync').then(({ crossDeviceSync }) => {
+          crossDeviceSync.cleanup();
+        }).catch(() => {});
+        
+        console.log('✅ Service cleanup completed on AIContext unmount');
+      } catch (cleanupError) {
+        console.error('⚠️ Service cleanup failed on AIContext unmount (non-critical):', cleanupError);
+      }
     };
   }, []);
 

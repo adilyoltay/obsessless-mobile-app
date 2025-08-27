@@ -90,11 +90,27 @@ export default function RootLayout() {
           deadLetterQueue.processDeadLetterQueue().catch(() => {});
           offlineSyncService.processSyncQueue().catch(()=>{});
         }, 60000);
-        // App comes to foreground: trigger quick sync
+        // 🔄 App state management: sync on foreground, cleanup on background
         appStateListener = AppState.addEventListener('change', (state) => {
           if (state === 'active') {
+            console.log('📱 App came to foreground - triggering sync');
             offlineSyncService.processSyncQueue().catch(()=>{});
             deadLetterQueue.processDeadLetterQueue().catch(()=>{});
+          } else if (state === 'background' || state === 'inactive') {
+            console.log('📱 App went to background - performing cleanup');
+            // 🧹 CRITICAL FIX: Cleanup on background to prevent memory leaks
+            try {
+              import('@/services/crossDeviceSync').then(({ crossDeviceSync }) => {
+                crossDeviceSync.cleanup();
+              }).catch(() => {});
+              
+              // Note: Don't cleanup offlineSyncService here as it needs to stay active 
+              // for background sync operations. It will be cleaned up on logout/unmount.
+              
+              console.log('✅ Background cleanup completed');
+            } catch (cleanupError) {
+              console.error('⚠️ Background cleanup failed (non-critical):', cleanupError);
+            }
           }
         });
       } catch {}
@@ -102,6 +118,22 @@ export default function RootLayout() {
     return () => {
       if (interval) clearInterval(interval);
       try { appStateListener?.remove?.(); } catch {}
+      
+      // 🧹 CRITICAL FIX: Final cleanup on app termination
+      try {
+        console.log('🧹 App unmounting - performing final service cleanup');
+        import('@/services/offlineSync').then(({ offlineSyncService }) => {
+          offlineSyncService.cleanup();
+        }).catch(() => {});
+        
+        import('@/services/crossDeviceSync').then(({ crossDeviceSync }) => {
+          crossDeviceSync.cleanup();
+        }).catch(() => {});
+        
+        console.log('✅ Final service cleanup completed');
+      } catch (cleanupError) {
+        console.error('⚠️ Final cleanup failed (non-critical):', cleanupError);
+      }
     };
   }, []);
 

@@ -180,6 +180,22 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setProfile(null);
         setUserId('');
         console.log('🔐 User signed out, state cleared');
+        
+        // 🧹 CRITICAL FIX: Cleanup services to prevent memory leaks
+        try {
+          console.log('🧹 Cleaning up services on user logout...');
+          const { offlineSyncService } = await import('@/services/offlineSync');
+          const { crossDeviceSync } = await import('@/services/crossDeviceSync');
+          
+          // Clean up all long-running services
+          offlineSyncService.cleanup();
+          crossDeviceSync.cleanup();
+          
+          console.log('✅ Service cleanup completed on logout');
+        } catch (cleanupError) {
+          console.error('⚠️ Service cleanup failed on logout (non-critical):', cleanupError);
+        }
+        
         // Clear persisted user id
         try { await AsyncStorage.removeItem('currentUserId'); } catch {}
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
