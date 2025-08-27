@@ -31,6 +31,9 @@ import { router } from 'expo-router';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { useAISettingsStore, aiSettingsUtils } from '@/store/aiSettingsStore';
 
+// AI Limit Service
+import { aiLimitService, AILimitInfo, AILimitSettings } from '@/services/aiLimitService';
+
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
@@ -85,6 +88,11 @@ export default function SettingsScreen() {
     weeklyReports: true
   });
 
+  // AI Limit States
+  const [aiLimitInfo, setAiLimitInfo] = useState<AILimitInfo | null>(null);
+  const [aiLimitSettings, setAiLimitSettings] = useState<AILimitSettings>({});
+  const [aiLimitLoading, setAiLimitLoading] = useState(false);
+
   // AI Onboarding state removed - no longer needed
   // Treatment Plan removed - moved to OCD Dashboard Assessment tab
 
@@ -92,7 +100,10 @@ export default function SettingsScreen() {
     loadSettings();
     loadConsents();
     loadMigrationAndMetrics();
-  }, []);
+    if (user?.id) {
+      loadAILimitInfo();
+    }
+  }, [user?.id]);
 
   const loadSettings = async () => {
     try {
@@ -103,6 +114,72 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  const loadAILimitInfo = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setAiLimitLoading(true);
+      const [limitInfo, limitSettings] = await Promise.all([
+        aiLimitService.getAILimitInfo(user.id),
+        aiLimitService.getAILimitSettings(user.id)
+      ]);
+      
+      setAiLimitInfo(limitInfo);
+      setAiLimitSettings(limitSettings);
+    } catch (error) {
+      console.error('Error loading AI limit info:', error);
+    } finally {
+      setAiLimitLoading(false);
+    }
+  };
+
+  const handleAILimitSettingChange = async (key: keyof AILimitSettings, value: any) => {
+    if (!user?.id) return;
+    
+    try {
+      const updatedSettings = { ...aiLimitSettings, [key]: value };
+      setAiLimitSettings(updatedSettings);
+      
+      await aiLimitService.updateAILimitSettings(user.id, { [key]: value });
+      
+      // Reload AI limit info to reflect changes
+      const newLimitInfo = await aiLimitService.getAILimitInfo(user.id);
+      setAiLimitInfo(newLimitInfo);
+      
+      console.log(`✅ AI limit setting updated: ${key} = ${value}`);
+    } catch (error) {
+      console.error('Failed to update AI limit setting:', error);
+      // Revert on error
+      setAiLimitSettings(aiLimitSettings);
+    }
+  };
+
+  const handleResetDailyUsage = async () => {
+    if (!user?.id) return;
+    
+    Alert.alert(
+      'Günlük Kullanımı Sıfırla',
+      'Bugünkü AI analiz kullanımını sıfırlamak istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await aiLimitService.resetDailyUsage(user.id);
+              await loadAILimitInfo(); // Reload to show reset values
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (error) {
+              console.error('Failed to reset daily usage:', error);
+              Alert.alert('Hata', 'Günlük kullanım sıfırlanamadı. Tekrar deneyin.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const loadConsents = async () => {
@@ -350,6 +427,108 @@ export default function SettingsScreen() {
     </View>
   );
 
+  const renderAILimitsSection = () => {
+    if (!user?.id || !aiLimitInfo) return null;
+
+    const statusColor = aiLimitService.getUsageStatusColor(aiLimitInfo.usagePercentage);
+    const statusMessage = aiLimitService.getUsageStatusMessage(aiLimitInfo);
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>AI Analiz Limitleri</Text>
+        <View style={styles.sectionContent}>
+          
+          {/* Current Usage Display */}
+          <View style={styles.aiLimitCard}>
+            <View style={styles.aiLimitHeader}>
+              <View style={styles.aiLimitIcon}>
+                <MaterialCommunityIcons 
+                  name="robot-outline" 
+                  size={24} 
+                  color={statusColor}
+                />
+              </View>
+              <View style={styles.aiLimitInfo}>
+                <Text style={styles.aiLimitTitle}>Günlük Kullanım</Text>
+                <Text style={[styles.aiLimitStatus, { color: statusColor }]}>
+                  {statusMessage}
+                </Text>
+              </View>
+              {aiLimitLoading && (
+                <ActivityIndicator size="small" color="#6B7280" />
+              )}
+            </View>
+            
+            {/* Usage Bar */}
+            <View style={styles.aiLimitProgressContainer}>
+              <View style={styles.aiLimitProgressBackground}>
+                <View 
+                  style={[
+                    styles.aiLimitProgressFill, 
+                    { 
+                      width: `${Math.min(100, aiLimitInfo.usagePercentage)}%`,
+                      backgroundColor: statusColor
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.aiLimitProgressText}>
+                {aiLimitInfo.dailyTokensUsed} / {aiLimitInfo.dailyTokenLimit} token
+              </Text>
+            </View>
+          </View>
+
+          {/* Settings */}
+          {__DEV__ && (
+            <>
+              {renderSettingItem(
+                'Sınırsız Mod (Dev)',
+                'infinity',
+                aiLimitSettings.enableUnlimitedMode || false,
+                (value) => handleAILimitSettingChange('enableUnlimitedMode', value)
+              )}
+              
+              {renderSettingItem(
+                '%90 Uyarısı',
+                'bell-alert-outline',
+                aiLimitSettings.notifyAt90Percent || false,
+                (value) => handleAILimitSettingChange('notifyAt90Percent', value)
+              )}
+            </>
+          )}
+
+          {/* Reset Action */}
+          {__DEV__ && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionItem,
+                pressed && styles.actionItemPressed
+              ]}
+              onPress={handleResetDailyUsage}
+            >
+              <View style={styles.actionLeft}>
+                <MaterialCommunityIcons 
+                  name="refresh" 
+                  size={20} 
+                  color="#F59E0B" 
+                />
+                <Text style={[styles.actionTitle, { color: '#F59E0B' }]}>
+                  Günlük Kullanımı Sıfırla
+                </Text>
+              </View>
+              <MaterialCommunityIcons 
+                name="chevron-right" 
+                size={20} 
+                color="#9CA3AF" 
+              />
+            </Pressable>
+          )}
+
+        </View>
+      </View>
+    );
+  };
+
   const renderActionItem = (
     title: string,
     icon: string,
@@ -430,6 +609,9 @@ export default function SettingsScreen() {
             )}
           </View>
         </View>
+
+        {/* AI Limits */}
+        {renderAILimitsSection()}
 
         {/* Gizlilik ve İzinler */}
         <View style={styles.section}>
@@ -878,5 +1060,57 @@ const styles = StyleSheet.create({
   logMetaSmall: {
     fontSize: 11,
     color: '#9CA3AF',
+  },
+  // AI Limit Styles
+  aiLimitCard: {
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  aiLimitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  aiLimitIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  aiLimitInfo: {
+    flex: 1,
+  },
+  aiLimitTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  aiLimitStatus: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  aiLimitProgressContainer: {
+    gap: 8,
+  },
+  aiLimitProgressBackground: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  aiLimitProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  aiLimitProgressText: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

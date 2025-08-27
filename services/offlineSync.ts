@@ -138,9 +138,25 @@ export class OfflineSyncService {
 
   private sortQueueByPriority(items: SyncQueueItem[]): SyncQueueItem[] {
     return items.sort((a, b) => {
-      const priorityDiff = this.getPriorityWeight(b.priority) - this.getPriorityWeight(a.priority);
+      // 🚨 ENHANCED: Operation-aware priority sorting for deletion priority
+      const getEnhancedPriority = (item: SyncQueueItem): number => {
+        // Base priority weight
+        let weight = this.getPriorityWeight(item.priority);
+        
+        // 🗑️ DELETION BOOST: Add extra weight for delete operations
+        if (item.type === 'DELETE') {
+          weight += 10; // Deletions always get highest priority
+        } else if (item.type === 'UPDATE') {
+          weight += 2; // Updates get moderate boost
+        }
+        
+        return weight;
+      };
+      
+      const priorityDiff = getEnhancedPriority(b) - getEnhancedPriority(a);
       if (priorityDiff !== 0) return priorityDiff;
-      // Secondary sort by timestamp (oldest first)
+      
+      // Secondary sort by timestamp (oldest first within same priority)
       return a.timestamp - b.timestamp;
     });
   }
@@ -225,8 +241,9 @@ export class OfflineSyncService {
     // Sanitize the item to fix common issues
     const sanitizedTempItem = queueValidator.sanitizeItem(tempItem);
 
-    // ✅ NEW: Determine priority for the item
-    const priority = this.determinePriority(sanitizedTempItem.entity as SyncQueueItem['entity']);
+    // ✅ NEW: Determine priority for the item (support explicit priority)
+    const explicitPriority = (item.data as any)?.priority;
+    const priority = explicitPriority || this.determinePriority(sanitizedTempItem.entity as SyncQueueItem['entity']);
 
     const syncItem: SyncQueueItem = {
       // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
@@ -283,6 +300,10 @@ export class OfflineSyncService {
     }
 
     this.syncQueue.push(syncItem);
+    
+    // 🚀 PRIORITY SORT: Deletions and high priority items first
+    this.syncQueue = this.sortQueueByPriority(this.syncQueue);
+    
     await this.saveSyncQueue();
 
     // 📊 Queue health telemetry
@@ -566,7 +587,7 @@ export class OfflineSyncService {
     }
   }
 
-  // ✅ F-04 FIX: Add DELETE handling to mood entry sync
+  // ✅ F-04 FIX: Enhanced DELETE handling with priority support
   private async syncMoodEntry(item: SyncQueueItem): Promise<void> {
     const raw = item.data || {};
     const { default: svc } = await import('@/services/supabase');
@@ -575,17 +596,35 @@ export class OfflineSyncService {
     if (item.type === 'DELETE') {
       if (raw.id) {
         try {
+          const priority = raw.priority || 'normal';
+          const deleteReason = raw.deleteReason || 'unknown';
+          
+          console.log(`🗑️ Processing ${priority} priority deletion: ${raw.id} (${deleteReason})`);
+          
           await (svc as any).deleteMoodEntry(raw.id);
-          console.log('✅ Mood entry deleted successfully:', raw.id);
+          console.log(`✅ ${priority.toUpperCase()} priority mood entry deleted successfully:`, raw.id);
+          
           try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-            await trackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'mood_entry', id: raw.id }, raw.user_id);
+            const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+            const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { 
+              entity: 'mood_entry', 
+              id: raw.id,
+              priority,
+              deleteReason
+            }, raw.user_id);
           } catch {}
         } catch (error) {
-          console.warn('⚠️ Mood entry deletion failed:', error);
+          console.warn(`⚠️ ${raw.priority || 'normal'} priority mood entry deletion failed:`, error);
           try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-            await trackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'mood_entry', id: raw.id }, raw.user_id);
+            const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+            const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { 
+              entity: 'mood_entry', 
+              id: raw.id,
+              priority: raw.priority || 'normal',
+              error: String(error)
+            }, raw.user_id);
           } catch {}
           throw error; // Let it retry via DLQ
         }
@@ -1073,6 +1112,8 @@ export class OfflineSyncService {
       isNearCapacity: this.syncQueue.length > OfflineSyncService.MAX_QUEUE_SIZE * 0.8
     };
   }
+
+
 
   /**
    * 🧹 CLEANUP: Properly teardown all listeners and prevent memory leaks

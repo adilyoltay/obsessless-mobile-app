@@ -1245,34 +1245,49 @@ export default function MoodScreen() {
                 });
 
                 if (user) {
-                  // Try to delete from server first
+                  // 🔄 CRITICAL FIX: Remote-First Deletion for Intelligent Merge
+                  console.log('🌐 DELETION FLOW: Remote → Local (prevents intelligent merge restore)');
+                  
                   try {
+                    // 🟢 STEP 1: Delete from REMOTE first (prevents intelligent merge restore)
+                    console.log('🌐 Step 1: Deleting from remote server...');
                     await supabaseService.deleteMoodEntry(entryId);
-                    console.log('✅ Mood entry deleted from server');
+                    console.log('✅ Remote deletion successful - intelligent merge safe');
+
                   } catch (serverError) {
-                    console.warn('⚠️ Server delete failed, adding to offline queue:', serverError);
+                    console.warn('⚠️ Remote deletion failed, using PRIORITY sync queue:', serverError);
                     
-                    // Add to offline sync queue for later deletion
+                    // 🚨 PRIORITY SYNC: Add to front of queue for immediate retry
                     if (UUID_REGEX.test(entryId)) {
                       await offlineSyncService.addToSyncQueue({
                         type: 'DELETE',
                         entity: 'mood_entry',
                         data: {
                           id: entryId,
-                          user_id: user.id
+                          user_id: user.id,
+                          priority: 'high', // High priority for deletions
+                          deleteReason: 'user_initiated' // Track deletion reason
                         }
                       });
-                      console.log('📤 Added mood entry delete to offline queue');
+                      console.log('📤 Added to HIGH PRIORITY delete queue');
+                      
+                      // 🔥 IMMEDIATE PROCESSING: Try to sync deletion right away
+                      try {
+                        console.log('⚡ Triggering immediate sync queue processing...');
+                        await offlineSyncService.processSyncQueue();
+                        console.log('🔥 Immediate sync queue processing completed');
+                      } catch (immediateError) {
+                        console.warn('⚠️ Immediate sync failed, will retry later:', immediateError);
+                      }
+                      
                       try {
                         await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
-                          entity: 'mood_entry', id: entryId, userId: user.id
+                          entity: 'mood_entry', id: entryId, userId: user.id, priority: 'high'
                         }, user.id);
                       } catch {}
                     } else {
-                      console.log('⏭️ Skipping offline queue for local-only ID:', entryId);
+                      console.log('⏭️ Skipping remote queue for local-only ID:', entryId);
                     }
-                    
-                    // Continue with local deletion even if server fails
                   }
 
                   // Delete from local service
@@ -1322,11 +1337,31 @@ export default function MoodScreen() {
                   await loadMoodEntries();
 
                 } else {
-                  // Offline mode - just remove from local storage
+                  // 📱 OFFLINE MODE: Local deletion + Queue for later remote sync
+                  console.log('📱 DELETION FLOW: Offline mode - Local → Queue');
+                  
+                  // Queue remote deletion for when connection returns
+                  if (UUID_REGEX.test(entryId)) {
+                    await offlineSyncService.addToSyncQueue({
+                      type: 'DELETE',
+                      entity: 'mood_entry',
+                      data: {
+                        id: entryId,
+                        user_id: user.id,
+                        priority: 'high',
+                        deleteReason: 'user_initiated_offline'
+                      }
+                    });
+                    console.log('📤 Added offline deletion to priority queue');
+                  }
+                  
+                  // Remove from local storage
                   await moodTracker.deleteMoodEntry(entryId);
+                  
+                  // Remove from UI state immediately
                   setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
                   
-                  setToastMessage('Mood kaydı offline silindi');
+                  setToastMessage('Mood kaydı offline silindi (senkronizasyon bekliyor)');
                   setShowToast(true);
                 }
 

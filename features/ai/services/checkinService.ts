@@ -1595,7 +1595,7 @@ async function checkTokenBudget(userId: string): Promise<boolean> {
     const usageStr = await AsyncStorage.getItem(key);
     const usage = usageStr ? parseInt(usageStr) : 0;
     
-    const dailyLimit = 1000; // Daily token limit per user
+    const dailyLimit = __DEV__ ? 50 : 1000; // Lower limit in dev for easy testing
     return usage < dailyLimit;
   } catch (error) {
     console.warn('Token budget check failed:', error);
