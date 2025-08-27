@@ -37,6 +37,7 @@ interface MoodOnboardingState {
   // Progressive AI insight methods
   collectProgressiveInsights: () => Promise<Record<string, any>>;
   cleanupProgressiveCache: () => Promise<void>;
+  generateFallbackProfile: (payload: OnboardingPayload, progressiveInsights: Record<string, any>, userId: string) => any;
 }
 
 // 🚀 V2: Updated storage keys for enhanced onboarding
@@ -366,6 +367,148 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     }
   },
 
+  // 🛡️ FALLBACK PROFILE GENERATOR - Smart baseline profile from onboarding data
+  generateFallbackProfile: (payload: OnboardingPayload, progressiveInsights: Record<string, any>, userId: string) => {
+    try {
+      console.log('🛡️ Generating intelligent fallback profile from onboarding data...');
+      
+      // 📊 MOTIVATION ANALYSIS: Convert motivations to insights
+      const motivationInsights = payload.motivation?.map(motivation => {
+        const motivationMap: Record<string, string> = {
+          'stress_reduction': 'Stress yönetimi konusunda odaklanmak istiyorsun. Günlük nefes egzersizleri sana yardımcı olacak.',
+          'mental_clarity': 'Zihinsel netlik arayışındasın. Düzenli mood takibi düşüncelerini organize etmene yardımcı olabilir.',
+          'emotional_regulation': 'Duygu düzenleme becerilerin geliştirmek istiyorsun. Günlük mood kayıtları bu süreçte önemli.',
+          'anxiety_management': 'Kaygı yönetimi önceliğin. Nefes teknikleri ve mindfulness pratikleri etkili olacak.',
+          'habit_formation': 'Olumlu alışkanlıklar oluşturmak istiyorsun. Küçük, tutarlı adımlarla başlayalım.',
+          'self_awareness': 'Kendini tanıma yolculuğundasın. Mood takibi öz-farkındalığını artıracak.',
+          'goal_achievement': 'Hedeflerine ulaşmak için motivasyon arıyorsun. Günlük takip ilerleme görmeni sağlayacak.',
+          'better_relationships': 'İlişkilerini iyileştirmek istiyorsun. Duygusal farkındalık bu konuda önemli.'
+        };
+        
+        return motivationMap[motivation] || `${motivation} konusunda hedeflerin var ve bu olumlu bir başlangıç.`;
+      }) || ['ObsessLess yolculuğuna başladığın için tebrikler!'];
+
+      // 🎭 MOOD BASELINE: First mood analysis
+      let moodBaseline = 'Ruh halini takip etmeye başladın, bu önemli bir adım.';
+      if (payload.first_mood?.score) {
+        const score = payload.first_mood.score;
+        if (score >= 4) {
+          moodBaseline = `Başlangıç mood seviyeniz oldukça iyi (${score}/5). Bu pozitif enerjiyi korumaya odaklanabilirsin.`;
+        } else if (score <= 2) {
+          moodBaseline = `Başlangıç mood seviyeniz düşük (${score}/5). Bu sadece bir başlangıç noktası - zamanla iyileşecek.`;
+        } else {
+          moodBaseline = `Orta seviye mood (${score}/5) ile başlıyorsun. Günlük takiple daha iyi anlayacaksın.`;
+        }
+      }
+
+      // 🏠 LIFESTYLE INSIGHTS: Analyze lifestyle data
+      let lifestyleInsights = [];
+      if (payload.lifestyle) {
+        const lifestyle = payload.lifestyle;
+        
+        if (lifestyle.exercise) {
+          const exercise = lifestyle.exercise;
+          if (exercise === 'regular') {
+            lifestyleInsights.push('Düzenli egzersiz alışkanlığın mood stabiliten için mükemmel bir temel.');
+          } else if (exercise === 'light') {
+            lifestyleInsights.push('Hafif egzersiz rutinin iyi. Mood takibi ile egzersiz-ruh hali bağlantısını keşfedeceksin.');
+          } else {
+            lifestyleInsights.push('Egzersizin mood üzerindeki etkisini takip ederek motivasyonunu artırabilirsin.');
+          }
+        }
+        
+        if (lifestyle.sleep_hours) {
+          const sleepHours = lifestyle.sleep_hours;
+          if (sleepHours < 6) {
+            lifestyleInsights.push('Uyku süresi mood için kritik. Daha fazla uyumaya odaklanmak ruh halini iyileştirebilir.');
+          } else if (sleepHours >= 7) {
+            lifestyleInsights.push('Yeterli uyku süresi mood stabiliteni destekliyor. Bu sağlıklı alışkanlığını koru.');
+          }
+        }
+        
+        if (lifestyle.social) {
+          const social = lifestyle.social;
+          if (social === 'low') {
+            lifestyleInsights.push('Sosyal aktiviteler mood için önemli. Küçük sosyal etkileşimler bile fark yaratabilir.');
+          } else if (social === 'high') {
+            lifestyleInsights.push('Aktif sosyal hayatın mood dengen için harika bir kaynak.');
+          }
+        }
+      }
+
+      // 🔔 REMINDER PERSONALIZATION
+      let reminderInsights = [];
+      if (payload.reminders?.enabled) {
+        reminderInsights.push(`${payload.reminders.time || '09:00'} saatinde günlük mood kaydı için hatırlatıcı aktif. Tutarlılık başarının anahtarı.`);
+      } else {
+        reminderInsights.push('Mood takibini alışkanlık haline getirmek için kendi ritmini oluştur.');
+      }
+
+      // 🎯 PERSONALIZED GOALS based on data
+      const personalizedGoals = [
+        'Haftada en az 5 mood kaydı yaparak ruh halindeki değişimleri fark et',
+        'Mood seviyeni etkileyen faktörleri keşfet ve not al',
+        ...motivationInsights.slice(0, 1) // Add main motivation as goal
+      ];
+
+      // 🏆 FALLBACK PROFILE STRUCTURE
+      return {
+        insights: [
+          ...motivationInsights,
+          moodBaseline,
+          ...lifestyleInsights,
+          ...reminderInsights,
+          'Bu profil onboarding verilerinden oluşturuldu. Uygulamayı kullandıkça daha kişisel öneriler alacaksın.'
+        ],
+        patterns: [
+          {
+            type: 'onboarding_baseline',
+            title: 'Başlangıç Profili',
+            description: moodBaseline,
+            confidence: 0.8,
+            source: 'fallback_generator'
+          }
+        ],
+        baseline: {
+          motivationAnalysis: motivationInsights,
+          personalizedGoals: personalizedGoals,
+          lifestyleFactors: lifestyleInsights
+        },
+        generatedAt: new Date().toISOString(),
+        source: 'intelligent_fallback',
+        profileVersion: '2.0-fallback',
+        dataPoints: {
+          motivationCount: payload.motivation?.length || 0,
+          hasMoodBaseline: !!payload.first_mood?.score,
+          hasLifestyleData: !!payload.lifestyle,
+          hasReminders: !!payload.reminders?.enabled,
+          progressiveInsights: Object.keys(progressiveInsights).length
+        },
+        fallbackReason: 'AI analysis timeout/failure - generated from onboarding data'
+      };
+      
+    } catch (error) {
+      console.warn('⚠️ Fallback profile generation failed, using minimal profile:', error);
+      
+      // MINIMAL FALLBACK: Very basic profile
+      return {
+        insights: [
+          'ObsessLess\'e hoş geldin! Mood takip yolculuğun başlıyor.',
+          'Günlük mood kayıtları yaparak duygularını daha iyi anlayacaksın.',
+          'Zamanla kişiselleştirilmiş öneriler almaya başlayacaksın.'
+        ],
+        patterns: [],
+        baseline: {
+          personalizedGoals: ['Mood takibine başla', 'Düzenli kayıt yap', 'Değişimleri gözlemle']
+        },
+        generatedAt: new Date().toISOString(),
+        source: 'minimal_fallback',
+        profileVersion: '2.0-minimal',
+        fallbackReason: 'Complete AI failure - minimal profile'
+      };
+    }
+  },
+
   complete: async (userId: string): Promise<{ success: boolean; criticalErrors: string[]; warnings: string[] }> => {
     const { payload, startedAt } = get();
     const durationMs = Date.now() - startedAt;
@@ -550,29 +693,56 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       const progressiveInsights = await get().collectProgressiveInsights();
       console.log(`🔍 Collected ${Object.keys(progressiveInsights).length} progressive insight sets`);
       
-      // 2. Run final comprehensive analysis with all data
-      const aiResult = await pipeline.unifiedPipeline.process({
-        userId: uidForKey,
-        content: {
-          type: 'onboarding_completion',
-          payload,
-          duration: durationMs,
-          completedAt: new Date().toISOString(),
-          progressiveInsights // Include previously gathered insights
-        },
-        type: 'data',
-        context: {
-          source: 'today',
-          timestamp: Date.now(),
-          metadata: {
-            isInitialProfile: true,
-            generatePersonalization: true,
-            enableInsights: true,
-            enhancedAnalysis: true,
-            progressiveDataAvailable: Object.keys(progressiveInsights).length > 0
+      // 2. 🚀 ONBOARDING OPTIMIZED: Fast AI analysis with timeout & fallback
+      console.log('⚡ Starting fast AI analysis for onboarding (8s timeout)...');
+      let aiResult = null;
+      
+      try {
+        // Race between AI processing and timeout
+        const aiPromise = pipeline.unifiedPipeline.process({
+          userId: uidForKey,
+          content: {
+            type: 'onboarding_completion',
+            payload,
+            duration: durationMs,
+            completedAt: new Date().toISOString(),
+            progressiveInsights // Include previously gathered insights
+          },
+          type: 'data',
+          context: {
+            source: 'today',
+            timestamp: Date.now(),
+            metadata: {
+              isInitialProfile: true,
+              generatePersonalization: true,
+              enableInsights: true,
+              enhancedAnalysis: true,
+              progressiveDataAvailable: Object.keys(progressiveInsights).length > 0,
+              onboardingMode: true, // Special flag for faster processing
+              fastMode: true // Enable simplified analysis for onboarding
+            }
           }
-        }
-      });
+        });
+        
+        // 🏃‍♂️ FAST TIMEOUT: 8 seconds max for onboarding
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('ONBOARDING_AI_TIMEOUT: Analysis took too long, using fallback'));
+          }, 8000);
+        });
+        
+        // Race condition: whichever finishes first
+        aiResult = await Promise.race([aiPromise, timeoutPromise]);
+        console.log('✅ Fast AI analysis completed successfully!');
+        
+      } catch (aiError) {
+        const isTimeout = aiError?.message?.includes('ONBOARDING_AI_TIMEOUT');
+        console.warn(`⚡ AI analysis ${isTimeout ? 'timed out' : 'failed'}, switching to intelligent fallback...`);
+        
+        // 🔄 INTELLIGENT FALLBACK: Generate basic profile from onboarding data
+        aiResult = get().generateFallbackProfile(payload, progressiveInsights, uidForKey);
+        console.log('🛡️ Fallback profile generated successfully');
+      }
 
       // 3. Create comprehensive AI profile merging all insights
       const insightsArray = Array.isArray(aiResult?.insights) ? aiResult.insights : [];
