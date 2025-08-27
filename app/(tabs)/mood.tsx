@@ -500,6 +500,37 @@ export default function MoodScreen() {
         fallbackTriggered: true
       }, user.id);
       
+      // 🚨 USER FEEDBACK: Inform user about analysis failure
+      try {
+        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+        
+        // Determine error type based on error message/type
+        let errorType = AIErrorType.UNKNOWN_ERROR;
+        if (error instanceof Error) {
+          if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorType = AIErrorType.NETWORK_FAILURE;
+          } else if (error.message.includes('timeout')) {
+            errorType = AIErrorType.ANALYSIS_TIMEOUT;
+          } else if (error.message.includes('budget') || error.message.includes('limit')) {
+            errorType = AIErrorType.TOKEN_BUDGET_EXCEEDED;
+          }
+        }
+        
+        await aiErrorFeedbackService.handleAIError(errorType, {
+          userId: user.id,
+          feature: 'mood_analysis',
+          heuristicFallback: true,
+          retryable: true,
+          metadata: {
+            entriesCount: entries.length,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            source: 'mood_screen'
+          }
+        });
+      } catch (feedbackError) {
+        console.warn('⚠️ Failed to show mood analysis error feedback:', feedbackError);
+      }
+      
       // 🚀 FALLBACK: Use UnifiedAIPipeline as fallback
       console.log('🚀 Falling back to UnifiedAIPipeline...');
       await runUnifiedMoodAnalysis(entries);
@@ -1248,8 +1279,15 @@ export default function MoodScreen() {
                   await moodTracker.deleteMoodEntry(entryId);
                   console.log('✅ Mood entry deleted from local storage');
 
-                  // Remove from current state
-                  setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
+                  // 🔍 DEBUG: Verify deletion worked
+                  console.log(`🔍 Verifying deletion of entry: ${entryId}`);
+                  
+                  // Remove from current state immediately
+                  setMoodEntries(prev => {
+                    const filtered = prev.filter(entry => entry.id !== entryId);
+                    console.log(`🔍 UI state updated: ${prev.length} -> ${filtered.length} entries`);
+                    return filtered;
+                  });
 
                   // Show success message
                   setToastMessage('Mood kaydı silindi');
@@ -1257,6 +1295,28 @@ export default function MoodScreen() {
 
                   // Haptic feedback
                   await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                  // 🔄 DELAY: Give time for deletion to propagate before refresh
+                  console.log('⏳ Waiting for deletion to propagate...');
+                  await new Promise(resolve => setTimeout(resolve, 500));
+
+                  // 🔍 DEBUG: Check LOCAL storage only (bypass intelligent merge)
+                  try {
+                    console.log('🔍 Verifying deletion in local storage only...');
+                    const localOnlyExists = await moodTracker.checkEntryExistsInLocalStorage(entryId);
+                    console.log(`🔍 Local storage check: Entry ${entryId} still exists: ${localOnlyExists}`);
+                    
+                    if (localOnlyExists) {
+                      console.error('❌ DELETION BUG: Entry still exists in local storage after deletion!');
+                      // Try to delete again with force flag
+                      console.log('🔄 Attempting FORCE deletion...');
+                      await moodTracker.forceDeleteMoodEntry(entryId);
+                    } else {
+                      console.log('✅ Entry successfully removed from local storage');
+                    }
+                  } catch (checkError) {
+                    console.warn('⚠️ Could not verify local deletion:', checkError);
+                  }
 
                   // Trigger refresh to update any dependent data
                   await loadMoodEntries();

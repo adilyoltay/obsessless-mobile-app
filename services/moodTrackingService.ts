@@ -698,19 +698,14 @@ class MoodTrackingService {
   }
 
   /**
-   * Delete mood entry from local storage
-   * FIXED: Proper UUID/ID handling without incorrect parsing
+   * Check if entry exists in LOCAL storage only (bypass intelligent merge)
+   * Used for deletion verification without triggering remote sync
    */
-  async deleteMoodEntry(entryId: string): Promise<void> {
+  async checkEntryExistsInLocalStorage(entryId: string): Promise<boolean> {
     try {
-      console.log('🗑️ Deleting mood entry from local storage:', entryId);
+      console.log('🔍 Checking local storage for entry:', entryId);
       
-      let entryFound = false;
-      
-      // Get recent dates (last 30 days to be safe)
-      const dates = await this.getRecentDates(30);
-      
-      // Get all possible user storage keys by scanning existing storage
+      // Get all possible storage keys
       const allKeys = await this.getAllMoodStorageKeys();
       
       for (const storageKey of allKeys) {
@@ -718,22 +713,285 @@ class MoodTrackingService {
         
         if (existing) {
           try {
-            const entries: MoodEntry[] = JSON.parse(existing);
-            const filteredEntries = entries.filter(entry => entry.id !== entryId);
+            let entries: any[] = JSON.parse(existing);
+            
+            // Handle both encrypted (v2) and plain (v1) storage formats
+            if (entries.length > 0 && entries[0].storageVersion === 2) {
+              // Decrypt entries to check IDs
+              for (const rawEntry of entries) {
+                const decrypted = await this.decryptMoodEntry(rawEntry);
+                if (decrypted && decrypted.id === entryId) {
+                  console.log(`🔍 Entry ${entryId} found in encrypted storage key: ${storageKey}`);
+                  return true;
+                }
+              }
+            } else {
+              // Plain format - direct check
+              const found = entries.some((entry: any) => entry.id === entryId);
+              if (found) {
+                console.log(`🔍 Entry ${entryId} found in plain storage key: ${storageKey}`);
+                return true;
+              }
+            }
+          } catch (parseError) {
+            console.warn(`⚠️ Failed to parse storage key ${storageKey}:`, parseError);
+          }
+        }
+      }
+      
+      // Also check main storage key
+      const mainData = await AsyncStorage.getItem(this.STORAGE_KEY);
+      if (mainData) {
+        try {
+          const entries: MoodEntry[] = JSON.parse(mainData);
+          const found = entries.some(entry => entry.id === entryId);
+          if (found) {
+            console.log(`🔍 Entry ${entryId} found in main storage`);
+            return true;
+          }
+        } catch (parseError) {
+          console.warn(`⚠️ Failed to parse main storage:`, parseError);
+        }
+      }
+      
+      console.log(`🔍 Entry ${entryId} NOT found in local storage`);
+      return false;
+      
+    } catch (error) {
+      console.error('❌ Failed to check entry existence in local storage:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Force delete mood entry with more aggressive cleanup
+   * Used when standard deletion fails
+   */
+  async forceDeleteMoodEntry(entryId: string): Promise<void> {
+    try {
+      console.log('🔥 FORCE DELETING mood entry from local storage:', entryId);
+      
+      let deletionSuccess = false;
+      let keysProcessed = 0;
+      
+      // 1. Get ALL storage keys (not just recent dates)
+      const allStorageKeys = await AsyncStorage.getAllKeys();
+      const moodKeys = allStorageKeys.filter(key => 
+        key.includes('mood_entries') || key.includes(this.STORAGE_KEY)
+      );
+      
+      console.log(`🔍 Force deletion: Found ${moodKeys.length} potential mood storage keys`);
+      
+      // 2. Process each key
+      for (const storageKey of moodKeys) {
+        keysProcessed++;
+        const existing = await AsyncStorage.getItem(storageKey);
+        
+        if (existing) {
+          try {
+            let entries: any[] = JSON.parse(existing);
+            let originalCount = entries.length;
+            
+            // Handle encrypted format
+            if (entries.length > 0 && entries[0].storageVersion === 2) {
+              console.log(`🔍 Processing encrypted storage key: ${storageKey}`);
+              
+              // Decrypt, filter, and re-encrypt
+              const decryptedEntries: MoodEntry[] = [];
+              for (const rawEntry of entries) {
+                const decrypted = await this.decryptMoodEntry(rawEntry);
+                if (decrypted && decrypted.id !== entryId) {
+                  decryptedEntries.push(decrypted);
+                }
+              }
+              
+              // Re-encrypt remaining entries
+              if (decryptedEntries.length > 0) {
+                const encryptedEntries = [];
+                for (const entry of decryptedEntries) {
+                  const sensitiveData = {
+                    notes: entry.notes || '',
+                    triggers: entry.triggers || [],
+                    activities: entry.activities || []
+                  };
+                  
+                  const encryptedData = await secureDataService.encryptSensitiveData(sensitiveData);
+                  
+                  const encryptedEntry = {
+                    metadata: {
+                      id: entry.id,
+                      user_id: entry.user_id,
+                      mood_score: entry.mood_score,
+                      energy_level: entry.energy_level,
+                      anxiety_level: entry.anxiety_level,
+                      timestamp: entry.timestamp,
+                      synced: entry.synced,
+                      sync_attempts: entry.sync_attempts,
+                      last_sync_attempt: entry.last_sync_attempt,
+                    },
+                    encryptedData,
+                    storageVersion: 2
+                  };
+                  
+                  encryptedEntries.push(encryptedEntry);
+                }
+                await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedEntries));
+              } else {
+                await AsyncStorage.removeItem(storageKey);
+                console.log(`🗑️ Removed empty encrypted storage key: ${storageKey}`);
+              }
+              
+              if (originalCount > decryptedEntries.length) {
+                console.log(`🔥 FORCE DELETED from encrypted key ${storageKey}: ${originalCount} -> ${decryptedEntries.length}`);
+                deletionSuccess = true;
+              }
+              
+            } else {
+              // Handle plain format
+              console.log(`🔍 Processing plain storage key: ${storageKey}`);
+              const filteredEntries = entries.filter((entry: any) => entry.id !== entryId);
+              
+              if (filteredEntries.length !== originalCount) {
+                if (filteredEntries.length > 0) {
+                  await AsyncStorage.setItem(storageKey, JSON.stringify(filteredEntries));
+                } else {
+                  await AsyncStorage.removeItem(storageKey);
+                  console.log(`🗑️ Removed empty plain storage key: ${storageKey}`);
+                }
+                console.log(`🔥 FORCE DELETED from plain key ${storageKey}: ${originalCount} -> ${filteredEntries.length}`);
+                deletionSuccess = true;
+              }
+            }
+            
+          } catch (processError) {
+            console.warn(`⚠️ Failed to process storage key ${storageKey}:`, processError);
+          }
+        }
+      }
+      
+      // 3. Clear any caches or temporary data
+      try {
+        const cacheKeys = allStorageKeys.filter(key => 
+          key.includes('cache') && key.includes('mood')
+        );
+        for (const cacheKey of cacheKeys) {
+          await AsyncStorage.removeItem(cacheKey);
+          console.log(`🧹 Cleared mood cache: ${cacheKey}`);
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to clear mood caches:', cacheError);
+      }
+      
+      console.log(`🔥 Force deletion summary:`);
+      console.log(`   Keys processed: ${keysProcessed}`);
+      console.log(`   Deletion success: ${deletionSuccess}`);
+      
+      if (deletionSuccess) {
+        console.log('✅ FORCE DELETION completed successfully');
+      } else {
+        console.warn('⚠️ FORCE DELETION: Entry not found in any storage key');
+      }
+      
+    } catch (error) {
+      console.error('❌ FORCE DELETE failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete mood entry from local storage
+   * ENHANCED: Better logging and verification
+   */
+  async deleteMoodEntry(entryId: string): Promise<void> {
+    try {
+      console.log('🗑️ Starting mood entry deletion from local storage:', entryId);
+      
+      let entryFound = false;
+      let totalKeysChecked = 0;
+      let keysWithData = 0;
+      
+      // Get all possible user storage keys by scanning existing storage
+      const allKeys = await this.getAllMoodStorageKeys();
+      console.log(`🔍 Checking ${allKeys.length} storage keys for entry ${entryId}`);
+      
+      for (const storageKey of allKeys) {
+        totalKeysChecked++;
+        const existing = await AsyncStorage.getItem(storageKey);
+        
+        if (existing) {
+          keysWithData++;
+          try {
+            // Handle both encrypted (v2) and plain (v1) storage formats
+            let entries: any[] = JSON.parse(existing);
+            
+            // Check if this is encrypted format
+            if (entries.length > 0 && entries[0].storageVersion === 2) {
+              // Encrypted format - need to decrypt to check IDs
+              const decryptedEntries: MoodEntry[] = [];
+              for (const rawEntry of entries) {
+                const decrypted = await this.decryptMoodEntry(rawEntry);
+                if (decrypted) {
+                  decryptedEntries.push(decrypted);
+                }
+              }
+              entries = decryptedEntries;
+            }
+            
+            const originalCount = entries.length;
+            const filteredEntries = entries.filter((entry: any) => entry.id !== entryId);
             
             // If entries were removed, update storage
-            if (filteredEntries.length !== entries.length) {
+            if (filteredEntries.length !== originalCount) {
+              console.log(`🔍 Found entry ${entryId} in ${storageKey} (${originalCount} -> ${filteredEntries.length})`);
+              
               if (filteredEntries.length > 0) {
-                await AsyncStorage.setItem(storageKey, JSON.stringify(filteredEntries));
+                // Re-encrypt if necessary and save
+                if (entries.length > 0 && (entries[0] as any).storageVersion === 2) {
+                  // Need to re-encrypt the remaining entries
+                  const encryptedEntries = [];
+                  for (const entry of filteredEntries) {
+                    const sensitiveData = {
+                      notes: entry.notes || '',
+                      triggers: entry.triggers || [],
+                      activities: entry.activities || []
+                    };
+                    
+                    const encryptedData = await secureDataService.encryptSensitiveData(sensitiveData);
+                    
+                    const encryptedEntry = {
+                      metadata: {
+                        id: entry.id,
+                        user_id: entry.user_id,
+                        mood_score: entry.mood_score,
+                        energy_level: entry.energy_level,
+                        anxiety_level: entry.anxiety_level,
+                        timestamp: entry.timestamp,
+                        synced: entry.synced,
+                        sync_attempts: entry.sync_attempts,
+                        last_sync_attempt: entry.last_sync_attempt,
+                      },
+                      encryptedData,
+                      storageVersion: 2
+                    };
+                    
+                    encryptedEntries.push(encryptedEntry);
+                  }
+                  await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedEntries));
+                } else {
+                  // Plain format
+                  await AsyncStorage.setItem(storageKey, JSON.stringify(filteredEntries));
+                }
               } else {
                 await AsyncStorage.removeItem(storageKey); // Remove empty date entry
+                console.log(`🗑️ Removed empty storage key: ${storageKey}`);
               }
-              console.log(`✅ Removed entry ${entryId} from storage key: ${storageKey}`);
+              
+              console.log(`✅ Entry ${entryId} removed from storage key: ${storageKey}`);
               entryFound = true;
               // Don't break - entry might exist in multiple places due to sync issues
             }
           } catch (parseError) {
-            console.warn(`⚠️ Failed to parse data from storage key ${storageKey}:`, parseError);
+            console.warn(`⚠️ Failed to process storage key ${storageKey}:`, parseError);
           }
         }
       }
@@ -760,10 +1018,16 @@ class MoodTrackingService {
         }
       }
 
+      // Final summary
+      console.log(`📊 Deletion summary for ${entryId}:`);
+      console.log(`   Keys checked: ${totalKeysChecked}`);
+      console.log(`   Keys with data: ${keysWithData}`);
+      console.log(`   Entry found and deleted: ${entryFound}`);
+      
       if (entryFound) {
         console.log('✅ Successfully deleted mood entry from local storage');
       } else {
-        console.warn(`⚠️ Entry ${entryId} not found in local storage - might have been already deleted`);
+        console.warn(`⚠️ Entry ${entryId} not found in local storage - might have been already deleted or ID mismatch`);
       }
       
     } catch (error) {

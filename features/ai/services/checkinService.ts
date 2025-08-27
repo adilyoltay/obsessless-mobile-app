@@ -873,6 +873,21 @@ export async function unifiedVoiceAnalysis(text: string, userId?: string): Promi
         if (!canAfford) {
           console.log('💰 Token budget exceeded for user:', userId);
           await trackGatingDecision('block', 'token_budget_exceeded', { userId });
+          
+          // 🚨 USER FEEDBACK: Inform user about token budget limit
+          const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+          await aiErrorFeedbackService.handleAIError(AIErrorType.TOKEN_BUDGET_EXCEEDED, {
+            userId,
+            feature: 'voice_analysis',
+            heuristicFallback: true,
+            retryable: true,
+            retryAfter: 24 * 60 * 60, // 24 hours
+            metadata: {
+              textLength: text.length,
+              heuristicConfidence: heuristicResult.confidence
+            }
+          });
+          
           return heuristicResult;
         }
       }
@@ -1473,6 +1488,26 @@ function heuristicVoiceAnalysis(text: string): UnifiedAnalysisResult {
   // ABSTAIN logic - Rapor önerisi: düşük güven durumunda belirsizlik
   if (confidence < 0.5) {
     console.log('⚠️ LOW CONFIDENCE → ABSTAIN');
+    
+    // 🚨 USER FEEDBACK: Inform user about low confidence (async, non-blocking)
+    setTimeout(async () => {
+      try {
+        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+        await aiErrorFeedbackService.handleAIError(AIErrorType.LOW_CONFIDENCE_ABSTAIN, {
+          feature: 'voice_analysis',
+          heuristicFallback: false,
+          retryable: true,
+          metadata: {
+            textLength: text.length,
+            confidence: confidence,
+            suggestedAlternatives: ['MOOD', 'CBT']
+          }
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to show low confidence feedback:', error);
+      }
+    }, 1000); // Delay to not block the main flow
+    
     return {
       type: 'ABSTAIN' as const,
       confidence: confidence,

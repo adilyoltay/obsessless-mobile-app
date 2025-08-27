@@ -375,6 +375,24 @@ export class UnifiedAIPipeline {
     } catch (error) {
       console.warn('Progressive enhancement failed, falling back to full pipeline:', error);
       
+      // 🚨 USER FEEDBACK: Inform user about progressive enhancement failure (subtle)
+      try {
+        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+        await aiErrorFeedbackService.handleAIError(AIErrorType.PROGRESSIVE_ENHANCEMENT_FAILED, {
+          userId: input.userId,
+          feature: 'unified_pipeline',
+          heuristicFallback: true,
+          retryable: false,
+          metadata: {
+            inputType: input.type,
+            source: input.context?.source,
+            errorMessage: error instanceof Error ? error.message : String(error)
+          }
+        });
+      } catch (feedbackError) {
+        console.warn('⚠️ Failed to show progressive enhancement feedback:', feedbackError);
+      }
+      
       // Fallback: Traditional full processing
       const result = await this.executePipeline(input);
       await this.setCacheWithInsightsPolicy(cacheKey, result, input);

@@ -144,4 +144,18 @@ if (__DEV__) {
   }).catch(error => {
     console.warn('⚠️ Failed to load idempotency debug tests:', error);
   });
+  
+  import('./debugAIErrors').then((module) => {
+    (global as any).debugAIErrors = module.debugAIErrors;
+    console.log('🚨 AI Error debug tests loaded - use debugAIErrors.*');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load AI error debug tests:', error);
+  });
+  
+  import('./debugMoodDeletion').then((module) => {
+    (global as any).debugMoodDeletion = module.debugUtils;
+    console.log('🗑️ Mood Deletion debug tests loaded - use debugMoodDeletion.*');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load mood deletion debug tests:', error);
+  });
 } 
