@@ -6,6 +6,9 @@ import moodTracker from '@/services/moodTrackingService';
 import { isUUID } from '@/utils/validators';
 import supabaseService from '@/services/supabase';
 import { NotificationScheduler } from '@/services/notificationScheduler';
+// ✅ NEW: AI integration for onboarding data
+import * as pipeline from '@/features/ai/pipeline';
+import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 
 interface MoodOnboardingState {
   step: number;
@@ -356,9 +359,52 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       }
     }
 
-    // ✅ STEP 7: NON-CRITICAL - Analytics Tracking (important but not blocking)
+    // ✅ STEP 7: NON-CRITICAL - AI Integration with UnifiedAIPipeline
     try {
-      const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+      console.log('🤖 Generating AI profile from onboarding data...');
+      
+      const aiResult = await pipeline.unifiedPipeline.process({
+        userId: uidForKey,
+        content: {
+          type: 'onboarding_completion',
+          payload,
+          duration: durationMs,
+          completedAt: new Date().toISOString()
+        },
+        type: 'data',
+        context: {
+          source: 'onboarding',
+          timestamp: Date.now(),
+          metadata: {
+            isInitialProfile: true,
+            generatePersonalization: true,
+            enableInsights: true
+          }
+        }
+      });
+
+      // Cache AI profile for immediate use
+      if (aiResult?.profile || aiResult?.insights) {
+        await AsyncStorage.setItem(
+          `ai_profile_${uidForKey}`,
+          JSON.stringify({
+            profile: aiResult.profile,
+            insights: aiResult.insights || [],
+            generatedAt: new Date().toISOString(),
+            source: 'onboarding_completion'
+          })
+        );
+        console.log('✅ AI profile generated and cached');
+      }
+
+    } catch (error) {
+      const warningMsg = 'AI profile generation failed (non-critical)';
+      result.warnings.push(warningMsg);
+      console.warn('⚠️ WARNING:', warningMsg, error);
+    }
+
+    // ✅ STEP 8: NON-CRITICAL - Analytics Tracking (important but not blocking)
+    try {
       await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
         userId: uidForKey,
         durationMs,
