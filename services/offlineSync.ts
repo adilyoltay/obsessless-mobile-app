@@ -142,8 +142,10 @@ export class OfflineSyncService {
     const sanitizedTempItem = queueValidator.sanitizeItem(tempItem);
 
     const syncItem: SyncQueueItem = {
-      ...sanitizedTempItem,
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: sanitizedTempItem.type,
+      entity: sanitizedTempItem.entity as 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile',
+      data: sanitizedTempItem.data,
       timestamp: Date.now(),
       retryCount: 0,
       deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device',
@@ -523,6 +525,95 @@ export class OfflineSyncService {
 
   getSyncQueueLength(): number {
     return this.syncQueue.length;
+  }
+
+  /**
+   * 🧹 QUEUE MAINTENANCE: Clean stale items from sync queue
+   * Removes items older than specified days to prevent queue bloat
+   */
+  async cleanupStaleItems(maxAgeInDays: number = 7): Promise<number> {
+    const staleThreshold = Date.now() - (maxAgeInDays * 24 * 60 * 60 * 1000);
+    const initialCount = this.syncQueue.length;
+    
+    this.syncQueue = this.syncQueue.filter(item => 
+      item.timestamp > staleThreshold
+    );
+    
+    const removedCount = initialCount - this.syncQueue.length;
+    
+    if (removedCount > 0) {
+      await this.saveSyncQueue();
+      console.log(`🧹 Cleaned up ${removedCount} stale sync items older than ${maxAgeInDays} days`);
+    }
+    
+    return removedCount;
+  }
+
+  /**
+   * 📊 QUEUE HEALTH: Get sync queue health metrics
+   */
+  async getQueueHealthMetrics(): Promise<{
+    totalItems: number;
+    staleItems: number;
+    retryItems: number;
+    oldestItem: number | null;
+    averageRetryCount: number;
+  }> {
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+    
+    const staleItems = this.syncQueue.filter(item => item.timestamp < sevenDaysAgo).length;
+    const retryItems = this.syncQueue.filter(item => item.retryCount > 0).length;
+    const oldestItem = this.syncQueue.length > 0 
+      ? Math.min(...this.syncQueue.map(item => item.timestamp))
+      : null;
+    
+    const totalRetries = this.syncQueue.reduce((sum, item) => sum + item.retryCount, 0);
+    const averageRetryCount = this.syncQueue.length > 0 ? totalRetries / this.syncQueue.length : 0;
+    
+    return {
+      totalItems: this.syncQueue.length,
+      staleItems,
+      retryItems,
+      oldestItem,
+      averageRetryCount: Math.round(averageRetryCount * 100) / 100
+    };
+  }
+
+  /**
+   * ⚡ DAILY MAINTENANCE: Run daily queue maintenance
+   * Should be called once per day to keep the queue healthy
+   */
+  async runDailyMaintenance(): Promise<{
+    staleItemsRemoved: number;
+    dlqItemsProcessed: number;
+    queueHealth: any;
+  }> {
+    console.log('⚡ Starting daily sync queue maintenance...');
+    
+    // 1. Clean stale items (older than 7 days)
+    const staleItemsRemoved = await this.cleanupStaleItems(7);
+    
+    // 2. Trigger DLQ cleanup
+    let dlqItemsProcessed = 0;
+    try {
+      const dlqResult = await deadLetterQueue.performScheduledMaintenance();
+      dlqItemsProcessed = dlqResult.archived + dlqResult.cleaned;
+    } catch (error) {
+      console.warn('⚠️ DLQ maintenance failed:', error);
+    }
+    
+    // 3. Get updated health metrics
+    const queueHealth = await this.getQueueHealthMetrics();
+    
+    const result = {
+      staleItemsRemoved,
+      dlqItemsProcessed,
+      queueHealth
+    };
+    
+    console.log('✅ Daily maintenance completed:', result);
+    return result;
   }
 
   async forceSyncNow(): Promise<boolean> {

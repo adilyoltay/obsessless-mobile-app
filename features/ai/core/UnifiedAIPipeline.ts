@@ -5,7 +5,7 @@
  * - Voice Analysis (Unified Voice)
  * - Pattern Recognition
  * - Insights Generation
- * - CBT Analysis
+ * - CBT Analysis (DEPRECATED - Legacy OCD support removed)
  * 
  * ✅ v2.0 Improvements (Jan 2025):
  * - Helper classes for reduced code duplication
@@ -18,7 +18,7 @@
  * - Voice Analysis: 1h TTL
  * - Pattern Recognition: 12h TTL  
  * - Insights Generation: 24h TTL
- * - CBT Analysis: 24h TTL
+ * - CBT Analysis: 24h TTL (DEPRECATED)
  */
 
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
@@ -476,9 +476,9 @@ export class UnifiedAIPipeline {
     if (input.content && typeof input.content === 'object') {
       const content = input.content as any;
       
-      // CBT analytics removed
+      // CBT analytics removed (DEPRECATED - OCD support cleanup)
       
-      // Tracking/compulsion analytics removed
+      // Tracking/compulsion analytics removed (DEPRECATED - OCD support cleanup)
     }
     
     // Load lightweight user profile context (non-blocking)
@@ -650,69 +650,19 @@ export class UnifiedAIPipeline {
     }
   }
   
+  /**
+   * @deprecated CBT Analysis deprecated - OCD support removed in 2025
+   * @returns null - Legacy method kept for backward compatibility
+   */
   private async processCBTAnalysis(input: UnifiedPipelineInput): Promise<any> {
-    try {
-      // ✅ FIXED: Check if this is a progress analytics request
-      if (typeof input.content === 'object' && input.content.analysisRequest === 'comprehensive_cbt_progress_analytics') {
-        return await this.processCBTProgressAnalytics(input);
-      }
-      
-      const text = typeof input.content === 'string' 
-        ? input.content 
-        : input.content.description || input.content.notes || '';
-      
-      if (!text || text.length < 5) {
-        return null;
-      }
-      
-      const analysis = {
-        distortions: [],
-        reframes: [],
-        techniques: [],
-        thoughtRecord: null,
-        severity: 0,
-        urgency: 'low',
-        metadata: {
-          analysisTime: Date.now(),
-          textLength: text.length,
-          confidence: 0
-        }
-      };
-      
-      // 1. COGNITIVE DISTORTION DETECTION
-      const detectedDistortions = this.detectCognitiveDistortions(text);
-      analysis.distortions = detectedDistortions;
-      
-      // 2. AUTOMATIC THOUGHT RECORD GENERATION
-      if (detectedDistortions.length > 0) {
-        analysis.thoughtRecord = this.generateThoughtRecord(text, detectedDistortions);
-      }
-      
-      // 3. REFRAME SUGGESTIONS
-      analysis.reframes = await this.generateCBTReframes(text, detectedDistortions);
-      
-      // 4. CBT TECHNIQUE RECOMMENDATIONS
-      analysis.techniques = this.recommendCBTTechniques(detectedDistortions, text);
-      
-      // 5. SEVERITY ASSESSMENT
-      analysis.severity = this.assessCognitiveDistortionSeverity(text, detectedDistortions);
-      
-      // 6. URGENCY CALCULATION
-      analysis.urgency = this.calculateCBTUrgency(analysis.severity, detectedDistortions);
-      
-      // 7. CONFIDENCE CALCULATION
-      analysis.metadata.confidence = this.calculateCBTConfidence(detectedDistortions, text.length);
-      
-      // CBT engine removed; rely on built-in heuristics only
-      
-      return analysis;
-    } catch (error) {
-      console.error('CBT analysis failed:', error);
-      return null;
-    }
+    // DEPRECATED: CBT Analysis removed with OCD support cleanup
+    console.warn('⚠️ CBT Analysis is deprecated - returning null');
+    return null;
   }
 
+  /** @deprecated CBT helper - OCD support removed */
   private detectCognitiveDistortions(text: string): Array<{name: string, confidence: number, evidence: string[]}> {
+    return []; // DEPRECATED: Returns empty array
     const distortions = [];
     const lowerText = text.toLowerCase();
     
@@ -865,7 +815,9 @@ export class UnifiedAIPipeline {
     };
   }
 
+  /** @deprecated CBT helper - OCD support removed */
   private async generateCBTReframes(text: string, distortions: any[]): Promise<string[]> {
+    return []; // DEPRECATED: Returns empty array
     const reframes = [];
     
     // Generate distortion-specific reframes
@@ -922,7 +874,9 @@ export class UnifiedAIPipeline {
     return [...new Set(reframes)].slice(0, 3);
   }
 
+  /** @deprecated CBT helper - OCD support removed */
   private recommendCBTTechniques(distortions: any[], text: string): Array<{name: string, description: string, priority: number}> {
+    return []; // DEPRECATED: Returns empty array
     const techniques = [];
     const distortionNames = distortions.map(d => d.name);
     
@@ -1000,15 +954,14 @@ export class UnifiedAIPipeline {
     return Math.min(Math.round(severity), 10);
   }
 
+  /** @deprecated CBT helper - OCD support removed */
   private calculateCBTUrgency(severity: number, distortions: any[]): 'low' | 'medium' | 'high' {
-    if (severity >= 8) return 'high';
-    if (severity >= 5) return 'medium';
-    return 'low';
+    return 'low'; // DEPRECATED: Always returns low
   }
 
+  /** @deprecated CBT helper - OCD support removed */
   private calculateCBTConfidence(distortions: any[], textLength: number): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculateCBTConfidence(distortions, textLength);
+    return 0; // DEPRECATED: Returns 0
   }
 
   /**
@@ -1770,7 +1723,9 @@ export class UnifiedAIPipeline {
     return 5; // Default neutral
   }
   
+  /** @deprecated OCD/Compulsion support removed */
   private extractRecentCompulsions(input: UnifiedPipelineInput): number {
+    return 0; // DEPRECATED: Returns 0
     if (typeof input.content === 'object' && input.content.compulsions) {
       if (Array.isArray(input.content.compulsions)) {
         // Count recent compulsions (last 24 hours)
@@ -1806,7 +1761,9 @@ export class UnifiedAIPipeline {
   // HELPER METHODS
   // ============================================================================
   
+  /** @deprecated OCD/Compulsion support removed */
   private extractTemporalPatterns(compulsions: any[]): any[] {
+    return []; // DEPRECATED: Returns empty array
     // Guard against undefined/null compulsions
     if (!compulsions || !Array.isArray(compulsions)) return [];
     
@@ -1847,7 +1804,9 @@ export class UnifiedAIPipeline {
     return patterns;
   }
   
+  /** @deprecated OCD/Compulsion support removed */
   private extractBehavioralPatterns(compulsions: any[]): any[] {
+    return []; // DEPRECATED: Returns empty array
     // Guard against undefined/null compulsions
     if (!compulsions || !Array.isArray(compulsions)) return [];
     
@@ -1894,9 +1853,9 @@ export class UnifiedAIPipeline {
     return patterns;
   }
   
+  /** @deprecated CBT support removed */
   private shouldRunCBT(input: UnifiedPipelineInput): boolean {
-    return input.type === 'voice' || 
-           (typeof input.content === 'string' && input.content.length > 50);
+    return false; // DEPRECATED: Always returns false
   }
   
   private getEnabledModules(): string[] {

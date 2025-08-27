@@ -1295,8 +1295,7 @@ class SupabaseNativeService {
         .from('mood_entries')
         .upsert(payload, { 
           onConflict: 'user_id,content_hash',
-          ignoreDuplicates: true,
-          returning: 'minimal'
+          ignoreDuplicates: true
         });
       
       if (error) {
@@ -1314,7 +1313,7 @@ class SupabaseNativeService {
         throw error;
       }
       
-      console.log('✅ Mood entry saved:', data ? (Array.isArray(data) ? data[0]?.id : (data as any)?.id) : 'duplicate_prevented');
+      console.log('✅ Mood entry saved:', data ? 'success' : 'duplicate_prevented');
       return data;
     } catch (error) {
       console.error('❌ Save mood entry failed:', error);
