@@ -71,11 +71,10 @@ export function MoodChart({ entries, period }: MoodChartProps) {
   const avgMood = sortedEntries.reduce((sum, e) => sum + e.mood_score, 0) / sortedEntries.length;
   const avgY = CHART_HEIGHT - PADDING - (avgMood - minMood) * yScale;
 
-  // Format date labels
+  // 🌍 TIMEZONE-AWARE: Format date labels in user's timezone  
   const getDateLabel = (date: Date) => {
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    return `${day}/${month}`;
+    const { formatDateInUserTimezone } = require('@/utils/timezoneUtils');
+    return formatDateInUserTimezone(date, 'short');
   };
 
   // Select labels to show (max 7 labels)

@@ -105,8 +105,31 @@ export class MoodPatternAnalysisService {
         entry.anxiety_level !== undefined
       );
 
-      if (validEntries.length < 3) {
-        console.warn('⚠️ Insufficient data for pattern analysis (need at least 3 entries)');
+      // 📊 ENHANCED THRESHOLD: Require more entries for reliable pattern analysis
+      const MIN_ENTRIES_BASIC = 7;   // Basic patterns need 7 entries minimum
+      const MIN_ENTRIES_ADVANCED = 14; // Advanced correlations need 2 weeks of data
+      
+      if (validEntries.length < MIN_ENTRIES_BASIC) {
+        console.warn(`⚠️ Insufficient data for pattern analysis (need at least ${MIN_ENTRIES_BASIC} entries, got ${validEntries.length})`);
+        
+        // 📈 PARTIAL ANALYSIS: If we have some data (3-6 entries), provide limited insights with confidence warning
+        if (validEntries.length >= 3) {
+          const limitedPattern: MoodPattern = {
+            id: `limited_${Date.now()}`,
+            type: 'general',
+            confidence: Math.max(0.2, (validEntries.length / MIN_ENTRIES_BASIC) * 0.5), // Max 50% confidence for limited data
+            description: `Sınırlı veri ile genel eğilim (${validEntries.length} kayıt)`,
+            actionableInsights: [
+              `Daha güvenilir analiz için en az ${MIN_ENTRIES_BASIC - validEntries.length} gün daha mood kaydı gerekiyor.`,
+              'Mevcut verilerle genel bir eğilim gözlemlenebiliyor ancak kesin pattern'ler için daha fazla data gerekli.'
+            ],
+            triggers: [],
+            timePattern: 'insufficient_data',
+            severity: 'low' as any
+          };
+          patterns.push(limitedPattern);
+        }
+        
         return patterns;
       }
 
@@ -116,20 +139,40 @@ export class MoodPatternAnalysisService {
         patterns.push(...temporalPatterns);
       }
 
+      // 🔍 TRIGGER ANALYSIS: Requires sufficient sample size for correlation reliability
       if (analysisType === 'full' || analysisType === 'trigger') {
-        const triggerPatterns = await this.analyzeTriggerMoodCorrelation(validEntries);
-        patterns.push(...triggerPatterns);
+        if (validEntries.length >= MIN_ENTRIES_BASIC) {
+          const triggerPatterns = await this.analyzeTriggerMoodCorrelation(validEntries);
+          patterns.push(...triggerPatterns);
+        } else {
+          console.log(`⚠️ Skipping trigger analysis: need ${MIN_ENTRIES_BASIC} entries, have ${validEntries.length}`);
+        }
       }
 
+      // 📊 MEA CORRELATION: Requires advanced sample size for reliable mood-energy-anxiety patterns
       if (analysisType === 'full' || analysisType === 'mea') {
-        const meaPatterns = await this.analyzeMEACorrelation(validEntries);
-        patterns.push(...meaPatterns);
+        if (validEntries.length >= MIN_ENTRIES_ADVANCED) {
+          const meaPatterns = await this.analyzeMEACorrelation(validEntries);
+          patterns.push(...meaPatterns);
+        } else if (validEntries.length >= MIN_ENTRIES_BASIC) {
+          // Provide simplified MEA analysis with lower confidence
+          console.log(`📊 Running simplified MEA analysis with ${validEntries.length} entries`);
+          const meaPatterns = await this.analyzeMEACorrelation(validEntries);
+          // Reduce confidence for patterns with insufficient data
+          meaPatterns.forEach(pattern => {
+            pattern.confidence = Math.min(pattern.confidence * 0.7, 0.6); // Cap at 60% for limited data
+            pattern.description = `${pattern.description} (sınırlı veri)`;
+          });
+          patterns.push(...meaPatterns);
+        }
       }
 
-      // Weekly cycle analysis (only for full analysis with sufficient data)
-      if (analysisType === 'full' && validEntries.length >= 7) {
+      // 📅 WEEKLY CYCLE ANALYSIS: Enhanced threshold for seasonal pattern detection
+      if (analysisType === 'full' && validEntries.length >= MIN_ENTRIES_ADVANCED) {
         const weeklyPatterns = await this.analyzeWeeklyCycles(validEntries);
         patterns.push(...weeklyPatterns);
+      } else if (analysisType === 'full' && validEntries.length >= MIN_ENTRIES_BASIC) {
+        console.log(`📅 Insufficient data for weekly cycle analysis: need ${MIN_ENTRIES_ADVANCED} entries for reliable weekly patterns`);
       }
 
       // Sort patterns by actionability and severity

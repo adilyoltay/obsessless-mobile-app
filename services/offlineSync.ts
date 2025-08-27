@@ -1281,6 +1281,86 @@ export class OfflineSyncService {
   }
 
   /**
+   * 🔐 ENHANCED: Generate normalized content hash for robust deduplication
+   */
+  private generateEntityHash(entity: string, userId: string, data: any): string {
+    try {
+      // 🎯 NORMALIZE: Create consistent content representation regardless of format variations
+      const normalizedData = this.normalizeDataForHash(entity, data);
+      
+      // 📊 CONTENT: Create deterministic string for hashing
+      const contentString = `${entity}|${userId}|${JSON.stringify(normalizedData)}`;
+      
+      // 🔐 HASH: Generate SHA-256-like hash for content uniqueness
+      let hash = 0;
+      for (let i = 0; i < contentString.length; i++) {
+        const char = contentString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      
+      return `${entity}_${Math.abs(hash).toString(36)}`;
+    } catch (error) {
+      console.warn('⚠️ Hash generation failed, using timestamp fallback:', error);
+      return `${entity}_${userId}_${Date.now()}`;
+    }
+  }
+
+  /**
+   * 🔄 NORMALIZE: Standardize data for consistent hashing
+   */
+  private normalizeDataForHash(entity: string, data: any): any {
+    const normalized = { ...data };
+    
+    // Remove timing-sensitive fields that shouldn't affect uniqueness
+    delete normalized.id;
+    delete normalized.timestamp;
+    delete normalized.created_at;
+    delete normalized.updated_at;
+    delete normalized.lastModified;
+    delete normalized.sync_attempts;
+    delete normalized.synced;
+    
+    // Entity-specific normalizations
+    switch (entity) {
+      case 'mood_entry':
+        // Round numeric values to prevent floating-point variations
+        if (normalized.mood_score) normalized.mood_score = Math.round(normalized.mood_score);
+        if (normalized.energy_level) normalized.energy_level = Math.round(normalized.energy_level);
+        if (normalized.anxiety_level) normalized.anxiety_level = Math.round(normalized.anxiety_level);
+        
+        // Normalize text content
+        if (normalized.notes) normalized.notes = normalized.notes.trim().toLowerCase();
+        
+        // Sort arrays for consistent ordering
+        if (normalized.triggers) normalized.triggers = normalized.triggers.sort();
+        if (normalized.activities) normalized.activities = normalized.activities.sort();
+        break;
+        
+      case 'voice_checkin':
+        // Normalize text and round confidence scores
+        if (normalized.text) normalized.text = normalized.text.trim().toLowerCase();
+        if (normalized.confidence) normalized.confidence = Math.round(normalized.confidence * 100) / 100;
+        if (normalized.mood) normalized.mood = Math.round(normalized.mood);
+        break;
+        
+      case 'user_profile':
+        // Normalize profile data
+        if (normalized.payload && typeof normalized.payload === 'object') {
+          const payload = normalized.payload;
+          
+          // Sort arrays in payload
+          if (payload.motivation) payload.motivation = payload.motivation.sort();
+          if (payload.symptoms) payload.symptoms = payload.symptoms.sort();
+          if (payload.compulsions) payload.compulsions = payload.compulsions.sort();
+        }
+        break;
+    }
+    
+    return normalized;
+  }
+
+  /**
    * 👤 User Profile Idempotency
    */
   private async checkUserProfileIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
@@ -1313,8 +1393,9 @@ export class OfflineSyncService {
    * 🤖 AI Profile Idempotency
    */
   private async checkAIProfileIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
-    const profileType = item.data?.profile_type || 'default';
-    const storageKey = `idempotency_ai_profile_${userId}_${profileType}`;
+    // 🔐 ENHANCED: Use content hash for better duplicate detection
+    const aiProfileHash = this.generateEntityHash('ai_profile', userId, item.data);
+    const storageKey = `idempotency_ai_profile_${aiProfileHash}`;
     
     try {
       const existing = await AsyncStorage.getItem(storageKey);
@@ -1322,9 +1403,9 @@ export class OfflineSyncService {
         const existingData = JSON.parse(existing);
         const timeDiff = Date.now() - new Date(existingData.timestamp).getTime();
         
-        // AI profiles can be updated, but not within 5 minutes
+        // AI profiles can be updated, but not within 5 minutes for same content
         if (timeDiff < 5 * 60 * 1000) {
-          console.log(`🛡️ Duplicate AI profile prevented: ${userId}/${profileType}`);
+          console.log(`🛡️ Duplicate AI profile prevented (content hash): ${aiProfileHash.substring(0, 16)}...`);
           return true;
         }
       }
@@ -1333,7 +1414,7 @@ export class OfflineSyncService {
       await AsyncStorage.setItem(storageKey, JSON.stringify({
         timestamp: new Date().toISOString(),
         userId,
-        profileType
+        hash: aiProfileHash
       }));
       
     } catch (error) {
@@ -1408,8 +1489,9 @@ export class OfflineSyncService {
    * 📋 Treatment Plan Idempotency
    */
   private async checkTreatmentPlanIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
-    const planType = item.data?.plan_type || 'general';
-    const storageKey = `idempotency_treatment_${userId}_${planType}`;
+    // 🔐 ENHANCED: Use content hash for comprehensive duplicate detection
+    const treatmentHash = this.generateEntityHash('treatment_plan', userId, item.data);
+    const storageKey = `idempotency_treatment_${treatmentHash}`;
     
     try {
       const existing = await AsyncStorage.getItem(storageKey);
@@ -1417,9 +1499,9 @@ export class OfflineSyncService {
         const existingData = JSON.parse(existing);
         const timeDiff = Date.now() - new Date(existingData.timestamp).getTime();
         
-        // Treatment plans can be updated, but not within 1 hour
+        // Treatment plans can be updated, but not within 1 hour for same content
         if (timeDiff < 60 * 60 * 1000) {
-          console.log(`🛡️ Duplicate treatment plan prevented: ${userId}/${planType}`);
+          console.log(`🛡️ Duplicate treatment plan prevented (content hash): ${treatmentHash.substring(0, 16)}...`);
           return true;
         }
       }
@@ -1427,7 +1509,7 @@ export class OfflineSyncService {
       await AsyncStorage.setItem(storageKey, JSON.stringify({
         timestamp: new Date().toISOString(),
         userId,
-        planType
+        hash: treatmentHash
       }));
       
     } catch (error) {

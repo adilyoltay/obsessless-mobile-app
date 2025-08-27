@@ -878,15 +878,16 @@ export default function MoodScreen() {
     try {
       setIsLoading(true);
       
-      // Get period days based on selected range
-      const periodDays = selectedTimeRange === 'today' ? 1 : 
-                        selectedTimeRange === 'week' ? 7 : 30;
+      // 🌍 TIMEZONE-AWARE: Get extended period to ensure we capture all entries 
+      // then filter by user's timezone to prevent edge cases
+      const extendedPeriodDays = selectedTimeRange === 'today' ? 2 : 
+                                selectedTimeRange === 'week' ? 10 : 35;
       
-      // 🔄 Use intelligent merge service instead of direct Supabase calls
-      const rawEntries = await moodTracker.getMoodEntries(user.id, periodDays);
+      // 🔄 Use intelligent merge service to get extended range
+      const rawEntries = await moodTracker.getMoodEntries(user.id, extendedPeriodDays);
       
       // Map service MoodEntry to screen MoodEntry format
-      const entries = (rawEntries || []).map(entry => ({
+      const allEntries = (rawEntries || []).map(entry => ({
         id: entry.id,
         mood_score: entry.mood_score,
         energy_level: entry.energy_level,
@@ -897,7 +898,11 @@ export default function MoodScreen() {
         user_id: entry.user_id
       }));
       
-      setMoodEntries(entries);
+      // 🌍 TIMEZONE-AWARE: Filter entries by selected time range in user's timezone
+      const { filterEntriesByUserTimeRange } = require('@/utils/timezoneUtils');
+      const filteredEntries = filterEntriesByUserTimeRange(allEntries, selectedTimeRange);
+      
+      setMoodEntries(filteredEntries);
     } catch (error) {
       console.error('Failed to load mood entries:', error);
       setToastMessage('Mood kayıtları yüklenemedi');
@@ -1587,33 +1592,12 @@ export default function MoodScreen() {
         entriesCount: entries.length,
         emotionalGrowth,
         currentStreak: (() => {
-          // ✅ DYNAMIC: Calculate actual streak based on consecutive days with mood entries
+          // 🌍 TIMEZONE-AWARE: Calculate actual streak in user's timezone
           if (entries.length === 0) return 0;
           
-          let streak = 0;
-          const today = new Date();
-          
-          // Check each day backwards from today
-          for (let i = 0; i < 30; i++) { // Check last 30 days max
-            const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-            const dayStart = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
-            const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-            
-            // Check if there's an entry for this day
-            const hasEntryThisDay = entries.some(entry => {
-              const entryDate = new Date(entry.created_at);
-              return entryDate >= dayStart && entryDate < dayEnd;
-            });
-            
-            if (hasEntryThisDay) {
-              streak++;
-            } else {
-              // If no entry for a day, streak breaks
-              break;
-            }
-          }
-          
-          return streak;
+          // Import timezone utilities
+          const { calculateStreakInUserTimezone } = require('@/utils/timezoneUtils');
+          return calculateStreakInUserTimezone(entries);
         })(),
         averageMood: Math.round(avgMood),
         moodTrend

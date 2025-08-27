@@ -1181,19 +1181,61 @@ export class UnifiedAIPipeline {
       
       return insights;
     } catch (error) {
-      console.error('Insights generation failed:', error);
-      return {
-        therapeutic: [],
-        progress: [],
-        behavioral: [],
-        motivational: [],
-        metadata: {
-          generatedAt: Date.now(),
-          confidence: 0,
-          totalInsights: 0,
-          categories: []
-        }
-      };
+      console.error('Insights generation failed, using static fallback:', error);
+      
+      // 🔄 STATIC FALLBACK: Provide meaningful insights when AI fails
+      try {
+        const { staticFallbackService } = await import('@/features/ai/services/staticFallbackService');
+        
+        // Generate context for static fallback
+        const fallbackContext = {
+          hasRecentMoodEntries: input.type === 'data' && Array.isArray(input.content),
+          averageMood: this.extractAverageMood(input),
+          timeOfDay: this.getTimeOfDay(),
+          entriesCount: Array.isArray(input.content) ? input.content.length : 0
+        };
+        
+        const staticInsights = staticFallbackService.generateErrorFallbackInsights('insights_generation_failed');
+        
+        // Convert static insights to pipeline format
+        const categorizedInsights = this.categorizeStaticInsights(staticInsights);
+        
+        // Track static fallback usage
+        this.telemetryWrapper.trackEvent(AIEventType.INSIGHTS_DELIVERED, {
+          userId: input.userId,
+          source: 'static_fallback',
+          reason: 'insights_generation_failed',
+          insightsCount: staticInsights.length,
+          fallbackType: 'error'
+        }).catch(console.warn);
+        
+        return {
+          ...categorizedInsights,
+          metadata: {
+            generatedAt: Date.now(),
+            confidence: 0.7, // Static insights have moderate confidence
+            totalInsights: staticInsights.length,
+            categories: Object.keys(categorizedInsights),
+            source: 'static_fallback'
+          }
+        };
+        
+      } catch (fallbackError) {
+        console.error('Static fallback also failed:', fallbackError);
+        return {
+          therapeutic: [],
+          progress: [],
+          behavioral: [],
+          motivational: [],
+          metadata: {
+            generatedAt: Date.now(),
+            confidence: 0,
+            totalInsights: 0,
+            categories: [],
+            error: 'complete_failure'
+          }
+        };
+      }
     }
   }
 
@@ -4611,6 +4653,90 @@ export class UnifiedAIPipeline {
     };
     
     return routes[category] || '/mood';
+  }
+
+  /**
+   * 📊 HELPER: Extract average mood from input data for static fallback context
+   */
+  private extractAverageMood(input: UnifiedPipelineInput): number | undefined {
+    try {
+      if (input.type === 'data' && Array.isArray(input.content)) {
+        const moodScores = input.content
+          .map((entry: any) => entry.mood_score || entry.mood)
+          .filter((score: any) => typeof score === 'number' && score >= 0 && score <= 100);
+        
+        if (moodScores.length > 0) {
+          return Math.round(moodScores.reduce((sum: number, score: number) => sum + score, 0) / moodScores.length);
+        }
+      }
+      
+      return undefined;
+    } catch (error) {
+      console.warn('Failed to extract average mood:', error);
+      return undefined;
+    }
+  }
+
+  /**
+   * ⏰ HELPER: Get current time of day for context-aware static insights
+   */
+  private getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
+    const hour = new Date().getHours();
+    
+    if (hour >= 6 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';  
+    if (hour >= 17 && hour < 21) return 'evening';
+    return 'night';
+  }
+
+  /**
+   * 🔄 HELPER: Convert static insights to pipeline format
+   */
+  private categorizeStaticInsights(staticInsights: any[]): {
+    therapeutic: any[],
+    progress: any[],
+    behavioral: any[],
+    motivational: any[]
+  } {
+    const categorized = {
+      therapeutic: [],
+      progress: [],
+      behavioral: [],
+      motivational: []
+    };
+
+    for (const insight of staticInsights) {
+      const formattedInsight = {
+        id: insight.id,
+        title: insight.title,
+        content: insight.content,
+        confidence: insight.confidence,
+        actionable: insight.actionable,
+        icon: insight.icon,
+        source: insight.source,
+        category: insight.category
+      };
+
+      switch (insight.category) {
+        case 'therapeutic':
+          categorized.therapeutic.push(formattedInsight);
+          break;
+        case 'progress':
+          categorized.progress.push(formattedInsight);
+          break;
+        case 'behavioral':
+          categorized.behavioral.push(formattedInsight);
+          break;
+        case 'motivational':
+          categorized.motivational.push(formattedInsight);
+          break;
+        default:
+          // Default to therapeutic if category is unknown
+          categorized.therapeutic.push(formattedInsight);
+      }
+    }
+
+    return categorized;
   }
 }
 

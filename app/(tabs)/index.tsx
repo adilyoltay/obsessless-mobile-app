@@ -431,7 +431,42 @@ export default function TodayScreen() {
       }, 3000);
       
     } catch (error) {
-      console.error('loadAIInsights error:', error);
+      console.error('loadAIInsights error, using static fallback:', error);
+      
+      // 🔄 STATIC FALLBACK: Provide meaningful insights when AI completely fails
+      try {
+        const { staticFallbackService } = await import('@/features/ai/services/staticFallbackService');
+        
+        const staticInsights = staticFallbackService.generateErrorFallbackInsights('ai_insights_failed');
+        
+        // Convert to expected format for quickInsights
+        const formattedInsights = staticInsights.map((insight, index) => ({
+          id: insight.id,
+          text: `${insight.title}: ${insight.content}`,
+          category: insight.category,
+          priority: index === 0 ? 'high' : 'medium' as 'high' | 'medium' | 'low',
+          actionable: insight.actionable,
+          confidence: insight.confidence,
+          source: 'static_fallback'
+        }));
+        
+        setQuickInsights(formattedInsights);
+        
+        console.log('✅ Static fallback insights loaded for Today screen:', formattedInsights.length);
+        
+      } catch (fallbackError) {
+        console.error('❌ Static fallback also failed:', fallbackError);
+        // Final fallback - at least show something encouraging
+        setQuickInsights([{
+          id: 'emergency_fallback',
+          text: '💪 Her yeni gün yeni fırsatlar getirir. Bugün kendine karşı nazik ol ve küçük adımlar at.',
+          category: 'motivational',
+          priority: 'medium',
+          actionable: false,
+          confidence: 0.8,
+          source: 'emergency_fallback'
+        }]);
+      }
     }
   };
   
@@ -512,14 +547,15 @@ export default function TodayScreen() {
       // 🗑️ Manual refresh - invalidate all AI caches
       pipeline.triggerInvalidation('manual_refresh', user.id);
 
-      // ✅ GENIŞLETILDI: Mood ve Nefes verilerini topla
-      const today = new Date().toDateString();
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      // 🌍 TIMEZONE-AWARE: Use timezone-safe date operations  
+      const { isSameDayInUserTimezone, toUserLocalDate } = require('@/utils/timezoneUtils');
+      const todayUserDate = toUserLocalDate(new Date());
+      const weekAgoUserDate = new Date(todayUserDate.getTime() - 7 * 24 * 60 * 60 * 1000);
       
       // 1. ✅ Mood Entries
       const moodEntries = await moodTracker.getMoodEntries(user.id, 7);
       const todayMood = moodEntries.filter((m: any) => 
-        new Date(m.timestamp).toDateString() === today
+        isSameDayInUserTimezone(m.timestamp, new Date())
       );
       
       // 2. ✅ Breathwork Sessions
@@ -527,11 +563,12 @@ export default function TodayScreen() {
       const breathworkData = await AsyncStorage.getItem(breathworkKey);
       const allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
       const todayBreathwork = allBreathworkSessions.filter((s: any) => 
-        new Date(s.timestamp).toDateString() === today
+        isSameDayInUserTimezone(s.timestamp, new Date())
       );
-      const weeklyBreathwork = allBreathworkSessions.filter((s: any) => 
-        new Date(s.timestamp) >= weekAgo
-      );
+      const weeklyBreathwork = allBreathworkSessions.filter((s: any) => {
+        const sessionUserDate = toUserLocalDate(s.timestamp);
+        return sessionUserDate >= weekAgoUserDate;
+      });
       
       // ✅ Calculate Breathwork anxiety reduction (avg delta)
       let breathworkAnxietyDelta = 0;
