@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import supabaseService from '@/services/supabase';
 import * as pipeline from '@/features/ai/pipeline';
 import { postLiveResult } from '@/features/dev/liveTestResults';
+import { Button } from '@/components/ui/Button';
 
 export default function LiveTestRunnerScreen() {
   const [runId] = useState(() => `run_${Date.now()}`);

@@ -23,6 +23,7 @@ OKB ile mücadelede kullanıcının dijital sığınağı: empatik, güvenli ve 
 - [**Release**](./release.md) – Branch isimlendirme, PR checklist ve rollback
 - [**Security & Privacy**](./security-privacy.md) – PII sanitizasyon, şifreleme, RLS
 - [**Troubleshooting**](./troubleshooting.md) – Yaygın sorunlar ve çözümler
+- [**Code Analysis Report**](./CODE_ANALYSIS_REPORT_2025.md) 🆕 – Kapsamlı kod analizi ve iyileştirme önerileri (Ocak 2025)
 
 ## Hızlı Başlangıç
 

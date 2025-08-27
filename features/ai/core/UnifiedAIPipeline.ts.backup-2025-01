@@ -1,5 +1,5 @@
 /**
- * 🚀 Unified AI Pipeline v2.0 - Optimized
+ * 🚀 Unified AI Pipeline v1.0
  * 
  * Tüm AI analizlerini tek pipeline'da toplar:
  * - Voice Analysis (Unified Voice)
@@ -7,14 +7,7 @@
  * - Insights Generation
  * - CBT Analysis
  * 
- * ✅ v2.0 Improvements (Jan 2025):
- * - Helper classes for reduced code duplication
- * - Unified confidence calculation
- * - Centralized cache management
- * - Progressive enhancement support
- * - Telemetry wrapper for consistent tracking
- * 
- * Module-specific cache TTLs:
+ * ✅ FIXED: Module-specific cache TTLs implemented:
  * - Voice Analysis: 1h TTL
  * - Pattern Recognition: 12h TTL  
  * - Insights Generation: 24h TTL
@@ -26,15 +19,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '../telemetry/aiTelemetry';
 import supabaseService from '@/services/supabase';
 import { smartMoodJournalingService } from '../services/smartMoodJournalingService';
-
-// Import helper classes for optimization
-import {
-  getConfidenceCalculator,
-  getPatternMatcher,
-  getCacheManager,
-  getTelemetryWrapper,
-  getProgressiveEnhancer
-} from './helpers';
 
 /**
  * Simple deterministic hash function for React Native
@@ -212,13 +196,6 @@ export interface UnifiedPipelineResult {
 export class UnifiedAIPipeline {
   private static instance: UnifiedAIPipeline;
   private cache: Map<string, { result: UnifiedPipelineResult; expires: number }> = new Map();
-  
-  // Helper instances for optimization
-  private readonly confidenceCalculator = getConfidenceCalculator();
-  private readonly patternMatcher = getPatternMatcher();
-  private readonly cacheManager = getCacheManager();
-  private readonly telemetryWrapper = getTelemetryWrapper();
-  private readonly progressiveEnhancer = getProgressiveEnhancer();
   
   // 🧪 Test mode detection
   private readonly isTestMode = process.env.TEST_MODE === '1';
@@ -968,8 +945,12 @@ export class UnifiedAIPipeline {
   }
 
   private calculateCBTConfidence(distortions: any[], textLength: number): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculateCBTConfidence(distortions, textLength);
+    if (distortions.length === 0) return 0.3;
+    
+    const avgDistortionConfidence = distortions.reduce((sum, d) => sum + d.confidence, 0) / distortions.length;
+    const lengthBonus = Math.min(textLength / 100, 0.2); // Bonus for longer text
+    
+    return Math.min(avgDistortionConfidence + lengthBonus, 0.95);
   }
 
   /**
@@ -3890,8 +3871,10 @@ export class UnifiedAIPipeline {
   }
   
   private calculateCBTProgressConfidence(records: any[]): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculateCBTProgressConfidence(records);
+    if (records.length < 3) return 0.3;
+    if (records.length < 7) return 0.6;
+    if (records.length < 15) return 0.8;
+    return 0.9;
   }
 
   // ============================================================================
@@ -3902,8 +3885,11 @@ export class UnifiedAIPipeline {
    * Calculate pattern confidence based on data points
    */
   private calculatePatternConfidence(dataPoints: number): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculatePatternConfidence(dataPoints);
+    if (dataPoints < 2) return 0.2;
+    if (dataPoints < 5) return 0.4;
+    if (dataPoints < 10) return 0.6;
+    if (dataPoints < 20) return 0.8;
+    return Math.min(0.95, 0.8 + (dataPoints - 20) * 0.01);
   }
 
 
@@ -4521,13 +4507,34 @@ export class UnifiedAIPipeline {
     profileConfidence: number,
     correlations: any
   ): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculateGlobalConfidence(
-      sampleSize,
-      dataQuality,
-      profileConfidence,
-      correlations
-    );
+    try {
+      // Sample size component (0-0.4)
+      const sampleComponent = Math.min(0.4, sampleSize / 50 * 0.4);
+      
+      // Data quality component (0-0.3)
+      const qualityComponent = dataQuality * 0.3;
+      
+      // Profile confidence component (0-0.2)
+      const profileComponent = profileConfidence * 0.2;
+      
+      // Correlation signal strength component (0-0.1)
+      let correlationComponent = 0;
+      if (correlations.moodEnergy?.r !== null) {
+        const avgCorrelationStrength = (
+          Math.abs(correlations.moodEnergy?.r || 0) +
+          Math.abs(correlations.moodAnxiety?.r || 0) +
+          Math.abs(correlations.energyAnxiety?.r || 0)
+        ) / 3;
+        correlationComponent = avgCorrelationStrength * 0.1;
+      }
+      
+      const totalConfidence = sampleComponent + qualityComponent + profileComponent + correlationComponent;
+      
+      return Math.min(0.95, totalConfidence);
+    } catch (error) {
+      console.warn('⚠️ Global confidence calculation failed:', error);
+      return 0.3;
+    }
   }
   /**
    * 📊 Assess data quality for analytics
@@ -4708,8 +4715,40 @@ export class UnifiedAIPipeline {
    * 🎯 Calculate global confidence score for analytics
    */
   private calculateAnalyticsGlobalConfidence(moods: any[], dataQuality: number, profile: any): number {
-    // Delegate to unified confidence calculator
-    return this.confidenceCalculator.calculateAnalyticsGlobalConfidence(moods, dataQuality, profile);
+    try {
+      let confidence = 0;
+      
+      // Base confidence from data quality (40% weight)
+      confidence += dataQuality * 0.4;
+      
+      // Sample size confidence (30% weight)
+      const sampleSize = moods.length;
+      if (sampleSize >= 30) confidence += 0.3;
+      else if (sampleSize >= 14) confidence += 0.2;
+      else if (sampleSize >= 7) confidence += 0.1;
+      else confidence += 0.05;
+      
+      // Profile confidence (20% weight)
+      if (profile && profile.confidence) {
+        confidence += profile.confidence * 0.2;
+      }
+      
+      // Data recency boost (10% weight)
+      const now = Date.now();
+      const recentCount = moods.filter(m => {
+        const moodTime = new Date(m.created_at).getTime();
+        const daysDiff = (now - moodTime) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 7;
+      }).length;
+      
+      if (recentCount >= 3) confidence += 0.1;
+      else if (recentCount >= 1) confidence += 0.05;
+      
+      return Math.min(1, Math.max(0.1, confidence));
+    } catch (error) {
+      console.warn('⚠️ Analytics global confidence calculation failed:', error);
+      return 0.3;
+    }
   }
 }
 

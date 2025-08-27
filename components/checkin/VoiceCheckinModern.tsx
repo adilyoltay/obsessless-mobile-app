@@ -20,7 +20,7 @@ import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
 import { Toast } from '@/components/ui/Toast';
 
 // Services
-import { process as pipelineProcess } from '@/features/ai/pipeline';
+import * as pipeline from '@/features/ai/pipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';

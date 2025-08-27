@@ -259,7 +259,20 @@ export enum AIEventType {
   UNIFIED_PIPELINE_COMPLETED = 'unified_pipeline_completed',
   UNIFIED_PIPELINE_ERROR = 'unified_pipeline_error',
   UNIFIED_PIPELINE_CACHE_HIT = 'unified_pipeline_cache_hit',
+  UNIFIED_PIPELINE_CACHE_MISS = 'unified_pipeline_cache_miss',
   UNIFIED_PIPELINE_DISABLED = 'unified_pipeline_disabled',
+  
+  // Batch operations
+  BATCH_OPERATION_STARTED = 'batch_operation_started',
+  BATCH_OPERATION_COMPLETED = 'batch_operation_completed',
+  BATCH_JOB_STARTED = 'batch_job_started',
+  
+  // Performance metrics
+  PERFORMANCE_METRIC = 'performance_metric',
+  
+  // Generic events
+  WARNING = 'warning',
+  GENERIC_EVENT = 'generic_event',
   CACHE_INVALIDATION = 'cache_invalidation',
   
   // Voice Analysis specific events

@@ -4,6 +4,9 @@ import { CacheInvalidation, InvalidationTrigger } from '@/features/ai/cache/inva
 
 export type { UnifiedPipelineInput, UnifiedPipelineResult } from '@/features/ai/core/UnifiedAIPipeline';
 
+// Export unifiedPipeline instance for direct access
+export { unifiedPipeline };
+
 /**
  * Kanonik AI giriş noktası: process()
  * - Telemetry: UNIFIED_PIPELINE_STARTED/COMPLETED
