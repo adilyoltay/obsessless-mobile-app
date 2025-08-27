@@ -45,6 +45,7 @@ import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
 import { advancedRiskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import patternPersistenceService from '@/services/patternPersistenceService';
 
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
@@ -124,12 +125,68 @@ export default function MoodScreen() {
     }
   }, [user?.id, selectedTimeRange]);
 
-  // 🧠 AI PATTERN ANALYSIS: Analyze mood patterns when entries change
+  // 🧠 PATTERN PERSISTENCE: Load cached patterns first, then analyze if needed
   useEffect(() => {
-    if (user?.id && moodEntries.length >= 3) {
-      analyzeMoodPatterns();
+    if (user?.id && moodEntries.length > 0) {
+      loadCachedPatterns();
     }
   }, [moodEntries, user?.id]);
+
+  // 🧠 AI PATTERN ANALYSIS: Analyze mood patterns when entries change (if cache miss)
+  useEffect(() => {
+    if (user?.id && moodEntries.length >= 3 && moodPatterns.length === 0) {
+      // Only run analysis if we don't have cached patterns
+      console.log('🧠 No cached patterns found, running fresh analysis...');
+      analyzeMoodPatterns();
+    }
+  }, [moodEntries, user?.id, moodPatterns.length]);
+
+  /**
+   * 🧠 PATTERN PERSISTENCE: Load cached patterns from storage
+   */
+  const loadCachedPatterns = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('📖 Loading cached mood patterns...');
+      const cachedPatterns = await patternPersistenceService.loadPatterns(user.id, moodEntries);
+      
+      if (cachedPatterns && cachedPatterns.length > 0) {
+        console.log(`✅ Loaded ${cachedPatterns.length} cached patterns`);
+        setMoodPatterns(cachedPatterns);
+        
+        // 📊 TELEMETRY: Track cache hit
+        try {
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
+            userId: user.id,
+            patternsCount: cachedPatterns.length,
+            entriesCount: moodEntries.length,
+            cacheSource: 'pattern_persistence_service'
+          });
+        } catch (telemetryError) {
+          console.warn('⚠️ Telemetry failed for pattern cache hit:', telemetryError);
+        }
+      } else {
+        console.log('📭 No valid cached patterns found');
+        
+        // 📊 TELEMETRY: Track cache miss
+        try {
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
+            userId: user.id,
+            entriesCount: moodEntries.length,
+            reason: 'no_cached_patterns_available'
+          });
+        } catch (telemetryError) {
+          console.warn('⚠️ Telemetry failed for pattern cache miss:', telemetryError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to load cached patterns:', error);
+      
+      // Don't block the UI - this is just an optimization
+      // Fresh analysis will run automatically in the next useEffect
+    }
+  };
 
   /**
    * 🚀 NEW: UnifiedAIPipeline entegrasyon fonksiyonu
@@ -326,6 +383,30 @@ export default function MoodScreen() {
 
         console.log('🎯 Enhanced mood patterns with dashboard metrics:', mappedPatterns);
         setMoodPatterns(mappedPatterns);
+
+        // 💾 PATTERN PERSISTENCE: Save patterns to cache after successful analysis
+        try {
+          await patternPersistenceService.savePatterns(
+            user.id,
+            mappedPatterns,
+            entries,
+            'full_analysis',
+            12 * 60 * 60 * 1000 // 12 hour TTL
+          );
+          console.log('💾 Patterns saved to cache successfully');
+          
+          // 📊 TELEMETRY: Track cache save
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+            userId: user.id,
+            patternsCount: mappedPatterns.length,
+            entriesCount: entries.length,
+            analysisSource: 'unified_pipeline',
+            cacheType: 'full_analysis'
+          });
+          
+        } catch (cacheError) {
+          console.warn('⚠️ Failed to cache patterns (non-blocking):', cacheError);
+        }
         
         // 📊 TELEMETRY: Track enhanced metrics delivery
         const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
@@ -582,6 +663,30 @@ export default function MoodScreen() {
         : patternsArray;
         
       setMoodPatterns(mergedPatterns);
+
+      // 💾 PATTERN PERSISTENCE: Save fallback patterns to cache
+      try {
+        await patternPersistenceService.savePatterns(
+          user.id,
+          mergedPatterns,
+          entries,
+          'heuristic_fallback',
+          6 * 60 * 60 * 1000 // 6 hour TTL (shorter for fallback)
+        );
+        console.log('💾 Fallback patterns saved to cache successfully');
+        
+        // 📊 TELEMETRY: Track fallback cache save
+        await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+          userId: user.id,
+          patternsCount: mergedPatterns.length,
+          entriesCount: entries.length,
+          analysisSource: 'fallback_pipeline',
+          cacheType: 'heuristic_fallback'
+        });
+        
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to cache fallback patterns (non-blocking):', cacheError);
+      }
       
       // Also update insights if available (insights are managed in parent component)
       if (result?.insights) {
@@ -1106,6 +1211,22 @@ export default function MoodScreen() {
         console.warn('⚠️ Cache invalidation failed (non-critical):', invalidationError);
         // Don't block the user flow if cache invalidation fails
       }
+
+      // 💾 PATTERN PERSISTENCE: Invalidate pattern cache after new entry
+      try {
+        await patternPersistenceService.invalidateCache(user.id);
+        console.log('💾 Pattern cache invalidated after mood entry save');
+        
+        // 📊 TELEMETRY: Track cache invalidation
+        await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+          userId: user.id,
+          reason: 'mood_entry_added',
+          timestamp: Date.now()
+        });
+        
+      } catch (patternCacheError) {
+        console.warn('⚠️ Pattern cache invalidation failed (non-blocking):', patternCacheError);
+      }
       
       // 🎮 MOOD GAMIFICATION & ACHIEVEMENT TRACKING
       let gamificationResult = null;
@@ -1396,6 +1517,23 @@ export default function MoodScreen() {
                   // Trigger refresh to update any dependent data
                   await loadMoodEntries();
 
+                  // 💾 PATTERN PERSISTENCE: Invalidate pattern cache after entry deletion
+                  try {
+                    await patternPersistenceService.invalidateCache(user.id);
+                    console.log('💾 Pattern cache invalidated after mood entry deletion');
+                    
+                    // 📊 TELEMETRY: Track cache invalidation for delete
+                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                      userId: user.id,
+                      reason: 'mood_entry_deleted',
+                      entryId: entryId,
+                      timestamp: Date.now()
+                    });
+                    
+                  } catch (patternCacheError) {
+                    console.warn('⚠️ Pattern cache invalidation failed after delete (non-blocking):', patternCacheError);
+                  }
+
                 } else {
                   // 📱 OFFLINE MODE: Local deletion + Queue for later remote sync
                   console.log('📱 DELETION FLOW: Offline mode - Local → Queue');
@@ -1427,6 +1565,23 @@ export default function MoodScreen() {
                   
                   setToastMessage('Mood kaydı offline silindi (senkronizasyon bekliyor)');
                   setShowToast(true);
+
+                  // 💾 PATTERN PERSISTENCE: Invalidate pattern cache after offline deletion
+                  try {
+                    await patternPersistenceService.invalidateCache(user.id);
+                    console.log('💾 Pattern cache invalidated after offline mood entry deletion');
+                    
+                    // 📊 TELEMETRY: Track cache invalidation for offline delete
+                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                      userId: user.id,
+                      reason: 'mood_entry_deleted_offline',
+                      entryId: entryId,
+                      timestamp: Date.now()
+                    });
+                    
+                  } catch (patternCacheError) {
+                    console.warn('⚠️ Pattern cache invalidation failed after offline delete (non-blocking):', patternCacheError);
+                  }
                 }
 
               } catch (deleteError) {

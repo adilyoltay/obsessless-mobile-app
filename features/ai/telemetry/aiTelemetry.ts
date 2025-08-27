@@ -168,6 +168,12 @@ export enum AIEventType {
   PATTERN_VALIDATED = 'pattern_validated',
   PATTERN_RECOGNITION_SHUTDOWN = 'pattern_recognition_shutdown',
   
+  // Pattern Persistence Cache
+  PATTERN_CACHE_HIT = 'pattern_cache_hit',
+  PATTERN_CACHE_MISS = 'pattern_cache_miss', 
+  PATTERN_CACHE_SAVED = 'pattern_cache_saved',
+  PATTERN_CACHE_INVALIDATED = 'pattern_cache_invalidated',
+  
   // Insights Engine V2
   INSIGHTS_ENGINE_INITIALIZED = 'insights_engine_initialized',
   INSIGHTS_GENERATED = 'insights_generated',
