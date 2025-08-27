@@ -2129,20 +2129,7 @@ export default function MoodScreen() {
     };
   };
 
-  // Calculate progress percentage
-  const calculateProgress = () => {
-    const goalCount = selectedTimeRange === 'today' ? 3 : 
-                     selectedTimeRange === 'week' ? 10 : 30;
-    const currentCount = stats.totalEntries;
-    return Math.min(Math.round((currentCount / goalCount) * 100), 100);
-  };
 
-  // Calculate weekly change
-  const calculateWeeklyChange = () => {
-    if (stats.trend === 'up') return '+10%';
-    if (stats.trend === 'down') return '-5%';
-    return '0%';
-  };
 
   const getFilteredEntries = () => {
     return moodEntries.slice(0, displayLimit);
@@ -2264,53 +2251,6 @@ export default function MoodScreen() {
             year: 'numeric' 
           })}
         </Text>
-
-        {/* Summary Stats Card - Matching OCD Design */}
-        <View style={styles.weekStatsCard}>
-          <View style={styles.weekStatsHeader}>
-            <View>
-              <Text style={styles.weekStatsTitle}>
-                Özet
-              </Text>
-            </View>
-            {stats.trend !== 'stable' && (
-              <View style={[styles.percentageBadge, 
-                stats.trend === 'up' ? styles.trendUp : styles.trendDown]}>
-                <Text style={styles.percentageText}>{calculateWeeklyChange()}</Text>
-              </View>
-            )}
-          </View>
-          
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="emoticon-outline" size={24} color="#EC4899" />
-              <Text style={styles.statValue}>{stats.avgMood}/100</Text>
-              <Text style={styles.statLabel}>Ort. Mood</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="lightning-bolt-outline" size={24} color="#F59E0B" />
-              <Text style={styles.statValue}>{stats.avgEnergy}/100</Text>
-              <Text style={styles.statLabel}>Ort. Enerji</Text>
-            </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="heart-pulse" size={24} color="#3B82F6" />
-              <Text style={styles.statValue}>{stats.avgAnxiety}/100</Text>
-              <Text style={styles.statLabel}>Ort. Anksiyete</Text>
-            </View>
-          </View>
-
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>İlerleme</Text>
-              <Text style={styles.progressPercentage}>{calculateProgress()}%</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${calculateProgress()}%` }]} />
-            </View>
-          </View>
-        </View>
-
 
 
         {/* ✅ MOVED TO DASHBOARD: Spectrum, Patterns, Prediction features now in UserCentricMoodDashboard */}
@@ -2709,111 +2649,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   
-  // Stats Card Styles
-  weekStatsCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  weekStatsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  weekStatsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-  },
-  weekStatsSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-    fontFamily: 'Inter',
-  },
-  percentageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  trendUp: {
-    backgroundColor: '#D1FAE5',
-  },
-  trendDown: {
-    backgroundColor: '#FEE2E2',
-  },
-  percentageText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-    color: '#065F46',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#374151',
-    fontFamily: 'Inter',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-    fontFamily: 'Inter',
-  },
-  
-  // Progress Bar
-  progressContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Inter',
-  },
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#EC4899',
-    fontFamily: 'Inter',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#EC4899',
-    borderRadius: 4,
-  },
+
   
   // ✅ REMOVED: Predictive mood intervention styles moved to dashboard
   

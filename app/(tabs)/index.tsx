@@ -150,6 +150,15 @@ export default function TodayScreen() {
     breathworkAnxietyDelta: 0  // Avg anxiety reduction from breathwork sessions
   });
 
+  // 🎭 Mood Journey State - Enerji ve Anksiyete dahil
+  const [moodJourneyData, setMoodJourneyData] = useState<{
+    weeklyEntries: any[];
+    todayAverage: number;
+    weeklyTrend: 'up' | 'down' | 'stable';
+    weeklyEnergyAvg: number;
+    weeklyAnxietyAvg: number;
+  } | null>(null);
+
 
   
   // 🎯 Adaptive Interventions State (JITAI)
@@ -214,6 +223,74 @@ export default function TodayScreen() {
       }
     }, [user?.id, aiInitialized, availableFeatures])
   );
+
+  /**
+   * 🎨 Enhanced Color-Journey Helpers
+   * Mood spektrum renklerine ve emotion mapping'e dayalı fonksiyonlar
+   */
+  
+  // 🌈 Advanced mood color mapping (0-100 scale, Spektrum dashboard ile tamamen uyumlu)
+  const getAdvancedMoodColor = (score: number): string => {
+    if (score >= 90) return '#C2185B'; // 90-100: Heyecanlı - Soft pink (anxiety-friendly)
+    if (score >= 80) return '#7E57C2'; // 80-89: Enerjik - Soft purple  
+    if (score >= 70) return '#4CAF50'; // 70-79: Mutlu - Green
+    if (score >= 60) return '#26A69A'; // 60-69: Sakin - Teal
+    if (score >= 50) return '#66BB6A'; // 50-59: Normal - Light Green
+    if (score >= 40) return '#FFA726'; // 40-49: Endişeli - Orange
+    if (score >= 30) return '#FF7043'; // 30-39: Sinirli - Red Orange
+    if (score >= 20) return '#5C6BC0'; // 20-29: Üzgün - Indigo
+    return '#F06292'; // 0-19: Kızgın - Rose
+  };
+
+
+
+  // 📊 Get emotion distribution from weekly data
+  const getEmotionDistribution = () => {
+    if (!moodJourneyData || !moodJourneyData.weeklyEntries.length) return [];
+    
+    const entries = moodJourneyData.weeklyEntries.filter(entry => entry.mood_score > 0);
+    if (entries.length === 0) return [];
+
+    const emotionCounts = {
+      'Heyecanlı': entries.filter(e => e.mood_score >= 90).length,
+      'Enerjik': entries.filter(e => e.mood_score >= 80 && e.mood_score < 90).length,
+      'Mutlu': entries.filter(e => e.mood_score >= 70 && e.mood_score < 80).length,
+      'Sakin': entries.filter(e => e.mood_score >= 60 && e.mood_score < 70).length,
+      'Normal': entries.filter(e => e.mood_score >= 50 && e.mood_score < 60).length,
+      'Endişeli': entries.filter(e => e.mood_score >= 40 && e.mood_score < 50).length,
+      'Sinirli': entries.filter(e => e.mood_score >= 30 && e.mood_score < 40).length,
+      'Üzgün': entries.filter(e => e.mood_score >= 20 && e.mood_score < 30).length,
+      'Kızgın': entries.filter(e => e.mood_score < 20).length,
+    };
+
+    const total = entries.length;
+    return Object.entries(emotionCounts)
+      .filter(([_, count]) => count > 0)
+      .map(([emotion, count]) => ({
+        emotion,
+        percentage: Math.round((count / total) * 100),
+        color: getAdvancedMoodColor(
+          emotion === 'Heyecanlı' ? 95 :
+          emotion === 'Enerjik' ? 85 :
+          emotion === 'Mutlu' ? 75 :
+          emotion === 'Sakin' ? 65 :
+          emotion === 'Normal' ? 55 :
+          emotion === 'Endişeli' ? 45 :
+          emotion === 'Sinirli' ? 35 :
+          emotion === 'Üzgün' ? 25 : 15
+        )
+      }))
+      .sort((a, b) => b.percentage - a.percentage); // En yüksek yüzdeden başla
+  };
+
+  // 🎯 Get dominant emotion
+  const getDominantEmotion = () => {
+    const distribution = getEmotionDistribution();
+    if (distribution.length === 0) return { emotion: 'Henüz Yok', percentage: 0 };
+    
+    const dominant = distribution[0];
+    return { emotion: dominant.emotion, percentage: dominant.percentage };
+  };
 
   /**
    * 🎨 Render Art Therapy Widget
@@ -450,22 +527,12 @@ export default function TodayScreen() {
           source: 'static_fallback'
         }));
         
-        setQuickInsights(formattedInsights);
-        
         console.log('✅ Static fallback insights loaded for Today screen:', formattedInsights.length);
         
       } catch (fallbackError) {
         console.error('❌ Static fallback also failed:', fallbackError);
         // Final fallback - at least show something encouraging
-        setQuickInsights([{
-          id: 'emergency_fallback',
-          text: '💪 Her yeni gün yeni fırsatlar getirir. Bugün kendine karşı nazik ol ve küçük adımlar at.',
-          category: 'motivational',
-          priority: 'medium',
-          actionable: false,
-          confidence: 0.8,
-          source: 'emergency_fallback'
-        }]);
+        console.log('💪 Emergency fallback: Her yeni gün yeni fırsatlar getirir. Bugün kendine karşı nazik ol ve küçük adımlar at.');
       }
     }
   };
@@ -596,6 +663,40 @@ export default function TodayScreen() {
         breathworkAnxietyDelta // ✅ Breathwork anxiety reduction average
       });
 
+      // 🎭 Mood Journey Data - Mood, Enerji, Anksiyete hesaplaması
+      if (moodEntries.length > 0) {
+        const todayAvg = todayMood.length > 0 
+          ? todayMood.reduce((sum: number, entry: any) => sum + entry.mood_score, 0) / todayMood.length
+          : 0;
+        
+        // Haftalık enerji ve anksiyete ortalamaları
+        const weeklyEntriesWithData = moodEntries.filter((entry: any) => 
+          entry.energy_level != null && entry.anxiety_level != null
+        );
+        
+        const weeklyEnergyAvg = weeklyEntriesWithData.length > 0
+          ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.energy_level, 0) / weeklyEntriesWithData.length
+          : 0;
+          
+        const weeklyAnxietyAvg = weeklyEntriesWithData.length > 0
+          ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.anxiety_level, 0) / weeklyEntriesWithData.length
+          : 0;
+        
+        // Basit trend hesaplaması
+        const weeklyTrend = moodEntries.length >= 2 ? 
+          (moodEntries[0]?.mood_score > moodEntries[moodEntries.length - 1]?.mood_score ? 'up' : 'down') : 'stable';
+        
+        setMoodJourneyData({
+          weeklyEntries: moodEntries.slice(0, 7),
+          todayAverage: todayAvg,
+          weeklyTrend,
+          weeklyEnergyAvg,
+          weeklyAnxietyAvg
+        });
+      } else {
+        setMoodJourneyData(null);
+      }
+
       // ✅ OPTIMIZATION: Cache module data to avoid duplicate AsyncStorage reads in loadAIInsights
       moduleDataCacheRef.current = {
         moodEntries,
@@ -653,11 +754,11 @@ export default function TodayScreen() {
   const renderHeroSection = () => {
     // Simple milestone calculation
     const milestones = [
-      { points: 100, name: 'Başlangıç' },
-      { points: 500, name: 'Öğrenci' },
-      { points: 1000, name: 'Usta' },
-      { points: 2500, name: 'Uzman' },
-      { points: 5000, name: 'Kahraman' }
+      { points: 100, name: 'Başlangıç', emoji: '🌱' },
+      { points: 500, name: 'Öğrenci', emoji: '📚' },
+      { points: 1000, name: 'Usta', emoji: '⚔️' },
+      { points: 2500, name: 'Uzman', emoji: '🏆' },
+      { points: 5000, name: 'Kahraman', emoji: '🛡️' }
     ];
     
     const currentMilestone = milestones.reduce((prev, curr) => 
@@ -868,58 +969,73 @@ export default function TodayScreen() {
     onRefresh();
   };
 
-  const renderQuickMoodEntry = () => {
-    console.log('🔍 renderQuickMoodEntry - checkinSheetVisible:', checkinSheetVisible);
+  // Check-in butonu artık en altta olacak
+  const renderBottomCheckinButton = () => (
+    <View style={styles.bottomCheckinContainer}>
+      <Button
+        variant="primary"
+        onPress={() => {
+          console.log('🔍 Check-in button pressed!');
+          setCheckinSheetVisible(true);
+        }}
+        accessibilityLabel="Check-in başlat"
+        style={styles.bottomCheckinButton}
+        leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
+      >
+        Check-in Yap
+      </Button>
+      <CheckinBottomSheet
+        isVisible={checkinSheetVisible}
+        onClose={() => {
+          console.log('🔍 CheckinBottomSheet onClose called');
+          setCheckinSheetVisible(false);
+        }}
+        onComplete={handleCheckinComplete}
+      />
+    </View>
+  );
+
+
+
+
+
+  const renderQuickStats = () => {
+    // Milestone calculation for healing points badge
+    const milestones = [
+      { points: 100, name: 'Başlangıç', emoji: '🌱' },
+      { points: 500, name: 'Öğrenci', emoji: '📚' },
+      { points: 1000, name: 'Usta', emoji: '⚔️' },
+      { points: 2500, name: 'Uzman', emoji: '🏆' },
+      { points: 5000, name: 'Kahraman', emoji: '🛡️' }
+    ];
     
+    const currentMilestone = milestones.reduce((prev, curr) => 
+      profile.healingPointsTotal >= curr.points ? curr : prev,
+      milestones[0]
+    );
+
     return (
-      <View style={styles.quickMoodContainer}>
-        <Button
-          variant="primary"
-          onPress={() => {
-            console.log('🔍 Check-in button pressed!');
-            setCheckinSheetVisible(true);
-          }}
-          accessibilityLabel="Check-in başlat"
-          style={styles.quickMoodButton}
-          leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
-        >
-          Check-in
-        </Button>
-        <CheckinBottomSheet
-          isVisible={checkinSheetVisible}
-          onClose={() => {
-            console.log('🔍 CheckinBottomSheet onClose called');
-            setCheckinSheetVisible(false);
-          }}
-          onComplete={handleCheckinComplete}
-        />
+      <View style={styles.quickStatsSection}>
+        <View style={styles.quickStatCard}>
+          <MaterialCommunityIcons name="calendar-today" size={28} color="#10B981" />
+          <Text style={styles.quickStatValue}>{todayStats.moodCheckins}</Text>
+          <Text style={styles.quickStatLabel}>Mood</Text>
+        </View>
+        <View style={styles.quickStatCard}>
+          <MaterialCommunityIcons name="fire" size={28} color="#F59E0B" />
+          <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
+          <Text style={styles.quickStatLabel}>Streak</Text>
+        </View>
+        <View style={styles.quickStatCard}>
+          <MaterialCommunityIcons name="star-outline" size={28} color="#8B5CF6" />
+          <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
+          <Text style={styles.quickStatLabel}>
+            {currentMilestone.emoji} {currentMilestone.name}
+          </Text>
+        </View>
       </View>
     );
   };
-
-
-
-
-
-  const renderQuickStats = () => (
-    <View style={styles.quickStatsSection}>
-      <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="calendar-today" size={30} color="#10B981" />
-        <Text style={styles.quickStatValue}>{todayStats.moodCheckins}</Text>
-        <Text style={styles.quickStatLabel}>Mood (Bugün)</Text>      {/* ✅ POLISH: Etiket hizalama */}
-      </View>
-      <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="fire" size={30} color="#F59E0B" />
-        <Text style={styles.quickStatValue}>{profile.streakCurrent}</Text>
-        <Text style={styles.quickStatLabel}>Streak</Text>              {/* ✅ POLISH: Zaten kısa */}
-      </View>
-      <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="star-outline" size={30} color="#8B5CF6" />
-        <Text style={styles.quickStatValue}>{profile.healingPointsToday}</Text>
-        <Text style={styles.quickStatLabel}>Puan (Bugün)</Text>        {/* ✅ POLISH: Etiket hizalama */}
-      </View>
-    </View>
-  );
 
   /**
    * 📊 Haftalık Özet Modül Kartları - Tüm modüllerden ilerleme
@@ -941,10 +1057,12 @@ export default function TodayScreen() {
             <MaterialCommunityIcons name="emoticon-happy" size={18} color="#F59E0B" />
             <Text style={styles.moduleTitle}>Mood</Text>
             </View>
-          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.mood}</Text>
+          <Text style={styles.moduleCount}>
+            {moodJourneyData?.todayAverage > 0 ? moodJourneyData.todayAverage.toFixed(1) : '—'}
+          </Text>
           <Text style={styles.moduleSubtext}>
-            {todayStats.weeklyProgress.mood > 0 
-              ? 'Check-in yapıldı' 
+            {moodJourneyData?.todayAverage > 0 
+              ? 'Bugünkü ortalama' 
               : 'Bugün henüz yok'}
           </Text>
           <View style={styles.moduleFooter}>
@@ -952,26 +1070,48 @@ export default function TodayScreen() {
             </View>
         </Pressable>
         
-        {/* Breathwork Özet */}
+        {/* Enerji Özet */}
         <Pressable 
           style={styles.moduleCard}
-          onPress={() => router.push('/(tabs)/breathwork')}
+          onPress={() => router.push('/(tabs)/mood')}
         >
           <View style={styles.moduleHeader}>
-            <MaterialCommunityIcons name="meditation" size={18} color="#8B5CF6" />
-            <Text style={styles.moduleTitle}>Nefes</Text>
+            <MaterialCommunityIcons name="lightning-bolt" size={18} color="#10B981" />
+            <Text style={styles.moduleTitle}>Enerji</Text>
           </View>
-          <Text style={styles.moduleCount}>{todayStats.weeklyProgress.breathwork}</Text>
+          <Text style={styles.moduleCount}>
+            {moodJourneyData?.weeklyEnergyAvg > 0 ? moodJourneyData.weeklyEnergyAvg.toFixed(1) : '—'}
+          </Text>
           <Text style={styles.moduleSubtext}>
-            {todayStats.weeklyProgress.breathwork > 0 
-              ? `Anksiyete -${todayStats.breathworkAnxietyDelta > 0 ? todayStats.breathworkAnxietyDelta : 0}` 
-              : 'Hazır mısın?'}
+            {moodJourneyData?.weeklyEnergyAvg > 0 
+              ? 'Haftalık ortalama' 
+              : 'Veri henüz yok'}
           </Text>
           <View style={styles.moduleFooter}>
-            <Text style={styles.moduleAction}>
-              {todayStats.weeklyProgress.breathwork > 0 ? 'Tekrar Et →' : 'Başla →'}
-            </Text>
-            </View>
+            <Text style={styles.moduleAction}>Görüntüle →</Text>
+          </View>
+        </Pressable>
+        
+        {/* Anksiyete Özet */}
+        <Pressable 
+          style={styles.moduleCard}
+          onPress={() => router.push('/(tabs)/mood')}
+        >
+          <View style={styles.moduleHeader}>
+            <MaterialCommunityIcons name="heart-pulse" size={18} color="#EF4444" />
+            <Text style={styles.moduleTitle}>Anksiyete</Text>
+          </View>
+          <Text style={styles.moduleCount}>
+            {moodJourneyData?.weeklyAnxietyAvg > 0 ? moodJourneyData.weeklyAnxietyAvg.toFixed(1) : '—'}
+          </Text>
+          <Text style={styles.moduleSubtext}>
+            {moodJourneyData?.weeklyAnxietyAvg > 0 
+              ? 'Haftalık ortalama' 
+              : 'Veri henüz yok'}
+          </Text>
+          <View style={styles.moduleFooter}>
+            <Text style={styles.moduleAction}>Görüntüle →</Text>
+          </View>
         </Pressable>
       </View>
       </View>
@@ -1010,13 +1150,100 @@ export default function TodayScreen() {
         
 
         
-        {renderQuickMoodEntry()}
         {renderQuickStats()}
+        
+        {/* 🎨 Enhanced Color-Journey */}
+        {moodJourneyData && (
+          <View style={styles.colorfulMoodJourney}>
+            {/* Mini Spektrum Bar - Mood skalasına uygun sıralama */}
+            <LinearGradient
+              colors={['#F06292', '#5C6BC0', '#FF7043', '#FFA726', '#66BB6A', '#26A69A', '#4CAF50', '#7E57C2', '#C2185B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.miniSpectrumBar}
+            />
+            
+            {/* Enhanced Header with Dominant Emotion */}
+            <View style={styles.enhancedJourneyHeader}>
+              <View style={styles.journeyTitleSection}>
+                <Text style={styles.journeyTitle}>Mood Yolculuğun</Text>
+              </View>
+              <View style={styles.dominantEmotionSection}>
+                <Text style={styles.dominantLabel}>Baskın:</Text>
+                <Text style={styles.dominantEmotion}>
+                  {getDominantEmotion().emotion}
+                </Text>
+              </View>
+            </View>
+            
+            {/* Enhanced Bar Chart with Colors */}
+            <View style={styles.colorfulBars}>
+              {[...moodJourneyData.weeklyEntries].reverse().map((entry, index) => {
+                const barHeight = Math.min(Math.max((entry.mood_score / 10) * 60, 6), 60);
+                const isToday = index === 6;
+                const days = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
+                const today = new Date().getDay();
+                const dayIndex = (today - (6 - index) + 7) % 7;
+                
+                // Enhanced color - mood_score (1-10) -> (10-100) scale
+                const emotionColor = getAdvancedMoodColor(entry.mood_score * 10);
+                
+                return (
+                  <View key={entry.id || index} style={styles.colorfulBarContainer}>
+                    {/* Enhanced Color Bar */}
+                    <View 
+                      style={[
+                        styles.emotionBar,
+                        { 
+                          height: barHeight,
+                          backgroundColor: emotionColor,
+                          opacity: isToday ? 1 : 0.85
+                        }
+                      ]}
+                    />
+                    
+                    <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>
+                      {days[dayIndex]}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+            
+            {/* Emotion Distribution Dots */}
+            <View style={styles.emotionDots}>
+              {getEmotionDistribution().slice(0, 3).map((emotion, index) => (
+                <View key={index} style={styles.emotionDot}>
+                  <View style={[styles.dot, { backgroundColor: emotion.color }]} />
+                  <Text style={styles.dotLabel}>{emotion.emotion}</Text>
+                  <Text style={styles.dotPercentage}>{emotion.percentage}%</Text>
+                </View>
+              ))}
+            </View>
+            
+            {/* Stats Row */}
+            <View style={styles.journeyStats}>
+              <Text style={styles.journeyStat}>
+                M: {moodJourneyData.todayAverage > 0 ? moodJourneyData.todayAverage.toFixed(1) : '—'}
+              </Text>
+              <Text style={styles.journeyStat}>
+                E: {moodJourneyData.weeklyEnergyAvg > 0 ? moodJourneyData.weeklyEnergyAvg.toFixed(1) : '—'}
+              </Text>
+              <Text style={styles.journeyStat}>
+                A: {moodJourneyData.weeklyAnxietyAvg > 0 ? moodJourneyData.weeklyAnxietyAvg.toFixed(1) : '—'}
+              </Text>
+            </View>
+          </View>
+        )}
+        
         {renderModuleSummary()} {/* ✅ YENİ: Haftalık Özet Kartları */}
         {/* Risk section removed */}
         {renderArtTherapyWidget()}
         {/* ✅ REMOVED: Başarılarım bölümü - yinelenen bilgi, kalabalık yaratıyor */}
         {/* Hero'da healing points + streak yeterli, detaylar modül dashboard'larında */}
+        
+        {/* Check-in butonu en altta */}
+        {renderBottomCheckinButton()}
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -1153,10 +1380,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     marginTop: 2,
   },
-  // ✅ REMOVED: Achievement stilleri - Today'den başarı listesi kaldırıldı
+
+  // Healing Point kartı eski haline döndü
   // Başarı gösterimi modül dashboard'larında mevcut
   bottomSpacing: {
     height: 100,
+  },
+
+  // Check-in butonu en altta
+  bottomCheckinContainer: {
+    marginHorizontal: 16,
+    marginVertical: 20,
+  },
+  bottomCheckinButton: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   
 
@@ -1202,16 +1445,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     overflow: 'hidden',
-  },
-  // Quick Mood entry styles
-  quickMoodContainer: {
-    marginHorizontal: 16,
-    marginTop: 12,
-  },
-  quickMoodButton: {
-    alignSelf: 'stretch',
-    borderRadius: 12,
-    paddingVertical: 14,
   },
   // ✅ REMOVED: sheetTitle, sheetSubtitle - achievements modalı için kullanılıyordu
   emojiRow: {
@@ -1311,15 +1544,16 @@ const styles = StyleSheet.create({
   },
   moduleGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    alignItems: 'stretch',
+    gap: 8,
   },
   moduleCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
-    width: '47%', // 2 kart per row with gap
+    flex: 1,
+    maxWidth: '32%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -1361,5 +1595,200 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6B7280',
     fontFamily: 'Inter-Medium',
+  },
+
+  // 🎨 Enhanced Color-Journey Styles
+  colorfulMoodJourney: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  
+  // Mini spektrum bar
+  miniSpectrumBar: {
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 16,
+    opacity: 0.8,
+  },
+  
+  // Enhanced header
+  enhancedJourneyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  journeyTitleSection: {
+    flex: 1,
+  },
+  dominantEmotionSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  dominantLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    marginRight: 4,
+  },
+  dominantEmotion: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter-Medium',
+  },
+  
+  // Colorful bars
+  colorfulBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 100,
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  colorfulBarContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  emotionBar: {
+    width: 20,
+    borderRadius: 4,
+    minHeight: 8,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  
+  // Emotion dots
+  emotionDots: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  emotionDot: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  dotLabel: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+  },
+  dotPercentage: {
+    fontSize: 9,
+    color: '#9CA3AF',
+    fontFamily: 'Inter',
+    fontWeight: '500',
+  },
+
+  // Legacy styles for backward compatibility
+  moodJourneySimple: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  journeyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  journeyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    fontFamily: 'Inter-Bold',
+  },
+  journeyTrend: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  weeklyBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 100, // Height for bars + day labels
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  barContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  moodBar: {
+    width: 18, // Wider bars since no data points overlay
+    borderRadius: 3,
+    minHeight: 6,
+    marginBottom: 4, // Space for day labels
+  },
+  dayLabel: {
+    fontSize: 11,
+    color: '#9CA3AF', // Soluk gri
+    fontFamily: 'Inter',
+    marginTop: 4,
+  },
+  dayLabelToday: {
+    color: '#374151', // Bugün için daha koyu
+    fontWeight: '600',
+  },
+
+  journeyStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 20,
+  },
+  journeyStat: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+    flex: 1,
+  },
+  journeyTrendBottom: {
+    fontSize: 13,
+    color: '#374151',
+    fontFamily: 'Inter',
+    fontWeight: '600',
   },
 });
