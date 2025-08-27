@@ -44,6 +44,7 @@ import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingServi
 import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { advancedRiskAssessmentService } from '@/features/ai/services/riskAssessmentService';
 
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
 import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
@@ -94,6 +95,9 @@ export default function MoodScreen() {
   // 🧪 DEBUG: Mood Data Flow Testing
   const [showMoodDebug, setShowMoodDebug] = useState(false);
   const [debugReport, setDebugReport] = useState<any>(null);
+
+  // 🛡️ RISK ASSESSMENT: Enhanced prediction state
+  const [riskAssessmentData, setRiskAssessmentData] = useState<any>(null);
 
   // Pre-fill from voice trigger if available (only once)
   useEffect(() => {
@@ -506,14 +510,14 @@ export default function MoodScreen() {
         const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
         
         // Determine error type based on error message/type
-        let errorType = AIErrorType.UNKNOWN_ERROR;
+        let errorType = AIErrorType.INSIGHTS_GENERATION_FAILED;
         if (error instanceof Error) {
           if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorType = AIErrorType.NETWORK_FAILURE;
-          } else if (error.message.includes('timeout')) {
-            errorType = AIErrorType.ANALYSIS_TIMEOUT;
-          } else if (error.message.includes('budget') || error.message.includes('limit')) {
-            errorType = AIErrorType.TOKEN_BUDGET_EXCEEDED;
+            errorType = AIErrorType.NETWORK_ERROR;
+          } else if (error.message.includes('unavailable') || error.message.includes('service')) {
+            errorType = AIErrorType.LLM_SERVICE_UNAVAILABLE;
+          } else if (error.message.includes('rate') || error.message.includes('limit')) {
+            errorType = AIErrorType.RATE_LIMIT_EXCEEDED;
           }
         }
         
@@ -1009,7 +1013,7 @@ export default function MoodScreen() {
             notes: data.notes,
             triggers: data.trigger ? [data.trigger] : [],
             activities: [],
-            timestamp: editingEntry.created_at || editingEntry.timestamp, // Preserve original timestamp
+            timestamp: (editingEntry as any).created_at || (editingEntry as any).timestamp, // Preserve original timestamp
             updated_at: new Date().toISOString(),
           },
           priority: 'high' as any,
@@ -1483,6 +1487,142 @@ export default function MoodScreen() {
 
   const stats = calculateStats();
 
+  // 🔒 RISK ASSESSMENT: Enhanced prediction with riskAssessmentService integration
+  const generateRiskAssessment = async (entries: MoodEntry[], patterns: any[], predictiveInsights: any) => {
+    try {
+      // 🚫 EARLY EXIT: Check feature flag
+      if (!FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
+        console.log('🚫 Risk assessment disabled, using fallback prediction');
+        return {
+          riskLevel: predictiveInsights?.riskLevel || 'low',
+          earlyWarning: predictiveInsights?.earlyWarning || undefined,
+          interventions: predictiveInsights?.interventions || [],
+          recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+        };
+      }
+
+      if (entries.length < 3) {
+        console.log('📊 Insufficient data for risk assessment, using basic prediction');
+        return {
+          riskLevel: 'low' as const,
+          earlyWarning: undefined,
+          interventions: [],
+          recommendation: 'Daha fazla mood kaydı yapmana gerek var. En az 3 kayıt sonrasında risk değerlendirmesi yapabiliriz.'
+        };
+      }
+
+      // 🔄 RISK ASSESSMENT SERVICE INTEGRATION
+      // Create user profile from mood data
+      const avgMood = entries.reduce((sum, e) => sum + e.mood_score, 0) / entries.length;
+      const avgEnergy = entries.reduce((sum, e) => sum + e.energy_level, 0) / entries.length;
+      const avgAnxiety = entries.reduce((sum, e) => sum + e.anxiety_level, 0) / entries.length;
+
+      const userProfile = {
+        userId: user?.id || 'anonymous',
+        demographics: {
+          ageGroup: 'adult', // Default - could be enhanced with actual data
+          culturalBackground: 'turkish'
+        },
+        therapeuticProfile: {
+          currentMoodLevel: avgMood,
+          energyLevel: avgEnergy,
+          anxietyLevel: avgAnxiety,
+          stressLevel: Math.min(10, Math.max(1, Math.round(avgAnxiety))),
+          copingSkills: avgMood > 60 ? 'good' : avgMood > 40 ? 'moderate' : 'needs_improvement'
+        },
+        moodHistory: entries.slice(0, 30).map(entry => ({
+          timestamp: (entry as any).created_at || (entry as any).timestamp,
+          moodScore: entry.mood_score,
+          energyLevel: entry.energy_level,
+          anxietyLevel: entry.anxiety_level,
+          triggers: (entry as any).triggers || []
+        }))
+      };
+
+      // Mock Y-BOCS data (simplified)
+      const ybocsData = {
+        totalScore: Math.round((10 - avgMood/10) * 4), // Rough inverse correlation
+        severityLevel: avgMood > 70 ? 'minimal' : avgMood > 50 ? 'mild' : avgMood > 30 ? 'moderate' : 'severe'
+      };
+
+      // Cultural context
+      const culturalContext = {
+        region: 'turkey',
+        language: 'tr',
+        collectivistic: true,
+        familySupport: 'high', // Default assumption
+        stigmaLevel: 'moderate'
+      };
+
+      // 🚀 CALL RISK ASSESSMENT SERVICE
+      console.log('🛡️ Calling advanced risk assessment service...');
+      const riskAssessment = await advancedRiskAssessmentService.assessInitialRisk(
+        userProfile as any,
+        ybocsData,
+        culturalContext as any,
+        { patterns, predictiveInsights }
+      );
+
+      console.log('✅ Risk assessment completed:', riskAssessment);
+
+      // 🔄 MAP RISK ASSESSMENT TO UI FORMAT
+      const mapRiskLevel = (level: string): 'high' | 'medium' | 'low' => {
+        if (level === 'high' || level === 'severe' || level === 'critical') return 'high';
+        if (level === 'moderate' || level === 'medium') return 'medium';
+        return 'low';
+      };
+
+      const interventions = riskAssessment.immediateActions?.map((action: any) => ({
+        type: (action.priority === 'urgent' || action.priority === 'critical') ? 'immediate' : 
+              (action.type === 'preventive' || action.category === 'preventive') ? 'preventive' : 'supportive',
+        action: action.description || action.title || action.action || 'Önerilen aksiyon'
+      })) || [];
+
+      return {
+        riskLevel: mapRiskLevel(riskAssessment.immediateRisk?.toString() || 'low'),
+        earlyWarning: riskAssessment.immediateRisk === 'high' ? {
+          triggered: true,
+          message: riskAssessment.immediateActions?.[0]?.description || 
+                   'Dikkat gerektiren mood değişiklikleri tespit edildi.'
+        } : undefined,
+        interventions: interventions,
+        recommendation: (riskAssessment.immediateActions?.[0] as any)?.description ||
+                       (riskAssessment.monitoringPlan as any)?.summary ||
+                       (riskAssessment.monitoringPlan as any)?.guidelines ||
+                       'Mood takibine devam et, risk seviyesi kontrol altında.'
+      };
+
+    } catch (error) {
+      console.error('❌ Risk assessment service failed:', error);
+      // Fallback to simple prediction
+      return {
+        riskLevel: predictiveInsights?.riskLevel || 'low',
+        earlyWarning: predictiveInsights?.earlyWarning || undefined,
+        interventions: predictiveInsights?.interventions || [],
+        recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+      };
+    }
+  };
+
+  // 🛡️ BACKGROUND: Load risk assessment asynchronously
+  useEffect(() => {
+    if (moodEntries.length >= 3 && user?.id) {
+      const loadRiskAssessment = async () => {
+        try {
+          const riskData = await generateRiskAssessment(moodEntries, moodPatterns, predictiveInsights);
+          setRiskAssessmentData(riskData);
+          console.log('✅ Risk assessment loaded in background:', riskData);
+        } catch (error) {
+          console.error('❌ Background risk assessment failed:', error);
+        }
+      };
+
+      // Debounce to avoid excessive calls
+      const timeoutId = setTimeout(loadRiskAssessment, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [moodEntries.length, moodPatterns.length, predictiveInsights, user?.id]);
+
   // ✅ NEW: Generate User-Centric Mood Journey Data from entries and patterns
   const generateMoodJourneyData = (entries: MoodEntry[], patterns: any[], predictiveInsights: any) => {
     const today = new Date();
@@ -1744,11 +1884,11 @@ export default function MoodScreen() {
         severity: pattern.severity || 'low',
         actionable: pattern.actionable || false
       })),
-      prediction: {
+      prediction: riskAssessmentData || {
         riskLevel: predictiveInsights?.riskLevel || 'low',
         earlyWarning: predictiveInsights?.earlyWarning || undefined,
         interventions: predictiveInsights?.interventions || [],
-        recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+        recommendation: predictiveInsights?.earlyWarning?.message || 'Risk değerlendirmesi yükleniyor...'
       },
       achievements: (() => {
         const achievements = [];
