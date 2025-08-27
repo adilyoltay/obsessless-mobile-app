@@ -165,4 +165,11 @@ if (__DEV__) {
   }).catch(error => {
     console.warn('⚠️ Failed to load invalid entries debug tests:', error);
   });
+  
+  import('./debugMoodDeletionV2').then((module) => {
+    (global as any).debugMoodDeletionV2 = module.debugMoodDeletionV2;
+    console.log('🔍 Advanced Mood Deletion debug tests loaded - use debugMoodDeletionV2.*');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load advanced mood deletion debug tests:', error);
+  });
 } 
