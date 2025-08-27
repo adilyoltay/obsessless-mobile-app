@@ -265,7 +265,6 @@ export enum AIEventType {
   // Batch operations
   BATCH_OPERATION_STARTED = 'batch_operation_started',
   BATCH_OPERATION_COMPLETED = 'batch_operation_completed',
-  BATCH_JOB_STARTED = 'batch_job_started',
   
   // Performance metrics
   PERFORMANCE_METRIC = 'performance_metric',

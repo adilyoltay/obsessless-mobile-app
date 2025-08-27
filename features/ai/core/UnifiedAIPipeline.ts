@@ -335,32 +335,52 @@ export class UnifiedAIPipeline {
       };
     }
     
-    // 2. Process through pipeline
-    const result = await this.executePipeline(input);
+    // 2. Progressive Enhancement: Quick + Deep Analysis
+    const progressiveId = `${cacheKey}_${Date.now()}`;
     
-    // 3. Smart cache with empty insights policy
-    this.setCacheWithInsightsPolicy(cacheKey, result, input);
-    
-    // 4. Track pipeline completion telemetry
-    const processingTime = Date.now() - startTime;
-    await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
-      userId: input.userId,
-      pipeline: 'unified',
-      processingTime,
-      modules: this.getEnabledModules(),
-      cacheKey,
-      resultSize: JSON.stringify(result).length
-    });
-    
-    return {
-      ...result,
-      metadata: {
-        ...result.metadata,
-        source: 'fresh',
-        processingTime: Date.now() - startTime,
-        heuristicConfidence: (result as any)?.voice?.confidence ?? undefined
+    try {
+      const { quick, deep } = await this.progressiveEnhancer.process(
+        progressiveId,
+        input,
+        {
+          quickDelay: 0,
+          deepDelay: 100,
+          maxDeepDuration: 5000,
+          enableDeepAnalysis: true
+        }
+      );
+      
+      // Return quick result immediately, deep analysis continues in background
+      const quickResult = await this.enhanceQuickResult(quick, input);
+      
+      // 3. Smart cache quick result
+      await this.setCacheWithInsightsPolicy(cacheKey, quickResult, input);
+      
+      // 4. Setup deep analysis completion handler
+      if (deep) {
+        deep.then(async (deepResult) => {
+          try {
+            const enhancedDeepResult = await this.enhanceDeepResult(deepResult, input);
+            // Update cache with deep result
+            await this.setCacheWithInsightsPolicy(cacheKey, enhancedDeepResult, input);
+            console.log('🔍 Deep analysis completed and cached');
+          } catch (error) {
+            console.error('Deep analysis failed:', error);
+          }
+        }).catch(console.error);
       }
-    };
+      
+      return quickResult;
+      
+    } catch (error) {
+      console.warn('Progressive enhancement failed, falling back to full pipeline:', error);
+      
+      // Fallback: Traditional full processing
+      const result = await this.executePipeline(input);
+      await this.setCacheWithInsightsPolicy(cacheKey, result, input);
+      
+      return result;
+    }
   }
   
   // ============================================================================
@@ -571,18 +591,37 @@ export class UnifiedAIPipeline {
         // } // Removed Terapi
         
         // 2. BEHAVIORAL PATTERNS (Davranışsal kalıplar)  
+        let behavioralMatches: any[] = [];
         if (content.compulsions && Array.isArray(content.compulsions)) {
-          patterns.behavioral = this.extractBehavioralPatterns(content.compulsions);
+          // Use BasePatternMatcher for behavioral patterns
+          const compulsionText = content.compulsions.join(' ');
+          behavioralMatches = this.patternMatcher.match(compulsionText, 'behavioral');
+          patterns.behavioral = behavioralMatches.map(match => ({
+            type: match.pattern.category,
+            confidence: match.confidence,
+            matches: match.matches
+          }));
         }
         
-        // 3. ENVIRONMENTAL TRIGGERS (Çevresel tetikleyiciler)
-        patterns.environmental = this.extractEnvironmentalTriggers(content);
+        // 3. ENVIRONMENTAL TRIGGERS (Çevresel tetikleyiciler) - using BasePatternMatcher
+        const contentString = typeof content === 'string' ? content : JSON.stringify(content);
+        const environmentalMatches = this.patternMatcher.match(contentString, 'trigger');
+        patterns.environmental = environmentalMatches.map(match => ({
+          type: match.pattern.category,
+          trigger: match.matches[0],
+          confidence: match.confidence
+        }));
         
-        // 4. TRIGGER ANALYSIS (Tetik analizi)
-        patterns.triggers = this.analyzeTriggers(content);
+        // 4. TRIGGER ANALYSIS (Tetik analizi) - using BasePatternMatcher
+        const triggerMatches = this.patternMatcher.match(contentString, 'trigger');
+        patterns.triggers = triggerMatches.map(match => ({
+          type: match.pattern.category,
+          confidence: match.confidence,
+          matches: match.matches
+        }));
         
-        // 5. SEVERITY PROGRESSION (Şiddet seyrı)
-        patterns.severity = this.analyzeSeverityProgression(content);
+        // 5. SEVERITY PROGRESSION (Şiddet seyrı) - using pattern confidence as proxy
+        patterns.severity = this.calculateSeverityFromPatterns(triggerMatches, behavioralMatches);
         
         // 6. CALCULATE CONFIDENCE (Güven skoru hesaplama)
         patterns.metadata.confidence = this.calculatePatternConfidence(patterns.metadata.dataPoints);
@@ -590,7 +629,7 @@ export class UnifiedAIPipeline {
       
       // Handle text input (voice/notes)
       if (typeof input.content === 'string') {
-        const textPatterns = this.extractTextPatterns(input.content);
+        const textPatterns = this.patternMatcher.extractTextPatterns(input.content);
         patterns.behavioral.push(...textPatterns.behavioral);
         patterns.triggers.push(...textPatterns.triggers);
         patterns.metadata.dataPoints += 1;
@@ -1875,115 +1914,19 @@ export class UnifiedAIPipeline {
   // ============================================================================
   
   private generateCacheKey(input: UnifiedPipelineInput): string {
-    const data = {
-      userId: input.userId,
-      type: input.type,
-      content: typeof input.content === 'string' 
-        ? input.content.substring(0, 100) 
-        : JSON.stringify(input.content).substring(0, 100),
-      source: input.context?.source
-    };
-    
-    return `unified:${input.userId}:${simpleHash(JSON.stringify(data))}`;
+    // Delegate to PipelineCacheManager with content support
+    return this.cacheManager.generateUnifiedCacheKey(input);
   }
   
   private async getFromCache(key: string): Promise<UnifiedPipelineResult | null> {
-    // 1. Check in-memory cache first (fastest)
-    const memoryCache = this.cache.get(key);
-    
-    if (memoryCache) {
-      if (memoryCache.expires < Date.now()) {
-        this.cache.delete(key);
-      } else {
-        // 🚫 NEGATIVE CACHE BYPASS: Skip empty insights with short TTL
-        const insightsCount = this.countTotalInsights(memoryCache.result);
-        const remainingTTL = memoryCache.expires - Date.now();
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (insightsCount === 0 && remainingTTL < fiveMinutes) {
-          console.log(`🚫 Bypassing negative cache: insightsCount=${insightsCount}, remainingTTL=${Math.round(remainingTTL/60000)}min`);
-          this.cache.delete(key);
-          // Skip this cache entry and continue to fresh generation
-        } else {
-          return memoryCache.result;
-        }
-      }
-    }
-    
-    // 2. Check Supabase cache (persistent, shared across devices)
-    try {
-      const supabaseCached = await this.getFromSupabaseCache(key);
-      if (supabaseCached) {
-        // 🚫 NEGATIVE CACHE BYPASS: Check for empty insights before restoring
-        const insightsCount = this.countTotalInsights(supabaseCached);
-        
-        if (insightsCount === 0) {
-          console.log(`🚫 Bypassing negative Supabase cache: insightsCount=${insightsCount}`);
-          // Don't restore empty cache to memory, continue to fresh generation
-        } else {
-          // Restore to memory cache for faster future access (use default TTL for restored cache)
-          this.cache.set(key, {
-            result: supabaseCached,
-            expires: Date.now() + this.MODULE_TTLS.default
-          });
-          
-          console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
-          return supabaseCached;
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ Supabase cache read failed:', error);
-    }
-    
-    // 3. Check AsyncStorage cache (offline fallback)
-    try {
-      const offlineCache = await AsyncStorage.getItem(key);
-      if (offlineCache) {
-        const parsed = JSON.parse(offlineCache);
-        if (parsed.expires > Date.now()) {
-          // 🚫 NEGATIVE CACHE BYPASS: Check for empty insights before restoring
-          const insightsCount = this.countTotalInsights(parsed.result);
-          
-          if (insightsCount === 0) {
-            console.log(`🚫 Bypassing negative AsyncStorage cache: insightsCount=${insightsCount}`);
-            await AsyncStorage.removeItem(key); // Clean up negative cache
-            // Continue to fresh generation
-          } else {
-            console.log('📱 Cache restored from AsyncStorage:', key.substring(0, 30) + '...');
-            return parsed.result;
-          }
-        } else {
-          await AsyncStorage.removeItem(key);
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ AsyncStorage cache read failed:', error);
-    }
-    
-    return null;
+    // Delegate to PipelineCacheManager unified cache system
+    return await this.cacheManager.getUnified<UnifiedPipelineResult>(key);
   }
   
-  private setCache(key: string, result: UnifiedPipelineResult, ttl?: number): void {
-    // ✅ FIXED: Use module-specific TTL instead of single DEFAULT_TTL
-    // 🧪 TEST MODE: Override TTL for deterministic testing
+  private async setCache(key: string, result: UnifiedPipelineResult, ttl?: number): Promise<void> {
+    // Delegate to PipelineCacheManager
     const cacheTTL = this.isTestMode ? this.testTTL : (ttl || this.MODULE_TTLS.default);
-    
-    // 1. Store in memory cache (fastest access)
-    this.cache.set(key, {
-      result,
-      expires: Date.now() + cacheTTL
-    });
-    
-    // 2. Persist to Supabase (shared across devices)
-    this.setToSupabaseCache(key, result);
-    
-    // 3. Also persist to AsyncStorage for offline
-    this.persistToStorage(key, result);
-    
-    const ttlDisplay = this.isTestMode 
-      ? `${cacheTTL}ms (TEST MODE)` 
-      : `${Math.round(cacheTTL / (60 * 60 * 1000))}h`;
-    console.log(`📦 Cache set with ${ttlDisplay} TTL:`, key.substring(0, 30) + '...');
+    await this.cacheManager.setUnified(key, result, 'unified', cacheTTL);
   }
 
   /**
@@ -1991,42 +1934,17 @@ export class UnifiedAIPipeline {
    * - Don't cache results with 0 insights OR use short TTL (5-10 min)
    * - Use full TTL for meaningful insights
    */
-  private setCacheWithInsightsPolicy(key: string, result: UnifiedPipelineResult, input: UnifiedPipelineInput): void {
-    const insightsCount = this.countTotalInsights(result);
-    const moduleTTL = this.getModuleTTL(input);
-    
-    // If no insights, use short TTL to prevent negative caching
-    if (insightsCount === 0) {
-      const shortTTL = this.isTestMode ? this.testTTL : 5 * 60 * 1000; // Test mode or 5 minutes
-      const ttlDisplay = this.isTestMode ? `${shortTTL}ms (TEST)` : `${shortTTL / 60000}min`;
-      console.log(`📦 Empty insights detected (${insightsCount}), using short TTL: ${ttlDisplay}`);
-      this.setCache(key, result, shortTTL);
-      
-      // Track empty insights caching for monitoring
-      trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        userId: input.userId,
-        source: 'empty_cache_policy',
-        insightsCount: 0,
-        cacheKey: key,
-        shortTTL: shortTTL
-      }).catch(console.warn);
-      
-      return;
-    }
-    
-    // Normal caching for meaningful results
-    console.log(`📦 Caching meaningful insights (${insightsCount}), using full TTL: ${Math.round(moduleTTL / (60 * 60 * 1000))}h`);
-    this.setCache(key, result, moduleTTL);
+  private async setCacheWithInsightsPolicy(key: string, result: UnifiedPipelineResult, input: UnifiedPipelineInput): Promise<void> {
+    // Delegate to PipelineCacheManager insights-aware caching
+    await this.cacheManager.setWithInsightsPolicy(key, result, input);
   }
 
   /**
    * 📊 Count total insights across all categories
    */
   private countTotalInsights(result: UnifiedPipelineResult): number {
-    if (!result.insights) return 0;
-    
-    const { therapeutic = [], progress = [] } = result.insights;
-    return therapeutic.length + progress.length;
+    // Delegate to PipelineCacheManager
+    return this.cacheManager.countTotalInsights(result);
   }
 
   /**
@@ -2034,49 +1952,8 @@ export class UnifiedAIPipeline {
    * Called when user adds/removes data to refresh cache state
    */
   public async invalidateStaleCache(): Promise<{ invalidated: number; reason: string }> {
-    let invalidatedCount = 0;
-    const reason = 'manual_refresh_cleanup';
-    
-    try {
-      // 1. Clean in-memory cache
-      const memoryKeys = Array.from(this.cache.keys());
-      for (const key of memoryKeys) {
-        const cached = this.cache.get(key);
-        if (cached && this.countTotalInsights(cached.result) === 0) {
-          this.cache.delete(key);
-          invalidatedCount++;
-          console.log(`🧹 Invalidated stale memory cache: ${key.substring(0, 30)}...`);
-        }
-      }
-      
-      // 2. Clean AsyncStorage cache (0-insight entries)
-      const allKeys = await AsyncStorage.getAllKeys();
-      const unifiedKeys = allKeys.filter(key => key.startsWith('unified:'));
-      
-      for (const key of unifiedKeys) {
-        try {
-          const cached = await AsyncStorage.getItem(key);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed.result && this.countTotalInsights(parsed.result) === 0) {
-              await AsyncStorage.removeItem(key);
-              invalidatedCount++;
-              console.log(`🧹 Removed stale AsyncStorage cache: ${key.substring(0, 30)}...`);
-            }
-          }
-        } catch (error) {
-          // Ignore individual key errors, continue cleanup
-          console.warn(`⚠️ Failed to clean cache key ${key}:`, error);
-        }
-      }
-      
-      console.log(`✅ Cache cleanup completed: ${invalidatedCount} stale entries removed`);
-      
-      return { invalidated: invalidatedCount, reason };
-    } catch (error) {
-      console.error('❌ Cache cleanup failed:', error);
-      return { invalidated: invalidatedCount, reason: 'cleanup_failed' };
-    }
+    // Delegate to PipelineCacheManager
+    return await this.cacheManager.invalidateStaleCache();
   }
 
   /**
@@ -2366,57 +2243,7 @@ export class UnifiedAIPipeline {
   /**
    * 📦 Supabase Cache Layer - Persistent, Cross-Device Cache
    */
-  private async getFromSupabaseCache(key: string): Promise<UnifiedPipelineResult | null> {
-    try {
-      // ✅ FIXED: Use correct column names from ai_cache table schema
-      const { data, error } = await supabaseService.supabaseClient
-        .from('ai_cache')
-        .select('content')
-        .eq('cache_key', key)
-        .maybeSingle();
-      
-      if (error) {
-        console.warn('⚠️ Supabase cache read error:', error);
-        return null;
-      }
-      
-      if (!data) {
-        return null; // Cache miss
-      }
-      
-      return (data as any).content as UnifiedPipelineResult;  // Use 'content' column
-    } catch (error) {
-      console.warn('⚠️ Supabase cache read failed:', error);
-      return null;
-    }
-  }
-  
-  private async setToSupabaseCache(key: string, result: UnifiedPipelineResult): Promise<void> {
-    try {
-      // Extract userId from key for proper RLS
-      const userId = key.split(':')[1];
-      // Minimal upsert for compatibility across schemas (triggers may derive expires_at)
-      
-      // ✅ FIXED: Use correct column names from ai_cache table schema
-      const { error } = await supabaseService.supabaseClient
-        .from('ai_cache')
-        .upsert({
-          cache_key: key,
-          user_id: userId,
-          content: result
-        }, {
-          onConflict: 'cache_key'
-        });
-      
-      if (error) {
-        console.warn('⚠️ Supabase cache write error:', error);
-      } else {
-        console.log('📦 Cached to Supabase:', key.substring(0, 30) + '...');
-      }
-    } catch (error) {
-      console.warn('⚠️ Supabase cache write failed:', error);
-    }
-  }
+
   
   // ============================================================================
   // INVALIDATION HOOKS
@@ -4052,43 +3879,7 @@ export class UnifiedAIPipeline {
     return null;
   }
 
-  private extractTextPatterns(content: string): any {
-    // Simple text pattern extraction for voice/notes input
-    const patterns = {
-      behavioral: [],
-      triggers: []
-    };
-    
-    const text = content.toLowerCase();
-    
-    // Behavioral pattern keywords
-    const behavioralKeywords = ['tekrar', 'kontrol', 'temizlik', 'sayma', 'sıralama'];
-    behavioralKeywords.forEach(keyword => {
-      if (text.includes(keyword)) {
-        patterns.behavioral.push({
-          type: 'text_behavioral',
-          keyword: keyword,
-          context: text,
-          confidence: 0.6
-        });
-      }
-    });
-    
-    // Trigger pattern keywords
-    const triggerKeywords = ['stres', 'endişe', 'korku', 'kirli', 'güvenlik'];
-    triggerKeywords.forEach(keyword => {
-      if (text.includes(keyword)) {
-        patterns.triggers.push({
-          type: 'text_trigger',
-          trigger: keyword,
-          context: text,
-          confidence: 0.5
-        });
-      }
-    });
-    
-    return patterns;
-  }
+
 
   // ============================================================================
   // 📊 MOOD ANALYTICS MAIN PROCESSOR
@@ -4710,6 +4501,165 @@ export class UnifiedAIPipeline {
   private calculateAnalyticsGlobalConfidence(moods: any[], dataQuality: number, profile: any): number {
     // Delegate to unified confidence calculator
     return this.confidenceCalculator.calculateAnalyticsGlobalConfidence(moods, dataQuality, profile);
+  }
+  
+  /**
+   * Calculate severity from pattern matches (migrated from missing analyzeSeverityProgression)
+   */
+  private calculateSeverityFromPatterns(triggerMatches: any[], behavioralMatches: any[]): any {
+    try {
+      const allMatches = [...triggerMatches, ...behavioralMatches];
+      
+      if (allMatches.length === 0) {
+        return { level: 'low', confidence: 0.3, indicators: [] };
+      }
+      
+      // Calculate average confidence as severity proxy
+      const avgConfidence = allMatches.reduce((sum, match) => sum + match.confidence, 0) / allMatches.length;
+      
+      let level: string;
+      if (avgConfidence >= 0.8) {
+        level = 'high';
+      } else if (avgConfidence >= 0.6) {
+        level = 'medium';
+      } else {
+        level = 'low';
+      }
+      
+      const indicators = allMatches.map(match => ({
+        type: match.pattern?.category || match.type,
+        confidence: match.confidence
+      }));
+      
+      return {
+        level,
+        confidence: avgConfidence,
+        indicators,
+        patternCount: allMatches.length
+      };
+    } catch (error) {
+      console.warn('Severity calculation failed:', error);
+      return { level: 'low', confidence: 0.3, indicators: [] };
+    }
+  }
+  
+  /**
+   * Enhance quick heuristic result to UnifiedPipelineResult format
+   */
+  private async enhanceQuickResult(quickResult: any, input: UnifiedPipelineInput): Promise<UnifiedPipelineResult> {
+    try {
+      // Build basic result from quick heuristic
+      const result: UnifiedPipelineResult = {
+        voice: input.type === 'voice' ? {
+          category: quickResult.category as any,
+          confidence: quickResult.confidence,
+          suggestion: quickResult.suggestion,
+          route: this.determineRoute(quickResult.category)
+        } : undefined,
+        
+        // Add minimal insights for quick response
+        insights: {
+          therapeutic: quickResult.suggestion ? [{ 
+            text: quickResult.suggestion,
+            category: 'quick_response',
+            priority: 'medium' as const,
+            actionable: true
+          }] : [],
+          progress: []
+        },
+        
+        metadata: {
+          source: 'fresh' as const,
+          processedAt: Date.now(),
+          cacheTTL: 5 * 60 * 1000, // 5 min for quick results
+          processingTime: 0, // Quick should be <100ms
+          isProgressive: true
+        }
+      };
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Quick result enhancement failed:', error);
+      // Fallback to minimal result
+      return {
+        metadata: {
+          source: 'fresh' as const,
+          processedAt: Date.now(),
+          cacheTTL: 5 * 60 * 1000,
+          processingTime: 0,
+          isProgressive: true
+        }
+      };
+    }
+  }
+  
+  /**
+   * Enhance deep analysis result to UnifiedPipelineResult format
+   */
+  private async enhanceDeepResult(deepResult: any, input: UnifiedPipelineInput): Promise<UnifiedPipelineResult> {
+    try {
+      // Use deep analysis patterns and insights for comprehensive result
+      const result: UnifiedPipelineResult = {
+        voice: input.type === 'voice' ? {
+          category: deepResult.category as any,
+          confidence: deepResult.confidence,
+          suggestion: deepResult.suggestion,
+          route: this.determineRoute(deepResult.category)
+        } : undefined,
+        
+        // Use deep insights if available
+        insights: {
+          therapeutic: deepResult.deepInsights?.map((insight: any) => ({
+            text: insight.description || 'Derin analiz tamamlandı',
+            category: 'deep_analysis',
+            priority: 'high' as const,
+            actionable: true
+          })) || [],
+          progress: []
+        },
+        
+        // Add pattern information if available
+        patterns: deepResult.patterns ? {
+          behavioral: deepResult.patterns.filter((p: any) => p.pattern?.category === 'behavioral') || [],
+          temporal: [],
+          metadata: {
+            confidence: deepResult.confidence,
+            dataPoints: deepResult.patterns.length
+          }
+        } : undefined,
+        
+        metadata: {
+          source: 'fresh' as const,
+          processedAt: Date.now(),
+          cacheTTL: this.cacheManager.getModuleTTL(input),
+          processingTime: 0, // Will be updated by telemetry
+          isProgressive: true
+        }
+      };
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Deep result enhancement failed:', error);
+      // Fallback to executing full pipeline
+      return await this.executePipeline(input);
+    }
+  }
+  
+  /**
+   * Determine route based on category
+   */
+  private determineRoute(category: string): string {
+    const routes: Record<string, string> = {
+      'MOOD': '/mood',
+      'BREATHWORK': '/breathwork', 
+      'CBT': '/cbt',
+      'OCD': '/tracking',
+      'ERP': '/erp'
+    };
+    
+    return routes[category] || '/mood';
   }
 }
 

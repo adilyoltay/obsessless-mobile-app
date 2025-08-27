@@ -128,30 +128,30 @@ export class UnifiedConfidenceCalculator {
     }
     
     // Length adjustment for text-based
-    if (params.textLength !== undefined && weights.length) {
+    if (params.textLength !== undefined && (weights as any).length) {
       const lengthScore = this.getLengthScore(params.textLength);
-      factors.adjustment += weights.length * lengthScore;
-      score += weights.length * lengthScore;
+      factors.adjustment += (weights as any).length * lengthScore;
+      score += (weights as any).length * lengthScore;
     }
     
     // Quality adjustment
-    if (params.quality !== undefined && weights.quality) {
+    if (params.quality !== undefined && (weights as any).quality) {
       factors.quality = params.quality;
-      score += weights.quality * params.quality;
+      score += (weights as any).quality * params.quality;
     }
     
     // Data points adjustment (for analytics)
-    if (params.dataPoints !== undefined && weights.dataPoints) {
+    if (params.dataPoints !== undefined && (weights as any).dataPoints) {
       const dataScore = this.getDataPointsScore(params.dataPoints);
       factors.quality = Math.max(factors.quality, dataScore);
-      score += weights.dataPoints * dataScore;
+      score += (weights as any).dataPoints * dataScore;
     }
     
     // Sample size adjustment (for global analytics)
-    if (params.sampleSize !== undefined && weights.sampleSize) {
+    if (params.sampleSize !== undefined && (weights as any).sampleSize) {
       const sampleScore = this.getSampleSizeScore(params.sampleSize);
       factors.quality = Math.max(factors.quality, sampleScore);
-      score += weights.sampleSize * sampleScore;
+      score += (weights as any).sampleSize * sampleScore;
     }
     
     // Correlation bonus (for mood analytics)

@@ -9,6 +9,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trackAIInteraction, AIEventType } from '../../telemetry/aiTelemetry';
+import supabaseService from '@/services/supabase';
 
 export interface CacheConfig {
   ttl: number; // seconds
@@ -525,6 +526,554 @@ export class PipelineCacheManager {
     try {
       await AsyncStorage.setItem('ai:cache:stats', JSON.stringify(this.stats));
     } catch {}
+  }
+  
+  /**
+   * Generate unified cache key (migrated from UnifiedAIPipeline)
+   */
+  generateUnifiedCacheKey(input: any): string {
+    const data = {
+      userId: input.userId,
+      type: input.type,
+      content: typeof input.content === 'string' 
+        ? input.content.substring(0, 100) 
+        : JSON.stringify(input.content || {}).substring(0, 100),
+      source: input.context?.source || 'unknown'
+    };
+    
+    // Create deterministic hash
+    const str = JSON.stringify(data);
+    let hash = 0;
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    
+    return `unified:${input.userId}:${Math.abs(hash).toString(16)}`;
+  }
+  
+  /**
+   * Unified get with multi-layer cache (Memory -> Supabase -> AsyncStorage)
+   * Includes negative cache bypass logic migrated from UnifiedAIPipeline
+   */
+  async getUnified<T>(key: string, type: string = 'unified'): Promise<T | null> {
+    try {
+      // Layer 1: Memory cache (fastest) - with negative bypass
+      const memoryResult = await this.getFromMemoryCacheWithBypass<T>(key, type);
+      if (memoryResult !== undefined) {
+        if (memoryResult === null) {
+          // Negative cache bypass, continue to next layer
+        } else {
+          await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
+            layer: 'memory',
+            key,
+            type
+          });
+          return memoryResult;
+        }
+      }
+      
+      // Layer 2: Supabase cache (persistent, cross-device) - with negative bypass
+      const supabaseResult = await this.getFromSupabaseCacheWithBypass<T>(key);
+      if (supabaseResult !== undefined) {
+        if (supabaseResult === null) {
+          // Negative cache bypass, continue to next layer
+        } else {
+          // Restore to memory cache
+          await this.set(type, key, supabaseResult);
+          
+          await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
+            layer: 'supabase',
+            key,
+            type
+          });
+          return supabaseResult;
+        }
+      }
+      
+      // Layer 3: AsyncStorage (offline backup) - with negative bypass
+      const storageResult = await this.getFromAsyncStorageWithBypass<T>(key);
+      if (storageResult !== undefined) {
+        if (storageResult === null) {
+          // Negative cache bypass, continue to fresh generation
+        } else {
+          await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, {
+            layer: 'asyncstorage',
+            key,
+            type
+          });
+          return storageResult;
+        }
+      }
+      
+      // Cache miss
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_MISS, {
+        key,
+        type,
+        reason: 'not_found'
+      });
+      
+      return null;
+      
+    } catch (error) {
+      console.error('Unified cache get error:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Memory cache with negative bypass logic
+   * Returns undefined if no cache, null if bypassed, T if valid
+   */
+  private async getFromMemoryCacheWithBypass<T>(key: string, type: string): Promise<T | null | undefined> {
+    const cached = await this.get<any>(type, key);
+    if (!cached) {
+      return undefined; // No cache
+    }
+    
+    // Check if should bypass negative cache
+    const remainingTTL = this.getRemainingTTL(cached);
+    if (this.shouldBypassNegativeCache(cached, remainingTTL)) {
+      console.log(`🚫 Bypassing negative memory cache: insightsCount=${this.countTotalInsights(cached)}, remainingTTL=${Math.round(remainingTTL/60000)}min`);
+      await this.delete(type, key);
+      return null; // Bypassed
+    }
+    
+    return cached as T;
+  }
+  
+  /**
+   * Supabase cache with negative bypass logic
+   */
+  private async getFromSupabaseCacheWithBypass<T>(key: string): Promise<T | null | undefined> {
+    try {
+      const supabaseResult = await this.getFromSupabaseCache<T>(key);
+      if (!supabaseResult) {
+        return undefined; // No cache
+      }
+      
+      const insightsCount = this.countTotalInsights(supabaseResult);
+      if (insightsCount === 0) {
+        console.log(`🚫 Bypassing negative Supabase cache: insightsCount=${insightsCount}`);
+        return null; // Bypassed
+      }
+      
+      console.log('📦 Cache restored from Supabase:', key.substring(0, 30) + '...');
+      return supabaseResult;
+      
+    } catch (error) {
+      console.warn('⚠️ Supabase cache read failed:', error);
+      return undefined;
+    }
+  }
+  
+  /**
+   * AsyncStorage cache with negative bypass logic
+   */
+  private async getFromAsyncStorageWithBypass<T>(key: string): Promise<T | null | undefined> {
+    try {
+      const storageResult = await this.getFromAsyncStorage<T>(key);
+      if (!storageResult) {
+        return undefined; // No cache
+      }
+      
+      const insightsCount = this.countTotalInsights(storageResult);
+      if (insightsCount === 0) {
+        console.log(`🚫 Bypassing negative AsyncStorage cache: insightsCount=${insightsCount}`);
+        await AsyncStorage.removeItem(key); // Clean up negative cache
+        return null; // Bypassed
+      }
+      
+      console.log('📱 Cache restored from AsyncStorage:', key.substring(0, 30) + '...');
+      return storageResult;
+      
+    } catch (error) {
+      console.warn('⚠️ AsyncStorage cache read failed:', error);
+      return undefined;
+    }
+  }
+  
+  /**
+   * Get remaining TTL for cache entry
+   */
+  private getRemainingTTL(cachedEntry: any): number {
+    // This depends on how the cache entry is structured
+    // For now, return a reasonable default
+    return 30 * 60 * 1000; // 30 minutes
+  }
+  
+  /**
+   * Unified set with multi-layer persistence
+   */
+  async setUnified<T>(key: string, data: T, type: string = 'unified', customTTL?: number): Promise<void> {
+    try {
+      // Set in memory cache
+      await this.set(type, key, data, customTTL);
+      
+      // Persist to Supabase
+      await this.setToSupabaseCache(key, data);
+      
+      // Persist to AsyncStorage for offline
+      await this.persistToAsyncStorage(key, data, customTTL);
+      
+      const ttlMs = customTTL || this.getConfig(type).ttl * 1000;
+      const ttlDisplay = this.formatTTL(ttlMs);
+      console.log(`📦 Unified cache set with ${ttlDisplay} TTL: ${key.substring(0, 30)}...`);
+      
+    } catch (error) {
+      console.error('Unified cache set error:', error);
+    }
+  }
+  
+  /**
+   * Set with insights-aware caching policy (migrated from UnifiedAIPipeline)
+   */
+  async setWithInsightsPolicy<T>(key: string, data: T, input: any, type: string = 'unified'): Promise<void> {
+    const insightsCount = this.countTotalInsights(data);
+    const moduleTTL = this.getModuleTTL(input);
+    
+    // If no insights, use short TTL to prevent negative caching
+    if (insightsCount === 0) {
+      const shortTTL = 5 * 60 * 1000; // 5 minutes
+      console.log(`📦 Empty insights detected (${insightsCount}), using short TTL: ${this.formatTTL(shortTTL)}`);
+      
+      await this.setUnified(key, data, type, shortTTL);
+      
+      // Track empty insights caching
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        userId: input.userId,
+        insightsCount: 0,
+        cacheTTL: shortTTL,
+        cacheStrategy: 'short_negative_cache'
+      });
+      
+      return;
+    }
+    
+    // Normal caching with module-specific TTL
+    console.log(`📦 Insights found (${insightsCount}), using full TTL: ${this.formatTTL(moduleTTL)}`);
+    await this.setUnified(key, data, type, moduleTTL);
+  }
+  
+  /**
+   * Get config for cache type
+   */
+  private getConfig(type: string): CacheConfig {
+    return this.configs.get(type) || {
+      ttl: 6 * 60 * 60, // 6h default
+      keyPrefix: 'ai:unknown:',
+      strategy: 'ttl-only'
+    };
+  }
+  
+  /**
+   * Format TTL for logging
+   */
+  private formatTTL(ttlMs: number): string {
+    if (ttlMs < 60 * 1000) {
+      return `${ttlMs}ms`;
+    } else if (ttlMs < 60 * 60 * 1000) {
+      return `${Math.round(ttlMs / (60 * 1000))}min`;
+    } else {
+      return `${Math.round(ttlMs / (60 * 60 * 1000))}h`;
+    }
+  }
+  
+  /**
+   * Memory cache operations
+   */
+  private async getFromMemoryCache<T>(key: string, type: string): Promise<T | null> {
+    return await this.get<T>(type, key);
+  }
+  
+  /**
+   * Supabase cache layer (migrated from UnifiedAIPipeline)
+   */
+  private async getFromSupabaseCache<T>(key: string): Promise<T | null> {
+    try {
+      const { data, error } = await supabaseService.supabaseClient
+        .from('ai_cache')
+        .select('content, expires_at')
+        .eq('cache_key', key)
+        .single();
+      
+      if (error || !data) {
+        return null;
+      }
+      
+      // Check expiry
+      if (new Date(data.expires_at).getTime() < Date.now()) {
+        return null;
+      }
+      
+      return data.content as T;
+      
+    } catch (error) {
+      console.error('Supabase cache get error:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Set to Supabase cache
+   */
+  private async setToSupabaseCache<T>(key: string, data: T): Promise<void> {
+    try {
+      // Extract userId from key for RLS
+      const userId = key.split(':')[1];
+      if (!userId) return;
+      
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h default
+      
+      const { error } = await supabaseService.supabaseClient
+        .from('ai_cache')
+        .upsert({
+          cache_key: key,
+          user_id: userId,
+          content: data,
+          expires_at: expiresAt.toISOString()
+        });
+      
+      if (!error) {
+        console.log('📦 Supabase cache updated:', key.substring(0, 30) + '...');
+      }
+    } catch (error) {
+      console.warn('Supabase cache write failed:', error);
+    }
+  }
+  
+  /**
+   * AsyncStorage operations
+   */
+  private async getFromAsyncStorage<T>(key: string): Promise<T | null> {
+    try {
+      const stored = await AsyncStorage.getItem(key);
+      if (!stored) return null;
+      
+      const parsed = JSON.parse(stored);
+      if (parsed.expires > Date.now()) {
+        return parsed.data as T;
+      }
+      
+      // Expired, clean up
+      await AsyncStorage.removeItem(key);
+      return null;
+      
+    } catch (error) {
+      console.error('AsyncStorage get error:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Persist to AsyncStorage
+   */
+  private async persistToAsyncStorage<T>(key: string, data: T, customTTL?: number): Promise<void> {
+    try {
+      const ttl = customTTL || 24 * 60 * 60 * 1000; // 24h default
+      const entry = {
+        data,
+        expires: Date.now() + ttl
+      };
+      
+      await AsyncStorage.setItem(key, JSON.stringify(entry));
+      
+    } catch (error) {
+      console.error('AsyncStorage persist error:', error);
+    }
+  }
+  
+  /**
+   * Advanced invalidation with user context
+   */
+  async invalidateUserCache(userId: string, type?: 'patterns' | 'insights' | 'progress' | 'voice' | 'all'): Promise<number> {
+    let invalidatedCount = 0;
+    
+    try {
+      // Invalidate memory cache
+      const allKeys = await AsyncStorage.getAllKeys();
+      const userKeys = allKeys.filter(k => k.includes(`unified:${userId}:`));
+      
+      for (const key of userKeys) {
+        if (!type || type === 'all' || key.includes(type)) {
+          await AsyncStorage.removeItem(key);
+          
+          // Also invalidate from memory
+          const cacheType = this.extractTypeFromKey(key);
+          if (cacheType) {
+            await this.delete(cacheType, key);
+          }
+          
+          invalidatedCount++;
+        }
+      }
+      
+      // Invalidate Supabase cache
+      await this.invalidateSupabaseCache(userId, type);
+      
+      await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
+        userId,
+        invalidationType: type || 'all',
+        keysDeleted: invalidatedCount,
+        timestamp: Date.now()
+      });
+      
+      console.log(`🗑️ User cache invalidated: ${type || 'all'} (${invalidatedCount} keys)`);
+      
+    } catch (error) {
+      console.error('User cache invalidation error:', error);
+    }
+    
+    return invalidatedCount;
+  }
+  
+  /**
+   * Invalidate Supabase cache for user
+   */
+  private async invalidateSupabaseCache(userId: string, type?: string): Promise<void> {
+    try {
+      const likePattern = `unified:${userId}:%`;
+      
+      const { error } = await supabaseService.supabaseClient
+        .from('ai_cache')
+        .delete()
+        .eq('user_id', userId)
+        .like('cache_key', likePattern);
+      
+      if (!error) {
+        console.log(`🗑️ Supabase cache invalidated for user: ${userId}`);
+      }
+      
+    } catch (error) {
+      console.error('Supabase cache invalidation error:', error);
+    }
+  }
+  
+  /**
+   * Count insights helper (migrated from UnifiedAIPipeline)
+   */
+  countTotalInsights(result: any): number {
+    try {
+      if (!result) return 0;
+      
+      let count = 0;
+      
+      // Count analytics insights
+      if (result.analytics && result.analytics.insights) {
+        count += Array.isArray(result.analytics.insights) ? result.analytics.insights.length : 0;
+      }
+      
+      // Count pattern insights
+      if (result.patterns && result.patterns.insights) {
+        count += Array.isArray(result.patterns.insights) ? result.patterns.insights.length : 0;
+      }
+      
+      // Count CBT insights
+      if (result.cbt && result.cbt.insights) {
+        count += Array.isArray(result.cbt.insights) ? result.cbt.insights.length : 0;
+      }
+      
+      return count;
+      
+    } catch (error) {
+      console.error('Count insights error:', error);
+      return 0;
+    }
+  }
+  
+  /**
+   * Get module-specific TTL (migrated from UnifiedAIPipeline)
+   */
+  getModuleTTL(input: any): number {
+    const MODULE_TTLS = {
+      insights: 24 * 60 * 60 * 1000, // 24h
+      patterns: 12 * 60 * 60 * 1000, // 12h
+      voice: 1 * 60 * 60 * 1000, // 1h
+      cbt: 24 * 60 * 60 * 1000, // 24h
+      default: 6 * 60 * 60 * 1000 // 6h
+    };
+    
+    if (input.context?.source === 'mood' && input.context.metadata?.analysisType === 'comprehensive_analytics') {
+      return MODULE_TTLS.insights;
+    }
+    
+    if (input.type === 'voice') {
+      return MODULE_TTLS.voice;
+    }
+    
+    if (input.context?.source === 'cbt') {
+      return MODULE_TTLS.cbt;
+    }
+    
+    return MODULE_TTLS.default;
+  }
+  
+  /**
+   * Negative cache bypass logic (migrated from UnifiedAIPipeline)
+   */
+  shouldBypassNegativeCache(result: any, remainingTTL: number): boolean {
+    const insightsCount = this.countTotalInsights(result);
+    const fiveMinutes = 5 * 60 * 1000;
+    
+    return insightsCount === 0 && remainingTTL < fiveMinutes;
+  }
+  
+  /**
+   * Extract cache type from key
+   */
+  private extractTypeFromKey(key: string): string | null {
+    // Extract type from unified cache key format: unified:userId:hash
+    const parts = key.split(':');
+    if (parts.length >= 3) {
+      return 'unified';
+    }
+    return null;
+  }
+  
+  /**
+   * Invalidate stale cache entries (migrated from UnifiedAIPipeline)
+   */
+  async invalidateStaleCache(): Promise<{ invalidated: number; reason: string }> {
+    let invalidatedCount = 0;
+    const reason = 'manual_refresh_cleanup';
+    
+    try {
+      // 1. Clean memory cache - remove 0-insight entries
+      const memoryKeys = await AsyncStorage.getAllKeys();
+      const unifiedKeys = memoryKeys.filter(key => key.startsWith('unified:'));
+      
+      for (const key of unifiedKeys) {
+        try {
+          const cached = await AsyncStorage.getItem(key);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.result && this.countTotalInsights(parsed.result) === 0) {
+              await AsyncStorage.removeItem(key);
+              invalidatedCount++;
+              console.log(`🧹 Removed stale cache: ${key.substring(0, 30)}...`);
+            }
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to clean cache key ${key}:`, error);
+        }
+      }
+      
+      // 2. Track cleanup completion
+      await trackAIInteraction(AIEventType.CACHE_INVALIDATION, {
+        reason,
+        invalidatedCount,
+        timestamp: Date.now()
+      });
+      
+      console.log(`✅ Cache cleanup completed: ${invalidatedCount} stale entries removed`);
+      
+      return { invalidated: invalidatedCount, reason };
+    } catch (error) {
+      console.error('❌ Cache cleanup failed:', error);
+      return { invalidated: invalidatedCount, reason: 'cleanup_failed' };
+    }
   }
   
   /**

@@ -25,7 +25,7 @@ export interface PatternMatch {
   context?: string;
 }
 
-export type PatternType = 'mood' | 'cbt' | 'breathwork' | 'ocd' | 'erp' | 'emotion';
+export type PatternType = 'mood' | 'cbt' | 'breathwork' | 'ocd' | 'erp' | 'emotion' | 'behavioral' | 'trigger';
 
 export class BasePatternMatcher {
   private patterns = new Map<PatternType, Pattern[]>();
@@ -224,6 +224,24 @@ export class BasePatternMatcher {
       { id: 'erp_exposure', keywords: ['maruz', 'yüzleş', 'karşılaş'], weight: 0.7, category: 'exposure' },
       { id: 'erp_prevention', keywords: ['engelle', 'yapma', 'durdur'], weight: 0.7, category: 'prevention' }
     ]);
+    
+    // Behavioral patterns (migrated from UnifiedAIPipeline.extractTextPatterns)
+    this.patterns.set('behavioral', [
+      { id: 'behavioral_repeat', keywords: ['tekrar'], weight: 0.6, category: 'repetition' },
+      { id: 'behavioral_control', keywords: ['kontrol'], weight: 0.6, category: 'checking' },
+      { id: 'behavioral_cleaning', keywords: ['temizlik'], weight: 0.6, category: 'cleaning' },
+      { id: 'behavioral_counting', keywords: ['sayma'], weight: 0.6, category: 'counting' },
+      { id: 'behavioral_ordering', keywords: ['sıralama'], weight: 0.6, category: 'ordering' }
+    ]);
+    
+    // Trigger patterns (migrated from UnifiedAIPipeline.extractTextPatterns)  
+    this.patterns.set('trigger', [
+      { id: 'trigger_stress', keywords: ['stres'], weight: 0.5, category: 'stress' },
+      { id: 'trigger_anxiety', keywords: ['endişe'], weight: 0.5, category: 'anxiety' },
+      { id: 'trigger_fear', keywords: ['korku'], weight: 0.5, category: 'fear' },
+      { id: 'trigger_dirty', keywords: ['kirli'], weight: 0.5, category: 'contamination' },
+      { id: 'trigger_security', keywords: ['güvenlik'], weight: 0.5, category: 'security' }
+    ]);
   }
   
   /**
@@ -419,6 +437,41 @@ export class BasePatternMatcher {
     }
     
     return false;
+  }
+  
+  /**
+   * Extract text patterns in UnifiedAIPipeline format (migrated)
+   * This method replaces UnifiedAIPipeline.extractTextPatterns
+   */
+  extractTextPatterns(content: string): { behavioral: any[]; triggers: any[] } {
+    const result = {
+      behavioral: [],
+      triggers: []
+    };
+    
+    // Match behavioral patterns
+    const behavioralMatches = this.match(content, 'behavioral');
+    for (const match of behavioralMatches) {
+      result.behavioral.push({
+        type: 'text_behavioral',
+        keyword: match.matches[0],
+        context: content,
+        confidence: match.confidence
+      });
+    }
+    
+    // Match trigger patterns
+    const triggerMatches = this.match(content, 'trigger');
+    for (const match of triggerMatches) {
+      result.triggers.push({
+        type: 'text_trigger',
+        trigger: match.matches[0],
+        context: content,
+        confidence: match.confidence
+      });
+    }
+    
+    return result;
   }
   
   /**
