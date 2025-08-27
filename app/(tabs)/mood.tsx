@@ -1694,11 +1694,16 @@ export default function MoodScreen() {
         }))
       };
 
-      // Mock Y-BOCS data (simplified)
-      const ybocsData = {
-        totalScore: Math.round((10 - avgMood/10) * 4), // Rough inverse correlation
-        severityLevel: avgMood > 70 ? 'minimal' : avgMood > 50 ? 'mild' : avgMood > 30 ? 'moderate' : 'severe'
-      };
+      // Mock Y-BOCS data (array format matching YBOCSAnswer[])
+      const ybocsData = Array.from({ length: 10 }, (_, i) => ({
+        questionId: `ybocs_${i + 1}`,
+        questionText: `Y-BOCS Question ${i + 1}`,
+        response: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))), // 0-4 scale
+        severity: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))),
+        timestamp: new Date(),
+        value: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))),
+        questionType: i < 5 ? 'obsessions' : 'compulsions'
+      }));
 
       // Cultural context
       const culturalContext = {
