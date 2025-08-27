@@ -6,7 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodTrackingService } from '@/services/moodTrackingService';
 import supabaseService from '@/services/supabase';
-import { IntelligentMoodMergeService } from '@/services/sync/intelligentMoodMerge';
+import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
 
 export interface MoodDeletionReport {
   entryId: string;
