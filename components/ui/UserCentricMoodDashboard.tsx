@@ -293,62 +293,204 @@ export default function UserCentricMoodDashboard({
     );
   };
 
-  const renderSpectrumSection = () => (
-    <ScrollView style={styles.sectionContent} showsVerticalScrollIndicator={false}>
-      {/* Color Spectrum Analysis */}
-      <View style={styles.spectrumCard}>
-        <Text style={styles.cardTitle}>🎨 Duygu Renk Spektrumun</Text>
-        
-        {/* Dominant Emotion */}
-        <View style={styles.dominantEmotionCard}>
-          <Text style={styles.dominantEmotionTitle}>Baskın Duygun</Text>
-          <Text style={styles.dominantEmotionValue}>{moodJourney.emotionalSpectrum.dominantEmotion}</Text>
-        </View>
-        
-        {/* Color Spectrum Bar */}
-        <LinearGradient
-          colors={['#F06292', '#FF7043', '#FFA726', '#66BB6A', '#4CAF50', '#26A69A', '#5C6BC0', '#7E57C2', '#C2185B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.spectrumBar}
-        />
-        
-        {/* Emotion Distribution */}
-        <View style={styles.emotionDistribution}>
-          {moodJourney.emotionalSpectrum.emotionDistribution.map((emotion, index) => (
-            <View key={index} style={styles.emotionItem}>
-              <View style={[styles.emotionDot, { backgroundColor: emotion.color }]} />
-              <Text style={styles.emotionLabel}>{emotion.emotion}</Text>
-              <Text style={styles.emotionPercentage}>{emotion.percentage}%</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+  // 🎯 ENHANCED: Calculate min/max mood days with highlights
+  const getEnhancedWeeklyColors = () => {
+    const colors = moodJourney.emotionalSpectrum.weeklyColors;
+    
+    if (colors.length === 0) {
+      return { enhancedColors: [], minDay: null, maxDay: null, hasData: false };
+    }
+    
+    // Find actual min/max mood days (excluding placeholder days)
+    const realDays = colors.filter(day => day.mood !== 50); // Filter out placeholder moods
+    
+    if (realDays.length === 0) {
+      return { enhancedColors: colors, minDay: null, maxDay: null, hasData: false };
+    }
+    
+    const minMoodDay = realDays.reduce((min, current) => current.mood < min.mood ? current : min);
+    const maxMoodDay = realDays.reduce((max, current) => current.mood > max.mood ? current : max);
+    
+    // Enhance colors with min/max highlights
+    const enhancedColors = colors.map(day => {
+      let enhancedHighlight = day.highlight;
+      let isMinDay = false;
+      let isMaxDay = false;
+      
+      // Only highlight if this is a real day (not placeholder)
+      if (day.mood !== 50) {
+        if (day.day === minMoodDay.day && day.mood === minMoodDay.mood) {
+          enhancedHighlight = '📉 En düşük';
+          isMinDay = true;
+        } else if (day.day === maxMoodDay.day && day.mood === maxMoodDay.mood) {
+          enhancedHighlight = '📈 En yüksek';
+          isMaxDay = true;
+        }
+      }
+      
+      return {
+        ...day,
+        highlight: enhancedHighlight,
+        isMinDay,
+        isMaxDay,
+        isPlaceholder: day.mood === 50
+      };
+    });
+    
+    return {
+      enhancedColors,
+      minDay: minMoodDay,
+      maxDay: maxMoodDay,
+      hasData: realDays.length > 0,
+      realDaysCount: realDays.length
+    };
+  };
 
-      {/* Weekly Color Timeline */}
-      <View style={styles.timelineCard}>
-        <Text style={styles.cardTitle}>📅 Haftalık Renk Hikayesi</Text>
-        
-        <View style={styles.weeklyTimeline}>
-          {moodJourney.emotionalSpectrum.weeklyColors.map((day, index) => (
-            <View key={index} style={styles.timelineDay}>
-              <View style={[styles.timelineDot, { backgroundColor: day.color }]}>
-                <Text style={styles.timelineMood}>{day.mood}</Text>
-              </View>
-              <Text style={styles.timelineDayLabel}>{day.day}</Text>
-              {day.highlight && (
-                <Text style={styles.timelineHighlight}>⭐ {day.highlight}</Text>
-              )}
+  const renderSpectrumSection = () => {
+    const weeklyData = getEnhancedWeeklyColors();
+    const hasEmotionData = moodJourney.emotionalSpectrum.emotionDistribution.length > 0;
+
+    return (
+      <ScrollView style={styles.sectionContent} showsVerticalScrollIndicator={false}>
+        {/* 🚨 EMPTY STATE: No mood data */}
+        {!hasEmotionData && !weeklyData.hasData && (
+          <View style={styles.emptyStateCard}>
+            <Text style={styles.emptyStateIcon}>🎨</Text>
+            <Text style={styles.emptyStateTitle}>Renk Spektrumunu Keşfet</Text>
+            <Text style={styles.emptyStateText}>
+              Mood kayıtları yaptıkça burada güzel bir renk spektrumu oluşacak. 
+              Her duygu farklı bir renge karşılık geliyor!
+            </Text>
+            <Text style={styles.emptyStateHint}>
+              💡 En az 3 mood kaydı yap ki spektrumun şekillensin
+            </Text>
+          </View>
+        )}
+
+        {/* Color Spectrum Analysis */}
+        {hasEmotionData && (
+          <View style={styles.spectrumCard}>
+            <Text style={styles.cardTitle}>🎨 Duygu Renk Spektrumun</Text>
+            
+            {/* Dominant Emotion */}
+            <View style={styles.dominantEmotionCard}>
+              <Text style={styles.dominantEmotionTitle}>Baskın Duygun</Text>
+              <Text style={styles.dominantEmotionValue}>{moodJourney.emotionalSpectrum.dominantEmotion}</Text>
             </View>
-          ))}
+            
+            {/* Color Spectrum Bar */}
+            <LinearGradient
+              colors={['#F06292', '#FF7043', '#FFA726', '#66BB6A', '#4CAF50', '#26A69A', '#5C6BC0', '#7E57C2', '#C2185B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.spectrumBar}
+            />
+            
+            {/* Emotion Distribution */}
+            <View style={styles.emotionDistribution}>
+              {moodJourney.emotionalSpectrum.emotionDistribution.map((emotion, index) => (
+                <View key={index} style={styles.emotionItem}>
+                  <View style={[styles.emotionDot, { backgroundColor: emotion.color }]} />
+                  <Text style={styles.emotionLabel}>{emotion.emotion}</Text>
+                  <Text style={styles.emotionPercentage}>{emotion.percentage}%</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Weekly Color Timeline */}
+        <View style={styles.timelineCard}>
+          <Text style={styles.cardTitle}>📅 Haftalık Renk Hikayesi</Text>
+          
+          {!weeklyData.hasData ? (
+            // 🚨 EMPTY STATE: No weekly data
+            <View style={styles.weeklyEmptyState}>
+              <Text style={styles.weeklyEmptyIcon}>📅</Text>
+              <Text style={styles.weeklyEmptyTitle}>Haftalık Hikayeni Oluştur</Text>
+              <Text style={styles.weeklyEmptyText}>
+                Bu hafta mood kayıtları yap ve her günün kendine özgü rengini keşfet!
+              </Text>
+              <View style={styles.weeklyPlaceholder}>
+                {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((day, index) => (
+                  <View key={index} style={styles.placeholderDay}>
+                    <View style={[styles.placeholderDot, { opacity: 0.3 }]} />
+                    <Text style={[styles.timelineDayLabel, { opacity: 0.5 }]}>{day}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* 📊 WEEKLY SUMMARY: Min/Max insights */}
+              {weeklyData.hasData && weeklyData.minDay && weeklyData.maxDay && (
+                <View style={styles.weeklySummary}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>📈 En iyi gün:</Text>
+                    <Text style={styles.summaryValue}>
+                      {weeklyData.maxDay.day} ({weeklyData.maxDay.mood}/100)
+                    </Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>📉 Zorlu gün:</Text>
+                    <Text style={styles.summaryValue}>
+                      {weeklyData.minDay.day} ({weeklyData.minDay.mood}/100)
+                    </Text>
+                  </View>
+                  <Text style={styles.summaryNote}>
+                    {weeklyData.realDaysCount}/7 gün kaydedildi
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.weeklyTimeline}>
+                {weeklyData.enhancedColors.map((day, index) => (
+                  <View key={index} style={styles.timelineDay}>
+                    <View style={[
+                      styles.timelineDot, 
+                      { 
+                        backgroundColor: day.isPlaceholder ? '#E0E0E0' : day.color,
+                        borderWidth: day.isMinDay || day.isMaxDay ? 2 : 0,
+                        borderColor: day.isMaxDay ? '#4CAF50' : day.isMinDay ? '#FF7043' : 'transparent'
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.timelineMood,
+                        { opacity: day.isPlaceholder ? 0.5 : 1 }
+                      ]}>
+                        {day.isPlaceholder ? '?' : day.mood}
+                      </Text>
+                    </View>
+                    <Text style={styles.timelineDayLabel}>{day.day}</Text>
+                    {day.highlight && (
+                      <Text style={[
+                        styles.timelineHighlight,
+                        { 
+                          color: day.isMaxDay ? '#4CAF50' : day.isMinDay ? '#FF7043' : '#7E57C2'
+                        }
+                      ]}>
+                        {day.highlight}
+                      </Text>
+                    )}
+                    {day.isPlaceholder && (
+                      <Text style={styles.placeholderNote}>Kayıt yok</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+          
+          <Text style={styles.timelineNote}>
+            {weeklyData.hasData 
+              ? 'Her renk o günkü baskın duygunu temsil ediyor. Yeşil çerçeve en yüksek, kırmızı çerçeve en düşük mood.'
+              : 'Mood kayıtları yaptıkça her gün farklı renklerle dolacak!'
+            }
+          </Text>
         </View>
-        
-        <Text style={styles.timelineNote}>
-          Her renk o günkü baskın duygunu temsil ediyor
-        </Text>
-      </View>
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
 
   const renderPatternsSection = () => (
     <ScrollView style={styles.sectionContent} showsVerticalScrollIndicator={false}>
@@ -1199,6 +1341,121 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter',
+  },
+
+  // 🎨 ENHANCED: Empty States & Enhanced Spectrum Styles
+  // Empty State for no emotion data
+  emptyStateCard: {
+    backgroundColor: '#F8FAFC',
+    padding: 32,
+    borderRadius: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyStateIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 12,
+    fontFamily: 'Inter',
+  },
+  emptyStateHint: {
+    fontSize: 12,
+    color: '#7E57C2',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    fontFamily: 'Inter',
+  },
+
+  // Weekly Empty State
+  weeklyEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  weeklyEmptyIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+  },
+  weeklyEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  weeklyEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontFamily: 'Inter',
+  },
+  weeklyPlaceholder: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  placeholderDay: {
+    alignItems: 'center',
+  },
+  placeholderDot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  placeholderNote: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    fontFamily: 'Inter',
+  },
+
+  // Weekly Summary (Min/Max insights)
+  weeklySummary: {
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'Inter',
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    fontFamily: 'Inter',
+  },
+  summaryNote: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 4,
     fontFamily: 'Inter',
   },
 });
