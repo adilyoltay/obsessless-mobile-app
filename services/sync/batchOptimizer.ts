@@ -6,6 +6,8 @@ class BatchOptimizer {
   private successRate = 1.0;
   private times: number[] = [];
   private lastRecommended: number | null = null;
+  // 🧹 MEMORY LEAK FIX: Store NetInfo listener for cleanup
+  private netInfoUnsubscribe?: () => void;
 
   static getInstance(): BatchOptimizer {
     if (!BatchOptimizer.instance) {
@@ -15,7 +17,8 @@ class BatchOptimizer {
   }
 
   private constructor() {
-    NetInfo.addEventListener((state) => {
+    // 🧹 MEMORY LEAK FIX: Store unsubscribe function for cleanup
+    this.netInfoUnsubscribe = NetInfo.addEventListener((state) => {
       if (state.type === 'wifi') this.networkSpeed = 'fast';
       else if (state.type === 'cellular') {
         const gen = (state.details as any)?.cellularGeneration;
@@ -70,6 +73,28 @@ class BatchOptimizer {
       successRate: this.successRate,
       avgResponseTime: this.averageTime(),
     };
+  }
+
+  /**
+   * 🧹 CLEANUP: Properly teardown NetInfo listener to prevent memory leaks
+   */
+  public cleanup(): void {
+    console.log('🧹 BatchOptimizer: Starting cleanup...');
+    
+    // Remove NetInfo listener to prevent memory leak
+    if (this.netInfoUnsubscribe) {
+      this.netInfoUnsubscribe();
+      this.netInfoUnsubscribe = undefined;
+      console.log('✅ NetInfo listener removed');
+    }
+    
+    // Reset internal state
+    this.networkSpeed = 'medium';
+    this.successRate = 1.0;
+    this.times = [];
+    this.lastRecommended = null;
+    
+    console.log('✅ BatchOptimizer cleanup completed');
   }
 }
 

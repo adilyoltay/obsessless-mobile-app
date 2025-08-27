@@ -39,6 +39,9 @@ export class OfflineSyncService {
     totalFailed: 0
   };
 
+  // 🧹 MEMORY LEAK FIX: Store NetInfo listener for cleanup
+  private netInfoUnsubscribe?: () => void;
+
   public static getInstance(): OfflineSyncService {
     if (!OfflineSyncService.instance) {
       OfflineSyncService.instance = new OfflineSyncService();
@@ -52,7 +55,8 @@ export class OfflineSyncService {
   }
 
   private initializeNetworkListener(): void {
-    NetInfo.addEventListener(state => {
+    // 🧹 MEMORY LEAK FIX: Store unsubscribe function for cleanup
+    this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
       const wasOffline = !this.isOnline;
       this.isOnline = state.isConnected ?? false;
 
@@ -878,6 +882,38 @@ export class OfflineSyncService {
       console.error('❌ Mood auto-recovery failed:', error);
       // Don't throw - this shouldn't break the main sync process
     }
+  }
+
+  /**
+   * 🧹 CLEANUP: Properly teardown all listeners and prevent memory leaks
+   * Call this when the service is no longer needed (app shutdown, user logout, etc.)
+   */
+  public cleanup(): void {
+    console.log('🧹 OfflineSyncService: Starting cleanup...');
+    
+    // 1. Remove NetInfo listener to prevent memory leak
+    if (this.netInfoUnsubscribe) {
+      this.netInfoUnsubscribe();
+      this.netInfoUnsubscribe = undefined;
+      console.log('✅ NetInfo listener removed');
+    }
+    
+    // 2. Stop any active sync operations
+    this.isSyncing = false;
+    
+    // 3. Clear sync queue from memory (AsyncStorage data preserved)
+    this.syncQueue = [];
+    
+    // 4. Reset metrics
+    this.syncMetrics = {
+      successRate: 0,
+      avgResponseTime: 0,
+      lastSyncTime: 0,
+      totalSynced: 0,
+      totalFailed: 0
+    };
+    
+    console.log('✅ OfflineSyncService cleanup completed');
   }
 }
 

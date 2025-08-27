@@ -25,6 +25,8 @@ class CrossDeviceSyncService {
   private lastSyncTimestamp: number = 0;
   private isSyncing: boolean = false;
   private syncInterval: NodeJS.Timeout | null = null;
+  // 🧹 MEMORY LEAK FIX: Store NetInfo listener for cleanup
+  private netInfoUnsubscribe?: () => void;
 
   public static getInstance(): CrossDeviceSyncService {
     if (!CrossDeviceSyncService.instance) {
@@ -59,7 +61,8 @@ class CrossDeviceSyncService {
   }
 
   private setupAutoSync(): void {
-    NetInfo.addEventListener(state => {
+    // 🧹 MEMORY LEAK FIX: Store unsubscribe function for cleanup
+    this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
       if (state.isConnected && !this.isSyncing) {
         this.performSync();
       }
@@ -207,10 +210,29 @@ class CrossDeviceSyncService {
   }
 
   public cleanup(): void {
+    console.log('🧹 CrossDeviceSyncService: Starting cleanup...');
+    
+    // 1. Clear sync interval to prevent recurring syncs
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
+      console.log('✅ Sync interval cleared');
     }
+    
+    // 2. Remove NetInfo listener to prevent memory leak
+    if (this.netInfoUnsubscribe) {
+      this.netInfoUnsubscribe();
+      this.netInfoUnsubscribe = undefined;
+      console.log('✅ NetInfo listener removed');
+    }
+    
+    // 3. Stop any active sync operations
+    this.isSyncing = false;
+    
+    // 4. Reset sync timestamp
+    this.lastSyncTimestamp = 0;
+    
+    console.log('✅ CrossDeviceSyncService cleanup completed');
   }
 }
 
