@@ -173,12 +173,14 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
 
     const performNavigation = async () => {
       const currentPath = segments.join('/');
+      const isRootIndex = currentPath === '' || currentPath === 'index'; // Root index page
       const inTabsGroup = segments[0] === '(tabs)';
       const inAuthGroup = segments[0] === '(auth)';
       const inOnboardingRoute = inAuthGroup && (segments[1] === 'onboarding' || currentPath.includes('onboarding'));
 
       console.log('🔍 NavigationGuard - Simple check:', {
         currentPath,
+        isRootIndex,
         inTabsGroup,
         inAuthGroup,
         inOnboardingRoute,
@@ -240,9 +242,12 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
           } else if (inTabsGroup) {
             console.log('✅ Already in tabs, navigation complete');
             setNavigationCompleted(true);
-          } else {
-            console.log('🚀 Unknown route, redirect to tabs');
+          } else if (isRootIndex) {
+            console.log('🚀 At root index, redirect to tabs');
             router.replace('/(tabs)');
+            setNavigationCompleted(true);
+          } else {
+            console.log('✅ Other route, allowing navigation');
             setNavigationCompleted(true);
           }
         }
@@ -259,7 +264,7 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
     // Small delay to let routes settle
     const timer = setTimeout(performNavigation, 100);
     return () => clearTimeout(timer);
-  }, [user?.id, authLoading, segments, navigationCompleted, router]);
+  }, [user, authLoading, navigationCompleted]); // Removed segments and router to prevent loops
 
   if (authLoading || isChecking) {
     return (
