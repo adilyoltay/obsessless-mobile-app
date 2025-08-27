@@ -144,129 +144,64 @@ export function NavigationGuard({ children }: NavigationGuardProps) {
   const router = useRouter();
   const segments = useSegments();
   const { user, isLoading: authLoading } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
-  const [navigationCompleted, setNavigationCompleted] = useState(false);
-  const lastUserIdRef = useRef<string | null>(null);
-
-  // Reset navigation when user changes
-  useEffect(() => {
-    const currentUserId = user?.id || null;
-    if (lastUserIdRef.current !== currentUserId) {
-      lastUserIdRef.current = currentUserId;
-      setNavigationCompleted(false);
-      console.log('🔄 User changed, reset navigation flag:', currentUserId);
-    }
-  }, [user?.id]);
+  const [hasPerformedNavigation, setHasPerformedNavigation] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
-    if (authLoading) {
-      console.log('⏳ Auth loading, waiting...');
-      return;
-    }
-
-    // Skip if navigation already completed for stability
-    if (navigationCompleted) {
-      console.log('✅ Navigation already completed, skipping checks');
-      setIsChecking(false);
-      return;
-    }
-
-    const performNavigation = async () => {
-      const currentPath = segments.join('/');
-      const isRootIndex = currentPath === '' || currentPath === 'index'; // Root index page
-      const inTabsGroup = segments[0] === '(tabs)';
-      const inAuthGroup = segments[0] === '(auth)';
-      const inOnboardingRoute = inAuthGroup && (segments[1] === 'onboarding' || currentPath.includes('onboarding'));
-
-      console.log('🔍 NavigationGuard - Simple check:', {
-        currentPath,
-        isRootIndex,
-        inTabsGroup,
-        inAuthGroup,
-        inOnboardingRoute,
-        hasUser: !!user,
-        userId: user?.id
-      });
-
-      if (!router || typeof router.replace !== 'function') {
-        console.log('⚠️ Router not ready');
-        setIsChecking(false);
-        return;
+    // Skip if already navigated or still loading auth
+    if (hasPerformedNavigation || authLoading) {
+      if (!authLoading) {
+        setIsInitialLoad(false);
       }
+      return;
+    }
+
+    const currentPath = segments.join('/');
+    const isAtRoot = currentPath === '' || currentPath === 'index';
+    
+    // ONLY navigate if we're at the root page
+    if (!isAtRoot) {
+      console.log('✅ Not at root, no navigation needed:', currentPath);
+      setIsInitialLoad(false);
+      return;
+    }
+
+    const performInitialNavigation = async () => {
+      console.log('🔍 NavigationGuard - Initial navigation check');
+      
+      // Prevent any further navigation attempts
+      setHasPerformedNavigation(true);
 
       try {
-        // No user → Login
         if (!user) {
-          if (!inAuthGroup) {
-            console.log('🚀 No user, redirect to login');
-            router.replace('/(auth)/login');
-            setNavigationCompleted(true);
-          } else {
-            console.log('✅ No user, already in auth group');
-            setNavigationCompleted(true);
-          }
-          return;
-        }
-
-        // User exists → Check onboarding
-        console.log('👤 User exists, checking onboarding status...');
-        
-        // Simple onboarding check - local first, fast
-        const aiKey = `ai_onboarding_completed_${user.id}`;
-        const localCompleted = await AsyncStorage.getItem(aiKey);
-        const isOnboardingCompleted = localCompleted === 'true';
-
-        console.log('🔍 Simple onboarding check:', {
-          userId: user.id,
-          aiKey,
-          localCompleted,
-          isOnboardingCompleted
-        });
-
-        if (!isOnboardingCompleted) {
-          // Need onboarding
-          if (!inOnboardingRoute) {
-            console.log('🚀 Onboarding needed, redirect to onboarding');
-            router.replace('/(auth)/onboarding');
-            setNavigationCompleted(true);
-          } else {
-            console.log('✅ Already in onboarding route');
-            setNavigationCompleted(true);
-          }
+          console.log('🚀 No user, navigate to login');
+          router.replace('/(auth)/login');
         } else {
-          // Onboarding completed
-          if (inAuthGroup) {
-            console.log('🚀 Onboarding complete, redirect to tabs');
-            router.replace('/(tabs)');
-            setNavigationCompleted(true);
-          } else if (inTabsGroup) {
-            console.log('✅ Already in tabs, navigation complete');
-            setNavigationCompleted(true);
-          } else if (isRootIndex) {
-            console.log('🚀 At root index, redirect to tabs');
-            router.replace('/(tabs)');
-            setNavigationCompleted(true);
+          const aiKey = `ai_onboarding_completed_${user.id}`;
+          const completed = await AsyncStorage.getItem(aiKey);
+          
+          if (completed !== 'true') {
+            console.log('🚀 Onboarding needed');
+            router.replace('/(auth)/onboarding');
           } else {
-            console.log('✅ Other route, allowing navigation');
-            setNavigationCompleted(true);
+            console.log('🚀 Navigate to main app');
+            router.replace('/(tabs)');
           }
         }
       } catch (error) {
         console.error('❌ Navigation error:', error);
-        // Fallback - go to login
         router.replace('/(auth)/login');
-        setNavigationCompleted(true);
       } finally {
-        setIsChecking(false);
+        setIsInitialLoad(false);
       }
     };
 
-    // Small delay to let routes settle
-    const timer = setTimeout(performNavigation, 100);
+    // Small delay to ensure everything is ready
+    const timer = setTimeout(performInitialNavigation, 300);
     return () => clearTimeout(timer);
-  }, [user, authLoading, navigationCompleted]); // Removed segments and router to prevent loops
+  }, [authLoading, hasPerformedNavigation, segments, user, router]);
 
-  if (authLoading || isChecking) {
+  if (authLoading || isInitialLoad) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' }}>
         <ActivityIndicator size="large" color="#10B981" />

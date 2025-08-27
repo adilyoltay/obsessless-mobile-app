@@ -3,19 +3,12 @@ import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import ProgressDots from '@/components/onboarding/ProgressDots';
-import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 export default function Welcome() {
   const router = useRouter();
   const { step, totalSteps, next, setStep } = useMoodOnboardingStore();
 
   useEffect(() => { setStep(0); }, [setStep]);
-
-  useEffect(() => {
-    if (!FEATURE_FLAGS.isEnabled('ONBOARDING_V1')) {
-      router.replace('/(tabs)');
-    }
-  }, []);
 
   return (
     <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF', justifyContent: 'center' }}>

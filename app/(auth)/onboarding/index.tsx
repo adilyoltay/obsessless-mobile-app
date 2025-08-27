@@ -1,12 +1,10 @@
-import { useEffect } from 'react';
-import { router } from 'expo-router';
+import React from 'react';
+import Welcome from './welcome';
 
 export default function OnboardingIndex() {
-  useEffect(() => {
-    // Redirect to the first step
-    router.replace('/(auth)/onboarding/welcome');
-  }, []);
-  return null;
+  // Don't redirect, just show welcome directly
+  // This prevents navigation loops
+  return <Welcome />;
 }
 
 
