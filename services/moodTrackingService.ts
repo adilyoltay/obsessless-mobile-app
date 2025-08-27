@@ -1063,7 +1063,34 @@ class MoodTrackingService {
       // Add unsynced entries to offline sync queue for automatic processing
       const { offlineSyncService } = await import('@/services/offlineSync');
       
+      let invalidEntries = 0;
+      const validEntries: MoodEntry[] = [];
+      const invalidIds: string[] = [];
+
+      // ✅ PRE-VALIDATE entries before adding to sync queue
       for (const entry of unsyncedEntries) {
+        const isValid = entry.user_id && 
+                       entry.mood_score !== undefined && 
+                       entry.mood_score !== null &&
+                       typeof entry.mood_score === 'number';
+        
+        if (!isValid) {
+          console.warn(`🚫 Skipping invalid mood entry during auto-recovery:`, {
+            id: entry.id,
+            hasUserId: !!entry.user_id,
+            hasMoodScore: entry.mood_score !== undefined,
+            moodScoreType: typeof entry.mood_score,
+            moodScoreValue: entry.mood_score
+          });
+          invalidEntries++;
+          invalidIds.push(entry.id);
+        } else {
+          validEntries.push(entry);
+        }
+      }
+
+      // ✅ Process only valid entries
+      for (const entry of validEntries) {
         try {
           await offlineSyncService.addToSyncQueue({
             type: 'CREATE',
@@ -1089,7 +1116,13 @@ class MoodTrackingService {
         }
       }
 
-      console.log(`✅ Auto-recovery complete: ${recovered} queued, ${failed} failed`);
+      // 🧹 CLEANUP: Remove invalid entries from local storage to prevent future issues
+      if (invalidEntries > 0) {
+        console.log(`🧹 Cleaning up ${invalidEntries} invalid mood entries from local storage...`);
+        await this.cleanupInvalidEntries(userId, invalidIds);
+      }
+
+      console.log(`✅ Auto-recovery complete: ${recovered} queued, ${failed} failed${invalidEntries > 0 ? `, ${invalidEntries} invalid entries cleaned` : ''}`);
 
       // Track recovery telemetry
       try {
@@ -1099,7 +1132,9 @@ class MoodTrackingService {
           userId: userId,
           totalUnsynced: unsyncedEntries.length,
           recovered: recovered,
-          failed: failed
+          failed: failed,
+          invalidEntries: invalidEntries,
+          cleanupPerformed: invalidEntries > 0
         });
       } catch {}
 
@@ -1109,6 +1144,69 @@ class MoodTrackingService {
       console.error('❌ Auto-recovery failed:', error);
       return { recovered: 0, failed: 0 };
     }
+  }
+
+  /**
+   * 🧹 Clean up invalid mood entries from local storage
+   * Removes entries that are missing required fields (user_id, mood_score)
+   */
+  private async cleanupInvalidEntries(userId: string, invalidIds: string[]): Promise<number> {
+    let cleanedCount = 0;
+    
+    try {
+      const dates = await this.getRecentDates(30); // Check last 30 days
+      
+      for (const date of dates) {
+        const key = `${this.STORAGE_KEY}_${userId}_${date}`;
+        const existing = await AsyncStorage.getItem(key);
+        
+        if (existing) {
+          const entries: MoodEntry[] = JSON.parse(existing);
+          const originalCount = entries.length;
+          
+          // Filter out invalid entries
+          const validEntries = entries.filter(entry => {
+            const isInvalid = invalidIds.includes(entry.id);
+            if (isInvalid) {
+              console.log(`🗑️ Removing invalid entry ${entry.id} from ${date}`);
+              cleanedCount++;
+            }
+            return !isInvalid;
+          });
+          
+          // Save the cleaned data back to storage
+          if (validEntries.length !== originalCount) {
+            if (validEntries.length === 0) {
+              await AsyncStorage.removeItem(key);
+              console.log(`🗑️ Removed empty storage key: ${key}`);
+            } else {
+              await AsyncStorage.setItem(key, JSON.stringify(validEntries));
+              console.log(`🧹 Updated ${key}: ${originalCount} → ${validEntries.length} entries`);
+            }
+          }
+        }
+      }
+      
+      console.log(`✅ Cleanup complete: Removed ${cleanedCount} invalid mood entries from local storage`);
+      
+      // Track cleanup telemetry
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'mood_storage_cleanup',
+          userId,
+          cleanedCount,
+          invalidIds: invalidIds.slice(0, 5) // Only log first 5 IDs for privacy
+        });
+      } catch (telemetryError) {
+        console.log('Failed to track cleanup telemetry:', telemetryError);
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to cleanup invalid entries:', error);
+    }
+    
+    return cleanedCount;
   }
 
   /**

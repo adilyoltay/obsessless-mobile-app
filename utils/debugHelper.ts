@@ -158,4 +158,11 @@ if (__DEV__) {
   }).catch(error => {
     console.warn('⚠️ Failed to load mood deletion debug tests:', error);
   });
+  
+  import('./debugInvalidEntries').then((module) => {
+    (global as any).debugInvalidEntries = module.debugInvalidEntries;
+    console.log('🧹 Invalid Entries debug tests loaded - use debugInvalidEntries.*');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load invalid entries debug tests:', error);
+  });
 } 
