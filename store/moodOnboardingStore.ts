@@ -38,6 +38,12 @@ interface MoodOnboardingState {
   collectProgressiveInsights: () => Promise<Record<string, any>>;
   cleanupProgressiveCache: () => Promise<void>;
   generateFallbackProfile: (payload: OnboardingPayload, progressiveInsights: Record<string, any>, userId: string) => any;
+  
+  // Offline-safe AI analysis methods
+  analyzeMotivationWithFallback: (motivations: MotivationKey[]) => Promise<void>;
+  analyzeFirstMoodWithFallback: (score?: 1|2|3|4|5, tags?: string[]) => Promise<void>;
+  generateMotivationFallback: (motivations: MotivationKey[]) => any;
+  generateMoodFallback: (score: 1|2|3|4|5, tags?: string[]) => any;
 }
 
 // 🚀 V2: Updated storage keys for enhanced onboarding
@@ -64,44 +70,9 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     // Auto-persist on change
     setTimeout(() => get().persistToStorage(), 100);
     
-    // 🤖 Progressive AI Analysis: Analyze motivations for personalization
+    // 🤖 Progressive AI Analysis: Analyze motivations with offline fallback
     setTimeout(async () => {
-      try {
-        if (m && m.length > 0 && typeof window !== 'undefined') {
-          console.log('🎯 Progressive AI: Analyzing motivation patterns...');
-          
-          const aiResult = await pipeline.unifiedPipeline.process({
-            userId: 'temp_onboarding',
-            content: {
-              type: 'onboarding_motivation',
-              motivations: m,
-              context: 'user_goals_analysis'
-            },
-            type: 'data',
-            context: {
-              source: 'today',
-              metadata: {
-                isOnboardingStep: true,
-                progressiveAnalysis: true,
-                step: 'motivation'
-              }
-            }
-          });
-          
-          // Cache motivation insights
-          if (aiResult?.insights || aiResult?.patterns) {
-            await AsyncStorage.setItem('onboarding_motivation_insights', JSON.stringify({
-              insights: aiResult.insights || [],
-              patterns: aiResult.patterns || [],
-              personalizedGoals: (aiResult as any).personalizedGoals || [],
-              generatedAt: new Date().toISOString()
-            }));
-            console.log('✅ Progressive AI: Motivation insights cached');
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Progressive AI motivation analysis failed (non-blocking):', error);
-      }
+      await get().analyzeMotivationWithFallback(m);
     }, 700);
   },
   
@@ -110,44 +81,9 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     // Auto-persist on change
     setTimeout(() => get().persistToStorage(), 100);
     
-    // 🤖 Progressive AI Analysis: Generate baseline mood insights
+    // 🤖 Progressive AI Analysis: Generate baseline mood insights with offline fallback  
     setTimeout(async () => {
-      try {
-        const { payload } = get();
-        if (score && typeof window !== 'undefined') {
-          console.log('🎯 Progressive AI: Analyzing first mood data...');
-          
-          const aiResult = await pipeline.unifiedPipeline.process({
-            userId: 'temp_onboarding', // Will be updated with real userId on completion
-            content: {
-              type: 'onboarding_first_mood',
-              mood_score: score * 20, // 1-5 → 20-100 mapping
-              tags: tags || [],
-              context: 'initial_baseline'
-            },
-            type: 'data',
-            context: {
-              source: 'today',
-              metadata: {
-                isOnboardingStep: true,
-                progressiveAnalysis: true,
-                step: 'first_mood'
-              }
-            }
-          });
-          
-          // Cache early insights for completion phase
-          if (aiResult?.insights) {
-            await AsyncStorage.setItem('onboarding_mood_insights', JSON.stringify({
-              insights: aiResult.insights,
-              generatedAt: new Date().toISOString()
-            }));
-            console.log('✅ Progressive AI: First mood insights cached');
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Progressive AI analysis failed (non-blocking):', error);
-      }
+      await get().analyzeFirstMoodWithFallback(score, tags);
     }, 500);
   },
   
@@ -844,7 +780,301 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     }
 
     return result;
+  },
+
+  // =============================================================================
+  // 🔄 OFFLINE-SAFE AI ANALYSIS METHODS
+  // =============================================================================
+
+  /**
+   * 🤖 Analyze motivation patterns with robust offline fallback
+   * Ensures onboarding never hangs on AI failures
+   */
+  analyzeMotivationWithFallback: async (motivations: MotivationKey[]) => {
+    if (!motivations || motivations.length === 0) return;
+
+    console.log('🎯 Progressive AI: Analyzing motivation patterns with offline fallback...');
+    
+    let analysisResult = null;
+    let usedFallback = false;
+
+    try {
+      // 🌐 Network check: Skip AI if offline
+      let isOnline = true;
+      try {
+        const NetInfo = require('@react-native-community/netinfo').default;
+        const netState = await NetInfo.fetch();
+        isOnline = netState.isConnected && netState.isInternetReachable !== false;
+      } catch {
+        isOnline = false;
+      }
+
+      if (!isOnline) {
+        console.log('📴 Offline detected - using motivation fallback immediately');
+        usedFallback = true;
+      } else {
+        // ⏱️ Online: Try AI with timeout protection
+        const AI_TIMEOUT = 8000; // 8 seconds max
+        
+        const aiPromise = pipeline.unifiedPipeline.process({
+          userId: 'temp_onboarding',
+          content: {
+            type: 'onboarding_motivation',
+            motivations,
+            context: 'user_goals_analysis'
+          },
+          type: 'data',
+          context: {
+            source: 'today',
+            metadata: {
+              isOnboardingStep: true,
+              progressiveAnalysis: true,
+              step: 'motivation',
+              fastMode: true // Request fast processing
+            }
+          }
+        });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
+        );
+
+        analysisResult = await Promise.race([aiPromise, timeoutPromise]);
+        console.log('✅ AI motivation analysis completed successfully');
+      }
+
+    } catch (error) {
+      usedFallback = true;
+      const errorType = error instanceof Error ? error.message : 'unknown';
+      console.warn(`⚠️ AI motivation analysis failed (${errorType}) - using fallback`);
+    }
+
+    // 🎯 Generate insights (AI or fallback)
+    let insights;
+    if (analysisResult && !usedFallback) {
+      // Use AI results
+      insights = {
+        insights: analysisResult.insights || [],
+        patterns: analysisResult.patterns || [],
+        personalizedGoals: (analysisResult as any).personalizedGoals || [],
+        generatedAt: new Date().toISOString(),
+        source: 'ai_analysis'
+      };
+    } else {
+      // Generate intelligent fallback based on motivation patterns
+      insights = get().generateMotivationFallback(motivations);
+    }
+
+    // 💾 Cache insights for completion phase
+    try {
+      await AsyncStorage.setItem('onboarding_motivation_insights', JSON.stringify(insights));
+      console.log(`✅ Motivation insights cached (${insights.source})`);
+    } catch (cacheError) {
+      console.warn('⚠️ Failed to cache motivation insights (non-blocking):', cacheError);
+    }
+  },
+
+  /**
+   * 🤖 Analyze first mood with robust offline fallback
+   */
+  analyzeFirstMoodWithFallback: async (score?: 1|2|3|4|5, tags?: string[]) => {
+    if (!score) return;
+
+    console.log('🎯 Progressive AI: Analyzing first mood with offline fallback...');
+    
+    let analysisResult = null;
+    let usedFallback = false;
+
+    try {
+      // 🌐 Network check
+      let isOnline = true;
+      try {
+        const NetInfo = require('@react-native-community/netinfo').default;
+        const netState = await NetInfo.fetch();
+        isOnline = netState.isConnected && netState.isInternetReachable !== false;
+      } catch {
+        isOnline = false;
+      }
+
+      if (!isOnline) {
+        console.log('📴 Offline detected - using mood fallback immediately');
+        usedFallback = true;
+      } else {
+        // ⏱️ Try AI with timeout
+        const AI_TIMEOUT = 6000; // 6 seconds max for mood analysis
+        
+        const aiPromise = pipeline.unifiedPipeline.process({
+          userId: 'temp_onboarding',
+          content: {
+            type: 'onboarding_first_mood',
+            mood_score: score * 20, // 1-5 → 20-100 mapping
+            tags: tags || [],
+            context: 'initial_baseline'
+          },
+          type: 'data',
+          context: {
+            source: 'today',
+            metadata: {
+              isOnboardingStep: true,
+              progressiveAnalysis: true,
+              step: 'first_mood',
+              fastMode: true
+            }
+          }
+        });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
+        );
+
+        analysisResult = await Promise.race([aiPromise, timeoutPromise]);
+        console.log('✅ AI first mood analysis completed successfully');
+      }
+
+    } catch (error) {
+      usedFallback = true;
+      const errorType = error instanceof Error ? error.message : 'unknown';
+      console.warn(`⚠️ AI first mood analysis failed (${errorType}) - using fallback`);
+    }
+
+    // 🎯 Generate insights (AI or fallback)
+    let insights;
+    if (analysisResult && !usedFallback) {
+      // Use AI results
+      insights = {
+        insights: analysisResult.insights || [],
+        generatedAt: new Date().toISOString(),
+        source: 'ai_analysis'
+      };
+    } else {
+      // Generate intelligent fallback based on mood score
+      insights = get().generateMoodFallback(score, tags);
+    }
+
+    // 💾 Cache insights
+    try {
+      await AsyncStorage.setItem('onboarding_mood_insights', JSON.stringify(insights));
+      console.log(`✅ First mood insights cached (${insights.source})`);
+    } catch (cacheError) {
+      console.warn('⚠️ Failed to cache mood insights (non-blocking):', cacheError);
+    }
+  },
+
+  /**
+   * 🧠 Generate intelligent motivation fallback when AI is unavailable
+   */
+  generateMotivationFallback: (motivations: MotivationKey[]) => {
+    console.log('🧠 Generating intelligent motivation fallback...');
+
+    // Map motivations to actionable insights
+    const motivationInsights: Record<string, any> = {
+      'reduce_symptoms': {
+        goal: 'Semptom azaltma odaklı yaklaşım',
+        techniques: ['Progressive muscle relaxation', 'Mindful breathing', 'ERP exercises'],
+        personalizedTip: 'Küçük adımlarla başla - her gün biraz daha fazla meydan oku'
+      },
+      'improve_relationships': {
+        goal: 'İlişkileri güçlendirme',
+        techniques: ['Communication skills', 'Boundary setting', 'Social exposure'],
+        personalizedTip: 'İlişkilerinde açık ve net iletişim kurmaya odaklan'
+      },
+      'work_productivity': {
+        goal: 'İş hayatında verimlilik',
+        techniques: ['Time management', 'Priority setting', 'Workplace accommodations'],
+        personalizedTip: 'Önceliklerini belirle ve küçük görevlere böl'
+      },
+      'emotional_regulation': {
+        goal: 'Duygu düzenleme becerisi',
+        techniques: ['CBT techniques', 'Emotion tracking', 'Coping strategies'],
+        personalizedTip: 'Duygularını gözlemle ve yargılamadan kabul et'
+      },
+      'self_confidence': {
+        goal: 'Özgüven artırma',
+        techniques: ['Achievement tracking', 'Positive affirmations', 'Skill building'],
+        personalizedTip: 'Küçük başarılarını kutla ve kaydını tut'
+      }
+    };
+
+    const matchedInsights = motivations
+      .map(m => motivationInsights[m])
+      .filter(Boolean);
+
+    return {
+      insights: matchedInsights.map(insight => ({
+        type: 'motivation_analysis',
+        title: insight.goal,
+        description: insight.personalizedTip,
+        actionable: true,
+        confidence: 0.8
+      })),
+      patterns: [{
+        type: 'goal_pattern',
+        title: `${motivations.length} temel motivasyon alanı tespit edildi`,
+        description: 'Çok yönlü iyileşme yaklaşımı öneriliyor',
+        actionable: true
+      }],
+      personalizedGoals: matchedInsights.map(insight => insight.goal),
+      generatedAt: new Date().toISOString(),
+      source: 'intelligent_fallback'
+    };
+  },
+
+  /**
+   * 🧠 Generate intelligent mood fallback when AI is unavailable
+   */
+  generateMoodFallback: (score: 1|2|3|4|5, tags?: string[]) => {
+    console.log('🧠 Generating intelligent mood fallback...');
+
+    // Mood-based insights
+    const moodInsights: Record<number, any> = {
+      1: {
+        level: 'Çok Düşük',
+        focus: 'Temel ihtiyaçlar ve güvenlik',
+        suggestion: 'Önce kendini güvende hisset, küçük self-care aktivitelerine odaklan',
+        priority: 'high'
+      },
+      2: {
+        level: 'Düşük',
+        focus: 'Duygusal destek ve stabil rutinler',
+        suggestion: 'Günlük rutinlerini basitleştir ve destek sistemini güçlendir',
+        priority: 'high'
+      },
+      3: {
+        level: 'Orta',
+        focus: 'Denge ve yapılandırılmış iyileşme',
+        suggestion: 'Tedavi teknikleri ve kademeli ilerleme planı uygulamaya başla',
+        priority: 'medium'
+      },
+      4: {
+        level: 'İyi',
+        focus: 'Beceri geliştirme ve ilerleme',
+        suggestion: 'Mevcut başarılarını koruyarak yeni teknikleri dene',
+        priority: 'medium'
+      },
+      5: {
+        level: 'Çok İyi',
+        focus: 'Sürdürülebilirlik ve uzun vadeli planlama',
+        suggestion: 'Bu pozitif durumu koruyacak stratejiler geliştir',
+        priority: 'low'
+      }
+    };
+
+    const moodAnalysis = moodInsights[score];
+
+    return {
+      insights: [{
+        type: 'mood_baseline',
+        title: `Başlangıç ruh hali: ${moodAnalysis.level}`,
+        description: moodAnalysis.suggestion,
+        actionable: true,
+        confidence: 0.85,
+        priority: moodAnalysis.priority
+      }],
+      generatedAt: new Date().toISOString(),
+      source: 'intelligent_fallback'
+    };
   }
+
 }));
 
 
