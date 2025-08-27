@@ -98,8 +98,8 @@ interface UserMoodJourney {
 interface UserCentricMoodDashboardProps {
   visible: boolean;
   onClose: () => void;
-  moodJourney: UserMoodJourney;
-  moodEntries: MoodEntry[];
+  moodJourney?: UserMoodJourney | null; // Allow null/undefined
+  moodEntries?: MoodEntry[] | null; // Allow null/undefined
   onStartAction?: (actionId: string) => void;
 }
 
@@ -110,6 +110,47 @@ export default function UserCentricMoodDashboard({
   moodEntries,
   onStartAction
 }: UserCentricMoodDashboardProps) {
+  
+  /**
+   * 🛡️ CRITICAL FIX: Safe moodJourney access with comprehensive null safety
+   * Prevents render crashes when API returns incomplete data
+   */
+  const safeMoodJourney = {
+    moodStory: {
+      daysTracking: moodJourney?.moodStory?.daysTracking ?? 0,
+      entriesCount: moodJourney?.moodStory?.entriesCount ?? 0,
+      emotionalGrowth: moodJourney?.moodStory?.emotionalGrowth ?? 'başlangıç',
+      currentStreak: moodJourney?.moodStory?.currentStreak ?? 0,
+      averageMood: moodJourney?.moodStory?.averageMood ?? 50,
+      moodTrend: moodJourney?.moodStory?.moodTrend ?? 'stabil'
+    },
+    personalInsights: {
+      strongestPattern: moodJourney?.personalInsights?.strongestPattern ?? 'Henüz yeterli veri yok',
+      challengeArea: moodJourney?.personalInsights?.challengeArea ?? 'Düzenli kayıt tutmaya odaklan',
+      nextMilestone: moodJourney?.personalInsights?.nextMilestone ?? 'İlk hafta mood kaydını tamamla',
+      encouragement: moodJourney?.personalInsights?.encouragement ?? 'Her yeni gün yeni bir fırsat ✨',
+      actionableStep: moodJourney?.personalInsights?.actionableStep ?? 'Bugün mood kaydını yapmaya devam et'
+    },
+    emotionalSpectrum: {
+      dominantEmotion: moodJourney?.emotionalSpectrum?.dominantEmotion ?? 'Henüz belirlenemiyor',
+      emotionDistribution: moodJourney?.emotionalSpectrum?.emotionDistribution ?? [],
+      weeklyColors: moodJourney?.emotionalSpectrum?.weeklyColors ?? []
+    },
+    patterns: moodJourney?.patterns ?? [],
+    prediction: {
+      riskLevel: moodJourney?.prediction?.riskLevel ?? 'low',
+      earlyWarning: moodJourney?.prediction?.earlyWarning ?? undefined,
+      interventions: moodJourney?.prediction?.interventions ?? [],
+      recommendation: moodJourney?.prediction?.recommendation ?? 'Mood takibine devam et, her şey yolunda görünüyor.'
+    },
+    achievements: moodJourney?.achievements ?? []
+  };
+
+  /**
+   * 🛡️ CRITICAL FIX: Safe moodEntries access
+   * Prevents crashes when moodEntries is null/undefined
+   */
+  const safeMoodEntries = moodEntries ?? [];
   
   const [selectedSection, setSelectedSection] = useState<'journey' | 'spectrum' | 'patterns' | 'prediction'>('journey');
 
@@ -179,7 +220,7 @@ export default function UserCentricMoodDashboard({
   };
 
   const renderJourneySection = () => {
-    const growthBadge = getGrowthBadge(moodJourney.moodStory.emotionalGrowth);
+    const growthBadge = getGrowthBadge(safeMoodJourney.moodStory.emotionalGrowth);
     
     return (
       <ScrollView style={styles.sectionContent} showsVerticalScrollIndicator={false}>
@@ -196,19 +237,19 @@ export default function UserCentricMoodDashboard({
           {/* Journey Stats */}
           <View style={styles.journeyStats}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{moodJourney.moodStory.daysTracking}</Text>
+              <Text style={styles.statNumber}>{safeMoodJourney.moodStory.daysTracking}</Text>
               <Text style={styles.statLabel}>Gün</Text>
               <Text style={styles.statNote}>Takip ettin</Text>
             </View>
             
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{moodJourney.moodStory.entriesCount}</Text>
+              <Text style={styles.statNumber}>{safeMoodJourney.moodStory.entriesCount}</Text>
               <Text style={styles.statLabel}>Kayıt</Text>
               <Text style={styles.statNote}>Oluşturdun</Text>
             </View>
             
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{moodJourney.moodStory.currentStreak}</Text>
+              <Text style={styles.statNumber}>{safeMoodJourney.moodStory.currentStreak}</Text>
               <Text style={styles.statLabel}>Gün</Text>
               <Text style={styles.statNote}>Sürekli</Text>
             </View>
@@ -223,17 +264,17 @@ export default function UserCentricMoodDashboard({
             <View style={styles.progressSingle}>
               <Text style={styles.progressLabel}>Ortalama Ruh Hali</Text>
               <View style={[styles.progressCircle, { 
-                backgroundColor: getMoodColor(moodJourney.moodStory.averageMood) 
+                backgroundColor: getMoodColor(safeMoodJourney.moodStory.averageMood) 
               }]}>
-                <Text style={styles.progressNumber}>{moodJourney.moodStory.averageMood}</Text>
+                <Text style={styles.progressNumber}>{safeMoodJourney.moodStory.averageMood}</Text>
               </View>
             </View>
           </View>
           
           <Text style={styles.progressImprovement}>
-            {moodJourney.moodStory.moodTrend === 'yükseliyor' && 'Mood eğiliminiz pozitif yönde. Bu güzel bir gelişim.'}
-            {moodJourney.moodStory.moodTrend === 'stabil' && 'İstikrarlı bir mood düzeyindesin. Bu da değerli.'}
-            {moodJourney.moodStory.moodTrend === 'düşüyor' && 'Zorlu bir dönemdesin. Bu geçici, kendine sabırlı ol.'}
+            {safeMoodJourney.moodStory.moodTrend === 'yükseliyor' && 'Mood eğiliminiz pozitif yönde. Bu güzel bir gelişim.'}
+            {safeMoodJourney.moodStory.moodTrend === 'stabil' && 'İstikrarlı bir mood düzeyindesin. Bu da değerli.'}
+            {safeMoodJourney.moodStory.moodTrend === 'düşüyor' && 'Zorlu bir dönemdesin. Bu geçici, kendine sabırlı ol.'}
           </Text>
         </View>
 
@@ -245,7 +286,7 @@ export default function UserCentricMoodDashboard({
             <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="#4CAF50" />
             <View style={styles.insightContent}>
               <Text style={styles.insightLabel}>En Güçlü Pattern'in:</Text>
-              <Text style={styles.insightText}>{moodJourney.personalInsights.strongestPattern}</Text>
+              <Text style={styles.insightText}>{safeMoodJourney.personalInsights.strongestPattern}</Text>
             </View>
           </View>
           
@@ -253,7 +294,7 @@ export default function UserCentricMoodDashboard({
             <MaterialCommunityIcons name="target" size={20} color="#FF7043" />
             <View style={styles.insightContent}>
               <Text style={styles.insightLabel}>Odaklanılacak Alan:</Text>
-              <Text style={styles.insightText}>{moodJourney.personalInsights.challengeArea}</Text>
+              <Text style={styles.insightText}>{safeMoodJourney.personalInsights.challengeArea}</Text>
             </View>
           </View>
           
@@ -261,7 +302,7 @@ export default function UserCentricMoodDashboard({
             <MaterialCommunityIcons name="flag-checkered" size={20} color="#7E57C2" />
             <View style={styles.insightContent}>
               <Text style={styles.insightLabel}>Sıradaki Hedefin:</Text>
-              <Text style={styles.insightText}>{moodJourney.personalInsights.nextMilestone}</Text>
+              <Text style={styles.insightText}>{safeMoodJourney.personalInsights.nextMilestone}</Text>
             </View>
           </View>
         </View>
@@ -271,14 +312,14 @@ export default function UserCentricMoodDashboard({
           <Text style={styles.encouragementIcon}>🌟</Text>
           <Text style={styles.encouragementTitle}>Motivasyon Mesajın</Text>
           <Text style={styles.encouragementText}>
-            {moodJourney.personalInsights.encouragement}
+            {safeMoodJourney.personalInsights.encouragement}
           </Text>
         </View>
 
         {/* Achievements */}
         <View style={styles.achievementsCard}>
           <Text style={styles.cardTitle}>🏆 Duygusal Başarıların</Text>
-          {moodJourney.achievements.map((achievement, index) => (
+          {safeMoodJourney.achievements.map((achievement, index) => (
             <View key={index} style={styles.achievementRow}>
               <Text style={styles.achievementIcon}>{achievement.celebration}</Text>
               <View style={styles.achievementContent}>
@@ -299,7 +340,7 @@ export default function UserCentricMoodDashboard({
    * Fixes placeholder detection and handles corrupted data gracefully
    */
   const getEnhancedWeeklyColors = () => {
-    const colors = moodJourney.emotionalSpectrum.weeklyColors;
+    const colors = safeMoodJourney.emotionalSpectrum.weeklyColors;
     
     if (!colors || colors.length === 0) {
       return { enhancedColors: [], minDay: null, maxDay: null, hasData: false };
@@ -437,7 +478,7 @@ export default function UserCentricMoodDashboard({
 
   const renderSpectrumSection = () => {
     const weeklyData = getEnhancedWeeklyColors();
-    const hasEmotionData = moodJourney.emotionalSpectrum.emotionDistribution.length > 0;
+    const hasEmotionData = safeMoodJourney.emotionalSpectrum.emotionDistribution.length > 0;
 
     return (
       <ScrollView style={styles.sectionContent} showsVerticalScrollIndicator={false}>
@@ -464,7 +505,7 @@ export default function UserCentricMoodDashboard({
             {/* Dominant Emotion */}
             <View style={styles.dominantEmotionCard}>
               <Text style={styles.dominantEmotionTitle}>Baskın Duygun</Text>
-              <Text style={styles.dominantEmotionValue}>{moodJourney.emotionalSpectrum.dominantEmotion}</Text>
+              <Text style={styles.dominantEmotionValue}>{safeMoodJourney.emotionalSpectrum.dominantEmotion}</Text>
             </View>
             
             {/* Color Spectrum Bar */}
@@ -477,7 +518,7 @@ export default function UserCentricMoodDashboard({
             
             {/* Emotion Distribution */}
             <View style={styles.emotionDistribution}>
-              {moodJourney.emotionalSpectrum.emotionDistribution.map((emotion, index) => (
+              {safeMoodJourney.emotionalSpectrum.emotionDistribution.map((emotion, index) => (
                 <View key={index} style={styles.emotionItem}>
                   <View style={[styles.emotionDot, { backgroundColor: emotion.color }]} />
                   <Text style={styles.emotionLabel}>{emotion.emotion}</Text>
@@ -587,8 +628,8 @@ export default function UserCentricMoodDashboard({
       <View style={styles.patternsCard}>
         <Text style={styles.cardTitle}>🔍 Mood Pattern Analizin</Text>
         
-        {moodJourney.patterns.length > 0 ? (
-          moodJourney.patterns.map((pattern, index) => (
+        {safeMoodJourney.patterns.length > 0 ? (
+          safeMoodJourney.patterns.map((pattern, index) => (
             <View key={index} style={styles.patternItem}>
               <View style={styles.patternHeader}>
                 <MaterialCommunityIcons 
@@ -658,8 +699,8 @@ export default function UserCentricMoodDashboard({
             name="crystal-ball" 
             size={24} 
             color={
-              moodJourney.prediction.riskLevel === 'high' ? '#FF7043' :
-              moodJourney.prediction.riskLevel === 'medium' ? '#FFA726' : '#4CAF50'
+              safeMoodJourney.prediction.riskLevel === 'high' ? '#FF7043' :
+              safeMoodJourney.prediction.riskLevel === 'medium' ? '#FFA726' : '#4CAF50'
             } 
           />
           <Text style={styles.predictionTitle}>Mood Öngörüsü</Text>
@@ -667,30 +708,30 @@ export default function UserCentricMoodDashboard({
             styles.riskBadge,
             {
               backgroundColor: 
-                moodJourney.prediction.riskLevel === 'high' ? '#FFE0DB' :
-                moodJourney.prediction.riskLevel === 'medium' ? '#FFF3E0' : '#E8F5E8'
+                safeMoodJourney.prediction.riskLevel === 'high' ? '#FFE0DB' :
+                safeMoodJourney.prediction.riskLevel === 'medium' ? '#FFF3E0' : '#E8F5E8'
             }
           ]}>
             <Text style={[
               styles.riskText,
               {
                 color:
-                  moodJourney.prediction.riskLevel === 'high' ? '#D84315' :
-                  moodJourney.prediction.riskLevel === 'medium' ? '#E65100' : '#2E7D32'
+                  safeMoodJourney.prediction.riskLevel === 'high' ? '#D84315' :
+                  safeMoodJourney.prediction.riskLevel === 'medium' ? '#E65100' : '#2E7D32'
               }
             ]}>
-              {moodJourney.prediction.riskLevel === 'high' ? 'Yüksek Risk' :
-               moodJourney.prediction.riskLevel === 'medium' ? 'Orta Risk' : 'Düşük Risk'}
+              {safeMoodJourney.prediction.riskLevel === 'high' ? 'Yüksek Risk' :
+               safeMoodJourney.prediction.riskLevel === 'medium' ? 'Orta Risk' : 'Düşük Risk'}
             </Text>
           </View>
         </View>
         
         {/* Early Warning */}
-        {moodJourney.prediction.earlyWarning?.triggered && (
+        {safeMoodJourney.prediction.earlyWarning?.triggered && (
           <View style={styles.warningSection}>
             <MaterialCommunityIcons name="alert" size={20} color="#FFA726" />
             <Text style={styles.warningText}>
-              {moodJourney.prediction.earlyWarning.message}
+              {safeMoodJourney.prediction.earlyWarning.message}
             </Text>
           </View>
         )}
@@ -699,14 +740,14 @@ export default function UserCentricMoodDashboard({
         <View style={styles.recommendationSection}>
           <Text style={styles.recommendationTitle}>💡 Öneriler</Text>
           <Text style={styles.recommendationText}>
-            {moodJourney.prediction.recommendation}
+            {safeMoodJourney.prediction.recommendation}
           </Text>
         </View>
         
         {/* Interventions */}
         <View style={styles.interventionsSection}>
           <Text style={styles.interventionsTitle}>🛡️ Destekleyici Adımlar</Text>
-          {moodJourney.prediction.interventions.map((intervention, index) => (
+          {safeMoodJourney.prediction.interventions.map((intervention, index) => (
             <View key={index} style={styles.interventionItem}>
               <MaterialCommunityIcons 
                 name={
@@ -726,7 +767,7 @@ export default function UserCentricMoodDashboard({
       <View style={styles.actionCard}>
         <Text style={styles.actionTitle}>🎯 Bir Sonraki Adımın</Text>
         <Text style={styles.actionDescription}>
-          {moodJourney.personalInsights.actionableStep}
+          {safeMoodJourney.personalInsights.actionableStep}
         </Text>
         
         <Pressable
