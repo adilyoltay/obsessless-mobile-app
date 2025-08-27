@@ -1223,6 +1223,9 @@ export class OfflineSyncService {
 
       console.log(`✅ Queue overflow handled: ${itemsToMove.length} items moved to DLQ, ${itemsToKeep.length} items retained`);
       
+      // 🔔 CRITICAL FIX: Notify user about queue overflow and data moved to DLQ
+      await this.notifyUserAboutQueueOverflow(itemsToMove);
+      
     } catch (error) {
       console.error('❌ Failed to handle queue overflow:', error);
       
@@ -1667,6 +1670,126 @@ export class OfflineSyncService {
   }
 
 
+
+  /**
+   * 🔔 CRITICAL FIX: Notify user about queue overflow and data moved to DLQ
+   * Provides transparent communication about potential data loss
+   */
+  private async notifyUserAboutQueueOverflow(overflowItems: SyncQueueItem[]): Promise<void> {
+    try {
+      console.log(`🔔 Notifying user about ${overflowItems.length} items moved to Dead Letter Queue`);
+      
+      // Categorize overflow items for user-friendly messaging
+      const entityCounts = overflowItems.reduce((counts, item) => {
+        const entityName = this.getEntityDisplayName(item.entity);
+        counts[entityName] = (counts[entityName] || 0) + 1;
+        return counts;
+      }, {} as Record<string, number>);
+      
+      // Generate user-friendly notification message
+      const entityList = Object.entries(entityCounts)
+        .map(([entity, count]) => `${count} ${entity}`)
+        .join(', ');
+        
+      const title = '🔄 Senkronizasyon Kuyruğu Doldu';
+      const message = `${overflowItems.length} öğe geçici olarak yedekleme alanına taşındı (${entityList}). Bu veriler güvendedir ve internet bağlantısı düzeldiğinde otomatik olarak senkronize edilecektir.`;
+      
+      // Store overflow notification for settings display
+      await this.storeOverflowNotification({
+        timestamp: Date.now(),
+        itemCount: overflowItems.length,
+        entities: entityCounts,
+        canRecover: true,
+        message: message,
+        recoveryAvailable: true
+      });
+      
+      // Use existing user feedback service for consistent UI
+      await offlineSyncUserFeedbackService.recordSyncError(
+        'queue_overflow_system',
+        'mood_entry', // Use a valid entity type as placeholder  
+        'CREATE', // Use a valid operation type as placeholder
+        `Queue overflow: ${overflowItems.length} items moved to DLQ`,
+        0,
+        1
+      );
+      
+      // Show immediate toast/alert notification (non-blocking)
+      this.showQueueOverflowAlert(title, message, overflowItems.length);
+      
+      console.log('✅ Queue overflow notification sent to user');
+      
+    } catch (error) {
+      console.error('❌ Failed to notify user about queue overflow:', error);
+    }
+  }
+  
+  /**
+   * 🔔 Store overflow notification for settings recovery UI
+   */
+  private async storeOverflowNotification(notification: any): Promise<void> {
+    try {
+      const key = safeStorageKey('queue_overflow_notifications');
+      const existingData = await AsyncStorage.getItem(key);
+      let notifications = existingData ? JSON.parse(existingData) : [];
+      
+      // Keep only last 10 notifications to prevent storage bloat
+      notifications.push(notification);
+      if (notifications.length > 10) {
+        notifications = notifications.slice(-10);
+      }
+      
+      await AsyncStorage.setItem(key, JSON.stringify(notifications));
+    } catch (error) {
+      console.error('Failed to store overflow notification:', error);
+    }
+  }
+  
+  /**
+   * 🎭 Convert technical entity names to user-friendly display names
+   */
+  private getEntityDisplayName(entity: string): string {
+    const displayNames: Record<string, string> = {
+      'mood_entry': 'mood kaydı',
+      'ai_profile': 'AI profili',
+      'treatment_plan': 'tedavi planı', 
+      'voice_checkin': 'ses kaydı',
+      'user_profile': 'kullanıcı profili',
+      'achievement': 'başarım'
+    };
+    return displayNames[entity] || entity;
+  }
+  
+  /**
+   * 🚨 Show immediate alert/toast for queue overflow
+   */
+  private showQueueOverflowAlert(title: string, message: string, itemCount: number): void {
+    // Use setTimeout to avoid blocking the sync operation
+    setTimeout(async () => {
+      try {
+        // Try to use Alert if available (React Native)
+        const Alert = require('react-native').Alert;
+        Alert.alert(
+          title,
+          message,
+          [
+            { text: 'Tamam', style: 'default' },
+            { 
+              text: 'Ayarlara Git', 
+              style: 'default',
+              onPress: () => {
+                // This will be handled by navigation service if available
+                console.log('User requested to go to settings for DLQ recovery');
+              }
+            }
+          ]
+        );
+      } catch {
+        // Fallback: just log for development
+        console.log(`📱 QUEUE OVERFLOW ALERT: ${title} - ${message}`);
+      }
+    }, 100);
+  }
 
   /**
    * 🧹 CLEANUP: Properly teardown all listeners and prevent memory leaks

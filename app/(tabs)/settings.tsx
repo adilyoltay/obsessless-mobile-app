@@ -45,6 +45,7 @@ import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 import SecureStorageMigration from '@/utils/secureStorageMigration';
 import OnboardingSyncStatusCard from '@/components/settings/OnboardingSyncStatusCard';
 import SyncErrorSummaryCard from '@/components/ui/SyncErrorSummaryCard';
+import DeadLetterQueueRecovery from '@/components/ui/DeadLetterQueueRecovery';
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 interface SettingsData {
@@ -702,6 +703,18 @@ export default function SettingsScreen() {
             }
           }}
         />
+
+        {/* Dead Letter Queue Recovery */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🔄 Veri Kurtarma</Text>
+          <View style={styles.sectionContent}>
+            <DeadLetterQueueRecovery 
+              onRecoveryComplete={() => {
+                console.log('✅ DLQ recovery completed from settings');
+              }}
+            />
+          </View>
+        </View>
 
         {/* Support */}
         <View style={styles.section}>
