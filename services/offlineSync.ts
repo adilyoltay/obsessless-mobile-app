@@ -57,8 +57,15 @@ export class OfflineSyncService {
       this.isOnline = state.isConnected ?? false;
 
       if (wasOffline && this.isOnline) {
-        // Came back online, start syncing
+        console.log('📡 Device came back online, starting comprehensive sync...');
+        
+        // Start processing the sync queue
         this.processSyncQueue();
+        
+        // ✅ NEW: Also trigger mood entry auto-recovery when coming back online
+        this.triggerMoodAutoRecovery().catch(error => {
+          console.warn('⚠️ Mood auto-recovery failed after coming online:', error);
+        });
       }
     });
   }
@@ -836,6 +843,41 @@ export class OfflineSyncService {
     }
     
     throw lastError || new Error('Smart retry failed');
+  }
+
+  // ✅ NEW: Trigger mood auto-recovery when network comes back online
+  private async triggerMoodAutoRecovery(): Promise<void> {
+    try {
+      // Get current user ID
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      if (!currentUserId || !isUUID(currentUserId)) {
+        console.log('🔄 Skipping mood auto-recovery: no valid user ID');
+        return;
+      }
+
+      console.log('🔄 Triggering mood auto-recovery for user:', currentUserId);
+      
+      // Import and call mood tracking service auto-recovery
+      const { default: moodTrackingService } = await import('@/services/moodTrackingService');
+      const result = await moodTrackingService.autoRecoverUnsyncedEntries(currentUserId);
+      
+      if (result.recovered > 0) {
+        console.log(`✅ Network auto-recovery: ${result.recovered} mood entries queued for sync`);
+        
+        // Immediately process the newly queued items
+        setTimeout(() => {
+          this.processSyncQueue();
+        }, 1000); // Small delay to allow queue additions to complete
+      } else if (result.recovered === 0 && result.failed === 0) {
+        console.log('✅ Network auto-recovery: No unsynced mood entries found');
+      } else {
+        console.warn(`⚠️ Network auto-recovery: ${result.failed} entries failed to queue`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Mood auto-recovery failed:', error);
+      // Don't throw - this shouldn't break the main sync process
+    }
   }
 }
 

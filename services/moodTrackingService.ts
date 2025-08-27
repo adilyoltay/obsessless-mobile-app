@@ -55,7 +55,63 @@ class MoodTrackingService {
       });
       await this.markAsSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
+      console.warn('❌ Mood entry Supabase save failed, adding to offline sync queue:', e);
+      
+      // ✅ FIXED: Increment sync attempt for tracking
       await this.incrementSyncAttempt(moodEntry.id, moodEntry.user_id);
+      
+      // ✅ NEW: Auto-add failed entries to offline sync queue for automatic retry
+      try {
+        const { offlineSyncService } = await import('@/services/offlineSync');
+        await offlineSyncService.addToSyncQueue({
+          type: 'CREATE',
+          entity: 'mood_entry',
+          data: {
+            user_id: moodEntry.user_id,
+            mood_score: moodEntry.mood_score,
+            energy_level: moodEntry.energy_level,
+            anxiety_level: moodEntry.anxiety_level,
+            notes: moodEntry.notes || '',
+            triggers: moodEntry.triggers || [],
+            activities: moodEntry.activities || [],
+            timestamp: moodEntry.timestamp,
+            // Include local entry ID for potential dedup
+            local_entry_id: moodEntry.id
+          },
+          priority: 'high' as any, // Mood entries are high priority
+          deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device'
+        });
+        
+        console.log('✅ Failed mood entry added to offline sync queue:', moodEntry.id);
+        
+        // Track successful queue addition
+        try {
+          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_MISS, {
+            event: 'mood_auto_queued_for_sync',
+            entryId: moodEntry.id,
+            userId: moodEntry.user_id,
+            reason: 'supabase_save_failed'
+          });
+        } catch (telemetryError) {
+          console.warn('⚠️ Telemetry failed for mood queue event:', telemetryError);
+        }
+        
+      } catch (queueError) {
+        console.error('❌ CRITICAL: Failed to add mood entry to offline sync queue:', queueError);
+        
+        // Track critical failure
+        try {
+          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+            event: 'mood_queue_addition_failed',
+            entryId: moodEntry.id,
+            userId: moodEntry.user_id,
+            error: queueError instanceof Error ? queueError.message : String(queueError),
+            severity: 'critical'
+          });
+        } catch {}
+      }
     }
 
     return moodEntry;
@@ -413,6 +469,81 @@ class MoodTrackingService {
     } catch (error) {
       console.error('❌ Failed to delete mood entry from local storage:', error);
       throw error;
+    }
+  }
+
+  /**
+   * ✅ NEW: Auto-recover unsynchronized mood entries on app startup
+   * This method should be called during app initialization to ensure no mood data is lost
+   */
+  async autoRecoverUnsyncedEntries(userId: string): Promise<{ recovered: number; failed: number }> {
+    if (!userId) {
+      console.warn('⚠️ autoRecoverUnsyncedEntries: userId is required');
+      return { recovered: 0, failed: 0 };
+    }
+
+    try {
+      console.log('🔄 Auto-recovering unsynced mood entries...');
+      
+      const unsyncedEntries = await this.getUnsyncedEntries(userId);
+      if (unsyncedEntries.length === 0) {
+        console.log('✅ No unsynced mood entries found');
+        return { recovered: 0, failed: 0 };
+      }
+
+      console.log(`📊 Found ${unsyncedEntries.length} unsynced mood entries, adding to offline sync queue...`);
+      
+      let recovered = 0;
+      let failed = 0;
+      
+      // Add unsynced entries to offline sync queue for automatic processing
+      const { offlineSyncService } = await import('@/services/offlineSync');
+      
+      for (const entry of unsyncedEntries) {
+        try {
+          await offlineSyncService.addToSyncQueue({
+            type: 'CREATE',
+            entity: 'mood_entry',
+            data: {
+              user_id: entry.user_id,
+              mood_score: entry.mood_score,
+              energy_level: entry.energy_level,
+              anxiety_level: entry.anxiety_level,
+              notes: entry.notes || '',
+              triggers: entry.triggers || [],
+              activities: entry.activities || [],
+              timestamp: entry.timestamp,
+              local_entry_id: entry.id
+            },
+            priority: 'high' as any,
+            deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device'
+          });
+          recovered++;
+        } catch (error) {
+          console.error(`❌ Failed to queue mood entry ${entry.id}:`, error);
+          failed++;
+        }
+      }
+
+      console.log(`✅ Auto-recovery complete: ${recovered} queued, ${failed} failed`);
+
+      // Track recovery telemetry
+      try {
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          event: 'mood_auto_recovery_completed',
+          userId: userId,
+          totalUnsynced: unsyncedEntries.length,
+          recovered: recovered,
+          failed: failed
+        });
+      } catch {}
+
+      return { recovered, failed };
+      
+    } catch (error) {
+      console.error('❌ Auto-recovery failed:', error);
+      return { recovered: 0, failed: 0 };
     }
   }
 

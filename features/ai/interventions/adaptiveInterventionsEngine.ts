@@ -245,7 +245,7 @@ class AdaptiveInterventionsEngineImpl {
   }
 
   /**
-   * 📊 Get activity context
+   * 📊 Get activity context - ✅ ENHANCED with reliable mood source
    */
   private async getActivityContext(userId: string): Promise<ActivityContext> {
     try {
@@ -259,10 +259,8 @@ class AdaptiveInterventionsEngineImpl {
       const exercisesData = await AsyncStorage.getItem(exercisesKey);
       const exercises = exercisesData ? JSON.parse(exercisesData) : [];
       
-      // Get current mood
-      const moodKey = `current_mood_${userId}`;
-      const moodData = await AsyncStorage.getItem(moodKey);
-      const currentMood = moodData ? parseInt(moodData) : 5;
+      // ✅ NEW: Get current mood from reliable sources with fallback strategy
+      const currentMood = await this.getReliableMoodData(userId);
       
       // Determine current activity
       const currentActivity = await this.inferCurrentActivity(userId);
@@ -283,6 +281,171 @@ class AdaptiveInterventionsEngineImpl {
         recentActivities: [],
         screenTime: 0
       };
+    }
+  }
+
+  /**
+   * ✅ NEW: Get reliable mood data with multi-layer fallback strategy
+   * Priority: UnifiedAI Pipeline → MoodTrackingService → Supabase → Cache → Smart Default
+   */
+  private async getReliableMoodData(userId: string): Promise<number | undefined> {
+    const fallbackLog: string[] = [];
+    
+    try {
+      // ✅ LAYER 1: Try UnifiedAI Pipeline (most recent analysis)
+      try {
+        const { unifiedPipeline } = await import('@/features/ai/pipeline');
+        // Check for recent mood analysis in pipeline cache
+        const cacheKey = `unified_mood_${userId}`;
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          if (cachedData.metadata?.mood_score && Date.now() - cachedData.timestamp < 30 * 60 * 1000) { // 30 min
+            const moodScore = cachedData.metadata.mood_score;
+            if (moodScore >= 1 && moodScore <= 10) {
+              console.log('🎯 Mood from UnifiedAI Pipeline cache:', moodScore);
+              await this.cacheMoodData(userId, moodScore, 'unified_pipeline');
+              return moodScore;
+            }
+          }
+        }
+        fallbackLog.push('UnifiedAI Pipeline: no recent cached analysis');
+      } catch (error) {
+        fallbackLog.push(`UnifiedAI Pipeline: ${error}`);
+      }
+
+      // ✅ LAYER 2: Try MoodTrackingService (local storage)
+      try {
+        const { default: moodTrackingService } = await import('@/services/moodTrackingService');
+        const lastEntry = await moodTrackingService.getLastMoodEntry(userId);
+        if (lastEntry && lastEntry.mood_score) {
+          const moodScore = lastEntry.mood_score;
+          console.log('🎯 Mood from MoodTrackingService:', moodScore);
+          await this.cacheMoodData(userId, moodScore, 'mood_service');
+          return moodScore;
+        }
+        fallbackLog.push('MoodTrackingService: no recent entries');
+      } catch (error) {
+        fallbackLog.push(`MoodTrackingService: ${error}`);
+      }
+
+      // ✅ LAYER 3: Try Supabase direct (remote storage)
+      try {
+        const { default: supabaseService } = await import('@/services/supabase');
+        const moodEntries = await supabaseService.getMoodEntries(userId, 1);
+        if (moodEntries.length > 0 && moodEntries[0].mood_score) {
+          const moodScore = moodEntries[0].mood_score;
+          console.log('🎯 Mood from Supabase:', moodScore);
+          await this.cacheMoodData(userId, moodScore, 'supabase');
+          return moodScore;
+        }
+        fallbackLog.push('Supabase: no mood entries');
+      } catch (error) {
+        fallbackLog.push(`Supabase: ${error}`);
+      }
+
+      // ✅ LAYER 4: Try adaptive cache (local cache)
+      try {
+        const cachedMood = await this.getCachedMoodData(userId);
+        if (cachedMood) {
+          console.log('🎯 Mood from cache:', cachedMood);
+          return cachedMood;
+        }
+        fallbackLog.push('Cache: no cached mood');
+      } catch (error) {
+        fallbackLog.push(`Cache: ${error}`);
+      }
+
+      // ✅ LAYER 5: Smart default calculation (user profile based)
+      const smartDefault = await this.calculateSmartMoodDefault(userId);
+      console.log('🎯 Smart default mood calculated:', smartDefault);
+      console.log('🔄 Mood fallback chain:', fallbackLog.join(' → '));
+      
+      return smartDefault;
+
+    } catch (error) {
+      console.error('❌ All mood sources failed:', error);
+      // Ultimate fallback: neutral mood with slight positivity bias
+      return 6; // Slightly above neutral, optimistic default
+    }
+  }
+
+  /**
+   * ✅ Cache mood data for quick retrieval
+   */
+  private async cacheMoodData(userId: string, moodScore: number, source: string): Promise<void> {
+    try {
+      const cacheKey = `adaptive_mood_${userId}`;
+      const cacheData = {
+        moodScore,
+        source,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + (15 * 60 * 1000) // 15 minutes
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+      console.warn('⚠️ Failed to cache mood data:', error);
+    }
+  }
+
+  /**
+   * ✅ Get cached mood data
+   */
+  private async getCachedMoodData(userId: string): Promise<number | null> {
+    try {
+      const cacheKey = `adaptive_mood_${userId}`;
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.expiresAt > Date.now()) {
+          return data.moodScore;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.warn('⚠️ Failed to get cached mood:', error);
+      return null;
+    }
+  }
+
+  /**
+   * ✅ Calculate smart mood default based on user patterns
+   */
+  private async calculateSmartMoodDefault(userId: string): Promise<number> {
+    try {
+      // Try to get user profile for baseline
+      const profileKey = `user_profile_${userId}`;
+      const profile = await AsyncStorage.getItem(profileKey);
+      
+      if (profile) {
+        const userData = JSON.parse(profile);
+        // Use morning mood or motivation as baseline
+        if (userData.first_mood?.score) {
+          const baselineScore = userData.first_mood.score;
+          // Slight decay factor for realistic expectation
+          return Math.max(1, Math.min(10, baselineScore * 0.9));
+        }
+        if (userData.motivation) {
+          // Convert motivation to mood scale
+          const motivationMap = {
+            'low': 4,
+            'medium': 6,
+            'high': 7
+          };
+          return motivationMap[userData.motivation] || 6;
+        }
+      }
+
+      // Time-based smart default
+      const hour = new Date().getHours();
+      if (hour >= 6 && hour < 12) return 7;  // Morning optimism
+      if (hour >= 12 && hour < 18) return 6; // Afternoon neutral-positive
+      if (hour >= 18 && hour < 22) return 5; // Evening relaxed
+      return 4; // Late night lower energy
+
+    } catch (error) {
+      console.warn('⚠️ Smart default calculation failed:', error);
+      return 6; // Neutral positive fallback
     }
   }
 

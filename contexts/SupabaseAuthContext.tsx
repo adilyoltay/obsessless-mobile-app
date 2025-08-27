@@ -238,6 +238,18 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       } catch (error) {
         console.error('❌ Failed to hydrate onboarding store:', error);
       }
+
+      // ✅ NEW: Auto-recover unsynced mood entries on user login
+      try {
+        const { default: moodTrackingService } = await import('@/services/moodTrackingService');
+        const recoveryResult = await moodTrackingService.autoRecoverUnsyncedEntries(user.id);
+        if (recoveryResult.recovered > 0 || recoveryResult.failed > 0) {
+          console.log(`🔄 Mood auto-recovery completed: ${recoveryResult.recovered} queued, ${recoveryResult.failed} failed`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to auto-recover mood entries:', error);
+        // Non-critical error - don't prevent user login
+      }
       
       // Check if onboarding profile exists in user_profiles table
       let userProfile = await supabaseService.getUserProfile(user.id, { cacheMs: 120000 });
