@@ -172,4 +172,14 @@ if (__DEV__) {
   }).catch(error => {
     console.warn('⚠️ Failed to load advanced mood deletion debug tests:', error);
   });
+  
+  // Simpler backup debug tools
+  import('./debugMoodDeletionSimple').then((module) => {
+    (global as any).simpleScanMoodEntry = module.simpleScanMoodEntry;
+    (global as any).listAllMoodEntries = module.listAllMoodEntries;
+    (global as any).simpleCleanupKey = module.simpleCleanupKey;
+    console.log('🔍 Simple Mood Deletion debug loaded - use simpleScanMoodEntry(), listAllMoodEntries()');
+  }).catch(error => {
+    console.warn('⚠️ Failed to load simple debug tests:', error);
+  });
 } 
