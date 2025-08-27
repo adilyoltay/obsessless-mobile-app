@@ -10,6 +10,7 @@ import { syncCircuitBreaker } from '@/utils/circuitBreaker';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { isUUID } from '@/utils/validators';
 import { generateSecureId } from '@/utils/idGenerator';
+import { idempotencyService } from '@/services/idempotencyService';
 
 export interface SyncQueueItem {
   id: string;
@@ -242,6 +243,40 @@ export class OfflineSyncService {
       batchId: (item as any).batchId
     };
 
+    // 🛡️ IDEMPOTENCY CHECK: Prevent duplicate mood entries in sync queue
+    if (syncItem.entity === 'mood_entry' && syncItem.data?.local_entry_id) {
+      // Check if this local entry ID is already in the sync queue
+      const existingItem = this.syncQueue.find(existingItem => 
+        existingItem.entity === 'mood_entry' && 
+        existingItem.data?.local_entry_id === syncItem.data.local_entry_id
+      );
+      
+      if (existingItem) {
+        console.log(`🛡️ Duplicate mood entry in sync queue prevented: ${syncItem.data.local_entry_id}`);
+        return;
+      }
+      
+      // Also check if this entry is already processed via idempotency service
+      const userId = syncItem.data.user_id || syncItem.data.userId;
+      if (userId) {
+        const idempotencyResult = await idempotencyService.checkMoodEntryIdempotency({
+          user_id: userId,
+          mood_score: syncItem.data.mood_score || 50,
+          energy_level: syncItem.data.energy_level || 5,
+          anxiety_level: syncItem.data.anxiety_level || 5,
+          notes: syncItem.data.notes || '',
+          triggers: syncItem.data.triggers || [],
+          activities: syncItem.data.activities || [],
+          timestamp: new Date(syncItem.timestamp).toISOString()
+        });
+        
+        if (idempotencyResult.isDuplicate && !idempotencyResult.shouldQueue) {
+          console.log(`🛡️ Mood entry already processed, skipping queue: ${syncItem.data.local_entry_id}`);
+          return;
+        }
+      }
+    }
+
     // 🚨 CRITICAL FIX: Check queue size limit before adding
     if (this.syncQueue.length >= OfflineSyncService.MAX_QUEUE_SIZE) {
       await this.handleQueueOverflow();
@@ -349,8 +384,19 @@ export class OfflineSyncService {
           } catch (error) {
             // ✅ NEW: Update performance metrics for failed sync
             this.updateMetrics(false, Date.now() - startedAt);
-            // Increment retry count and backoff per-item
+            
+            // 🛡️ Mark mood entry as failed in idempotency service
             const queueItem = this.syncQueue.find(q => q.id === current.id);
+            if (queueItem?.entity === 'mood_entry' && queueItem.data?.local_entry_id) {
+              try {
+                await idempotencyService.markAsFailed(queueItem.data.local_entry_id);
+                console.log(`❌ Marked mood entry sync as failed: ${queueItem.data.local_entry_id}`);
+              } catch (idempotencyError) {
+                console.warn('⚠️ Failed to mark mood entry as failed in idempotency service:', idempotencyError);
+              }
+            }
+            
+            // Increment retry count and backoff per-item
             if (queueItem) {
               queueItem.retryCount = (queueItem.retryCount || 0) + 1;
               failed.push(queueItem);
@@ -565,6 +611,29 @@ export class OfflineSyncService {
     };
 
     await (svc as any).saveMoodEntry(entry);
+    
+    // ✅ Mark as successfully synced in idempotency service
+    if (raw.local_entry_id) {
+      try {
+        // Generate content hash for marking as processed  
+        const timestamp = raw.timestamp || new Date().toISOString();
+        const utcDay = timestamp.slice(0, 10);
+        const notes = (entry.notes || '').trim().toLowerCase();
+        const contentText = `${entry.user_id}|${Math.round(entry.mood_score)}|${Math.round(entry.energy_level)}|${Math.round(entry.anxiety_level)}|${notes}|${utcDay}`;
+        let hash = 0;
+        for (let i = 0; i < contentText.length; i++) {
+          const char = contentText.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash;
+        }
+        const contentHash = Math.abs(hash).toString(36);
+        
+        await idempotencyService.markAsProcessed(raw.local_entry_id, contentHash, userId);
+        console.log(`✅ Marked mood entry as synced: ${raw.local_entry_id}`);
+      } catch (error) {
+        console.warn('⚠️ Failed to mark mood entry as processed in idempotency service:', error);
+      }
+    }
   }
 
   // ✅ F-04 FIX: Complete DELETE implementation for voice checkins

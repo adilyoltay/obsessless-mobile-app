@@ -4,6 +4,7 @@ import batchOptimizer from '@/services/sync/batchOptimizer';
 import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { generatePrefixedId } from '@/utils/idGenerator';
+import { idempotencyService } from '@/services/idempotencyService';
 
 export interface MoodEntry {
   id: string;
@@ -139,10 +140,36 @@ class MoodTrackingService {
   }
 
   async saveMoodEntry(entry: Omit<MoodEntry, 'id' | 'timestamp' | 'synced'>): Promise<MoodEntry> {
+    // 🛡️ IDEMPOTENCY CHECK: Prevent duplicate mood entries
+    const idempotencyResult = await idempotencyService.checkMoodEntryIdempotency({
+      user_id: entry.user_id,
+      mood_score: entry.mood_score,
+      energy_level: entry.energy_level,
+      anxiety_level: entry.anxiety_level,
+      notes: entry.notes,
+      triggers: entry.triggers,
+      activities: entry.activities
+    });
+
+    // ✅ DUPLICATE DETECTED: Return existing entry metadata
+    if (idempotencyResult.isDuplicate && !idempotencyResult.shouldProcess) {
+      console.log(`🛡️ Duplicate mood entry prevented: ${idempotencyResult.localEntryId}`);
+      
+      // Return a mock entry with consistent ID for caller compatibility
+      return {
+        ...entry,
+        id: idempotencyResult.localEntryId,
+        timestamp: idempotencyResult.existingEntry?.timestamp || new Date().toISOString(),
+        synced: idempotencyResult.existingEntry?.processed || false,
+        sync_attempts: idempotencyResult.existingEntry?.attempts || 0,
+      };
+    }
+
+    // ✅ SAFE TO PROCESS: Create mood entry with consistent local ID
     const moodEntry: MoodEntry = {
       ...entry,
-      // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
-      id: generatePrefixedId('mood'),
+      // 🎯 Use consistent local entry ID from idempotency service
+      id: idempotencyResult.localEntryId,
       timestamp: new Date().toISOString(),
       synced: false,
       sync_attempts: 0,
@@ -163,9 +190,23 @@ class MoodTrackingService {
         trigger: moodEntry.triggers?.[0] || '', // Keep backward compatibility
         timestamp: moodEntry.timestamp, // Preserve original creation time for idempotency
       });
+      
+      // ✅ Mark as successfully processed in idempotency service
+      await idempotencyService.markAsProcessed(
+        idempotencyResult.localEntryId,
+        idempotencyResult.contentHash,
+        moodEntry.user_id
+      );
+      
       await this.markAsSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
       console.warn('❌ Mood entry Supabase save failed, adding to offline sync queue:', e);
+      
+      // 🛡️ Check if we should queue (idempotency service prevents double-queuing)
+      if (!idempotencyResult.shouldQueue) {
+        console.log(`🛡️ Skipping sync queue - already queued: ${idempotencyResult.localEntryId}`);
+        return moodEntry;
+      }
       
       // ✅ FIXED: Increment sync attempt for tracking
       await this.incrementSyncAttempt(moodEntry.id, moodEntry.user_id);
@@ -192,6 +233,13 @@ class MoodTrackingService {
           deviceId: await AsyncStorage.getItem('device_id') || 'unknown_device'
         });
         
+        // ✅ Mark as queued in idempotency service
+        await idempotencyService.markAsQueued(
+          idempotencyResult.localEntryId,
+          idempotencyResult.contentHash,
+          moodEntry.user_id
+        );
+        
         console.log('✅ Failed mood entry added to offline sync queue:', moodEntry.id);
         
         // Track successful queue addition
@@ -207,8 +255,11 @@ class MoodTrackingService {
           console.warn('⚠️ Telemetry failed for mood queue event:', telemetryError);
         }
         
-      } catch (queueError) {
+              } catch (queueError) {
         console.error('❌ CRITICAL: Failed to add mood entry to offline sync queue:', queueError);
+        
+        // ❌ Mark as failed in idempotency service for potential retry
+        await idempotencyService.markAsFailed(idempotencyResult.localEntryId);
         
         // Track critical failure
         try {
@@ -222,6 +273,17 @@ class MoodTrackingService {
           });
         } catch {}
       }
+    }
+
+    // 🧹 Periodic cleanup of old idempotency entries (1% chance per save)
+    if (Math.random() < 0.01) {
+      try {
+        idempotencyService.cleanupOldEntries().then(deletedCount => {
+          if (deletedCount > 0) {
+            console.log(`🧹 Background cleanup: removed ${deletedCount} old idempotency entries`);
+          }
+        }).catch(() => {}); // Silent failure for background cleanup
+      } catch {} // Silent failure
     }
 
     return moodEntry;
