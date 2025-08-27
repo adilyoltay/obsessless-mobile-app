@@ -427,8 +427,9 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         
         // Try to track the failure for recovery later
         try {
-          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'onboarding_mood_save_failed',
             userId: uidForKey,
             moodScore: payload.first_mood.score,
@@ -570,7 +571,8 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
     // ✅ STEP 8: NON-CRITICAL - Analytics Tracking (important but not blocking)
     try {
-      await trackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
+      const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+      await safeTrackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
         userId: uidForKey,
         durationMs,
         steps: get().step + 1,

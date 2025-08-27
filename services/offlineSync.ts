@@ -199,8 +199,9 @@ export class OfflineSyncService {
       });
       
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'invalid_sync_item_dropped',
           entity: item.entity,
           type: item.type,
@@ -252,8 +253,9 @@ export class OfflineSyncService {
     // 📊 Queue health telemetry
     if (this.syncQueue.length > OfflineSyncService.MAX_QUEUE_SIZE * 0.8) {
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'sync_queue_near_capacity',
           queueSize: this.syncQueue.length,
           maxSize: OfflineSyncService.MAX_QUEUE_SIZE,
@@ -954,8 +956,9 @@ export class OfflineSyncService {
 
       // 📊 Telemetry: Report queue overflow
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'sync_queue_overflow_handled',
           movedToDLQ: itemsToMove.length,
           newQueueSize: this.syncQueue.length,
