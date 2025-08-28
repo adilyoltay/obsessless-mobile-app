@@ -47,24 +47,8 @@ import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
-// AI Integration - Sprint 7 via Context
-import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
-// import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay'; // REMOVED - Kullanıcı için çok teknik
-// Removed CoreAnalysisService - using UnifiedAIPipeline only
-
-// Unified AI Pipeline (ACTIVE - Jan 2025)
-import * as pipeline from '@/features/ai-fallbacks/pipeline';
-// import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
-
-import { unifiedGamificationService } from '@/features/ai-fallbacks/gamification';
-
-// 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
-import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
-import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
-import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai-fallbacks/insights';
-import QualityRibbon from '@/components/ui/QualityRibbon';
-// import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay'; // REMOVED - File deleted
+// 🚫 AI Integration - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+// All AI imports removed - using only static suggestions and basic CRUD
 
 // Art Therapy removed
 // Risk assessment UI removed
@@ -84,12 +68,13 @@ export default function TodayScreen() {
   
 
   
-  // AI Integration via Context
-  const { isInitialized: aiInitialized, availableFeatures } = useAI();
-  const { hasCompletedOnboarding } = useAIUserData();
-  const { generateInsights } = useAIActions();
+  // 🚫 AI Integration - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+  // const { isInitialized: aiInitialized, availableFeatures } = useAI();
+  // const { hasCompletedOnboarding } = useAIUserData();
+  // const { generateInsights } = useAIActions();
   
-  // 🔍 DEBUG: Monitor AI state changes
+  // 🚫 AI State Monitoring - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+  /*
   useEffect(() => {
     console.log('🔄 AI State Update:', {
       aiInitialized,
@@ -97,18 +82,19 @@ export default function TodayScreen() {
       hasAIInsights: availableFeatures.includes('AI_INSIGHTS')
     });
   }, [aiInitialized, availableFeatures]);
+  */
   
-  // 🔄 Retry loadAIInsights when AI becomes initialized
+  // 🚫 AI Retry Logic - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+  /*
   const aiInitRetryRef = useRef(false);
   useEffect(() => {
     if (aiInitialized && availableFeatures.includes('AI_INSIGHTS') && user?.id && !aiInitRetryRef.current) {
       console.log('🚀 AI became available, retrying loadAIInsights...');
       aiInitRetryRef.current = true;
-      // Note: loadAIInsights defined later, React may warn but functionality works
       loadAIInsights();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiInitialized, availableFeatures, user?.id]);
+  */
 
 
   
@@ -161,11 +147,12 @@ export default function TodayScreen() {
 
 
   
-  // 🎯 Adaptive Interventions State (JITAI)
-  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
-  const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
-  const adaptiveRef = useRef<boolean>(false); // Prevent duplicate triggers
-  const { generateSuggestion, snoozeSuggestion, trackSuggestionClick, trackSuggestionDismissal, loading: adaptiveLoading } = useAdaptiveSuggestion();
+  // 🚫 Adaptive Interventions - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+  // const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  // 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+  // const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null);
+  // const adaptiveRef = useRef<boolean>(false);
+  // const { generateSuggestion, snoozeSuggestion, trackSuggestionClick, trackSuggestionDismissal, loading: adaptiveLoading } = useAdaptiveSuggestion();
 
   // 🔍 DEBUG: Monitor adaptive suggestion state changes
   useEffect(() => {
@@ -215,13 +202,14 @@ export default function TodayScreen() {
     React.useCallback(() => {
       if (user?.id) {
         console.log('🔄 Today screen focused, refreshing stats...');
-        console.log('🔄 Current AI state on focus:', { aiInitialized, featuresCount: availableFeatures.length });
+        // 🚫 AI State Logging - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+        // console.log('🔄 Current AI state on focus:', { aiInitialized, featuresCount: availableFeatures.length });
         onRefresh();
         
-        // 🎯 Reset adaptive suggestion ref for potential re-trigger
-        adaptiveRef.current = false;
+        // 🚫 Adaptive Suggestion Reset - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+        // adaptiveRef.current = false;
       }
-    }, [user?.id, aiInitialized, availableFeatures])
+    }, [user?.id])
   );
 
   /**
@@ -314,10 +302,14 @@ export default function TodayScreen() {
 
 
   /**
-   * 🤖 Load AI Insights - Simplified for Adaptive Suggestions Only
+   * 🚫 Load AI Insights - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
    */
   const loadAIInsights = async () => {
-    // 🔍 DEBUG: Log all conditions
+    console.log('✅ loadAIInsights skipped (AI disabled)');
+    return;
+    
+    // 🚫 All AI logic disabled below
+    /*
     console.log('🔍 loadAIInsights conditions:', {
       userId: !!user?.id,
       aiInitialized,
@@ -331,6 +323,7 @@ export default function TodayScreen() {
       });
       return;
     }
+    */
     
     console.log('✅ loadAIInsights proceeding...');
     
@@ -378,94 +371,13 @@ export default function TodayScreen() {
             allBreathworkSessions = breathworkData ? JSON.parse(breathworkData) : [];
           }
 
-          // Deep analysis phase - run unified pipeline analysis
-          console.log('🔍 Starting unified pipeline analysis for Today...');
-          
-          let pipelineResult = null;
-          try {
-            // Process all module data through unified pipeline
-            pipelineResult = await pipeline.process({
-              userId: user.id,
-              content: {
-                moodEntries,
-                breathworkSessions: allBreathworkSessions
-              },
-              type: 'mixed',
-              context: {
-                source: 'today',
-                timestamp: Date.now(),
-                metadata: {
-                  includeAllModules: true,
-                  privacy: {
-                    piiSanitized: true,
-                    encryptionLevel: 'sanitized_plaintext'
-                  }
-                }
-              }
-            });
-            
-            console.log('📊 Today Pipeline Analysis completed:', {
-              insights: pipelineResult.insights?.therapeutic?.length || 0,
-              patterns: Array.isArray(pipelineResult.patterns) ? pipelineResult.patterns.length : 0,
-              source: pipelineResult.metadata?.source
-            });
-          } catch (pipelineError) {
-            console.warn('⚠️ Today pipeline analysis failed:', pipelineError);
-          }
+          // 🚫 Deep analysis phase - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+          console.log('✅ Skipping AI pipeline analysis (AI disabled)');
           
           console.log('✅ Phase 2: Deep insights loaded with ALL MODULE DATA');
           
-          // 🎯 TRIGGER ADAPTIVE SUGGESTION after deep insights complete
-          if (user?.id && !adaptiveRef.current) {
-            console.log('🎯 Triggering adaptive suggestion after deep insights...');
-            adaptiveRef.current = true; // Prevent duplicate calls
-            
-            try {
-              const suggestion = await generateSuggestion(user.id);
-              if (suggestion.show) {
-                console.log('💡 Adaptive suggestion generated:', suggestion.category);
-                setAdaptiveSuggestion(suggestion);
-                console.log('✅ AdaptiveSuggestion STATE SET:', { suggestion, show: suggestion.show });
-                
-                // 📊 GENERATE QUALITY METADATA from pipeline result (if available) or fallback
-                try {
-                  if (pipelineResult) {
-                    // Use pipeline result to generate quality metadata (like mood page)
-                    // Map suggestion category to InsightCategory (mood/breathwork only)
-                    const getInsightCategory = (suggestedCategory?: string): 'mood' | 'breathwork' | 'timeline' => {
-                      return suggestedCategory === 'breathwork' ? 'breathwork' : 'mood';
-                    };
-
-                    const registryItems = mapUnifiedResultToRegistryItems(pipelineResult, 'today', {
-                      trigger: 'today_analysis',
-                      baseCategory: getInsightCategory(suggestion.category),
-                    });
-                    const qualityMeta = extractUIQualityMeta(registryItems, 'suggestion');
-                    setAdaptiveMeta(qualityMeta);
-                    console.log('📊 Pipeline-based quality metadata set for Today suggestion:', qualityMeta);
-                  } else {
-                    // Fallback to heuristic estimation if no pipeline result
-                    setAdaptiveMeta({
-                      source: 'heuristic' as const,
-                      qualityLevel: 'medium' as const,
-                      sampleSize: undefined,
-                      freshnessMs: 0,
-                    });
-                    console.log('📊 Fallback quality metadata set for Today suggestion');
-                  }
-                } catch (metaError) {
-                  console.warn('⚠️ Quality metadata generation failed:', metaError);
-                  setAdaptiveMeta(null);
-                }
-              } else {
-                console.log('🚫 No adaptive suggestion at this time');
-                setAdaptiveMeta(null);
-              }
-            } catch (error) {
-              console.warn('⚠️ Adaptive suggestion generation failed:', error);
-              setAdaptiveMeta(null);
-            }
-          }
+          // 🚫 ADAPTIVE SUGGESTIONS - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+          console.log('✅ Skipping adaptive suggestion generation (AI disabled)');
         } catch (error) {
           console.warn('⚠️ Phase 2 deep analysis failed:', error);
         } finally {
@@ -578,8 +490,8 @@ export default function TodayScreen() {
         return;
       }
       
-      // 🗑️ Manual refresh - invalidate all AI caches
-      pipeline.triggerInvalidation('manual_refresh', user.id);
+      // 🚫 AI Cache Invalidation - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+      // pipeline.triggerInvalidation('manual_refresh', user.id);
 
       // 🌍 TIMEZONE-AWARE: Use timezone-safe date operations  
       const { isSameDayInUserTimezone, toUserLocalDate } = require('@/utils/timezoneUtils');
@@ -790,23 +702,26 @@ export default function TodayScreen() {
   /**
    * 🎯 Handle Adaptive Suggestion CTA
    */
-  const handleAdaptiveSuggestionAccept = async (suggestion: AdaptiveSuggestion) => {
-    if (!user?.id || !suggestion.cta) return;
+  const handleAdaptiveSuggestionAccept = async (suggestion: any) => {
+    console.log('✅ handleAdaptiveSuggestionAccept skipped (AI disabled)');
+    return; // 🚫 AI DISABLED - Sprint 2: Hard Stop AI Fallbacks
+    
+    // if (!user?.id || !suggestion.cta) return;
 
     try {
       const clickTime = Date.now();
       
-      // Track click event in telemetry
-      await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
-        userId: user.id,
-        category: suggestion.category,
-        source: 'today', // Today screen is the source
-        targetScreen: suggestion.cta.screen,
-        hasNavigation: !!suggestion.cta.screen
-      });
+      // 🚫 AI Telemetry - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+      // await trackAIInteraction(AIEventType.ADAPTIVE_SUGGESTION_CLICKED, {
+      //   userId: user.id,
+      //   category: suggestion.category,
+      //   source: 'today',
+      //   targetScreen: suggestion.cta.screen,
+      //   hasNavigation: !!suggestion.cta.screen
+      // });
       
-      // 📊 Track click in analytics
-      await trackSuggestionClick(user.id, suggestion);
+      // 🚫 Analytics tracking - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+      // await trackSuggestionClick(user.id, suggestion);
 
       // Navigate based on CTA
       switch (suggestion.cta.screen) {
@@ -871,8 +786,11 @@ export default function TodayScreen() {
   /**
    * 😴 Handle Adaptive Suggestion Dismiss (Snooze)
    */
-  const handleAdaptiveSuggestionDismiss = async (suggestion: AdaptiveSuggestion) => {
-    if (!user?.id) return;
+  const handleAdaptiveSuggestionDismiss = async (suggestion: any) => {
+    console.log('✅ handleAdaptiveSuggestionDismiss skipped (AI disabled)');
+    return; // 🚫 AI DISABLED - Sprint 2: Hard Stop AI Fallbacks
+    
+    // if (!user?.id) return;
 
     try {
       const snoozeHours = 2;
@@ -903,10 +821,10 @@ export default function TodayScreen() {
     if (routingResult) {
       console.log('🧭 Smart routing result:', routingResult);
       
-      // Track successful routing  
-      trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        userId: user?.id,
-        routeType: routingResult.type,
+      // 🚫 AI Telemetry - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+      // trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+      //   userId: user?.id,
+      //   routeType: routingResult.type,
         confidence: routingResult.confidence,
         source: 'voice_checkin'
       });
@@ -1105,14 +1023,9 @@ export default function TodayScreen() {
       >
         {renderHeroSection()}
         
-        {/* 🎯 Adaptive Intervention Suggestion Card (JITAI) */}
-        {adaptiveSuggestion?.show && (
-          <AdaptiveSuggestionCard
-            suggestion={adaptiveSuggestion}
-            onAccept={handleAdaptiveSuggestionAccept}
-            onDismiss={handleAdaptiveSuggestionDismiss}
-            meta={adaptiveMeta}
-          />
+        {/* 🚫 Adaptive Intervention - DISABLED (Sprint 2: Hard Stop AI Fallbacks) */}
+        {false && adaptiveSuggestion?.show && (
+          <></>
         )}
         
 
