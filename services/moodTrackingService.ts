@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
-import { IntelligentMoodMergeService } from '@/features/ai-fallbacks/intelligentMoodMergeService';
+import { intelligentMergeService } from '@/features/ai-fallbacks/intelligentMoodMergeService';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
@@ -710,8 +710,7 @@ class MoodTrackingService {
             remoteCount: remoteEntries.length
           });
           
-          const intelligentMergeService = new IntelligentMoodMergeService();
-          const mergeResult = await intelligentMergeService.intelligentMoodMerge(userId, localEntries, remoteEntries);
+          const mergeResult = await intelligentMergeService.intelligentMoodMerge(localEntries, remoteEntries);
           
           console.log('✅ Intelligent merge completed:', {
             totalEntries: mergeResult.mergedEntries.length,
