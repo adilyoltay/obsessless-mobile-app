@@ -265,15 +265,17 @@ export default function MoodScreen() {
       console.log('🎯 UnifiedAIPipeline mood analysis completed:', result);
 
       // 📊 TELEMETRY: Track pipeline completion
-      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
-        source: 'mood_screen',
-        cacheHit: result.metadata?.source === 'cache',
-        moduleCount: 1,
-        dataPoints: sanitized.length,
-        processingTime: result.metadata?.processingTime || 0
-      }, user.id);
+      // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+      //   source: 'mood_screen',
+      //   cacheHit: result.metadata?.source === 'cache',
+      //   moduleCount: 1,
+      //   dataPoints: sanitized.length,
+      //   processingTime: result.metadata?.processingTime || 0
+      // }, user.id);
 
       // 🎯 ADAPTIVE SUGGESTIONS: Generate cross-module suggestion from pipeline
+      // AI Suggestions disabled - commenting out entire block
+      /*
       try {
         const suggestion = await generateSuggestionFromPipeline(user.id, result, 'mood');
         if (suggestion.show) {
@@ -303,6 +305,7 @@ export default function MoodScreen() {
         setAdaptiveSuggestion(null);
         setAdaptiveMeta(null);
       }
+      */
 
       // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format with enhanced metrics
       if (result.patterns) {
@@ -403,7 +406,7 @@ export default function MoodScreen() {
           console.log('💾 Patterns saved to cache successfully');
           
           // 📊 TELEMETRY: Track cache save
-          await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+          // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
             userId: user.id,
             patternsCount: mappedPatterns.length,
             entriesCount: entries.length,
@@ -418,7 +421,7 @@ export default function MoodScreen() {
         // 📊 TELEMETRY: Track enhanced metrics delivery
         const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
         if (enhancedMetricsCount > 0) {
-          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
             source: 'mood_screen_enhanced',
             enhancedPatternsCount: enhancedMetricsCount,
             dashboardMetricsTypes: mappedPatterns
@@ -479,7 +482,7 @@ export default function MoodScreen() {
         setPredictiveInsights(enhancedInsight);
         
         // 📊 Enhanced Telemetry for analytics usage
-        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
           source: 'mood_screen_enhanced_analytics',
           analyticsProfile: analytics.profile?.type,
           volatility: analytics.volatility,
@@ -576,7 +579,7 @@ export default function MoodScreen() {
       const insightsCount = (result.insights?.therapeutic?.length || 0) + (result.insights?.progress?.length || 0);
       const patternsCount = Array.isArray(result.patterns) ? result.patterns.length : 0;
       
-      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+      // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         source: 'mood_screen',
         insightsCount,
         patternsCount,
@@ -587,7 +590,7 @@ export default function MoodScreen() {
       console.error('❌ UnifiedAIPipeline mood analysis failed:', error);
       
       // 📊 TELEMETRY: Track pipeline error
-      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
+      // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
         source: 'mood_screen',
         error: error instanceof Error ? error.message : 'Unknown error',
         fallbackTriggered: true
@@ -687,7 +690,7 @@ export default function MoodScreen() {
         console.log('💾 Fallback patterns saved to cache successfully');
         
         // 📊 TELEMETRY: Track fallback cache save
-        await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+        // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
           userId: user.id,
           patternsCount: mergedPatterns.length,
           entriesCount: entries.length,
@@ -1237,7 +1240,7 @@ export default function MoodScreen() {
         console.log('💾 Pattern cache invalidated after mood entry save');
         
         // 📊 TELEMETRY: Track cache invalidation
-        await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+        // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
           userId: user.id,
           reason: 'mood_entry_added',
           timestamp: Date.now()
@@ -1393,12 +1396,12 @@ export default function MoodScreen() {
       setShowToast(true);
 
       // Track edit action
-      await trackAIInteraction('MOOD_ENTRY_EDIT', {
-        entryId: entry.id,
-        mood: entry.mood_score,
-        energy: entry.energy_level,
-        anxiety: entry.anxiety_level
-      });
+      // await trackAIInteraction('MOOD_ENTRY_EDIT', {
+      //   entryId: entry.id,
+      //   mood: entry.mood_score,
+      //   energy: entry.energy_level,
+      //   anxiety: entry.anxiety_level
+      // });
 
     } catch (error) {
       console.error('❌ Failed to edit entry:', error);
@@ -1433,7 +1436,7 @@ export default function MoodScreen() {
                 }
 
                 // Track delete action before deletion
-                await trackAIInteraction('MOOD_ENTRY_DELETE', {
+                // await trackAIInteraction('MOOD_ENTRY_DELETE', {
                   entryId: entryId,
                   mood: entryToDelete.mood_score,
                   energy: entryToDelete.energy_level,
@@ -1477,7 +1480,7 @@ export default function MoodScreen() {
                       }
                       
                       try {
-                        await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+                        // await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
                           entity: 'mood_entry', id: entryId, userId: user.id, priority: 'high'
                         }, user.id);
                       } catch {}
@@ -1542,7 +1545,7 @@ export default function MoodScreen() {
                     console.log('💾 Pattern cache invalidated after mood entry deletion');
                     
                     // 📊 TELEMETRY: Track cache invalidation for delete
-                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                    // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
                       userId: user.id,
                       reason: 'mood_entry_deleted',
                       entryId: entryId,
@@ -1591,7 +1594,7 @@ export default function MoodScreen() {
                     console.log('💾 Pattern cache invalidated after offline mood entry deletion');
                     
                     // 📊 TELEMETRY: Track cache invalidation for offline delete
-                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                    // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
                       userId: user.id,
                       reason: 'mood_entry_deleted_offline',
                       entryId: entryId,
@@ -1815,8 +1818,13 @@ export default function MoodScreen() {
         return;
       }
 
+      // Map field names to match database schema
       const entryData = {
-        ...moodData,
+        mood_score: moodData.mood || moodData.mood_score,
+        energy_level: moodData.energy || moodData.energy_level || 50,
+        anxiety_level: moodData.anxiety || moodData.anxiety_level || 50,
+        notes: moodData.notes || '',
+        trigger: moodData.trigger || '',
         user_id: user.id,
         created_at: new Date().toISOString()
       };
@@ -1830,7 +1838,7 @@ export default function MoodScreen() {
         setMoodEntries(prev => prev.map(entry => 
           entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
         ));
-      } else {
+        } else {
         // Create new entry
         const result = await moodTracker.addMoodEntry({
           mood_score: entryData.mood_score,
@@ -1843,7 +1851,7 @@ export default function MoodScreen() {
         if (result.success) {
           setToastMessage('Mood kaydı oluşturuldu ✅');
           await loadMoodEntries();
-        } else {
+      } else {
           throw new Error(result.error);
         }
       }
@@ -1964,7 +1972,7 @@ export default function MoodScreen() {
         {/* Mood Entries List */}
         <View style={styles.listSection}>
           <Text style={styles.sectionTitle}>Son Mood Kayıtları</Text>
-          
+
           {filteredEntries.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="emoticon-sad-outline" size={48} color="#E5E7EB" />
@@ -2012,14 +2020,14 @@ export default function MoodScreen() {
                         <View style={styles.metricItem}>
                           <MaterialCommunityIcons name="lightning-bolt" size={16} color="#6B7280" />
                           <Text style={styles.metricText}>Enerji: {entry.energy_level}</Text>
-                        </View>
+                    </View>
                         <View style={styles.metricItem}>
                           <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#6B7280" />
                           <Text style={styles.metricText}>Kaygı: {entry.anxiety_level}</Text>
                         </View>
                       </View>
                       <View style={styles.recordingActions}>
-                        <Pressable 
+                    <Pressable
                           style={styles.actionButton}
                           onPress={() => handleEditEntry(entry)}
                         >
@@ -2030,7 +2038,7 @@ export default function MoodScreen() {
                           onPress={() => handleDeleteEntry(entry.id)}
                         >
                           <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
-                        </Pressable>
+                    </Pressable>
                       </View>
                     </View>
                   </View>
@@ -2038,22 +2046,22 @@ export default function MoodScreen() {
               })}
             </View>
           )}
-          
+
           {/* Load More Button */}
           {moodEntries.length > displayLimit && (
-            <Pressable 
+              <Pressable
               style={styles.loadMoreButton}
               onPress={() => setDisplayLimit(displayLimit + 5)}
             >
               <Text style={styles.loadMoreText}>Daha Fazla Göster</Text>
-            </Pressable>
+              </Pressable>
           )}
         </View>
       </ScrollView>
 
       {/* FAB Button */}
-      <FAB
-        icon="plus"
+      <FAB 
+        icon="plus" 
         onPress={() => setShowQuickEntry(true)}
         style={styles.fab}
       />
@@ -2092,7 +2100,7 @@ export default function MoodScreen() {
               </ScrollView>
               <Button
                 title="Kapat"
-                onPress={() => setShowMoodDebug(false)}
+                  onPress={() => setShowMoodDebug(false)}
               />
             </View>
           </View>
