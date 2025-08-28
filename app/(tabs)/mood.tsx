@@ -1806,6 +1806,114 @@ export default function MoodScreen() {
 
 
 
+  // Handler Functions
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadMoodEntries();
+    setRefreshing(false);
+  };
+
+  const handleMoodSubmit = async (moodData: any) => {
+    try {
+      if (!user?.id) {
+        setToastMessage('Kullanıcı oturumu bulunamadı');
+        setShowToast(true);
+        return;
+      }
+
+      const entryData = {
+        ...moodData,
+        user_id: user.id,
+        created_at: new Date().toISOString()
+      };
+
+      if (editingEntry) {
+        // Update existing entry
+        await supabaseService.updateMoodEntry(editingEntry.id, entryData);
+        setToastMessage('Mood kaydı güncellendi ✅');
+        
+        // Update local state
+        setMoodEntries(prev => prev.map(entry => 
+          entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
+        ));
+      } else {
+        // Create new entry
+        const result = await moodTracker.addMoodEntry({
+          mood_score: entryData.mood_score,
+          energy_level: entryData.energy_level || 50,
+          anxiety_level: entryData.anxiety_level || 50,
+          notes: entryData.notes || '',
+          trigger: entryData.trigger || ''
+        });
+        
+        if (result.success) {
+          setToastMessage('Mood kaydı oluşturuldu ✅');
+          await loadMoodEntries();
+        } else {
+          throw new Error(result.error);
+        }
+      }
+
+      setShowToast(true);
+      setShowQuickEntry(false);
+      setEditingEntry(null);
+      
+      // Haptic feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Failed to save mood entry:', error);
+      setToastMessage('Mood kaydı kaydedilemedi ❌');
+      setShowToast(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const handleEditEntry = (entry: MoodEntry) => {
+    setEditingEntry(entry);
+    setShowQuickEntry(true);
+  };
+
+  const handleDeleteEntry = async (entryId: string) => {
+    Alert.alert(
+      'Mood Kaydını Sil',
+      'Bu kaydı silmek istediğinize emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await supabaseService.deleteMoodEntry(entryId);
+              setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
+              setToastMessage('Mood kaydı silindi');
+              setShowToast(true);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackStyle.Success);
+            } catch (error) {
+              console.error('Failed to delete mood entry:', error);
+              setToastMessage('Silme işlemi başarısız oldu');
+              setShowToast(true);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMoodDebugTest = () => {
+    setDebugReport({
+      entriesCount: moodEntries.length,
+      patterns: moodPatterns,
+      insights: predictiveInsights,
+      timestamp: new Date().toISOString()
+    });
+    setShowMoodDebug(true);
+  };
+
   const getFilteredEntries = () => {
     return moodEntries.slice(0, displayLimit);
   };
