@@ -1806,13 +1806,7 @@ export default function MoodScreen() {
 
 
 
-  // Handler Functions
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadMoodEntries();
-    setRefreshing(false);
-  };
-
+  // Handler Functions - handleMoodSubmit was missing
   const handleMoodSubmit = async (moodData: any) => {
     try {
       if (!user?.id) {
@@ -1866,52 +1860,6 @@ export default function MoodScreen() {
       setShowToast(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  };
-
-  const handleEditEntry = (entry: MoodEntry) => {
-    setEditingEntry(entry);
-    setShowQuickEntry(true);
-  };
-
-  const handleDeleteEntry = async (entryId: string) => {
-    Alert.alert(
-      'Mood Kaydını Sil',
-      'Bu kaydı silmek istediğinize emin misiniz?',
-      [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await supabaseService.deleteMoodEntry(entryId);
-              setMoodEntries(prev => prev.filter(entry => entry.id !== entryId));
-              setToastMessage('Mood kaydı silindi');
-              setShowToast(true);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackStyle.Success);
-            } catch (error) {
-              console.error('Failed to delete mood entry:', error);
-              setToastMessage('Silme işlemi başarısız oldu');
-              setShowToast(true);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleMoodDebugTest = () => {
-    setDebugReport({
-      entriesCount: moodEntries.length,
-      patterns: moodPatterns,
-      insights: predictiveInsights,
-      timestamp: new Date().toISOString()
-    });
-    setShowMoodDebug(true);
   };
 
   const getFilteredEntries = () => {
