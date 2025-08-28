@@ -84,11 +84,7 @@ export default function LiveTestRunnerScreen() {
     const moodTimes = makeTimestamps([48, 36, 30, 24, 18, 12, 8, 6, 4, 2]);
     const moods = moodTimes.map((ts, i) => ({ timestamp: ts, mood_score: i % 3 === 0 ? 3 : 4 }));
     // Compulsion seed removed
-    // CBT negative thought
-    const cbt = {
-      description:
-        'Ellerimi yeterince yıkamazsam kesin hasta olur ve aileme hastalık bulaştırırım. Bu yüzden 10 kez yıkamazsam rahat edemem.'
-    };
+    // CBT negative thought - removed
     // Run modules to produce live results
     // Optional: persist to DB
     if (dbWrite) {
@@ -105,7 +101,7 @@ export default function LiveTestRunnerScreen() {
           });
           append(`✓ mood[A#${i}] -> ${savedMood?.id || 'duplicate_prevented'}`);
         }
-        // CBT/Compulsion seeding removed
+        // Data seeding removed
       } catch (e) {
         append('❗DB write failed (A)');
       }
@@ -113,14 +109,14 @@ export default function LiveTestRunnerScreen() {
 
     const moodRes = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
-    // Tracking/CBT/OCD runs removed
+    // Tracking/OCD runs removed
     if (dbWrite) {
       await pipeline.triggerInvalidation('mood_added', uid);
       // invalidations simplified
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
         append(`✓ supabase mood (7gün): ${moodsFetched?.length ?? 0}`);
-        // cbt fetch removed
+        // fetch operations removed
       } catch {}
     }
     append('✔ scenarioA:sad+contamination => pass');
@@ -133,10 +129,7 @@ export default function LiveTestRunnerScreen() {
     const moodTimes = makeTimestamps([72, 60, 48, 36, 24, 12, 6, 3]);
     const moods = moodTimes.map((ts, i) => ({ timestamp: ts, mood_score: i % 2 === 0 ? 5 : 4 }));
     // Compulsion seed removed
-    const cbt = {
-      description:
-        'Evi kilitlemediğimi düşünürsem kesin hırsız girecek ve sorumlusu ben olacağım. O yüzden tekrar tekrar kontrol etmeliyim.'
-    };
+    // CBT negative thought - removed
     if (dbWrite) {
       try {
         for (let i = 0; i < moods.length; i++) {
@@ -151,7 +144,7 @@ export default function LiveTestRunnerScreen() {
           });
           append(`✓ mood[B#${i}] -> ${savedMood?.id || 'duplicate_prevented'}`);
         }
-        // CBT/Compulsion seeding removed
+        // Data seeding removed
       } catch (e) {
         append('❗DB write failed (B)');
       }
@@ -159,7 +152,7 @@ export default function LiveTestRunnerScreen() {
 
     const moodRes = await pipeline.process({ userId: uid, type: 'data', content: { moods }, context: { source: 'mood' } });
     await postLiveResult({ runId, userId: uid, tag: '[QRlive:mood:cache]', status: 'pass', details: moodRes?.metadata || {} });
-    // tracking/cbt/ocd runs removed
+    // tracking/ocd runs removed
     if (dbWrite) {
       await pipeline.triggerInvalidation('mood_added', uid);
       await pipeline.triggerInvalidation('cbt_record_added', uid);
@@ -167,8 +160,7 @@ export default function LiveTestRunnerScreen() {
       try {
         const moodsFetched = await (supabaseService as any).getMoodEntries(uid, 7);
         append(`✓ supabase mood (7gün): ${moodsFetched?.length ?? 0}`);
-        const cbtFetched = await (supabaseService as any).getCBTRecords(uid);
-        append(`✓ supabase cbt toplam: ${cbtFetched?.length ?? 0}`);
+        // CBT fetch removed
       } catch {}
     }
     append('✔ scenarioB:anxious+checking => pass');
@@ -270,8 +262,7 @@ export default function LiveTestRunnerScreen() {
       <View style={{ height: 8 }} />
       <Button title="Tracking" onPress={() => router.push('/tracking')} accessibilityLabel="Go Tracking" />
       <View style={{ height: 8 }} />
-      <Button title="CBT" onPress={() => router.push('/cbt')} accessibilityLabel="Go CBT" />
-      <View style={{ height: 8 }} />
+      {/* CBT removed */}
       <Button title="Nefes" onPress={() => router.push('/breathwork')} accessibilityLabel="Go Breathwork" />
       <View style={{ height: 8 }} />
       <Button title="Ayarlar" onPress={() => router.push('/settings')} accessibilityLabel="Go Settings" />

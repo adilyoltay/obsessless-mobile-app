@@ -66,7 +66,7 @@ import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/feature
 import QualityRibbon from '@/components/ui/QualityRibbon';
 // import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay'; // REMOVED - File deleted
 
-// Art Therapy Integration - temporarily disabled
+// Art Therapy removed
 // Risk assessment UI removed
 
 const { width } = Dimensions.get('window');
@@ -296,41 +296,8 @@ export default function TodayScreen() {
    * 🎨 Render Art Therapy Widget
    */
   const renderArtTherapyWidget = () => {
-    if (!FEATURE_FLAGS.isEnabled('AI_ART_THERAPY') || !user?.id) {
-      return null;
-    }
-
-    return (
-      <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
-        <View style={styles.sectionHeader}>
-          <MaterialCommunityIcons name="palette" size={24} color="#8b5cf6" />
-          <Text style={styles.sectionTitle}>Sanat Terapisi</Text>
-        </View>
-
-        <Pressable 
-          style={styles.artTherapyCard}
-          onPress={() => {
-            router.push('/art-therapy');
-          }}
-        >
-          <View style={styles.artTherapyContent}>
-            <MaterialCommunityIcons name="brush" size={32} color="#8b5cf6" />
-            <View style={styles.artTherapyInfo}>
-              <Text style={styles.artTherapyTitle}>Duygu Resmi Çiz</Text>
-              <Text style={styles.artTherapyDescription}>
-                Bugünkü hislerinizi renkler ve şekillerle ifade edin
-              </Text>
-              <View style={styles.artTherapyTags}>
-                <Text style={styles.artTag}>Rahatlatıcı</Text>
-                <Text style={styles.artTag}>Yaratıcı</Text>
-                <Text style={styles.artTag}>Terapötik</Text>
-              </View>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#8b5cf6" />
-          </View>
-        </Pressable>
-      </View>
-    );
+    // Art Therapy removed - always return null to hide widget
+    return null;
   };
 
   /**
@@ -1404,48 +1371,7 @@ const styles = StyleSheet.create({
   
 
   
-  // Art Therapy Styles
-  artTherapyCard: {
-    backgroundColor: '#faf5ff',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#c4b5fd',
-  },
-  artTherapyContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-  },
-  artTherapyInfo: {
-    flex: 1,
-    marginLeft: 16,
-    marginRight: 12,
-  },
-  artTherapyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#6b21a8',
-    marginBottom: 6,
-  },
-  artTherapyDescription: {
-    fontSize: 14,
-    color: '#7c3aed',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  artTherapyTags: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  artTag: {
-    fontSize: 12,
-    color: '#8b5cf6',
-    backgroundColor: '#ede9fe',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
+  // Art Therapy Styles removed
   // ✅ REMOVED: sheetTitle, sheetSubtitle - achievements modalı için kullanılıyordu
   emojiRow: {
     flexDirection: 'row',
@@ -1469,64 +1395,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginTop: 4,
   },
-  // CBT Suggestion Card styles
-  cbtSuggestionCard: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cbtSuggestionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  cbtSuggestionIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  cbtSuggestionTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E40AF',
-    fontFamily: 'Inter',
-  },
-  cbtSuggestionClose: {
-    padding: 4,
-  },
-  cbtSuggestionText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
-    fontFamily: 'Inter',
-    marginBottom: 12,
-  },
-  cbtSuggestionAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#3B82F6',
-  },
-  cbtSuggestionActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3B82F6',
-    marginRight: 4,
-    fontFamily: 'Inter',
-  },
+  // CBT Suggestion Card styles removed
   
 
   
