@@ -29,7 +29,7 @@ import {
   removeTelemetryDebugListener,
   TelemetryEvent,
   AIEventType 
-} from '@/features/ai/telemetry/aiTelemetry';
+} from '@/features/ai-fallbacks/telemetry';
 
 // Debug için önemli event türleri
 const TRACKED_EVENT_TYPES = new Set([

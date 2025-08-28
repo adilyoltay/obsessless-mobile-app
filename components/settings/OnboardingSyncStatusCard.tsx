@@ -29,7 +29,7 @@ const UIColors = {
   },
   white: '#FFFFFF',
 };
-import { onboardingSyncErrorService } from '@/features/ai/services/onboardingSyncErrorService';
+import { onboardingSyncErrorService } from '@/features/ai-fallbacks/onboardingSyncErrorService';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 interface OnboardingSyncError {

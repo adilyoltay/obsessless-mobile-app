@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AIErrorType } from '@/features/ai/feedback/aiErrorFeedbackService';
+import { AIErrorType } from '@/features/ai-fallbacks/aiErrorFeedbackService';
 
 interface AIErrorStateProps {
   errorType?: AIErrorType;

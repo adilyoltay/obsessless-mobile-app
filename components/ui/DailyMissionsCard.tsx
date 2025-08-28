@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useGamificationStore } from '@/store/gamificationStore';
-import { UnifiedMission } from '@/features/ai/services/unifiedGamificationService';
+import { UnifiedMission } from '@/features/ai-fallbacks/gamification';
 
 interface DailyMissionsCardProps {
   onMissionComplete?: (mission: UnifiedMission) => void;

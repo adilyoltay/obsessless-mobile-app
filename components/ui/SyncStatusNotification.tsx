@@ -8,8 +8,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { safeTrackAIInteraction } from '@/features/ai/telemetry/telemetryHelpers';
-import { AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { safeTrackAIInteraction } from '@/features/ai-fallbacks/telemetryHelpers';
+import { AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 interface SyncNotification {
   type: 'queue_overflow_risk' | 'encryption_failure' | 'security_alert';

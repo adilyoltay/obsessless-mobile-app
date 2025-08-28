@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeStorageKey } from '@/lib/queryClient';
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { offlineSyncService } from '@/services/offlineSync';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 interface QueueOverflowNotification {
   timestamp: number;
