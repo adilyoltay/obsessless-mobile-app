@@ -1812,25 +1812,13 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
-      <View style={{ flex: 1 }}>
-        {/* Header - Matching OCD Design */}
+      <>
         <View style={styles.headerContainer}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft} />
             <Text style={styles.headerTitle}>Mood Takibi</Text>
-            <View style={styles.headerRight}>
-            {/* 🧪 DEBUG: Mood Data Flow Test Button (Dev only) */}
-            {(__DEV__ || process.env.NODE_ENV === 'development') && (
-              <Pressable 
-                style={[styles.debugButton, { marginRight: 12 }]}
-                onPress={handleMoodDebugTest}
-              >
-                <MaterialCommunityIcons name="bug" size={20} color="#FF6B35" />
-              </Pressable>
-            )}
-
+            <View style={styles.headerRight} />
           </View>
-        </View>
         
         {/* Time Range Tabs */}
         <View style={styles.tabContainer}>
@@ -1871,23 +1859,10 @@ export default function MoodScreen() {
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
         </View>
-      </View>
+        </View>
 
-        <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#EC4899"
-          />
-        }
-      >
+        <ScrollView style={styles.container}>
         {/* 🚫 ADAPTIVE SUGGESTION - DISABLED (Hard Stop AI Cleanup) */}
-        {false && (
-          <></>
-        )}
 
         {/* Date Display */}
         <Text style={styles.dateText}>
@@ -2112,7 +2087,7 @@ export default function MoodScreen() {
       )}
 
         {/* Mood Dashboard removed */}
-      </View>
+      </>
     </ScreenLayout>
   );
 }
