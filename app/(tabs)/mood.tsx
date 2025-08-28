@@ -24,7 +24,6 @@ import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import FAB from '@/components/ui/FAB';
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
-import UserCentricMoodDashboard from '@/components/ui/UserCentricMoodDashboard';
 
 // Services & Hooks
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -78,7 +77,6 @@ export default function MoodScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null);
-  const [showMoodDashboard, setShowMoodDashboard] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('week');
@@ -1783,28 +1781,7 @@ export default function MoodScreen() {
     }
   }, [moodEntries.length, moodPatterns.length, predictiveInsights, user?.id]);
 
-  // ✅ NEW: Generate User-Centric Mood Journey Data from entries and patterns
-  const generateMoodJourneyData = (entries: MoodEntry[], patterns: any[], predictiveInsights: any) => {
-    const today = new Date();
-    const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    // Calculate tracking days
-    const firstEntry = entries.length > 0 ? new Date(entries[entries.length - 1].created_at) : today;
-    const daysTracking = Math.max(1, Math.ceil((today.getTime() - firstEntry.getTime()) / (1000 * 60 * 60 * 24)));
-    
-    // Calculate emotional growth level
-    const avgMood = entries.length > 0 
-      ? entries.reduce((sum, e) => sum + e.mood_score, 0) / entries.length 
-      : 50;
-    
-    const recentEntries = entries.slice(0, 5);
-    const olderEntries = entries.slice(5, 10);
-    const recentAvg = recentEntries.length > 0 
-      ? recentEntries.reduce((sum, e) => sum + e.mood_score, 0) / recentEntries.length 
-      : avgMood;
-    const olderAvg = olderEntries.length > 0 
-      ? olderEntries.reduce((sum, e) => sum + e.mood_score, 0) / olderEntries.length 
-      : avgMood;
+  // generateMoodJourneyData function removed with dashboard
     
     let emotionalGrowth: 'başlangıç' | 'gelişiyor' | 'stabil' | 'uzman' = 'başlangıç';
     if (entries.length >= 30) {
@@ -2154,17 +2131,7 @@ export default function MoodScreen() {
                 <MaterialCommunityIcons name="bug" size={20} color="#FF6B35" />
               </Pressable>
             )}
-            
-            <Pressable 
-              style={styles.dashboardButton}
-              onPress={() => {
-                console.log('🎭 Opening Mood Dashboard');
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowMoodDashboard(true);
-              }}
-            >
-              <MaterialCommunityIcons name="chart-line" size={24} color="#EC4899" />
-            </Pressable>
+
           </View>
         </View>
         
@@ -2465,21 +2432,7 @@ export default function MoodScreen() {
         </Modal>
       )}
 
-      {/* ✅ NEW: User-Centric Mood Dashboard */}
-      <UserCentricMoodDashboard
-        visible={showMoodDashboard}
-        onClose={() => setShowMoodDashboard(false)}
-        moodJourney={generateMoodJourneyData(moodEntries, moodPatterns, predictiveInsights)}
-        moodEntries={moodEntries}
-        onStartAction={(actionId) => {
-          console.log('🎭 User started mood action:', actionId);
-          // Handle specific actions (e.g., start a new mood entry)
-          if (actionId === 'next_mood_step') {
-            setShowMoodDashboard(false);
-            setShowQuickEntry(true);
-          }
-        }}
-      />
+      {/* Mood Dashboard removed */}
     </ScreenLayout>
   );
 }
@@ -2789,9 +2742,6 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 6,
     backgroundColor: '#FFF5F5',
-  },
-  dashboardButton: {
-    // Keeping existing dashboard button styles
   },
   debugModalOverlay: {
     flex: 1,
