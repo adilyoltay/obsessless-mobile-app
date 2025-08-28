@@ -145,12 +145,7 @@ if (__DEV__) {
     console.warn('⚠️ Failed to load idempotency debug tests:', error);
   });
   
-  import('./debugAIErrors').then((module) => {
-    (global as any).debugAIErrors = module.debugAIErrors;
-    console.log('🚨 AI Error debug tests loaded - use debugAIErrors.*');
-  }).catch(error => {
-    console.warn('⚠️ Failed to load AI error debug tests:', error);
-  });
+  // debugAIErrors removed - AI disabled
   
   import('./debugMoodDeletion').then((module) => {
     (global as any).debugMoodDeletion = module.debugUtils;
@@ -166,12 +161,7 @@ if (__DEV__) {
     console.warn('⚠️ Failed to load invalid entries debug tests:', error);
   });
   
-  import('./debugMoodDeletionV2').then((module) => {
-    (global as any).debugMoodDeletionV2 = module.debugMoodDeletionV2;
-    console.log('🔍 Advanced Mood Deletion debug tests loaded - use debugMoodDeletionV2.*');
-  }).catch(error => {
-    console.warn('⚠️ Failed to load advanced mood deletion debug tests:', error);
-  });
+  // debugMoodDeletionV2 removed during AI cleanup
   
   // Simpler backup debug tools
   import('./debugMoodDeletionSimple').then((module) => {

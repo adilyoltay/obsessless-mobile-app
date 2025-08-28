@@ -1551,7 +1551,7 @@ class SupabaseNativeService {
       if (lifestyleExerciseRaw && !lifestyle_exercise) invalids.lifestyle_exercise = lifestyleExerciseRaw;
       if (lifestyleSocialRaw && !lifestyle_social) invalids.lifestyle_social = lifestyleSocialRaw;
       if (Object.keys(invalids).length > 0) {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'validation_warning', entity: 'user_profile', fields: invalids, userId });
       }
     } catch {}
