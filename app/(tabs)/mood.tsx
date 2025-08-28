@@ -1813,7 +1813,7 @@ export default function MoodScreen() {
   return (
     <ScreenLayout>
       <View style={{ flex: 1 }}>
-      <View style={styles.headerContainer}>
+        <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft} />
           <Text style={styles.headerTitle}>Mood Takibi</Text>
@@ -1859,9 +1859,10 @@ export default function MoodScreen() {
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
         </View>
-      </View>
+        </View>
+        
         <ScrollView style={styles.container}>
-        {/* 🚫 ADAPTIVE SUGGESTION - DISABLED (Hard Stop AI Cleanup) */}
+          <Text>Test Content</Text>
 
         {/* Date Display */}
         <Text style={styles.dateText}>
