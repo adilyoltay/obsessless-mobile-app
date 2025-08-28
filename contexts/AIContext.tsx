@@ -60,4 +60,7 @@ export const useAIActions = () => ({
   generateInsights: async () => null,
 });
 
+// Backwards compatibility alias
+export { AIContextProvider as AIProvider };
+
 export default AIContext;
