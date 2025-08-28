@@ -1812,13 +1812,13 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
-      <>
-        <View style={styles.headerContainer}>
-          <View style={styles.headerContent}>
-            <View style={styles.headerLeft} />
-            <Text style={styles.headerTitle}>Mood Takibi</Text>
+      <View style={{ flex: 1 }}>
+      <View style={styles.headerContainer}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft} />
+          <Text style={styles.headerTitle}>Mood Takibi</Text>
             <View style={styles.headerRight} />
-          </View>
+        </View>
         
         {/* Time Range Tabs */}
         <View style={styles.tabContainer}>
@@ -1859,8 +1859,7 @@ export default function MoodScreen() {
             {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
           </Pressable>
         </View>
-        </View>
-
+      </View>
         <ScrollView style={styles.container}>
         {/* 🚫 ADAPTIVE SUGGESTION - DISABLED (Hard Stop AI Cleanup) */}
 
@@ -2087,7 +2086,7 @@ export default function MoodScreen() {
       )}
 
         {/* Mood Dashboard removed */}
-      </>
+      </View>
     </ScreenLayout>
   );
 }
