@@ -67,7 +67,7 @@ interface MoodEntry {
 
 export default function MoodScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams() || {};
   const { user } = useAuth();
   const { t } = useTranslation();
 
