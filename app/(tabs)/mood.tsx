@@ -709,6 +709,7 @@ export default function MoodScreen() {
       console.error('❌ Unified fallback analysis also failed:', fallbackError);
       // Keep existing heuristic patterns as final fallback
     }
+    */
   };
 
   const analyzeMoodPatterns = async () => {
@@ -1214,6 +1215,7 @@ export default function MoodScreen() {
           console.error('⚠️ Unified journal analysis failed:', analysisError);
           // Continue with entry save even if analysis fails
         }
+        */
       }
 
       // 🔄 Save via moodTracker for intelligent sync + consistent table usage
