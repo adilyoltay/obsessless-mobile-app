@@ -393,9 +393,9 @@ export default function TodayScreen() {
       
       // 🔄 STATIC FALLBACK: Provide meaningful insights when AI completely fails
       try {
-        const { staticFallbackService } = await import('@/features/ai-fallbacks/staticFallbackService');
+        const { staticSuggestionsService } = await import('@/services/fallback/staticSuggestions');
         
-        const staticInsights = staticFallbackService.generateErrorFallbackInsights('ai_insights_failed');
+        const staticInsights = staticSuggestionsService.generateErrorFallbackInsights('ai_insights_failed');
         
         // Convert to expected format for quickInsights
         const formattedInsights = staticInsights.map((insight, index) => ({

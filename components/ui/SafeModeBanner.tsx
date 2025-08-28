@@ -1,20 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useAIStatus } from '@/contexts/AIContext';
 
 export default function SafeModeBanner() {
-  const { isInitialized, initializationError, availableFeatures } = useAIStatus() as any;
-  // Consume full context to read safeMode
-  const ai = require('@/contexts/AIContext');
-  const ctx = ai.useAI();
-  const show = ctx.safeMode === true || (!isInitialized && initializationError);
-  if (!show) return null;
-  return (
-    <View accessibilityRole="text" accessibilityLabel="Güvenli mod bildirimi" style={styles.container}>
-      <Text style={styles.text}>Güvenli mod aktif. AI özelliklerinin bir kısmı geçici olarak devre dışı. Temel özellikler kullanılabilir.</Text>
-      <Text style={styles.subtext}>Geliştiriciler bilgilendirildi. Çoğu işlem çevrimdışı/yerel modda çalışır.</Text>
-    </View>
-  );
+  // 🚫 AI Context - DISABLED (Hard Stop AI Cleanup)
+  // Since AI is completely disabled, no safe mode banner needed
+  return null;
+  
+  // Original AI-dependent logic disabled:
+  // const { isInitialized, initializationError, availableFeatures } = useAIStatus() as any;
+  // const ai = require('@/contexts/AIContext');
+  // const ctx = ai.useAI();
+  // const show = ctx.safeMode === true || (!isInitialized && initializationError);
+  // return (
+  //   <View accessibilityRole="text" accessibilityLabel="Güvenli mod bildirimi" style={styles.container}>
+  //     <Text style={styles.text}>Güvenli mod aktif. AI özelliklerinin bir kısmı geçici olarak devre dışı. Temel özellikler kullanılabilir.</Text>
+  //     <Text style={styles.subtext}>Geliştiriciler bilgilendirildi. Çoğu işlem çevrimdışı/yerel modda çalışır.</Text>
+  //   </View>
+  // );
 }
 
 const styles = StyleSheet.create({
