@@ -154,7 +154,8 @@ export default function TodayScreen() {
   // const adaptiveRef = useRef<boolean>(false);
   // const { generateSuggestion, snoozeSuggestion, trackSuggestionClick, trackSuggestionDismissal, loading: adaptiveLoading } = useAdaptiveSuggestion();
 
-  // 🔍 DEBUG: Monitor adaptive suggestion state changes
+  // 🚫 DEBUG: Monitor adaptive suggestion state changes - DISABLED
+  /*
   useEffect(() => {
     console.log('🔍 AdaptiveSuggestion state changed:', { 
       adaptiveSuggestion, 
@@ -162,6 +163,7 @@ export default function TodayScreen() {
       category: adaptiveSuggestion?.category
     });
   }, [adaptiveSuggestion]);
+  */
 
 
 
@@ -774,9 +776,9 @@ export default function TodayScreen() {
           break;
       }
       
-      // Hide suggestion after navigation
-      setAdaptiveSuggestion(null);
-      setAdaptiveMeta(null);
+      // 🚫 Hide suggestion after navigation - DISABLED
+      // setAdaptiveSuggestion(null);
+      // setAdaptiveMeta(null);
       
     } catch (error) {
       console.error('❌ Failed to handle adaptive suggestion accept:', error);
@@ -795,15 +797,15 @@ export default function TodayScreen() {
     try {
       const snoozeHours = 2;
       
-      // 📊 Track dismissal in analytics
-      await trackSuggestionDismissal(user.id, suggestion, snoozeHours);
+      // 🚫 Track dismissal in analytics - DISABLED
+      // await trackSuggestionDismissal(user.id, suggestion, snoozeHours);
       
-      // Snooze for 2 hours (this also tracks in telemetry)
-      await snoozeSuggestion(user.id, snoozeHours);
+      // 🚫 Snooze for 2 hours - DISABLED
+      // await snoozeSuggestion(user.id, snoozeHours);
       
-      // Hide suggestion
-      setAdaptiveSuggestion(null);
-      setAdaptiveMeta(null);
+      // 🚫 Hide suggestion - DISABLED
+      // setAdaptiveSuggestion(null);
+      // setAdaptiveMeta(null);
       
       console.log('😴 Adaptive suggestion snoozed for 2 hours');
     } catch (error) {
@@ -825,9 +827,9 @@ export default function TodayScreen() {
       // trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
       //   userId: user?.id,
       //   routeType: routingResult.type,
-        confidence: routingResult.confidence,
-        source: 'voice_checkin'
-      });
+      //   confidence: routingResult.confidence,
+      //   source: 'voice_checkin'
+      // });
       
       // Auto-navigate based on AI analysis (optional - user can dismiss)
       const shouldAutoNavigate = routingResult.confidence > 0.7;
@@ -1024,7 +1026,7 @@ export default function TodayScreen() {
         {renderHeroSection()}
         
         {/* 🚫 Adaptive Intervention - DISABLED (Sprint 2: Hard Stop AI Fallbacks) */}
-        {false && adaptiveSuggestion?.show && (
+        {false && (
           <></>
         )}
         
