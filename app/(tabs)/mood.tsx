@@ -88,10 +88,10 @@ export default function MoodScreen() {
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
   const [predictiveInsights, setPredictiveInsights] = useState<any>(null); // Still needed for dashboard data generation
   
-  // 🎯 Adaptive Suggestions State (Cross-Module)
-  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
-  const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
-  const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
+  // 🚫 Adaptive Suggestions State - DISABLED (Hard Stop AI Cleanup)
+  // const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  // const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); 
+  // const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
   
   // 🧪 DEBUG: Mood Data Flow Testing
   const [showMoodDebug, setShowMoodDebug] = useState(false);
@@ -157,12 +157,13 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track cache hit
         try {
-          await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
-            userId: user.id,
-            patternsCount: cachedPatterns.length,
-            entriesCount: moodEntries.length,
-            cacheSource: 'pattern_persistence_service'
-          });
+          // 🚫 AI Telemetry - DISABLED
+          // await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
+          //   userId: user.id,
+          //   patternsCount: cachedPatterns.length,
+          //   entriesCount: moodEntries.length,
+          //   cacheSource: 'pattern_persistence_service'
+          // });
         } catch (telemetryError) {
           console.warn('⚠️ Telemetry failed for pattern cache hit:', telemetryError);
         }
@@ -171,11 +172,12 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track cache miss
         try {
-          await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
-            userId: user.id,
-            entriesCount: moodEntries.length,
-            reason: 'no_cached_patterns_available'
-          });
+          // 🚫 AI Telemetry - DISABLED
+          // await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
+          //   userId: user.id,
+          //   entriesCount: moodEntries.length,
+          //   reason: 'no_cached_patterns_available'
+          // });
         } catch (telemetryError) {
           console.warn('⚠️ Telemetry failed for pattern cache miss:', telemetryError);
         }
@@ -211,12 +213,12 @@ export default function MoodScreen() {
     try {
       console.log('🚀 Starting UnifiedAIPipeline mood analysis...');
       
-      // 📊 TELEMETRY: Track insights request
-      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-        source: 'mood_screen',
-        dataType: 'mood_patterns',
-        entriesCount: entries.length
-      }, user.id);
+      // 📊 TELEMETRY: Track insights request - DISABLED
+      // await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+      //   source: 'mood_screen',
+      //   dataType: 'mood_patterns',
+      //   entriesCount: entries.length
+      // }, user.id);
 
       // 🔒 PRIVACY: Sanitize PII from mood notes
       const sanitized = entries.slice(-50).map(m => ({
@@ -236,24 +238,28 @@ export default function MoodScreen() {
         console.warn('⚠️ Encryption failed, using sanitized data:', encryptionError);
       }
 
-      // 🚀 UNIFIED PIPELINE: Process mood data
-      const result = await pipeline.process({
-        userId: user.id,
-        type: 'data',
-        content: { moods: sanitized },
-        context: {
-          source: 'mood',
-          timestamp: Date.now(),
-          metadata: {
-            dataType: 'mood_patterns',
-            privacy: {
-              piiSanitized: true,
-              encryptionLevel: 'sanitized_plaintext',
-              dataEncrypted: !!auditPayload
-            }
-          }
-        }
-      });
+      // 🚫 UNIFIED PIPELINE - DISABLED (Hard Stop AI Cleanup)
+      console.log('✅ Skipping AI pipeline processing (AI disabled)');
+      const result = { insights: { therapeutic: [] }, patterns: [], analytics: null, metadata: { source: 'disabled' } };
+      
+      // Original pipeline call disabled:
+      // const result = await pipeline.process({
+      //   userId: user.id,
+      //   type: 'data',
+      //   content: { moods: sanitized },
+      //   context: {
+      //     source: 'mood',
+      //     timestamp: Date.now(),
+      //     metadata: {
+      //       dataType: 'mood_patterns',
+      //       privacy: {
+      //         piiSanitized: true,
+      //         encryptionLevel: 'sanitized_plaintext',
+      //         dataEncrypted: !!auditPayload
+      //       }
+      //     }
+      //   }
+      // });
 
       console.log('🎯 UnifiedAIPipeline mood analysis completed:', result);
 
@@ -1867,26 +1873,9 @@ export default function MoodScreen() {
           />
         }
       >
-        {/* 🎯 ADAPTIVE SUGGESTION CARD (Cross-Module) */}
-        {adaptiveSuggestion?.show && (
-          <AdaptiveSuggestionCard
-            suggestion={adaptiveSuggestion}
-            onAccept={async () => {
-              if (!user?.id || !adaptiveSuggestion?.cta) return;
-              await trackSuggestionClick(user.id, adaptiveSuggestion);
-              router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
-              setAdaptiveSuggestion(null);
-              setAdaptiveMeta(null);
-            }}
-            onDismiss={async () => {
-              if (!user?.id) return;
-              await trackSuggestionDismissal(user.id, adaptiveSuggestion);
-              setAdaptiveSuggestion(null);
-              setAdaptiveMeta(null);
-            }}
-            meta={adaptiveMeta}
-            style={{ marginHorizontal: 16, marginBottom: 16 }}
-          />
+        {/* 🚫 ADAPTIVE SUGGESTION - DISABLED (Hard Stop AI Cleanup) */}
+        {false && (
+          <></>
         )}
 
         {/* Date Display */}

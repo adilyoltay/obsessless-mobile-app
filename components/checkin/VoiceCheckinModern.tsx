@@ -20,8 +20,8 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 // VoiceInterface removed - AI disabled
 import { Toast } from '@/components/ui/Toast';
 
-// Services
-import * as pipeline from '@/features/ai-fallbacks/pipeline';
+// Services - AI Pipeline DISABLED
+// import * as pipeline from '@/features/ai-fallbacks/pipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -33,8 +33,9 @@ import { offlineSyncService } from '@/services/offlineSync';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // AI Services - Fallbacks
-import { multiIntentVoiceAnalysis } from '@/features/ai-fallbacks/checkinService';
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+// 🚫 AI Analysis & Telemetry - DISABLED (Hard Stop AI Cleanup)
+// import { multiIntentVoiceAnalysis } from '@/features/ai-fallbacks/checkinService';
+// import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 // Types
 // Compulsion types removed
@@ -153,14 +154,18 @@ export default function VoiceCheckinModern({
         console.log('🎯 Using Multi-Intent Voice Analysis');
         
         try {
-          analysis = await multiIntentVoiceAnalysis(res.text, user.id);
-          console.log('🎯 Multi-Intent Result:', {
-            modules: analysis.modules?.length,
-            primary: analysis.type,
-            confidence: analysis.confidence
-          });
+          // 🚫 AI Analysis - DISABLED (Hard Stop AI Cleanup)
+          console.log('✅ Skipping AI analysis (AI disabled)');
+          analysis = {
+            type: 'mood',
+            confidence: 0.5,
+            trigger: res.text.substring(0, 50),
+            modules: []
+          };
+          // Original call disabled:
+          // analysis = await multiIntentVoiceAnalysis(res.text, user.id);
         } catch (error) {
-          console.error('Multi-intent analysis failed:', error);
+          console.error('Voice analysis fallback:', error);
           // Continue with fallback
         }
       }
@@ -264,12 +269,12 @@ export default function VoiceCheckinModern({
         }
       }
 
-      // Track AI interaction
-      await trackAIInteraction(AIEventType.CHECKIN_COMPLETED, {
-        type: analysis.type,
-        mood: analysis.mood || 0,
-        trigger: analysis.trigger || '',
-      });
+      // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup)
+      // await trackAIInteraction(AIEventType.CHECKIN_COMPLETED, {
+      //   type: analysis.type,
+      //   mood: analysis.mood || 0,
+      //   trigger: analysis.trigger || '',
+      // });
 
       // Award gamification rewards
       await awardMicroReward('voice_mood_checkin');
