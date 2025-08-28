@@ -10,7 +10,6 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { aiSettingsUtils } from '@/store/aiSettingsStore';
 
 
 export default function TabLayout() {

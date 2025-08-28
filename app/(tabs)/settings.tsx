@@ -29,10 +29,7 @@ import { router } from 'expo-router';
 
 // Stores
 import { useGamificationStore } from '@/store/gamificationStore';
-import { useAISettingsStore, aiSettingsUtils } from '@/store/aiSettingsStore';
-
-// AI Limit Service
-import { aiLimitService, AILimitInfo, AILimitSettings } from '@/services/aiLimitService';
+// AI imports removed - AI disabled
 
 
 // Storage utility
@@ -67,7 +64,7 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile } = useAuth();
-  const aiStore = useAISettingsStore();
+  // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
 
@@ -91,10 +88,10 @@ export default function SettingsScreen() {
     weeklyReports: true
   });
 
-  // AI Limit States
-  const [aiLimitInfo, setAiLimitInfo] = useState<AILimitInfo | null>(null);
-  const [aiLimitSettings, setAiLimitSettings] = useState<AILimitSettings>({});
-  const [aiLimitLoading, setAiLimitLoading] = useState(false);
+  // AI Limit States - REMOVED (AI disabled)
+  // const [aiLimitInfo, setAiLimitInfo] = useState<AILimitInfo | null>(null);
+  // const [aiLimitSettings, setAiLimitSettings] = useState<AILimitSettings>({});
+  // const [aiLimitLoading, setAiLimitLoading] = useState(false);
 
   // AI Onboarding state removed - no longer needed
   // Treatment Plan removed - moved to OCD Dashboard Assessment tab
@@ -103,9 +100,7 @@ export default function SettingsScreen() {
     loadSettings();
     loadConsents();
     loadMigrationAndMetrics();
-    if (user?.id) {
-      loadAILimitInfo();
-    }
+    // loadAILimitInfo() - DISABLED (AI disabled)
   }, [user?.id]);
 
   const loadSettings = async () => {
@@ -119,6 +114,8 @@ export default function SettingsScreen() {
     }
   };
 
+  // AI Limit Functions - COMMENTED OUT (AI disabled)
+  /*
   const loadAILimitInfo = async () => {
     if (!user?.id) return;
     
@@ -158,7 +155,10 @@ export default function SettingsScreen() {
       setAiLimitSettings(aiLimitSettings);
     }
   };
+  */
 
+  // handleResetDailyUsage - COMMENTED OUT (AI disabled)
+  /*
   const handleResetDailyUsage = async () => {
     if (!user?.id) return;
     
@@ -184,6 +184,7 @@ export default function SettingsScreen() {
       ]
     );
   };
+  */
 
   const loadConsents = async () => {
     try {
@@ -613,8 +614,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* AI Limits */}
-        {renderAILimitsSection()}
+        {/* AI Limits - HIDDEN (AI disabled) */}
+        {false && renderAILimitsSection()}
 
         {/* Gizlilik ve İzinler */}
         <View style={styles.section}>

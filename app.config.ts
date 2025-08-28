@@ -46,11 +46,11 @@ const config: ExpoConfig = {
     eas: {
       projectId: '1e0473f8-f317-4813-9b20-4dbe892e3153',
     },
-    // Özellik bayrakları ve AI sağlayıcı
-    EXPO_PUBLIC_ENABLE_AI: process.env.EXPO_PUBLIC_ENABLE_AI ?? 'true',
+    // 🚫 AI DISABLED: All AI features off by default
+    EXPO_PUBLIC_ENABLE_AI: process.env.EXPO_PUBLIC_ENABLE_AI ?? 'false', // ← Changed from 'true'
     EXPO_PUBLIC_ENABLE_AI_CHAT: process.env.EXPO_PUBLIC_ENABLE_AI_CHAT ?? 'false',
     EXPO_PUBLIC_AI_PROVIDER: process.env.EXPO_PUBLIC_AI_PROVIDER ?? 'gemini',
-    EXPO_PUBLIC_ENABLE_AI_TELEMETRY: process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY ?? 'true',
+    EXPO_PUBLIC_ENABLE_AI_TELEMETRY: process.env.EXPO_PUBLIC_ENABLE_AI_TELEMETRY ?? 'false', // ← Changed from 'true'
     EXPO_PUBLIC_AI_DEBUG_MODE: process.env.EXPO_PUBLIC_AI_DEBUG_MODE ?? 'false',
     EXPO_PUBLIC_AI_VERBOSE_LOGGING: process.env.EXPO_PUBLIC_AI_VERBOSE_LOGGING ?? 'false',
 

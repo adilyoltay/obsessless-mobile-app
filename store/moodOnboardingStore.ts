@@ -629,56 +629,11 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       const progressiveInsights = await get().collectProgressiveInsights();
       console.log(`🔍 Collected ${Object.keys(progressiveInsights).length} progressive insight sets`);
       
-      // 2. 🚀 ONBOARDING OPTIMIZED: Fast AI analysis with timeout & fallback
-      console.log('⚡ Starting fast AI analysis for onboarding (8s timeout)...');
-      let aiResult = null;
+      // 2. 🚫 AI DISABLED: Skip AI analysis, use deterministic onboarding completion
+      console.log('✅ Completing onboarding without AI analysis (AI disabled)');
       
-      try {
-        // Race between AI processing and timeout
-        const aiPromise = pipeline.unifiedPipeline.process({
-          userId: uidForKey,
-          content: {
-            type: 'onboarding_completion',
-            payload,
-            duration: durationMs,
-            completedAt: new Date().toISOString(),
-            progressiveInsights // Include previously gathered insights
-          },
-          type: 'data',
-          context: {
-            source: 'today',
-            timestamp: Date.now(),
-            metadata: {
-              isInitialProfile: true,
-              generatePersonalization: true,
-              enableInsights: true,
-              enhancedAnalysis: true,
-              progressiveDataAvailable: Object.keys(progressiveInsights).length > 0,
-              onboardingMode: true, // Special flag for faster processing
-              fastMode: true // Enable simplified analysis for onboarding
-            }
-          }
-        });
-        
-        // 🏃‍♂️ FAST TIMEOUT: 8 seconds max for onboarding
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('ONBOARDING_AI_TIMEOUT: Analysis took too long, using fallback'));
-          }, 8000);
-        });
-        
-        // Race condition: whichever finishes first
-        aiResult = await Promise.race([aiPromise, timeoutPromise]);
-        console.log('✅ Fast AI analysis completed successfully!');
-        
-      } catch (aiError) {
-        const isTimeout = aiError?.message?.includes('ONBOARDING_AI_TIMEOUT');
-        console.warn(`⚡ AI analysis ${isTimeout ? 'timed out' : 'failed'}, switching to intelligent fallback...`);
-        
-        // 🔄 INTELLIGENT FALLBACK: Generate basic profile from onboarding data
-        aiResult = get().generateFallbackProfile(payload, progressiveInsights, uidForKey);
-        console.log('🛡️ Fallback profile generated successfully');
-      }
+      // Generate simple deterministic result based on onboarding data
+      const aiResult = get().generateFallbackProfile(payload, progressiveInsights, uidForKey);
 
       // 3. Create comprehensive AI profile merging all insights
       const insightsArray = Array.isArray(aiResult?.insights) ? aiResult.insights : [];
@@ -708,20 +663,18 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         }
       };
 
-      // 4. Cache comprehensive profile for immediate use
-      await AsyncStorage.setItem(
-        `ai_profile_${uidForKey}`,
-        JSON.stringify(comprehensiveProfile)
-      );
+      // 4. 🚫 AI DISABLED: Skip AI profile caching
+      console.log('ℹ️ Skipping AI profile caching (AI disabled)');
       
-      // 5. Also cache as initial insights for Today page
+      // 5. Cache basic onboarding completion data only
       if (comprehensiveProfile.insights.length > 0) {
         await AsyncStorage.setItem(
-          `initial_insights_${uidForKey}`,
+          `onboarding_completed_${uidForKey}`,
           JSON.stringify({
             insights: comprehensiveProfile.insights,
             fromOnboarding: true,
-            generatedAt: new Date().toISOString()
+            generatedAt: new Date().toISOString(),
+            aiDisabled: true
           })
         );
       }
