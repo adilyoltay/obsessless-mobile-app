@@ -204,8 +204,9 @@ export default function MoodScreen() {
     // 🔄 FORCE CACHE INVALIDATION for fresh analytics
     console.log('🔄 Force invalidating cache to get fresh mood analytics...');
     try {
-      await pipeline.triggerInvalidation('manual_refresh', user.id);
-      console.log('✅ Cache invalidated - will get fresh analytics');
+      // 🚫 AI Pipeline - DISABLED (Hard Stop AI Cleanup) 
+      // await pipeline.triggerInvalidation('manual_refresh', user.id);
+      console.log('✅ Manual refresh requested (AI cache invalidation disabled)');
     } catch (invalidationError) {
       console.warn('⚠️ Cache invalidation failed:', invalidationError);
     }
@@ -634,12 +635,16 @@ export default function MoodScreen() {
    * Replaces legacy MoodPatternAnalysisService with unified approach
    */
   const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
+    // 🚫 UNIFIED AI ANALYSIS - DISABLED (Hard Stop AI Cleanup)
+    console.log('✅ Skipping unified mood analysis (AI disabled)');
     if (!user?.id) return;
+    return; // Early exit - no AI analysis
     
+    // Original AI pipeline processing disabled:
+    /*
     try {
       console.log('🚀 Running unified mood analysis fallback...');
       
-      // Use UnifiedAIPipeline instead of legacy service
       const result = await pipeline.process({
         userId: user.id,
         type: 'data',
@@ -1165,9 +1170,14 @@ export default function MoodScreen() {
         sync_attempts: 0
       };
 
-      // 🚀 UNIFIED MOOD JOURNALING ANALYSIS
+      // 🚫 UNIFIED MOOD JOURNALING ANALYSIS - DISABLED (Hard Stop AI Cleanup)
       let journalAnalysis = null;
       if (data.notes && data.notes.trim().length > 10) {
+        console.log('✅ Skipping mood journal AI analysis (AI disabled)');
+        journalAnalysis = { patterns: [], insights: { therapeutic: [] }, metadata: { source: 'disabled' } };
+        
+        // Original AI analysis disabled:
+        /*
         try {
           console.log('🚀 Analyzing mood journal entry with UnifiedAIPipeline...');
           
@@ -1209,9 +1219,10 @@ export default function MoodScreen() {
       // 🔄 Save via moodTracker for intelligent sync + consistent table usage
       const savedEntry = await moodTracker.saveMoodEntry(moodEntry);
       
-      // 🔄 FIXED: Trigger cache invalidation after mood entry save
+      // 🚫 AI Pipeline Cache Invalidation - DISABLED (Hard Stop AI Cleanup)
       try {
-        await pipeline.triggerInvalidation('mood_added', user.id);
+        // await pipeline.triggerInvalidation('mood_added', user.id);
+        console.log('✅ Mood entry saved (AI cache invalidation disabled)');
         console.log('🔄 Cache invalidated after mood entry: patterns + insights + progress');
       } catch (invalidationError) {
         console.warn('⚠️ Cache invalidation failed (non-critical):', invalidationError);

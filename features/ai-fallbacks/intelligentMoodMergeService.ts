@@ -2,15 +2,18 @@
  * Intelligent Mood Merge Service Fallback - Phase 2
  */
 
-export class IntelligentMoodMergeService {
-  static async intelligentMerge(...args: any[]) {
-    // AI mood merge disabled - use simple merge
-    console.log('🚫 AI Intelligent Mood Merge disabled:', args);
-    return null; // Let the service handle normal merge
-  }
+export const intelligentMergeService = {
+  async intelligentMoodMerge(...args: any[]) {
+    // AI mood merge disabled - use simple merge fallback
+    console.log('🚫 AI Intelligent Mood Merge disabled, using simple fallback');
+    const [localEntries = [], remoteEntries = []] = args;
+    
+    // Simple merge: remote entries take precedence (same as original fallback)
+    return remoteEntries;
+  },
   
-  static async shouldMerge(...args: any[]) {
-    // AI merge decision disabled - never merge
-    return false;
+  async shouldMerge(...args: any[]) {
+    // AI merge decision disabled - always use simple merge
+    return true; // Allow simple merge to proceed
   }
-}
+};
