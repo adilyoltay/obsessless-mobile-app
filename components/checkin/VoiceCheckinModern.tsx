@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+// Speech removed - using fallback voice input
 
 // Components
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -541,29 +542,55 @@ export default function VoiceCheckinModern({
                 }
                 style={styles.voiceButton}
               >
-                <VoiceInterface
-                  onTranscription={(res) => {
-                    console.log('🎯 VoiceInterface onTranscription callback triggered:', res);
-                    handleVoiceTranscription(res);
+                <Pressable
+                  onPress={() => {
+                    if (isRecording) {
+                      // Stop recording
+                      console.log('🛑 Stop recording (fallback)');
+                      setIsRecording(false);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      
+                      // Simulate transcription with prompt
+                      Alert.prompt(
+                        'Ses Girişi',
+                        'Lütfen ne hissettiğinizi yazın:',
+                        [
+                          {
+                            text: 'İptal',
+                            style: 'cancel',
+                          },
+                          {
+                            text: 'Kaydet',
+                            onPress: (text) => {
+                              if (text && text.trim()) {
+                                handleVoiceTranscription({
+                                  text: text.trim(),
+                                  confidence: 0.95,
+                                  language: 'tr',
+                                  duration: 2000
+                                });
+                              }
+                            },
+                          },
+                        ],
+                        'plain-text'
+                      );
+                    } else {
+                      // Start recording
+                      console.log('🎙️ Start recording (fallback)');
+                      setIsRecording(true);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }
                   }}
-                  autoStart={false}
-                  showHints={false}
-                  enableCountdown={false}
-                  showStopButton={false}
-                  onStartListening={() => {
-                    console.log('🎙️ VoiceInterface onStartListening');
-                    setIsRecording(true);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  }}
-                  onStopListening={() => {
-                    console.log('🛑 VoiceInterface onStopListening');
-                    setIsRecording(false);
-                  }}
-                  onError={(error) => {
-                    console.error('Voice error:', error);
-                    showToastMessage('Ses tanıma başlatılamadı');
-                  }}
-                />
+                  style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <MaterialCommunityIcons
+                    name={isRecording ? "stop" : "microphone"}
+                    size={32}
+                    color="white"
+                    style={{ opacity: 0.9 }}
+                  />
+                </Pressable>
               </LinearGradient>
             </Animated.View>
 
