@@ -1812,6 +1812,7 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
+      <>
       {/* Header - Matching OCD Design */}
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
@@ -2111,6 +2112,7 @@ export default function MoodScreen() {
       )}
 
       {/* Mood Dashboard removed */}
+      </>
     </ScreenLayout>
   );
 }
