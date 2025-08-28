@@ -172,8 +172,8 @@ export class OfflineSyncService {
         
         // Track security incident
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'sync_queue_encryption_failure',
             severity: 'critical',
@@ -318,8 +318,8 @@ export class OfflineSyncService {
       });
       
       try {
-        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'invalid_sync_item_dropped',
           entity: item.entity,
@@ -383,8 +383,8 @@ export class OfflineSyncService {
     // 📊 Queue health telemetry
     if (this.syncQueue.length > OfflineSyncService.MAX_QUEUE_SIZE * 0.8) {
       try {
-        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'sync_queue_near_capacity',
           queueSize: this.syncQueue.length,
@@ -397,8 +397,8 @@ export class OfflineSyncService {
     // 📊 Telemetry: queued for offline delete (with feature flag check)
     try {
       if (syncItem.type === 'DELETE') {
-        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await safeTrackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
           entity: syncItem.entity,
           id: syncItem.data?.id,
@@ -485,8 +485,8 @@ export class OfflineSyncService {
             this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
             // Telemetry (non-blocking) with feature flag check
             try {
-              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
               await safeTrackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
             } catch {}
           } catch (error) {
@@ -583,8 +583,8 @@ export class OfflineSyncService {
         } catch {}
         // Telemetry aggregation (avg latency) with feature flag check
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
           const avgLatencyMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'sync_batch_completed',
@@ -720,8 +720,8 @@ export class OfflineSyncService {
           console.log(`✅ ${priority.toUpperCase()} priority mood entry deleted successfully:`, raw.id);
           
           try {
-            const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-            const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+            const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
             await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { 
               entity: 'mood_entry', 
               id: raw.id,
@@ -732,8 +732,8 @@ export class OfflineSyncService {
         } catch (error) {
           console.warn(`⚠️ ${raw.priority || 'normal'} priority mood entry deletion failed:`, error);
           try {
-            const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-            const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+            const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
             await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { 
               entity: 'mood_entry', 
               id: raw.id,
@@ -823,15 +823,15 @@ export class OfflineSyncService {
             await (svc as any).deleteVoiceCheckin(item.data.id);
             console.log('✅ Voice checkin deleted successfully:', item.data.id);
             try {
-              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
               await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_SUCCESS, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
             } catch {}
           } catch (error) {
             console.warn('⚠️ Voice checkin deletion failed:', error);
             try {
-              const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-              const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+              const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+              const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
               await safeTrackAIInteraction(AIEventType.DELETE_REPLAYED_FAILED, { entity: 'voice_checkin', id: item.data.id }, item.data.user_id);
             } catch {}
             throw error; // Let it retry via DLQ
@@ -1210,8 +1210,8 @@ export class OfflineSyncService {
 
       // 📊 Telemetry: Report queue overflow
       try {
-        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'sync_queue_overflow_handled',
           movedToDLQ: itemsToMove.length,
@@ -1630,8 +1630,8 @@ export class OfflineSyncService {
 
       // Telemetry for monitoring
       try {
-        const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-        const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+        const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
         await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'user_notified_queue_overflow',
           droppedItemCount,
