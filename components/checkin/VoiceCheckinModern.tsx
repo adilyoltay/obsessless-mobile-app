@@ -16,11 +16,11 @@ import * as Haptics from 'expo-haptics';
 
 // Components
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
+// VoiceInterface removed - AI disabled
 import { Toast } from '@/components/ui/Toast';
 
 // Services
-import * as pipeline from '@/features/ai/pipeline';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -31,9 +31,9 @@ import { moodTracker } from '@/services/moodTrackingService';
 import { offlineSyncService } from '@/services/offlineSync';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// AI Services
-import { multiIntentVoiceAnalysis } from '@/features/ai/services/checkinService';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+// AI Services - Fallbacks
+import { multiIntentVoiceAnalysis } from '@/features/ai-fallbacks/checkinService';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 // Types
 // Compulsion types removed

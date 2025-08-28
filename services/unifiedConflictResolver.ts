@@ -12,7 +12,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 import { generatePrefixedId } from '@/utils/idGenerator';
 
 // =============================================================================

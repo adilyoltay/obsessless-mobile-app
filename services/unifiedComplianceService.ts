@@ -17,7 +17,7 @@ import { generatePrefixedId } from '@/utils/idGenerator';
 import { dataStandardizer } from '@/utils/dataStandardization';
 import supabaseService from '@/services/supabase';
 import { secureDataService } from '@/services/encryption/secureDataService';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 // =============================================================================
 // TYPES AND INTERFACES (Unified from both services)

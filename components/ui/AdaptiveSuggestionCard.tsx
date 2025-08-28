@@ -23,9 +23,11 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import { AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
 import QualityRibbon from './QualityRibbon';
-import type { ProvenanceSource, QualityLevel } from '@/features/ai/insights/insightRegistry';
+// QualityLevel types - fallback
+type ProvenanceSource = string;
+type QualityLevel = 'high' | 'medium' | 'low';
 
 // Props interface
 interface AdaptiveSuggestionCardProps {

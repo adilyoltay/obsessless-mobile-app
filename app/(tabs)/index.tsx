@@ -49,20 +49,20 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // AI Integration - Sprint 7 via Context
 import { useAI, useAIUserData, useAIActions } from '@/contexts/AIContext';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 // import DebugAIPipelineOverlay from '@/components/dev/DebugAIPipelineOverlay'; // REMOVED - Kullanıcı için çok teknik
 // Removed CoreAnalysisService - using UnifiedAIPipeline only
 
 // Unified AI Pipeline (ACTIVE - Jan 2025)
-import * as pipeline from '@/features/ai/pipeline';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
 // import { shouldUseUnifiedPipeline } from '@/utils/gradualRollout'; // DEPRECATED - 100% rollout
 
-import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
+import { unifiedGamificationService } from '@/features/ai-fallbacks/gamification';
 
 // 🎯 JITAI/Adaptive Interventions (NEW - Minimal Trigger Hook)
-import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
-import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai/insights/insightRegistry';
+import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai-fallbacks/insights';
 import QualityRibbon from '@/components/ui/QualityRibbon';
 // import { AdaptiveAnalyticsTrigger } from '@/components/dev/AdaptiveAnalyticsDebugOverlay'; // REMOVED - File deleted
 
@@ -115,7 +115,7 @@ export default function TodayScreen() {
 
   
   // ✅ FIXED: Progressive UI Timer Management - prevent overlapping pipeline runs
-  const deepAnalysisTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const deepAnalysisTimerRef = useRef<number | null>(null);
   
   // ✅ OPTIMIZATION: Cache loaded module data to avoid duplicate AsyncStorage reads
   const moduleDataCacheRef = useRef<{
@@ -479,7 +479,7 @@ export default function TodayScreen() {
       
       // 🔄 STATIC FALLBACK: Provide meaningful insights when AI completely fails
       try {
-        const { staticFallbackService } = await import('@/features/ai/services/staticFallbackService');
+        const { staticFallbackService } = await import('@/features/ai-fallbacks/staticFallbackService');
         
         const staticInsights = staticFallbackService.generateErrorFallbackInsights('ai_insights_failed');
         

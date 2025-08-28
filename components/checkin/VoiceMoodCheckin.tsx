@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView } from 'react-native';
-import { VoiceInterface } from '@/features/ai/components/voice/VoiceInterface';
-import { simpleNLU, trackCheckinLifecycle, trackRouteSuggested, NLUResult, decideRoute } from '@/features/ai/services/checkinService';
+// VoiceInterface removed - AI disabled
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { router, useLocalSearchParams } from 'expo-router';
-import { generateReframes } from '@/features/ai/services/reframeService';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { saveUserData, loadUserData, StorageKeys } from '@/utils/storage';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import * as pipeline from '@/features/ai/pipeline';
+
+// AI Services - Fallbacks
+import { simpleNLU, trackCheckinLifecycle, trackRouteSuggested, NLUResult, decideRoute } from '@/features/ai-fallbacks/checkinService';
+import { generateReframes } from '@/features/ai-fallbacks/reframeService';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
 
  type CheckinPersist = { id: string; text: string; nlu: NLUResult; createdAt: string };
 

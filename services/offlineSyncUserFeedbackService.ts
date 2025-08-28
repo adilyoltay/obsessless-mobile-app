@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 import { safeStorageKey } from '@/lib/queryClient';
 
 /**

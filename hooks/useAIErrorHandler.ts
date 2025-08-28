@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { aiErrorFeedbackService, AIErrorType, type AIErrorContext } from '@/features/ai/feedback/aiErrorFeedbackService';
+import { aiErrorFeedbackService, AIErrorType, type AIErrorContext } from '@/features/ai-fallbacks/aiErrorFeedbackService';
 
 interface AIErrorState {
   hasError: boolean;

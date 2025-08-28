@@ -3,12 +3,12 @@
  * Ses analizi sonuçlarına göre otomatik kayıt önerileri oluşturur
  */
 
-import { UnifiedAnalysisResult } from '@/features/ai/services/checkinService';
+import { UnifiedAnalysisResult } from '@/features/ai-fallbacks/checkinService';
 import supabaseService from '@/services/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { offlineSyncService } from '@/services/offlineSync';
 import * as Haptics from 'expo-haptics';
-import * as pipeline from '@/features/ai/pipeline';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
 
 interface AutoRecordData {
   type: 'MOOD';

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
-import { IntelligentMoodMergeService } from '@/features/ai/services/intelligentMoodMergeService';
+import { IntelligentMoodMergeService } from '@/features/ai-fallbacks/intelligentMoodMergeService';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';

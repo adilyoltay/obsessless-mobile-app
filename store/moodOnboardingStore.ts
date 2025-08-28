@@ -7,8 +7,8 @@ import { isUUID } from '@/utils/validators';
 import supabaseService from '@/services/supabase';
 import { NotificationScheduler } from '@/services/notificationScheduler';
 // ✅ NEW: AI integration for onboarding data
-import * as pipeline from '@/features/ai/pipeline';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 interface MoodOnboardingState {
   step: number;
@@ -524,8 +524,8 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         
         // Try to track the failure for recovery later
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'onboarding_mood_save_failed',
             userId: uidForKey,
@@ -553,7 +553,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       
       // 🚨 ENHANCED ERROR HANDLING: Track queue failure with user notification
       try {
-        const { onboardingSyncErrorService } = await import('@/features/ai/services/onboardingSyncErrorService');
+        const { onboardingSyncErrorService } = await import('@/features/ai-fallbacks/onboardingSyncErrorService');
         await onboardingSyncErrorService.trackSyncError(
           uidForKey,
           'queue_failed',
@@ -585,7 +585,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       
       // 🚨 ENHANCED ERROR HANDLING: Track Supabase failure with user notification
       try {
-        const { onboardingSyncErrorService } = await import('@/features/ai/services/onboardingSyncErrorService');
+        const { onboardingSyncErrorService } = await import('@/features/ai-fallbacks/onboardingSyncErrorService');
         await onboardingSyncErrorService.trackSyncError(
           uidForKey,
           'supabase_failed', 
@@ -740,7 +740,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
     // ✅ STEP 8: NON-CRITICAL - Analytics Tracking (important but not blocking)
     try {
-      const { safeTrackAIInteraction } = await import('@/features/ai/telemetry/telemetryHelpers');
+      const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
       await safeTrackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
         userId: uidForKey,
         durationMs,

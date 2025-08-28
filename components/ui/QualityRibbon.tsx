@@ -8,7 +8,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { ProvenanceSource, QualityLevel } from '@/features/ai/insights/insightRegistry';
+// QualityLevel types - fallback
+type ProvenanceSource = 'unified' | 'llm' | 'cache' | 'heuristic' | 'static' | string;
+type QualityLevel = 'high' | 'medium' | 'low';
 
 interface QualityRibbonProps {
   source: ProvenanceSource;

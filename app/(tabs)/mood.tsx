@@ -34,23 +34,23 @@ import { offlineSyncService } from '@/services/offlineSync';
 import { moodDeletionCache } from '@/services/moodDeletionCache';
 import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
-import * as pipeline from '@/features/ai/pipeline';
-import { unifiedGamificationService } from '@/features/ai/services/unifiedGamificationService';
-import { moodDataFlowTester } from '@/features/ai/core/MoodDataFlowTester';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
+import { unifiedGamificationService } from '@/features/ai-fallbacks/gamification';
+import { moodDataFlowTester } from '@/features/ai-fallbacks/moodDataFlowTester';
 import { useGamificationStore } from '@/store/gamificationStore';
 import achievementService from '@/services/achievementService';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
-import { trackAIInteraction, AIEventType } from '@/features/ai/telemetry/aiTelemetry';
-import { advancedRiskAssessmentService } from '@/features/ai/services/riskAssessmentService';
+import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import { advancedRiskAssessmentService } from '@/features/ai-fallbacks/riskAssessmentService';
 import patternPersistenceService from '@/services/patternPersistenceService';
 
 // 🎯 Adaptive Suggestions (Cross-Module Integration)
-import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai/hooks/useAdaptiveSuggestion';
+import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
 import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
-import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai/insights/insightRegistry';
+import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai-fallbacks/insights';
 
 
 const { width } = Dimensions.get('window');
@@ -588,17 +588,17 @@ export default function MoodScreen() {
       
       // 🚨 USER FEEDBACK: Inform user about analysis failure
       try {
-        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai/feedback/aiErrorFeedbackService');
+        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai-fallbacks/aiErrorFeedbackService');
         
         // Determine error type based on error message/type
-        let errorType = AIErrorType.INSIGHTS_GENERATION_FAILED;
+        let errorType: keyof typeof AIErrorType = 'INSIGHTS_GENERATION_FAILED';
         if (error instanceof Error) {
           if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorType = AIErrorType.NETWORK_ERROR;
+            errorType = 'NETWORK_ERROR';
           } else if (error.message.includes('unavailable') || error.message.includes('service')) {
-            errorType = AIErrorType.LLM_SERVICE_UNAVAILABLE;
+            errorType = 'LLM_SERVICE_UNAVAILABLE';
           } else if (error.message.includes('rate') || error.message.includes('limit')) {
-            errorType = AIErrorType.RATE_LIMIT_EXCEEDED;
+            errorType = 'RATE_LIMIT_EXCEEDED';
           }
         }
         
@@ -1374,7 +1374,7 @@ export default function MoodScreen() {
       setShowToast(true);
 
       // Track edit action
-      await trackAIInteraction('MOOD_ENTRY_EDIT' as AIEventType, {
+      await trackAIInteraction('MOOD_ENTRY_EDIT', {
         entryId: entry.id,
         mood: entry.mood_score,
         energy: entry.energy_level,
@@ -1414,7 +1414,7 @@ export default function MoodScreen() {
                 }
 
                 // Track delete action before deletion
-                await trackAIInteraction('MOOD_ENTRY_DELETE' as AIEventType, {
+                await trackAIInteraction('MOOD_ENTRY_DELETE', {
                   entryId: entryId,
                   mood: entryToDelete.mood_score,
                   energy: entryToDelete.energy_level,
@@ -1740,7 +1740,7 @@ export default function MoodScreen() {
 
       return {
         riskLevel: mapRiskLevel(riskAssessment.immediateRisk?.toString() || 'low'),
-        earlyWarning: riskAssessment.immediateRisk === 'high' ? {
+        earlyWarning: riskAssessment.immediateRisk === true ? {
           triggered: true,
           message: riskAssessment.immediateActions?.[0]?.description || 
                    'Dikkat gerektiren mood değişiklikleri tespit edildi.'

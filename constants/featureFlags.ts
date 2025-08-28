@@ -17,7 +17,7 @@ const getAIMasterEnabled = () => {
   return enableAI;
 };
 
-const AI_MASTER_ENABLED = getAIMasterEnabled();
+const AI_MASTER_ENABLED = false; // DISABLED - AI removal Phase 2
 
 // Geçici: Prompt logging toggle (varsayılan kapalı, env ile açılabilir)
 const AI_PROMPT_LOGGING_ENV = (Constants.expoConfig?.extra?.EXPO_PUBLIC_AI_PROMPT_LOGGING === 'true') ||
@@ -104,32 +104,32 @@ const featureFlagState: Record<string, boolean | number> = {
   AI_PREDICTIVE_INTERVENTION: AI_MASTER_ENABLED,
   // KALDIRILDI: AI_CRISIS_DETECTION
   
-    // 🚀 Legacy AI flags (deprecated/cleanup)
-  AI_CORE_ANALYSIS: false, // ❌ REMOVED - CoreAnalysisService deleted (use UnifiedAIPipeline)
-  AI_BATCH_JOBS: true, // Daily AI batch processing (independent service)
-  AI_LLM_GATING: true, // LLM gating logic (ACTIVATED)
-  AI_PROGRESSIVE: true, // Progressive UI updates (ACTIVATED)
-  AI_ONBOARDING_REFINE: true, // Onboarding skeleton->refine (ACTIVATED)
-  AI_THERAPY_STAIRCASE: true, // Deterministic therapy difficulty (ACTIVATED)
+    // 🚀 Legacy AI flags (deprecated/cleanup) - ALL DISABLED Phase 7
+  AI_CORE_ANALYSIS: false, // ❌ REMOVED - CoreAnalysisService deleted
+  AI_BATCH_JOBS: false, // ❌ DISABLED - AI batch processing 
+  AI_LLM_GATING: false, // ❌ DISABLED - LLM gating logic
+  AI_PROGRESSIVE: false, // ❌ DISABLED - Progressive UI updates
+  AI_ONBOARDING_REFINE: false, // ❌ DISABLED - Onboarding skeleton->refine
+  AI_THERAPY_STAIRCASE: false, // ❌ DISABLED - Deterministic therapy difficulty
   
-  // 🎯 Unified AI Pipeline flags (NEW - Jan 2025) - ACTIVATED
-  AI_UNIFIED_PIPELINE: true, // Master toggle for unified pipeline (ACTIVATED)
-  AI_UNIFIED_PIPELINE_PERCENTAGE: 100, // Full rollout for activation (100%)
-  AI_UNIFIED_VOICE: true, // Voice module in pipeline
-  AI_UNIFIED_PATTERNS: true, // Pattern recognition in pipeline
-  AI_UNIFIED_INSIGHTS: true, // Insights generation in pipeline
+  // 🎯 Unified AI Pipeline flags (NEW - Jan 2025) - ALL DISABLED Phase 7
+  AI_UNIFIED_PIPELINE: false, // ❌ DISABLED - Master toggle for unified pipeline
+  AI_UNIFIED_PIPELINE_PERCENTAGE: 0, // ❌ DISABLED - 0% rollout
+  AI_UNIFIED_VOICE: false, // ❌ DISABLED - Voice module in pipeline
+  AI_UNIFIED_PATTERNS: false, // ❌ DISABLED - Pattern recognition in pipeline
+  AI_UNIFIED_INSIGHTS: false, // ❌ DISABLED - Insights generation in pipeline
   // AI_UNIFIED_CBT removed
   
-  // 🌬️ Breathwork Suggestions (NEW - Week 2)
-  AI_BREATHWORK_SUGGESTIONS: true, // AI-powered breathwork recommendations
+  // 🌬️ Breathwork Suggestions (NEW - Week 2) - DISABLED Phase 7
+  AI_BREATHWORK_SUGGESTIONS: false, // ❌ DISABLED - AI-powered breathwork recommendations
   
-  // 🎮 Dynamic Gamification (NEW - Week 2)
-  AI_DYNAMIC_GAMIFICATION: true, // Context-based dynamic points calculation
-  AI_DYNAMIC_MISSIONS: true, // AI-generated daily missions
+  // 🎮 Dynamic Gamification (NEW - Week 2) - DISABLED Phase 7
+  AI_DYNAMIC_GAMIFICATION: false, // ❌ DISABLED - Context-based dynamic points calculation
+  AI_DYNAMIC_MISSIONS: false, // ❌ DISABLED - AI-generated daily missions
   
-  // 🗂️ Smart Routing & Prefilling (NEW - Week 2)
-  AI_SMART_ROUTING: true, // Intelligent screen navigation with context
-  AI_FORM_PREFILLING: true, // Automatic form prefilling from analysis
+  // 🗂️ Smart Routing & Prefilling (NEW - Week 2) - DISABLED Phase 7
+  AI_SMART_ROUTING: false, // ❌ DISABLED - Intelligent screen navigation with context
+  AI_FORM_PREFILLING: false, // ❌ DISABLED - Automatic form prefilling from analysis
   
   // 🎯 Multi-Intent Voice Analysis (NEW - Jan 2025)
   MULTI_INTENT_VOICE: AI_MASTER_ENABLED, // Çoklu modül desteği

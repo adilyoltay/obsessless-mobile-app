@@ -4,7 +4,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import supabaseService from '@/services/supabase';
-import * as pipeline from '@/features/ai/pipeline';
+import * as pipeline from '@/features/ai-fallbacks/pipeline';
 import { postLiveResult } from '@/features/dev/liveTestResults';
 import { Button } from '@/components/ui/Button';
 
