@@ -1872,7 +1872,6 @@ export default function MoodScreen() {
         </View>
       </View>
 
-
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
