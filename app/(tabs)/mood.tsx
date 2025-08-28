@@ -1812,13 +1812,13 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
-      <>
-      {/* Header - Matching OCD Design */}
-      <View style={styles.headerContainer}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerLeft} />
-          <Text style={styles.headerTitle}>Mood Takibi</Text>
-          <View style={styles.headerRight}>
+      <View style={{ flex: 1 }}>
+        {/* Header - Matching OCD Design */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeft} />
+            <Text style={styles.headerTitle}>Mood Takibi</Text>
+            <View style={styles.headerRight}>
             {/* 🧪 DEBUG: Mood Data Flow Test Button (Dev only) */}
             {(__DEV__ || process.env.NODE_ENV === 'development') && (
               <Pressable 
@@ -1873,7 +1873,7 @@ export default function MoodScreen() {
         </View>
       </View>
 
-      <ScrollView
+        <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -2111,8 +2111,8 @@ export default function MoodScreen() {
         </Modal>
       )}
 
-      {/* Mood Dashboard removed */}
-      </>
+        {/* Mood Dashboard removed */}
+      </View>
     </ScreenLayout>
   );
 }
