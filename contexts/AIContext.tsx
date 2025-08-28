@@ -14,6 +14,7 @@ interface AIContextType {
   hasAIInsights: boolean;
   availableFeatures: string[];
   initializeAIServices: () => Promise<void>;
+  safeMode: boolean;
 }
 
 // Context
@@ -28,6 +29,7 @@ export function AIContextProvider({ children }: { children: ReactNode }) {
     featuresCount: 0, // No AI features
     hasAIInsights: false,
     availableFeatures: [], // No AI features available
+    safeMode: false, // No safe mode in fallback
     initializeAIServices: async () => {
       console.log('🚫 AI services disabled (Phase 2)');
     }
@@ -58,6 +60,13 @@ export const useAIActions = () => ({
   triggerInvalidation: async () => {},
   refreshInsights: async () => {},
   generateInsights: async () => null,
+});
+
+// Additional hook for AI status (used by SafeModeBanner)
+export const useAIStatus = () => ({
+  isInitialized: true, // Always initialized (but disabled)
+  initializationError: null,
+  availableFeatures: [], // No features available
 });
 
 // Backwards compatibility alias
