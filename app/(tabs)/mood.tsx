@@ -22,7 +22,7 @@ import ScreenLayout from '@/components/layout/ScreenLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
-import FAB from '@/components/ui/FAB';
+
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
 
 // Services & Hooks
@@ -1840,19 +1840,21 @@ export default function MoodScreen() {
         ));
         } else {
         // Create new entry
-        const result = await moodTracker.addMoodEntry({
+        const savedEntry = await moodTracker.saveMoodEntry({
           mood_score: entryData.mood_score,
           energy_level: entryData.energy_level || 50,
           anxiety_level: entryData.anxiety_level || 50,
           notes: entryData.notes || '',
-          trigger: entryData.trigger || ''
+          triggers: entryData.trigger || '',
+          user_id: user.id,
+          created_at: new Date().toISOString()
         });
         
-        if (result.success) {
+        if (savedEntry) {
           setToastMessage('Mood kaydı oluşturuldu ✅');
           await loadMoodEntries();
       } else {
-          throw new Error(result.error);
+          throw new Error('Failed to save mood entry');
         }
       }
 
@@ -1949,36 +1951,25 @@ export default function MoodScreen() {
           })}
         </Text>
 
-        {/* Mood Statistics Card */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Mood İstatistikleri</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{moodEntries.length}</Text>
-              <Text style={styles.statLabel}>Toplam Kayıt</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {moodEntries.length > 0 
-                  ? Math.round(moodEntries.reduce((sum, e) => sum + e.mood_score, 0) / moodEntries.length)
-                  : 0}
-              </Text>
-              <Text style={styles.statLabel}>Ortalama Mood</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Mood Entries List */}
         <View style={styles.listSection}>
-          <Text style={styles.sectionTitle}>Son Mood Kayıtları</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Son Mood Kayıtları</Text>
+            <Pressable
+              style={styles.addMoodButton}
+              onPress={() => setShowQuickEntry(true)}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+              <Text style={styles.addMoodButtonText}>Mood Ekle</Text>
+            </Pressable>
+          </View>
 
           {filteredEntries.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="emoticon-sad-outline" size={48} color="#E5E7EB" />
               <Text style={styles.emptyText}>Henüz mood kaydı yok</Text>
               <Text style={styles.emptySubtext}>
-                Aşağıdaki + butonuna tıklayarak ilk kaydınızı oluşturun
+                Yukarıdaki "Mood Ekle" butonuna tıklayarak ilk kaydınızı oluşturun
               </Text>
             </View>
           ) : (
@@ -2059,13 +2050,6 @@ export default function MoodScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB Button */}
-      <FAB 
-        icon="plus" 
-        onPress={() => setShowQuickEntry(true)}
-        style={styles.fab}
-      />
-
       {/* Quick Entry Modal */}
       <MoodQuickEntry
         visible={showQuickEntry}
@@ -2081,7 +2065,8 @@ export default function MoodScreen() {
       <Toast
         visible={showToast}
         message={toastMessage}
-        onDismiss={() => setShowToast(false)}
+        type="success"
+        onHide={() => setShowToast(false)}
       />
 
       {/* Debug Modal */}
@@ -2172,56 +2157,35 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 20,
   },
-  statsCard: {
-    marginHorizontal: 16,
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  statsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#E5E7EB',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#EC4899',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
+
   listSection: {
     paddingHorizontal: 16,
     paddingBottom: 100,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 12,
+  },
+  addMoodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EC4899',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+  },
+  addMoodButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',
