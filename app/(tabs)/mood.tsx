@@ -407,12 +407,12 @@ export default function MoodScreen() {
           
           // 📊 TELEMETRY: Track cache save
           // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
-            userId: user.id,
-            patternsCount: mappedPatterns.length,
-            entriesCount: entries.length,
-            analysisSource: 'unified_pipeline',
-            cacheType: 'full_analysis'
-          });
+          //   userId: user.id,
+          //   patternsCount: mappedPatterns.length,
+          //   entriesCount: entries.length,
+          //   analysisSource: 'unified_pipeline',
+          //   cacheType: 'full_analysis'
+          // });
           
         } catch (cacheError) {
           console.warn('⚠️ Failed to cache patterns (non-blocking):', cacheError);
@@ -422,14 +422,14 @@ export default function MoodScreen() {
         const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
         if (enhancedMetricsCount > 0) {
           // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-            source: 'mood_screen_enhanced',
-            enhancedPatternsCount: enhancedMetricsCount,
-            dashboardMetricsTypes: mappedPatterns
-              .map(p => p.type)
-              .filter((type, index, arr) => arr.indexOf(type) === index), // unique types
-            meaAnalysisAvailable: mappedPatterns.some(p => p.data.meaCorrelations),
-            weeklyDeltaAvailable: mappedPatterns.some(p => p.data.weeklyDelta !== undefined)
-          }, user.id);
+          //   source: 'mood_screen_enhanced',
+          //   enhancedPatternsCount: enhancedMetricsCount,
+          //   dashboardMetricsTypes: mappedPatterns
+          //     .map(p => p.type)
+          //     .filter((type, index, arr) => arr.indexOf(type) === index), // unique types
+          //   meaAnalysisAvailable: mappedPatterns.some(p => p.data.meaCorrelations),
+          //   weeklyDeltaAvailable: mappedPatterns.some(p => p.data.weeklyDelta !== undefined)
+          // }, user.id);
         }
       }
 
@@ -483,18 +483,18 @@ export default function MoodScreen() {
         
         // 📊 Enhanced Telemetry for analytics usage
         // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-          source: 'mood_screen_enhanced_analytics',
-          analyticsProfile: analytics.profile?.type,
-          volatility: analytics.volatility,
-          weeklyDelta: analytics.weeklyDelta,
-          dataQuality: analytics.dataQuality,
-          confidence: analytics.confidence,
-          correlationsCount: Object.keys(analytics.correlations).filter(k => {
-            const correlation = (analytics.correlations as any)[k];
-            return correlation?.r !== null;
-          }).length,
-          bestTimesAvailable: !!(analytics.bestTimes?.dayOfWeek || analytics.bestTimes?.timeOfDay)
-        }, user.id);
+        //   source: 'mood_screen_enhanced_analytics',
+        //   analyticsProfile: analytics.profile?.type,
+        //   volatility: analytics.volatility,
+        //   weeklyDelta: analytics.weeklyDelta,
+        //   dataQuality: analytics.dataQuality,
+        //   confidence: analytics.confidence,
+        //   correlationsCount: Object.keys(analytics.correlations).filter(k => {
+        //     const correlation = (analytics.correlations as any)[k];
+        //     return correlation?.r !== null;
+        //   }).length,
+        //   bestTimesAvailable: !!(analytics.bestTimes?.dayOfWeek || analytics.bestTimes?.timeOfDay)
+        // }, user.id);
         
         console.log('🎯 Enhanced mood analytics processed successfully');
       }
@@ -580,21 +580,21 @@ export default function MoodScreen() {
       const patternsCount = Array.isArray(result.patterns) ? result.patterns.length : 0;
       
       // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        source: 'mood_screen',
-        insightsCount,
-        patternsCount,
-        deliveryTime: result.metadata?.processingTime || 0
-      }, user.id);
+      //   source: 'mood_screen',
+      //   insightsCount,
+      //   patternsCount,
+      //   deliveryTime: result.metadata?.processingTime || 0
+      // }, user.id);
 
     } catch (error) {
       console.error('❌ UnifiedAIPipeline mood analysis failed:', error);
       
       // 📊 TELEMETRY: Track pipeline error
       // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
-        source: 'mood_screen',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        fallbackTriggered: true
-      }, user.id);
+      //   source: 'mood_screen',
+      //   error: error instanceof Error ? error.message : 'Unknown error',
+      //   fallbackTriggered: true
+      // }, user.id);
       
       // 🚨 USER FEEDBACK: Inform user about analysis failure
       try {
@@ -691,12 +691,12 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track fallback cache save
         // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
-          userId: user.id,
-          patternsCount: mergedPatterns.length,
-          entriesCount: entries.length,
-          analysisSource: 'fallback_pipeline',
-          cacheType: 'heuristic_fallback'
-        });
+        //   userId: user.id,
+        //   patternsCount: mergedPatterns.length,
+        //   entriesCount: entries.length,
+        //   analysisSource: 'fallback_pipeline',
+        //   cacheType: 'heuristic_fallback'
+        // });
         
       } catch (cacheError) {
         console.warn('⚠️ Failed to cache fallback patterns (non-blocking):', cacheError);
@@ -1241,10 +1241,10 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track cache invalidation
         // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
-          userId: user.id,
-          reason: 'mood_entry_added',
-          timestamp: Date.now()
-        });
+        //   userId: user.id,
+        //   reason: 'mood_entry_added',
+        //   timestamp: Date.now()
+        // });
         
       } catch (patternCacheError) {
         console.warn('⚠️ Pattern cache invalidation failed (non-blocking):', patternCacheError);
@@ -1437,11 +1437,11 @@ export default function MoodScreen() {
 
                 // Track delete action before deletion
                 // await trackAIInteraction('MOOD_ENTRY_DELETE', {
-                  entryId: entryId,
-                  mood: entryToDelete.mood_score,
-                  energy: entryToDelete.energy_level,
-                  anxiety: entryToDelete.anxiety_level
-                });
+                //   entryId: entryId,
+                //   mood: entryToDelete.mood_score,
+                //   energy: entryToDelete.energy_level,
+                //   anxiety: entryToDelete.anxiety_level
+                // });
 
                 if (user) {
                   // 🔄 CRITICAL FIX: Remote-First Deletion for Intelligent Merge
@@ -1481,8 +1481,8 @@ export default function MoodScreen() {
                       
                       try {
                         // await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
-                          entity: 'mood_entry', id: entryId, userId: user.id, priority: 'high'
-                        }, user.id);
+                        //   entity: 'mood_entry', id: entryId, userId: user.id, priority: 'high'
+                        // }, user.id);
                       } catch {}
                     } else {
                       console.log('⏭️ Skipping remote queue for local-only ID:', entryId);
@@ -1546,11 +1546,11 @@ export default function MoodScreen() {
                     
                     // 📊 TELEMETRY: Track cache invalidation for delete
                     // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
-                      userId: user.id,
-                      reason: 'mood_entry_deleted',
-                      entryId: entryId,
-                      timestamp: Date.now()
-                    });
+                    //   userId: user.id,
+                    //   reason: 'mood_entry_deleted',
+                    //   entryId: entryId,
+                    //   timestamp: Date.now()
+                    // });
                     
                   } catch (patternCacheError) {
                     console.warn('⚠️ Pattern cache invalidation failed after delete (non-blocking):', patternCacheError);
@@ -1595,11 +1595,11 @@ export default function MoodScreen() {
                     
                     // 📊 TELEMETRY: Track cache invalidation for offline delete
                     // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
-                      userId: user.id,
-                      reason: 'mood_entry_deleted_offline',
-                      entryId: entryId,
-                      timestamp: Date.now()
-                    });
+                    //   userId: user.id,
+                    //   reason: 'mood_entry_deleted_offline',
+                    //   entryId: entryId,
+                    //   timestamp: Date.now()
+                    // });
                     
                   } catch (patternCacheError) {
                     console.warn('⚠️ Pattern cache invalidation failed after offline delete (non-blocking):', patternCacheError);
