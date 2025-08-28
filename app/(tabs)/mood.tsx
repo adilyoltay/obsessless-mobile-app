@@ -33,7 +33,7 @@ import { offlineSyncService } from '@/services/offlineSync';
 import { moodDeletionCache } from '@/services/moodDeletionCache';
 import { UUID_REGEX } from '@/utils/validators';
 import moodTracker from '@/services/moodTrackingService';
-// 🚫 AI Imports - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+// 🚫 AI Pipeline - DISABLED (Sprint 2: Minimal AI Cleanup)
 // import * as pipeline from '@/features/ai-fallbacks/pipeline';
 // import { unifiedGamificationService } from '@/features/ai-fallbacks/gamification';
 // import { moodDataFlowTester } from '@/features/ai-fallbacks/moodDataFlowTester';
@@ -43,14 +43,14 @@ import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import type { MoodEntry as ServiceMoodEntry } from '@/services/moodTrackingService';
 import { sanitizePII } from '@/utils/privacy';
 import { secureDataService } from '@/services/encryption/secureDataService';
-// 🚫 AI Telemetry & Risk Assessment - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+// 🚫 AI Telemetry & Risk - DISABLED (Sprint 2: Minimal AI Cleanup) 
 // import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 // import { advancedRiskAssessmentService } from '@/features/ai-fallbacks/riskAssessmentService';
 import patternPersistenceService from '@/services/patternPersistenceService';
 
-// 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+// 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Minimal AI Cleanup)
 // import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
-// import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';
+// import AdaptiveSuggestionCard from '@/components/ui/AdaptiveSuggestionCard';  
 // import { mapUnifiedResultToRegistryItems, extractUIQualityMeta } from '@/features/ai-fallbacks/insights';
 
 
@@ -88,10 +88,10 @@ export default function MoodScreen() {
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
   const [predictiveInsights, setPredictiveInsights] = useState<any>(null); // Still needed for dashboard data generation
   
-  // 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-  // const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
-  // const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null);
-  // const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
+  // 🎯 Adaptive Suggestions State (Cross-Module)
+  const [adaptiveSuggestion, setAdaptiveSuggestion] = useState<AdaptiveSuggestion | null>(null);
+  const [adaptiveMeta, setAdaptiveMeta] = useState<any>(null); // Quality metadata for UI
+  const { generateSuggestionFromPipeline, trackSuggestionClick, trackSuggestionDismissal, snoozeSuggestion } = useAdaptiveSuggestion();
   
   // 🧪 DEBUG: Mood Data Flow Testing
   const [showMoodDebug, setShowMoodDebug] = useState(false);
@@ -157,9 +157,7 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track cache hit
         try {
-          // 🚫 AI Telemetry - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-          // // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
             userId: user.id,
             patternsCount: cachedPatterns.length,
             entriesCount: moodEntries.length,
@@ -173,8 +171,7 @@ export default function MoodScreen() {
         
         // 📊 TELEMETRY: Track cache miss
         try {
-          // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
             userId: user.id,
             entriesCount: moodEntries.length,
             reason: 'no_cached_patterns_available'
@@ -215,8 +212,7 @@ export default function MoodScreen() {
       console.log('🚀 Starting UnifiedAIPipeline mood analysis...');
       
       // 📊 TELEMETRY: Track insights request
-      // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
+      await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
         source: 'mood_screen',
         dataType: 'mood_patterns',
         entriesCount: entries.length
@@ -240,12 +236,8 @@ export default function MoodScreen() {
         console.warn('⚠️ Encryption failed, using sanitized data:', encryptionError);
       }
 
-      // 🚫 UNIFIED PIPELINE - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-      console.log('✅ Skipping unified pipeline processing (AI disabled)');
-      const result = { insights: { therapeutic: [] }, patterns: [], analytics: null, metadata: { source: 'disabled' } };
-      
-      // Original pipeline call disabled:
-      // const result = await pipeline.process({
+      // 🚀 UNIFIED PIPELINE: Process mood data
+      const result = await pipeline.process({
         userId: user.id,
         type: 'data',
         content: { moods: sanitized },
@@ -266,8 +258,7 @@ export default function MoodScreen() {
       console.log('🎯 UnifiedAIPipeline mood analysis completed:', result);
 
       // 📊 TELEMETRY: Track pipeline completion
-      // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
         source: 'mood_screen',
         cacheHit: result.metadata?.source === 'cache',
         moduleCount: 1,
@@ -405,8 +396,7 @@ export default function MoodScreen() {
           console.log('💾 Patterns saved to cache successfully');
           
           // 📊 TELEMETRY: Track cache save
-          // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+          await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
             userId: user.id,
             patternsCount: mappedPatterns.length,
             entriesCount: entries.length,
@@ -421,8 +411,7 @@ export default function MoodScreen() {
         // 📊 TELEMETRY: Track enhanced metrics delivery
         const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
         if (enhancedMetricsCount > 0) {
-          // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+          await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
             source: 'mood_screen_enhanced',
             enhancedPatternsCount: enhancedMetricsCount,
             dashboardMetricsTypes: mappedPatterns
@@ -483,8 +472,7 @@ export default function MoodScreen() {
         setPredictiveInsights(enhancedInsight);
         
         // 📊 Enhanced Telemetry for analytics usage
-        // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+        await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
           source: 'mood_screen_enhanced_analytics',
           analyticsProfile: analytics.profile?.type,
           volatility: analytics.volatility,
@@ -581,8 +569,7 @@ export default function MoodScreen() {
       const insightsCount = (result.insights?.therapeutic?.length || 0) + (result.insights?.progress?.length || 0);
       const patternsCount = Array.isArray(result.patterns) ? result.patterns.length : 0;
       
-      // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
+      await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
         source: 'mood_screen',
         insightsCount,
         patternsCount,
@@ -593,8 +580,7 @@ export default function MoodScreen() {
       console.error('❌ UnifiedAIPipeline mood analysis failed:', error);
       
       // 📊 TELEMETRY: Track pipeline error
-      // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
+      await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
         source: 'mood_screen',
         error: error instanceof Error ? error.message : 'Unknown error',
         fallbackTriggered: true
@@ -647,12 +633,8 @@ export default function MoodScreen() {
     try {
       console.log('🚀 Running unified mood analysis fallback...');
       
-      // 🚫 UnifiedAIPipeline - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-      console.log('✅ Skipping unified pipeline fallback (AI disabled)');
-      const result = { insights: { therapeutic: [] }, patterns: [], analytics: null, metadata: { source: 'disabled' } };
-      
-      // Original pipeline call disabled:
-      // const result = await pipeline.process({
+      // Use UnifiedAIPipeline instead of legacy service
+      const result = await pipeline.process({
         userId: user.id,
         type: 'data',
         content: { moods: entries },
@@ -694,8 +676,7 @@ export default function MoodScreen() {
         console.log('💾 Fallback patterns saved to cache successfully');
         
         // 📊 TELEMETRY: Track fallback cache save
-        // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+        await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
           userId: user.id,
           patternsCount: mergedPatterns.length,
           entriesCount: entries.length,
@@ -1184,12 +1165,7 @@ export default function MoodScreen() {
         try {
           console.log('🚀 Analyzing mood journal entry with UnifiedAIPipeline...');
           
-          // 🚫 Pipeline Analysis - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-          console.log('✅ Skipping mood journal pipeline analysis (AI disabled)');
-          const analysisResult = { insights: { therapeutic: [] }, patterns: [], metadata: { source: 'disabled' } };
-          
-          // Original pipeline call disabled:
-          // const analysisResult = await pipeline.process({
+          const analysisResult = await pipeline.process({
             userId: user.id,
             type: 'voice', // Journal notes treated as voice input for sentiment analysis
             content: data.notes,
@@ -1242,8 +1218,7 @@ export default function MoodScreen() {
         console.log('💾 Pattern cache invalidated after mood entry save');
         
         // 📊 TELEMETRY: Track cache invalidation
-        // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+        await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
           userId: user.id,
           reason: 'mood_entry_added',
           timestamp: Date.now()
@@ -1399,8 +1374,7 @@ export default function MoodScreen() {
       setShowToast(true);
 
       // Track edit action
-      // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction('MOOD_ENTRY_EDIT', {
+      await trackAIInteraction('MOOD_ENTRY_EDIT', {
         entryId: entry.id,
         mood: entry.mood_score,
         energy: entry.energy_level,
@@ -1440,8 +1414,7 @@ export default function MoodScreen() {
                 }
 
                 // Track delete action before deletion
-                // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction('MOOD_ENTRY_DELETE', {
+                await trackAIInteraction('MOOD_ENTRY_DELETE', {
                   entryId: entryId,
                   mood: entryToDelete.mood_score,
                   energy: entryToDelete.energy_level,
@@ -1485,8 +1458,7 @@ export default function MoodScreen() {
                       }
                       
                       try {
-                        // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
+                        await trackAIInteraction(AIEventType.DELETE_QUEUED_OFFLINE, {
                           entity: 'mood_entry', id: entryId, userId: user.id, priority: 'high'
                         }, user.id);
                       } catch {}
@@ -1551,8 +1523,7 @@ export default function MoodScreen() {
                     console.log('💾 Pattern cache invalidated after mood entry deletion');
                     
                     // 📊 TELEMETRY: Track cache invalidation for delete
-                    // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
                       userId: user.id,
                       reason: 'mood_entry_deleted',
                       entryId: entryId,
@@ -1601,8 +1572,7 @@ export default function MoodScreen() {
                     console.log('💾 Pattern cache invalidated after offline mood entry deletion');
                     
                     // 📊 TELEMETRY: Track cache invalidation for offline delete
-                    // 🚫 AI Telemetry - DISABLED
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
+                    await trackAIInteraction(AIEventType.PATTERN_CACHE_INVALIDATED, {
                       userId: user.id,
                       reason: 'mood_entry_deleted_offline',
                       entryId: entryId,
@@ -1897,9 +1867,26 @@ export default function MoodScreen() {
           />
         }
       >
-        {/* 🚫 ADAPTIVE SUGGESTION - DISABLED (Sprint 2: Hard Stop AI Fallbacks) */}
-        {false && (
-          <></>
+        {/* 🎯 ADAPTIVE SUGGESTION CARD (Cross-Module) */}
+        {adaptiveSuggestion?.show && (
+          <AdaptiveSuggestionCard
+            suggestion={adaptiveSuggestion}
+            onAccept={async () => {
+              if (!user?.id || !adaptiveSuggestion?.cta) return;
+              await trackSuggestionClick(user.id, adaptiveSuggestion);
+              router.push(adaptiveSuggestion.cta.screen, adaptiveSuggestion.cta.params);
+              setAdaptiveSuggestion(null);
+              setAdaptiveMeta(null);
+            }}
+            onDismiss={async () => {
+              if (!user?.id) return;
+              await trackSuggestionDismissal(user.id, adaptiveSuggestion);
+              setAdaptiveSuggestion(null);
+              setAdaptiveMeta(null);
+            }}
+            meta={adaptiveMeta}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+          />
         )}
 
         {/* Date Display */}
