@@ -6,9 +6,9 @@ import moodTracker from '@/services/moodTrackingService';
 import { isUUID } from '@/utils/validators';
 import supabaseService from '@/services/supabase';
 import { NotificationScheduler } from '@/services/notificationScheduler';
-// ✅ NEW: AI integration for onboarding data
-import * as pipeline from '@/features/ai-fallbacks/pipeline';
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+// 🚫 AI Integration - DISABLED (Hard Stop AI Cleanup)
+// import * as pipeline from '@/features/ai-fallbacks/pipeline';
+// import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 
 interface MoodOnboardingState {
   step: number;
@@ -767,26 +767,18 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         usedFallback = true;
       } else {
         // ⏱️ Online: Try AI with timeout protection
-        const AI_TIMEOUT = 8000; // 8 seconds max
+        // 🚫 AI Analysis - DISABLED (Hard Stop AI Cleanup)
+        console.log('✅ Skipping AI analysis for onboarding (AI disabled)');
         
-        const aiPromise = pipeline.unifiedPipeline.process({
-          userId: 'temp_onboarding',
-          content: {
-            type: 'onboarding_motivation',
-            motivations,
-            context: 'user_goals_analysis'
-          },
-          type: 'data',
-          context: {
-            source: 'today',
-            metadata: {
-              isOnboardingStep: true,
-              progressiveAnalysis: true,
-              step: 'motivation',
-              fastMode: true // Request fast processing
-            }
-          }
+        // Mock AI result instead of pipeline processing
+        const aiPromise = Promise.resolve({
+          insights: { therapeutic: [] },
+          patterns: [],
+          metadata: { source: 'disabled', step: 'motivation' }
         });
+        
+        // Original AI call disabled:
+        // const aiPromise = pipeline.unifiedPipeline.process({...});
 
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
@@ -853,28 +845,18 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         console.log('📴 Offline detected - using mood fallback immediately');
         usedFallback = true;
       } else {
-        // ⏱️ Try AI with timeout
-        const AI_TIMEOUT = 6000; // 6 seconds max for mood analysis
+        // 🚫 AI Analysis - DISABLED (Hard Stop AI Cleanup)
+        console.log('✅ Skipping AI mood analysis for onboarding (AI disabled)');
         
-        const aiPromise = pipeline.unifiedPipeline.process({
-          userId: 'temp_onboarding',
-          content: {
-            type: 'onboarding_first_mood',
-            mood_score: score * 20, // 1-5 → 20-100 mapping
-            tags: tags || [],
-            context: 'initial_baseline'
-          },
-          type: 'data',
-          context: {
-            source: 'today',
-            metadata: {
-              isOnboardingStep: true,
-              progressiveAnalysis: true,
-              step: 'first_mood',
-              fastMode: true
-            }
-          }
+        // Mock AI result for mood analysis
+        const aiPromise = Promise.resolve({
+          insights: { therapeutic: [] },
+          patterns: [],
+          metadata: { source: 'disabled', step: 'first_mood' }
         });
+        
+        // Original AI call disabled:
+        // const aiPromise = pipeline.unifiedPipeline.process({...});
 
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
