@@ -20,7 +20,7 @@ import * as Haptics from 'expo-haptics';
 // Components
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
@@ -1846,8 +1846,7 @@ export default function MoodScreen() {
           anxiety_level: entryData.anxiety_level || 50,
           notes: entryData.notes || '',
           triggers: entryData.trigger || '',
-          user_id: user.id,
-          created_at: new Date().toISOString()
+          user_id: user.id
         });
         
         if (savedEntry) {
@@ -1955,13 +1954,15 @@ export default function MoodScreen() {
         <View style={styles.listSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Son Mood Kayıtları</Text>
-            <Pressable
-              style={styles.addMoodButton}
+            <Button
+              variant="primary"
               onPress={() => setShowQuickEntry(true)}
+              style={styles.addMoodButton}
+              leftIcon={<MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />}
+              accessibilityLabel="Mood kaydı ekle"
             >
-              <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
-              <Text style={styles.addMoodButtonText}>Mood Ekle</Text>
-            </Pressable>
+              Mood Ekle
+            </Button>
           </View>
 
           {filteredEntries.length === 0 ? (
@@ -2174,18 +2175,15 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   addMoodButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EC4899',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
-  },
-  addMoodButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    minWidth: 110,
   },
   emptyState: {
     alignItems: 'center',
