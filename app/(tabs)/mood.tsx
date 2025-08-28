@@ -1812,7 +1812,7 @@ export default function MoodScreen() {
 
   return (
     <ScreenLayout>
-      <>
+      <View style={{ flex: 1 }}>
         {/* Header - Matching OCD Design */}
         <View style={styles.headerContainer}>
           <View style={styles.headerContent}>
@@ -1873,7 +1873,7 @@ export default function MoodScreen() {
         </View>
       </View>
 
-      <ScrollView
+        <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -2112,7 +2112,7 @@ export default function MoodScreen() {
       )}
 
         {/* Mood Dashboard removed */}
-      </>
+      </View>
     </ScreenLayout>
   );
 }
