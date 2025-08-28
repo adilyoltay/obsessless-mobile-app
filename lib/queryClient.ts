@@ -18,9 +18,9 @@ function ensureValidKey(key: string): void {
   if (!key || typeof key !== 'string' || key.trim().length === 0) {
     const err = new Error('AsyncStorage: Invalid key provided');
     // Best-effort telemetry
-    import('@/features/ai/telemetry/aiTelemetry')
-      .then(({ trackAIError }) =>
-        trackAIError({ code: 'storage_error' as any, message: 'Invalid storage key', severity: 'medium' as any, timestamp: new Date(), recoverable: false, context: { key } })
+    import('@/features/ai-fallbacks/telemetry')
+      .then(({ trackAIInteraction }) =>
+        trackAIInteraction('SYSTEM_STATUS', { error: 'Invalid storage key', key })
       )
       .catch(() => {});
     throw err;
