@@ -5,6 +5,7 @@ import { intelligentMergeService } from '@/services/staticMoodMerge';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
+import optimizedStorage from '@/services/optimizedStorage';
 
 export interface MoodEntry {
   id: string;
@@ -356,11 +357,11 @@ class MoodTrackingService {
         storageVersion: 2 // v2 = encrypted format
       };
       
-      // 📦 SAVE TO ASYNCSTORAGE
-      const existing = await AsyncStorage.getItem(key);
-      const entries: EncryptedMoodStorage[] = existing ? JSON.parse(existing) : [];
-      entries.push(encryptedEntry);
-      await AsyncStorage.setItem(key, JSON.stringify(entries));
+      // 📦 SAVE TO OPTIMIZED STORAGE (with batching and caching)
+      const existing = await optimizedStorage.getOptimized<EncryptedMoodStorage[]>(key) || [];
+      existing.push(encryptedEntry);
+      // Use immediate=true for critical mood data to ensure persistence
+      await optimizedStorage.setOptimized(key, existing, true);
       
       console.log('🔒 Mood entry saved with AES-256-GCM encryption');
       
@@ -657,33 +658,59 @@ class MoodTrackingService {
 
   // Cross-device: fetch recent remote entries and merge with local using intelligent merge
   async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
+    // 🚀 PERFORMANCE OPTIMIZATION: Use optimized storage with query capabilities
+    try {
+      const dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - days);
+      
+      const optimizedEntries = await optimizedStorage.queryMoodEntries(userId, {
+        dateFrom,
+        sortBy: 'timestamp',
+        sortOrder: 'desc'
+      });
+
+      // If optimized query returns results, use them
+      if (optimizedEntries.length > 0) {
+        console.log(`⚡ Optimized query: ${optimizedEntries.length} entries in optimized path`);
+        return optimizedEntries;
+      }
+    } catch (error) {
+      console.warn('Optimized query failed, falling back to traditional method:', error);
+    }
+
+    // 🔄 FALLBACK: Traditional AsyncStorage method (backwards compatibility)
     const localEntries: MoodEntry[] = [];
     const dates = await this.getRecentDates(days);
     
-    for (const date of dates) {
+    // 🚀 OPTIMIZATION: Parallel loading instead of sequential
+    const loadPromises = dates.map(async (date) => {
       const key = `${this.STORAGE_KEY}_${userId}_${date}`;
-      const existing = await AsyncStorage.getItem(key);
-      if (existing) {
-        try {
-          const parsedData = JSON.parse(existing);
+      try {
+        const existing = await optimizedStorage.getOptimized<any>(key); // Use cache
+        if (existing) {
+          const decryptedEntries: MoodEntry[] = [];
           
           // 🔒 DECRYPT ENTRIES WITH BACKWARDS COMPATIBILITY
-          for (const rawEntry of parsedData) {
+          for (const rawEntry of existing) {
             try {
               const decryptedEntry = await this.decryptMoodEntry(rawEntry);
               if (decryptedEntry) {
-                localEntries.push(decryptedEntry);
+                decryptedEntries.push(decryptedEntry);
               }
             } catch (decryptError) {
               console.warn('⚠️ Failed to decrypt mood entry, skipping:', decryptError);
-              // Don't break the entire flow for one corrupted entry
             }
           }
-        } catch (parseError) {
-          console.error('❌ Failed to parse mood entries from storage:', parseError);
+          return decryptedEntries;
         }
+      } catch (error) {
+        console.warn(`Failed to load mood entries for date ${date}:`, error);
       }
-    }
+      return [];
+    });
+
+    const allEntries = await Promise.all(loadPromises);
+    localEntries.push(...allEntries.flat());
     
     try {
       // Use fully standardized supabaseService.getMoodEntries (canonical service method)
@@ -1307,5 +1334,6 @@ class MoodTrackingService {
 
 export const moodTracker = MoodTrackingService.getInstance();
 export default moodTracker;
+
 
 
