@@ -66,11 +66,16 @@
     "components/ui/DeadLetterQueueRecovery.tsx",
     "components/ui/SyncErrorSummaryCard.tsx",
     "services/autoRecordService.ts",
-    "services/crossDeviceSync.ts",
+    "services/crossDeviceSync.ts", 
     "services/voiceCleanupService.ts",
     "services/sync/maintenanceScheduler.ts",
     "services/offlineSyncUserFeedbackService.ts",
     "services/unifiedComplianceService.ts",
     "old_docs/**"
-  ]
+  ],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  }
 }
