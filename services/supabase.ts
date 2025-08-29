@@ -1,6 +1,6 @@
 import { SupabaseClient, User, Session, AuthError } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import { trackAIInteraction, AIEventType } from '@/services/telemetry/noopTelemetry';
 import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { mapToCanonicalCategory, mapToDatabaseCategory } from '@/utils/categoryMapping';
 import { isUUID } from '@/utils/validators';
