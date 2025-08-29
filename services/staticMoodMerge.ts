@@ -19,6 +19,7 @@ interface MergeResult {
     mergedCount: number;
     duplicatesRemoved: number;
     conflictsResolved: number;
+    syncSuccess: boolean; // For backward compatibility
   };
 }
 
@@ -77,6 +78,12 @@ async function intelligentMoodMerge(
   }
 
   stats.mergedCount = mergedEntries.length;
+  
+  // Add syncSuccess for backward compatibility
+  const statsWithSync = {
+    ...stats,
+    syncSuccess: true // Static merge always succeeds
+  };
 
   // Timestamp'a göre sırala (en yeni en başta)
   mergedEntries.sort((a, b) => {
@@ -85,12 +92,12 @@ async function intelligentMoodMerge(
     return timeB - timeA;
   });
 
-  console.log(`✅ Static merge complete:`, stats);
+  console.log(`✅ Static merge complete:`, statsWithSync);
 
   return {
     mergedEntries,
     conflicts: [], // Static merge'de conflict yok, remote wins
-    stats
+    stats: statsWithSync
   };
 }
 

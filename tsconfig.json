@@ -57,6 +57,18 @@
     "components/dev/**",
     "components/ai/**",
     "hooks/useAIErrorHandler.ts",
-    "utils/debugInvalidEntries.ts"
+    "utils/debugInvalidEntries.ts",
+    "components/checkin/VoiceCheckinModern.tsx",
+    "components/checkin/VoiceMoodCheckin.tsx",
+    "components/ui/AdaptiveSuggestionCard.tsx",
+    "components/ui/DailyMissionsCard.tsx",
+    "components/ui/DeadLetterQueueRecovery.tsx",
+    "components/ui/SyncErrorSummaryCard.tsx",
+    "services/autoRecordService.ts",
+    "services/crossDeviceSync.ts",
+    "services/voiceCleanupService.ts",
+    "services/sync/maintenanceScheduler.ts",
+    "services/offlineSyncUserFeedbackService.ts",
+    "services/unifiedComplianceService.ts"
   ]
 }

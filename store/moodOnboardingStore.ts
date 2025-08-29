@@ -8,7 +8,7 @@ import supabaseService from '@/services/supabase';
 import { NotificationScheduler } from '@/services/notificationScheduler';
 // 🚫 AI Integration - DISABLED (Hard Stop AI Cleanup)
 // import * as pipeline from '@/features/ai-fallbacks/pipeline';
-// import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import { trackAIInteraction, AIEventType, safeTrackAIInteraction } from '@/services/telemetry/noopTelemetry';
 
 interface MoodOnboardingState {
   step: number;
@@ -524,8 +524,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         
         // Try to track the failure for recovery later
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
+          // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup) - Using noopTelemetry
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'onboarding_mood_save_failed',
             userId: uidForKey,
@@ -693,7 +692,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
 
     // ✅ STEP 8: NON-CRITICAL - Analytics Tracking (important but not blocking)
     try {
-      const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
+      // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup) - Using noopTelemetry
       await safeTrackAIInteraction(AIEventType.ONBOARDING_COMPLETED, {
         userId: uidForKey,
         durationMs,
@@ -781,7 +780,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         // const aiPromise = pipeline.unifiedPipeline.process({...});
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
+          setTimeout(() => reject(new Error('10000')), 10000)
         );
 
         analysisResult = await Promise.race([aiPromise, timeoutPromise]);
@@ -859,7 +858,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         // const aiPromise = pipeline.unifiedPipeline.process({...});
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT)
+          setTimeout(() => reject(new Error('10000')), 10000)
         );
 
         analysisResult = await Promise.race([aiPromise, timeoutPromise]);

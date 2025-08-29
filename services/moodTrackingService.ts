@@ -19,6 +19,8 @@ export interface MoodEntry {
   synced: boolean;
   sync_attempts?: number;
   last_sync_attempt?: string;
+  content_hash?: string; // For duplicate detection
+  created_at?: string; // Alternative timestamp field
 }
 
 /**
