@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { trackAIInteraction, AIEventType } from '@/services/telemetry/noopTelemetry';
+import crashReporting from '@/services/crashReporting';
 
 interface Props {
   children: ReactNode;
@@ -30,10 +31,18 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     this.setState({ errorInfo });
     
-    // Log error for debugging (in production, send to crash reporting service)
+    // 🚨 NEW: Enhanced crash reporting with PII scrubbing
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // Store error info for user support
+    // Send to crash reporting service (non-blocking)
+    crashReporting.reportCrash(error, errorInfo, {
+      feature: 'error_boundary',
+      source: 'react_component_error'
+    }).catch(reportingError => {
+      console.warn('Failed to send crash report:', reportingError);
+    });
+    
+    // Store error info for user support (legacy - will be replaced by crashReporting)
     this.logErrorToStorage(error, errorInfo);
 
     // Basit otomatik feature disable: 3 hata/10dk eşiği
