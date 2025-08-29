@@ -55,7 +55,7 @@ export class SyncQueue {
       await this.updateSyncStatus(operation.id, 'failed');
       // UI çatışma çözümü için işaretleme (best-effort)
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
         trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'sync_operation_failed', opId: operation.id, entity: operation.entity });
       } catch {}
     }

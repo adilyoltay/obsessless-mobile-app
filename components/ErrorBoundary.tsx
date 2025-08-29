@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import { trackAIInteraction, AIEventType } from '@/services/telemetry/noopTelemetry';
 
 interface Props {
   children: ReactNode;

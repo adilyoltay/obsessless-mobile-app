@@ -1,4 +1,4 @@
-import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
+import { trackAIInteraction, AIEventType } from '@/services/telemetry/noopTelemetry';
 
 export async function trackOnbView(step_id: string, progress_pct: number, variant?: string) {
   await trackAIInteraction(AIEventType.ONBOARDING_VIEW as any, { step_id, progress_pct, variant });

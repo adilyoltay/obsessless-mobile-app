@@ -48,7 +48,7 @@ if (__DEV__) {
 if (typeof window !== 'undefined') {
   // Browser/mobile environment
   setTimeout(() => {
-    import('@/features/ai-fallbacks/telemetry').then(({ trackAIInteraction, AIEventType }) => {
+    import('@/services/telemetry/noopTelemetry').then(({ trackAIInteraction, AIEventType }) => {
       trackAIInteraction(AIEventType.SYSTEM_STATUS, {
         aiMasterEnabled: AI_MASTER_ENABLED,
         environment: __DEV__ ? 'development' : 'production',
@@ -237,7 +237,7 @@ export const FEATURE_FLAGS = {
     
     // Telemetry + persist
     try {
-      const { trackAIInteraction, AIEventType } = await import('@/features/ai-fallbacks/telemetry');
+      const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
       await trackAIInteraction(AIEventType.EMERGENCY_SHUTDOWN, {
         timestamp: new Date().toISOString(),
         reason: 'feature_flags_disabled',

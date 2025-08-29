@@ -51,6 +51,12 @@
     "__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "supabase/functions/**"
+    "supabase/functions/**",
+    "features/ai-disabled-backup/**",
+    "app/(dev)/**",
+    "components/dev/**",
+    "components/ai/**",
+    "hooks/useAIErrorHandler.ts",
+    "utils/debugInvalidEntries.ts"
   ]
 }

@@ -85,7 +85,7 @@ export class ScheduledMaintenanceService {
       
       // Telemetry
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'dlq_maintenance_completed',
           archivedCount: result.archived,
@@ -120,7 +120,7 @@ export class ScheduledMaintenanceService {
           
           // Telemetry
           try {
-            const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+            const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
             await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
               event: 'circuit_breaker_auto_reset',
               hoursOpen: Math.round(hoursOpen)
@@ -138,7 +138,7 @@ export class ScheduledMaintenanceService {
 
       // Telemetry for health metrics
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'circuit_breaker_health_check',
           state: metrics.state,
@@ -227,7 +227,7 @@ export class ScheduledMaintenanceService {
 
       // Telemetry
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'storage_cleanup_completed',
           removedKeys,

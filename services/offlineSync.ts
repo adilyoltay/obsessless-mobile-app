@@ -172,8 +172,7 @@ export class OfflineSyncService {
         
         // Track security incident
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
+          const { safeTrackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'sync_queue_encryption_failure',
             severity: 'critical',
@@ -583,8 +582,7 @@ export class OfflineSyncService {
         } catch {}
         // Telemetry aggregation (avg latency) with feature flag check
         try {
-          const { safeTrackAIInteraction } = await import('@/features/ai-fallbacks/telemetryHelpers');
-          const { AIEventType } = await import('@/features/ai-fallbacks/telemetry');
+          const { safeTrackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
           const avgLatencyMs = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
           await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
             event: 'sync_batch_completed',

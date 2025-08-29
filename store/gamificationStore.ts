@@ -14,7 +14,7 @@ import {
   unifiedGamificationService, 
   UnifiedPointsCalculation, 
   UnifiedMission 
-} from '@/features/ai-fallbacks/gamification';
+} from '@/services/staticGamification';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 
 // Achievement definitions based on documentation

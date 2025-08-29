@@ -95,7 +95,7 @@ class DeadLetterQueueService {
       
       // Telemetry for cleanup
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        const { trackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
         await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
           event: 'dlq_cleanup_completed',
           removedCount: removed,
