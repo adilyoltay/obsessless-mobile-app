@@ -272,13 +272,14 @@ class MoodTrackingService {
         
         // Track successful queue addition
         try {
-          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-          await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_MISS, {
-            event: 'mood_auto_queued_for_sync',
-            entryId: moodEntry.id,
-            userId: moodEntry.user_id,
-            reason: 'supabase_save_failed'
-          });
+          // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup)
+          // const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_MISS, {
+          //   event: 'mood_auto_queued_for_sync',
+          //   entryId: moodEntry.id,
+          //   userId: moodEntry.user_id,
+          //   reason: 'supabase_save_failed'
+          // });
         } catch (telemetryError) {
           console.warn('⚠️ Telemetry failed for mood queue event:', telemetryError);
         }
@@ -291,14 +292,15 @@ class MoodTrackingService {
         
         // Track critical failure
         try {
-          const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-          await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-            event: 'mood_queue_addition_failed',
-            entryId: moodEntry.id,
-            userId: moodEntry.user_id,
-            error: queueError instanceof Error ? queueError.message : String(queueError),
-            severity: 'critical'
-          });
+          // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup)
+          // const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+          // await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+          //   event: 'mood_queue_addition_failed',
+          //   entryId: moodEntry.id,
+          //   userId: moodEntry.user_id,
+          //   error: queueError instanceof Error ? queueError.message : String(queueError),
+          //   severity: 'critical'
+          // });
         } catch {}
       }
     }
@@ -1197,16 +1199,17 @@ class MoodTrackingService {
 
       // Track recovery telemetry
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-          event: 'mood_auto_recovery_completed',
-          userId: userId,
-          totalUnsynced: unsyncedEntries.length,
-          recovered: recovered,
-          failed: failed,
-          invalidEntries: invalidEntries,
-          cleanupPerformed: invalidEntries > 0
-        });
+        // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup)
+        // const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        // await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        //   event: 'mood_auto_recovery_completed',
+        //   userId: userId,
+        //   totalUnsynced: unsyncedEntries.length,
+        //   recovered: recovered,
+        //   failed: failed,
+        //   invalidEntries: invalidEntries,
+        //   cleanupPerformed: invalidEntries > 0
+        // });
       } catch {}
 
       return { recovered, failed };
@@ -1262,13 +1265,14 @@ class MoodTrackingService {
       
       // Track cleanup telemetry
       try {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
-          event: 'mood_storage_cleanup',
-          userId,
-          cleanedCount,
-          invalidIds: invalidIds.slice(0, 5) // Only log first 5 IDs for privacy
-        });
+        // 🚫 AI Telemetry - DISABLED (Hard Stop AI Cleanup)
+        // const { trackAIInteraction, AIEventType } = await import('@/features/ai/telemetry/aiTelemetry');
+        // await trackAIInteraction(AIEventType.SYSTEM_STATUS, {
+        //   event: 'mood_storage_cleanup',
+        //   userId,
+        //   cleanedCount,
+        //   invalidIds: invalidIds.slice(0, 5) // Only log first 5 IDs for privacy
+        // });
       } catch (telemetryError) {
         console.log('Failed to track cleanup telemetry:', telemetryError);
       }

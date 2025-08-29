@@ -359,7 +359,7 @@ class SupabaseNativeService {
           try {
             attempt++;
             if (attempt > 1) {
-              try { await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'auth_signout_retry', attempt }); } catch {}
+              // try { await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'auth_signout_retry', attempt }); } catch {}
             }
             const { error } = await this.client.auth.signOut({ scope: 'global' } as any);
             if (error) throw error;
@@ -909,7 +909,7 @@ class SupabaseNativeService {
           data: { user_id: userId, updates },
           errorMessage: 'update_gamification_profile_failed',
         } as any, error);
-        await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: 'gamification_profile_dead_letter', attempts: 0 });
+        // await trackAIInteraction(AIEventType.STORAGE_RETRY_SUCCESS, { key: 'gamification_profile_dead_letter', attempts: 0 });
       } catch {}
       // Do not rethrow to avoid redbox; UI continues and sync will retry later
     }
@@ -1348,7 +1348,7 @@ class SupabaseNativeService {
           /multiple \(or no\) rows returned/i.test(error.message || '')
         ) {
           console.log('ℹ️ Mood entry already exists or not returned (idempotent upsert)');
-          try { await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, { kind: 'duplicate_prevented', userId: sanitizedEntry.user_id }); } catch {}
+          // try { await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, { kind: 'duplicate_prevented', userId: sanitizedEntry.user_id }); } catch {}
           return null;
         }
         throw error;
@@ -1551,8 +1551,8 @@ class SupabaseNativeService {
       if (lifestyleExerciseRaw && !lifestyle_exercise) invalids.lifestyle_exercise = lifestyleExerciseRaw;
       if (lifestyleSocialRaw && !lifestyle_social) invalids.lifestyle_social = lifestyleSocialRaw;
       if (Object.keys(invalids).length > 0) {
-        const { trackAIInteraction, AIEventType } = await import('@/features/ai-fallbacks/telemetry');
-        await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'validation_warning', entity: 'user_profile', fields: invalids, userId });
+        // const { trackAIInteraction, AIEventType } = await import('@/features/ai-fallbacks/telemetry');
+        // await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'validation_warning', entity: 'user_profile', fields: invalids, userId });
       }
     } catch {}
 
