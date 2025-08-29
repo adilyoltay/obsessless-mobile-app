@@ -50,12 +50,12 @@ class VoiceCheckInHeuristicService {
       emotion: 'çok_mutlu', weight: 1.3
     },
     {
-      keywords: ['mutlu', 'neşeli', 'sevinçli', 'keyifli', 'güzel', 'süper', 'iyi hissediyorum'],
+      keywords: ['mutlu', 'neşeli', 'sevinçli', 'keyifli', 'güzel', 'süper', 'iyi hissediyorum', 'çok iyi', 'gayet iyi', 'oldukça iyi'],
       moodImpact: +3, energyImpact: +2, anxietyImpact: -2,
       emotion: 'mutlu', weight: 1.0
     },
     {
-      keywords: ['enerjik', 'dinamik', 'aktif', 'canlı', 'zinde', 'motivasyonum yüksek', 'şevkli'],
+      keywords: ['enerjik', 'dinamik', 'aktif', 'canlı', 'zinde', 'motivasyonum yüksek', 'şevkli', 'enerjim yüksek', 'enerjim var', 'motivasyonum iyi', 'motivasyonum tam'],
       moodImpact: +3, energyImpact: +5, anxietyImpact: -1,
       emotion: 'enerjik', weight: 1.2
     },
@@ -85,7 +85,7 @@ class VoiceCheckInHeuristicService {
       emotion: 'kıskanç', weight: 1.1
     },
     {
-      keywords: ['azimliyim', 'kararlıyım', 'odaklandım', 'motivasyonum tam', 'hedef odaklı'],
+      keywords: ['azimliyim', 'kararlıyım', 'odaklandım', 'motivasyonum tam', 'hedef odaklı', 'yapacak çok şey var', 'çok şey yapacağım', 'işler çok iyi'],
       moodImpact: +4, energyImpact: +4, anxietyImpact: -2,
       emotion: 'kararlı', weight: 1.3
     },
