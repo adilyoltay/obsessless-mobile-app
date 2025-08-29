@@ -1859,22 +1859,35 @@ export default function MoodScreen() {
         }
         } else {
         // Create new entry
-        // 🔄 TRIGGER FIX: Convert string to array format (MoodEntry expects string[])
-        const savedEntry = await moodTracker.saveMoodEntry({
-          mood_score: entryData.mood_score,
-          energy_level: entryData.energy_level || 50,
-          anxiety_level: entryData.anxiety_level || 50,
-          notes: entryData.notes || '',
-          triggers: entryData.trigger ? [entryData.trigger] : [], // Convert string to array
-          activities: [], // Default empty array
-          user_id: user.id
-        });
-        
-        if (savedEntry) {
-          setToastMessage('Mood kaydı oluşturuldu ✅');
-          await loadMoodEntries();
+        try {
+          // 🔄 TRIGGER FIX: Convert string to array format (MoodEntry expects string[])
+          const savedEntry = await moodTracker.saveMoodEntry({
+            mood_score: entryData.mood_score,
+            energy_level: entryData.energy_level || 50,
+            anxiety_level: entryData.anxiety_level || 50,
+            notes: entryData.notes || '',
+            triggers: entryData.trigger ? [entryData.trigger] : [], // Convert string to array
+            activities: [], // Default empty array
+            user_id: user.id
+          });
+          
+          if (savedEntry) {
+            setToastMessage('Mood kaydı oluşturuldu ✅');
+            await loadMoodEntries();
       } else {
-          throw new Error('Failed to save mood entry');
+            throw new Error('Failed to save mood entry');
+          }
+        } catch (createError: any) {
+          // 🛡️ DUPLICATE HANDLING: Handle idempotency prevention gracefully
+          if (createError.code === 'DUPLICATE_PREVENTED') {
+            console.log('🛡️ UI: Duplicate prevented, showing user-friendly message');
+            setToastMessage('Bu kayıt zaten mevcut! Benzer bir entry az önce yapılmış 🔄');
+            
+            // DON'T reload - prevents duplicate UI entries
+          } else {
+            console.error('❌ Mood creation failed:', createError);
+            setToastMessage('Kayıt oluşturma başarısız: ' + (createError.message || 'Bilinmeyen hata'));
+          }
         }
       }
 

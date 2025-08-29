@@ -60,21 +60,74 @@ async function intelligentMoodMerge(
   const remoteIds = new Set(remoteEntries.map(entry => entry.id));
   const remoteHashes = new Set(remoteEntries.map(entry => entry.content_hash).filter(Boolean));
 
+  // 🔍 ENHANCED DUPLICATE DETECTION: Build comprehensive ID and content maps
+  const remoteContentHashes = new Set(remoteEntries.map(entry => entry.content_hash).filter(Boolean));
+  const remoteLocalIds = new Set(remoteEntries.map(entry => entry.local_id).filter(Boolean));
+  const remoteRemoteIds = new Set(remoteEntries.map(entry => entry.remote_id || entry.id).filter(Boolean));
+
+  console.log(`🔍 Merge analysis: Remote has ${remoteIds.size} IDs, ${remoteContentHashes.size} content hashes, ${remoteLocalIds.size} local_ids`);
+
   // Local entries'den remote'da olmayan ve duplicate olmayan'ları ekle
   for (const localEntry of localEntries) {
-    // ID check (exact match)
+    let shouldSkip = false;
+    let skipReason = '';
+
+    // 1. EXACT ID MATCH CHECK (original logic)
     if (remoteIds.has(localEntry.id)) {
-      continue; // Remote'da var, skip
+      shouldSkip = true;
+      skipReason = 'exact_id_match';
     }
 
-    // Content hash check (duplicate content)
-    if (localEntry.content_hash && remoteHashes.has(localEntry.content_hash)) {
+    // 2. LOCAL_ID MAPPING CHECK (new - critical for mood_xxx ↔ UUID mapping)
+    if (!shouldSkip && localEntry.local_id && remoteLocalIds.has(localEntry.local_id)) {
+      shouldSkip = true; 
+      skipReason = 'local_id_mapping';
+    }
+
+    // 3. REMOTE_ID MAPPING CHECK (new - for UUID entries)
+    if (!shouldSkip && localEntry.remote_id && remoteIds.has(localEntry.remote_id)) {
+      shouldSkip = true;
+      skipReason = 'remote_id_mapping';  
+    }
+
+    // 4. CONTENT HASH CHECK (enhanced)
+    if (!shouldSkip && localEntry.content_hash && remoteContentHashes.has(localEntry.content_hash)) {
+      shouldSkip = true;
+      skipReason = 'content_hash_duplicate';
       stats.duplicatesRemoved++;
-      continue; // Duplicate content, skip
+    }
+
+    // 5. FALLBACK CONTENT SIMILARITY CHECK (new - for entries without content_hash)
+    if (!shouldSkip && !localEntry.content_hash) {
+      // Generate temporary content hash for comparison
+      const tempHash = generateTempContentHash(localEntry);
+      if (remoteContentHashes.has(tempHash)) {
+        shouldSkip = true;
+        skipReason = 'content_similarity';
+        stats.duplicatesRemoved++;
+      }
+    }
+
+    if (shouldSkip) {
+      console.log(`🔄 Skipping local entry ${localEntry.id}: ${skipReason}`);
+      continue;
     }
 
     // Bu local entry benzersiz, ekle
+    console.log(`➕ Adding unique local entry: ${localEntry.id}`);
     mergedEntries.push(localEntry);
+  }
+
+  // Helper function for content hash generation
+  function generateTempContentHash(entry: MoodEntry): string {
+    const contentText = `${entry.user_id}|${entry.mood_score}|${entry.energy_level}|${entry.anxiety_level}|${(entry.notes || '').trim().toLowerCase()}`;
+    let hash = 0;
+    for (let i = 0; i < contentText.length; i++) {
+      const char = contentText.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
   }
 
   stats.mergedCount = mergedEntries.length;

@@ -171,18 +171,18 @@ class MoodTrackingService {
       activities: entry.activities
     });
 
-    // ✅ DUPLICATE DETECTED: Return existing entry metadata
+    // ✅ DUPLICATE DETECTED: Clear signal to UI - don't return entry that confuses state
     if (idempotencyResult.isDuplicate && !idempotencyResult.shouldProcess) {
       console.log(`🛡️ Duplicate mood entry prevented: ${idempotencyResult.localEntryId}`);
       
-      // Return a mock entry with consistent ID for caller compatibility
-      return {
-        ...entry,
-        id: idempotencyResult.localEntryId,
-        timestamp: idempotencyResult.existingEntry?.timestamp || new Date().toISOString(),
-        synced: idempotencyResult.existingEntry?.processed || false,
-        sync_attempts: idempotencyResult.existingEntry?.attempts || 0,
-      };
+      // 🚨 CRITICAL FIX: Throw specific error that UI can handle gracefully
+      // This prevents UI from thinking a new entry was created
+      const duplicateError = new Error('DUPLICATE_MOOD_ENTRY_PREVENTED');
+      (duplicateError as any).code = 'DUPLICATE_PREVENTED';
+      (duplicateError as any).existingEntryId = idempotencyResult.localEntryId;
+      (duplicateError as any).existingTimestamp = idempotencyResult.existingEntry?.timestamp;
+      
+      throw duplicateError;
     }
 
     // ✅ SAFE TO PROCESS: Create mood entry with consistent local ID
