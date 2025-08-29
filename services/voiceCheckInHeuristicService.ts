@@ -69,6 +69,51 @@ class VoiceCheckInHeuristicService {
       moodImpact: +4, energyImpact: +2, anxietyImpact: -3,
       emotion: 'umutlu', weight: 1.1
     },
+    {
+      keywords: ['şaşırdım', 'şaşkın', 'inanamıyorum', 'hayret ettim', 'şok oldum', 'inanılmaz'],
+      moodImpact: 0, energyImpact: +1, anxietyImpact: +2,
+      emotion: 'şaşkın', weight: 0.9
+    },
+    {
+      keywords: ['pişmanım', 'pişman', 'hata yaptım', 'keşke', 'vicdan azabı', 'suçluluk'],
+      moodImpact: -3, energyImpact: -1, anxietyImpact: +3,
+      emotion: 'suçlu', weight: 1.2
+    },
+    {
+      keywords: ['kıskanıyorum', 'kıskançlık', 'imreniyorum', 'haset', 'çekemiyorum'],
+      moodImpact: -2, energyImpact: +1, anxietyImpact: +3,
+      emotion: 'kıskanç', weight: 1.1
+    },
+    {
+      keywords: ['azimliyim', 'kararlıyım', 'odaklandım', 'motivasyonum tam', 'hedef odaklı'],
+      moodImpact: +4, energyImpact: +4, anxietyImpact: -2,
+      emotion: 'kararlı', weight: 1.3
+    },
+    {
+      keywords: ['hiçbir şey hissetmiyorum', 'boşlukta', 'anlamsız', 'hissizim', 'kayıtsız'],
+      moodImpact: -4, energyImpact: -3, anxietyImpact: +1,
+      emotion: 'boş', weight: 1.2
+    },
+    {
+      keywords: ['gurur duyuyorum', 'gururlu', 'övünç', 'başarı hissi', 'kendimle gurur'],
+      moodImpact: +4, energyImpact: +3, anxietyImpact: -2,
+      emotion: 'gururlu', weight: 1.2
+    },
+    {
+      keywords: ['utandım', 'utanıyorum', 'mahcup', 'rezil oldum', 'sıkıldım'],
+      moodImpact: -3, energyImpact: -1, anxietyImpact: +4,
+      emotion: 'utanmış', weight: 1.1
+    },
+    {
+      keywords: ['heyecan', 'heyecanlı', 'çok istiyorum', 'sabırsız', 'coşku'],
+      moodImpact: +3, energyImpact: +4, anxietyImpact: +1,
+      emotion: 'heyecanlı', weight: 1.1
+    },
+    {
+      keywords: ['merak ediyorum', 'merakı', 'ilgimi çekti', 'sormak istiyorum'],
+      moodImpact: +1, energyImpact: +2, anxietyImpact: 0,
+      emotion: 'meraklı', weight: 0.8
+    },
 
     // 😰 High Anxiety Patterns
     {
@@ -181,6 +226,108 @@ class VoiceCheckInHeuristicService {
       moodImpact: -3, energyImpact: -1, anxietyImpact: +4,
       trigger: 'gelecek_kaygısı', weight: 1.1
     },
+    
+    // 🌍 Gündem / Toplumsal Triggers (NEW)
+    {
+      keywords: ['siyaset', 'seçim', 'politika', 'hükümet', 'başkan', 'oy kullandım'],
+      moodImpact: -2, energyImpact: 0, anxietyImpact: +3,
+      trigger: 'siyasi_gündem', weight: 1.0
+    },
+    {
+      keywords: ['haberler', 'haber izledim', 'gazete okudum', 'kötü haberler', 'gündem'],
+      moodImpact: -2, energyImpact: -1, anxietyImpact: +3,
+      trigger: 'haber_medya', weight: 0.9
+    },
+    {
+      keywords: ['deprem', 'savaş', 'felaket', 'afet', 'terör', 'kaza'],
+      moodImpact: -4, energyImpact: -2, anxietyImpact: +5,
+      trigger: 'afet_travma', weight: 1.4
+    },
+    {
+      keywords: ['enflasyon', 'zam', 'pahalılık', 'geçim', 'hayat pahalı'],
+      moodImpact: -3, energyImpact: -2, anxietyImpact: +4,
+      trigger: 'ekonomik_durum', weight: 1.3
+    },
+    
+    // 📱 Teknoloji / Dijital Stres (NEW)
+    {
+      keywords: ['internet yok', 'bağlantı koptu', 'wifi problemi', 'sinyal yok', 'çekmez'],
+      moodImpact: -2, energyImpact: -1, anxietyImpact: +3,
+      trigger: 'dijital_bağlantı', weight: 1.0
+    },
+    {
+      keywords: ['telefon bozuldu', 'bilgisayar çöktü', 'sistem hatası', 'virüs', 'format'],
+      moodImpact: -3, energyImpact: -2, anxietyImpact: +4,
+      trigger: 'teknoloji_arıza', weight: 1.2
+    },
+    {
+      keywords: ['sosyal medya', 'instagram', 'facebook', 'twitter', 'like almadım'],
+      moodImpact: -1, energyImpact: 0, anxietyImpact: +2,
+      trigger: 'sosyal_medya', weight: 0.8
+    },
+    {
+      keywords: ['online toplantı', 'zoom', 'uzaktan çalışma', 'home office'],
+      moodImpact: -1, energyImpact: -1, anxietyImpact: +2,
+      trigger: 'dijital_çalışma', weight: 0.9
+    },
+    
+    // 😔 Yalnızlık / Destek Eksikliği (NEW)
+    {
+      keywords: ['kimsem yok', 'kimse anlamıyor', 'desteksizim', 'tek başıma', 'yalnız'],
+      moodImpact: -4, energyImpact: -3, anxietyImpact: +3,
+      trigger: 'yalnızlık_destek', weight: 1.4
+    },
+    {
+      keywords: ['arkadaş yok', 'sosyal çevrem dar', 'insanlardan uzak', 'izole'],
+      moodImpact: -3, energyImpact: -2, anxietyImpact: +3,
+      trigger: 'sosyal_izolasyon', weight: 1.2
+    },
+    {
+      keywords: ['anlaşılamıyor', 'dinlenmiyor', 'önemsiz', 'görülmüyor'],
+      moodImpact: -3, energyImpact: -1, anxietyImpact: +2,
+      trigger: 'duygusal_ihmal', weight: 1.1
+    },
+    
+    // 🕌 Kültürel / Manevi (NEW)
+    {
+      keywords: ['dua ettim', 'namaz kıldım', 'ibadet', 'camii', 'kilise', 'dini'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -3,
+      trigger: 'manevi_ibadet', weight: 1.0
+    },
+    {
+      keywords: ['ruhsal', 'manevi güç', 'kadere inanıyorum', 'şükrettim'],
+      moodImpact: +1, energyImpact: 0, anxietyImpact: -2,
+      trigger: 'manevi_destek', weight: 0.9
+    },
+    {
+      keywords: ['ramazan', 'bayram', 'oruç', 'dini gün', 'kutsal'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -1,
+      trigger: 'dini_özel_gün', weight: 0.8
+    },
+    
+    // 🏠 Ev / Yaşam Alanı (NEW)
+    {
+      keywords: ['ev kiralanmıyor', 'taşınma', 'komşu problemi', 'gürültü'],
+      moodImpact: -3, energyImpact: -1, anxietyImpact: +4,
+      trigger: 'konut_problemi', weight: 1.2
+    },
+    {
+      keywords: ['ev işleri', 'temizlik yapmak zorunda', 'çamaşır', 'bulaşık'],
+      moodImpact: -1, energyImpact: -2, anxietyImpact: +1,
+      trigger: 'ev_sorumluluğu', weight: 0.7
+    },
+    
+    // 🚗 Ulaşım / Trafik (NEW)
+    {
+      keywords: ['trafik', 'otobüs gecikti', 'metro arızası', 'yol kapandı'],
+      moodImpact: -2, energyImpact: -1, anxietyImpact: +3,
+      trigger: 'ulaşım_sorunu', weight: 0.9
+    },
+    {
+      keywords: ['araba bozuldu', 'lastik patladı', 'yakıt bitti', 'park yeri yok'],
+      moodImpact: -3, energyImpact: -2, anxietyImpact: +4,
+      trigger: 'araç_problemi', weight: 1.1
+    },
 
     // 💪 ENHANCED Activities (Positive Impact)
     {
@@ -242,16 +389,184 @@ class VoiceCheckInHeuristicService {
       keywords: ['temizlik', 'düzen', 'organize', 'toplama', 'ev işi'],
       moodImpact: +1, energyImpact: +2, anxietyImpact: -2,
       activity: 'ev_düzeni', weight: 0.7
+    },
+    
+    // 🐕 Evcil Hayvan Aktiviteleri (NEW)
+    {
+      keywords: ['köpeğimle oynadım', 'köpek gezdirdim', 'kedi', 'evcil hayvan', 'miş miş'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -3,
+      activity: 'evcil_hayvan', weight: 1.1
+    },
+    {
+      keywords: ['kuş', 'balık', 'hamster', 'tavşan', 'hayvan sevgisi'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -2,
+      activity: 'hayvan_bakım', weight: 0.9
+    },
+    
+    // 🎨 Sanat / Hobi (NEW)
+    {
+      keywords: ['resim yaptım', 'çizim', 'boyama', 'suluboya', 'karakalem'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -3,
+      activity: 'resim_sanat', weight: 1.0
+    },
+    {
+      keywords: ['yazı yazdım', 'günlük tuttum', 'şiir yazdım', 'hikaye'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -2,
+      activity: 'yazma_sanat', weight: 1.0
+    },
+    {
+      keywords: ['şiir okudum', 'kitap okudum', 'roman', 'dergi okudum'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -2,
+      activity: 'okuma_detay', weight: 0.9
+    },
+    {
+      keywords: ['el işi', 'örgü', 'nakış', 'takı yapma', 'hobi'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -3,
+      activity: 'el_sanatı', weight: 1.0
+    },
+    {
+      keywords: ['fotoğraf çektim', 'fotoğrafçılık', 'kamera', 'görsel sanat'],
+      moodImpact: +2, energyImpact: +2, anxietyImpact: -1,
+      activity: 'fotoğrafçılık', weight: 0.9
+    },
+    
+    // 🍽️ Yemek / Sosyal Paylaşımlar (ENHANCED)
+    {
+      keywords: ['dışarıda yemek', 'restoran', 'cafe gittim', 'yemek keşfi'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -1,
+      activity: 'sosyal_yemek', weight: 1.1
+    },
+    {
+      keywords: ['kahve içtim', 'çay içtim', 'sohbet ettim', 'keyifli sohbet'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -2,
+      activity: 'içecek_sohbet', weight: 0.8
+    },
+    {
+      keywords: ['arkadaşlarla yemek', 'aile yemeği', 'beraber yemek'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -2,
+      activity: 'grup_yemek', weight: 1.2
+    },
+    {
+      keywords: ['ev yemeği', 'anne yemeği', 'kendi pişirdim', 'lezzetli'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -1,
+      activity: 'ev_yemeği', weight: 0.9
+    },
+    
+    // 🎮 Oyun Aktiviteleri (NEW)
+    {
+      keywords: ['bilgisayar oyunu', 'pc oyun', 'online oyun', 'gaming'],
+      moodImpact: +1, energyImpact: +2, anxietyImpact: -1,
+      activity: 'dijital_oyun', weight: 0.8
+    },
+    {
+      keywords: ['playstation', 'xbox', 'konsol oyunu', 'fifa', 'pes'],
+      moodImpact: +2, energyImpact: +2, anxietyImpact: -1,
+      activity: 'konsol_oyun', weight: 0.8
+    },
+    {
+      keywords: ['mobil oyun', 'telefon oyunu', 'puzzle', 'bulmaca'],
+      moodImpact: +1, energyImpact: +1, anxietyImpact: -2,
+      activity: 'mobil_oyun', weight: 0.6
+    },
+    {
+      keywords: ['kart oyunu', 'tavla', 'satranç', 'masa oyunu'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: -2,
+      activity: 'masa_oyunu', weight: 0.9
+    },
+    
+    // 🎭 Kültür / Sanat Etkinlikleri (NEW)
+    {
+      keywords: ['tiyatro', 'opera', 'bale', 'sahne sanatı', 'kültür merkezi'],
+      moodImpact: +4, energyImpact: +2, anxietyImpact: -2,
+      activity: 'kültür_sanat', weight: 1.2
+    },
+    {
+      keywords: ['müze', 'sergi', 'galeri', 'sanat eseri', 'kültürel gezi'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -1,
+      activity: 'müze_sergi', weight: 1.0
+    },
+    {
+      keywords: ['konser', 'müzik dinleme', 'canlı müzik', 'sahne'],
+      moodImpact: +4, energyImpact: +3, anxietyImpact: -2,
+      activity: 'müzik_konser', weight: 1.1
+    },
+    
+    // 🛍️ Alışveriş / Self Care (NEW)
+    {
+      keywords: ['alışveriş', 'market', 'mağaza gezdim', 'shopping'],
+      moodImpact: +1, energyImpact: +1, anxietyImpact: -1,
+      activity: 'alışveriş', weight: 0.7
+    },
+    {
+      keywords: ['kuaför', 'berber', 'makyaj', 'bakım yaptırdım'],
+      moodImpact: +2, energyImpact: +2, anxietyImpact: -2,
+      activity: 'kişisel_bakım', weight: 0.9
+    },
+    {
+      keywords: ['spa', 'masaj', 'wellness', 'kendime zaman'],
+      moodImpact: +3, energyImpact: +3, anxietyImpact: -4,
+      activity: 'spa_relax', weight: 1.2
+    },
+    
+    // 📚 Eğitim / Öğrenme (NEW)
+    {
+      keywords: ['kurs aldım', 'online eğitim', 'sertifika', 'öğrenme'],
+      moodImpact: +2, energyImpact: +2, anxietyImpact: -1,
+      activity: 'eğitim_gelişim', weight: 1.0
+    },
+    {
+      keywords: ['dil öğrenme', 'ingilizce', 'yabancı dil', 'kelime ezber'],
+      moodImpact: +2, energyImpact: +1, anxietyImpact: 0,
+      activity: 'dil_öğrenme', weight: 1.0
     }
   ];
 
-  // 🔍 Intensity modifiers
+  // 🔍 ENHANCED Intensity modifiers (v3.0)
   private readonly intensityModifiers: { [key: string]: number } = {
+    // Aşırılaştırıcılar (High Intensifiers)
     'çok': 1.5, 'aşırı': 1.8, 'son derece': 1.7, 'fazla': 1.3,
-    'biraz': 0.7, 'az': 0.6, 'hafif': 0.5, 'ufak': 0.5,
+    'inanılmaz': 1.9, 'acayip': 1.8, 'çılgın': 1.7, 'deli gibi': 1.8,
+    'yerle bir': 1.9, 'mahvoldum': 1.8, 'bitirdim': 1.7,
+    'resmen': 1.6, 'tam anlamıyla': 1.7, 'kesinlikle': 1.5,
     'oldukça': 1.2, 'epey': 1.3, 'hayli': 1.3,
-    'son': 1.4, 'gerçekten': 1.4, 'ciddi': 1.5
+    'son': 1.4, 'gerçekten': 1.4, 'ciddi': 1.5,
+    'büyük': 1.4, 'kocaman': 1.6, 'korkunç': 1.8,
+    'müthiş': 1.6, 'dehşetli': 1.7, '엄청': 1.8, // Korean borrowed
+    
+    // Azaltıcılar (Diminishers)
+    'biraz': 0.7, 'az': 0.6, 'hafif': 0.5, 'ufak': 0.5,
+    'eh işte': 0.4, 'idare eder': 0.5, 'çok değil': 0.6,
+    'fena değil': 0.6, 'bir nebze': 0.5, 'şöyle böyle': 0.4,
+    'pek değil': 0.5, 'o kadar da değil': 0.4, 'normal': 0.6,
+    'sıradan': 0.5, 'vasat': 0.4, 'orta': 0.6,
+    'az çok': 0.6, 'kısmen': 0.5, 'nispeten': 0.6,
+    'bazen': 0.7, 'ara sıra': 0.6, 'zaman zaman': 0.6
   };
+
+  // 🔗 Sinonim Eşleştirme Tablosu (NEW)
+  private readonly synonymGroups: { [key: string]: string[] } = {
+    'mutlu': ['sevinçli', 'neşeli', 'keyifli', 'memnun', 'hoşnut'],
+    'üzgün': ['kederli', 'mahzun', 'buruk', 'hüzünlü', 'mutsuz'],
+    'kaygılı': ['endişeli', 'tedirgin', 'gergin', 'huzursuz'],
+    'yorgun': ['bitkin', 'halsiz', 'tükenmiş', 'bezgin'],
+    'sinirli': ['kızgın', 'öfkeli', 'rahatsız', 'darılmış'],
+    'sakin': ['huzurlu', 'rahat', 'dingin', 'ferah'],
+    'enerjik': ['dinamik', 'aktif', 'canlı', 'zinde', 'şevkli'],
+    'iyi': ['güzel', 'hoş', 'fena değil', 'olumlu'],
+    'kötü': ['berbat', 'fena', 'olumsuz', 'bozuk'],
+  };
+
+  // ❌ Negatif Bağlam Belirleyicileri (NEW)
+  private readonly negationWords = [
+    'değil', 'değilim', 'hiç', 'asla', 'kesinlikle değil',
+    'pek değil', 'o kadar da değil', 'değildir', 'olmadı'
+  ];
+
+  // 🎭 Belirsizlik Belirleyicileri (NEW)
+  private readonly uncertaintyWords = [
+    'galiba', 'sanırım', 'herhalde', 'belki', 'gibi geliyor',
+    'olabilir', 'muhtemelen', 'sanki', 'gibime geliyor'
+  ];
 
   static getInstance(): VoiceCheckInHeuristicService {
     if (!VoiceCheckInHeuristicService.instance) {
@@ -346,38 +661,116 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 🔍 Find pattern matches in text
+   * 🔍 ENHANCED Pattern matching with advanced techniques (v3.0)
    */
   private findPatternMatches(text: string): Array<KeywordPattern & { matchedKeywords: string[]; intensity: number }> {
     const matches: Array<KeywordPattern & { matchedKeywords: string[]; intensity: number }> = [];
+    
+    // 🔄 TEKRAR DETECTION: "çok çok mutlu", "aşırı aşırı üzgün"
+    const repetitionMultiplier = this.detectRepetition(text);
 
     for (const pattern of this.moodPatterns) {
       const matchedKeywords: string[] = [];
       let totalIntensity = 1.0;
+      let negationDetected = false;
 
-      // Check each keyword in pattern
+      // Check each keyword in pattern (+ sinonim eşleştirme)
       for (const keyword of pattern.keywords) {
+        let keywordFound = false;
+        
+        // 1. Direct match
         if (text.includes(keyword)) {
+          keywordFound = true;
           matchedKeywords.push(keyword);
-          
-          // Check for intensity modifiers around keyword
+        }
+        
+        // 2. 🔗 SINONIM EŞLEŞTIRME
+        if (!keywordFound) {
+          for (const [baseWord, synonyms] of Object.entries(this.synonymGroups)) {
+            if (keyword === baseWord) {
+              for (const synonym of synonyms) {
+                if (text.includes(synonym)) {
+                  keywordFound = true;
+                  matchedKeywords.push(`${keyword} (${synonym})`);
+                  break;
+                }
+              }
+            }
+            if (keywordFound) break;
+          }
+        }
+
+        if (keywordFound) {
+          // 3. 🎚️ INTENSITY MODIFIERS
           const intensityMod = this.findIntensityModifier(text, keyword);
-          if (intensityMod > 0) {
-            totalIntensity = Math.max(totalIntensity, intensityMod);
+          totalIntensity = Math.max(totalIntensity, intensityMod);
+
+          // 4. ❌ NEGATIF BAĞLAM ALGILAMA
+          const hasNegation = this.detectNegationContext(text, keyword);
+          if (hasNegation) {
+            negationDetected = true;
+            totalIntensity *= 0.3; // Negatif bağlamda çok düşük etki
           }
         }
       }
 
       if (matchedKeywords.length > 0) {
+        // 5. 🔄 TEKRAR MULTIPLIER uygula
+        if (repetitionMultiplier > 1.0) {
+          totalIntensity *= repetitionMultiplier;
+        }
+
         matches.push({
           ...pattern,
           matchedKeywords,
-          intensity: totalIntensity
-        });
+          intensity: totalIntensity,
+          negationDetected
+        } as any);
       }
     }
 
     return matches;
+  }
+
+  /**
+   * 🔄 Tekrar Detection - "çok çok", "aşırı aşırı" patterns
+   */
+  private detectRepetition(text: string): number {
+    const repetitionPatterns = [
+      /(\b\w+)\s+\1\b/gi, // "çok çok", "aşırı aşırı" 
+      /(\b\w+)\s+(\w+)\s+\1\s+\2\b/gi, // "çok ama çok"
+    ];
+
+    let repetitionCount = 0;
+    for (const pattern of repetitionPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        repetitionCount += matches.length;
+      }
+    }
+
+    // Her tekrar +0.2 multiplier
+    return 1.0 + (repetitionCount * 0.2);
+  }
+
+  /**
+   * ❌ Negatif bağlam detection - "mutlu değilim" 
+   */
+  private detectNegationContext(text: string, keyword: string): boolean {
+    const keywordIndex = text.indexOf(keyword);
+    if (keywordIndex === -1) return false;
+
+    // Keyword'den sonraki 10 kelimeye bak
+    const afterText = text.substring(keywordIndex, keywordIndex + 50);
+    const beforeText = text.substring(Math.max(0, keywordIndex - 30), keywordIndex);
+
+    for (const negation of this.negationWords) {
+      if (afterText.includes(negation) || beforeText.includes(negation)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -486,30 +879,126 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 📊 Calculate analysis confidence
+   * 📊 ENHANCED Confidence calculation (v3.0)
    */
   private calculateConfidence(
-    matches: Array<KeywordPattern & { matchedKeywords: string[] }>,
+    matches: Array<KeywordPattern & { matchedKeywords: string[]; negationDetected?: boolean }>,
     transcriptionConfidence: number,
     textLength: number
   ): number {
     // Base confidence from transcription
     let confidence = transcriptionConfidence;
 
-    // Keyword match boost
+    // 1. 🔤 KEYWORD DIVERSITY (different groups > same group repeats)
     const keywordCount = matches.reduce((sum, match) => sum + match.matchedKeywords.length, 0);
-    const keywordBoost = Math.min(0.2, keywordCount * 0.05);
+    const emotionKeywords = matches.filter(m => m.emotion).length;
+    const triggerKeywords = matches.filter(m => m.trigger).length;
+    const activityKeywords = matches.filter(m => m.activity).length;
     
-    // Text length factor
-    const lengthFactor = Math.min(1.0, textLength / 100); // Longer text = more reliable
+    // Çeşitlilik > Tekrar
+    const diversityScore = [emotionKeywords, triggerKeywords, activityKeywords].filter(c => c > 0).length;
+    const diversityBoost = Math.min(0.25, diversityScore * 0.08); // More categories = higher confidence
     
-    // Pattern diversity (different types of patterns matched)
-    const patternTypes = new Set(matches.map(m => m.emotion || m.trigger || m.activity || 'general'));
-    const diversityBoost = Math.min(0.15, (patternTypes.size - 1) * 0.05);
+    // 2. 📏 TEXT LENGTH FACTOR (longer = more reliable)
+    const lengthFactor = Math.min(1.0, Math.sqrt(textLength / 50)); // Square root for diminishing returns
+    
+    // 3. ❌ NEGATION PENALTY
+    const negationCount = matches.filter(m => m.negationDetected).length;
+    const negationPenalty = negationCount * 0.15; // Each negation -0.15 confidence
+    
+    // 4. 🎭 UNCERTAINTY DETECTION
+    const uncertaintyPenalty = this.detectUncertainty(matches, textLength);
+    
+    // 5. 🔄 PATTERN CONSISTENCY (similar patterns reinforce each other)
+    const consistencyBoost = this.calculatePatternConsistency(matches);
+    
+    // 6. 🎚️ INTENSITY CONSISTENCY (extreme words need high intensity)
+    const intensityConsistency = this.calculateIntensityConsistency(matches);
+    
+    // Combine all factors
+    confidence = confidence + diversityBoost + consistencyBoost + intensityConsistency;
+    confidence *= lengthFactor;
+    confidence -= (negationPenalty + uncertaintyPenalty);
+    
+    // Bounds: 0.2 - 0.95
+    return Math.max(0.2, Math.min(0.95, confidence));
+  }
 
-    confidence = Math.min(0.95, confidence + keywordBoost + diversityBoost) * lengthFactor;
+  /**
+   * 🎭 Belirsizlik detection - "galiba", "sanırım"
+   */
+  private detectUncertainty(matches: any[], textLength: number): number {
+    let uncertaintyCount = 0;
+    const fullText = matches.map(m => m.matchedKeywords.join(' ')).join(' ');
     
-    return Math.max(0.3, confidence); // Minimum 0.3 confidence
+    for (const uncertainWord of this.uncertaintyWords) {
+      if (fullText.includes(uncertainWord)) {
+        uncertaintyCount++;
+      }
+    }
+    
+    // Longer text more forgiving of uncertainty
+    const textFactor = Math.max(0.5, textLength / 100);
+    return (uncertaintyCount * 0.1) / textFactor;
+  }
+
+  /**
+   * 🔄 Pattern consistency - similar emotions reinforce each other
+   */
+  private calculatePatternConsistency(matches: any[]): number {
+    const emotionMatches = matches.filter(m => m.emotion);
+    if (emotionMatches.length < 2) return 0;
+
+    // Group emotions by sentiment
+    const positiveEmotions = ['çok_mutlu', 'mutlu', 'umutlu', 'sakin', 'enerjik', 'kararlı', 'gururlu', 'heyecanlı'];
+    const negativeEmotions = ['depresif', 'üzgün', 'kaygılı', 'panik', 'sinirli', 'öfkeli', 'yorgun', 'bitkin', 'suçlu', 'utanmış'];
+    
+    let positiveCount = 0;
+    let negativeCount = 0;
+    
+    for (const match of emotionMatches) {
+      if (positiveEmotions.includes(match.emotion)) positiveCount++;
+      if (negativeEmotions.includes(match.emotion)) negativeCount++;
+    }
+    
+    // Consistent emotions = higher confidence
+    const dominantCount = Math.max(positiveCount, negativeCount);
+    const totalCount = positiveCount + negativeCount;
+    
+    if (totalCount === 0) return 0;
+    
+    const consistency = dominantCount / totalCount;
+    return consistency > 0.7 ? 0.1 : 0; // 70%+ consistency = bonus
+  }
+
+  /**
+   * 🎚️ Intensity consistency check
+   */
+  private calculateIntensityConsistency(matches: any[]): number {
+    const highIntensityWords = ['inanılmaz', 'acayip', 'çılgın', 'deli gibi', 'aşırı'];
+    const lowIntensityWords = ['biraz', 'az', 'hafif', 'eh işte'];
+    
+    let highIntensityCount = 0;
+    let avgIntensity = 0;
+    
+    for (const match of matches) {
+      avgIntensity += match.intensity || 1.0;
+      
+      for (const keyword of match.matchedKeywords) {
+        if (highIntensityWords.some(w => keyword.includes(w))) {
+          highIntensityCount++;
+        }
+      }
+    }
+    
+    avgIntensity /= matches.length;
+    
+    // High intensity words with high avg intensity = consistent
+    if (highIntensityCount > 0 && avgIntensity > 1.3) {
+      return 0.1;
+    }
+    
+    return 0;
   }
 
   /**

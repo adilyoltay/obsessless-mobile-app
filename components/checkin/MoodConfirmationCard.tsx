@@ -48,9 +48,10 @@ export default function MoodConfirmationCard({
     }
   };
 
-  // 🎭 Emotion icon mapping
+  // 🎭 ENHANCED Emotion icon mapping (v3.0)
   const getEmotionIcon = (emotion: string): string => {
     const iconMap: { [key: string]: string } = {
+      // Existing emotions
       'çok_mutlu': 'emoticon-excited',
       'mutlu': 'emoticon-happy',
       'umutlu': 'emoticon-outline',
@@ -66,13 +67,25 @@ export default function MoodConfirmationCard({
       'öfkeli': 'emoticon-devil',
       'bitkin': 'emoticon-neutral',
       'nötr': 'emoticon-neutral',
+      
+      // NEW emotions (v3.0)
+      'şaşkın': 'emoticon-confused-outline',
+      'suçlu': 'emoticon-sad-outline',
+      'kıskanç': 'emoticon-angry-outline',
+      'kararlı': 'target',
+      'boş': 'emoticon-neutral-outline',
+      'gururlu': 'crown',
+      'utanmış': 'emoticon-sad',
+      'heyecanlı': 'emoticon-excited-outline',
+      'meraklı': 'help-circle-outline',
     };
     return iconMap[emotion] || 'emoticon-neutral';
   };
 
-  // 🎨 Emotion display name
+  // 🎨 ENHANCED Emotion display name (v3.0)
   const getEmotionDisplayName = (emotion: string): string => {
     const displayMap: { [key: string]: string } = {
+      // Existing emotions
       'çok_mutlu': 'Çok Mutlu',
       'mutlu': 'Mutlu',
       'umutlu': 'Umutlu', 
@@ -88,13 +101,25 @@ export default function MoodConfirmationCard({
       'öfkeli': 'Öfkeli',
       'bitkin': 'Bitkin',
       'nötr': 'Nötr',
+      
+      // NEW emotions (v3.0)
+      'şaşkın': 'Şaşkın',
+      'suçlu': 'Suçlu',
+      'kıskanç': 'Kıskanç',
+      'kararlı': 'Kararlı',
+      'boş': 'Boş/Hissiz',
+      'gururlu': 'Gururlu',
+      'utanmış': 'Utanmış',
+      'heyecanlı': 'Heyecanlı',
+      'meraklı': 'Meraklı',
     };
     return displayMap[emotion] || emotion;
   };
 
-  // 🔧 Trigger display mapping
+  // 🔧 ENHANCED Trigger display mapping (v3.0)
   const getTriggerDisplayName = (trigger: string): string => {
     const triggerMap: { [key: string]: string } = {
+      // Existing triggers
       'iş_yoğun_stres': 'İş Yoğunluk Stresi',
       'iş_stres': 'İş Stresi',
       'ilişki_krizi': 'İlişki Krizi',
@@ -107,13 +132,34 @@ export default function MoodConfirmationCard({
       'sosyal_kaygı': 'Sosyal Kaygı',
       'gelecek_kaygısı': 'Gelecek Kaygısı',
       'sesli_checkin': 'Sesli Check-in',
+      
+      // NEW triggers (v3.0)
+      'siyasi_gündem': 'Siyasi Gündem',
+      'haber_medya': 'Haber/Medya',
+      'afet_travma': 'Afet/Travma',
+      'ekonomik_durum': 'Ekonomik Durum',
+      'dijital_bağlantı': 'Bağlantı Sorunu',
+      'teknoloji_arıza': 'Teknoloji Arızası',
+      'sosyal_medya': 'Sosyal Medya',
+      'dijital_çalışma': 'Dijital Çalışma',
+      'yalnızlık_destek': 'Yalnızlık/Destek Eksikliği',
+      'sosyal_izolasyon': 'Sosyal İzolasyon',
+      'duygusal_ihmal': 'Duygusal İhmal',
+      'manevi_ibadet': 'Manevi/İbadet',
+      'manevi_destek': 'Manevi Destek',
+      'dini_özel_gün': 'Dini Özel Gün',
+      'konut_problemi': 'Konut Problemi',
+      'ev_sorumluluğu': 'Ev Sorumluluğu',
+      'ulaşım_sorunu': 'Ulaşım Sorunu',
+      'araç_problemi': 'Araç Problemi',
     };
     return triggerMap[trigger] || trigger;
   };
 
-  // 🏃 Activity display mapping
+  // 🏃 ENHANCED Activity display mapping (v3.0)
   const getActivityDisplayName = (activity: string): string => {
     const activityMap: { [key: string]: string } = {
+      // Existing activities
       'yoğun_egzersiz': 'Yoğun Egzersiz',
       'egzersiz': 'Egzersiz',
       'kutlama_eğlence': 'Kutlama/Eğlence',
@@ -126,6 +172,31 @@ export default function MoodConfirmationCard({
       'dinlenme': 'Dinlenme/İstirahat',
       'yemek_yapma': 'Yemek Yapma',
       'ev_düzeni': 'Ev Düzeni',
+      
+      // NEW activities (v3.0)
+      'evcil_hayvan': 'Evcil Hayvan',
+      'hayvan_bakım': 'Hayvan Bakımı',
+      'resim_sanat': 'Resim/Sanat',
+      'yazma_sanat': 'Yazma/Sanat',
+      'okuma_detay': 'Okuma',
+      'el_sanatı': 'El Sanatı',
+      'fotoğrafçılık': 'Fotoğrafçılık',
+      'sosyal_yemek': 'Sosyal Yemek',
+      'içecek_sohbet': 'İçecek/Sohbet',
+      'grup_yemek': 'Grup Yemeği',
+      'ev_yemeği': 'Ev Yemeği',
+      'dijital_oyun': 'Dijital Oyun',
+      'konsol_oyun': 'Konsol Oyunu',
+      'mobil_oyun': 'Mobil Oyun',
+      'masa_oyunu': 'Masa Oyunu',
+      'kültür_sanat': 'Kültür/Sanat',
+      'müze_sergi': 'Müze/Sergi',
+      'müzik_konser': 'Müzik/Konser',
+      'alışveriş': 'Alışveriş',
+      'kişisel_bakım': 'Kişisel Bakım',
+      'spa_relax': 'Spa/Relax',
+      'eğitim_gelişim': 'Eğitim/Gelişim',
+      'dil_öğrenme': 'Dil Öğrenme',
     };
     return activityMap[activity] || activity;
   };
