@@ -33,6 +33,7 @@ import audioService, { useVoiceCheckInAudio } from '@/services/audioService';
 import speechToTextService, { type TranscriptionResult } from '@/services/speechToTextService';
 import voiceCheckInHeuristicService, { type MoodAnalysisResult } from '@/services/voiceCheckInHeuristicService';
 import moodTracker from '@/services/moodTrackingService';
+import MoodConfirmationCard from './MoodConfirmationCard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -67,6 +68,11 @@ export default function SimpleVoiceRecorder({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Analysis & Confirmation State
+  const [analysisResult, setAnalysisResult] = useState<MoodAnalysisResult | null>(null);
+  const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Animations
   const recordButtonScale = useRef(new Animated.Value(1)).current;
@@ -253,50 +259,14 @@ export default function SimpleVoiceRecorder({
         confidence: moodAnalysis.confidence,
       });
 
-      // STEP 3: Auto Mood Entry Creation
-      showToastMessage('Mood kaydınız oluşturuluyor... 💾');
-      console.log('💾 Step 3: Auto Mood Entry Creation');
+      // STEP 3: Show Confirmation to User
+      showToastMessage('Analiz tamamlandı! Sonuçları inceleyiniz 📊');
+      console.log('📋 Step 3: Show Analysis Result for User Confirmation');
 
-      if (!user?.id) {
-        throw new Error('User not authenticated');
-      }
-
-      const moodEntry = await moodTracker.saveMoodEntry({
-        mood_score: moodAnalysis.moodScore,
-        energy_level: moodAnalysis.energyLevel,
-        anxiety_level: moodAnalysis.anxietyLevel,
-        notes: `[Sesli Check-in] ${moodAnalysis.notes}`,
-        triggers: moodAnalysis.triggers.length > 0 ? moodAnalysis.triggers : ['sesli_checkin'],
-        activities: moodAnalysis.activities,
-        user_id: user.id,
-        // Additional metadata
-        source: 'voice_checkin',
-        analysis_confidence: moodAnalysis.confidence,
-        dominant_emotion: moodAnalysis.dominantEmotion,
-        voice_duration: duration,
-      } as any);
-
-      console.log('✅ Mood entry created:', {
-        id: moodEntry.id,
-        mood: moodEntry.mood_score,
-        source: 'voice_checkin'
-      });
-
-      // STEP 4: Success
-      showToastMessage(`Check-in tamamlandı! Mood: ${moodAnalysis.moodScore}/10 ✅`);
-      
-      // Show detailed result briefly
-      setTimeout(() => {
-        showToastMessage(
-          `🎭 ${moodAnalysis.dominantEmotion} | ⚡ Enerji: ${moodAnalysis.energyLevel} | 😰 Anksiyete: ${moodAnalysis.anxietyLevel}`
-        );
-      }, 2000);
-      
-      // Close after showing results
-      setTimeout(() => {
-        onComplete?.();
-        onClose();
-      }, 4000);
+      // Store analysis results for confirmation
+      setAnalysisResult(moodAnalysis);
+      setTranscriptionResult(transcription);
+      setShowConfirmation(true);
 
     } catch (error) {
       console.error('❌ Voice check-in processing failed:', error);
@@ -312,6 +282,93 @@ export default function SimpleVoiceRecorder({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // 📋 Confirmation Handlers
+  const handleConfirmMoodEntry = async () => {
+    if (!analysisResult || !user?.id) {
+      showToastMessage('Analiz sonuçları bulunamadı ⚠️');
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowConfirmation(false);
+    showToastMessage('Mood kaydınız oluşturuluyor... 💾');
+
+    try {
+      console.log('💾 Creating mood entry after user confirmation...');
+
+      const moodEntry = await moodTracker.saveMoodEntry({
+        mood_score: analysisResult.moodScore,
+        energy_level: analysisResult.energyLevel,
+        anxiety_level: analysisResult.anxietyLevel,
+        notes: `[Sesli Check-in] ${analysisResult.notes}`,
+        triggers: analysisResult.triggers.length > 0 ? analysisResult.triggers : ['sesli_checkin'],
+        activities: analysisResult.activities,
+        user_id: user.id,
+        // Additional metadata
+        source: 'voice_checkin',
+        analysis_confidence: analysisResult.confidence,
+        dominant_emotion: analysisResult.dominantEmotion,
+        voice_duration: recordingState.duration,
+      } as any);
+
+      console.log('✅ Mood entry created after confirmation:', {
+        id: moodEntry.id,
+        mood: moodEntry.mood_score,
+        source: 'voice_checkin'
+      });
+
+      // Success feedback
+      showToastMessage(`Check-in tamamlandı! Mood: ${analysisResult.moodScore}/10 ✅`);
+      
+      // Show detailed result briefly
+      setTimeout(() => {
+        showToastMessage(
+          `🎭 ${analysisResult.dominantEmotion} | ⚡ ${analysisResult.energyLevel}/10 | 😰 ${analysisResult.anxietyLevel}/10`
+        );
+      }, 2000);
+      
+      // Close after showing results
+      setTimeout(() => {
+        onComplete?.();
+        onClose();
+        resetState();
+      }, 4000);
+
+    } catch (error) {
+      console.error('❌ Mood entry creation failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+      showToastMessage(`Kayıt oluşturma hatası: ${errorMessage} ⚠️`);
+      
+      // Re-show confirmation on error
+      setShowConfirmation(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelConfirmation = () => {
+    console.log('❌ User cancelled mood entry creation');
+    setShowConfirmation(false);
+    showToastMessage('Check-in iptal edildi');
+    
+    setTimeout(() => {
+      onClose();
+      resetState();
+    }, 1000);
+  };
+
+  // 🔄 Reset State
+  const resetState = () => {
+    setAnalysisResult(null);
+    setTranscriptionResult(null);
+    setShowConfirmation(false);
+    setRecordingState({
+      isRecording: false,
+      duration: 0,
+      hasRecording: false,
+    });
   };
 
   // 🎬 Animations
@@ -409,6 +466,17 @@ export default function SimpleVoiceRecorder({
   return (
     <BottomSheet isVisible={isVisible} onClose={onClose}>
       <View style={styles.container}>
+        {/* Show Confirmation Card if analysis is complete */}
+        {showConfirmation && analysisResult && transcriptionResult ? (
+          <MoodConfirmationCard
+            analysis={analysisResult}
+            transcribedText={transcriptionResult.text}
+            onConfirm={handleConfirmMoodEntry}
+            onCancel={handleCancelConfirmation}
+          />
+        ) : (
+          <>
+            {/* Original Voice Recorder Interface */}
         {/* Minimal Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Voice Check-in</Text>
@@ -482,6 +550,8 @@ export default function SimpleVoiceRecorder({
           type={toastMessage.includes('✅') ? 'success' : 'info'}
           onHide={() => setShowToast(false)}
         />
+          </>
+        )}
       </View>
     </BottomSheet>
   );

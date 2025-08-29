@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Components
-import VoiceCheckinModern from './VoiceCheckinModern';
+import SimpleVoiceRecorder from './SimpleVoiceRecorder';
 
 interface CheckinBottomSheetProps {
   isVisible: boolean;
@@ -10,15 +10,16 @@ interface CheckinBottomSheetProps {
 }
 
 /**
- * CheckinBottomSheet - Sade Voice Check-in Sheet
- * Modern ve minimal tasarım ile ses tabanlı check-in deneyimi
+ * CheckinBottomSheet - iPhone Tarzı Minimalist Voice Check-in
+ * Sade, kırmızı yuvarlak butonlu ses kayıt sistemi
  * 
  * Özellikler:
- * - Sade UI tasarımı (quick route buttonları kaldırıldı)
- * - Modern ses kayıt bileşeni
- * - Basit kullanım talimatları ve örnek
- * - Wave animasyonları
- * - Real-time timer
+ * - iPhone Voice Memos tarzı tasarım
+ * - Büyük kırmızı kayıt butonu
+ * - Ding/dong ses efektleri
+ * - Minimalist timer ve wave animasyonu
+ * - Native speech-to-text
+ * - Heuristik mood analizi
  */
 export default function CheckinBottomSheet({
   isVisible,
@@ -26,7 +27,7 @@ export default function CheckinBottomSheet({
   onComplete,
 }: CheckinBottomSheetProps) {
   return (
-    <VoiceCheckinModern
+    <SimpleVoiceRecorder
       isVisible={isVisible}
       onClose={onClose}
       onComplete={onComplete}
