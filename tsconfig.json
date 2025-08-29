@@ -53,6 +53,7 @@
     "**/*.test.tsx",
     "supabase/functions/**",
     "features/ai-disabled-backup/**",
+    "features/ai/**",
     "app/(dev)/**",
     "components/dev/**",
     "components/ai/**",
@@ -69,6 +70,7 @@
     "services/voiceCleanupService.ts",
     "services/sync/maintenanceScheduler.ts",
     "services/offlineSyncUserFeedbackService.ts",
-    "services/unifiedComplianceService.ts"
+    "services/unifiedComplianceService.ts",
+    "old_docs/**"
   ]
 }

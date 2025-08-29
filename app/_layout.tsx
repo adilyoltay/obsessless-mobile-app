@@ -26,6 +26,9 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import ConflictNotificationBanner from '@/components/ui/ConflictNotificationBanner';
 import { SyncStatusNotification } from '@/components/ui/SyncStatusNotification';
 
+// Performance monitoring
+import performanceMonitor from '@/services/performanceMonitor';
+
 // Import debug helpers in development
 if (__DEV__) {
   require('@/utils/debugHelper');
@@ -76,9 +79,16 @@ export default function RootLayout() {
     })();
   }, []);
 
+  // 📊 Performance monitoring initialization
+  useEffect(() => {
+    performanceMonitor.initialize().catch(error => {
+      console.warn('Performance monitor initialization failed:', error);
+    });
+  }, []);
+
   // Foreground DLQ scheduler: process periodically when app is active
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: any = null;
     let appStateListener: any;
     (async () => {
       try {

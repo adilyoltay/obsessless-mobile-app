@@ -297,7 +297,7 @@ class OfflineMoodInsightsService {
           id: 'consistency',
           type: 'achievement',
           title: 'Tutarlılık Şampiyonu! 🏆',
-          description: 'Bu hafta çok düzenli kayıt yaptın. Bu alışkanlık mood'unu takip etmeni kolaylaştırıyor.',
+          description: 'Bu hafta çok düzenli kayıt yaptın. Bu alışkanlık mood\'unu takip etmeni kolaylaştırıyor.',
           icon: 'trophy',
           priority: 'high',
           actionable: false

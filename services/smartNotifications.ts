@@ -67,6 +67,8 @@ class SmartNotificationsService {
           shouldShowAlert: true,
           shouldPlaySound: false, // Soft, non-intrusive
           shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
         }),
       });
 
