@@ -22,6 +22,10 @@ export interface MoodEntry {
   last_sync_attempt?: string;
   content_hash?: string; // For duplicate detection
   created_at?: string; // Alternative timestamp field
+  
+  // ID MAPPING FIELDS for local ↔ remote sync
+  local_id?: string; // Client-generated ID (mood_xxx_timestamp) 
+  remote_id?: string; // Supabase UUID after successful save
 }
 
 /**
@@ -186,6 +190,7 @@ class MoodTrackingService {
       ...entry,
       // 🎯 Use consistent local entry ID from idempotency service
       id: idempotencyResult.localEntryId,
+      local_id: idempotencyResult.localEntryId, // Store local ID for mapping
       timestamp: new Date().toISOString(),
       synced: false,
       sync_attempts: 0,
@@ -195,7 +200,7 @@ class MoodTrackingService {
 
     // Use standardized supabaseService.saveMoodEntry (writes to canonical mood_entries table)
     try {
-      await supabaseService.saveMoodEntry({
+      const supabaseResult = await supabaseService.saveMoodEntry({
         user_id: moodEntry.user_id,
         mood_score: moodEntry.mood_score,
         energy_level: moodEntry.energy_level,
@@ -206,6 +211,20 @@ class MoodTrackingService {
         trigger: moodEntry.triggers?.[0] || '', // Keep backward compatibility
         timestamp: moodEntry.timestamp, // Preserve original creation time for idempotency
       });
+      
+      // 🆔 ID MAPPING: Store remote UUID returned from Supabase for future delete operations
+      if (supabaseResult && supabaseResult.id) {
+        const remoteId = supabaseResult.id;
+        
+        // Update mood entry with remote ID mapping
+        moodEntry.remote_id = remoteId;
+        moodEntry.synced = true; // Mark as successfully synced
+        
+        console.log(`🔄 ID mapping created: Local(${moodEntry.local_id}) ↔ Remote(${remoteId})`);
+        
+        // Update local storage with ID mapping for future operations
+        await this.updateInLocalStorage(moodEntry);
+      }
       
       // ✅ Mark as successfully processed in idempotency service
       await idempotencyService.markAsProcessed(
@@ -320,6 +339,132 @@ class MoodTrackingService {
     }
 
     return moodEntry;
+  }
+
+  /**
+   * 📝 Update existing mood entry (both local and remote)
+   */
+  async updateMoodEntry(entryId: string, updates: Partial<Omit<MoodEntry, 'id' | 'user_id' | 'timestamp'>>): Promise<MoodEntry> {
+    try {
+      console.log(`📝 Updating mood entry: ${entryId}`, updates);
+
+      // 🔍 First, find the entry to get user_id and current data
+      const existingEntries = await this.getMoodEntries(updates.user_id || 'unknown', 30);
+      const existingEntry = existingEntries.find(entry => entry.id === entryId);
+      
+      if (!existingEntry) {
+        throw new Error(`Mood entry not found: ${entryId}`);
+      }
+
+      // 🔄 Create updated entry
+      const updatedEntry: MoodEntry = {
+        ...existingEntry,
+        ...updates,
+        timestamp: existingEntry.timestamp, // Keep original timestamp
+        synced: false, // Mark as needing sync
+        sync_attempts: 0
+      };
+
+      // 🔒 Update in local storage
+      await this.updateInLocalStorage(updatedEntry);
+      
+      // 🌐 Update in remote (Supabase)
+      try {
+        await supabaseService.updateMoodEntry(entryId, {
+          mood_score: updatedEntry.mood_score,
+          energy_level: updatedEntry.energy_level, 
+          anxiety_level: updatedEntry.anxiety_level,
+          notes: updatedEntry.notes,
+          triggers: updatedEntry.triggers,
+          activities: updatedEntry.activities
+        });
+        
+        // Mark as synced
+        updatedEntry.synced = true;
+        await this.updateInLocalStorage(updatedEntry);
+        
+        console.log(`✅ Mood entry updated successfully: ${entryId}`);
+      } catch (remoteError) {
+        console.warn('⚠️ Remote update failed, will sync later:', remoteError);
+        
+        // Add to sync queue for later
+        // TODO: Add to offline sync queue
+      }
+
+      return updatedEntry;
+    } catch (error) {
+      console.error(`❌ Failed to update mood entry ${entryId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔄 Update mood entry in local storage only
+   */
+  private async updateInLocalStorage(entry: MoodEntry): Promise<void> {
+    const entryDate = new Date(entry.timestamp);
+    const localDateKey = this.getLocalDateKey(entryDate);
+    const key = `${this.STORAGE_KEY}_${entry.user_id}_${localDateKey}`;
+    
+    try {
+      const existing = await optimizedStorage.getOptimized<EncryptedMoodStorage[]>(key) || [];
+      
+      // Find and update the entry
+      let updated = false;
+      for (let i = 0; i < existing.length; i++) {
+        const storedEntry = existing[i];
+        const metadata = storedEntry.metadata || storedEntry;
+        
+        if (metadata.id === entry.id) {
+          // Update the entry
+          existing[i] = await this.encryptMoodEntry(entry);
+          updated = true;
+          break;
+        }
+      }
+      
+      if (!updated) {
+        console.warn(`⚠️ Entry ${entry.id} not found in local storage for update`);
+        // Add as new entry
+        existing.push(await this.encryptMoodEntry(entry));
+      }
+      
+      await optimizedStorage.setOptimized(key, existing, true);
+      console.log(`✅ Local storage updated for entry: ${entry.id}`);
+      
+    } catch (error) {
+      console.error('❌ Failed to update in local storage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔒 Encrypt mood entry for storage
+   */
+  private async encryptMoodEntry(entry: MoodEntry): Promise<EncryptedMoodStorage> {
+    const sensitiveData = {
+      notes: entry.notes || '',
+      triggers: entry.triggers || [],
+      activities: entry.activities || []
+    };
+    
+    const encryptedSensitiveData = await secureDataService.encryptSensitiveData(sensitiveData);
+    
+    return {
+      metadata: {
+        id: entry.id,
+        user_id: entry.user_id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        timestamp: entry.timestamp,
+        synced: entry.synced,
+        sync_attempts: entry.sync_attempts,
+        last_sync_attempt: entry.last_sync_attempt,
+      },
+      encryptedData: encryptedSensitiveData,
+      storageVersion: 2
+    };
   }
 
   private async saveToLocalStorage(entry: MoodEntry): Promise<void> {
@@ -1011,6 +1156,34 @@ class MoodTrackingService {
       let entryFound = false;
       let totalKeysChecked = 0;
       let keysWithData = 0;
+
+      // 🆔 ID MAPPING: Support both UUID (remote) and local ID (mood_xxx) formats
+      const isUUIDFormat = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(entryId);
+      const isLocalFormat = entryId.startsWith('mood_');
+      
+      console.log(`🔍 Delete ID analysis: ${entryId} (UUID: ${isUUIDFormat}, Local: ${isLocalFormat})`);
+      
+      // If we have a UUID, try to find corresponding local_id
+      let localIdToSearch = entryId;
+      if (isUUIDFormat) {
+        try {
+          // Search for entry with this remote_id to get local_id
+          const allEntries = await this.getMoodEntries(userId || 'unknown', 30);
+          const matchingEntry = allEntries.find(entry => 
+            entry.remote_id === entryId || entry.id === entryId
+          );
+          
+          if (matchingEntry && matchingEntry.local_id) {
+            localIdToSearch = matchingEntry.local_id;
+            console.log(`🔄 Found local ID mapping: ${entryId} → ${localIdToSearch}`);
+          } else if (matchingEntry) {
+            localIdToSearch = matchingEntry.id;
+            console.log(`🔄 Using entry.id as fallback: ${localIdToSearch}`);
+          }
+        } catch (mappingError) {
+          console.warn('⚠️ ID mapping lookup failed, will search with original ID:', mappingError);
+        }
+      }
       
       // Get all possible user storage keys by scanning existing storage
       const allKeys = await this.getAllMoodStorageKeys();
@@ -1040,7 +1213,16 @@ class MoodTrackingService {
             }
             
             const originalCount = entries.length;
-            const filteredEntries = entries.filter((entry: any) => entry.id !== entryId);
+            // 🆔 ENHANCED FILTERING: Check both original entryId and mapped localIdToSearch
+            const filteredEntries = entries.filter((entry: any) => {
+              const entryMatches = (
+                entry.id === entryId || 
+                entry.id === localIdToSearch ||
+                entry.local_id === entryId ||
+                entry.remote_id === entryId
+              );
+              return !entryMatches; // Keep entries that DON'T match
+            });
             
             // If entries were removed, update storage
             if (filteredEntries.length !== originalCount) {

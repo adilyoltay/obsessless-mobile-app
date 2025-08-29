@@ -1830,22 +1830,43 @@ export default function MoodScreen() {
       };
 
       if (editingEntry) {
-        // Update existing entry
-        await supabaseService.updateMoodEntry(editingEntry.id, entryData);
-        setToastMessage('Mood kaydı güncellendi ✅');
-        
-        // Update local state
-        setMoodEntries(prev => prev.map(entry => 
-          entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
-        ));
+        // 🔄 CONSISTENCY FIX: Use moodTracker for both create AND edit to ensure local+remote sync
+        try {
+          // Update via moodTracker to ensure local storage + remote consistency
+          await moodTracker.updateMoodEntry(editingEntry.id, {
+            mood_score: entryData.mood_score,
+            energy_level: entryData.energy_level,
+            anxiety_level: entryData.anxiety_level,
+            notes: entryData.notes,
+            triggers: entryData.trigger ? [entryData.trigger] : []
+          });
+          
+          setToastMessage('Mood kaydı güncellendi ✅');
+          
+          // Refresh mood entries to reflect changes
+          await handleRefresh();
+        } catch (updateError) {
+          console.error('❌ Edit via moodTracker failed, trying direct Supabase:', updateError);
+          
+          // Fallback to direct Supabase update
+          await supabaseService.updateMoodEntry(editingEntry.id, entryData);
+          setToastMessage('Mood kaydı güncellendi (sync pending) ⚠️');
+          
+          // Update local state manually  
+          setMoodEntries(prev => prev.map(entry => 
+            entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
+          ));
+        }
         } else {
         // Create new entry
+        // 🔄 TRIGGER FIX: Convert string to array format (MoodEntry expects string[])
         const savedEntry = await moodTracker.saveMoodEntry({
           mood_score: entryData.mood_score,
           energy_level: entryData.energy_level || 50,
           anxiety_level: entryData.anxiety_level || 50,
           notes: entryData.notes || '',
-          triggers: entryData.trigger || '',
+          triggers: entryData.trigger ? [entryData.trigger] : [], // Convert string to array
+          activities: [], // Default empty array
           user_id: user.id
         });
         
