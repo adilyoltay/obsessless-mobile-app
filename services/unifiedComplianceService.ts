@@ -277,11 +277,11 @@ class UnifiedComplianceService {
       console.error(`❌ Failed to record consent for ${consentType}:`, error);
       
       // await trackAIInteraction(AIEventType.API_ERROR, {
-        event: 'consent_recording_failed',
-        userId,
-        consentType,
-        error: error instanceof Error ? error.message : String(error)
-      });
+      //   event: 'consent_recording_failed',
+      //   userId,
+      //   consentType,
+      //   error: error instanceof Error ? error.message : String(error)
+      // });
       
       throw error;
     }
@@ -446,11 +446,11 @@ class UnifiedComplianceService {
       console.error('Data export failed:', error);
       
       // await trackAIInteraction(AIEventType.API_ERROR, {
-        event: 'data_export_failed',
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-        processingTime: Date.now() - startTime
-      });
+      //   event: 'data_export_failed',
+      //   userId,
+      //   error: error instanceof Error ? error.message : String(error),
+      //   processingTime: Date.now() - startTime
+      // });
       
       throw error;
     }
