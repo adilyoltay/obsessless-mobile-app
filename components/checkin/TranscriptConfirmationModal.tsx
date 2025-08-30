@@ -37,9 +37,20 @@ export default function TranscriptConfirmationModal({
   const [transcriptText, setTranscriptText] = useState('');
   const textInputRef = useRef<TextInput>(null);
 
+  // Debug modal visibility
+  useEffect(() => {
+    console.log('📝 TranscriptConfirmationModal visibility changed:', {
+      visible,
+      duration,
+      estimatedText,
+      hasEstimatedText: !!estimatedText
+    });
+  }, [visible]);
+
   // Initialize with estimated text when modal opens
   useEffect(() => {
     if (visible) {
+      console.log('📝 TranscriptModal opened, setting text:', estimatedText);
       setTranscriptText(estimatedText);
       // Auto-focus and select all text for easy editing
       setTimeout(() => {
@@ -73,9 +84,17 @@ export default function TranscriptConfirmationModal({
     "Sakin ve huzurlu hissediyorum"
   ];
 
+  // Always render modal component (visibility controlled by prop)
+  if (!visible) {
+    console.log('📝 TranscriptModal not visible, returning null');
+    return null;
+  }
+
+  console.log('📝 TranscriptModal rendering with text:', transcriptText);
+
   return (
     <Modal
-      visible={visible}
+      visible={true}
       transparent
       animationType="slide"
       statusBarTranslucent

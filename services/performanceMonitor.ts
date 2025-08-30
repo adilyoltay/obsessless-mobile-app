@@ -162,10 +162,11 @@ class PerformanceMonitorService {
         return;
     }
 
-    if (value > budget * 1.5) { // 50% over budget = critical
-      console.error(`🚨 PERFORMANCE CRITICAL: ${type} took ${value}${unit} (budget: ${budget}${unit})`);
-    } else if (value > budget) { // Over budget = warning
-      console.warn(`⚠️ PERFORMANCE WARNING: ${type} took ${value}${unit} (budget: ${budget}${unit})`);
+    // Only show performance warnings in development
+    if (__DEV__ && value > budget * 2) { // Only log if 2x over budget
+      console.warn(`⚠️ Performance: ${type} took ${value}${unit} (budget: ${budget}${unit})`);
+    } else if (value > budget * 3) { // Production critical only if 3x over
+      console.error(`🚨 Performance issue: ${type} took ${value}${unit}`);
     }
   }
 

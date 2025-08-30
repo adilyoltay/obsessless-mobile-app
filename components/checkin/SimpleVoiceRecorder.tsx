@@ -237,15 +237,20 @@ export default function SimpleVoiceRecorder({
       
       // Navigate to mood page with special voice_transcript_needed source
       setTimeout(() => {
+        const navParams = {
+          prefill: 'true',
+          source: 'voice_transcript_needed',
+          estimated_transcript: transcription.text || '',
+          voice_duration: recordingState.duration.toString(),
+        };
+        
+        console.log('🗺️ Navigating with params:', navParams);
+        
         router.push({
           pathname: '/(tabs)/mood',
-          params: {
-            prefill: 'true',
-            source: 'voice_transcript_needed',
-            estimated_transcript: transcription.text || '',
-            voice_duration: recordingState.duration.toString(),
-          }
+          params: navParams
         });
+        
         onComplete?.();
         console.log('✅ Navigated to mood page for transcript handling');
       }, 200);

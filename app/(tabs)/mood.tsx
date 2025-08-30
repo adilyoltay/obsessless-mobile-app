@@ -107,10 +107,17 @@ export default function MoodScreen() {
   const [voiceEstimatedTranscript, setVoiceEstimatedTranscript] = useState('');
   const [voiceDuration, setVoiceDuration] = useState(0);
 
-  // Pre-fill from voice check-in if available (only once)  
+  // Pre-fill from voice check-in if available
   useEffect(() => {
+    console.log('📝 Mood page params updated:', {
+      prefill: params.prefill,
+      source: params.source,
+      showQuickEntry,
+      showVoiceTranscriptModal
+    });
+    
     if (params.prefill === 'true' && !showQuickEntry) {
-      console.log('📝 Opening mood form with pre-filled data:', params);
+      console.log('📝 Processing pre-filled data:', params);
       
       // Handle voice check-in specific pre-fill
       if (params.source === 'voice_checkin_analyzed') {
@@ -132,9 +139,24 @@ export default function MoodScreen() {
         setShowToast(true);
       } else if (params.source === 'voice_transcript_needed') {
         console.log('📝 Voice transcript confirmation needed');
-        setVoiceEstimatedTranscript(params.estimated_transcript as string || '');
-        setVoiceDuration(parseFloat(params.voice_duration as string) || 0);
-        setShowVoiceTranscriptModal(true);
+        const estimatedText = params.estimated_transcript as string || '';
+        const duration = parseFloat(params.voice_duration as string) || 0;
+        
+        console.log('📝 Setting transcript modal data:', {
+          estimatedText,
+          duration,
+          currentModalState: showVoiceTranscriptModal
+        });
+        
+        setVoiceEstimatedTranscript(estimatedText);
+        setVoiceDuration(duration);
+        
+        // Force modal to show with a small delay
+        setTimeout(() => {
+          console.log('📝 Showing transcript modal NOW');
+          setShowVoiceTranscriptModal(true);
+        }, 200);
+        
         return; // Don't open mood form yet
       }
       
