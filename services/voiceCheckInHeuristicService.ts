@@ -38,8 +38,34 @@ interface KeywordPattern {
   weight: number;         // Pattern ağırlığı
 }
 
+interface PatternMatch extends KeywordPattern {
+  matchedKeywords: string[];
+  intensity: number;
+  negationDetected: boolean;
+}
+
 class VoiceCheckInHeuristicService {
   private static instance: VoiceCheckInHeuristicService;
+  
+  // 🔧 Türkçe ek toleranslı kelime/ibare eşleme yardımcıları
+  private escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private buildLemmaRegex(keyword: string): RegExp {
+    // Çok kelimeli ifadelerde yalnızca SON kelimeye ek izin ver
+    const toks = keyword.trim().split(/\s+/);
+    const last = toks.pop()!;
+    const head = toks.map(this.escapeRegex).join('\\s+');
+    const lastWithSuffix = `${this.escapeRegex(last)}(?:[a-zçğıöşüâîû]+)?`;
+    const body = head ? `${head}\\s+${lastWithSuffix}` : lastWithSuffix;
+    // \b sınırı + Unicode
+    return new RegExp(`\\b${body}\\b`, 'iu');
+  }
+
+  private includesWord(text: string, keyword: string): boolean {
+    return this.buildLemmaRegex(keyword).test(text);
+  }
   
   // 🎯 ENHANCED Türkçe Mood Analiz Patterns (v2.0)
   private readonly moodPatterns: KeywordPattern[] = [
@@ -609,7 +635,8 @@ class VoiceCheckInHeuristicService {
       const confidence = this.calculateConfidence(
         patternMatches,
         transcriptionResult.confidence,
-        text.length
+        text.length,
+        transcriptionResult.text // RAW TEXT eklendi
       );
 
       // 6. Build result
@@ -663,10 +690,8 @@ class VoiceCheckInHeuristicService {
   /**
    * 🔍 ENHANCED Pattern matching with advanced techniques (v3.0)
    */
-  private findPatternMatches(text: string): Array<KeywordPattern & { matchedKeywords: string[]; intensity: number }> {
-    const matches: Array<KeywordPattern & { matchedKeywords: string[]; intensity: number }> = [];
-    
-    // 🔄 TEKRAR DETECTION: "çok çok mutlu", "aşırı aşırı üzgün"
+  private findPatternMatches(text: string): PatternMatch[] {
+    const matches: PatternMatch[] = [];
     const repetitionMultiplier = this.detectRepetition(text);
 
     for (const pattern of this.moodPatterns) {
@@ -674,58 +699,47 @@ class VoiceCheckInHeuristicService {
       let totalIntensity = 1.0;
       let negationDetected = false;
 
-      // Check each keyword in pattern (+ sinonim eşleştirme)
       for (const keyword of pattern.keywords) {
         let keywordFound = false;
-        
-        // 1. Direct match
-        if (text.includes(keyword)) {
+
+        // 1) Doğrudan (ek toleranslı) eşleşme
+        if (this.includesWord(text, keyword)) {
           keywordFound = true;
           matchedKeywords.push(keyword);
         }
-        
-        // 2. 🔗 SINONIM EŞLEŞTIRME
+
+        // 2) Sinonim eşleştirme (ek toleranslı)
         if (!keywordFound) {
-          for (const [baseWord, synonyms] of Object.entries(this.synonymGroups)) {
-            if (keyword === baseWord) {
-              for (const synonym of synonyms) {
-                if (text.includes(synonym)) {
-                  keywordFound = true;
-                  matchedKeywords.push(`${keyword} (${synonym})`);
-                  break;
-                }
-              }
-            }
-            if (keywordFound) break;
+          const root = keyword.split(' ').pop()!; // son kelime kök gibi
+          const syns = this.synonymGroups[root];
+          if (syns && syns.some(s => this.includesWord(text, s))) {
+            keywordFound = true;
+            matchedKeywords.push(`${keyword} (syn)`);
           }
         }
 
         if (keywordFound) {
-          // 3. 🎚️ INTENSITY MODIFIERS
+          // 3) Yoğunluk belirleyicileri
           const intensityMod = this.findIntensityModifier(text, keyword);
           totalIntensity = Math.max(totalIntensity, intensityMod);
 
-          // 4. ❌ NEGATIF BAĞLAM ALGILAMA
-          const hasNegation = this.detectNegationContext(text, keyword);
-          if (hasNegation) {
+          // 4) Negasyon bağlamı (yakın pencerede "değil", "yok", "hiç" ...)
+          if (this.detectNegationContext(text, keyword)) {
             negationDetected = true;
-            totalIntensity *= 0.3; // Negatif bağlamda çok düşük etki
+            totalIntensity *= 0.3; // ters bağlamda kuvveti kır
           }
         }
       }
 
       if (matchedKeywords.length > 0) {
-        // 5. 🔄 TEKRAR MULTIPLIER uygula
-        if (repetitionMultiplier > 1.0) {
-          totalIntensity *= repetitionMultiplier;
-        }
+        if (repetitionMultiplier > 1.0) totalIntensity *= repetitionMultiplier;
 
         matches.push({
           ...pattern,
           matchedKeywords,
           intensity: totalIntensity,
           negationDetected
-        } as any);
+        });
       }
     }
 
@@ -757,20 +771,22 @@ class VoiceCheckInHeuristicService {
    * ❌ Negatif bağlam detection - "mutlu değilim" 
    */
   private detectNegationContext(text: string, keyword: string): boolean {
-    const keywordIndex = text.indexOf(keyword);
-    if (keywordIndex === -1) return false;
+    const rx = this.buildLemmaRegex(keyword);
+    const m = rx.exec(text);
+    if (!m) return false;
 
-    // Keyword'den sonraki 10 kelimeye bak
-    const afterText = text.substring(keywordIndex, keywordIndex + 50);
-    const beforeText = text.substring(Math.max(0, keywordIndex - 30), keywordIndex);
+    const start = Math.max(0, (m.index ?? 0) - 40);
+    const end   = Math.min(text.length, (m.index ?? 0) + m[0].length + 40);
+    const window = text.slice(start, end);
 
-    for (const negation of this.negationWords) {
-      if (afterText.includes(negation) || beforeText.includes(negation)) {
-        return true;
-      }
-    }
+    // "hiç … değil", "pek … değil", "yok", "asla" varyantları
+    const negs = [
+      /\bdeğil(\w*)\b/u, /\byok\b/u, /\bhiç\b/u, /\basla\b/u,
+      /\bpek\b/u, /\bo kadar da\b/u, /\bkesinlikle değil\b/u
+    ];
 
-    return false;
+    // "değil" genelde sonradan gelir ama önce de çıkabilir
+    return negs.some(rx => rx.test(window));
   }
 
   /**
@@ -794,47 +810,194 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 📊 Calculate mood metrics from pattern matches
+   * 📊 ADVANCED: Calculate mood metrics with contradiction detection
    */
-  private calculateMoodMetrics(matches: Array<KeywordPattern & { intensity: number }>, text: string): {
+  private calculateMoodMetrics(matches: PatternMatch[], text: string): {
     mood: number;
     energy: number;
     anxiety: number;
     totalIntensity: number;
   } {
-    let moodSum = 0;
-    let energySum = 0;
-    let anxietySum = 0;
-    let totalWeight = 0;
-    let totalIntensity = 0;
-
-    for (const match of matches) {
-      const weight = match.weight * match.intensity;
-      
-      moodSum += match.moodImpact * weight;
-      energySum += match.energyImpact * weight;
-      anxietySum += match.anxietyImpact * weight;
-      totalWeight += weight;
-      totalIntensity += match.intensity;
-    }
-
-    // Normalize by total weight, or use defaults if no matches
-    if (totalWeight === 0) {
-      return { mood: 0, energy: 0, anxiety: 0, totalIntensity: 1 };
-    }
-
+    console.log('🔍 Advanced mood calculation starting...', { matchCount: matches.length });
+    
+    // 1️⃣ EXPLICIT DECLARATIONS (En yüksek öncelik)
+    const explicitDeclarations = this.extractExplicitDeclarations(text);
+    console.log('📣 Explicit declarations found:', explicitDeclarations);
+    
+    // 2️⃣ CONTRADICTION DETECTION
+    const contradictions = this.detectContradictions(text, matches);
+    console.log('⚡ Contradictions detected:', contradictions);
+    
+    // 3️⃣ INDEPENDENT METRIC SCORING
+    const independentScores = this.calculateIndependentScores(matches, text, contradictions);
+    console.log('🎯 Independent scores:', independentScores);
+    
+    // 4️⃣ MERGE WITH EXPLICIT DECLARATIONS (Priority override)
+    const finalScores = this.mergeWithExplicitDeclarations(independentScores, explicitDeclarations);
+    console.log('✅ Final mood metrics:', finalScores);
+    
+    const totalIntensity = matches.reduce((sum, m) => sum + m.intensity, 0) / Math.max(matches.length, 1);
+    
     return {
-      mood: moodSum / totalWeight,
-      energy: energySum / totalWeight,
-      anxiety: anxietySum / totalWeight,
-      totalIntensity: totalIntensity / matches.length
+      mood: finalScores.mood,
+      energy: finalScores.energy,
+      anxiety: finalScores.anxiety,
+      totalIntensity
+    };
+  }
+
+  /**
+   * 📣 Extract explicit mood/energy/anxiety declarations
+   * Examples: "modum yüksek", "enerjim düşük", "anksiyetem var"
+   */
+  private extractExplicitDeclarations(text: string): { mood?: number; energy?: number; anxiety?: number } {
+    const t = text.toLowerCase();
+
+    // 1) Sayısal ölçekler: 7/10, %70, "enerjim 8", "anksiyetem 3"
+    const out: { mood?: number; energy?: number; anxiety?: number } = {};
+
+    // x/10 kalıbı
+    const scale = /(\b(mood|mod|moral|enerji|anksiyete|kaygı)\w*\b)[^\d]{0,6}(\b\d{1,2})\s*\/\s*(10)\b/u.exec(t);
+    if (scale) {
+      const v = Math.max(1, Math.min(10, parseInt(scale[3], 10)));
+      const key = scale[2];
+      if (/(mood|mod|moral)/.test(key)) out.mood = v;
+      else if (/enerji/.test(key)) out.energy = v;
+      else out.anxiety = v;
+    }
+
+    // %xx kalıbı (yaklaşık 1–10'a indirgeme)
+    const pct = /(\b(mood|mod|moral|enerji|anksiyete|kaygı)\w*\b)[^\d]{0,6}%\s*(\d{1,3})\b/u.exec(t);
+    if (pct) {
+      const p = Math.max(0, Math.min(100, parseInt(pct[3], 10)));
+      const v = Math.max(1, Math.min(10, Math.round(p / 10)));
+      const key = pct[2];
+      if (/(mood|mod|moral)/.test(key)) out.mood = v;
+      else if (/enerji/.test(key)) out.energy = v;
+      else out.anxiety = v;
+    }
+
+    // "enerjim 8", "anksiyetem 3", "moodum 6"
+    const bare = /(\b(mood|mod|moral|enerji|anksiyet(e|em)|kaygı(m|mım|mım|mim)?)\b)[^\d]{0,6}(\d{1,2})\b/u.exec(t);
+    if (bare) {
+      const v = Math.max(1, Math.min(10, parseInt(bare[4], 10)));
+      const key = bare[2];
+      if (/(mood|mod|moral)/.test(key)) out.mood = v;
+      else if (/enerji/.test(key)) out.energy = v;
+      else out.anxiety = v;
+    }
+
+    // 2) Sözel açık beyanlar
+    if (/\b(modum|moodum|moralim)\b.*\b(yüksek|iyi|çok iyi|süper|harika)\b/u.test(t)) out.mood = 8;
+    else if (/\b(modum|moodum|moralim)\b.*\b(düşük|kötü|berbat|çok kötü|bozuk)\b/u.test(t)) out.mood = 3;
+    else if (/\b(modum|moodum|moralim)\b.*\b(orta|normal|fena değil)\b/u.test(t)) out.mood = 5;
+
+    if (/\benerji(m|im|me)\b.*\b(yok|düşük|sıfır|hiç|bitmiş|tükenmiş|az)\b/u.test(t)) out.energy = 2;
+    else if (/\benerji(m|im|me)\b.*\b(yüksek|var|bol|çok|tam|dolu|iyi)\b/u.test(t)) out.energy = 8;
+    else if (/\b(yorgun|bitkin|halsiz|tüken)\b.*\b(çok|aşırı|fazla)\b/u.test(t)) out.energy = 1;
+
+    if (/\banksiyete(m|im|me)\b.*\b(yok|düşük|az|yok gibi)\b/u.test(t) || /\bkaygı\b.*\b(yok|az|düşük)\b/u.test(t)) out.anxiety = 2;
+    else if (/\banksiyete(m|im|me)\b.*\b(var|yüksek|çok|fazla|bol)\b/u.test(t) || /\bkaygı\b.*\b(var|çok|yüksek)\b/u.test(t)) out.anxiety = 8;
+
+    return out;
+  }
+
+  /**
+   * ⚡ Detect contradictions in text using "ama, fakat, ancak" etc.
+   */
+  private detectContradictions(text: string, matches: PatternMatch[]): {
+    hasContradictions: boolean;
+    contradictionWords: string[];
+    segments: string[];
+  } {
+    const contradictionKeywords = ['ama', 'fakat', 'ancak', 'lakin', 'ne var ki', 'yalnız', 'sadece', 'bununla birlikte'];
+    const foundWords = contradictionKeywords.filter(word => text.toLowerCase().includes(word));
+    
+    let segments: string[] = [];
+    if (foundWords.length > 0) {
+      // Split text by contradiction words
+      const pattern = new RegExp(`(${foundWords.join('|')})`, 'gi');
+      segments = text.split(pattern).filter(s => s.trim().length > 3);
+    }
+    
+    return {
+      hasContradictions: foundWords.length > 0,
+      contradictionWords: foundWords,
+      segments: segments.length > 1 ? segments : [text]
+    };
+  }
+
+  /**
+   * 🎯 Calculate independent scores for each metric
+   */
+  private calculateIndependentScores(
+    matches: PatternMatch[], 
+    text: string,
+    contradictions: any
+  ): { mood: number; energy: number; anxiety: number } {
+    
+    // Group patterns by their strongest impact
+    const moodPatterns = matches.filter(m => Math.abs(m.moodImpact) >= Math.abs(m.energyImpact) && Math.abs(m.moodImpact) >= Math.abs(m.anxietyImpact));
+    const energyPatterns = matches.filter(m => Math.abs(m.energyImpact) >= Math.abs(m.moodImpact) && Math.abs(m.energyImpact) >= Math.abs(m.anxietyImpact));
+    const anxietyPatterns = matches.filter(m => Math.abs(m.anxietyImpact) >= Math.abs(m.moodImpact) && Math.abs(m.anxietyImpact) >= Math.abs(m.energyImpact));
+    
+    // Calculate dominant signals for each metric
+    const moodScore = this.calculateDominantSignal(moodPatterns, 'moodImpact', 5.0); // Base: neutral
+    const energyScore = this.calculateDominantSignal(energyPatterns, 'energyImpact', 5.0); // Base: neutral  
+    const anxietyScore = this.calculateDominantSignal(anxietyPatterns, 'anxietyImpact', 4.0); // Base: slightly low
+    
+    return {
+      mood: moodScore,
+      energy: energyScore,
+      anxiety: anxietyScore
+    };
+  }
+
+  /**
+   * 🎲 Calculate dominant signal for a specific metric
+   */
+  private calculateDominantSignal(patterns: PatternMatch[], impactField: string, baseline: number): number {
+    if (patterns.length === 0) return baseline;
+    
+    // Find the pattern with highest weighted impact
+    let maxImpact = 0;
+    let dominantPattern = null;
+    
+    for (const pattern of patterns) {
+      const impact = Math.abs((pattern as any)[impactField] * pattern.intensity * pattern.weight);
+      if (impact > maxImpact) {
+        maxImpact = impact;
+        dominantPattern = pattern;
+      }
+    }
+    
+    if (dominantPattern) {
+      const rawImpact = (dominantPattern as any)[impactField] * dominantPattern.intensity;
+      // Convert to 1-10 scale
+      return Math.max(1, Math.min(10, baseline + rawImpact));
+    }
+    
+    return baseline;
+  }
+
+  /**
+   * 🔗 Merge independent scores with explicit declarations (priority override)
+   */
+  private mergeWithExplicitDeclarations(
+    independent: { mood: number; energy: number; anxiety: number },
+    explicit: { mood?: number; energy?: number; anxiety?: number }
+  ): { mood: number; energy: number; anxiety: number } {
+    return {
+      mood: explicit.mood !== undefined ? explicit.mood : independent.mood,
+      energy: explicit.energy !== undefined ? explicit.energy : independent.energy,
+      anxiety: explicit.anxiety !== undefined ? explicit.anxiety : independent.anxiety
     };
   }
 
   /**
    * 🔍 Extract entities (emotions, triggers, activities)
    */
-  private extractEntities(matches: Array<KeywordPattern & { matchedKeywords: string[] }>, text: string): {
+  private extractEntities(matches: PatternMatch[], text: string): {
     dominantEmotion: string;
     triggers: string[];
     activities: string[];
@@ -882,46 +1045,49 @@ class VoiceCheckInHeuristicService {
    * 📊 ENHANCED Confidence calculation (v3.0)
    */
   private calculateConfidence(
-    matches: Array<KeywordPattern & { matchedKeywords: string[]; negationDetected?: boolean }>,
+    matches: PatternMatch[],
     transcriptionConfidence: number,
-    textLength: number
+    textLength: number,
+    rawText: string
   ): number {
-    // Base confidence from transcription
     let confidence = transcriptionConfidence;
 
-    // 1. 🔤 KEYWORD DIVERSITY (different groups > same group repeats)
-    const keywordCount = matches.reduce((sum, match) => sum + match.matchedKeywords.length, 0);
-    const emotionKeywords = matches.filter(m => m.emotion).length;
-    const triggerKeywords = matches.filter(m => m.trigger).length;
-    const activityKeywords = matches.filter(m => m.activity).length;
-    
-    // Çeşitlilik > Tekrar
-    const diversityScore = [emotionKeywords, triggerKeywords, activityKeywords].filter(c => c > 0).length;
-    const diversityBoost = Math.min(0.25, diversityScore * 0.08); // More categories = higher confidence
-    
-    // 2. 📏 TEXT LENGTH FACTOR (longer = more reliable)
-    const lengthFactor = Math.min(1.0, Math.sqrt(textLength / 50)); // Square root for diminishing returns
-    
-    // 3. ❌ NEGATION PENALTY
-    const negationCount = matches.filter(m => m.negationDetected).length;
-    const negationPenalty = negationCount * 0.15; // Each negation -0.15 confidence
-    
-    // 4. 🎭 UNCERTAINTY DETECTION
-    const uncertaintyPenalty = this.detectUncertainty(matches, textLength);
-    
-    // 5. 🔄 PATTERN CONSISTENCY (similar patterns reinforce each other)
-    const consistencyBoost = this.calculatePatternConsistency(matches);
-    
-    // 6. 🎚️ INTENSITY CONSISTENCY (extreme words need high intensity)
-    const intensityConsistency = this.calculateIntensityConsistency(matches);
-    
-    // Combine all factors
-    confidence = confidence + diversityBoost + consistencyBoost + intensityConsistency;
+    // 1) Çeşitlilik
+    const keywordCount = matches.reduce((s, m) => s + m.matchedKeywords.length, 0);
+    const emotionCnt = matches.filter(m => m.emotion).length;
+    const triggerCnt = matches.filter(m => m.trigger).length;
+    const activityCnt = matches.filter(m => m.activity).length;
+    const diversityScore = [emotionCnt, triggerCnt, activityCnt].filter(c => c > 0).length;
+    const diversityBoost = Math.min(0.25, diversityScore * 0.08);
+
+    // 2) Uzunluk (kök alma etkisini yumuşatmak için sqrt)
+    const lengthFactor = Math.min(1.0, Math.sqrt(textLength / 50));
+
+    // 3) Negasyon cezası
+    const negationPenalty = matches.filter(m => m.negationDetected).length * 0.15;
+
+    // 4) Belirsizlik cezası (BUG FIX: raw metinden bak)
+    const uncertaintyPenalty = this.detectUncertaintyInRawText(rawText, textLength);
+
+    // 5) Tutarlılık bonusları
+    const consistencyBoost = this.calculatePatternConsistency(matches) + this.calculateIntensityConsistency(matches);
+
+    confidence = confidence + diversityBoost + consistencyBoost;
     confidence *= lengthFactor;
     confidence -= (negationPenalty + uncertaintyPenalty);
-    
-    // Bounds: 0.2 - 0.95
+
     return Math.max(0.2, Math.min(0.95, confidence));
+  }
+
+  // Belirsizlik kelimeleri ham metinden
+  private detectUncertaintyInRawText(rawText: string, textLength: number): number {
+    const t = rawText.toLowerCase();
+    let count = 0;
+    for (const w of this.uncertaintyWords) {
+      if (t.includes(w)) count++;
+    }
+    const textFactor = Math.max(0.5, textLength / 100);
+    return (count * 0.1) / textFactor;
   }
 
   /**
@@ -945,7 +1111,7 @@ class VoiceCheckInHeuristicService {
   /**
    * 🔄 Pattern consistency - similar emotions reinforce each other
    */
-  private calculatePatternConsistency(matches: any[]): number {
+  private calculatePatternConsistency(matches: PatternMatch[]): number {
     const emotionMatches = matches.filter(m => m.emotion);
     if (emotionMatches.length < 2) return 0;
 
@@ -974,7 +1140,7 @@ class VoiceCheckInHeuristicService {
   /**
    * 🎚️ Intensity consistency check
    */
-  private calculateIntensityConsistency(matches: any[]): number {
+  private calculateIntensityConsistency(matches: PatternMatch[]): number {
     const highIntensityWords = ['inanılmaz', 'acayip', 'çılgın', 'deli gibi', 'aşırı'];
     const lowIntensityWords = ['biraz', 'az', 'hafif', 'eh işte'];
     

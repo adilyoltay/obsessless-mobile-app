@@ -24,7 +24,7 @@ import Button from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
-import TranscriptConfirmationModal from '@/components/checkin/TranscriptConfirmationModal';
+// TranscriptConfirmationModal removed - using direct empty mood form
 
 // Services & Hooks
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -102,18 +102,14 @@ export default function MoodScreen() {
   // 🛡️ RISK ASSESSMENT: Enhanced prediction state
   const [riskAssessmentData, setRiskAssessmentData] = useState<any>(null);
 
-  // 📝 Voice Transcript Handling State
-  const [showVoiceTranscriptModal, setShowVoiceTranscriptModal] = useState(false);
-  const [voiceEstimatedTranscript, setVoiceEstimatedTranscript] = useState('');
-  const [voiceDuration, setVoiceDuration] = useState(0);
+  // Voice Transcript Modal removed - using direct empty mood form
 
   // Pre-fill from voice check-in if available
   useEffect(() => {
     console.log('📝 Mood page params updated:', {
       prefill: params.prefill,
       source: params.source,
-      showQuickEntry,
-      showVoiceTranscriptModal
+      showQuickEntry
     });
     
     if (params.prefill === 'true' && !showQuickEntry) {
@@ -137,117 +133,17 @@ export default function MoodScreen() {
         console.log('📝 Voice check-in manual entry (transcript failed)');
         setToastMessage('🎤 Ses kaydınız alındı. Lütfen detayları tamamlayın.');
         setShowToast(true);
-      } else if (params.source === 'voice_transcript_needed') {
-        console.log('📝 Voice transcript confirmation needed');
-        const estimatedText = params.estimated_transcript as string || '';
-        const duration = parseFloat(params.voice_duration as string) || 0;
-        
-        console.log('📝 Setting transcript modal data:', {
-          estimatedText,
-          duration,
-          currentModalState: showVoiceTranscriptModal
-        });
-        
-        setVoiceEstimatedTranscript(estimatedText);
-        setVoiceDuration(duration);
-        
-        // Force modal to show with a small delay
-        setTimeout(() => {
-          console.log('📝 Showing transcript modal NOW');
-          setShowVoiceTranscriptModal(true);
-        }, 200);
-        
-        return; // Don't open mood form yet
       }
+      // voice_transcript_needed source removed - no longer using TranscriptConfirmationModal
       
       setShowQuickEntry(true);
     }
   }, [params.prefill, params.source]); // Trigger when prefill or source changes
 
-  // 📝 Voice Transcript Handling  
-  const handleVoiceTranscriptConfirm = async (finalTranscript: string) => {
-    console.log('✅ Voice transcript confirmed by user:', finalTranscript);
-    
-    setShowVoiceTranscriptModal(false);
-    
-    try {
-      if (finalTranscript.trim()) {
-        // Analyze real user transcript
-        const transcription = {
-          text: finalTranscript.trim(),
-          confidence: 0.95,
-          duration: voiceDuration,
-          language: 'tr-TR',
-          success: true,
-        };
+  // Voice Transcript Handlers removed - using direct empty mood form
 
-        const moodAnalysis = await voiceCheckInHeuristicService.analyzeMoodFromVoice(transcription);
-        
-        console.log('✅ Real voice analysis complete:', {
-          text: finalTranscript,
-          mood: moodAnalysis.moodScore,
-          emotion: moodAnalysis.dominantEmotion
-        });
 
-        // Convert mood score and map trigger/emotion
-        const moodScore100 = (moodAnalysis.moodScore - 1) * 11.11;
-        const mapTrigger = (trigger?: string) => {
-          if (!trigger || trigger === 'sesli_checkin') return 'Diğer';
-          const map: any = {
-            'iş_stres': 'İş/Okul', 'aile_ilişki': 'Aile', 'finansal_kaygı': 'Finansal',
-            'sağlık_endişe': 'Sağlık', 'sosyal_kaygı': 'Sosyal'
-          };
-          return map[trigger] || 'Diğer';
-        };
-        const mapEmotion = (emotion: string) => {
-          const map: any = {
-            'mutlu': 'mutlu', 'çok_mutlu': 'mutlu', 'enerjik': 'mutlu',
-            'kaygılı': 'korkmuş', 'üzgün': 'üzgün', 'sinirli': 'kızgın',
-            'sakin': 'güvenli'
-          };
-          return map[emotion] || 'şaşkın';
-        };
 
-        // Open mood form with real analysis
-        setShowQuickEntry(true);
-        
-        // Set initial data for mood form
-        setTimeout(() => {
-          // This will trigger the existing initialData logic
-          router.replace({
-            pathname: '/(tabs)/mood',
-            params: {
-              prefill: 'true',
-              source: 'voice_checkin_analyzed',
-              mood: Math.round(moodScore100).toString(),
-              energy: moodAnalysis.energyLevel.toString(),
-              anxiety: moodAnalysis.anxietyLevel.toString(),
-              notes: finalTranscript,
-              trigger: mapTrigger(moodAnalysis.triggers[0]),
-              emotion: mapEmotion(moodAnalysis.dominantEmotion),
-            }
-          });
-        }, 100);
-
-      } else {
-        // Empty transcript - just open empty form
-        setShowQuickEntry(true);
-        setToastMessage('📝 Mood kaydı oluşturabilirsiniz.');
-        setShowToast(true);
-      }
-    } catch (error) {
-      console.error('Voice transcript analysis failed:', error);
-      // Fallback: open empty form
-      setShowQuickEntry(true);
-    }
-  };
-
-  const handleVoiceTranscriptCancel = () => {
-    console.log('❌ Voice transcript cancelled by user');
-    setShowVoiceTranscriptModal(false);
-    // Just open empty mood form
-    setShowQuickEntry(true);
-  };
 
   // Load mood entries
   // 🔄 FOCUS REFRESH: Reload data when tab gains focus (after multi-intent saves)  
@@ -2247,14 +2143,7 @@ export default function MoodScreen() {
         editingEntry={editingEntry}
       />
 
-      {/* Voice Transcript Confirmation Modal */}
-      <TranscriptConfirmationModal
-        visible={showVoiceTranscriptModal}
-        duration={voiceDuration}
-        estimatedText={voiceEstimatedTranscript}
-        onConfirm={handleVoiceTranscriptConfirm}
-        onCancel={handleVoiceTranscriptCancel}
-      />
+      {/* TranscriptConfirmationModal removed - using direct empty mood form */}
 
       {/* Toast Notification */}
       <Toast

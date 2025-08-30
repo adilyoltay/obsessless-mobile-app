@@ -30,6 +30,9 @@ class NativeSpeechToTextService {
   private partialResults: string[] = [];
   private finalResults: string[] = [];
   private currentLanguage = 'tr-TR';
+  private errorCount = 0;
+  private lastErrorTime = 0;
+  private isInitialized = false;
   
   constructor() {
     this.initializeVoice();
@@ -73,7 +76,7 @@ class NativeSpeechToTextService {
   }
 
   /**
-   * 🎤 Start listening for speech
+   * 🎤 Start listening for speech (Enhanced)
    */
   async startListening(language: string = 'tr-TR'): Promise<void> {
     if (this.isListening) {
@@ -81,18 +84,33 @@ class NativeSpeechToTextService {
       return;
     }
 
+    // ⚡ ERROR RATE LIMITING
+    const now = Date.now();
+    if (this.errorCount >= 3 && now - this.lastErrorTime < 30000) {
+      throw new Error('Too many speech recognition errors. Please wait 30 seconds.');
+    }
+
     try {
+      // Ensure clean state
+      await this.forceCleanup();
+      
       this.currentLanguage = language;
       this.partialResults = [];
       this.finalResults = [];
       
       await Voice.start(language);
       this.isListening = true;
+      this.isInitialized = true;
+      
+      // Reset error count on successful start
+      this.errorCount = 0;
       console.log(`🎤 Started listening in ${language}`);
       
     } catch (error) {
       console.error('❌ Failed to start listening:', error);
       this.isListening = false;
+      this.errorCount++;
+      this.lastErrorTime = now;
       throw error;
     }
   }
@@ -196,6 +214,46 @@ class NativeSpeechToTextService {
       console.log('⚠️ No speech detected - user might be silent');
     } else if (e.error?.code === 'permissions') {
       console.error('🚫 Microphone permission denied');
+    } else if (e.error?.code === '1101' || e.error?.message?.includes('1101')) {
+      console.error('🚨 Speech Recognition Service Error 1101 - Cleaning up...');
+      this.forceCleanup();
+    }
+  }
+
+  /**
+   * 🧹 Force cleanup when errors occur (Enhanced)
+   */
+  private async forceCleanup() {
+    try {
+      console.log('🧹 Starting force cleanup...');
+      
+      // Stop listening if active
+      if (this.isListening) {
+        try {
+          await Voice.stop();
+        } catch (stopError) {
+          console.warn('⚠️ Stop failed during cleanup:', stopError);
+        }
+      }
+      
+      // Reset all state
+      this.isListening = false;
+      this.partialResults = [];
+      this.finalResults = [];
+      
+      // Try to destroy any active voice sessions
+      try {
+        await Voice.destroy();
+      } catch (destroyError) {
+        console.warn('⚠️ Destroy failed during cleanup:', destroyError);
+      }
+      
+      // Wait a bit before allowing new requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('✅ Force cleanup completed');
+    } catch (cleanupError) {
+      console.error('❌ Cleanup failed:', cleanupError);
     }
   }
 
@@ -259,10 +317,46 @@ class NativeSpeechToTextService {
    */
   async checkAvailability(): Promise<boolean> {
     try {
+      // Basic availability check
       const isAvailable = await Voice.isAvailable();
+      console.log('🎤 Voice availability check:', isAvailable);
+      
+      if (!isAvailable) {
+        return false;
+      }
+      
+      // 🍎 iOS Speech Recognition Permission Check
+      if (Platform.OS === 'ios') {
+        try {
+          // Try to start and immediately stop to trigger permission request
+          console.log('🍎 Testing iOS Speech Recognition permission...');
+          
+          await Voice.start('tr-TR');
+          await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
+          await Voice.stop();
+          
+          console.log('✅ iOS Speech Recognition permission granted');
+          return true;
+          
+        } catch (iosError: any) {
+          console.warn('⚠️ iOS Speech Recognition test failed:', iosError);
+          
+          // Check specific error codes
+          if (iosError.message?.includes('permissions') || iosError.message?.includes('authorization')) {
+            console.error('🚫 Speech Recognition permission denied');
+            return false;
+          }
+          
+          // If it's just a service error but permission might be OK, allow it
+          console.log('📝 Permission might be OK, service error detected');
+          return true; // Let the actual usage handle the error
+        }
+      }
+      
       return isAvailable ?? false;
+      
     } catch (error) {
-      console.error('Availability check failed:', error);
+      console.error('❌ Availability check failed:', error);
       return false;
     }
   }

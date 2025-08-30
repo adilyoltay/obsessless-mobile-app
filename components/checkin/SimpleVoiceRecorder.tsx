@@ -1,13 +1,12 @@
 /**
- * SimpleVoiceRecorder - iPhone Voice Memos tarzı minimalist check-in
+ * SimpleVoiceRecorder - Real-time STT Voice Check-in
  * 
  * Özellikler:
- * - Büyük kırmızı yuvarlak kayıt butonu  
- * - Ding/dong ses efektleri
- * - Minimalist timer display
- * - Wave animasyonu (opsiyonel)
- * - Native speech-to-text
- * - Heuristik mood analizi
+ * - 🎙️ Real-time STT (Canlı ses tanıma)
+ * - 📝 Live transcript display
+ * - 🟢 Yeşil theme (iPhone-style)
+ * - 🧠 Heuristik mood analizi
+ * - ✅ TranscriptConfirmationModal fallback
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -19,6 +18,8 @@ import {
   Animated,
   Dimensions,
   Alert,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,6 +34,7 @@ import { Toast } from '@/components/ui/Toast';
 import audioService, { useVoiceCheckInAudio } from '@/services/audioService';
 import speechToTextService, { type TranscriptionResult } from '@/services/speechToTextService';
 import voiceCheckInHeuristicService, { type MoodAnalysisResult } from '@/services/voiceCheckInHeuristicService';
+import nativeSpeechToText from '@/services/nativeSpeechToText';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,11 +44,7 @@ interface SimpleVoiceRecorderProps {
   onComplete?: () => void;
 }
 
-interface RecordingState {
-  isRecording: boolean;
-  duration: number;  // seconds
-  hasRecording: boolean;
-}
+// Removed RecordingState interface - using simple duration state
 
 export default function SimpleVoiceRecorder({
   isVisible,
@@ -57,19 +55,22 @@ export default function SimpleVoiceRecorder({
   const router = useRouter();
   const { playStartSound, playStopSound, preload } = useVoiceCheckInAudio();
   
-  // Recording State
-  const [recordingState, setRecordingState] = useState<RecordingState>({
-    isRecording: false,
-    duration: 0,
-    hasRecording: false,
-  });
+  // 🎯 REAL-TIME STT STATE (ONLY)
+  const [liveTranscript, setLiveTranscript] = useState(''); // Live transcript display
+  const [isListening, setIsListening] = useState(false); // Real-time listening state
+  const [partialResultsInterval, setPartialResultsInterval] = useState<number | null>(null);
+  const [errorCount, setErrorCount] = useState(0); // Track consecutive errors
+  const [lastErrorTime, setLastErrorTime] = useState<number>(0);
+  
+  // Timer State (for real-time listening)
+  const [duration, setDuration] = useState(0);
 
   // UI State
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Simplified state - no complex modals needed
+  // Analysis State
   const [analysisResult, setAnalysisResult] = useState<MoodAnalysisResult | null>(null);
 
   // Animations
@@ -78,7 +79,6 @@ export default function SimpleVoiceRecorder({
   const waveAnim = useRef(new Animated.Value(0)).current;
 
   // Refs
-  const recording = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 🎵 Preload sounds on mount
@@ -92,17 +92,18 @@ export default function SimpleVoiceRecorder({
 
   // ⏱️ Timer Effect
   useEffect(() => {
-    if (recordingState.isRecording) {
+    if (isListening) {
       timerRef.current = setInterval(() => {
-        setRecordingState(prev => ({
-          ...prev,
-          duration: prev.duration + 1
-        }));
+        setDuration(prev => prev + 1);
       }, 1000) as any;
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      // Reset duration when not listening
+      if (!isProcessing) {
+        setDuration(0);
       }
     }
 
@@ -111,7 +112,25 @@ export default function SimpleVoiceRecorder({
         clearInterval(timerRef.current);
       }
     };
-  }, [recordingState.isRecording]);
+  }, [isListening, isProcessing]);
+
+  // 🧹 CLEANUP on unmount or modal close
+  useEffect(() => {
+    if (!isVisible && (isListening || partialResultsInterval)) {
+      console.log('🚫 Modal closed while listening - force cleanup');
+      cleanupListening();
+    }
+  }, [isVisible]);
+
+  useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      if (isListening || partialResultsInterval) {
+        console.log('🚫 Component unmounting - force cleanup');
+        cleanupListening();
+      }
+    };
+  }, []);
 
   // 🎵 Audio Effects (using AudioService)
   const playDingSound = async () => {
@@ -130,157 +149,295 @@ export default function SimpleVoiceRecorder({
     }
   };
 
-  // 🎙️ Recording Controls
-  const startRecording = async () => {
+  // 🎤 REAL-TIME STT METHODS
+  const startRealtimeListening = async () => {
     try {
-      console.log('🎙️ Starting recording...');
+      console.log('🎤 Starting real-time STT...');
+      
+      // ⚡ ERROR RATE LIMITING
+      const now = Date.now();
+      if (errorCount >= 3 && now - lastErrorTime < 30000) { // 3 errors in 30 seconds
+        showToastMessage('Çok fazla hata oluştu. 30 saniye bekleyin. ⏳');
+        Alert.alert('Bekleyin', 'Çok fazla hata oluştu. Lütfen 30 saniye bekleyip tekrar deneyin.');
+        return;
+      }
+      
+      // Check availability with fallback
+      const isAvailable = await nativeSpeechToText.checkAvailability();
+      if (!isAvailable) {
+        console.log('🔄 Speech Recognition not available, opening empty mood form');
+        showToastMessage('Mood kaydı açılıyor... 📝');
+        
+        // Direct fallback to empty mood form (NO MODAL)
+        await openEmptyMoodForm();
+        return;
+      }
+      
+      // 🎵 AUDIO SESSION CONFIGURATION 
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
       
       // Request permissions
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Ses kaydı için mikrofon izni gerekli.');
+        Alert.alert('İzin Gerekli', 'Ses tanıma için mikrofon izni gerekli.');
         return;
       }
-
-      // Configure audio session
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      // Start recording with simplified configuration
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
-      recording.current = newRecording;
       
-      setRecordingState({
-        isRecording: true,
-        duration: 0,
-        hasRecording: false,
-      });
-
+      // Start listening
+      setIsListening(true);
+      setLiveTranscript('');
+      setDuration(0);
+      
+      // Setup partial results callback with error handling
+      const interval = setInterval(async () => {
+        try {
+          const partialText = nativeSpeechToText.getPartialResults();
+          if (partialText) {
+            console.log('📝 Partial transcript:', partialText);
+            setLiveTranscript(partialText);
+          }
+        } catch (partialError) {
+          console.warn('⚠️ Partial results error:', partialError);
+          // Don't spam errors, just log
+        }
+      }, 500);
+      setPartialResultsInterval(interval as any);
+      
+      // Start native listening with timeout
+      await Promise.race([
+        nativeSpeechToText.startListening('tr-TR'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Speech Recognition timeout')), 5000)
+        )
+      ]);
+      
       // Play start sound & animation
       await playDingSound();
       startPulseAnimation();
-
+      
+      // Reset error count on successful start
+      setErrorCount(0);
+      console.log('✅ Real-time listening started');
+      
+      // 🕐 AUTO-STOP after 60 seconds (prevent hanging)
+      setTimeout(async () => {
+        if (isListening) {
+          console.log('⏰ Auto-stopping listening after 60 seconds');
+          await stopRealtimeListening();
+        }
+      }, 60000);
+      
     } catch (error) {
-      console.error('Recording start failed:', error);
-      showToastMessage('Kayıt başlatılamadı ⚠️');
+      console.error('❌ Real-time STT failed:', error);
+      
+      // 📊 ERROR TRACKING
+      setErrorCount(prev => prev + 1);
+      setLastErrorTime(Date.now());
+      
+      // 🧹 CLEANUP on error
+      await cleanupListening();
+      
+      console.log('🔄 Speech Recognition failed, opening empty mood form');
+      showToastMessage('Mood kaydı açılıyor... 📝');
+      
+      // 🎯 INTELLIGENT FALLBACK - Direct to empty mood form
+      setTimeout(async () => {
+        await openEmptyMoodForm();
+      }, 1000);
     }
   };
-
-  const stopRecording = async () => {
+  
+  // 🧹 CLEANUP LISTENING (Shared method)
+  const cleanupListening = async () => {
+    console.log('🧹 Cleaning up listening resources...');
+    
+    // Clear interval
+    if (partialResultsInterval) {
+      clearInterval(partialResultsInterval as any);
+      setPartialResultsInterval(null);
+    }
+    
+    // Reset states
+    setIsListening(false);
+    setLiveTranscript('');
+    
+    // Stop animations
+    stopPulseAnimation();
+    
     try {
-      console.log('🛑 Stopping recording...');
+      // Force stop native listening
+      await nativeSpeechToText.stopListening();
+    } catch (cleanupError) {
+      console.warn('⚠️ Cleanup error (expected):', cleanupError);
+    }
+    
+    console.log('✅ Cleanup completed');
+  };
+
+  const stopRealtimeListening = async () => {
+    try {
+      console.log('🛑 Stopping real-time STT...');
       
-      if (!recording.current) return;
-
-      // Stop recording
-      await recording.current.stopAndUnloadAsync();
-      const uri = recording.current.getURI();
-      recording.current = null;
-
-      setRecordingState({
-        isRecording: false,
-        duration: recordingState.duration,
-        hasRecording: true,
-      });
-
-      // Play stop sound & stop animation
+      // Get final transcript before cleanup
+      const result = await nativeSpeechToText.stopListening();
+      
+      // Cleanup resources
+      await cleanupListening();
+      
+      // Play stop sound
       await playDongSound();
-      stopPulseAnimation();
-
-      // Process recording
-      if (uri) {
-        await processRecording(uri, recordingState.duration);
+      
+      // Process result
+      if (result.success && result.text) {
+        console.log('✅ Final transcript:', result.text);
+        setLiveTranscript(result.text);
+        
+        // Process directly with heuristic analysis
+        await processTranscript(result.text, duration);
+      } else {
+        console.log('⚠️ No transcript received, opening empty mood form');
+        // Open empty mood form
+        await openEmptyMoodForm();
       }
-
+      
     } catch (error) {
-      console.error('Recording stop failed:', error);
-      showToastMessage('Kayıt durdurulamadı ⚠️');
+      console.error('❌ Stop listening failed:', error);
+      
+      // Force cleanup on error
+      await cleanupListening();
+      
+      // Fallback to empty mood form
+      await openEmptyMoodForm();
     }
   };
-
-  // 📝 Process Recording - Complete Pipeline
-  const processRecording = async (uri: string, duration: number) => {
-    console.log('📝 Starting voice check-in processing pipeline...', { uri, duration });
+  
+  // 📝 Process transcript (common for both modes)
+  const processTranscript = async (text: string, duration: number) => {
+    console.log('📝 Processing transcript:', { text, duration });
     
-    setIsProcessing(true);
+    if (!text.trim()) {
+      // Empty transcript - open empty mood form
+      await openEmptyMoodForm();
+      return;
+    }
     
     try {
-      // STEP 1: Speech-to-Text
-      showToastMessage('Konuşmanız metne dönüştürülüyor... 🎤');
-      console.log('🎤 Step 1: Speech-to-Text');
+      setIsProcessing(true);
+      showToastMessage('Metniniz analiz ediliyor... 🧠');
       
-      const transcription: TranscriptionResult = await speechToTextService.transcribeAudio(uri, {
+      // Analyze with heuristic service
+      const transcription: TranscriptionResult = {
+        text: text.trim(),
+        confidence: 0.95,
+        duration,
         language: 'tr-TR',
-        maxDuration: duration,
+        success: true,
+      };
+      
+      const moodAnalysis = await voiceCheckInHeuristicService.analyzeMoodFromVoice(transcription);
+      
+      console.log('✅ Analysis complete:', {
+        mood: moodAnalysis.moodScore,
+        emotion: moodAnalysis.dominantEmotion,
+        confidence: moodAnalysis.confidence
       });
-
-      console.log('✅ Transcription attempt complete:', {
-        success: transcription.success,
-        hasText: !!transcription.text.trim(),
-        confidence: transcription.confidence,
-      });
-
-      // STEP 2: Show Transcript Confirmation (Get Real User Speech)
-      showToastMessage('Lütfen söylediklerinizi onaylayın... ✏️');
-      console.log('📝 Step 2: Show transcript confirmation for real user input');
       
-      // SIMPLE APPROACH: Direct mood page navigation with transcript handling
-      console.log('🗺️ DIRECT MOOD PAGE NAVIGATION...');
+      // Navigate to mood page with analyzed data
+      navigateToMoodPage(text, moodAnalysis, duration);
       
-      // Close voice modal immediately
-      onClose();
-      
-      // Navigate to mood page with special voice_transcript_needed source
-      setTimeout(() => {
-        const navParams = {
-          prefill: 'true',
-          source: 'voice_transcript_needed',
-          estimated_transcript: transcription.text || '',
-          voice_duration: recordingState.duration.toString(),
-        };
-        
-        console.log('🗺️ Navigating with params:', navParams);
-        
-        router.push({
-          pathname: '/(tabs)/mood',
-          params: navParams
-        });
-        
-        onComplete?.();
-        console.log('✅ Navigated to mood page for transcript handling');
-      }, 200);
-
     } catch (error) {
-      console.error('❌ Voice check-in processing failed:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      showToastMessage(`İşleme hatası: ${errorMessage} ⚠️`);
-      
-      // Auto-close on error after delay
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-
+      console.error('Analysis failed:', error);
+      // Fallback to empty mood form
+      await openEmptyMoodForm();
     } finally {
       setIsProcessing(false);
     }
   };
+  
+  // Open empty mood form (NO MODAL)
+  const openEmptyMoodForm = async () => {
+    console.log('📝 Opening empty mood form - no transcript confirmation needed');
+    
+    onClose(); // Close voice modal
+    
+    setTimeout(() => {
+      console.log('🗺️ Navigating to empty mood page');
+      
+      // Navigate to mood page WITHOUT any voice-specific parameters
+      // This will open normal mood entry form
+      router.push('/(tabs)/mood');
+      
+      onComplete?.();
+    }, 200);
+  };
+  
+  // Navigate directly to mood page with pre-filled data
+  const navigateToMoodPage = (text: string, analysis: MoodAnalysisResult, duration: number) => {
+    console.log('🗺️ Navigating to mood page with analysis...');
+    
+    onClose(); // Close voice modal
+    
+    const moodScore100 = (analysis.moodScore - 1) * 11.11;
+    
+    setTimeout(() => {
+      router.push({
+        pathname: '/(tabs)/mood',
+        params: {
+          prefill: 'true',
+          source: 'voice_checkin_analyzed',
+          mood: Math.round(moodScore100).toString(),
+          energy: analysis.energyLevel.toString(),
+          anxiety: analysis.anxietyLevel.toString(),
+          notes: text,
+          trigger: mapTriggerToMoodPage(analysis.triggers[0]),
+          emotion: mapEmotionToPrimary(analysis.dominantEmotion),
+          confidence: analysis.confidence.toFixed(2),
+          voice_duration: duration.toString(),
+        }
+      });
+      onComplete?.();
+    }, 200);
+  };
+
+  // Recording functions removed - using real-time STT only
 
   // 📝 Transcript Confirmation Handlers - REMOVED (handled by mood page now)
 
-  // 🔄 Reset State
+  // 🔄 Reset State (Enhanced)
   const resetState = () => {
     setAnalysisResult(null);
-    setRecordingState({
-      isRecording: false,
-      duration: 0,
-      hasRecording: false,
-    });
+    setDuration(0);
+    setLiveTranscript('');
+    setIsListening(false);
+    setErrorCount(0);
+    setLastErrorTime(0);
+    
+    // Clear intervals
+    if (partialResultsInterval) {
+      clearInterval(partialResultsInterval as any);
+      setPartialResultsInterval(null);
+    }
+  };
+
+  // 🧹 Clear errors and reset (for user)
+  const clearErrorsAndReset = async () => {
+    console.log('🧹 User requested error reset');
+    showToastMessage('Hatalar temizlendi, tekrar deneyin ✨');
+    
+    resetState();
+    
+    // Force cleanup native service
+    try {
+      await nativeSpeechToText.stopListening();
+    } catch (error) {
+      console.warn('⚠️ Cleanup during reset:', error);
+    }
   };
 
   // 🗺️ Map heuristic triggers to mood page triggers
@@ -397,14 +554,21 @@ export default function SimpleVoiceRecorder({
     waveAnim.setValue(0);
   };
 
-  // 🎯 Main Button Press Handler
+  // 🎯 Main Button Press Handler (REAL-TIME ONLY)
   const handleRecordPress = async () => {
     if (isProcessing) return;
 
-    if (recordingState.isRecording) {
-      await stopRecording();
+    // If errors occurred, directly open empty mood form
+    if (errorCount > 0 && !isListening) {
+      console.log('🔄 Error count > 0, opening empty mood form instead of STT');
+      await openEmptyMoodForm();
+      return;
+    }
+
+    if (isListening) {
+      await stopRealtimeListening();
     } else {
-      await startRecording();
+      await startRealtimeListening();
     }
   };
 
@@ -415,9 +579,9 @@ export default function SimpleVoiceRecorder({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 🌊 Wave Components (Minimalist)
+  // 🌊 Wave Components (Live Mode)
   const renderWaveAnimation = () => {
-    if (!recordingState.isRecording) return null;
+    if (!isListening) return null;
 
     return (
       <View style={styles.waveContainer}>
@@ -455,31 +619,51 @@ export default function SimpleVoiceRecorder({
     <>
       <BottomSheet isVisible={isVisible} onClose={onClose}>
         <View style={styles.container}>
-          {/* iPhone-Style Voice Recorder Interface */}
-        {/* Minimal Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Voice Check-in</Text>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <MaterialCommunityIcons name="close" size={24} color="#666" />
-          </Pressable>
-        </View>
+          {/* Header - Live Mode Only */}
+          <View style={styles.header}>
+            <Text style={styles.title}>🎙️ Canlı Ses Tanıma</Text>
+            
+            <Pressable onPress={onClose} style={styles.closeButton}>
+              <MaterialCommunityIcons name="close" size={24} color="#666" />
+            </Pressable>
+          </View>
 
-        {/* Timer Display */}
-        <View style={styles.timerContainer}>
-          <Text style={styles.timerText}>
-            {formatDuration(recordingState.duration)}
-          </Text>
-          <Text style={styles.statusText}>
-            {isProcessing 
-              ? 'İşleniyor...' 
-              : recordingState.isRecording 
-              ? 'Kaydediliyor' 
-              : recordingState.hasRecording 
-              ? 'Kayıt tamamlandı'
-              : 'Konuşmaya hazır'
-            }
-          </Text>
-        </View>
+          {/* Timer Display */}
+          <View style={styles.timerContainer}>
+            <Text style={styles.timerText}>
+              {formatDuration(duration)}
+            </Text>
+            <Text style={styles.statusText}>
+              {isProcessing 
+                ? '🧠 Analiz ediliyor...' 
+                : isListening 
+                ? '🎙️ Dinleniyor ve yazıyor...' 
+                : errorCount > 0
+                ? '📝 Mood kaydı açılacak (ses tanıma sorunlu)'
+                : '🎙️ Konuşmaya hazır'
+              }
+            </Text>
+          </View>
+
+          {/* LIVE TRANSCRIPT DISPLAY */}
+          {(liveTranscript || isListening) && (
+            <View style={styles.liveTranscriptContainer}>
+              <View style={styles.liveTranscriptHeader}>
+                <Text style={styles.liveTranscriptLabel}>Canlı Metin</Text>
+                {isListening && (
+                  <ActivityIndicator size="small" color="#10B981" />
+                )}
+              </View>
+              <ScrollView 
+                style={styles.liveTranscriptScroll}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.liveTranscriptText}>
+                  {liveTranscript || (isListening ? 'Konuşmaya başlayın...' : '')}
+                </Text>
+              </ScrollView>
+            </View>
+          )}
 
         {/* Wave Animation */}
         {renderWaveAnimation()}
@@ -500,13 +684,13 @@ export default function SimpleVoiceRecorder({
               style={({ pressed }) => [
                 styles.recordButton,
                 {
-                  backgroundColor: recordingState.isRecording ? '#FF3B3F' : '#FF4E50',
+                  backgroundColor: isListening ? '#047857' : '#10B981', // Green for real-time
                   opacity: isProcessing ? 0.6 : pressed ? 0.8 : 1,
                 },
               ]}
             >
               <MaterialCommunityIcons
-                name={recordingState.isRecording ? "stop" : "microphone"}
+                name={isListening ? "stop" : "microphone-variant"}
                 size={48}
                 color="#FFFFFF"
               />
@@ -516,11 +700,36 @@ export default function SimpleVoiceRecorder({
 
         {/* Simple Instructions */}
         <Text style={styles.instructionText}>
-          {recordingState.isRecording 
-            ? 'Konuşun, dinliyoruz...' 
-            : 'Nasıl hissettiğinizi anlatın'
+          {isProcessing 
+            ? '🧠 Analiz ediliyor...'
+            : isListening 
+            ? '🎙️ Konuşun, metniniz canlı yazılıyor...' 
+            : errorCount > 0
+            ? '📝 Butona basın, mood kaydı açılacak'
+            : '🎙️ Butona basın ve konuşmaya başlayın'
           }
         </Text>
+        
+        {/* Help Text */}
+        <Text style={styles.helpText}>
+          {errorCount > 0 
+            ? 'Mood kaydı formu direkt açılacak 📝'
+            : 'Konuşurken metninizi anlık göreceksiniz ✨'
+          }
+        </Text>
+
+        {/* Error Reset Button */}
+        {errorCount > 0 && (
+          <View style={styles.errorResetContainer}>
+            <Pressable 
+              onPress={clearErrorsAndReset}
+              style={styles.errorResetButton}
+            >
+              <MaterialCommunityIcons name="refresh" size={16} color="#10B981" />
+              <Text style={styles.errorResetText}>Ses tanımayı tekrar dene</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Toast */}
         <Toast
@@ -595,17 +804,17 @@ const styles = StyleSheet.create({
   waveLine: {
     width: 3,
     height: 30,
-    backgroundColor: '#FF4E50',
+    backgroundColor: '#10B981', // Green for live mode
     borderRadius: 1.5,
   },
 
-  // Record Button - iPhone Style
+  // Live Voice Button - iPhone Style
   recordButtonContainer: {
     alignItems: 'center',
     marginBottom: 30,
   },
   recordButtonWrapper: {
-    shadowColor: '#FF4E50',
+    shadowColor: '#10B981', // Green shadow for live mode
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -632,5 +841,66 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     lineHeight: 22,
     maxWidth: width * 0.8,
+  },
+  
+  // Live STT Mode Styles
+  liveTranscriptContainer: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 20,
+    maxHeight: 150,
+    minHeight: 80,
+    width: '100%',
+  },
+  liveTranscriptHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  liveTranscriptLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  liveTranscriptScroll: {
+    maxHeight: 100,
+  },
+  liveTranscriptText: {
+    fontSize: 16,
+    color: '#1F2937',
+    lineHeight: 24,
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  
+  // Error Reset Button Styles
+  errorResetContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  errorResetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  errorResetText: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '500',
   },
 });
