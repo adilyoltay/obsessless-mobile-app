@@ -600,65 +600,7 @@ export default function MoodScreen() {
           setPredictiveInsights(predictiveInsight);
         }
         */
-      }
-
-      // 📊 TELEMETRY: Insights delivery disabled - AI analytics disabled
-      const insightsCount = 0;
-      const patternsCount = 0;
-      
-      // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-      //   source: 'mood_screen',
-      //   insightsCount,
-      //   patternsCount,
-      //   deliveryTime: result.metadata?.processingTime || 0
-      // }, user.id);
-
-    } catch (error) {
-      console.error('❌ UnifiedAIPipeline mood analysis failed:', error);
-      
-      // 📊 TELEMETRY: Track pipeline error
-      // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_ERROR, {
-      //   source: 'mood_screen',
-      //   error: error instanceof Error ? error.message : 'Unknown error',
-      //   fallbackTriggered: true
-      // }, user.id);
-      
-      // 🚨 USER FEEDBACK: Inform user about analysis failure
-      try {
-        const { aiErrorFeedbackService, AIErrorType } = await import('@/features/ai-fallbacks/aiErrorFeedbackService');
-        
-        // Determine error type based on error message/type
-        let errorType: keyof typeof AIErrorType = 'INSIGHTS_GENERATION_FAILED';
-        if (error instanceof Error) {
-          if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorType = 'NETWORK_ERROR';
-          } else if (error.message.includes('unavailable') || error.message.includes('service')) {
-            errorType = 'LLM_SERVICE_UNAVAILABLE';
-          } else if (error.message.includes('rate') || error.message.includes('limit')) {
-            errorType = 'RATE_LIMIT_EXCEEDED';
-          }
-        }
-        
-        await aiErrorFeedbackService.handleAIError(errorType, {
-          userId: user.id,
-          feature: 'mood_analysis',
-          heuristicFallback: true,
-          retryable: true,
-          metadata: {
-            entriesCount: entries.length,
-            errorMessage: error instanceof Error ? error.message : String(error),
-            source: 'mood_screen'
-          }
-        });
-      } catch (feedbackError) {
-        console.warn('⚠️ Failed to show mood analysis error feedback:', feedbackError);
-      }
-      
-      // 🚀 FALLBACK: Use UnifiedAIPipeline as fallback
-      console.log('🚀 Falling back to UnifiedAIPipeline...');
-      await runUnifiedMoodAnalysis(entries);
-    }
-    */
+    // AI Analytics disabled - function ends here  
   };
 
   /**
@@ -770,12 +712,14 @@ export default function MoodScreen() {
       if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE')) {
         // Phase-2: Run UnifiedAIPipeline in background (3s delay)
         setTimeout(async () => {
-          await loadMoodAIWithUnifiedPipeline(moodEntries);
+          // AI Analytics disabled
+          // await loadMoodAIWithUnifiedPipeline(moodEntries);
         }, 3000);
       } else {
         // Non-progressive mode: Run immediately
         if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
-          await loadMoodAIWithUnifiedPipeline(moodEntries);
+          // AI Analytics disabled
+          // await loadMoodAIWithUnifiedPipeline(moodEntries);
         } else {
           // Unified mode: Use UnifiedAIPipeline
           await runUnifiedMoodAnalysis(moodEntries);
@@ -2382,5 +2326,4 @@ const styles = StyleSheet.create({
   },
 });
 
-
-
+export default MoodScreen;
