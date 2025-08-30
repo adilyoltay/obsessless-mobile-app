@@ -237,16 +237,25 @@ export default function MoodScreen() {
   };
 
   /**
-   * 🚫 AI Analytics DISABLED - runUnifiedMoodAnalysis simplified
+   * 🚫 AI Analytics DISABLED - runUnifiedMoodAnalysis simplified  
    */
-      
-      // 📊 TELEMETRY: Track insights request - DISABLED
-      // await trackAIInteraction(AIEventType.INSIGHTS_REQUESTED, {
-      //   source: 'mood_screen',
-      //   dataType: 'mood_patterns',
-      //   entriesCount: entries.length
-      // }, user.id);
+  const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
+    // 🚫 UNIFIED AI ANALYSIS - DISABLED (Hard Stop AI Cleanup)
+    console.log('✅ Skipping unified mood analysis (AI disabled)');
+    if (!user?.id) return;
+    return; // Early exit - no AI analysis
+  };
 
+  // Deprecated loadPatterns function removed
+
+  /**
+   * 🔍 Load cached mood patterns (DISABLED)
+   */
+  const loadPatterns = async () => {
+    // AI Pattern loading disabled
+    return;
+    
+    /*
       // 🔒 PRIVACY: Sanitize PII from mood notes
       const sanitized = entries.slice(-50).map(m => ({
         ...m,
@@ -333,7 +342,8 @@ export default function MoodScreen() {
       }
       */
 
-      // 📊 MAP RESULTS: Convert UnifiedAIPipeline results to mood state format with enhanced metrics
+      // 📊 Orphaned AI code - completely disabled
+      /*
       if (result.patterns) {
         // Pattern analysis disabled - using empty fallback
         const normalizedPatterns: any[] = [];
@@ -599,19 +609,20 @@ export default function MoodScreen() {
           console.log('🔮 Enhanced predictive insights with unified metrics:', predictiveInsight);
           setPredictiveInsights(predictiveInsight);
         }
-        */
-    // AI Analytics disabled - function ends here  
+        // AI Analytics disabled - function ends here
+    */
   };
 
   /**
-   * 🚀 UNIFIED FALLBACK: Use UnifiedAIPipeline for mood pattern analysis
-   * Replaces legacy MoodPatternAnalysisService with unified approach
+   * 🚫 DUPLICATE FUNCTION REMOVED - Using the first declaration
    */
+  /*
   const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
     // 🚫 UNIFIED AI ANALYSIS - DISABLED (Hard Stop AI Cleanup)
     console.log('✅ Skipping unified mood analysis (AI disabled)');
     if (!user?.id) return;
     return; // Early exit - no AI analysis
+  */
     
     // Original AI pipeline processing disabled:
     /*
@@ -2110,7 +2121,6 @@ export default function MoodScreen() {
       )}
     </ScreenLayout>
   );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -2326,4 +2336,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MoodScreen;
+// export default removed - using function declaration export
