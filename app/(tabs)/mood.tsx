@@ -69,7 +69,7 @@ interface MoodEntry {
   user_id: string;
 }
 
-export default function MoodScreen() {
+function MoodScreen() {
   const router = useRouter();
   const params = useLocalSearchParams() || {};
   const { user } = useAuth();
@@ -233,7 +233,7 @@ export default function MoodScreen() {
   const loadMoodAIWithUnifiedPipeline = async (entries: MoodEntry[]) => {
     // 🚫 AI Analytics completely disabled
     console.log('✅ AI Analytics disabled, skipping mood analysis');
-    return;
+      return;
   };
 
   /**
@@ -429,7 +429,8 @@ export default function MoodScreen() {
         console.log('🎯 Enhanced mood patterns with dashboard metrics:', mappedPatterns);
         setMoodPatterns(mappedPatterns);
 
-        // 💾 PATTERN PERSISTENCE: Save patterns to cache after successful analysis
+        // 💾 PATTERN PERSISTENCE: Disabled with AI analytics
+        /*
         try {
           await patternPersistenceService.savePatterns(
             user.id,
@@ -466,9 +467,11 @@ export default function MoodScreen() {
           //   weeklyDeltaAvailable: mappedPatterns.some(p => p.data.weeklyDelta !== undefined)
           // }, user.id);
         }
+        */
       }
 
-      // 📊 ENHANCED ANALYTICS: Process clinical-grade mood analytics first
+      // 📊 ENHANCED ANALYTICS: Disabled with AI analytics
+      /*
       if (result.analytics?.mood) {
         const analytics = result.analytics.mood;
         console.log('🎯 Processing enhanced mood analytics:', analytics);
@@ -533,7 +536,10 @@ export default function MoodScreen() {
         
         console.log('🎯 Enhanced mood analytics processed successfully');
       }
+      */
+      
       // FALLBACK: Progress insights disabled - using empty fallback
+      /*
       else {
         let predictiveInsight: any = null;
         
@@ -683,18 +689,20 @@ export default function MoodScreen() {
         console.warn('⚠️ Failed to cache fallback patterns (non-blocking):', cacheError);
       }
       
-      // Also update insights if available (insights are managed in parent component)
+      // Orphaned insights code - disabled
+      /*
       if (result?.insights) {
         const formattedInsights = Array.isArray(result.insights) ? result.insights : [];
         console.log(`📊 Generated ${formattedInsights.length} insights from unified analysis`);
       }
-      
+      */
+    // Orphaned catch block - disabled
+    /*
     } catch (fallbackError) {
       console.error('❌ Unified fallback analysis also failed:', fallbackError);
       // Keep existing heuristic patterns as final fallback
     }
     */
-  };
 
   const analyzeMoodPatterns = async () => {
     if (!user?.id || moodEntries.length < 3) return;
@@ -1266,9 +1274,10 @@ export default function MoodScreen() {
         const pointsResult = {
           success: true,
           pointsAwarded: 10, // Basic fallback points
-          totalPoints: currentPoints + 10,
+          totalPoints: (useGamificationStore.getState().profile.healingPointsTotal || 0) + 10,
           streakBonus: 0,
-          multiplier: 1.0
+          multiplier: 1.0,
+          breakdown: [] // Added missing breakdown property
         };
         pointsEarned = pointsResult.totalPoints;
         
@@ -1723,7 +1732,13 @@ export default function MoodScreen() {
         confidence: 0.8,
         recommendation: 'Mood takibine devam et, her şey yolunda görünüyor.',
         interventions: [],
-        earlyWarning: undefined
+        earlyWarning: undefined,
+        immediateActions: [], // Added missing property
+        immediateRisk: false, // Added missing property
+        monitoringPlan: {     // Added missing property
+          summary: 'Standart mood takibi',
+          guidelines: 'Günlük mood kayıtlarına devam et'
+        }
       };
 
       console.log('✅ Risk assessment completed:', riskAssessment);
@@ -2113,7 +2128,7 @@ export default function MoodScreen() {
               </ScrollView>
               <Button
                 title="Kapat"
-                  onPress={() => setShowMoodDebug(false)}
+                onPress={() => setShowMoodDebug(false)}
               />
             </View>
           </View>
@@ -2121,6 +2136,9 @@ export default function MoodScreen() {
       )}
     </ScreenLayout>
   );
+}
+
+export default MoodScreen;
 
 const styles = StyleSheet.create({
   container: {
