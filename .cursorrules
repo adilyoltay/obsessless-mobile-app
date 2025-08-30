@@ -1,37 +1,25 @@
-# ObsessLess Mobil Uygulaması - Cursor AI Geliştirme Kuralları
-# Bu dosya, projenin "Anayasası"dır ve tüm AI etkileşimleri için temel referans kaynağıdır.
+# ObsessLess Mobil Uygulaması - Cursor Geliştirme Kuralları
+# Bu dosya, projenin "Anayasası"dır ve tüm etkileşimler için temel referans kaynağıdır.
 # Vizyon: Kullanıcının OKB ile mücadelesinde "Dijital Sığınağı" olan, empatik, güvenli ve etkili bir uygulama yaratmak.
 
 rules:
   # 1. Genel Felsefe ve Dil
-  # Bu kurallar, AI'nın projenin ruhunu anlamasını sağlar.
+  # Bu kurallar projenin ruhunu anlamasını sağlar.
   - rule: "Projenin ana dili Türkçe'dir. Tüm kullanıcıya dönük metinler (mikro-kopya), yorumlar ve değişken adları öncelikli olarak Türkçe olmalıdır. Sadece evrensel teknik terimler (props, state, function, async vb.) İngilizce kalacaktır. Dil, her zaman empatik, yargılamayan ve cesaretlendirici olmalıdır. Referans: anayasa-v2.md"
   - rule: "Uygulamada demo-ready aşamsında production ready aşamasına geçtik. Her özelliğin gerçekten çalışır durumda olması ana kuralımız."
-  - rule: "Uygulamada  demo mock yada simulasyon  veri kullanma özellikle onboarding aşamsında toplanan bilgilerin AI tabanlı analiz edilmesi ve kullanılmasını sağla.
+  - rule: "Uygulamada  demo mock yada simulasyon  veri kullanma özellikle onboarding aşamsında toplanan bilgilerin analiz edilmesi ve kullanılmasını sağla.
   - rule: "Master Prompt'un 3 temel ilkesi her zaman en yüksek önceliktir: 1) Sakinlik Her Şeyden Önce Gelir (minimalist UI, yumuşak animasyonlar, parlak olmayan renkler), 2) Güç Kullanıcıdadır (kişiselleştirme, şeffaflık), 3) Zahmetsizlik Esastır (minimum tıklama, sezgisel akışlar)."
   - rule: "Tüm geliştirme, 'Privacy-First' (Gizlilik Öncelikli) prensibine dayanmalıdır. Hassas veriler asla düz metin olarak saklanmamalı, mümkün olan her yerde analizler cihaz üzerinde (on-device) yapılmalıdır. Kullanıcı izni her şeyden önce gelir."
 
   # 2. Teknik Yığın (Tech Stack) ve Mimari
-  # Bu kurallar, AI'nın doğru teknolojileri ve desenleri kullanmasını garanti eder.
+  # Bu kurallar,  doğru teknolojileri ve desenleri kullanmasını garanti eder.
   - rule: "Uygulama, Expo SDK 51 ve React Native 0.74+ kullanılarak TypeScript ile geliştirilmektedir. Tüm kodlar 'strict' modda ve TypeScript'in en iyi pratiklerine uygun olmalıdır."
   - rule: "Backend işlemleri için Supabase kullanılmaktadır. Bu, PostgreSQL veritabanı, Native Auth, Row Level Security (RLS) ve Edge Functions içerir. Firebase veya başka bir backend servisi önerme."
   - rule: "Navigasyon için Expo Router (dosya tabanlı yönlendirme) kullanılmaktadır. `app/` dizini altındaki dosya yapısına uygun olarak yeni ekranlar ve layout'lar oluşturulmalıdır."
   - rule: "Global state yönetimi için Zustand, asenkron state ve cache yönetimi için TanStack Query (React Query) kullanılacaktır. Redux veya başka bir state yönetim kütüphanesi kullanma."
   - rule: "UI bileşenleri, `react-native-paper` gibi harici kütüphaneler yerine, projenin kendi tasarım sistemine uygun özel bileşenler (`custom components`) olarak oluşturulmalıdır. Stil için `StyleSheet.create` kullanılacaktır."
   - rule: "Offline-first yaklaşımı benimsenecektir. Kritik veriler (yeni kayıtlar, oturumlar) önce AsyncStorage'a yazılmalı, ardından Supabase ile senkronize edilmelidir."
-  - rule: "AI altyapısını ve özelikleri içeren herhangi bir geliştirme ve düzeltme yapılacağız zaman öncelikle mevcut koda tabanı ve önceki geliştirmeler incelenecek kod tekrarı olmaması önemli"
-  
-  # 2.1. UnifiedAIPipeline Mimarisi - KESİN KURALLARI (Ocak 2025)
-  # Bu kurallar ASLA ihlal edilmemelidir ve tüm AI işlemleri için zorunludur.
-  - rule: "🚀 TEK GİRİŞ NOKTASI: Tüm AI analizleri SADECE 'unifiedPipeline.process()' üzerinden yapılmalıdır. CoreAnalysisService, coreAnalysisService.analyze(), veya herhangi başka AI servisi direkt kullanılmamalıdır."
-  - rule: "📝 PIPELINE INPUT FORMAT: Tüm unifiedPipeline.process() çağrıları şu formatta olmalıdır: { userId: string, content: string|object, type: 'voice'|'data'|'mixed', context: { source: 'today'|'mood'|'tracking'|'cbt', timestamp?: number, metadata?: object } }"
-  - rule: "🔄 CACHE YÖNETİMİ: UnifiedAIPipeline'ın built-in cache'i kullanılmalıdır. Manuel cache yönetimi (AsyncStorage, coreAnalysisService.getCached vb.) YASAKTIR."
-  - rule: "📊 TELEMETRY: Tüm AI işlemleri için trackAIInteraction ile uygun telemetry events (UNIFIED_PIPELINE_STARTED, UNIFIED_PIPELINE_COMPLETED, UNIFIED_PIPELINE_ERROR) kullanılmalıdır."
-  - rule: "⚡ PROGRESSVE UI: AI işlemleri Progressive UI pattern ile yapılmalıdır: immediate response (heuristic) + background deep analysis (LLM)."
-  - rule: "🚨 ERROR HANDLING: unifiedPipeline.process() çağrıları try-catch ile sarılmalı ve fallback mekanizmaları eklenmelidir. Kullanıcı asla başarısız AI analizi yüzünden işlevsellik kaybetmemelidir."
-  - rule: "📖 DOKÜMANTASYONa: Yeni AI özellikleri geliştirilirken ilgili dokümanlarda (AI_FEATURES_*.md, ARCHITECTURE_OVERVIEW.md) UnifiedAIPipeline referansları güncellenmeli, CoreAnalysisService referansları kaldırılmalıdır."
-  - rule: "🧪 TEST PRİORİTESİ: AI işlemleri test edilirken UnifiedAIPipeline.process() mock'lanmalı ve çeşitli input/output senaryoları test edilmelidir."
-
+ 
   # 3. Kod Kalitesi ve Standartlar
   # Bu kurallar, kodun tutarlı, okunabilir ve sürdürülebilir olmasını sağlar.
   - rule: "Her yeni bileşen ve fonksiyon için JSDoc formatında açıklayıcı yorumlar eklenmelidir. Yorumlar, kodun ne yaptığını değil, neden yaptığını açıklamalıdır."
@@ -45,7 +33,6 @@ rules:
   # 4. Doküman Bakım Politikası
   - rule: "Aşağıdaki çekirdek doküman seti tek gerçek kaynaktır ve değişiklik gerektiren sprintlerde güncellenmeleri zorunludur: README.md, docs/ARCHITECTURE_OVERVIEW.md, docs/AI_OVERVIEW.md, docs/FEATURE_STATUS_MATRIX.md, docs/DEVELOPMENT_ROADMAP_2025.md, docs/CONTRIBUTING_AND_SETUP.md, docs/TESTING_STRATEGY_OVERVIEW.md, docs/UX_DESIGN_GUIDE.md, docs/security-guide.md."
   - rule: "Konsolidasyon politikası: Çakışan/tekrarlı içerikler birleştirilir; eski sürümler `archive/` klasörüne taşınır."
-  - rule: "AI özelliklerinde kapsam/isim değişirse ilgili dokümanlarda kanonik isimler eş zamanlı güncellenir (kategori ve egzersiz tipi sözlüğü tek kaynak)."
   - rule: "Her PR için `npm run validate:docs` çalıştırılır; eksik veya sapma varsa PR'da düzeltme yapılır."
 
 commands:
@@ -66,7 +53,6 @@ commands:
     prompt: "Supabase Edge Function oluşturmak için bir iskelet kod sağla. Bu fonksiyon, Deno ve TypeScript kullanmalı, `supabase-js` istemcisini import etmeli, CORS header'larını doğru bir şekilde ayarlamalı ve temel bir request/response yapısı içermelidir. Fonksiyonun adı `{1}` olsun ve `{2}` gibi bir amaç için kullanılsın."
 
   # 4. AI ve Gelişmiş Özellikler Komutları
-  - command: ai-prompt-template
     prompt: "Projenin referans belgesindeki 'Gelişmiş Prompt Şablonları' bölümünü temel alarak, `{1}` senaryosu için bir LLM prompt şablonu oluştur. Prompt, `{2}` gibi bir amaca hizmet etmeli ve projenin empatik, terapötik ve güvenli dil ilkelerine tam olarak uymalıdır."
   - command: new-telemetry-event
     prompt: "`src/telemetry/aiTelemetry.ts` dosyasındaki `trackAIInteraction` fonksiyonunu kullanarak, `{1}` adlı yeni bir telemetri olayı için bir çağrı oluştur. Bu olay, `{2}` gibi meta verileri içermeli ve gizlilik ilkelerine uygun olmalıdır."

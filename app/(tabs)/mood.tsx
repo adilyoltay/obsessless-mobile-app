@@ -100,13 +100,32 @@ export default function MoodScreen() {
   // 🛡️ RISK ASSESSMENT: Enhanced prediction state
   const [riskAssessmentData, setRiskAssessmentData] = useState<any>(null);
 
-  // Pre-fill from voice trigger if available (only once)
+  // Pre-fill from voice check-in if available (only once)  
   useEffect(() => {
     if (params.prefill === 'true' && !showQuickEntry) {
       console.log('📝 Opening mood form with pre-filled data:', params);
+      
+      // Handle voice check-in specific pre-fill
+      if (params.source === 'voice_checkin_analyzed') {
+        console.log('🎤 Voice check-in with analysis pre-fill detected:', {
+          mood: params.mood,
+          energy: params.energy, 
+          anxiety: params.anxiety,
+          emotion: params.emotion,
+          trigger: params.trigger
+        });
+        
+        setToastMessage(`🎤 Sesli analiz tamamlandı! ${params.emotion} mood tespit edildi.`);
+        setShowToast(true);
+      } else if (params.source === 'voice_checkin_manual') {
+        console.log('📝 Voice check-in manual entry (transcript failed)');
+        setToastMessage('🎤 Ses kaydınız alındı. Lütfen detayları tamamlayın.');
+        setShowToast(true);
+      }
+      
       setShowQuickEntry(true);
     }
-  }, [params.prefill]); // Only trigger when prefill specifically changes
+  }, [params.prefill, params.source]); // Trigger when prefill or source changes
 
   // Load mood entries
   // 🔄 FOCUS REFRESH: Reload data when tab gains focus (after multi-intent saves)  
@@ -2093,6 +2112,16 @@ export default function MoodScreen() {
           setEditingEntry(null);
         }}
         onSubmit={handleMoodSubmit}
+        initialData={
+          params.source === 'voice_checkin_analyzed' ? {
+            mood: params.mood ? parseInt(params.mood as string) : undefined,
+            energy: params.energy ? parseInt(params.energy as string) : undefined,
+            anxiety: params.anxiety ? parseInt(params.anxiety as string) : undefined,
+            notes: params.notes as string || '',
+            trigger: params.trigger as string || '',
+            emotion: params.emotion as string || '',
+          } : undefined
+        }
         editingEntry={editingEntry}
       />
 

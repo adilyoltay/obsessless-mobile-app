@@ -30,6 +30,7 @@ interface MoodQuickEntryProps {
     anxiety?: number;
     notes?: string;
     trigger?: string;
+    emotion?: string; // Add emotion parameter support
   };
   editingEntry?: {
     id: string;
@@ -83,7 +84,11 @@ export function MoodQuickEntry({
       if (initialData.notes) setNotes(initialData.notes);
       if (initialData.trigger) setSelectedTrigger(initialData.trigger);
       
-      if (initialData.mood !== undefined) {
+      // Handle emotion parameter (voice check-in primary emotion)
+      if (initialData.emotion) {
+        setSelectedEmotion({ primary: initialData.emotion });
+        console.log('🎭 Setting emotion from voice check-in:', initialData.emotion);
+      } else if (initialData.mood !== undefined) {
         const emotionFromScore = getEmotionFromMoodScore(initialData.mood);
         setSelectedEmotion(emotionFromScore);
       }

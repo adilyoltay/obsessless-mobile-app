@@ -24,6 +24,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+import { useRouter } from 'expo-router';
 
 // Hooks & Services
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -32,8 +33,6 @@ import { Toast } from '@/components/ui/Toast';
 import audioService, { useVoiceCheckInAudio } from '@/services/audioService';
 import speechToTextService, { type TranscriptionResult } from '@/services/speechToTextService';
 import voiceCheckInHeuristicService, { type MoodAnalysisResult } from '@/services/voiceCheckInHeuristicService';
-import moodTracker from '@/services/moodTrackingService';
-import MoodConfirmationCard from './MoodConfirmationCard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,6 +54,7 @@ export default function SimpleVoiceRecorder({
   onComplete,
 }: SimpleVoiceRecorderProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const { playStartSound, playStopSound, preload } = useVoiceCheckInAudio();
   
   // Recording State
@@ -69,10 +69,8 @@ export default function SimpleVoiceRecorder({
   const [toastMessage, setToastMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Analysis & Confirmation State
+  // Analysis State (no confirmation needed)
   const [analysisResult, setAnalysisResult] = useState<MoodAnalysisResult | null>(null);
-  const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Animations
   const recordButtonScale = useRef(new Animated.Value(1)).current;
@@ -100,7 +98,7 @@ export default function SimpleVoiceRecorder({
           ...prev,
           duration: prev.duration + 1
         }));
-      }, 1000);
+      }, 1000) as any;
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -150,25 +148,10 @@ export default function SimpleVoiceRecorder({
         playsInSilentModeIOS: true,
       });
 
-      // Start recording
-      const { recording: newRecording } = await Audio.Recording.createAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
-          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
-          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-      });
+      // Start recording with simplified configuration
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
 
       recording.current = newRecording;
       
@@ -236,37 +219,72 @@ export default function SimpleVoiceRecorder({
         maxDuration: duration,
       });
 
-      if (!transcription.success || !transcription.text.trim()) {
-        throw new Error(`Ses metne çevrilemedi: ${transcription.error || 'Bilinmeyen hata'}`);
-      }
-
-      console.log('✅ Transcription successful:', {
-        text: transcription.text.substring(0, 100),
+      console.log('✅ Transcription attempt complete:', {
+        success: transcription.success,
+        hasText: !!transcription.text.trim(),
         confidence: transcription.confidence,
       });
 
-      // STEP 2: Heuristic Mood Analysis  
-      showToastMessage('Duygu durumunuz analiz ediliyor... 🧠');
-      console.log('🧠 Step 2: Heuristic Mood Analysis');
-      
-      const moodAnalysis: MoodAnalysisResult = await voiceCheckInHeuristicService.analyzeMoodFromVoice(transcription);
+      // STEP 2: Process Based on Transcription Success
+      if (transcription.success && transcription.text.trim()) {
+        // ✅ TRANSCRIPT SUCCESS: Analyze and pre-fill
+        showToastMessage('Duygu durumunuz analiz ediliyor... 🧠');
+        console.log('🧠 Step 2A: Heuristic Analysis (transcript available)');
+        
+        const moodAnalysis: MoodAnalysisResult = await voiceCheckInHeuristicService.analyzeMoodFromVoice(transcription);
 
-      console.log('✅ Mood analysis complete:', {
-        mood: moodAnalysis.moodScore,
-        energy: moodAnalysis.energyLevel,
-        anxiety: moodAnalysis.anxietyLevel,
-        emotion: moodAnalysis.dominantEmotion,
-        confidence: moodAnalysis.confidence,
-      });
+        console.log('✅ Mood analysis complete:', {
+          mood: moodAnalysis.moodScore,
+          energy: moodAnalysis.energyLevel,
+          anxiety: moodAnalysis.anxietyLevel,
+          emotion: moodAnalysis.dominantEmotion,
+          confidence: moodAnalysis.confidence,
+        });
 
-      // STEP 3: Show Confirmation to User
-      showToastMessage('Analiz tamamlandı! Sonuçları inceleyiniz 📊');
-      console.log('📋 Step 3: Show Analysis Result for User Confirmation');
+        // Navigate with pre-filled data
+        showToastMessage('Analiz tamamlandı! Mood formu açılıyor... 📊');
+        
+        const moodPageTrigger = mapTriggerToMoodPage(moodAnalysis.triggers[0]);
+        const moodScore100 = (moodAnalysis.moodScore - 1) * 11.11;
+        
+        setTimeout(() => {
+          onClose();
+          router.push({
+            pathname: '/(tabs)/mood',
+            params: {
+              prefill: 'true',
+              source: 'voice_checkin_analyzed', 
+              mood: Math.round(moodScore100).toString(),
+              energy: moodAnalysis.energyLevel.toString(),
+              anxiety: moodAnalysis.anxietyLevel.toString(),
+              notes: transcription.text, // Clean transcript
+              trigger: moodPageTrigger,
+              emotion: mapEmotionToPrimary(moodAnalysis.dominantEmotion),
+              confidence: moodAnalysis.confidence.toFixed(2),
+              voice_duration: recordingState.duration.toString(),
+            }
+          });
+          onComplete?.();
+        }, 1000);
 
-      // Store analysis results for confirmation
-      setAnalysisResult(moodAnalysis);
-      setTranscriptionResult(transcription);
-      setShowConfirmation(true);
+      } else {
+        // ❌ TRANSCRIPT FAILED: Open empty mood form
+        showToastMessage('Ses çevrilemedi. Mood formu açılıyor... ✏️');
+        console.log('📝 Step 2B: Transcript failed, opening empty mood form');
+        
+        setTimeout(() => {
+          onClose();
+          router.push({
+            pathname: '/(tabs)/mood',
+            params: {
+              prefill: 'true',
+              source: 'voice_checkin_manual',
+              notes: '', // Empty - user will fill manually
+            }
+          });
+          onComplete?.();
+        }, 1000);
+      }
 
     } catch (error) {
       console.error('❌ Voice check-in processing failed:', error);
@@ -284,91 +302,90 @@ export default function SimpleVoiceRecorder({
     }
   };
 
-  // 📋 Confirmation Handlers
-  const handleConfirmMoodEntry = async () => {
-    if (!analysisResult || !user?.id) {
-      showToastMessage('Analiz sonuçları bulunamadı ⚠️');
-      return;
-    }
-
-    setIsProcessing(true);
-    setShowConfirmation(false);
-    showToastMessage('Mood kaydınız oluşturuluyor... 💾');
-
-    try {
-      console.log('💾 Creating mood entry after user confirmation...');
-
-      const moodEntry = await moodTracker.saveMoodEntry({
-        mood_score: analysisResult.moodScore,
-        energy_level: analysisResult.energyLevel,
-        anxiety_level: analysisResult.anxietyLevel,
-        notes: `[Sesli Check-in] ${analysisResult.notes}`,
-        triggers: analysisResult.triggers.length > 0 ? analysisResult.triggers : ['sesli_checkin'],
-        activities: analysisResult.activities,
-        user_id: user.id,
-        // Additional metadata
-        source: 'voice_checkin',
-        analysis_confidence: analysisResult.confidence,
-        dominant_emotion: analysisResult.dominantEmotion,
-        voice_duration: recordingState.duration,
-      } as any);
-
-      console.log('✅ Mood entry created after confirmation:', {
-        id: moodEntry.id,
-        mood: moodEntry.mood_score,
-        source: 'voice_checkin'
-      });
-
-      // Success feedback
-      showToastMessage(`Check-in tamamlandı! Mood: ${analysisResult.moodScore}/10 ✅`);
-      
-      // Show detailed result briefly
-      setTimeout(() => {
-        showToastMessage(
-          `🎭 ${analysisResult.dominantEmotion} | ⚡ ${analysisResult.energyLevel}/10 | 😰 ${analysisResult.anxietyLevel}/10`
-        );
-      }, 2000);
-      
-      // Close after showing results
-      setTimeout(() => {
-        onComplete?.();
-        onClose();
-        resetState();
-      }, 4000);
-
-    } catch (error) {
-      console.error('❌ Mood entry creation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      showToastMessage(`Kayıt oluşturma hatası: ${errorMessage} ⚠️`);
-      
-      // Re-show confirmation on error
-      setShowConfirmation(true);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCancelConfirmation = () => {
-    console.log('❌ User cancelled mood entry creation');
-    setShowConfirmation(false);
-    showToastMessage('Check-in iptal edildi');
-    
-    setTimeout(() => {
-      onClose();
-      resetState();
-    }, 1000);
-  };
-
   // 🔄 Reset State
   const resetState = () => {
     setAnalysisResult(null);
-    setTranscriptionResult(null);
-    setShowConfirmation(false);
     setRecordingState({
       isRecording: false,
       duration: 0,
       hasRecording: false,
     });
+  };
+
+  // 🗺️ Map heuristic triggers to mood page triggers
+  const mapTriggerToMoodPage = (heuristicTrigger?: string): string => {
+    if (!heuristicTrigger || heuristicTrigger === 'sesli_checkin') return 'Diğer';
+
+    const triggerMap: { [key: string]: string } = {
+      // Work related
+      'iş_yoğun_stres': 'İş/Okul',
+      'iş_stres': 'İş/Okul',
+      'eğitim_stres': 'İş/Okul',
+      
+      // Relationships  
+      'ilişki_krizi': 'İlişkiler',
+      'aile_ilişki': 'Aile',
+      'sosyal_kaygı': 'Sosyal',
+      'sosyal_izolasyon': 'Sosyal',
+      'yalnızlık_destek': 'Sosyal',
+      
+      // Health
+      'ciddi_sağlık': 'Sağlık',
+      'sağlık_endişe': 'Sağlık',
+      
+      // Financial
+      'finansal_kriz': 'Finansal',
+      'finansal_kaygı': 'Finansal',
+      'ekonomik_durum': 'Finansal',
+      
+      // Other categories
+      'teknoloji_arıza': 'Diğer',
+      'dijital_bağlantı': 'Diğer',
+      'ulaşım_sorunu': 'Diğer',
+      'araç_problemi': 'Diğer',
+      'konut_problemi': 'Diğer',
+      'siyasi_gündem': 'Diğer',
+      'haber_medya': 'Diğer',
+      'afet_travma': 'Diğer',
+    };
+
+    return triggerMap[heuristicTrigger] || 'Diğer';
+  };
+
+  // 🎭 Map heuristic emotions to MoodQuickEntry primary emotions
+  const mapEmotionToPrimary = (heuristicEmotion: string): string => {
+    const emotionMap: { [key: string]: string } = {
+      // Positive → mutlu or güvenli
+      'çok_mutlu': 'mutlu',
+      'mutlu': 'mutlu',
+      'umutlu': 'mutlu',
+      'enerjik': 'mutlu', 
+      'kararlı': 'güvenli',
+      'heyecanlı': 'mutlu',
+      'gururlu': 'güvenli',
+      'meraklı': 'mutlu',
+      
+      // Negative - specific mapping
+      'kaygılı': 'korkmuş',
+      'panik': 'korkmuş',
+      'üzgün': 'üzgün',
+      'depresif': 'üzgün',
+      'sinirli': 'kızgın',
+      'öfkeli': 'kızgın',
+      
+      // Neutral/Mixed
+      'sakin': 'güvenli',
+      'şaşkın': 'şaşkın',
+      'yorgun': 'üzgün',
+      'bitkin': 'üzgün', 
+      'suçlu': 'üzgün',
+      'utanmış': 'korkmuş',
+      'kıskanç': 'kızgın',
+      'boş': 'şaşkın',
+      'nötr': 'şaşkın',
+    };
+
+    return emotionMap[heuristicEmotion] || 'şaşkın';
   };
 
   // 🎬 Animations
@@ -466,17 +483,7 @@ export default function SimpleVoiceRecorder({
   return (
     <BottomSheet isVisible={isVisible} onClose={onClose}>
       <View style={styles.container}>
-        {/* Show Confirmation Card if analysis is complete */}
-        {showConfirmation && analysisResult && transcriptionResult ? (
-          <MoodConfirmationCard
-            analysis={analysisResult}
-            transcribedText={transcriptionResult.text}
-            onConfirm={handleConfirmMoodEntry}
-            onCancel={handleCancelConfirmation}
-          />
-        ) : (
-          <>
-            {/* Original Voice Recorder Interface */}
+        {/* iPhone-Style Voice Recorder Interface */}
         {/* Minimal Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Voice Check-in</Text>
@@ -550,8 +557,6 @@ export default function SimpleVoiceRecorder({
           type={toastMessage.includes('✅') ? 'success' : 'info'}
           onHide={() => setShowToast(false)}
         />
-          </>
-        )}
       </View>
     </BottomSheet>
   );
