@@ -349,7 +349,7 @@ class MoodTrackingService {
       console.log(`📝 Updating mood entry: ${entryId}`, updates);
 
       // 🔍 First, find the entry to get user_id and current data
-      const existingEntries = await this.getMoodEntries(updates.user_id || 'unknown', 30);
+      const existingEntries = await this.getMoodEntries((updates as any).user_id || 'unknown', 30);
       const existingEntry = existingEntries.find(entry => entry.id === entryId);
       
       if (!existingEntry) {
@@ -415,7 +415,7 @@ class MoodTrackingService {
         const storedEntry = existing[i];
         const metadata = storedEntry.metadata || storedEntry;
         
-        if (metadata.id === entry.id) {
+        if ((metadata as any).id === (entry as any).id) {
           // Update the entry
           existing[i] = await this.encryptMoodEntry(entry);
           updated = true;

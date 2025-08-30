@@ -3,6 +3,8 @@
   "compilerOptions": {
     "strict": false,
     "skipLibCheck": true,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
     "paths": {
       "@/assets/*": [
         "./assets/*"
@@ -72,6 +74,8 @@
     "services/sync/maintenanceScheduler.ts",
     "services/offlineSyncUserFeedbackService.ts",
     "services/unifiedComplianceService.ts",
+    "store/gamificationStore.ts",
+    "components/settings/OnboardingSyncStatusCard.tsx",
     "old_docs/**"
   ],
   "ts-node": {

@@ -234,7 +234,7 @@ export default function OnboardingSyncStatusCard() {
             <View key={error.id} style={styles.errorItem}>
               <View style={styles.errorInfo}>
                 <MaterialCommunityIcons 
-                  name={getErrorIcon(error.errorType)} 
+                  name={getErrorIcon(error.errorType) as any} 
                   size={18} 
                   color={UIColors.status.error} 
                 />

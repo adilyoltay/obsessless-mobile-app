@@ -162,7 +162,7 @@ class OfflineSyncUserFeedbackService {
       actions = [
         { text: 'Detayları Gör', onPress: () => this.showErrorDetails(criticalErrors), style: 'default' },
         { text: 'Şimdi Dene', onPress: () => this.triggerManualSync(), style: 'default' },
-        { text: 'Tamam', style: 'cancel' }
+        { text: 'Tamam', style: 'cancel', onPress: () => {} }
       ];
 
     } else if (highPriorityErrors.length >= 3) {
@@ -173,7 +173,7 @@ class OfflineSyncUserFeedbackService {
       
       actions = [
         { text: 'Yeniden Dene', onPress: () => this.triggerManualSync(), style: 'default' },
-        { text: 'Daha Sonra', style: 'cancel' }
+        { text: 'Daha Sonra', style: 'cancel', onPress: () => {} }
       ];
 
     } else if (newError.severity === 'high' && newError.retryCount >= newError.maxRetries - 2) {
@@ -184,7 +184,7 @@ class OfflineSyncUserFeedbackService {
       
       actions = [
         { text: 'Yeniden Dene', onPress: () => this.retrySpecificItem(newError.id), style: 'default' },
-        { text: 'Tamam', style: 'cancel' }
+        { text: 'Tamam', style: 'cancel', onPress: () => {} }
       ];
     }
 
@@ -441,7 +441,7 @@ class OfflineSyncUserFeedbackService {
       `Aşağıdaki veriler senkronize edilemiyor:\n\n${errorList}\n\n${errors.length > 5 ? `+${errors.length - 5} daha...` : ''}`,
       [
         { text: 'Hepsini Yeniden Dene', onPress: () => this.triggerManualSync() },
-        { text: 'Tamam', style: 'cancel' }
+        { text: 'Tamam', style: 'cancel', onPress: () => {} }
       ]
     );
   }

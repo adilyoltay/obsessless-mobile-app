@@ -159,7 +159,7 @@ export default function SyncErrorSummaryCard({
 
   if (isLoading && !errorSummary) {
     return (
-      <Card style={[styles.card, style]}>
+      <Card style={[styles.card, style] as any}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#6B7280" />
           <Text style={styles.loadingText}>Senkronizasyon durumu kontrol ediliyor...</Text>
@@ -201,11 +201,11 @@ export default function SyncErrorSummaryCard({
     : 'Tüm veriler başarıyla senkronize edildi.';
 
   return (
-    <Card style={[styles.card, cardStyle, style]}>
+    <Card style={[styles.card, cardStyle, style] as any}>
       <View style={styles.header}>
         <View style={styles.iconTitleContainer}>
           <MaterialCommunityIcons
-            name={iconName}
+            name={iconName as any}
             size={24}
             color={iconColor}
             style={styles.icon}

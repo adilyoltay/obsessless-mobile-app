@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MoodTrackingService } from '@/services/moodTrackingService';
+import MoodTrackingService from '@/services/moodTrackingService';
 import { isUUID } from '@/utils/validators';
 
 export interface InvalidEntryReport {

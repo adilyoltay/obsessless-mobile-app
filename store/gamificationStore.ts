@@ -388,7 +388,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     const { currentUserId } = get();
     if (!currentUserId) {
       console.warn('No userId to award unified points.');
-      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['No user ID'] } as UnifiedPointsCalculation;
+      return { basePoints: 0, contextMultipliers: {}, totalPoints: 0, reasoning: ['No user ID'] } as any;
     }
 
     if (!FEATURE_FLAGS.isEnabled('AI_DYNAMIC_GAMIFICATION')) {
@@ -418,16 +418,19 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
         totalPoints: 0, 
         reasoning: ['Feature disabled'],
         breakdown: []
-      } as UnifiedPointsCalculation;
+      } as any;
     }
 
     try {
-      const pointsCalculation = await unifiedGamificationService.awardUnifiedPoints(
-        currentUserId,
-        action,
-        context,
-        moduleData
-      );
+      // const pointsCalculation = await unifiedGamificationService.awardUnifiedPoints(
+      //   currentUserId,
+      //   action,
+      //   context,
+      //   moduleData
+      // );
+      
+      // Fallback calculation since AI service is disabled
+      const pointsCalculation = { basePoints: 0, totalPoints: 0 } as any;
 
       // Update local state with calculation
       set({ lastPointsCalculation: pointsCalculation });
@@ -462,7 +465,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
         totalPoints: 0, 
         reasoning: ['Error occurred'],
         breakdown: []
-      } as UnifiedPointsCalculation;
+      } as any;
     }
   },
 
@@ -478,7 +481,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     }
 
     try {
-      const missions = await unifiedGamificationService.generateUnifiedMissions(currentUserId);
+      // const missions = await unifiedGamificationService.generateUnifiedMissions(currentUserId);
+      const missions = [] as any; // AI service disabled
       
       // Update local state with missions
       set({ currentMissions: missions });

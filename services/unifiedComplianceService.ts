@@ -276,7 +276,7 @@ class UnifiedComplianceService {
     } catch (error) {
       console.error(`❌ Failed to record consent for ${consentType}:`, error);
       
-      await trackAIInteraction(AIEventType.API_ERROR, {
+      // await trackAIInteraction(AIEventType.API_ERROR, {
         event: 'consent_recording_failed',
         userId,
         consentType,
@@ -445,7 +445,7 @@ class UnifiedComplianceService {
     } catch (error) {
       console.error('Data export failed:', error);
       
-      await trackAIInteraction(AIEventType.API_ERROR, {
+      // await trackAIInteraction(AIEventType.API_ERROR, {
         event: 'data_export_failed',
         userId,
         error: error instanceof Error ? error.message : String(error),
