@@ -368,7 +368,8 @@ class SpeechToTextService {
       const transcript = this.generateRealisticTranscript(audioInfo.duration);
       
       console.log('✅ Generated transcript:', {
-        text: transcript.substring(0, 50),
+        text: transcript,
+        textLength: transcript.length,
         duration: audioDuration,
         confidence: 0.75
       });

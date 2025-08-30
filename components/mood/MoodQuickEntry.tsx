@@ -79,9 +79,21 @@ export function MoodQuickEntry({
       
     } else if (initialData) {
       // Pre-fill from initial data (voice input, etc.)
+      console.log('📝 MoodQuickEntry initialData received:', {
+        energy: initialData.energy,
+        anxiety: initialData.anxiety,
+        notes: initialData.notes,
+        notesLength: initialData.notes ? initialData.notes.length : 0,
+        trigger: initialData.trigger,
+        emotion: initialData.emotion
+      });
+      
       if (initialData.energy !== undefined) setEnergy(initialData.energy);
       if (initialData.anxiety !== undefined) setAnxiety(initialData.anxiety);
-      if (initialData.notes) setNotes(initialData.notes);
+      if (initialData.notes !== undefined) {
+        setNotes(initialData.notes || '');
+        console.log('📝 Notes set to:', `"${initialData.notes}" (length: ${initialData.notes?.length || 0})`);
+      }
       if (initialData.trigger) setSelectedTrigger(initialData.trigger);
       
       // Handle emotion parameter (voice check-in primary emotion)

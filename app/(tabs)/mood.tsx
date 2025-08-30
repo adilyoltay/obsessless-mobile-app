@@ -112,7 +112,9 @@ export default function MoodScreen() {
           energy: params.energy, 
           anxiety: params.anxiety,
           emotion: params.emotion,
-          trigger: params.trigger
+          trigger: params.trigger,
+          notes: params.notes, // Add notes debug
+          notesLength: params.notes ? (params.notes as string).length : 0
         });
         
         setToastMessage(`🎤 Sesli analiz tamamlandı! ${params.emotion} mood tespit edildi.`);
