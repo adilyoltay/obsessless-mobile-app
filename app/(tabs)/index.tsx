@@ -1071,7 +1071,7 @@ export default function TodayScreen() {
                 const emotionColor = getAdvancedMoodColor(entry.mood_score * 10);
                 
                 return (
-                  <View key={entry.id || index} style={styles.colorfulBarContainer}>
+                  <View key={`${entry.id || 'unknown'}_${index}`} style={styles.colorfulBarContainer}>
                     {/* Enhanced Color Bar */}
                     <View 
                       style={[
