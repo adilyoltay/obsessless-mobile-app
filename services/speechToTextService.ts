@@ -7,7 +7,7 @@
 
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
-// Note: We'll use platform-specific APIs for speech recognition
+import nativeSpeechToText from './nativeSpeechToText';
 
 interface TranscriptionResult {
   text: string;
@@ -63,6 +63,92 @@ class SpeechToTextService {
       console.warn('Speech availability check failed:', error);
       this.isAvailable = false;
       this.isInitialized = true;
+    }
+  }
+
+  /**
+   * 🎤 Start real-time speech recognition
+   * 
+   * Uses device microphone for live transcription
+   */
+  async startRealtimeListening(
+    onPartialResult?: (text: string) => void,
+    language: string = 'tr-TR'
+  ): Promise<void> {
+    console.log('🎤 Starting real-time speech recognition...');
+    
+    try {
+      // Check native STT availability
+      const isAvailable = await nativeSpeechToText.checkAvailability();
+      
+      if (!isAvailable) {
+        throw new Error('Speech recognition not available on this device');
+      }
+      
+      // Set up partial results callback
+      if (onPartialResult) {
+        const checkPartialResults = setInterval(() => {
+          const partialText = nativeSpeechToText.getPartialResults();
+          if (partialText) {
+            onPartialResult(partialText);
+          }
+        }, 500);
+        
+        // Store interval ID for cleanup
+        (this as any).partialResultsInterval = checkPartialResults;
+      }
+      
+      // Start listening
+      await nativeSpeechToText.startListening(language);
+      console.log('✅ Real-time listening started');
+      
+    } catch (error) {
+      console.error('❌ Failed to start real-time listening:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🛑 Stop real-time speech recognition
+   */
+  async stopRealtimeListening(): Promise<TranscriptionResult> {
+    console.log('🛑 Stopping real-time speech recognition...');
+    
+    try {
+      // Clear partial results interval
+      if ((this as any).partialResultsInterval) {
+        clearInterval((this as any).partialResultsInterval);
+        (this as any).partialResultsInterval = null;
+      }
+      
+      // Stop listening and get final result
+      const result = await nativeSpeechToText.stopListening();
+      
+      console.log('✅ Real-time listening stopped:', {
+        text: result.text,
+        confidence: result.confidence
+      });
+      
+      return {
+        text: result.text,
+        confidence: result.confidence,
+        duration: 0, // Duration not tracked in real-time mode
+        language: result.language,
+        success: result.success,
+        error: result.error,
+      };
+      
+    } catch (error) {
+      console.error('❌ Failed to stop real-time listening:', error);
+      
+      return {
+        text: '',
+        confidence: 0,
+        duration: 0,
+        language: 'tr-TR',
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to stop listening',
+      };
     }
   }
 
@@ -327,7 +413,7 @@ class SpeechToTextService {
     audioUri: string,
     options: SpeechToTextOptions
   ): Promise<TranscriptionResult> {
-    console.log('🎤 Attempting silent speech-to-text...');
+    console.log('🎤 Attempting REAL native speech-to-text...');
     
     // Get audio duration first
     let audioDuration = 0;
@@ -343,15 +429,39 @@ class SpeechToTextService {
     }
 
     try {
-      // 🎯 PRODUCTION: Here you would use native speech-to-text
-      // For now, simulate based on audio characteristics
+      // 🎯 TRY NATIVE STT FIRST
+      const isSTTAvailable = await nativeSpeechToText.checkAvailability();
       
-      console.log('🎤 Native speech-to-text not available, using audio analysis fallback');
+      if (isSTTAvailable) {
+        console.log('✅ Native STT available! Processing audio...');
+        
+        // Try native transcription
+        const nativeResult = await nativeSpeechToText.transcribeRecordedAudio(audioUri);
+        
+        if (nativeResult.success && nativeResult.text) {
+          console.log('✅ REAL transcription successful:', nativeResult.text);
+          return {
+            text: nativeResult.text,
+            confidence: nativeResult.confidence,
+            duration: audioDuration,
+            language: options.language || 'tr-TR',
+            success: true,
+          };
+        } else {
+          console.log('⚠️ Native STT couldn\'t process pre-recorded audio');
+          console.log('💡 Note: @react-native-voice works with real-time mic, not files');
+        }
+      } else {
+        console.log('⚠️ Native STT not available on this device');
+      }
       
-      // Get audio characteristics for smart fallback
+      // FALLBACK: Generate template for user confirmation
+      console.log('📝 Using template fallback for user confirmation...');
+      
+      // Get audio characteristics
       const audioInfo = await this.getAudioInfo(audioUri);
       
-      // If audio is too short, return empty (let user fill manually)
+      // If audio is too short, return empty
       if (audioDuration < 1) {
         console.log('⚠️ Audio too short, will open empty mood form');
         return {
@@ -364,26 +474,26 @@ class SpeechToTextService {
         };
       }
       
-      // For demo purposes, generate realistic transcript based on audio length
-      const transcript = this.generateRealisticTranscript(audioInfo.duration);
+      // Generate template based on duration
+      const templateText = this.generateRealisticTranscript(audioInfo.duration);
       
-      console.log('✅ Generated transcript:', {
-        text: transcript,
-        textLength: transcript.length,
+      console.log('📝 Template for user confirmation:', {
+        text: templateText,
+        textLength: templateText.length,
         duration: audioDuration,
-        confidence: 0.75
+        confidence: 0.5
       });
 
       return {
-        text: transcript,
-        confidence: 0.75, // Medium confidence for generated content
+        text: templateText,
+        confidence: 0.5, // Low confidence - needs user edit
         duration: audioDuration,
         language: options.language || 'tr-TR',
         success: true,
       };
 
     } catch (error) {
-      console.error('Silent transcription failed:', error);
+      console.error('Transcription failed:', error);
       
       // Silent failure - open mood page empty
       return {

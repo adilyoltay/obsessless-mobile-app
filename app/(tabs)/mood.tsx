@@ -24,6 +24,7 @@ import Button from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 
 import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
+import TranscriptConfirmationModal from '@/components/checkin/TranscriptConfirmationModal';
 
 // Services & Hooks
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -47,6 +48,7 @@ import { secureDataService } from '@/services/encryption/secureDataService';
 // import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 // import { advancedRiskAssessmentService } from '@/features/ai-fallbacks/riskAssessmentService';
 import patternPersistenceService from '@/services/patternPersistenceService';
+import voiceCheckInHeuristicService from '@/services/voiceCheckInHeuristicService';
 
 // 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Minimal AI Cleanup)
 // import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
@@ -100,6 +102,11 @@ export default function MoodScreen() {
   // 🛡️ RISK ASSESSMENT: Enhanced prediction state
   const [riskAssessmentData, setRiskAssessmentData] = useState<any>(null);
 
+  // 📝 Voice Transcript Handling State
+  const [showVoiceTranscriptModal, setShowVoiceTranscriptModal] = useState(false);
+  const [voiceEstimatedTranscript, setVoiceEstimatedTranscript] = useState('');
+  const [voiceDuration, setVoiceDuration] = useState(0);
+
   // Pre-fill from voice check-in if available (only once)  
   useEffect(() => {
     if (params.prefill === 'true' && !showQuickEntry) {
@@ -123,11 +130,102 @@ export default function MoodScreen() {
         console.log('📝 Voice check-in manual entry (transcript failed)');
         setToastMessage('🎤 Ses kaydınız alındı. Lütfen detayları tamamlayın.');
         setShowToast(true);
+      } else if (params.source === 'voice_transcript_needed') {
+        console.log('📝 Voice transcript confirmation needed');
+        setVoiceEstimatedTranscript(params.estimated_transcript as string || '');
+        setVoiceDuration(parseFloat(params.voice_duration as string) || 0);
+        setShowVoiceTranscriptModal(true);
+        return; // Don't open mood form yet
       }
       
       setShowQuickEntry(true);
     }
   }, [params.prefill, params.source]); // Trigger when prefill or source changes
+
+  // 📝 Voice Transcript Handling  
+  const handleVoiceTranscriptConfirm = async (finalTranscript: string) => {
+    console.log('✅ Voice transcript confirmed by user:', finalTranscript);
+    
+    setShowVoiceTranscriptModal(false);
+    
+    try {
+      if (finalTranscript.trim()) {
+        // Analyze real user transcript
+        const transcription = {
+          text: finalTranscript.trim(),
+          confidence: 0.95,
+          duration: voiceDuration,
+          language: 'tr-TR',
+          success: true,
+        };
+
+        const moodAnalysis = await voiceCheckInHeuristicService.analyzeMoodFromVoice(transcription);
+        
+        console.log('✅ Real voice analysis complete:', {
+          text: finalTranscript,
+          mood: moodAnalysis.moodScore,
+          emotion: moodAnalysis.dominantEmotion
+        });
+
+        // Convert mood score and map trigger/emotion
+        const moodScore100 = (moodAnalysis.moodScore - 1) * 11.11;
+        const mapTrigger = (trigger?: string) => {
+          if (!trigger || trigger === 'sesli_checkin') return 'Diğer';
+          const map: any = {
+            'iş_stres': 'İş/Okul', 'aile_ilişki': 'Aile', 'finansal_kaygı': 'Finansal',
+            'sağlık_endişe': 'Sağlık', 'sosyal_kaygı': 'Sosyal'
+          };
+          return map[trigger] || 'Diğer';
+        };
+        const mapEmotion = (emotion: string) => {
+          const map: any = {
+            'mutlu': 'mutlu', 'çok_mutlu': 'mutlu', 'enerjik': 'mutlu',
+            'kaygılı': 'korkmuş', 'üzgün': 'üzgün', 'sinirli': 'kızgın',
+            'sakin': 'güvenli'
+          };
+          return map[emotion] || 'şaşkın';
+        };
+
+        // Open mood form with real analysis
+        setShowQuickEntry(true);
+        
+        // Set initial data for mood form
+        setTimeout(() => {
+          // This will trigger the existing initialData logic
+          router.replace({
+            pathname: '/(tabs)/mood',
+            params: {
+              prefill: 'true',
+              source: 'voice_checkin_analyzed',
+              mood: Math.round(moodScore100).toString(),
+              energy: moodAnalysis.energyLevel.toString(),
+              anxiety: moodAnalysis.anxietyLevel.toString(),
+              notes: finalTranscript,
+              trigger: mapTrigger(moodAnalysis.triggers[0]),
+              emotion: mapEmotion(moodAnalysis.dominantEmotion),
+            }
+          });
+        }, 100);
+
+      } else {
+        // Empty transcript - just open empty form
+        setShowQuickEntry(true);
+        setToastMessage('📝 Mood kaydı oluşturabilirsiniz.');
+        setShowToast(true);
+      }
+    } catch (error) {
+      console.error('Voice transcript analysis failed:', error);
+      // Fallback: open empty form
+      setShowQuickEntry(true);
+    }
+  };
+
+  const handleVoiceTranscriptCancel = () => {
+    console.log('❌ Voice transcript cancelled by user');
+    setShowVoiceTranscriptModal(false);
+    // Just open empty mood form
+    setShowQuickEntry(true);
+  };
 
   // Load mood entries
   // 🔄 FOCUS REFRESH: Reload data when tab gains focus (after multi-intent saves)  
@@ -2127,6 +2225,15 @@ export default function MoodScreen() {
         editingEntry={editingEntry}
       />
 
+      {/* Voice Transcript Confirmation Modal */}
+      <TranscriptConfirmationModal
+        visible={showVoiceTranscriptModal}
+        duration={voiceDuration}
+        estimatedText={voiceEstimatedTranscript}
+        onConfirm={handleVoiceTranscriptConfirm}
+        onCancel={handleVoiceTranscriptCancel}
+      />
+
       {/* Toast Notification */}
       <Toast
         visible={showToast}
@@ -2374,4 +2481,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
 });
+
+
 
