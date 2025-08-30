@@ -136,7 +136,7 @@ class OptimizedStorageService {
       if (this.batchTimeoutId) {
         clearTimeout(this.batchTimeoutId);
       }
-      this.batchTimeoutId = setTimeout(() => this.flushBatch(), OptimizedStorageService.BATCH_DELAY);
+      this.batchTimeoutId = setTimeout(() => this.flushBatch(), OptimizedStorageService.BATCH_DELAY) as any;
     }
   }
 

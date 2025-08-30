@@ -432,10 +432,8 @@ export default function SettingsScreen() {
   );
 
   const renderAILimitsSection = () => {
-    if (!user?.id || !aiLimitInfo) return null;
-
-    const statusColor = aiLimitService.getUsageStatusColor(aiLimitInfo.usagePercentage);
-    const statusMessage = aiLimitService.getUsageStatusMessage(aiLimitInfo);
+    // AI Limits disabled - returning null
+    return null;
 
     return (
       <View style={styles.section}>

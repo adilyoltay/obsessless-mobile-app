@@ -25,7 +25,7 @@ class CrossDeviceSyncService {
   private deviceName: string = '';
   private lastSyncTimestamp: number = 0;
   private isSyncing: boolean = false;
-  private syncInterval: NodeJS.Timeout | null = null;
+  private syncInterval: number | null = null;
   // 🧹 MEMORY LEAK FIX: Store NetInfo listener for cleanup
   private netInfoUnsubscribe?: () => void;
 

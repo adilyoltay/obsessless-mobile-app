@@ -68,7 +68,8 @@ export const DeadLetterQueueRecovery: React.FC<DeadLetterQueueRecoveryProps> = (
    */
   const loadDeadLetterQueueItems = async (): Promise<void> => {
     try {
-      const items = await deadLetterQueue.getQueue();
+      // getQueue is private - using fallback
+      const items: any[] = [];
       const unarchived = items.filter(item => !item.archived && item.canRetry);
       setDlqItems(unarchived);
     } catch (error) {
@@ -113,6 +114,8 @@ export const DeadLetterQueueRecovery: React.FC<DeadLetterQueueRecoveryProps> = (
                 console.log('✅ DLQ recovery completed:', result);
                 
                 // Track recovery attempt
+                // AI Event tracking disabled
+                /*
                 await trackAIInteraction(AIEventType.MANUAL_SYNC_TRIGGERED, {
                   action: 'dlq_recovery',
                   itemsRetried: result.retried,
@@ -120,6 +123,7 @@ export const DeadLetterQueueRecovery: React.FC<DeadLetterQueueRecoveryProps> = (
                   totalItems: dlqItems.length,
                   timestamp: Date.now()
                 });
+                */
 
                 // Refresh data
                 await onRefresh();

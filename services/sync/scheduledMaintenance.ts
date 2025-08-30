@@ -70,7 +70,7 @@ export class ScheduledMaintenanceService {
       }
     }, this.config.storageCleanupInterval);
 
-    this.maintenanceIntervals.push(dlqInterval, circuitInterval, storageInterval);
+    this.maintenanceIntervals.push(dlqInterval as any, circuitInterval as any, storageInterval as any);
     console.log('🔄 Scheduled maintenance initialized');
   }
 

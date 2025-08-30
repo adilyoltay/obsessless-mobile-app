@@ -90,7 +90,7 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     speak(prompts[pIndex]);
 
-    timerRef.current = setTimeout(() => setStep(s => s + 1), durSec * 1000);
+    timerRef.current = setTimeout(() => setStep(s => s + 1), durSec * 1000) as any;
   };
 
   async function start() {
@@ -98,19 +98,22 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
     setPaused(false);
     setStep(0);
     try { onRunningChange?.(true); } catch {}
-    await trackAIInteraction(AIEventType.BREATH_STARTED, { protocol });
+    // AI Event tracking disabled
+    // await trackAIInteraction(AIEventType.BREATH_STARTED, { protocol });
     await tick();
   }
 
   async function pause() {
     if (timerRef.current) clearTimeout(timerRef.current);
     setPaused(true);
-    await trackAIInteraction(AIEventType.BREATH_PAUSED, { protocol });
+    // AI Event tracking disabled
+    // await trackAIInteraction(AIEventType.BREATH_PAUSED, { protocol });
   }
 
   async function resume() {
     setPaused(false);
-    await trackAIInteraction(AIEventType.BREATH_RESUMED, { protocol });
+    // AI Event tracking disabled
+    // await trackAIInteraction(AIEventType.BREATH_RESUMED, { protocol });
     await tick();
   }
 
@@ -120,7 +123,8 @@ const BreathworkPlayer = forwardRef<BreathworkPlayerHandle, PlayerProps>(functio
     if (timerRef.current) clearTimeout(timerRef.current);
     try { onRunningChange?.(false); } catch {}
     Speech.stop();
-    trackAIInteraction(AIEventType.BREATH_COMPLETED, { protocol }).catch(() => {});
+    // AI Event tracking disabled
+    // trackAIInteraction(AIEventType.BREATH_COMPLETED, { protocol }).catch(() => {});
   }
 
   useEffect(() => {

@@ -353,7 +353,7 @@ class NativeSpeechToTextService {
         }
       }
       
-      return isAvailable ?? false;
+      return !!isAvailable;
       
     } catch (error) {
       console.error('❌ Availability check failed:', error);
@@ -367,7 +367,7 @@ class NativeSpeechToTextService {
   async getSupportedLanguages(): Promise<string[]> {
     try {
       const languages = await Voice.getSpeechRecognitionServices();
-      return languages ?? [];
+      return languages || [];
     } catch (error) {
       console.error('Failed to get languages:', error);
       return [];
