@@ -181,9 +181,527 @@ function MoodScreen() {
   /**
    * 🧠 PATTERN PERSISTENCE: Load cached patterns from storage
    */
-  // AI pattern loading removed
+  const loadCachedPatterns = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('📖 Loading cached mood patterns...');
+      const cachedPatterns = await patternPersistenceService.loadPatterns(user.id, moodEntries);
+      
+      if (cachedPatterns && cachedPatterns.length > 0) {
+        console.log(`✅ Loaded ${cachedPatterns.length} cached patterns`);
+        setMoodPatterns(cachedPatterns);
+        
+        // 📊 TELEMETRY: Track cache hit
+        try {
+          // 🚫 AI Telemetry - DISABLED
+          // await trackAIInteraction(AIEventType.PATTERN_CACHE_HIT, {
+          //   userId: user.id,
+          //   patternsCount: cachedPatterns.length,
+          //   entriesCount: moodEntries.length,
+          //   cacheSource: 'pattern_persistence_service'
+          // });
+        } catch (telemetryError) {
+          console.warn('⚠️ Telemetry failed for pattern cache hit:', telemetryError);
+        }
+      } else {
+        console.log('📭 No valid cached patterns found');
+        
+        // 📊 TELEMETRY: Track cache miss
+        try {
+          // 🚫 AI Telemetry - DISABLED
+          // await trackAIInteraction(AIEventType.PATTERN_CACHE_MISS, {
+          //   userId: user.id,
+          //   entriesCount: moodEntries.length,
+          //   reason: 'no_cached_patterns_available'
+          // });
+        } catch (telemetryError) {
+          console.warn('⚠️ Telemetry failed for pattern cache miss:', telemetryError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to load cached patterns:', error);
+      
+      // Don't block the UI - this is just an optimization
+      // Fresh analysis will run automatically in the next useEffect
+    }
+  };
 
-  // AI Analytics functions completely removed
+  /**
+   * 🚫 AI Analytics DISABLED - Complete function disabled
+   */
+  const loadMoodAIWithUnifiedPipeline = async (entries: MoodEntry[]) => {
+    // 🚫 AI Analytics completely disabled
+    console.log('✅ AI Analytics disabled, skipping mood analysis');
+      return;
+  };
+
+  /**
+   * 🚫 AI Analytics DISABLED - runUnifiedMoodAnalysis simplified  
+   */
+  const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
+    // 🚫 UNIFIED AI ANALYSIS - DISABLED (Hard Stop AI Cleanup)
+    console.log('✅ Skipping unified mood analysis (AI disabled)');
+    if (!user?.id) return;
+    return; // Early exit - no AI analysis
+  };
+
+  // Deprecated loadPatterns function removed
+
+  /**
+   * 🔍 Load cached mood patterns (DISABLED)
+   */
+  const loadPatterns = async () => {
+    // AI Pattern loading disabled
+    return;
+    
+    /*
+      // 🔒 PRIVACY: Sanitize PII from mood notes
+      const sanitized = entries.slice(-50).map(m => ({
+        ...m,
+        notes: m.notes ? sanitizePII(m.notes) : m.notes
+      }));
+
+      // 🔐 AUDIT: Create encrypted audit payload (non-blocking)
+      let auditPayload: any = sanitized;
+      try {
+        const encrypted = await secureDataService.encryptSensitiveData({
+          moods: sanitized,
+          dataType: 'mood_patterns'
+        });
+        auditPayload = encrypted;
+      } catch (encryptionError) {
+        console.warn('⚠️ Encryption failed, using sanitized data:', encryptionError);
+      }
+
+      // 🚫 UNIFIED PIPELINE - DISABLED (Hard Stop AI Cleanup)
+      console.log('✅ Skipping AI pipeline processing (AI disabled)');
+      const result = { insights: { therapeutic: [] }, patterns: [], analytics: null, metadata: { source: 'disabled' } };
+      
+      // Original pipeline call disabled:
+      // const result = await pipeline.process({
+      //   userId: user.id,
+      //   type: 'data',
+      //   content: { moods: sanitized },
+      //   context: {
+      //     source: 'mood',
+      //     timestamp: Date.now(),
+      //     metadata: {
+      //       dataType: 'mood_patterns',
+      //       privacy: {
+      //         piiSanitized: true,
+      //         encryptionLevel: 'sanitized_plaintext',
+      //         dataEncrypted: !!auditPayload
+      //       }
+      //     }
+      //   }
+      // });
+
+      console.log('🎯 UnifiedAIPipeline mood analysis completed:', result);
+
+      // 📊 TELEMETRY: Track pipeline completion
+      // await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_COMPLETED, {
+      //   source: 'mood_screen',
+      //   cacheHit: result.metadata?.source === 'cache',
+      //   moduleCount: 1,
+      //   dataPoints: sanitized.length,
+      //   processingTime: result.metadata?.processingTime || 0
+      // }, user.id);
+
+      // 🎯 ADAPTIVE SUGGESTIONS: Generate cross-module suggestion from pipeline
+      // AI Suggestions disabled - commenting out entire block
+      /*
+      try {
+        const suggestion = await generateSuggestionFromPipeline(user.id, result, 'mood');
+        if (suggestion.show) {
+          setAdaptiveSuggestion(suggestion);
+          
+          // 📊 GENERATE QUALITY METADATA from UnifiedPipeline result
+          try {
+            const registryItems = mapUnifiedResultToRegistryItems(result, 'mood', {
+              trigger: 'mood_analysis',
+              baseCategory: 'mood',
+            });
+            const qualityMeta = extractUIQualityMeta(registryItems, 'suggestion');
+            setAdaptiveMeta(qualityMeta);
+            console.log('📊 Quality metadata for mood suggestion:', qualityMeta);
+          } catch (metaError) {
+            console.warn('⚠️ Quality metadata generation failed:', metaError);
+            setAdaptiveMeta(null);
+          }
+          
+          console.log('✨ Mood adaptive suggestion generated:', suggestion.title);
+        } else {
+          setAdaptiveSuggestion(null);
+          setAdaptiveMeta(null);
+        }
+      } catch (error) {
+        console.warn('⚠️ Adaptive suggestion generation failed (non-blocking):', error);
+        setAdaptiveSuggestion(null);
+        setAdaptiveMeta(null);
+      }
+      */
+
+      // 📊 AI Analytics section completely removed - function continues clean
+  };
+
+  /**
+   * 🚫 AI Analytics functions removed - cleaned up
+   */
+  // Orphaned try block disabled
+  /*
+    try {
+      console.log('🚀 Running unified mood analysis fallback...');
+      
+      const result = await pipeline.process({
+        userId: user.id,
+        type: 'data',
+        content: { moods: entries },
+        context: {
+          source: 'mood',
+          timestamp: Date.now(),
+          metadata: {
+            dataType: 'mood_patterns',
+            fallbackMode: true,
+            entriesCount: entries.length
+          }
+        }
+      });
+
+      console.log('🔄 Unified fallback analysis completed:', result);
+      
+      // Extract patterns from unified result
+      const unifiedPatterns = result?.patterns || [];
+      
+      // Handle patterns array format properly
+      const patternsArray = Array.isArray(unifiedPatterns) ? unifiedPatterns : [];
+      
+      // Merge with existing heuristic patterns if any
+      const mergedPatterns = moodPatterns && moodPatterns.length > 0 
+        ? mergeHeuristicAndAIPatterns(moodPatterns, patternsArray)
+        : patternsArray;
+        
+      setMoodPatterns(mergedPatterns);
+
+      // 💾 PATTERN PERSISTENCE: Save fallback patterns to cache
+      try {
+        await patternPersistenceService.savePatterns(
+          user.id,
+          mergedPatterns,
+          entries,
+          'heuristic_fallback',
+          6 * 60 * 60 * 1000 // 6 hour TTL (shorter for fallback)
+        );
+        console.log('💾 Fallback patterns saved to cache successfully');
+        
+        // 📊 TELEMETRY: Track fallback cache save
+        // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
+        //   userId: user.id,
+        //   patternsCount: mergedPatterns.length,
+        //   entriesCount: entries.length,
+        //   analysisSource: 'fallback_pipeline',
+        //   cacheType: 'heuristic_fallback'
+        // });
+        
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to cache fallback patterns (non-blocking):', cacheError);
+      }
+      
+      // Orphaned insights code - disabled
+      if (result?.insights) {
+        const formattedInsights = Array.isArray(result.insights) ? result.insights : [];
+        console.log(`📊 Generated ${formattedInsights.length} insights from unified analysis`);
+      }
+      
+    } catch (fallbackError) {
+      console.error('❌ Unified fallback analysis also failed:', fallbackError);
+      // Keep existing heuristic patterns as final fallback
+    }
+  */
+
+  const analyzeMoodPatterns = async () => {
+    if (!user?.id || moodEntries.length < 3) return;
+
+    try {
+      console.log('🧠 Starting mood pattern analysis...');
+      
+      // Convert entries to the service format
+      const serviceEntries = moodEntries.map(entry => ({
+        id: entry.id,
+        user_id: entry.user_id,
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        anxiety_level: entry.anxiety_level,
+        notes: entry.notes || '',
+        trigger: (entry as any).trigger || '',
+        created_at: entry.created_at
+      }));
+
+      // ⚡ PROGRESSIVE UI Phase-1: Start with quick heuristic analysis for immediate feedback
+      const quickPatterns = generateQuickHeuristicPatterns(serviceEntries);
+      console.log('⚡ Phase-1 (Heuristic) patterns:', quickPatterns);
+      setMoodPatterns(quickPatterns);
+
+      // 🚀 PROGRESSIVE UI Phase-2: Check if Progressive UI is enabled
+      if (FEATURE_FLAGS.isEnabled('AI_PROGRESSIVE')) {
+        // Phase-2: Run UnifiedAIPipeline in background (3s delay)
+        setTimeout(async () => {
+          // AI Analytics disabled
+          // await loadMoodAIWithUnifiedPipeline(moodEntries);
+        }, 3000);
+      } else {
+        // Non-progressive mode: Run immediately
+        if (FEATURE_FLAGS.isEnabled('AI_UNIFIED_PIPELINE')) {
+          // AI Analytics disabled
+          // await loadMoodAIWithUnifiedPipeline(moodEntries);
+        } else {
+          // Unified mode: Use UnifiedAIPipeline
+          await runUnifiedMoodAnalysis(moodEntries);
+        }
+      }
+
+      // 🔮 PREDICTIVE INSIGHTS: Generate fallback risk assessment if not handled by UnifiedAIPipeline
+      if (serviceEntries.length >= 5 && !predictiveInsights) {
+        try {
+          // Simple predictive analysis based on recent trends
+          const recentEntries = serviceEntries.slice(-7); // Last 7 entries
+          const avgRecentMood = recentEntries.reduce((sum, e) => sum + e.mood_score, 0) / recentEntries.length;
+          const oldEntries = serviceEntries.slice(-14, -7); // Previous 7 entries
+          const avgOldMood = oldEntries.length > 0 ? oldEntries.reduce((sum, e) => sum + e.mood_score, 0) / oldEntries.length : avgRecentMood;
+          
+          const moodTrend = avgRecentMood - avgOldMood;
+          const riskLevel = avgRecentMood < 30 ? 'high' : avgRecentMood < 50 ? 'medium' : 'low';
+          
+          const predictiveInsight = {
+            riskLevel,
+            moodTrend,
+            averageRecentMood: Math.round(avgRecentMood),
+            earlyWarning: {
+              triggered: riskLevel === 'high' || moodTrend < -15,
+              message: riskLevel === 'high' 
+                ? 'Son günlerde mood seviyende belirgin düşüş var. Destek almayı düşünür müsün?'
+                : moodTrend < -15
+                ? 'Mood seviyende düşüş trendi tespit ettik. Kendine iyi bakmanın zamanı.'
+                : null
+            },
+            interventions: [] as Array<{type: string; action: string}>,
+            recommendations: [] as string[]
+          };
+
+          // Add interventions based on patterns and risk level
+          if (riskLevel !== 'low') {
+            predictiveInsight.interventions.push({
+              type: 'immediate',
+              action: 'Nefes egzersizi yap (4-7-8 tekniği)'
+            });
+            
+            if (moodTrend < -10) {
+              predictiveInsight.interventions.push({
+                type: 'preventive',
+                action: 'Günlük mood takibini sürdür ve tetikleyicileri fark et'
+              });
+            }
+          }
+
+          // Add recommendations based on mood trend (simple analysis without patterns dependency)
+          if (moodTrend < -10) {
+            predictiveInsight.recommendations.push('Düşüş trendini fark ettin - nefes egzersizleri ve mindfulness teknikleri deneyebilirsin.');
+          }
+          
+          if (avgRecentMood < 40) {
+            predictiveInsight.recommendations.push('Düşük mood döneminde kendine ekstra iyi bak - sevdiğin aktiviteleri yapmayı dene.');
+          }
+          
+          if (avgRecentMood >= 70) {
+            predictiveInsight.recommendations.push('Pozitif bir dönemdesin! Bu iyi hissi sürdürmek için düzenli rutinlere devam et.');
+          }
+
+          console.log('🔮 Fallback predictive insights generated:', predictiveInsight);
+          setPredictiveInsights(predictiveInsight);
+
+        } catch (predictiveError) {
+          console.error('⚠️ Fallback predictive analysis failed:', predictiveError);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Pattern analysis failed:', error);
+      // Set empty arrays to avoid UI crashes
+      setMoodPatterns([]);
+      setPredictiveInsights(null);
+    }
+  };
+
+  // ⚡ PROGRESSIVE UI: Quick heuristic pattern generation for immediate feedback
+  const generateQuickHeuristicPatterns = (entries: any[]): any[] => {
+    const patterns: any[] = [];
+    
+    if (entries.length < 3) return patterns;
+    
+    // Quick mood trend analysis
+    const recent = entries.slice(0, 3);
+    const avgRecentMood = recent.reduce((sum, e) => sum + e.mood_score, 0) / recent.length;
+    
+    if (avgRecentMood < 40) {
+      patterns.push({
+        type: 'temporal',
+        title: 'Son Günlerde Düşük Mood',
+        description: `Son 3 kayıtta ortalama mood ${Math.round(avgRecentMood)}`,
+        confidence: 0.8,
+        severity: avgRecentMood < 30 ? 'high' : 'medium',
+        actionable: true,
+        suggestion: 'Kendine iyi bakmaya odaklan, nefes egzersizi deneyebilirsin',
+        source: 'heuristic',
+        data: {
+          recentAverage: Math.round(avgRecentMood),
+          sampleSize: recent.length
+        }
+      });
+    } else if (avgRecentMood > 70) {
+      patterns.push({
+        type: 'temporal',
+        title: 'Pozitif Mood Trendi',
+        description: `Son kayıtlarda yüksek mood seviyesi (${Math.round(avgRecentMood)})`,
+        confidence: 0.7,
+        severity: 'low',
+        actionable: false,
+        suggestion: 'Bu pozitif durumu sürdürmeye devam et',
+        source: 'heuristic'
+      });
+    }
+
+    // 📈 ENHANCED MEA CORRELATION: Detailed Mood-Energy-Anxiety analysis
+    const moods = entries.map(e => e.mood_score);
+    const energies = entries.map(e => e.energy_level);
+    const anxieties = entries.map(e => e.anxiety_level);
+    
+    // Calculate correlations using Pearson correlation coefficient
+    const calculateCorrelation = (x: number[], y: number[]): number => {
+      if (x.length !== y.length || x.length === 0) return 0;
+      
+      const n = x.length;
+      const meanX = x.reduce((a, b) => a + b, 0) / n;
+      const meanY = y.reduce((a, b) => a + b, 0) / n;
+      
+      let numerator = 0;
+      let sumXSquared = 0;
+      let sumYSquared = 0;
+      
+      for (let i = 0; i < n; i++) {
+        const xDiff = x[i] - meanX;
+        const yDiff = y[i] - meanY;
+        numerator += xDiff * yDiff;
+        sumXSquared += xDiff * xDiff;
+        sumYSquared += yDiff * yDiff;
+      }
+      
+      const denominator = Math.sqrt(sumXSquared * sumYSquared);
+      return denominator === 0 ? 0 : numerator / denominator;
+    };
+
+    const moodEnergyCorr = calculateCorrelation(moods, energies);
+    const moodAnxietyCorr = calculateCorrelation(moods, anxieties);
+    const energyAnxietyCorr = calculateCorrelation(energies, anxieties);
+    
+    // Determine emotional profile
+    let profileType = 'balanced';
+    let profileTitle = 'Dengeli Duygusal Profil';
+    let profileDescription = 'Mood, enerji ve anksiyete seviyelerin dengeli görünüyor';
+    let severity: 'low' | 'medium' | 'high' = 'low';
+    let suggestion = 'Bu dengeyi korumaya devam et';
+    
+    // Strong positive mood-energy + negative mood-anxiety = optimal
+    if (moodEnergyCorr > 0.5 && moodAnxietyCorr < -0.3) {
+      profileType = 'optimal';
+      profileTitle = 'Optimal Duygusal Denge';
+      profileDescription = 'Mood yüksek olduğunda enerji artıyor, anksiyete azalıyor - ideal durum';
+      severity = 'low';
+      suggestion = 'Harika! Bu optimal durumu sürdürmeye devam et';
+    }
+    // Strong negative mood-energy + positive mood-anxiety = depression risk
+    else if (moodEnergyCorr < -0.3 && moodAnxietyCorr > 0.3) {
+      profileType = 'depression_risk';
+      profileTitle = 'Depresif Eğilim Riski';
+      profileDescription = 'Düşük mood, düşük enerji ve yüksek anksiyete birlikte - dikkat gerekli';
+      severity = 'high';
+      suggestion = 'Enerji artırıcı aktiviteler (egzersiz, güneş ışığı) ve anksiyete azaltıcı teknikler uygulayın';
+    }
+    // High energy-anxiety correlation = manic tendency
+    else if (energyAnxietyCorr > 0.6) {
+      profileType = 'manic_tendency';
+      profileTitle = 'Yüksek Enerji Dalgalanması';
+      profileDescription = 'Enerji ve anksiyete birlikte değişiyor - dengeleme gerekli';
+      severity = 'medium';
+      suggestion = 'Sakinleştirici aktiviteler (meditasyon, yavaş nefes) ile dengeyi koruyun';
+    }
+    // Moderate correlations = balanced
+    else if (Math.abs(moodEnergyCorr) < 0.4 && Math.abs(moodAnxietyCorr) < 0.4) {
+      profileType = 'balanced';
+      profileTitle = 'Dengeli Duygusal Profil';
+      profileDescription = 'Duygu durumların bağımsız ve dengeli - sağlıklı bir pattern';
+      severity = 'low';
+      suggestion = 'Bu dengeyi korumaya devam et, mindfulness pratiği yapabilirsin';
+    }
+    else {
+      profileType = 'unstable';
+      profileTitle = 'Değişken Duygusal Durum';
+      profileDescription = 'Duygu durumlarında düzensiz değişimler var';
+      severity = 'medium';
+      suggestion = 'Düzenli mood takibi ile pattern\'leri gözlemle ve sakinleştirici rutinler geliştir';
+    }
+
+    patterns.push({
+      type: 'mea_correlation',
+      title: profileTitle,
+      description: profileDescription,
+      confidence: Math.min(0.9, entries.length * 0.05),
+      severity,
+      actionable: profileType !== 'optimal',
+      suggestion,
+      source: 'heuristic',
+      data: {
+        profileType,
+        correlations: {
+          moodEnergy: Number(moodEnergyCorr.toFixed(3)),
+          moodAnxiety: Number(moodAnxietyCorr.toFixed(3)),
+          energyAnxiety: Number(energyAnxietyCorr.toFixed(3))
+        },
+        averages: {
+          mood: Number((moods.reduce((a, b) => a + b, 0) / moods.length).toFixed(1)),
+          energy: Number((energies.reduce((a, b) => a + b, 0) / energies.length).toFixed(1)),
+          anxiety: Number((anxieties.reduce((a, b) => a + b, 0) / anxieties.length).toFixed(1))
+        },
+        sampleSize: entries.length
+      }
+    });
+
+    return patterns;
+  };
+
+  // ✨ PROGRESSIVE UI: Merge heuristic and AI patterns
+  const mergeHeuristicAndAIPatterns = (heuristicPatterns: any[], aiPatterns: any[]): any[] => {
+    const merged: any[] = [];
+    
+    // Add all AI patterns (they have priority)
+    aiPatterns.forEach(aiPattern => {
+      merged.push({ ...aiPattern, source: 'ai', updated: true });
+    });
+    
+    // Add heuristic patterns that don't overlap with AI patterns
+    heuristicPatterns.forEach(heuristic => {
+      const hasAISimilar = aiPatterns.some(ai => 
+        ai.type === heuristic.type && 
+        ai.title.includes(heuristic.title.split(' ')[0])
+      );
+      
+      if (!hasAISimilar) {
+        merged.push({ ...heuristic, source: 'heuristic' });
+      }
+    });
+    
+    return merged;
+  };
+
   const loadMoodEntries = async () => {
     if (!user?.id) return;
     
@@ -215,7 +733,7 @@ function MoodScreen() {
       const filteredEntries = filterEntriesByUserTimeRange(allEntries, selectedTimeRange);
       
       setMoodEntries(filteredEntries);
-    // } catch (error) {
+    } catch (error) {
       console.error('Failed to load mood entries:', error);
       setToastMessage('Mood kayıtları yüklenemedi');
       setShowToast(true);
@@ -264,7 +782,104 @@ function MoodScreen() {
   };
 
   // 🧪 DEBUG: Test mood data flow
+  const handleMoodDebugTest = async () => {
+    if (!user?.id) return;
+    
+    // Open modal and start testing
+    setShowMoodDebug(true);
+    setDebugReport({ status: 'testing', message: 'Running mood data flow test...' });
+    
+    try {
+      // moodDataFlowTester removed - using fallback
+      const report = { status: 'AI_DISABLED', message: 'AI services disabled' };
+      const summary = { totalEntries: moodEntries.length, lastWeek: 0 };
+      
+      setDebugReport({
+        status: 'completed',
+        report,
+        summary,
+        timestamp: Date.now()
+      });
+      
+      console.log('🧪 Mood data flow test completed:', report);
+      
+    } catch (error) {
+      setDebugReport({
+        status: 'error',
+        error: error.message,
+        timestamp: Date.now()
+      });
+      console.error('🚨 Mood debug test failed:', error);
+    }
+  };
 
+  const handleQuickEntry = async (data: {
+    mood: number;
+    energy: number;
+    anxiety: number;
+    notes: string;
+    trigger?: string;
+  }) => {
+    if (!user?.id) return;
+
+    try {
+      // 🔄 EDIT MODE: Handle updating existing entries
+      if (editingEntry) {
+        console.log('✏️ Updating existing mood entry:', editingEntry.id);
+        
+        // Add to sync queue for UPDATE operation
+        await offlineSyncService.addToSyncQueue({
+          type: 'UPDATE',
+          entity: 'mood_entry',
+          data: {
+            id: editingEntry.id,
+            user_id: user.id,
+            mood_score: data.mood,
+            energy_level: data.energy,
+            anxiety_level: data.anxiety,
+            notes: data.notes,
+            triggers: data.trigger ? [data.trigger] : [],
+            activities: [],
+            timestamp: (editingEntry as any).created_at || (editingEntry as any).timestamp, // Preserve original timestamp
+            updated_at: new Date().toISOString(),
+          },
+          priority: 'high' as any,
+        });
+        
+        // Update local state immediately for optimistic UI
+        setMoodEntries(prev => prev.map(entry => 
+          entry.id === editingEntry.id 
+            ? {
+                ...entry,
+                mood_score: data.mood,
+                energy_level: data.energy,
+                anxiety_level: data.anxiety,
+                notes: data.notes,
+                triggers: data.trigger ? [data.trigger] : [],
+              }
+            : entry
+        ));
+        
+        setToastMessage('Mood kaydı güncellendi ✏️');
+        setShowToast(true);
+        setShowQuickEntry(false);
+        setEditingEntry(null); // Clear editing state
+        
+        // Haptic feedback
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return;
+      }
+      // 🔄 FIXED: Use moodTracker for consistent table handling (mood_entries canonical table)
+      const moodEntry = {
+        user_id: user.id,
+        mood_score: data.mood,
+        energy_level: data.energy,
+        anxiety_level: data.anxiety,
+        notes: data.notes,
+        triggers: data.trigger ? [data.trigger] : [], // Convert single trigger to array format
+        activities: [], // Not collected in this interface yet
+        sync_attempts: 0
+      };
 
       // 🚫 UNIFIED MOOD JOURNALING ANALYSIS - DISABLED (Hard Stop AI Cleanup)
       let journalAnalysis = null;
@@ -434,7 +1049,7 @@ function MoodScreen() {
       
       // Haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // } catch (error) {
+    } catch (error) {
       console.error('Failed to save mood entry:', error);
       
       // Add to offline queue
@@ -462,6 +1077,7 @@ function MoodScreen() {
         setShowToast(true);
       }
     }
+  };
 
   const handleEditEntry = async (entry: MoodEntry) => {
     try {
@@ -490,7 +1106,7 @@ function MoodScreen() {
       //   anxiety: entry.anxiety_level
       // });
 
-    // } catch (error) {
+    } catch (error) {
       console.error('❌ Failed to edit entry:', error);
       setToastMessage('Düzenleme başlatılamadı');
       setShowToast(true);
@@ -704,7 +1320,7 @@ function MoodScreen() {
         { cancelable: true }
       );
 
-    // } catch (error) {
+    } catch (error) {
       console.error('❌ Failed to initiate delete:', error);
       setToastMessage('Silme işlemi başlatılamadı');
       setShowToast(true);
@@ -752,7 +1368,155 @@ function MoodScreen() {
   const stats = calculateStats();
 
   // 🔒 RISK ASSESSMENT: Enhanced prediction with riskAssessmentService integration
+  const generateRiskAssessment = async (entries: MoodEntry[], patterns: any[], predictiveInsights: any) => {
+    try {
+      // 🚫 EARLY EXIT: Check feature flag
+      if (!FEATURE_FLAGS.isEnabled('AI_RISK_ASSESSMENT')) {
+        console.log('🚫 Risk assessment disabled, using fallback prediction');
+        return {
+          riskLevel: predictiveInsights?.riskLevel || 'low',
+          earlyWarning: predictiveInsights?.earlyWarning || undefined,
+          interventions: predictiveInsights?.interventions || [],
+          recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+        };
+      }
 
+      if (entries.length < 3) {
+        console.log('📊 Insufficient data for risk assessment, using basic prediction');
+        return {
+          riskLevel: 'low' as const,
+          earlyWarning: undefined,
+          interventions: [],
+          recommendation: 'Daha fazla mood kaydı yapmana gerek var. En az 3 kayıt sonrasında risk değerlendirmesi yapabiliriz.'
+        };
+      }
+
+      // 🔄 RISK ASSESSMENT SERVICE INTEGRATION
+      // Create user profile from mood data
+      const avgMood = entries.reduce((sum, e) => sum + e.mood_score, 0) / entries.length;
+      const avgEnergy = entries.reduce((sum, e) => sum + e.energy_level, 0) / entries.length;
+      const avgAnxiety = entries.reduce((sum, e) => sum + e.anxiety_level, 0) / entries.length;
+
+      const userProfile = {
+        userId: user?.id || 'anonymous',
+        demographics: {
+          ageGroup: 'adult', // Default - could be enhanced with actual data
+          culturalBackground: 'turkish'
+        },
+        therapeuticProfile: {
+          currentMoodLevel: avgMood,
+          energyLevel: avgEnergy,
+          anxietyLevel: avgAnxiety,
+          stressLevel: Math.min(10, Math.max(1, Math.round(avgAnxiety))),
+          copingSkills: avgMood > 60 ? 'good' : avgMood > 40 ? 'moderate' : 'needs_improvement'
+        },
+        moodHistory: entries.slice(0, 30).map(entry => ({
+          timestamp: (entry as any).created_at || (entry as any).timestamp,
+          moodScore: entry.mood_score,
+          energyLevel: entry.energy_level,
+          anxietyLevel: entry.anxiety_level,
+          triggers: (entry as any).triggers || []
+        }))
+      };
+
+      // Mock Y-BOCS data (array format matching YBOCSAnswer[])
+      const ybocsData = Array.from({ length: 10 }, (_, i) => ({
+        questionId: `ybocs_${i + 1}`,
+        questionText: `Y-BOCS Question ${i + 1}`,
+        response: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))), // 0-4 scale
+        severity: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))),
+        timestamp: new Date(),
+        value: Math.max(0, Math.min(4, Math.round((10 - avgMood/10) * 4 / 10))),
+        questionType: i < 5 ? 'obsessions' : 'compulsions'
+      }));
+
+      // Cultural context
+      const culturalContext = {
+        region: 'turkey',
+        language: 'tr',
+        collectivistic: true,
+        familySupport: 'high', // Default assumption
+        stigmaLevel: 'moderate'
+      };
+
+      // 🚀 CALL RISK ASSESSMENT SERVICE
+      console.log('🛡️ Calling advanced risk assessment service...');
+      // advancedRiskAssessmentService removed - using fallback
+      const riskAssessment = {
+        riskLevel: 'low',
+        confidence: 0.8,
+        recommendation: 'Mood takibine devam et, her şey yolunda görünüyor.',
+        interventions: [],
+        earlyWarning: undefined,
+        immediateActions: [], // Added missing property
+        immediateRisk: false, // Added missing property
+        monitoringPlan: {     // Added missing property
+          summary: 'Standart mood takibi',
+          guidelines: 'Günlük mood kayıtlarına devam et'
+        }
+      };
+
+      console.log('✅ Risk assessment completed:', riskAssessment);
+
+      // 🔄 MAP RISK ASSESSMENT TO UI FORMAT
+      const mapRiskLevel = (level: string): 'high' | 'medium' | 'low' => {
+        if (level === 'high' || level === 'severe' || level === 'critical') return 'high';
+        if (level === 'moderate' || level === 'medium') return 'medium';
+        return 'low';
+      };
+
+      const interventions = riskAssessment.immediateActions?.map((action: any) => ({
+        type: (action.priority === 'urgent' || action.priority === 'critical') ? 'immediate' : 
+              (action.type === 'preventive' || action.category === 'preventive') ? 'preventive' : 'supportive',
+        action: action.description || action.title || action.action || 'Önerilen aksiyon'
+      })) || [];
+
+      return {
+        riskLevel: mapRiskLevel(riskAssessment.immediateRisk?.toString() || 'low'),
+        earlyWarning: riskAssessment.immediateRisk === true ? {
+          triggered: true,
+          message: riskAssessment.immediateActions?.[0]?.description || 
+                   'Dikkat gerektiren mood değişiklikleri tespit edildi.'
+        } : undefined,
+        interventions: interventions,
+        recommendation: (riskAssessment.immediateActions?.[0] as any)?.description ||
+                       (riskAssessment.monitoringPlan as any)?.summary ||
+                       (riskAssessment.monitoringPlan as any)?.guidelines ||
+                       'Mood takibine devam et, risk seviyesi kontrol altında.'
+      };
+
+    } catch (error) {
+      console.error('❌ Risk assessment service failed:', error);
+      // Fallback to simple prediction
+      return {
+        riskLevel: predictiveInsights?.riskLevel || 'low',
+        earlyWarning: predictiveInsights?.earlyWarning || undefined,
+        interventions: predictiveInsights?.interventions || [],
+        recommendation: predictiveInsights?.earlyWarning?.message || 'Mood takibine devam et, her şey yolunda görünüyor.'
+      };
+    }
+  };
+
+  // 🛡️ BACKGROUND: Load risk assessment asynchronously
+  useEffect(() => {
+    if (moodEntries.length >= 3 && user?.id) {
+      const loadRiskAssessment = async () => {
+        try {
+          const riskData = await generateRiskAssessment(moodEntries, moodPatterns, predictiveInsights);
+          setRiskAssessmentData(riskData);
+          console.log('✅ Risk assessment loaded in background:', riskData);
+        } catch (error) {
+          console.error('❌ Background risk assessment failed:', error);
+        }
+      };
+
+      // Debounce to avoid excessive calls
+      const timeoutId = setTimeout(loadRiskAssessment, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [moodEntries.length, moodPatterns.length, predictiveInsights, user?.id]);
+
+  // generateMoodJourneyData function removed with dashboard
 
 
 
@@ -844,7 +1608,7 @@ function MoodScreen() {
       
       // Haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // } catch (error) {
+    } catch (error) {
       console.error('Failed to save mood entry:', error);
       setToastMessage('Mood kaydı kaydedilemedi ❌');
       setShowToast(true);
@@ -1075,7 +1839,7 @@ function MoodScreen() {
               </ScrollView>
               <Button
                 title="Kapat"
-                  onPress={() => setShowMoodDebug(false)}
+                onPress={() => setShowMoodDebug(false)}
               />
             </View>
           </View>

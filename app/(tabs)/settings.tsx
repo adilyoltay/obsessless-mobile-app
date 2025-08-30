@@ -7,8 +7,7 @@ import {
   Pressable,
   Alert,
   Share,
-  Linking,
-  ActivityIndicator
+  Linking
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -19,27 +18,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Custom UI Components
 import { Switch } from '@/components/ui/Switch';
 import ScreenLayout from '@/components/layout/ScreenLayout';
-import Card from '@/components/ui/Card';
+
 import Button from '@/components/ui/Button';
 
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 // Stores
-import { useGamificationStore } from '@/store/gamificationStore';
+
 // AI imports removed - AI disabled
 
 
 // Storage utility
 import { StorageKeys } from '@/utils/storage';
 
-import { FEATURE_FLAGS } from '@/constants/featureFlags';
-import { useRouter } from 'expo-router';
+
+
 import { Modal } from 'react-native';
 import { unifiedComplianceService } from '@/services/unifiedComplianceService';
-import SecureStorageMigration from '@/utils/secureStorageMigration';
+
 import OnboardingSyncStatusCard from '@/components/settings/OnboardingSyncStatusCard';
 import SyncErrorSummaryCard from '@/components/ui/SyncErrorSummaryCard';
 import DeadLetterQueueRecovery from '@/components/ui/DeadLetterQueueRecovery';
@@ -49,15 +48,12 @@ interface SettingsData {
   notifications: boolean;
   biometric: boolean;
   reminderTimes: boolean;
-  weeklyReports: boolean;
+  // weeklyReports removed - not implemented in UI
 }
 
 
 
-const LANGUAGE_OPTIONS = [
-  { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', name: 'English', flag: '🇺🇸' }
-];
+// Constants removed - unused
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -84,8 +80,7 @@ export default function SettingsScreen() {
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
     biometric: false,
-    reminderTimes: false,
-    weeklyReports: true
+    reminderTimes: false
   });
 
   // AI Limit States - REMOVED (AI disabled)
@@ -244,18 +239,22 @@ export default function SettingsScreen() {
     );
   };
 
-  // Dev: Live Test Runner toggle (persisted)
+  // Dev: Live Test Runner toggle (persisted) - Only in development
   const [showLiveRunner, setShowLiveRunner] = useState<boolean>(false);
   useEffect(() => {
-    (async () => {
-      const v = await AsyncStorage.getItem('dev_show_live_runner');
-      setShowLiveRunner(v === '1');
-    })();
+    if (__DEV__) {
+      (async () => {
+        const v = await AsyncStorage.getItem('dev_show_live_runner');
+        setShowLiveRunner(v === '1');
+      })();
+    }
   }, []);
   const toggleLiveRunner = async (value: boolean) => {
-    setShowLiveRunner(value);
-    await AsyncStorage.setItem('dev_show_live_runner', value ? '1' : '0');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (__DEV__) {
+      setShowLiveRunner(value);
+      await AsyncStorage.setItem('dev_show_live_runner', value ? '1' : '0');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const handleDataExport = async () => {
@@ -571,14 +570,14 @@ export default function SettingsScreen() {
         {/* (Removed) ERP Modülü Ayarları */}
 
 
-        {/* AI Özellikleri - Varsayılan Aktif (Toggle Kaldırıldı) */}
+        {/* Voice Check-in & Basic Analysis */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Yapay Zeka Asistanı</Text>
+          <Text style={styles.sectionTitle}>Sesli Check-in</Text>
           <View style={styles.sectionContent}>
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
-                <MaterialCommunityIcons name="robot" size={24} color="#10B981" />
-                <Text style={styles.settingTitle}>AI Özellikleri</Text>
+                <MaterialCommunityIcons name="microphone" size={24} color="#10B981" />
+                <Text style={styles.settingTitle}>Sesli Analiz</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
@@ -586,7 +585,7 @@ export default function SettingsScreen() {
               </View>
             </View>
             <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 8, paddingHorizontal: 16 }}>
-              Tüm AI özellikleri varsayılan olarak etkinleştirilmiştir: Akıllı İçgörüler, Ses Analizi, CBT Desteği, Tedavi Planı ve İlerleme Takibi.
+              Sesli check-in ile mood durum analizi ve Türkçe dil işleme özellikleri etkin.
             </Text>
           </View>
         </View>
@@ -666,23 +665,25 @@ export default function SettingsScreen() {
 
 
 
-        {/* Geliştirici (Dev) Araçları */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Geliştirici</Text>
-          <View style={styles.sectionContent}>
-            {renderSettingItem(
-              'Live Test Runner Göster',
-              'flask-outline',
-              showLiveRunner,
-              (value) => toggleLiveRunner(value)
-            )}
-            {showLiveRunner && renderActionItem(
-              'Live Test Runnerı Aç',
-              'rocket-launch',
-              () => router.push('/live-test-runner')
-            )}
+        {/* Geliştirici (Dev) Araçları - Sadece geliştirme ortamında */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Geliştirici</Text>
+            <View style={styles.sectionContent}>
+              {renderSettingItem(
+                'Live Test Runner Göster',
+                'flask-outline',
+                showLiveRunner,
+                (value) => toggleLiveRunner(value)
+              )}
+              {showLiveRunner && renderActionItem(
+                'Live Test Runnerı Aç',
+                'rocket-launch',
+                () => router.push('/live-test-runner')
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Account */}
         <View style={styles.section}>
