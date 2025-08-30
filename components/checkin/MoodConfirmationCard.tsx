@@ -263,7 +263,7 @@ export default function MoodConfirmationCard({
         <Card style={styles.emotionCard}>
           <View style={styles.emotionContainer}>
             <MaterialCommunityIcons 
-              name={getEmotionIcon(analysis.dominantEmotion)} 
+              name={getEmotionIcon(analysis.dominantEmotion) as any} 
               size={32} 
               color="#3B82F6" 
             />

@@ -342,296 +342,14 @@ function MoodScreen() {
       }
       */
 
-      // 📊 Orphaned AI code - completely disabled
-      /*
-      if (result.patterns) {
-        // Pattern analysis disabled - using empty fallback
-        const normalizedPatterns: any[] = [];
-          
-        let mappedPatterns = normalizedPatterns.map((pattern: any) => {
-          // 🎯 Extract dashboard metrics for enhanced mood analysis
-          const dashboardMetrics = pattern.dashboardMetrics || {};
-          
-          return {
-            type: pattern.type || 'temporal',
-            title: pattern.title || pattern.description || 'Mood Pattern',
-            description: pattern.description || pattern.pattern || '',
-            confidence: pattern.confidence || 0.7,
-            severity: pattern.severity || 'medium',
-            actionable: pattern.actionable || true,
-            suggestion: pattern.suggestion || 'Mood takibine devam et',
-            source: 'unified_pipeline',
-            // 📊 Enhanced data with dashboard metrics
-            data: {
-              ...pattern.data,
-              // Weekly Delta Metrics
-              weeklyDelta: dashboardMetrics.weeklyDelta,
-              currentWeekAvg: dashboardMetrics.currentWeekAvg,
-              previousWeekAvg: dashboardMetrics.previousWeekAvg,
-              weeklyTrend: dashboardMetrics.trend,
-              // MEA Correlation Metrics
-              meaCorrelations: {
-                moodEnergy: dashboardMetrics.moodEnergyCorrelation,
-                moodAnxiety: dashboardMetrics.moodAnxietyCorrelation,
-                energyAnxiety: dashboardMetrics.energyAnxietyCorrelation
-              },
-              emotionalProfile: dashboardMetrics.emotionalProfile,
-              averages: {
-                mood: dashboardMetrics.averageMood,
-                energy: dashboardMetrics.averageEnergy,
-                anxiety: dashboardMetrics.averageAnxiety
-              },
-              // Daily Pattern Metrics
-              dailyPattern: dashboardMetrics.dayName ? {
-                dayOfWeek: dashboardMetrics.dayOfWeek,
-                dayName: dashboardMetrics.dayName,
-                significance: dashboardMetrics.significance,
-                sampleSize: dashboardMetrics.sampleSize
-              } : undefined,
-              // Data Quality Metrics
-              dataPoints: dashboardMetrics.dataPoints,
-              analyticsReady: true // Flag for dashboard consumption
-            }
-          };
-        });
-
-        // 📊 ADD CLINICAL ANALYTICS: Add clinical profile as pattern if available
-        if (result.analytics?.mood) {
-          const analytics = result.analytics.mood;
-          
-          const clinicalPattern = {
-            type: 'clinical_profile',
-            title: `${analytics.profile?.type ? (analytics.profile.type.charAt(0).toUpperCase() + analytics.profile.type.slice(1)) : 'Clinical'} Profil`,
-            description: analytics.profile?.rationale?.join(', ') || 'Clinical mood profile analizi',
-            confidence: analytics.confidence || 0.8,
-            severity: analytics.profile?.type === 'stressed' || analytics.profile?.type === 'fatigued' ? 'high' : 'medium',
-            actionable: true,
-            suggestion: `Volatilite: ${analytics.volatility?.toFixed(1)}, En iyi zaman: ${analytics.bestTimes?.dayOfWeek || 'belirsiz'} ${analytics.bestTimes?.timeOfDay || ''}`,
-            source: 'clinical_analytics',
-            data: {
-              profileType: analytics.profile?.type,
-              confidence: analytics.confidence,
-              weeklyDelta: analytics.weeklyDelta,
-              volatility: analytics.volatility,
-              baselines: analytics.baselines,
-              correlations: analytics.correlations,
-              bestTimes: analytics.bestTimes,
-              sampleSize: analytics.sampleSize,
-              dataQuality: analytics.dataQuality,
-              analyticsReady: true
-            }
-          };
-          
-          mappedPatterns = [clinicalPattern, ...mappedPatterns];
-          console.log('📊 Clinical analytics added to patterns:', clinicalPattern.title);
-        }
-
-        console.log('🎯 Enhanced mood patterns with dashboard metrics:', mappedPatterns);
-        setMoodPatterns(mappedPatterns);
-
-        // 💾 PATTERN PERSISTENCE: Disabled with AI analytics
-        /*
-        try {
-          await patternPersistenceService.savePatterns(
-            user.id,
-            mappedPatterns,
-            entries,
-            'full_analysis',
-            12 * 60 * 60 * 1000 // 12 hour TTL
-          );
-          console.log('💾 Patterns saved to cache successfully');
-          
-          // 📊 TELEMETRY: Track cache save
-          // await trackAIInteraction(AIEventType.PATTERN_CACHE_SAVED, {
-          //   userId: user.id,
-          //   patternsCount: mappedPatterns.length,
-          //   entriesCount: entries.length,
-          //   analysisSource: 'unified_pipeline',
-          //   cacheType: 'full_analysis'
-          // });
-          
-        } catch (cacheError) {
-          console.warn('⚠️ Failed to cache patterns (non-blocking):', cacheError);
-        }
-        
-        // 📊 TELEMETRY: Track enhanced metrics delivery
-        const enhancedMetricsCount = mappedPatterns.filter(p => p.data.analyticsReady).length;
-        if (enhancedMetricsCount > 0) {
-          // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-          //   source: 'mood_screen_enhanced',
-          //   enhancedPatternsCount: enhancedMetricsCount,
-          //   dashboardMetricsTypes: mappedPatterns
-          //     .map(p => p.type)
-          //     .filter((type, index, arr) => arr.indexOf(type) === index), // unique types
-          //   meaAnalysisAvailable: mappedPatterns.some(p => p.data.meaCorrelations),
-          //   weeklyDeltaAvailable: mappedPatterns.some(p => p.data.weeklyDelta !== undefined)
-          // }, user.id);
-        }
-        */
-      }
-
-      // 📊 ENHANCED ANALYTICS: Disabled with AI analytics
-      /*
-      if (result.analytics?.mood) {
-        const analytics = result.analytics.mood;
-        console.log('🎯 Processing enhanced mood analytics:', analytics);
-        
-        // 📊 Store analytics in state for dashboard consumption
-        const enhancedInsight = {
-          riskLevel: analytics.baselines.mood < 30 ? 'high' : analytics.baselines.mood < 50 ? 'medium' : 'low',
-          moodTrend: analytics.weeklyDelta,
-          averageRecentMood: Math.round(analytics.baselines.mood),
-          volatility: analytics.volatility,
-          earlyWarning: {
-            triggered: (analytics.baselines.mood < 30) || 
-                      (analytics.weeklyDelta < -10) || 
-                      (analytics.volatility > 15) ||
-                      (analytics.profile?.type === 'stressed'),
-            message: analytics.profile?.type === 'stressed' 
-              ? `Stresli profil tespit edildi: ${analytics.profile.rationale.join(', ')}`
-              : analytics.baselines.mood < 30
-              ? `Düşük mood baseline: ${analytics.baselines.mood.toFixed(1)}`
-              : analytics.weeklyDelta < -10
-              ? `Haftalık mood düşüşü: ${analytics.weeklyDelta.toFixed(1)} puan`
-              : analytics.volatility > 15
-              ? `Yüksek mood volatilitesi: ${analytics.volatility.toFixed(1)}`
-              : null
-          },
-          interventions: [],
-          recommendations: [
-            ...analytics.profile?.rationale || [],
-            analytics.bestTimes?.dayOfWeek ? `En iyi gün: ${analytics.bestTimes.dayOfWeek}` : '',
-            analytics.bestTimes?.timeOfDay ? `En iyi zaman: ${analytics.bestTimes.timeOfDay}` : ''
-          ].filter(Boolean),
-          // 🎯 ENHANCED DATA: Clinical-grade analytics
-          enhancedAnalytics: {
-            volatility: analytics.volatility,
-            baselines: analytics.baselines,
-            correlations: analytics.correlations,
-            profile: analytics.profile,
-            bestTimes: analytics.bestTimes,
-            dataQuality: analytics.dataQuality,
-            confidence: analytics.confidence,
-            sampleSize: analytics.sampleSize
-          },
-          source: 'unified_pipeline_analytics'
-        };
-        
-        setPredictiveInsights(enhancedInsight);
-        
-        // 📊 Enhanced Telemetry for analytics usage
-        // await trackAIInteraction(AIEventType.INSIGHTS_DELIVERED, {
-        //   source: 'mood_screen_enhanced_analytics',
-        //   analyticsProfile: analytics.profile?.type,
-        //   volatility: analytics.volatility,
-        //   weeklyDelta: analytics.weeklyDelta,
-        //   dataQuality: analytics.dataQuality,
-        //   confidence: analytics.confidence,
-        //   correlationsCount: Object.keys(analytics.correlations).filter(k => {
-        //     const correlation = (analytics.correlations as any)[k];
-        //     return correlation?.r !== null;
-        //   }).length,
-        //   bestTimesAvailable: !!(analytics.bestTimes?.dayOfWeek || analytics.bestTimes?.timeOfDay)
-        // }, user.id);
-        
-        console.log('🎯 Enhanced mood analytics processed successfully');
-      }
-      */
-      
-      // FALLBACK: Progress insights disabled - using empty fallback
-      /*
-      else {
-        let predictiveInsight: any = null;
-        
-        // Progress insights disabled
-        const progressInsights: any[] = [];
-          const avgMoodMetric = progressInsights.find((p: any) => p.metric === 'average_mood');
-          const trendMetric = progressInsights.find((p: any) => p.metric === 'mood_trend');
-          
-          const avgMoodValue = avgMoodMetric?.value || 50;
-          const trendChangeValue = trendMetric?.change || 0;
-          
-          predictiveInsight = {
-            riskLevel: avgMoodValue < 30 ? 'high' : avgMoodValue < 50 ? 'medium' : 'low',
-            moodTrend: trendChangeValue,
-            averageRecentMood: Math.round(avgMoodValue),
-            earlyWarning: {
-              triggered: (avgMoodValue < 30) || (trendChangeValue < -15),
-              message: avgMoodValue < 30 
-                ? 'Son günlerde mood seviyende belirgin düşüş var. Destek almayı düşünür müsün?'
-                : trendChangeValue < -15
-                ? 'Mood seviyende düşüş trendi tespit ettik. Kendine iyi bakmanın zamanı.'
-                : null
-            },
-            interventions: [],
-            recommendations: progressInsights.map((p: any) => p.interpretation).filter(Boolean),
-            source: 'unified_pipeline_progress'
-          };
-        }
-        // Pattern analysis disabled - commented out
-        /*
-        else if (result.patterns) {
-          // Pattern analysis disabled - using empty fallback
-          const normalizedPatterns: any[] = [];
-          const weeklyDeltaPattern = normalizedPatterns.find((p: any) => p.type === 'mood_weekly_delta');
-          const meaPattern = normalizedPatterns.find((p: any) => p.type === 'mood_mea_correlation');
-          
-          if (weeklyDeltaPattern?.dashboardMetrics || meaPattern?.dashboardMetrics) {
-            const weeklyMetrics = weeklyDeltaPattern?.dashboardMetrics;
-            const meaMetrics = meaPattern?.dashboardMetrics;
-            
-            const currentMoodAvg = weeklyMetrics?.currentWeekAvg || meaMetrics?.averageMood || 50;
-            const weeklyDelta = weeklyMetrics?.weeklyDelta || 0;
-            
-            predictiveInsight = {
-              riskLevel: currentMoodAvg < 30 ? 'high' : currentMoodAvg < 50 ? 'medium' : 'low',
-              moodTrend: weeklyDelta,
-              averageRecentMood: Math.round(currentMoodAvg),
-              earlyWarning: {
-                triggered: (currentMoodAvg < 30) || (weeklyDelta < -10),
-                message: currentMoodAvg < 30 
-                  ? 'Mevcut mood seviyesi düşük - kendine iyi bakmaya odaklan'
-                  : weeklyDelta < -10
-                  ? `Haftalık mood ${weeklyDelta.toFixed(1)} puan düştü - trend'i takip et`
-                  : null
-              },
-              interventions: [],
-              recommendations: [
-                weeklyDeltaPattern?.suggestion,
-                meaPattern?.suggestion
-              ].filter(Boolean),
-              // 🎯 Enhanced metadata from patterns
-              enhancedData: {
-                weeklyMetrics: weeklyMetrics,
-                meaAnalysis: meaMetrics,
-                emotionalProfile: meaMetrics?.emotionalProfile
-              },
-              source: 'unified_pipeline_patterns'
-            };
-          }
-        }
-        
-        if (predictiveInsight) {
-          console.log('🔮 Enhanced predictive insights with unified metrics:', predictiveInsight);
-          setPredictiveInsights(predictiveInsight);
-        }
-        // AI Analytics disabled - function ends here
-    */
+      // 📊 AI Analytics section completely removed - function continues clean
   };
 
   /**
-   * 🚫 DUPLICATE FUNCTION REMOVED - Using the first declaration
+   * 🚫 AI Analytics functions removed - cleaned up
    */
+  // Orphaned try block disabled
   /*
-  const runUnifiedMoodAnalysis = async (entries: MoodEntry[]) => {
-    // 🚫 UNIFIED AI ANALYSIS - DISABLED (Hard Stop AI Cleanup)
-    console.log('✅ Skipping unified mood analysis (AI disabled)');
-    if (!user?.id) return;
-    return; // Early exit - no AI analysis
-  */
-    
-    // Original AI pipeline processing disabled:
-    /*
     try {
       console.log('🚀 Running unified mood analysis fallback...');
       
@@ -690,19 +408,16 @@ function MoodScreen() {
       }
       
       // Orphaned insights code - disabled
-      /*
       if (result?.insights) {
         const formattedInsights = Array.isArray(result.insights) ? result.insights : [];
         console.log(`📊 Generated ${formattedInsights.length} insights from unified analysis`);
       }
-      */
-    // Orphaned catch block - disabled
-    /*
+      
     } catch (fallbackError) {
       console.error('❌ Unified fallback analysis also failed:', fallbackError);
       // Keep existing heuristic patterns as final fallback
     }
-    */
+  */
 
   const analyzeMoodPatterns = async () => {
     if (!user?.id || moodEntries.length < 3) return;
@@ -1901,12 +1616,8 @@ function MoodScreen() {
     }
   };
 
-  const getFilteredEntries = () => {
-    return moodEntries.slice(0, displayLimit);
-  };
-
-  const filteredEntries = getFilteredEntries();
-
+  // Helper function moved inline to fix scope
+  const filteredEntries = moodEntries.slice(0, displayLimit);
 
   return (
     <ScreenLayout>
@@ -2354,4 +2065,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// export default removed - using function declaration export
+// No additional exports needed

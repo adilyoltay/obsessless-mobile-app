@@ -55,7 +55,8 @@ export default function TranscriptConfirmationModal({
       // Auto-focus and select all text for easy editing
       setTimeout(() => {
         textInputRef.current?.focus();
-        textInputRef.current?.selectAll?.();
+        // selectAll not available on all platforms
+        (textInputRef.current as any)?.selectAll?.();
       }, 300);
     }
   }, [visible, estimatedText]);

@@ -128,13 +128,15 @@ async function checkOnboardingCompletion(userId: string, localKey: string): Prom
       console.log('🆘 Last resort fallback:', { generic, fallback });
       
       // Cache negative results for a shorter period to avoid infinite checks
-      onboardingCheckCache.set(cacheKey, { result: fallback, timestamp: Date.now() });
+      const cacheKeyLocal = `${userId}_${localKey}`;
+      onboardingCheckCache.set(cacheKeyLocal, { result: fallback, timestamp: Date.now() });
       
       return fallback;
     } catch (fallbackError) {
       console.error('❌ Even fallback check failed:', fallbackError);
       // Cache false result briefly to prevent rapid retries
-      onboardingCheckCache.set(cacheKey, { result: false, timestamp: Date.now() });
+      const cacheKeyLocal2 = `${userId}_${localKey}`;
+      onboardingCheckCache.set(cacheKeyLocal2, { result: false, timestamp: Date.now() });
       return false; // Fail safe - require onboarding
     }
   }
