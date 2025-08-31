@@ -33,8 +33,50 @@ import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
 
-// Import gerçek STT service - iOS crash sorununu çözelim
-import speechToTextService from '@/services/speechToTextService';
+// 🚨 TEMPORARY: Use enhanced mock STT due to iOS Voice bridge crash  
+// TODO: Fix @react-native-voice/voice bridge issue in production
+
+const speechToTextService = {
+  startRealtimeListening: async (
+    onPartialResult?: (text: string) => void,
+    language: string = 'tr-TR'
+  ): Promise<void> => {
+    console.log('🎭 ENHANCED MOCK: Perfect test for ultimate VA Pad v3.5');
+    
+    // Ultimate test scenarios for all improvements
+    const scenarios = [
+      'Bugün kendimi...',
+      'Bugün kendimi çok mutluyum...',
+      'Bugün kendimi çok mutluyum ve enerjik hissediyorum...',
+      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi...',
+      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim...',
+      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim ve enerjim düşük'
+    ];
+    
+    // Perfect timing for VA Pad testing
+    for (let i = 0; i < scenarios.length; i++) {
+      setTimeout(() => {
+        if (onPartialResult) {
+          onPartialResult(scenarios[i]);
+        }
+      }, (i + 1) * 900); // Slower progression for observation
+    }
+  },
+  
+  stopRealtimeListening: async () => {
+    await new Promise(r => setTimeout(r, 500));
+    return {
+      success: true,
+      text: 'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim ve enerjim düşük',
+      confidence: 0.95,
+      duration: 5,
+      language: 'tr-TR'
+    };
+  },
+  
+  checkAvailability: async () => false,
+  getInstance: () => speechToTextService // Self-reference for compatibility
+};
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
