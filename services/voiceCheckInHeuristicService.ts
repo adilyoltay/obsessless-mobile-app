@@ -55,6 +55,11 @@ export type RealtimeState = {
   mood: number;
   energy: number;
   anxiety: number;
+
+  // 👇 incremental echo/gating için ek alanlar
+  _lastPartialNorm?: string;      // son partial snapshot (normalize)
+  _lastCoord?: { x: number; y: number }; // son gönderilen koordinat
+  _gateUntilMs?: number;          // neutral gate bitiş zamanı
 };
 
 class VoiceCheckInHeuristicService {
@@ -688,8 +693,34 @@ class VoiceCheckInHeuristicService {
     return { text: '', tokens: [], mood: 5, energy: 5, anxiety: 5 };
   }
 
-  public incrementalAnalyze(state: RealtimeState, newChunk: string) {
-    const delta = this.preprocessText(newChunk);
+  public incrementalAnalyze(
+    state: RealtimeState,
+    newChunk: string,
+    opts?: { isFinal?: boolean }
+  ) {
+    // 🔄 ENHANCED: computeIncrement ile echo/delta filtresi
+    const delta = this.computeIncrement(state, newChunk);
+
+    // Yeni bilgi yoksa: koordinatı ve float'ları koru, sinyal 0
+    if (!delta) {
+      const coord = state._lastCoord ?? { x: 0, y: 0 };
+      return {
+        moodScore: Math.round(state.mood),
+        energyLevel: Math.round(state.energy),
+        anxietyLevel: Math.round(state.anxiety),
+        moodFloat: state.mood,
+        energyFloat: state.energy,
+        anxietyFloat: state.anxiety,
+        coordX: coord.x,          // 👈 UI için doğrudan koordinat
+        coordY: coord.y,
+        signalStrength: 0,
+        confidence: 0.8,
+        gateActive: !!(state._gateUntilMs && Date.now() < state._gateUntilMs),
+        finalized: !!opts?.isFinal,
+      };
+    }
+
+    // Metni büyüt (yeni delta'yı ekle)
     state.text = [state.text, delta].filter(Boolean).join(' ').trim();
 
     const newTokens = this.tokenize(state.text);
@@ -785,12 +816,46 @@ class VoiceCheckInHeuristicService {
     state.energy = state.energy + α * (next.energy - state.energy);
     state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
 
-    // Float döndür + signal strength - daha akıcı hareket için
+    // Float döndür + enhanced gating/coordination
     const outMood = Math.max(1, Math.min(10, state.mood));
     const outEnergy = Math.max(1, Math.min(10, state.energy));
     const outAnx = Math.max(1, Math.min(10, state.anxiety));
     
     const signalStrength = this.computeSignalStrength(matches);
+
+    // Recency açık beyan set edildi mi? (gate'ten muaf)
+    const recencyText = this.tokenize(state.text).slice(-15).join(' ');
+    const explicit = this.extractExplicitDeclarations(recencyText);
+    const explicitOverride = explicit.mood !== undefined || explicit.energy !== undefined || explicit.anxiety !== undefined;
+
+    // 🔘 Koordinata çevir (5.5 merkez ile doğru mapping)
+    const freshCoord = this.toCoord(outMood, outEnergy);
+
+    // 🧰 Neutral gating (zayıf sinyallerde kısa bekleme)
+    const now = Date.now();
+    const WEAK = signalStrength < 0.25;
+    const GATE_MS = 350;
+
+    let gateActive = false;
+    if (!explicitOverride) {
+      if (WEAK) {
+        // Gate kur
+        if (!state._gateUntilMs) state._gateUntilMs = now + GATE_MS;
+        if (now < state._gateUntilMs) gateActive = true;
+      } else {
+        // Güçlü sinyalde gate'i bırak
+        state._gateUntilMs = undefined;
+      }
+    } else {
+      // Açık beyan her zaman gate'i kırar
+      state._gateUntilMs = undefined;
+    }
+
+    const coord = gateActive
+      ? (state._lastCoord ?? freshCoord)  // bekle: hareket etme
+      : freshCoord;                       // serbest: yeni koordinata geç
+
+    state._lastCoord = coord;
 
     return {
       // Integer values (backward compatibility)
@@ -803,10 +868,87 @@ class VoiceCheckInHeuristicService {
       energyFloat: state.energy,
       anxietyFloat: state.anxiety,
 
+      // 🎯 Doğrudan çizim koordinatı (5.5 merkez)
+      coordX: coord.x,
+      coordY: coord.y,
+
       // Gating/animation metadata
       signalStrength,
-      confidence: 0.8, // Base confidence for incremental analysis
+      confidence: 0.8,
+      gateActive,
+      finalized: !!opts?.isFinal,
     };
+  }
+
+  /**
+   * 🔄 LCP (Longest Common Prefix) helper
+   */
+  private lcpLen(a: string, b: string): number {
+    const n = Math.min(a.length, b.length);
+    let i = 0; 
+    while (i < n && a[i] === b[i]) i++;
+    return i;
+  }
+
+  /**
+   * 🧹 Drop repeated n-grams from delta
+   */
+  private dropRepeatedNgrams(state: RealtimeState, delta: string): string {
+    if (!delta) return '';
+    const base = this.tokenize(state.text).slice(-30).join(' ');
+    const toks = this.tokenize(delta);
+    const out: string[] = [];
+    
+    for (let i = 0; i < toks.length; i++) {
+      out.push(toks[i]);
+      if (out.length >= 3) {
+        const tri = out.slice(-3).join(' ');
+        if (base.includes(tri)) {
+          out.splice(out.length - 3, 3);
+          console.log('🧽 Echo dropped: 3-gram already exists');
+        }
+      }
+    }
+    return out.join(' ');
+  }
+
+  /**
+   * 📊 Partial snapshot → gerçek delta (echo/rewind korumalı)
+   */
+  private computeIncrement(state: RealtimeState, rawChunk: string): string {
+    const norm = this.preprocessText(rawChunk);
+    const prev = state._lastPartialNorm ?? '';
+    let delta = norm;
+
+    if (prev) {
+      const l = this.lcpLen(prev, norm);
+      delta = norm.slice(l);
+
+      // Rewind/echo: çok küçük LCP + başı zaten geçmişteyse → delta yok
+      if (l < 5) {
+        const head = norm.slice(0, Math.min(24, norm.length));
+        if (head && state.text.includes(head)) {
+          delta = '';
+          console.log('🧽 Echo dropped: head already in state');
+        }
+      }
+    }
+    
+    delta = this.dropRepeatedNgrams(state, delta);
+    state._lastPartialNorm = norm;
+    return delta.trim();
+  }
+
+  /**
+   * 🎯 Enhanced coordinate mapping (5.5 center, gain/gamma curve)
+   */
+  private toCoord(mood: number, energy: number) {
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    
+    // 1–10 → [-1, +1], merkez 5.5 (tam ortalama), enerji yukarı doğru +y
+    const x = clamp((mood - 5.5) / 4.5, -1, 1);
+    const y = clamp((energy - 5.5) / 4.5, -1, 1);
+    return { x, y };
   }
 
   /**

@@ -256,11 +256,42 @@ export default function VAMoodCheckin({
           const vx = toCoord(analysis.moodScore);
           const vy = toCoord(analysis.energyLevel);
           
-          // Final position adjustment with accelerated timing (no snap, smooth convergence)
-          console.log('🎧 Final: converging to precise position ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
-          x.value = withTiming(vx, { duration: 450 }); // Smooth convergence, not snap
-          y.value = withTiming(vy, { duration: 450 });
-          setXY({ x: vx, y: vy });
+          // 🎯 Final analysis: Use incremental API with finalized flag for smooth convergence
+          if (realtimeStateRef.current) {
+            const finalRes = voiceCheckInHeuristicService.incrementalAnalyze(
+              realtimeStateRef.current,
+              result.text,
+              { isFinal: true }
+            );
+            
+            const finalVx = finalRes.coordX;
+            const finalVy = finalRes.coordY;
+            
+            console.log('🎧 Final: smooth convergence to precise position ->', { 
+              vx: finalVx, vy: finalVy, 
+              mood: finalRes.moodScore, 
+              energy: finalRes.energyLevel,
+              finalized: finalRes.finalized 
+            });
+            
+            // Enhanced lerp for final convergence (no snap)
+            const blend = (prev: number, next: number, α = 0.4) => prev + α * (next - prev);
+            const bx = blend(xy.x, finalVx, 0.4);
+            const by = blend(xy.y, finalVy, 0.4);
+            
+            x.value = withTiming(bx, { duration: 400 });
+            y.value = withTiming(by, { duration: 400 });
+            setXY({ x: bx, y: by });
+          } else {
+            // Fallback: direct coordinate conversion
+            const vx = toCoord(analysis.moodScore);
+            const vy = toCoord(analysis.energyLevel);
+            
+            console.log('🎧 Final: fallback positioning ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
+            x.value = withTiming(vx, { duration: 450 });
+            y.value = withTiming(vy, { duration: 450 });
+            setXY({ x: vx, y: vy });
+          }
           
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else {
@@ -529,57 +560,61 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // Enhanced adaptive gating based on signal strength and confidence
-        const now = Date.now();
-        const signal = res.signalStrength || 0;
-        const confidence = res.confidence || 0;
-        
-        // Adaptive gate: Strong signals pass through, weak signals get filtered
-        const gateOk = confidence >= 0.55 || signal >= 0.22;
-        const isNeutralScores = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
-        
-        if (!gateOk || (isNeutralScores(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 600)) {
-          console.log('🎧 Realtime: gated ->', { 
-            reason: !gateOk ? 'low signal' : 'neutral timeout',
-            signal: signal.toFixed(2), 
-            confidence: confidence.toFixed(2) 
-          });
+        // 🎯 ENHANCED: Use service-computed coordinates directly (5.5 center fix)
+        const { coordX, coordY, gateActive, finalized, signalStrength } = res;
+
+        console.log('🎧 Realtime v3.5: service result ->', { 
+          coordX: coordX.toFixed(3), 
+          coordY: coordY.toFixed(3),
+          mood: res.moodScore, 
+          energy: res.energyLevel,
+          signal: signalStrength.toFixed(2),
+          gated: gateActive,
+          final: finalized,
+          crisis: crisis.flagged,
+          chunk: newChunk.slice(0, 30)
+        });
+
+        // Gate aktifken çizimde hareketsizlik (service kontrolü)
+        if (gateActive) {
+          console.log('🎧 Realtime: gate active - movement frozen');
           return;
         }
-
-        // VA koordinatlarına çevir (enhanced gain/gamma curve)
-        const vx = toCoord(res.moodScore);
-        const vy = toCoord(res.energyLevel);
-
-        console.log('🎧 Realtime v3.5: applied ->', { 
-          vx, vy, 
-          mood: res.moodScore, 
-          energy: res.energyLevel, 
-          crisis: crisis.flagged,
-          chunk: newChunk.slice(0, 30) 
-        });
 
         // Update timestamp for successful movement
         lastUpdateTimeRef.current = now;
 
-        // 🛡️ REMOVED: Micro-movement skip - let physics handle smoothing
-        // Physics-based animation will handle jitter via deadband
+        // 🎯 Direct service coordinates (5.5 center, no UI conversion)
+        const vx = coordX;
+        const vy = coordY;
 
-        // Direct coordinate update (no EMA - let Reanimated handle smoothing)
-        x.value = withTiming(vx, { duration: 200 });
-        y.value = withTiming(vy, { duration: 200 });
-        setXY({ x: vx, y: vy });
+        // 🎬 Adaptive lerp: final'de hızlı, realtime'da smooth
+        const MIN_ALPHA = 0.18;
+        const FAST_ALPHA = 0.35;
+        const alpha = finalized ? FAST_ALPHA : MIN_ALPHA;
         
-        // Haptic feedback for significant position changes
-        if (Math.abs(vx - xy.x) > 0.15 || Math.abs(vy - xy.y) > 0.15) {
+        // Ultra-smooth lerp (no micro-skip, sub-pixel allowed)
+        const blend = (prev: number, next: number, α: number) => prev + α * (next - prev);
+        const bx = blend(xy.x, vx, alpha);
+        const by = blend(xy.y, vy, alpha);
+
+        // Smooth coordinate update
+        const duration = finalized ? 300 : 200;
+        x.value = withTiming(bx, { duration });
+        y.value = withTiming(by, { duration });
+        setXY({ x: bx, y: by });
+        
+        // Haptic feedback for significant moves only
+        if (Math.abs(vx - xy.x) > 0.12 || Math.abs(vy - xy.y) > 0.12) {
           Haptics.selectionAsync();
         }
 
-        console.log('🎧 Realtime v3.5: dot updated ->', { 
-          to: { x: vx.toFixed(3), y: vy.toFixed(3) },
-          mood: res.moodScore, 
-          energy: res.energyLevel,
-          delta: { dx: (vx - xy.x).toFixed(3), dy: (vy - xy.y).toFixed(3) }
+        console.log('🎧 Realtime v3.5: dot moved ->', { 
+          from: { x: xy.x.toFixed(3), y: xy.y.toFixed(3) },
+          to: { x: bx.toFixed(3), y: by.toFixed(3) },
+          lerp: alpha.toFixed(2),
+          duration,
+          final: finalized
         });
       } catch (e) {
         // Sessiz fail: realtime'da gürültü olabilir
