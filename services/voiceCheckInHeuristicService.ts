@@ -10,6 +10,36 @@
 
 import { TranscriptionResult } from './speechToTextService';
 
+// 🔧 Constants - Magic numbers replaced with named constants
+const Constants = {
+  // EMA Smoothing
+  SMOOTHING_FACTOR: 0.25,
+  
+  // Recency weighting  
+  RECENCY_DECAY: 8,
+  
+  // Signal strength gating
+  WEAK_SIGNAL_THRESHOLD: 0.25,
+  GATE_MS: 350,
+  
+  // Coordinate mapping (5.5 center for perfect VA mapping)
+  CENTER: 5.5,
+  SPAN: 4.5,
+  
+  // Score bounds
+  MIN_SCORE: 1,
+  MAX_SCORE: 10,
+  
+  // Default baselines
+  MOOD_BASELINE: 5.0,
+  ENERGY_BASELINE: 5.0,
+  ANXIETY_BASELINE: 4.0,
+  
+  // Incremental analysis
+  BASE_CONFIDENCE: 0.8,
+  SIGNAL_DECAY_RATE: 6,
+} as const;
+
 interface MoodAnalysisResult {
   moodScore: number;        // 1-10 arası mood skoru
   energyLevel: number;      // 1-10 arası enerji seviyesi  
@@ -714,7 +744,7 @@ class VoiceCheckInHeuristicService {
         coordX: coord.x,          // 👈 UI için doğrudan koordinat
         coordY: coord.y,
         signalStrength: 0,
-        confidence: 0.8,
+        confidence: Constants.BASE_CONFIDENCE,
         gateActive: !!(state._gateUntilMs && Date.now() < state._gateUntilMs),
         finalized: !!opts?.isFinal,
       };
@@ -774,7 +804,7 @@ class VoiceCheckInHeuristicService {
     }
 
     // Recency ağırlığı (son taraf daha etkili)
-    const recentBoost = (i: number) => 0.4 + 0.6 * Math.exp(-(newTokens.length - i) / 8);
+    const recentBoost = (i: number) => 0.4 + 0.6 * Math.exp(-(newTokens.length - i) / Constants.RECENCY_DECAY);
 
     const scoreAxis = (field: 'moodImpact' | 'energyImpact' | 'anxietyImpact', base: number) => {
       let s = 0;
@@ -787,9 +817,9 @@ class VoiceCheckInHeuristicService {
     };
 
     const next = {
-      mood: scoreAxis('moodImpact', 5.0),
-      energy: scoreAxis('energyImpact', 5.0),
-      anxiety: scoreAxis('anxietyImpact', 4.0),
+      mood: scoreAxis('moodImpact', Constants.MOOD_BASELINE),
+      energy: scoreAxis('energyImpact', Constants.ENERGY_BASELINE),
+      anxiety: scoreAxis('anxietyImpact', Constants.ANXIETY_BASELINE),
     };
 
     // RECENCY explicit override (yalnızca son pencere için realtime)
@@ -811,15 +841,15 @@ class VoiceCheckInHeuristicService {
     }
 
     // EMA smoothing
-    const α = 0.25;
+    const α = Constants.SMOOTHING_FACTOR;
     state.mood = state.mood + α * (next.mood - state.mood);
     state.energy = state.energy + α * (next.energy - state.energy);
     state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
 
     // Float döndür + enhanced gating/coordination
-    const outMood = Math.max(1, Math.min(10, state.mood));
-    const outEnergy = Math.max(1, Math.min(10, state.energy));
-    const outAnx = Math.max(1, Math.min(10, state.anxiety));
+    const outMood = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.mood));
+    const outEnergy = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.energy));
+    const outAnx = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
     
     const signalStrength = this.computeSignalStrength(matches);
 
@@ -833,8 +863,8 @@ class VoiceCheckInHeuristicService {
 
     // 🧰 Neutral gating (zayıf sinyallerde kısa bekleme)
     const now = Date.now();
-    const WEAK = signalStrength < 0.25;
-    const GATE_MS = 350;
+    const WEAK = signalStrength < Constants.WEAK_SIGNAL_THRESHOLD;
+    const GATE_MS = Constants.GATE_MS;
 
     let gateActive = false;
     if (!explicitOverride) {
@@ -940,14 +970,14 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 🎯 Enhanced coordinate mapping (5.5 center, gain/gamma curve)
+   * 🎯 Enhanced coordinate mapping (Constants.CENTER center, gain/gamma curve)
    */
   private toCoord(mood: number, energy: number) {
     const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
     
-    // 1–10 → [-1, +1], merkez 5.5 (tam ortalama), enerji yukarı doğru +y
-    const x = clamp((mood - 5.5) / 4.5, -1, 1);
-    const y = clamp((energy - 5.5) / 4.5, -1, 1);
+    // 1–10 → [-1, +1], merkez Constants.CENTER (tam ortalama), enerji yukarı doğru +y
+    const x = clamp((mood - Constants.CENTER) / Constants.SPAN, -1, 1);
+    const y = clamp((energy - Constants.CENTER) / Constants.SPAN, -1, 1);
     return { x, y };
   }
 
@@ -958,7 +988,7 @@ class VoiceCheckInHeuristicService {
     const s = matches.reduce((acc, m) =>
       acc + (Math.abs(m.moodImpact) + Math.abs(m.energyImpact) + Math.abs(m.anxietyImpact))
             * m.intensity * m.weight, 0);
-    return Math.max(0, Math.min(1, 1 - Math.exp(-s / 6)));
+    return Math.max(0, Math.min(1, 1 - Math.exp(-s / Constants.SIGNAL_DECAY_RATE)));
   }
 
   /**
