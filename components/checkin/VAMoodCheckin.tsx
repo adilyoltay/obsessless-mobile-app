@@ -512,47 +512,47 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // 🎯 Use service coordinates as primary source (remove UI gate duplication)
-        const { coordX, coordY, gateActive, finalized, signalStrength } = res;
+        // servis merkezine uyumlu fallback mapping
+        const clamp = (n:number, a:number, b:number) => Math.max(a, Math.min(b, n));
+        const toCoordServiceLike = (v:number) => clamp((v - 5.5) / 4.5, -1, 1);
 
-        console.log('🎧 Realtime v3.5: service result ->', { 
-          coordX: typeof coordX === 'number' ? coordX.toFixed(3) : 'N/A',
-          coordY: typeof coordY === 'number' ? coordY.toFixed(3) : 'N/A',
-          mood: res.moodScore, 
-          energy: res.energyLevel,
-          signal: signalStrength.toFixed(2),
-          gated: gateActive,
-          final: finalized,
-          crisis: crisis.flagged,
-          chunk: newChunk.slice(0, 30)
-        });
+        // sayıya zorlayıcı yardımcı
+        const toNum = (v:any) => (typeof v === 'number' ? v : Number(v));
 
-        // Defensive gate control - support both gateActive and legacy gated
+        // gate ismi geriye dönük uyumlu
         const isGated = (res.gateActive ?? (res as any).gated) === true;
         if (isGated) {
           console.log('🎧 Service gate active - no movement');
           return;
         }
 
-        // Defensive coordinate extraction with type safety
-        const toNum = (v: any) => (typeof v === 'number' ? v : Number(v));
-        const vx = Number.isFinite(toNum(res.coordX)) ? toNum(res.coordX) : toCoordServiceLike(Number(res.moodScore));
-        const vy = Number.isFinite(toNum(res.coordY)) ? toNum(res.coordY) : toCoordServiceLike(Number(res.energyLevel));
+        // Koordinat yoksa ASLA fallback-map etme; mevcut pozisyonda kal.
+        const hasCoord = Number.isFinite(Number(res.coordX)) && Number.isFinite(Number(res.coordY));
+        const vx = hasCoord ? Number(res.coordX) : xyRef.current.x;
+        const vy = hasCoord ? Number(res.coordY) : xyRef.current.y;
 
-        // More visible animation (reduce smoothing for better responsiveness)
+        // Aynı pozisyona animasyon yapma (boşa animasyon önleme)
+        if (Math.abs(vx - xyRef.current.x) < 0.001 && Math.abs(vy - xyRef.current.y) < 0.001) {
+          if (__DEV__) console.log('🎧 Skipping: identical position, no animation needed');
+          return;
+        }
+
+        // snappy animasyon
         x.value = withTiming(vx, { duration: 200 });
         y.value = withTiming(vy, { duration: 200 });
         setXY({ x: vx, y: vy });
-        
+
         // Haptic feedback for visible moves
         if (Math.abs(vx - xyRef.current.x) > 0.1 || Math.abs(vy - xyRef.current.y) > 0.1) {
           Haptics.selectionAsync();
         }
 
-        console.log('🎧 Dot moved ->', { 
-          from: xyRef.current, 
-          to: { x: vx.toFixed(3), y: vy.toFixed(3) }, 
-          duration: 200 
+        // net sayı log (string değil)
+        const r3 = (n:number) => Math.round(n*1000)/1000;
+        console.log('🎧 Dot moved ->', {
+          duration: 200,
+          from: { x: r3(xyRef.current.x), y: r3(xyRef.current.y) },
+          to:   { x: r3(vx), y: r3(vy) }
         });
       } catch (e) {
         // Sessiz fail: realtime'da gürültü olabilir

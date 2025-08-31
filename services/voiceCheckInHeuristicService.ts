@@ -240,6 +240,17 @@ class VoiceCheckInHeuristicService {
       emotion: 'mutlu', weight: 1.0
     },
     {
+      keywords: ['keyfim yerinde', 'keyifliyim', 'çok keyifliyim'],
+      moodImpact: +3, energyImpact: +2, anxietyImpact: -1,
+      emotion: 'mutlu', weight: 1.0
+    },
+    {
+      // daha genel ama düşük ağırlık—ambiguous olabilir
+      keywords: ['keyif'],
+      moodImpact: +1, energyImpact: +1, anxietyImpact: -1,
+      emotion: 'mutlu', weight: 0.6
+    },
+    {
       keywords: ['enerjik', 'dinamik', 'aktif', 'canlı', 'zinde', 'motivasyonum yüksek', 'şevkli', 'enerjim yüksek', 'enerjim var', 'motivasyonum iyi', 'motivasyonum tam'],
       moodImpact: +3, energyImpact: +5, anxietyImpact: -1,
       emotion: 'enerjik', weight: 1.2
@@ -438,7 +449,7 @@ class VoiceCheckInHeuristicService {
       trigger: 'afet_travma', weight: 1.4
     },
     {
-      keywords: ['enflasyon', 'zam', 'pahalılık', 'geçim', 'hayat pahalı'],
+      keywords: ['enflasyon', 'zam', 'pahalılık', 'geçim sıkıntısı', 'hayat pahalı', 'kira ödemek', 'fatura ödemek', 'ekonomik kriz', 'para sıkıntısı', 'maddi zorluk', 'gelir gider', 'bütçe sıkıntısı'],
       moodImpact: -3, energyImpact: -2, anxietyImpact: +4,
       trigger: 'ekonomik_durum', weight: 1.3
     },
@@ -953,114 +964,117 @@ class VoiceCheckInHeuristicService {
       anxiety: scoreAxis('anxietyImpact', Constants.ANXIETY_BASELINE),
     };
 
-    // 1) Enhanced recency/explicit with intensifier boost
+    // 🔹 Recency/explicit: yeni chunk + kuyruk (tekrarları kaçırma)
     const deltaRaw = this.preprocessText(newChunk);
     const tail = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
     const recencyWindow = [deltaRaw, tail].filter(Boolean).join(' ').trim();
 
-    // Tek explicit çıkarımı
+    // 🔹 Filler/short kontrolü (ilk drift'i engelle)
+    const deltaWordCnt = deltaRaw ? deltaRaw.split(/\s+/).filter(Boolean).length : 0;
+    const FILLERS = /\b(bugün|yani|şey|işte|çok)\b(?:\s+\b(bugün|yani|şey|işte|çok)\b)*$/u;
+    const isFillerOnly = !!deltaRaw && FILLERS.test(deltaRaw);
+    
+    // 🔹 Meta-konuşma filtresi (test/örnek cümle vb.)
+    const META = /\b(örnek cümle|test|senaryo|uygulama|başlayalım|devam ediyorum|yardımcı olurum|hazırsan|başlayalım|teste geçelim|deneme|simülasyon|test edebilirsin)\b/iu;
+    const isMeta = META.test(recencyWindow);
+    
+    const deltaIsShort =
+      (deltaRaw?.length ?? 0) <= Constants.MIN_CHUNK_CHARS ||
+      deltaWordCnt <= Constants.MIN_CHUNK_WORDS ||
+      isFillerOnly;
+
+    // 🔹 Explicit yakala + güçlendir
     const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
-    const explicitOverride = explicitDecl.mood !== undefined ||
+    const explicitOverride =
+      explicitDecl.mood !== undefined ||
       explicitDecl.energy !== undefined ||
       explicitDecl.anxiety !== undefined;
 
-    // Explicit yakınında güçlü intensifier var mı?
     const hasStrongIntensifier = /\b(çok|aşırı|son derece|inanılmaz|resmen|tam anlamıyla)\b/u.test(recencyWindow);
 
-    // Explicit değerleri uygula (+boost)
     if (explicitDecl.energy !== undefined) {
       let v = explicitDecl.energy;
-      if (hasStrongIntensifier) v = Math.max(v, 9); // 9+ için boost
+      if (hasStrongIntensifier) v = Math.max(v, 9);
       next.energy = v;
-      if (__DEV__) console.log('🎯 Explicit override: energy ->', v, hasStrongIntensifier ? '(boosted)' : '');
     }
     if (explicitDecl.mood !== undefined) {
       let v = explicitDecl.mood;
       if (hasStrongIntensifier) v = Math.max(v, 9);
       next.mood = v;
-      if (__DEV__) console.log('🎯 Explicit override: mood ->', v, hasStrongIntensifier ? '(boosted)' : '');
     }
     if (explicitDecl.anxiety !== undefined) {
-      next.anxiety = explicitDecl.anxiety; // anksiyeteye boost yok
-      if (__DEV__) console.log('🎯 Explicit override: anxiety ->', explicitDecl.anxiety);
+      next.anxiety = explicitDecl.anxiety; // kaygıda boost yok
     }
 
-    // 2) Smoothing'den ÖNCE sinyal gücünü hesapla ve dinamik α seç
-    const signalStrength = this.computeSignalStrength(matches);
+    // 🔹 Sinyali smoothing'den ÖNCE ölç
+    const signalRaw = this.computeSignalStrength(matches);
 
-    // Dinamik smoothing: güçlü sinyal hızlı akar; explicit neredeyse anlık
+    // 🔹 Dinamik smoothing (explicit hızlı uçar)
     const alpha = explicitOverride
-      ? 0.8 // explicit -> hızlı tepki
-      : Math.min(0.8, Constants.SMOOTHING_FACTOR + 0.55 * signalStrength); // ~0.25→0.8 arası
+      ? 0.8
+      : Math.min(0.8, Constants.SMOOTHING_FACTOR + 0.55 * signalRaw);
 
-    state.mood = state.mood + alpha * (next.mood - state.mood);
+    state.mood   = state.mood   + alpha * (next.mood   - state.mood);
     state.energy = state.energy + alpha * (next.energy - state.energy);
-    state.anxiety = state.anxiety + alpha * (next.anxiety - state.anxiety);
+    state.anxiety= state.anxiety+ alpha * (next.anxiety- state.anxiety);
 
-    // 3) Çıkış + koordinatlar
-    const outMood = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.mood));
+    // 🔹 Çıkış + koordinat
+    const outMood   = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.mood));
     const outEnergy = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.energy));
-    const outAnx = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
+    const outAnx    = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
     const freshCoord = ctx.toCoord(outMood, outEnergy);
 
-    // 4) Enhanced gate: WEAK + SHORT + FILLER detection
-    const deltaWordCnt = this.tokenize(deltaRaw).length;
-    const shortByLen = deltaRaw.length <= Constants.MIN_CHUNK_CHARS;
-    const shortByWord = deltaWordCnt <= Constants.MIN_CHUNK_WORDS; // ≤ for 2 words = short
-    
-    // Filler-only detection (common incomplete phrases)
-    const FILLERS = /^\s*\b(bugün|yani|şey|işte|çok|ama|ve|bir|bu|şu|o|ben|sen)\b(?:\s+\b(bugün|yani|şey|işte|çok|ama|ve|bir|bu|şu|o|ben|sen)\b)*\s*$/iu;
-    const isFillerOnly = FILLERS.test(deltaRaw.trim());
-    
-    const deltaIsShort = shortByLen || shortByWord || isFillerOnly;
-
+    // 🔹 Gate logic: meta-content + weak-signal + short
     let gateActive = false;
-    if (!explicitOverride) {
-      const weak = signalStrength < Constants.WEAK_SIGNAL_THRESHOLD;
-      const noSignal = signalStrength === 0;
-      
-      // Gate for weak/no signal + short/filler content
-      if ((weak || noSignal) && deltaIsShort) {
-        if (!ctx.isGateActive()) ctx.setGate(250); // Short gate for noise
-        gateActive = ctx.isGateActive();
-        if (__DEV__ && gateActive) console.log('🚪 Gate active: weak/no signal + short/filler chunk');
-      } else {
-        ctx.clearGate();
-      }
+    if (!explicitOverride && (signalRaw < Constants.WEAK_SIGNAL_THRESHOLD || deltaIsShort || isMeta)) {
+      if (!ctx.isGateActive()) ctx.setGate(Constants.GATE_MS);
+      gateActive = ctx.isGateActive();
+      if (__DEV__ && isMeta) console.log('🚪 Gate active: meta-content detected');
     } else {
-      ctx.clearGate(); // Explicit always bypasses gate
+      ctx.clearGate();
     }
 
     const coord = gateActive ? ctx.getLastCoord() : freshCoord;
     ctx.setLastCoord(coord);
 
-    // Helper to ensure numeric precision
-    const round = (n: number, p = 3) => Math.round(n * 10**p) / 10**p;
-    
-    // Effective signal strength: boost for explicit overrides
-    const effectiveSignal = explicitOverride ? Math.max(signalStrength, 0.95) : signalStrength;
+    // 🔹 Sayısal payload + explicit bayrağı + geriye dönük alanlar
+    const round3 = (n:number) => Math.round(n * 1000) / 1000;
+    const signalStrength = explicitOverride ? Math.max(signalRaw, 0.95) : signalRaw;
+
+    // Debug logging for consistency
+    if (__DEV__) {
+      console.log('🎧 Realtime analyze:', { 
+        chunk: newChunk.slice(0, 30), 
+        gateActive, 
+        coord: { x: round3(coord.x), y: round3(coord.y) }, 
+        signalStrength: round3(signalStrength), 
+        explicit: !!explicitOverride,
+        meta: isMeta,
+        short: deltaIsShort
+      });
+    }
 
     return {
-      // Integer values (backward compatibility)
       moodScore: Number(outMood.toFixed(1)),
       energyLevel: Number(outEnergy.toFixed(1)),
       anxietyLevel: Number(outAnx.toFixed(1)),
 
-      // Float values for smoother animation  
-      moodFloat: ctx.mood,
-      energyFloat: ctx.energy,
-      anxietyFloat: ctx.anxiety,
+      moodFloat: state.mood,
+      energyFloat: state.energy,
+      anxietyFloat: state.anxiety,
 
-      // 🎯 Coordinates as numbers (not strings) - guaranteed numeric with precision
-      coordX: round(Number(coord.x), 3),  // Force numeric with 3 decimal precision
-      coordY: round(Number(coord.y), 3),  // Force numeric with 3 decimal precision
+      coordX: round3(coord.x),   // <-- sayı
+      coordY: round3(coord.y),   // <-- sayı
 
-      // Gating/animation metadata - all numeric
-      signalStrength: round(effectiveSignal, 2), // Use effective signal (boosted for explicit)
+      signalStrength,            // <-- sayı
+      explicit: explicitOverride,
       confidence: Constants.BASE_CONFIDENCE,
-      gateActive,
+      gateActive,                // <-- tek isim
       finalized: !!opts?.isFinal,
-      explicit: explicitOverride, // Flag for explicit declarations
+
+      // geçici geriye dönük uyumluluk:
+      final: !!opts?.isFinal,    // DEPRECATE
+      gated: gateActive          // DEPRECATE
     };
   }
 
@@ -1200,19 +1214,11 @@ class VoiceCheckInHeuristicService {
       const finalEnergy = this.normalizeScore(metrics.energy);
       const finalAnxiety = this.normalizeScore(metrics.anxiety);
       
-      // Fix dominantEmotion for neutral scores
-      let dominantEmotion = entities.dominantEmotion || 'nötr';
-      const nearNeutral = finalMood >= 4.5 && finalMood <= 5.5 && finalEnergy >= 4.5 && finalEnergy <= 5.5;
-      if (nearNeutral) {
-        dominantEmotion = 'nötr';
-        if (__DEV__) console.log('🎯 Override: dominantEmotion set to neutral for near-neutral scores');
-      }
-
       const result: MoodAnalysisResult = {
         moodScore: finalMood,
         energyLevel: finalEnergy,
         anxietyLevel: finalAnxiety,
-        dominantEmotion,
+        dominantEmotion: entities.dominantEmotion || 'nötr',
         triggers: entities.triggers,
         activities: entities.activities,
         notes: transcriptionResult.text, // Original text
@@ -1224,6 +1230,13 @@ class VoiceCheckInHeuristicService {
           sentiment: this.determineSentiment(finalMood) // Use final mood for sentiment
         }
       };
+
+      // Final emotion picker with energy+anxiety combo logic
+      result.dominantEmotion = this.pickFinalEmotion({
+        mood: result.moodScore,
+        energy: result.energyLevel, 
+        anxiety: result.anxietyLevel
+      });
 
       console.log('✅ Heuristic analysis complete:', {
         mood: result.moodScore,
@@ -1590,7 +1603,15 @@ class VoiceCheckInHeuristicService {
       }
 
       if (match.trigger && !triggers.includes(match.trigger)) {
-        triggers.push(match.trigger);
+        // Extra validation for ekonomik_durum - ensure genuine economic content
+        if (match.trigger === 'ekonomik_durum') {
+          const ECON = /\b(ekonomi(k)?|para|bütçe|fatura(l[ae]r)?|kira|gelir|gider|harcama(l[ae]r)?|enflasyon|zam|pahalılık|geçim|maddi)\b/iu;
+          if (ECON.test(text)) {
+            triggers.push(match.trigger);
+          }
+        } else {
+          triggers.push(match.trigger);
+        }
       }
 
       if (match.activity && !activities.includes(match.activity)) {
@@ -1746,13 +1767,30 @@ class VoiceCheckInHeuristicService {
     field: 'moodImpact' | 'energyImpact' | 'anxietyImpact', 
     baseline: number
   ): number {
+    // Semantic saturation - aynı semantik kategori tekrarlarının ağırlığını azalt
+    const categoryCount: Record<string, number> = {};
+    
+    const addWeighted = (score: number, delta: number, emotion: string) => {
+      // Semantic categories
+      let category = 'other';
+      if (['mutlu', 'çok_mutlu', 'sevinçli', 'umutlu'].includes(emotion)) category = 'pozitif_valans';
+      else if (['üzgün', 'depresif', 'mutsuz', 'kederli'].includes(emotion)) category = 'negatif_valans';
+      else if (['kaygılı', 'endişeli', 'gergin', 'stresli'].includes(emotion)) category = 'kaygı';
+      else if (['enerjik', 'aktif', 'dinamik', 'canlı'].includes(emotion)) category = 'enerji';
+      
+      const count = (categoryCount[category] = (categoryCount[category] || 0) + 1);
+      const weight = 1 / Math.min(count, 4); // 1, 1/2, 1/3, 1/4 ... sonra sabit
+      return score + delta * weight;
+    };
+
     let sum = 0;
     for (const p of patterns) {
       const impact = (p as any)[field] || 0;
-      sum += impact * p.intensity * p.weight;
+      const contribution = impact * p.intensity * p.weight;
+      sum = addWeighted(sum, contribution, p.emotion || 'other');
     }
     const raw = baseline + sum;
-    return Math.max(1, Math.min(10, Math.round(raw)));
+    return Math.max(1, Math.min(10, raw)); // No rounding for micro-movements
   }
 
   /**
@@ -1816,6 +1854,28 @@ class VoiceCheckInHeuristicService {
     };
 
     return await this.analyzeMoodFromVoice(mockTranscription);
+  }
+
+  /**
+   * 🎯 Final emotion picker with energy+anxiety combo logic
+   */
+  private pickFinalEmotion({mood, energy, anxiety}: {mood:number; energy:number; anxiety:number}): string {
+    const nearNeutral = mood >= 4.5 && mood <= 5.5;
+    if (nearNeutral) return 'nötr';
+    
+    // High energy + high anxiety combinations
+    if (anxiety >= 8 && energy >= 7 && mood >= 6) return 'heyecanlı/gergin';
+    if (anxiety >= 8 && mood <= 4) return 'kaygılı';
+    
+    // Clear positive/negative with low anxiety  
+    if (mood >= 8 && anxiety <= 3) return 'mutlu';
+    if (mood <= 3 && anxiety <= 5) return 'üzgün';
+    
+    // High energy states
+    if (energy >= 8 && mood >= 6) return 'enerjik';
+    
+    // Default to mixed for complex states
+    return 'karışık';
   }
 }
 

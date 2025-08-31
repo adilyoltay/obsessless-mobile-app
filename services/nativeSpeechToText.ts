@@ -70,9 +70,16 @@ class NativeSpeechToTextService {
         console.warn('⚠️ Voice recognition not available on this device');
       }
 
-      // Get supported languages
-      const languages = await Voice.getSpeechRecognitionServices();
-      console.log('🌍 Supported languages:', languages);
+      // Get supported languages with fallback
+      try {
+        const langs = await Voice.getSpeechRecognitionServices();
+        console.log('🌍 Supported services:', Array.isArray(langs) ? langs.length : 'unknown');
+        if (Array.isArray(langs) && langs.length > 0) {
+          console.log('🌍 Service list preview:', langs.slice(0, 3));
+        }
+      } catch (langError) {
+        console.warn('⚠️ Could not retrieve speech recognition services:', langError);
+      }
 
     } catch (error) {
       console.error('❌ Voice initialization failed:', error);
@@ -342,21 +349,7 @@ class NativeSpeechToTextService {
     }
   }
 
-  /**
-   * 📝 Get current partial results for real-time display
-   */
-  public getPartialResults(): string {
-    if (!this.isListening) {
-      console.log('🔍 getPartialResults: Not listening, returning empty (prevents stale data)');
-      return '';
-    }
-    
-    const current = this.partialResults.length > 0 ? this.partialResults[this.partialResults.length - 1] : '';
-    if (current) {
-      console.log('📝 getPartialResults: Returning active transcript:', current.slice(0, 50) + '...');
-    }
-    return current;
-  }
+
 
   /**
    * 🎯 Direct transcription method for recorded audio
