@@ -43,14 +43,15 @@ const speechToTextService = {
   ): Promise<void> => {
     console.log('🎭 Using enhanced mock STT for crash-free testing');
     
-    // Enhanced mock with varied emotional content for testing
+    // Enhanced mock with varied emotional content for dot movement testing
     const scenarios = [
       'Bugün kendimi...',
-      'Bugün kendimi çok iyi...',
-      'Bugün kendimi çok iyi hissediyorum...',
-      'Bugün kendimi çok iyi hissediyorum ama...',
-      'Bugün kendimi çok iyi hissediyorum ama keyifsizim...',
-      'Bugün kendimi çok iyi hissediyorum ama keyifsizim ve enerjim düşük'
+      'Bugün kendimi çok mutluyum...',
+      'Bugün kendimi çok mutluyum ve enerjik...',
+      'Bugün kendimi çok mutluyum ve enerjikim ama...',
+      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım...',
+      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim...',
+      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim ve enerjim düşük'
     ];
     
     // Simulate realistic partial progression
@@ -68,7 +69,7 @@ const speechToTextService = {
     await new Promise(r => setTimeout(r, 600));
     return {
       success: true,
-      text: 'Bugün kendimi çok iyi hissediyorum ama keyifsizim ve enerjim düşük',
+      text: 'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim ve enerjim düşük',
       confidence: 0.92,
       duration: 4,
       language: 'tr-TR'
@@ -270,10 +271,10 @@ export default function VAMoodCheckin({
           const vx = toCoord(analysis.moodScore);
           const vy = toCoord(analysis.energyLevel);
           
-          // Final position adjustment with spring (more pronounced than realtime)
-          console.log('🎧 Final: adjusting to precise position ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
-          x.value = withSpring(vx, { damping: 14, stiffness: 140 });
-          y.value = withSpring(vy, { damping: 14, stiffness: 140 });
+          // Final position adjustment with accelerated timing (no snap, smooth convergence)
+          console.log('🎧 Final: converging to precise position ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
+          x.value = withTiming(vx, { duration: 450 }); // Smooth convergence, not snap
+          y.value = withTiming(vy, { duration: 450 });
           setXY({ x: vx, y: vy });
           
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -543,11 +544,21 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // Refined neutral gating: Max 600ms freeze, then allow small corrections
+        // Enhanced adaptive gating based on signal strength and confidence
         const now = Date.now();
+        const signal = res.signalStrength || 0;
+        const confidence = res.confidence || 0;
+        
+        // Adaptive gate: Strong signals pass through, weak signals get filtered
+        const gateOk = confidence >= 0.55 || signal >= 0.22;
         const isNeutralScores = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
-        if (isNeutralScores(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 600) {
-          console.log('🎧 Realtime: skipping short-term neutral (max 600ms)');
+        
+        if (!gateOk || (isNeutralScores(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 600)) {
+          console.log('🎧 Realtime: gated ->', { 
+            reason: !gateOk ? 'low signal' : 'neutral timeout',
+            signal: signal.toFixed(2), 
+            confidence: confidence.toFixed(2) 
+          });
           return;
         }
 
@@ -563,34 +574,26 @@ export default function VAMoodCheckin({
           chunk: newChunk.slice(0, 30) 
         });
 
-        // Enhanced delta gate: Skip very small movements to prevent micro-jitter  
-        const MIN_DELTA = 0.03;
-        if (Math.abs(vx - xy.x) < MIN_DELTA && Math.abs(vy - xy.y) < MIN_DELTA) {
-          console.log('🎧 Realtime: skipping micro-movement to prevent jitter');
-          return;
-        }
-
         // Update timestamp for successful movement
         lastUpdateTimeRef.current = now;
 
-        // EMA blend for extra smoothness (reduced alpha for more responsive movement)
-        const blend = (prev: number, next: number, α = 0.2) => prev + α * (next - prev);
-        const bx = blend(xy.x, vx);
-        const by = blend(xy.y, vy);
+        // 🛡️ REMOVED: Micro-movement skip - let physics handle smoothing
+        // Physics-based animation will handle jitter via deadband
 
-        // Smooth animasyon (retarget-friendly, faster for enhanced responsiveness)
-        x.value = withTiming(bx, { duration: 250 });
-        y.value = withTiming(by, { duration: 250 });
-        setXY({ x: bx, y: by });
+        // Direct coordinate update (no EMA - let Reanimated handle smoothing)
+        x.value = withTiming(vx, { duration: 200 });
+        y.value = withTiming(vy, { duration: 200 });
+        setXY({ x: vx, y: vy });
         
-        // Haptic feedback for significant position changes (refined threshold)
-        if (Math.abs(vx - xy.x) > 0.2 || Math.abs(vy - xy.y) > 0.2) {
+        // Haptic feedback for significant position changes
+        if (Math.abs(vx - xy.x) > 0.15 || Math.abs(vy - xy.y) > 0.15) {
           Haptics.selectionAsync();
         }
 
-        console.log('🎧 Realtime v3.5: dot moved ->', { 
-          from: { x: xy.x.toFixed(2), y: xy.y.toFixed(2) },
-          to: { x: bx.toFixed(2), y: by.toFixed(2) },
+        console.log('🎧 Realtime v3.5: dot updated ->', { 
+          to: { x: vx.toFixed(3), y: vy.toFixed(3) },
+          mood: res.moodScore, 
+          energy: res.energyLevel,
           delta: { dx: (vx - xy.x).toFixed(3), dy: (vy - xy.y).toFixed(3) }
         });
       } catch (e) {

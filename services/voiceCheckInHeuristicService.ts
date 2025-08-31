@@ -785,17 +785,38 @@ class VoiceCheckInHeuristicService {
     state.energy = state.energy + α * (next.energy - state.energy);
     state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
 
-    // Float döndür (round'u kaldır) - daha akıcı hareket için
+    // Float döndür + signal strength - daha akıcı hareket için
     const outMood = Math.max(1, Math.min(10, state.mood));
     const outEnergy = Math.max(1, Math.min(10, state.energy));
     const outAnx = Math.max(1, Math.min(10, state.anxiety));
+    
+    const signalStrength = this.computeSignalStrength(matches);
 
     return {
-      // Tek ondalık hassasiyet ile akıcı hareket
+      // Integer values (backward compatibility)
       moodScore: Number(outMood.toFixed(1)),
       energyLevel: Number(outEnergy.toFixed(1)),
       anxietyLevel: Number(outAnx.toFixed(1)),
+
+      // Float values for smoother animation  
+      moodFloat: state.mood,
+      energyFloat: state.energy,
+      anxietyFloat: state.anxiety,
+
+      // Gating/animation metadata
+      signalStrength,
+      confidence: 0.8, // Base confidence for incremental analysis
     };
+  }
+
+  /**
+   * 📊 Compute signal strength for gating/animation decisions
+   */
+  private computeSignalStrength(matches: PatternMatch[]): number {
+    const s = matches.reduce((acc, m) =>
+      acc + (Math.abs(m.moodImpact) + Math.abs(m.energyImpact) + Math.abs(m.anxietyImpact))
+            * m.intensity * m.weight, 0);
+    return Math.max(0, Math.min(1, 1 - Math.exp(-s / 6)));
   }
 
   /**
