@@ -332,6 +332,22 @@ class NativeSpeechToTextService {
   }
 
   /**
+   * 📝 Get current partial results for real-time display
+   */
+  public getPartialResults(): string {
+    if (!this.isListening) {
+      console.log('🔍 getPartialResults: Not listening, returning empty (prevents stale data)');
+      return '';
+    }
+    
+    const current = this.partialResults.length > 0 ? this.partialResults[this.partialResults.length - 1] : '';
+    if (current) {
+      console.log('📝 getPartialResults: Returning active transcript:', current.slice(0, 50) + '...');
+    }
+    return current;
+  }
+
+  /**
    * 🎯 Direct transcription method for recorded audio
    * 
    * NOTE: Voice library works with real-time microphone input,
