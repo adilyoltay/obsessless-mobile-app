@@ -44,6 +44,10 @@ interface EncryptedMoodStorage {
     synced: boolean;
     sync_attempts?: number;
     last_sync_attempt?: string;
+    // 🆔 CRITICAL FIX: ID mapping fields for deduplication
+    local_id?: string;
+    remote_id?: string;
+    content_hash?: string;
   };
   // 🔒 Encrypted sensitive data (AES-256-GCM)
   encryptedData: {
@@ -70,12 +74,33 @@ class MoodTrackingService {
   }
   
   /**
-   * Get current user ID from AsyncStorage
+   * Get current user ID from multiple sources with fallback
    */
   private async getCurrentUserId(): Promise<string | null> {
     try {
-      const userId = await AsyncStorage.getItem('currentUserId');
-      return userId;
+      // 1. Try AsyncStorage first
+      const storedUserId = await AsyncStorage.getItem('currentUserId');
+      if (storedUserId && storedUserId !== 'null' && storedUserId !== 'undefined') {
+        console.log('✅ Found user ID in AsyncStorage:', storedUserId.slice(0, 8) + '...');
+        return storedUserId;
+      }
+      
+      // 2. Try Supabase context as fallback
+      try {
+        const { default: supabaseService } = await import('@/services/supabase');
+        const contextUserId = supabaseService.getCurrentUserId();
+        if (contextUserId && contextUserId !== 'null' && contextUserId !== 'undefined') {
+          console.log('✅ Found user ID in Supabase context:', contextUserId.slice(0, 8) + '...');
+          // Store it for future use
+          await AsyncStorage.setItem('currentUserId', contextUserId);
+          return contextUserId;
+        }
+      } catch (contextError) {
+        console.warn('⚠️ Supabase context user ID failed:', contextError);
+      }
+      
+      console.warn('⚠️ No valid user ID found in any source');
+      return null;
     } catch (error) {
       console.warn('⚠️ Could not get current user ID:', error);
       return null;
@@ -98,7 +123,11 @@ class MoodTrackingService {
           ...rawEntry.metadata,
           notes: sensitiveData.notes || '',
           triggers: sensitiveData.triggers || [],
-          activities: sensitiveData.activities || []
+          activities: sensitiveData.activities || [],
+          // 🆔 CRITICAL FIX: Restore ID mapping fields from metadata
+          local_id: rawEntry.metadata.local_id,
+          remote_id: rawEntry.metadata.remote_id,
+          content_hash: rawEntry.metadata.content_hash,
         };
       }
       
@@ -212,17 +241,19 @@ class MoodTrackingService {
         timestamp: moodEntry.timestamp, // Preserve original creation time for idempotency
       });
       
-      // 🆔 ID MAPPING: Store remote UUID returned from Supabase for future delete operations
+      // 🆔 CRITICAL FIX: Store complete ID mapping and content_hash from Supabase response
       if (supabaseResult && supabaseResult.id) {
         const remoteId = supabaseResult.id;
+        const contentHash = supabaseResult.content_hash;
         
-        // Update mood entry with remote ID mapping
+        // Update mood entry with complete mapping data
         moodEntry.remote_id = remoteId;
+        moodEntry.content_hash = contentHash;
         moodEntry.synced = true; // Mark as successfully synced
         
-        console.log(`🔄 ID mapping created: Local(${moodEntry.local_id}) ↔ Remote(${remoteId})`);
+        console.log(`🔄 Complete ID mapping: Local(${moodEntry.local_id}) ↔ Remote(${remoteId}) | Hash(${contentHash})`);
         
-        // Update local storage with ID mapping for future operations
+        // Update local storage with complete mapping for deduplication
         await this.updateInLocalStorage(moodEntry);
       }
       
@@ -344,12 +375,25 @@ class MoodTrackingService {
   /**
    * 📝 Update existing mood entry (both local and remote)
    */
-  async updateMoodEntry(entryId: string, updates: Partial<Omit<MoodEntry, 'id' | 'user_id' | 'timestamp'>>): Promise<MoodEntry> {
+  async updateMoodEntry(entryId: string, updates: Partial<Omit<MoodEntry, 'id' | 'timestamp'>>, userIdOverride?: string): Promise<MoodEntry> {
     try {
       console.log(`📝 Updating mood entry: ${entryId}`, updates);
 
-      // 🔍 First, find the entry to get user_id and current data
-      const existingEntries = await this.getMoodEntries((updates as any).user_id || 'unknown', 30);
+      // 🚨 CRITICAL FIX: Get valid user ID from multiple sources with priority
+      let userId = userIdOverride || (updates as any).user_id;
+      if (!userId) {
+        userId = await this.getCurrentUserId();
+      }
+      
+      if (!userId) {
+        console.error('❌ No valid user ID available for mood entry update');
+        throw new Error('User authentication required for mood entry operations');
+      }
+      
+      console.log('✅ Using user ID for update:', userId.slice(0, 8) + '...');
+
+      // 🔍 First, find the entry to get current data
+      const existingEntries = await this.getMoodEntries(userId, 30);
       const existingEntry = existingEntries.find(entry => entry.id === entryId);
       
       if (!existingEntry) {
@@ -409,16 +453,23 @@ class MoodTrackingService {
     try {
       const existing = await optimizedStorage.getOptimized<EncryptedMoodStorage[]>(key) || [];
       
-      // Find and update the entry
+      // 🆔 CRITICAL FIX: Enhanced ID matching for deduplication
       let updated = false;
       for (let i = 0; i < existing.length; i++) {
         const storedEntry = existing[i];
         const metadata = storedEntry.metadata || storedEntry;
         
-        if ((metadata as any).id === (entry as any).id) {
+        // Match by primary ID, local_id, or remote_id for comprehensive deduplication
+        const matches = 
+          (metadata as any).id === (entry as any).id ||
+          ((metadata as any).local_id && (metadata as any).local_id === entry.local_id) ||
+          ((metadata as any).remote_id && (metadata as any).remote_id === entry.remote_id);
+        
+        if (matches) {
           // Update the entry
           existing[i] = await this.encryptMoodEntry(entry);
           updated = true;
+          console.log(`🔄 Updated entry match: ID(${entry.id}) | Local(${entry.local_id}) | Remote(${entry.remote_id})`);
           break;
         }
       }
@@ -461,6 +512,10 @@ class MoodTrackingService {
         synced: entry.synced,
         sync_attempts: entry.sync_attempts,
         last_sync_attempt: entry.last_sync_attempt,
+        // 🆔 CRITICAL FIX: Store ID mapping fields for deduplication
+        local_id: entry.local_id,
+        remote_id: entry.remote_id,
+        content_hash: entry.content_hash,
       },
       encryptedData: encryptedSensitiveData,
       storageVersion: 2
@@ -803,25 +858,20 @@ class MoodTrackingService {
 
   // Cross-device: fetch recent remote entries and merge with local using intelligent merge
   async getMoodEntries(userId: string, days: number = 7): Promise<MoodEntry[]> {
-    // 🚀 PERFORMANCE OPTIMIZATION: Use optimized storage with query capabilities
-    try {
-      const dateFrom = new Date();
-      dateFrom.setDate(dateFrom.getDate() - days);
-      
-      const optimizedEntries = await optimizedStorage.queryMoodEntries(userId, {
-        dateFrom,
-        sortBy: 'timestamp',
-        sortOrder: 'desc'
-      });
-
-      // If optimized query returns results, use them
-      if (optimizedEntries.length > 0) {
-        console.log(`⚡ Optimized query: ${optimizedEntries.length} entries in optimized path`);
-        return optimizedEntries;
-      }
-    } catch (error) {
-      console.warn('Optimized query failed, falling back to traditional method:', error);
-    }
+    console.log(`🔄 getMoodEntries called: userId=${userId.slice(0, 8)}..., days=${days}`);
+    
+    // 🚨 CRITICAL FIX: Force merge path for consistency
+    // Skip optimized storage to ensure fresh remote+local merge every time
+    // This prevents the inconsistent behavior where sometimes optimized cache shows old data
+    console.log('🔄 Forcing traditional merge path for consistency...');
+    
+    // DISABLED: Optimized storage path (causes inconsistency)
+    // try {
+    //   const dateFrom = new Date();
+    //   dateFrom.setDate(dateFrom.getDate() - days);
+    //   const optimizedEntries = await optimizedStorage.queryMoodEntries(userId, {...});
+    //   if (optimizedEntries.length > 0) return optimizedEntries;
+    // } catch (error) { ... }
 
     // 🔄 FALLBACK: Traditional AsyncStorage method (backwards compatibility)
     const localEntries: MoodEntry[] = [];
@@ -855,7 +905,27 @@ class MoodTrackingService {
     });
 
     const allEntries = await Promise.all(loadPromises);
-    localEntries.push(...allEntries.flat());
+    const flatEntries = allEntries.flat();
+    
+    // 🚨 CRITICAL FIX: Deduplicate local entries before adding to prevent merge issues
+    const uniqueEntriesMap = new Map<string, MoodEntry>();
+    flatEntries.forEach(entry => {
+      if (entry && entry.id) {
+        // Keep latest entry if duplicates found (by timestamp)
+        const existing = uniqueEntriesMap.get(entry.id);
+        if (!existing || new Date(entry.timestamp || 0) > new Date(existing.timestamp || 0)) {
+          uniqueEntriesMap.set(entry.id, entry);
+        }
+      }
+    });
+    
+    const uniqueEntries = Array.from(uniqueEntriesMap.values());
+    if (uniqueEntries.length !== flatEntries.length) {
+      const removedCount = flatEntries.length - uniqueEntries.length;
+      console.log(`🧹 Removed ${removedCount} duplicate local entries during storage read`);
+    }
+    
+    localEntries.push(...uniqueEntries);
     
     try {
       // Use fully standardized supabaseService.getMoodEntries (canonical service method)
@@ -877,6 +947,10 @@ class MoodTrackingService {
           timestamp: d.created_at || d.timestamp,
           synced: true,
           sync_attempts: 0,
+          // 🆔 CRITICAL FIX: Add mapping fields for deduplication
+          remote_id: d.id, // Remote entry's own ID
+          content_hash: d.content_hash, // Content hash from Supabase
+          // local_id will be matched during merge if found
         }));
         
         // 🔄 INTELLIGENT MOOD MERGE WITH CONFLICT RESOLUTION
@@ -1168,7 +1242,11 @@ class MoodTrackingService {
       if (isUUIDFormat) {
         try {
           // Search for entry with this remote_id to get local_id
-          const allEntries = await this.getMoodEntries(userId || 'unknown', 30);
+          if (!userId) {
+            console.error('❌ No user ID available for getMoodEntries - cannot proceed with deletion');
+            throw new Error('User authentication required for mood entry operations');
+          }
+          const allEntries = await this.getMoodEntries(userId, 30);
           const matchingEntry = allEntries.find(entry => 
             entry.remote_id === entryId || entry.id === entryId
           );
@@ -1185,9 +1263,107 @@ class MoodTrackingService {
         }
       }
       
-      // Get all possible user storage keys by scanning existing storage
+      // 🚨 CRITICAL FIX: Use same storage access method as getMoodEntries
+      // This ensures deletion finds entries in the same locations where getMoodEntries finds them
+      console.log('🔍 Using consistent storage access method for deletion...');
+      
+      // First try optimized storage (same as getMoodEntries)
+      try {
+        if (!userId) {
+          console.error('❌ No user ID available for optimized query - cannot proceed');
+          throw new Error('User authentication required for mood entry operations');
+        }
+        const optimizedEntries = await optimizedStorage.queryMoodEntries(userId, {
+          sortBy: 'timestamp',
+          sortOrder: 'desc'
+        });
+        
+        if (optimizedEntries.length > 0) {
+          console.log(`🔍 Found ${optimizedEntries.length} entries via optimized storage, checking for deletion target`);
+          
+          const entryToDelete = optimizedEntries.find(entry => 
+            entry.id === entryId || 
+            entry.local_id === entryId || 
+            entry.remote_id === entryId
+          );
+          
+          if (entryToDelete) {
+            console.log(`✅ Found entry to delete via optimized storage: ${entryToDelete.id}`);
+            
+            // Mark entry as found and proceed with manual deletion
+            entryFound = true;
+            console.log(`🎯 Target entry details:`, {
+              id: entryToDelete.id,
+              local_id: entryToDelete.local_id,
+              remote_id: entryToDelete.remote_id,
+              timestamp: entryToDelete.timestamp
+            });
+            
+            // 🚨 CRITICAL FIX: Manual deletion since optimizedStorage.deleteMoodEntry not implemented
+            // Clear from regular AsyncStorage using same logic as getMoodEntries
+            const entryDate = new Date(entryToDelete.timestamp);
+            const localDateKey = this.getLocalDateKey(entryDate);
+            const storageKey = `${this.STORAGE_KEY}_${userId}_${localDateKey}`;
+            
+            const existing = await AsyncStorage.getItem(storageKey);
+            if (existing) {
+              try {
+                let entries = JSON.parse(existing);
+                const originalCount = entries.length;
+                
+                // Filter out the entry (handle both encrypted and plain formats)
+                if (entries.length > 0 && entries[0].storageVersion === 2) {
+                  // Encrypted format
+                  entries = entries.filter((e: any) => {
+                    const metadata = e.metadata || {};
+                    return !(
+                      metadata.id === entryId ||
+                      metadata.local_id === entryId ||
+                      metadata.remote_id === entryId
+                    );
+                  });
+                } else {
+                  // Plain format
+                  entries = entries.filter((e: any) => !(
+                    e.id === entryId ||
+                    e.local_id === entryId ||
+                    e.remote_id === entryId
+                  ));
+                }
+                
+                if (entries.length === 0) {
+                  await AsyncStorage.removeItem(storageKey);
+                  console.log(`🗑️ Removed empty storage key: ${storageKey}`);
+                } else {
+                  await AsyncStorage.setItem(storageKey, JSON.stringify(entries));
+                  console.log(`🔄 Updated storage key: ${storageKey} (${originalCount} → ${entries.length})`);
+                }
+              } catch (error) {
+                console.error(`❌ Failed to process storage key ${storageKey}:`, error);
+              }
+            }
+            
+            // 🧹 ADDITIONAL CLEANUP: Clear from optimized storage cache/index
+            try {
+              await optimizedStorage.clearMemoryCache();
+              console.log('🧹 Optimized storage cache cleared after deletion');
+            } catch (cacheError) {
+              console.warn('⚠️ Cache clear failed:', cacheError);
+            }
+            
+            console.log('✅ Entry successfully deleted via consistent storage method');
+            return; // Early return on success
+          }
+        }
+        
+        console.log('🔍 Entry not found in optimized storage, falling back to traditional scan');
+      } catch (error) {
+        console.warn('⚠️ Optimized storage deletion failed, using traditional method:', error);
+      }
+      
+      // Fallback: Traditional storage scan
       const allKeys = await this.getAllMoodStorageKeys();
-      console.log(`🔍 Checking ${allKeys.length} storage keys for entry ${entryId}`);
+      console.log(`🔍 Fallback: Checking ${allKeys.length} storage keys for entry ${entryId}`);
       
       for (const storageKey of allKeys) {
         totalKeysChecked++;
@@ -1504,6 +1680,12 @@ class MoodTrackingService {
       const allKeys = await AsyncStorage.getAllKeys();
       const moodKeys = allKeys.filter(key => key.startsWith(this.STORAGE_KEY));
       console.log(`📦 Found ${moodKeys.length} mood storage keys`);
+      
+      // 🔍 DEBUG: Show which keys were found for deletion debugging  
+      if (moodKeys.length > 0) {
+        console.log('🔍 Mood storage keys for deletion scan:', moodKeys.slice(0, 5));
+      }
+      
       return moodKeys;
     } catch (error) {
       console.error('❌ Failed to get mood storage keys:', error);

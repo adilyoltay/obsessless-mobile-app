@@ -1243,14 +1243,11 @@ class SupabaseNativeService {
   // ===========================
   
   /**
-   * 🌍 Get local date string for consistent date keys (YYYY-MM-DD)
-   * Avoids UTC timezone issues where entries appear in wrong day
+   * 🌍 Get UTC date string for consistent date keys (YYYY-MM-DD)
+   * Fixed to use UTC for cross-device consistency with DB
    */
-  private getLocalDateKey(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  private getUtcDateKey(date: Date): string {
+    return date.toISOString().split('T')[0];
   }
   
   // ===========================
@@ -1308,14 +1305,14 @@ class SupabaseNativeService {
         console.log(`⚠️ Corrected mood_score: ${sanitizedEntry.mood_score} → ${validatedMood} (must be 0-100)`);
       }
 
-      // 🌍 TIMEZONE FIX: Use local date instead of UTC for content hash consistency
+      // 🌍 TIMEZONE FIX: Use UTC date for cross-device consistency with DB
       const createdDate = new Date(createdAtIso);
-      const localDay = this.getLocalDateKey(createdDate);
+      const utcDay = this.getUtcDateKey(createdDate);
       
-      // ✅ Generate content_hash (canonical): Use VALIDATED values, exclude triggers/activities; LOCAL day
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(validatedMood)}|${Math.round(validatedEnergy)}|${Math.round(validatedAnxiety)}|${sanitizedEntry.notes.trim().toLowerCase()}|${localDay}`;
+      // ✅ Generate content_hash (canonical): Use VALIDATED values, exclude triggers/activities; UTC day
+      const contentText = `${sanitizedEntry.user_id}|${Math.round(validatedMood)}|${Math.round(validatedEnergy)}|${Math.round(validatedAnxiety)}|${sanitizedEntry.notes.trim().toLowerCase()}|${utcDay}`;
       
-      console.log(`🌍 Content hash using local date: ${localDay} (from timestamp: ${createdAtIso})`);
+      console.log(`🌍 Content hash using UTC date: ${utcDay} (from timestamp: ${createdAtIso})`);
       const content_hash = this.computeContentHash(contentText);
 
       const payload = {
@@ -1331,13 +1328,15 @@ class SupabaseNativeService {
       };
       
       // ✅ Use upsert with conflict resolution on (user_id, content_hash)
-      // NOTE: Use maybeSingle() to avoid PGRST116 when no rows are returned (duplicate prevented)
+      // CRITICAL FIX: Add .select() to get returned data including ID
       const { data, error } = await this.client
         .from('mood_entries')
         .upsert(payload, { 
           onConflict: 'user_id,content_hash',
           ignoreDuplicates: true
-        });
+        })
+        .select('id, user_id, content_hash, created_at')
+        .maybeSingle();
       
       if (error) {
         // ✅ Handle unique/duplicate or no-row return cases gracefully
@@ -1352,6 +1351,26 @@ class SupabaseNativeService {
           return null;
         }
         throw error;
+      }
+      
+      // 🆔 CRITICAL FIX: If data is null (ignoreDuplicates case), fetch existing entry by content_hash
+      if (!data) {
+        console.log('ℹ️ No data returned (ignoreDuplicates), fetching existing entry by content_hash');
+        try {
+          const { data: existingData } = await this.client
+            .from('mood_entries')
+            .select('id, user_id, content_hash, created_at')
+            .eq('user_id', sanitizedEntry.user_id)
+            .eq('content_hash', content_hash)
+            .maybeSingle();
+          
+          if (existingData) {
+            console.log('✅ Found existing mood entry by content_hash:', existingData.id);
+            return existingData;
+          }
+        } catch (fetchError) {
+          console.warn('⚠️ Failed to fetch existing entry:', fetchError);
+        }
       }
       
       console.log('✅ Mood entry saved:', data ? 'success' : 'duplicate_prevented');

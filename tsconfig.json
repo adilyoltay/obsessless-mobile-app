@@ -5,6 +5,9 @@
     "skipLibCheck": true,
     "noImplicitAny": false,
     "noImplicitReturns": false,
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@/assets/*": [
         "./assets/*"
@@ -62,8 +65,6 @@
     "components/ai/**",
     "hooks/useAIErrorHandler.ts",
     "utils/debugInvalidEntries.ts",
-    "components/checkin/VoiceCheckinModern.tsx",
-    "components/checkin/VoiceMoodCheckin.tsx",
     "components/ui/AdaptiveSuggestionCard.tsx",
     "components/ui/DailyMissionsCard.tsx",
     "components/ui/DeadLetterQueueRecovery.tsx",
@@ -72,10 +73,6 @@
     "services/crossDeviceSync.ts", 
     "services/voiceCleanupService.ts",
     "services/sync/maintenanceScheduler.ts",
-    "services/offlineSyncUserFeedbackService.ts",
-    "services/unifiedComplianceService.ts",
-    "store/gamificationStore.ts",
-    "components/settings/OnboardingSyncStatusCard.tsx",
     "old_docs/**"
   ],
   "ts-node": {

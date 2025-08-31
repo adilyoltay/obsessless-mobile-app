@@ -9,6 +9,7 @@
  */
 
 import type { MoodEntry } from '@/services/moodTrackingService';
+import { moodDeletionCache } from './moodDeletionCache';
 
 interface MergeResult {
   mergedEntries: MoodEntry[];
@@ -47,6 +48,22 @@ async function intelligentMoodMerge(
 ): Promise<MergeResult> {
   console.log(`🔄 Starting static mood merge for user: ${userId || 'unknown'}`);
   
+  // 🗑️ CRITICAL FIX: Filter deleted entries before merge
+  let recentlyDeletedIds: string[] = [];
+  if (userId) {
+    try {
+      recentlyDeletedIds = await moodDeletionCache.getRecentlyDeletedIds(userId);
+      console.log(`🗑️ Found ${recentlyDeletedIds.length} recently deleted entries to filter:`, recentlyDeletedIds);
+      
+      // 🔍 DEBUG: Log what we're filtering against
+      if (recentlyDeletedIds.length > 0) {
+        console.log(`🔍 Will filter entries matching these deleted IDs:`, recentlyDeletedIds.slice(0, 3));
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to get deletion cache:', error);
+    }
+  }
+  
   const stats = {
     localCount: localEntries.length,
     remoteCount: remoteEntries.length,
@@ -55,20 +72,74 @@ async function intelligentMoodMerge(
     conflictsResolved: 0
   };
 
-  // Remote entries'i base olarak al (truth source)
-  const mergedEntries = [...remoteEntries];
-  const remoteIds = new Set(remoteEntries.map(entry => entry.id));
-  const remoteHashes = new Set(remoteEntries.map(entry => entry.content_hash).filter(Boolean));
+  // 🗑️ CRITICAL FIX: Filter out deleted entries from both local and remote
+  const filteredRemoteEntries = remoteEntries.filter(entry => {
+    const isDeleted = recentlyDeletedIds.includes(entry.id) || 
+                     (entry.local_id && recentlyDeletedIds.includes(entry.local_id)) ||
+                     (entry.remote_id && recentlyDeletedIds.includes(entry.remote_id));
+    if (isDeleted) {
+      console.log(`🗑️ Filtering out deleted remote entry: ${entry.id}`);
+    }
+    return !isDeleted;
+  });
+  
+  const filteredLocalEntries = localEntries.filter(entry => {
+    const isDeleted = recentlyDeletedIds.includes(entry.id) || 
+                     (entry.local_id && recentlyDeletedIds.includes(entry.local_id)) ||
+                     (entry.remote_id && recentlyDeletedIds.includes(entry.remote_id));
+    if (isDeleted) {
+      console.log(`🗑️ DELETION FILTER: Filtering out deleted local entry: ${entry.id}`, {
+        matchedBy: recentlyDeletedIds.includes(entry.id) ? 'id' : 
+                  (entry.local_id && recentlyDeletedIds.includes(entry.local_id)) ? 'local_id' :
+                  'remote_id',
+        deletedIds: recentlyDeletedIds
+      });
+    }
+    return !isDeleted;
+  });
 
-  // 🔍 ENHANCED DUPLICATE DETECTION: Build comprehensive ID and content maps
-  const remoteContentHashes = new Set(remoteEntries.map(entry => entry.content_hash).filter(Boolean));
-  const remoteLocalIds = new Set(remoteEntries.map(entry => entry.local_id).filter(Boolean));
-  const remoteRemoteIds = new Set(remoteEntries.map(entry => entry.remote_id || entry.id).filter(Boolean));
+  // Remote entries'i base olarak al (truth source) - filtered
+  const mergedEntries = [...filteredRemoteEntries];
+  const remoteIds = new Set(filteredRemoteEntries.map(entry => entry.id));
+  const remoteHashes = new Set(filteredRemoteEntries.map(entry => entry.content_hash).filter(Boolean));
+
+  // 🔍 ENHANCED DUPLICATE DETECTION: Build comprehensive ID and content maps - from filtered entries
+  const remoteContentHashes = new Set(filteredRemoteEntries.map(entry => entry.content_hash).filter(Boolean));
+  const remoteLocalIds = new Set(filteredRemoteEntries.map(entry => entry.local_id).filter(Boolean));
+  const remoteRemoteIds = new Set(filteredRemoteEntries.map(entry => entry.remote_id || entry.id).filter(Boolean));
 
   console.log(`🔍 Merge analysis: Remote has ${remoteIds.size} IDs, ${remoteContentHashes.size} content hashes, ${remoteLocalIds.size} local_ids`);
 
-  // Local entries'den remote'da olmayan ve duplicate olmayan'ları ekle
-  for (const localEntry of localEntries) {
+  // 🐛 DEBUG: Check for duplicate local entries before processing
+  const localIdCounts = new Map<string, number>();
+  filteredLocalEntries.forEach(entry => {
+    const count = localIdCounts.get(entry.id) || 0;
+    localIdCounts.set(entry.id, count + 1);
+  });
+  
+  const duplicateLocalIds = Array.from(localIdCounts.entries())
+    .filter(([id, count]) => count > 1)
+    .map(([id, count]) => ({ id, count }));
+  
+  if (duplicateLocalIds.length > 0) {
+    console.warn('🚨 DUPLICATE LOCAL ENTRIES DETECTED:', duplicateLocalIds);
+    duplicateLocalIds.forEach(({ id, count }) => {
+      console.warn(`   ⚠️ ID: ${id} appears ${count} times in local entries`);
+    });
+  }
+
+  // 🔧 CRITICAL FIX: Deduplicate local entries by ID before processing
+  const uniqueLocalEntries = Array.from(
+    new Map(filteredLocalEntries.map(entry => [entry.id, entry])).values()
+  );
+  
+  if (uniqueLocalEntries.length !== filteredLocalEntries.length) {
+    const removedCount = filteredLocalEntries.length - uniqueLocalEntries.length;
+    console.log(`🧹 Removed ${removedCount} duplicate local entries before merge`);
+  }
+
+  // Local entries'den remote'da olmayan ve duplicate olmayan'ları ekle - from deduplicated entries
+  for (const localEntry of uniqueLocalEntries) {
     let shouldSkip = false;
     let skipReason = '';
 

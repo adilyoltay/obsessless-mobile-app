@@ -98,19 +98,49 @@ class NativeSpeechToTextService {
       this.partialResults = [];
       this.finalResults = [];
       
-      await Voice.start(language);
-      this.isListening = true;
-      this.isInitialized = true;
-      
-      // Reset error count on successful start
-      this.errorCount = 0;
-      console.log(`🎤 Started listening in ${language}`);
+      // 🎯 ROBUST VOICE START with better error classification
+      try {
+        await Voice.start(language);
+        this.isListening = true;
+        this.isInitialized = true;
+        
+        // Reset error count on successful start
+        this.errorCount = 0;
+        console.log(`🎤 Started listening in ${language}`);
+      } catch (voiceError) {
+        // 🔍 Enhanced error analysis for Voice.start failures
+        const errorMessage = voiceError instanceof Error ? voiceError.message : String(voiceError);
+        
+        if (errorMessage.includes('already started') || errorMessage.includes('already listening')) {
+          console.log('⚠️ Voice recognition already active - attempting to restart');
+          await this.forceCleanup();
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
+          await Voice.start(language);
+          this.isListening = true;
+          this.isInitialized = true;
+          this.errorCount = 0;
+          console.log(`🎤 Restarted listening in ${language} after cleanup`);
+        } else {
+          throw voiceError; // Re-throw for other error types
+        }
+      }
       
     } catch (error) {
       console.error('❌ Failed to start listening:', error);
       this.isListening = false;
       this.errorCount++;
       this.lastErrorTime = now;
+      
+      // 💡 Enhanced error context for debugging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('already started')) {
+        console.log('💡 Hint: Previous speech session may not have cleaned up properly');
+      } else if (errorMessage.includes('permission')) {
+        console.log('💡 Hint: Check microphone permissions in device settings');
+      } else if (errorMessage.includes('not available')) {
+        console.log('💡 Hint: Speech recognition not available on this device/platform');
+      }
+      
       throw error;
     }
   }
@@ -221,11 +251,11 @@ class NativeSpeechToTextService {
   }
 
   /**
-   * 🧹 Force cleanup when errors occur (Enhanced)
+   * 🧹 Force cleanup when errors occur (Enhanced) - PUBLIC METHOD
    */
-  private async forceCleanup() {
+  public async forceCleanup() {
     try {
-      console.log('🧹 Starting force cleanup...');
+      console.log('🧹 Starting aggressive force cleanup...');
       
       // Stop listening if active
       if (this.isListening) {
@@ -236,22 +266,33 @@ class NativeSpeechToTextService {
         }
       }
       
-      // Reset all state
+      // 🚨 CRITICAL FIX: Complete state reset including cached results
       this.isListening = false;
-      this.partialResults = [];
-      this.finalResults = [];
+      this.partialResults = [];      // Clear partial results (feeds getPartialResults!)
+      this.finalResults = [];        // Clear final results
+      this.currentLanguage = 'tr-TR'; // Reset to default language
+      this.isInitialized = false;    // Reset initialization state
+      
+      // 🧹 CRITICAL: Remove all Voice.js event listeners to prevent stale data
+      try {
+        await Voice.removeAllListeners();
+        console.log('🧹 All Voice.js listeners removed');
+      } catch (listenerError) {
+        console.warn('⚠️ Listener removal error:', listenerError);
+      }
       
       // Try to destroy any active voice sessions
       try {
         await Voice.destroy();
+        console.log('🧹 Voice.js session destroyed');
       } catch (destroyError) {
         console.warn('⚠️ Destroy failed during cleanup:', destroyError);
       }
       
       // Wait a bit before allowing new requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500)); // Reduced wait time
       
-      console.log('✅ Force cleanup completed');
+      console.log('✅ Aggressive force cleanup completed - all stale data cleared');
     } catch (cleanupError) {
       console.error('❌ Cleanup failed:', cleanupError);
     }
@@ -309,7 +350,17 @@ class NativeSpeechToTextService {
    * 📝 Get current partial results
    */
   getPartialResults(): string {
-    return this.partialResults.join(' ');
+    // 🚨 CRITICAL FIX: Return empty if not actively listening to prevent stale data
+    if (!this.isListening) {
+      console.log('🔍 getPartialResults: Not listening, returning empty (prevents stale data)');
+      return '';
+    }
+    
+    const result = this.partialResults.join(' ');
+    if (result) {
+      console.log('📝 getPartialResults: Returning active transcript:', result.substring(0, 50) + '...');
+    }
+    return result;
   }
 
   /**

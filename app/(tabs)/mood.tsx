@@ -23,7 +23,7 @@ import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 
-import { MoodQuickEntry } from '@/components/mood/MoodQuickEntry';
+// MoodQuickEntry removed - mood entry now only through Today page check-in
 // TranscriptConfirmationModal removed - using direct empty mood form
 
 // Services & Hooks
@@ -49,6 +49,7 @@ import { secureDataService } from '@/services/encryption/secureDataService';
 // import { advancedRiskAssessmentService } from '@/features/ai-fallbacks/riskAssessmentService';
 import patternPersistenceService from '@/services/patternPersistenceService';
 import voiceCheckInHeuristicService from '@/services/voiceCheckInHeuristicService';
+import optimizedStorage from '@/services/optimizedStorage';
 
 // 🚫 Adaptive Suggestions - DISABLED (Sprint 2: Minimal AI Cleanup)
 // import { useAdaptiveSuggestion, AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
@@ -79,8 +80,6 @@ function MoodScreen() {
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('week');
@@ -108,11 +107,11 @@ function MoodScreen() {
   useEffect(() => {
     console.log('📝 Mood page params updated:', {
       prefill: params.prefill,
-      source: params.source,
-      showQuickEntry
+      source: params.source
     });
     
-    if (params.prefill === 'true' && !showQuickEntry) {
+    // Voice check-in is now handled through VAMoodCheckin in Today page
+    if (params.prefill === 'true') {
       console.log('📝 Processing pre-filled data:', params);
       
       // Handle voice check-in specific pre-fill
@@ -123,20 +122,65 @@ function MoodScreen() {
           anxiety: params.anxiety,
           emotion: params.emotion,
           trigger: params.trigger,
-          notes: params.notes, // Add notes debug
+          notes: params.notes,
+          confidence: params.confidence,
           notesLength: params.notes ? (params.notes as string).length : 0
         });
         
-        setToastMessage(`🎤 Sesli analiz tamamlandı! ${params.emotion} mood tespit edildi.`);
+        // 🚀 CRITICAL UX FIX: Auto-save for high confidence voice analysis
+        const confidence = params.confidence ? parseFloat(Array.isArray(params.confidence) ? params.confidence[0] : params.confidence) : 0;
+        const hasRichContent = params.notes && (params.notes as string).length > 20;
+        
+        if (confidence >= 0.9 && hasRichContent && user?.id) {
+          console.log('🤖 High confidence voice analysis - auto-saving mood entry!', {
+            confidence,
+            noteLength: (params.notes as string)?.length,
+            autoSave: true
+          });
+          
+          // Auto-save for seamless UX
+          setTimeout(async () => {
+            try {
+              const moodScore = params.mood ? parseInt(Array.isArray(params.mood) ? params.mood[0] : params.mood) : 50;
+              const energy = params.energy ? parseInt(Array.isArray(params.energy) ? params.energy[0] : params.energy) : 5;
+              const anxiety = params.anxiety ? parseInt(Array.isArray(params.anxiety) ? params.anxiety[0] : params.anxiety) : 5;
+              
+              await handleMoodSubmit({
+                mood: moodScore,
+                energy,
+                anxiety,
+                notes: params.notes || '',
+                trigger: (Array.isArray(params.trigger) ? params.trigger[0] : params.trigger) || ''
+              });
+              
+              setToastMessage(`🎤 Sesli analiz otomatik kaydedildi! ${params.emotion} mood tespit edildi.`);
+              
+            } catch (autoSaveError) {
+              console.error('❌ Auto-save failed:', autoSaveError);
+              setToastMessage(`🎤 Sesli analiz tamamlandı! ${params.emotion} mood tespit edildi. Lütfen kaydetin.`);
+              // setShowQuickEntry(true); // Removed - mood entry now through Today page
+            }
+          }, 1000);
+        } else {
+          console.log('🎤 Voice analysis - manual confirmation required', {
+            confidence,
+            noteLength: (params.notes as string)?.length,
+            requiresManual: true
+          });
+          setToastMessage(`🎤 Sesli analiz tamamlandı! ${params.emotion} mood tespit edildi. Lütfen kontrol edin.`);
+          // setShowQuickEntry(true); // Removed - mood entry now through Today page
+        }
+        
         setShowToast(true);
       } else if (params.source === 'voice_checkin_manual') {
         console.log('📝 Voice check-in manual entry (transcript failed)');
         setToastMessage('🎤 Ses kaydınız alındı. Lütfen detayları tamamlayın.');
         setShowToast(true);
+        // setShowQuickEntry(true); // Removed - mood entry now through Today page
+      } else {
+        // setShowQuickEntry(true); // Removed - mood entry now through Today page
       }
       // voice_transcript_needed source removed - no longer using TranscriptConfirmationModal
-      
-      setShowQuickEntry(true);
     }
   }, [params.prefill, params.source]); // Trigger when prefill or source changes
 
@@ -177,14 +221,29 @@ function MoodScreen() {
     
     try {
       setIsLoading(true);
+      console.log(`🔄 Loading mood entries (range: ${selectedTimeRange}, user: ${user.id.slice(0, 8)}...)`);
       
       // 🌍 TIMEZONE-AWARE: Get extended period to ensure we capture all entries 
       // then filter by user's timezone to prevent edge cases
       const extendedPeriodDays = selectedTimeRange === 'today' ? 2 : 
                                 selectedTimeRange === 'week' ? 10 : 35;
       
+      // 🚨 CRITICAL FIX: Add loading context for merge operations
+      console.log('📡 Starting mood data fetch and merge...');
+      const startTime = Date.now();
+      
       // 🔄 Use intelligent merge service to get extended range
       const rawEntries = await moodTracker.getMoodEntries(user.id, extendedPeriodDays);
+      
+      const loadDuration = Date.now() - startTime;
+      console.log(`⚡ Mood data loaded in ${loadDuration}ms (${rawEntries?.length || 0} entries)`);
+      
+      // 🔍 CONSISTENCY CHECK: Log storage method used
+      if (loadDuration < 100) {
+        console.log('⚡ Fast load - likely optimized storage path');
+      } else {
+        console.log('🔄 Slower load - likely traditional storage + merge path');
+      }
       
       // Map service MoodEntry to screen MoodEntry format
       const allEntries = (rawEntries || []).map(entry => ({
@@ -202,7 +261,9 @@ function MoodScreen() {
       const { filterEntriesByUserTimeRange } = require('@/utils/timezoneUtils');
       const filteredEntries = filterEntriesByUserTimeRange(allEntries, selectedTimeRange);
       
+      console.log(`📊 Final mood entries: ${filteredEntries.length} (after timezone filter)`);
       setMoodEntries(filteredEntries);
+      
     } catch (error) {
       console.error('Failed to load mood entries:', error);
       setToastMessage('Mood kayıtları yüklenemedi');
@@ -214,9 +275,28 @@ function MoodScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadMoodEntries();
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRefreshing(false);
+    console.log('🔄 Manual refresh triggered by user');
+    
+    try {
+      // 🧹 CRITICAL FIX: Clear cache before refresh for fresh data
+      try {
+        await optimizedStorage.clearMemoryCache();
+        console.log('🧹 Cleared optimized storage cache before refresh');
+      } catch (cacheError) {
+        console.warn('⚠️ Cache clear failed during refresh:', cacheError);
+      }
+      
+      await loadMoodEntries();
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      console.log('✅ Manual refresh completed successfully');
+    } catch (refreshError) {
+      console.error('❌ Manual refresh failed:', refreshError);
+      setToastMessage('Yenileme başarısız');
+      setShowToast(true);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
     // ✅ REMOVED: analyzeMoodPatterns function moved to dashboard
@@ -253,39 +333,7 @@ function MoodScreen() {
 
   // 🧪 DEBUG: Test mood data flow
 
-  const handleEditEntry = async (entry: MoodEntry) => {
-    try {
-      console.log('✏️ Editing mood entry:', entry.id);
-      
-      // Find the entry in current list
-      const currentEntry = moodEntries.find(e => e.id === entry.id);
-      if (!currentEntry) {
-        setToastMessage('Kayıt bulunamadı');
-        setShowToast(true);
-        return;
-      }
-
-      // Set the entry to be edited and show the form
-      setEditingEntry(currentEntry);
-      setShowQuickEntry(true);
-      
-      setToastMessage('Düzenleme formu açılıyor...');
-      setShowToast(true);
-
-      // Track edit action
-      // await trackAIInteraction('MOOD_ENTRY_EDIT', {
-      //   entryId: entry.id,
-      //   mood: entry.mood_score,
-      //   energy: entry.energy_level,
-      //   anxiety: entry.anxiety_level
-      // });
-
-    } catch (error) {
-      console.error('❌ Failed to edit entry:', error);
-      setToastMessage('Düzenleme başlatılamadı');
-      setShowToast(true);
-    }
-  };
+  // Edit functionality removed - mood entries can only be added through Today page check-in
 
   const handleDeleteEntry = async (entryId: string) => {
     try {
@@ -545,8 +593,12 @@ function MoodScreen() {
 
 
 
-  // Handler Functions - handleMoodSubmit was missing
+  // Handler Functions - Mood submission now only through Today page check-in
   const handleMoodSubmit = async (moodData: any) => {
+    // This function is deprecated - mood entries are now only created through Today page check-in
+    console.warn('⚠️ handleMoodSubmit called but mood entries should only be created through Today page check-in');
+    return;
+    /* Disabled - mood entries now only through Today page
     try {
       if (!user?.id) {
         setToastMessage('Kullanıcı oturumu bulunamadı');
@@ -565,17 +617,31 @@ function MoodScreen() {
         created_at: new Date().toISOString()
       };
 
+      /* Editing disabled
       if (editingEntry) {
+        // 🚨 CRITICAL FIX: Ensure we have valid user ID for edit operations
+        if (!user?.id) {
+          console.error('❌ No authenticated user for mood entry edit');
+          setToastMessage('Kullanıcı doğrulanamadı, giriş yapın');
+          setShowToast(true);
+          return;
+        }
+        
+        console.log('📝 Updating mood entry:', editingEntry.id, {
+          userId: user.id.slice(0, 8) + '...',
+          newData: entryData
+        });
+        
         // 🔄 CONSISTENCY FIX: Use moodTracker for both create AND edit to ensure local+remote sync
         try {
-          // Update via moodTracker to ensure local storage + remote consistency
+          // 🚨 CRITICAL FIX: Pass user ID as override parameter to prevent "unknown" error
           await moodTracker.updateMoodEntry(editingEntry.id, {
             mood_score: entryData.mood_score,
             energy_level: entryData.energy_level,
             anxiety_level: entryData.anxiety_level,
             notes: entryData.notes,
             triggers: entryData.trigger ? [entryData.trigger] : []
-          });
+          }, user.id); // Pass user.id as third parameter to override internal getCurrentUserId()
           
           setToastMessage('Mood kaydı güncellendi ✅');
           
@@ -584,28 +650,56 @@ function MoodScreen() {
         } catch (updateError) {
           console.error('❌ Edit via moodTracker failed, trying direct Supabase:', updateError);
           
-          // Fallback to direct Supabase update
-          await supabaseService.updateMoodEntry(editingEntry.id, entryData);
-          setToastMessage('Mood kaydı güncellendi (sync pending) ⚠️');
-          
-          // Update local state manually  
-          setMoodEntries(prev => prev.map(entry => 
-            entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
-          ));
+          // Enhanced error context
+          const errorMessage = updateError instanceof Error ? updateError.message : String(updateError);
+          if (errorMessage.includes('User authentication required')) {
+            setToastMessage('Düzenleme için giriş gerekli');
+          } else if (errorMessage.includes('not found')) {
+            setToastMessage('Kayıt bulunamadı - sayfa yenilenecek');
+            await handleRefresh(); // Refresh to sync state
+          } else {
+            // Fallback to direct Supabase update
+            try {
+              await supabaseService.updateMoodEntry(editingEntry.id, entryData);
+              setToastMessage('Mood kaydı güncellendi (direct) ✅');
+              
+              // Update local state manually  
+              setMoodEntries(prev => prev.map(entry => 
+                entry.id === editingEntry.id ? { ...entry, ...entryData } : entry
+              ));
+            } catch (directUpdateError) {
+              console.error('❌ Direct Supabase update also failed:', directUpdateError);
+              setToastMessage('Güncelleme başarısız - tekrar deneyin');
+            }
+          }
         }
         } else {
         // Create new entry
         try {
-          // 🔄 TRIGGER FIX: Convert string to array format (MoodEntry expects string[])
-          const savedEntry = await moodTracker.saveMoodEntry({
+          // 🔄 VOICE CHECK-IN FIX: Add source tracking to prevent duplicate creation
+          const moodEntryData = {
             mood_score: entryData.mood_score,
             energy_level: entryData.energy_level || 50,
             anxiety_level: entryData.anxiety_level || 50,
             notes: entryData.notes || '',
             triggers: entryData.trigger ? [entryData.trigger] : [], // Convert string to array
             activities: [], // Default empty array
-            user_id: user.id
+            user_id: user.id,
+            // 🎙️ VOICE SOURCE TRACKING: Track if this came from voice check-in
+            ...(params.source === 'voice_checkin_analyzed' && {
+              source: 'voice_checkin_analyzed',
+              voice_confidence: params.confidence ? parseFloat(Array.isArray(params.confidence) ? params.confidence[0] : params.confidence) : undefined,
+              voice_duration: params.voice_duration ? parseInt(Array.isArray(params.voice_duration) ? params.voice_duration[0] : params.voice_duration) : undefined,
+            })
+          };
+          
+          console.log('💾 Creating mood entry:', {
+            source: params.source,
+            hasVoiceData: !!params.voice_duration,
+            noteLength: entryData.notes?.length || 0
           });
+          
+          const savedEntry = await moodTracker.saveMoodEntry(moodEntryData);
           
           if (savedEntry) {
             setToastMessage('Mood kaydı oluşturuldu ✅');
@@ -628,8 +722,8 @@ function MoodScreen() {
       }
 
       setShowToast(true);
-      setShowQuickEntry(false);
-      setEditingEntry(null);
+      // setShowQuickEntry(false);
+      // setEditingEntry(null);
       
       // Haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -639,6 +733,7 @@ function MoodScreen() {
       setShowToast(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
+    */
   };
 
   // Helper function moved inline to fix scope
@@ -720,15 +815,6 @@ function MoodScreen() {
         <View style={styles.listSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Son Mood Kayıtları</Text>
-            <Button
-              variant="primary"
-              onPress={() => setShowQuickEntry(true)}
-              style={styles.addMoodButton}
-              leftIcon={<MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />}
-              accessibilityLabel="Mood kaydı ekle"
-            >
-              Mood Ekle
-            </Button>
           </View>
 
           {filteredEntries.length === 0 ? (
@@ -736,7 +822,7 @@ function MoodScreen() {
               <MaterialCommunityIcons name="emoticon-sad-outline" size={48} color="#E5E7EB" />
               <Text style={styles.emptyText}>Henüz mood kaydı yok</Text>
               <Text style={styles.emptySubtext}>
-                Yukarıdaki "Mood Ekle" butonuna tıklayarak ilk kaydınızı oluşturun
+                Today sayfasından "Check-in Yap" butonuna tıklayarak mood kaydı oluşturabilirsiniz
               </Text>
             </View>
           ) : (
@@ -746,7 +832,7 @@ function MoodScreen() {
                                  entry.mood_score >= 40 ? '#F59E0B' : '#EF4444';
                 
                 return (
-                  <View key={entry.id} style={styles.recordingCard}>
+                  <View key={`${entry.id}-${entry.created_at}`} style={styles.recordingCard}>
                     <View style={styles.recordingContent}>
                       <View style={styles.recordingHeader}>
                         <View style={styles.recordingInfo}>
@@ -785,18 +871,12 @@ function MoodScreen() {
                         </View>
                       </View>
                       <View style={styles.recordingActions}>
-                    <Pressable
-                          style={styles.actionButton}
-                          onPress={() => handleEditEntry(entry)}
-                        >
-                          <MaterialCommunityIcons name="pencil-outline" size={18} color="#6B7280" />
-                        </Pressable>
                         <Pressable 
                           style={styles.actionButton}
                           onPress={() => handleDeleteEntry(entry.id)}
                         >
                           <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
-                    </Pressable>
+                        </Pressable>
                       </View>
                     </View>
                   </View>
@@ -817,28 +897,7 @@ function MoodScreen() {
         </View>
       </ScrollView>
 
-      {/* Quick Entry Modal */}
-      <MoodQuickEntry
-        visible={showQuickEntry}
-        onClose={() => {
-          setShowQuickEntry(false);
-          setEditingEntry(null);
-        }}
-        onSubmit={handleMoodSubmit}
-        initialData={
-          params.source === 'voice_checkin_analyzed' ? {
-            mood: params.mood ? parseInt(params.mood as string) : undefined,
-            energy: params.energy ? parseInt(params.energy as string) : undefined,
-            anxiety: params.anxiety ? parseInt(params.anxiety as string) : undefined,
-            notes: params.notes as string || '',
-            trigger: params.trigger as string || '',
-            emotion: params.emotion as string || '',
-          } : undefined
-        }
-        editingEntry={editingEntry}
-      />
-
-      {/* TranscriptConfirmationModal removed - using direct empty mood form */}
+      {/* Mood entry modal removed - now only through Today page check-in */}
 
       {/* Toast Notification */}
       <Toast

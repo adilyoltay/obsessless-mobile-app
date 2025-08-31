@@ -1,25 +1,25 @@
 import React from 'react';
 
 // Components
-import SimpleVoiceRecorder from './SimpleVoiceRecorder';
+import VAMoodCheckin from './VAMoodCheckin';
 
 interface CheckinBottomSheetProps {
   isVisible: boolean;
   onClose: () => void;
-  onComplete?: () => void;
+  onComplete?: (result?: any) => void;
 }
 
 /**
- * CheckinBottomSheet - iPhone Tarzı Minimalist Voice Check-in
- * Sade, kırmızı yuvarlak butonlu ses kayıt sistemi
+ * CheckinBottomSheet - VA Pad tabanlı Duygu Kontrolü
+ * Gelişmiş mood check-in sistemi
  * 
  * Özellikler:
- * - iPhone Voice Memos tarzı tasarım
- * - Büyük kırmızı kayıt butonu
- * - Ding/dong ses efektleri
- * - Minimalist timer ve wave animasyonu
+ * - VA (Valence-Arousal) Pad ile görsel mood seçimi
+ * - Valans slider ile ince ayar
+ * - Voice check-in ile otomatik analiz
  * - Native speech-to-text
  * - Heuristik mood analizi
+ * - Dinamik renk ve animasyonlar
  */
 export default function CheckinBottomSheet({
   isVisible,
@@ -27,7 +27,7 @@ export default function CheckinBottomSheet({
   onComplete,
 }: CheckinBottomSheetProps) {
   return (
-    <SimpleVoiceRecorder
+    <VAMoodCheckin
       isVisible={isVisible}
       onClose={onClose}
       onComplete={onComplete}
