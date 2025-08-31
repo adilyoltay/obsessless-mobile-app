@@ -448,7 +448,30 @@ export default function VAMoodCheckin({
   const valenceText = valenceLabel(xy.x);
   const energyText = energyLabel(xy.y);
 
-  // Realtime analysis scheduler with debounce
+  // Helper: Get recency window for more accurate realtime analysis
+  const getRecencyWindow = useCallback((text: string, maxWords = 15): string => {
+    const lower = text.toLowerCase();
+    
+    // Çelişki/akış kelimeleri: recency segment ayırıcılar
+    const splitters = [' ama ', ' fakat ', ' ancak ', ' lakin ', ' sonra ', ' birden ', ' şimdi ', ' artık '];
+    let seg = lower;
+    
+    // Son çelişki kelimesinden sonrasını al
+    for (const s of splitters) {
+      const idx = seg.lastIndexOf(s);
+      if (idx !== -1) {
+        seg = seg.slice(idx + s.length);
+        break; // İlk bulunan (en son) splitter'dan sonrasını al
+      }
+    }
+    
+    // Son maxWords kelimeyi al
+    const words = seg.trim().split(/\s+/).filter(Boolean);
+    const tail = words.slice(-maxWords);
+    return tail.join(' ');
+  }, []);
+
+  // Realtime analysis scheduler with debounce and recency window
   const scheduleRealtimeAnalysis = useCallback((partial: string) => {
     // 1) UI transcript'ı göster
     setTranscript(partial);
@@ -458,9 +481,13 @@ export default function VAMoodCheckin({
     const clean = partial.trim();
     if (clean.length < 8) return; // tek kelimelik parçalarda analiz yok
 
-    // 3) Tekrarlı aynı input'u atla
-    if (lastRealtimeTextRef.current === clean) return;
-    lastRealtimeTextRef.current = clean;
+    // 3) Recency window ile "o anki" duygu durumunu yakala
+    const windowText = getRecencyWindow(clean, 15);
+    if (windowText.length < 8) return; // window da minimum uzunluk kontrolü
+
+    // 4) Tekrarlı aynı window'u atla
+    if (lastRealtimeTextRef.current === windowText) return;
+    lastRealtimeTextRef.current = windowText;
 
     // 4) Debounce
     if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
@@ -470,11 +497,11 @@ export default function VAMoodCheckin({
       isRealtimeAnalyzingRef.current = true;
       
       try {
-        console.log('🎧 Realtime: analyzing partial ->', clean.substring(0, 50));
+        console.log('🎧 Realtime: analyzing window ->', windowText.slice(0, 80));
         
-        // Heuristik analiz (realtime modu)
+        // Heuristik analiz (recency window modu)
         const res = await voiceCheckInHeuristicService.analyzeMoodFromVoice({
-          text: clean,
+          text: windowText,
           confidence: 0.6,
           duration: 0,
           language: 'tr-TR',
@@ -485,7 +512,7 @@ export default function VAMoodCheckin({
         const vx = from1_10(res.moodScore);
         const vy = from1_10(res.energyLevel);
 
-        console.log('🎧 Realtime: applied vx,vy ->', { vx, vy, mood: res.moodScore, energy: res.energyLevel });
+        console.log('🎧 Realtime: applied vx,vy ->', { vx, vy, mood: res.moodScore, energy: res.energyLevel, usedWindow: true });
 
         // Smooth animasyon (retarget-friendly)
         x.value = withTiming(vx, { duration: 350 });

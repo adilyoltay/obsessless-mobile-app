@@ -165,6 +165,15 @@ class VoiceCheckInHeuristicService {
       emotion: 'üzgün', weight: 1.1
     },
     
+    // 😞 Keyflessness/Low Mood Patterns (Enhanced for better valence detection)
+    {
+      keywords: ['keyifsiz', 'keyifsizim', 'keyfim yok', 'keyfim hiç yok', 'hevesim yok', 
+                 'canım sıkkın', 'moralsiz', 'moralim bozuk', 'ruh halim kötü', 'hiç isteksizim',
+                 'motivem yok', 'zevk almıyorum', 'sıkıldım', 'bıktım'],
+      moodImpact: -5, energyImpact: -1, anxietyImpact: +1,
+      emotion: 'keyifsiz', weight: 1.3
+    },
+    
     // 😴 Low Energy Patterns
     {
       keywords: ['aşırı yorgun', 'bitap', 'tükenmiş', 'enerjim sıfır', 'hiçbir şey yapmak istemiyorum'],
@@ -572,7 +581,8 @@ class VoiceCheckInHeuristicService {
   // 🔗 Sinonim Eşleştirme Tablosu (NEW)
   private readonly synonymGroups: { [key: string]: string[] } = {
     'mutlu': ['sevinçli', 'neşeli', 'keyifli', 'memnun', 'hoşnut'],
-    'üzgün': ['kederli', 'mahzun', 'buruk', 'hüzünlü', 'mutsuz'],
+    'üzgün': ['kederli', 'mahzun', 'buruk', 'hüzünlü', 'mutsuz', 'keyifsiz', 'moralsiz'],
+    'keyifsiz': ['canım sıkkın', 'hevesim yok', 'motivem yok', 'isteksiz', 'sıkıldım'],
     'kaygılı': ['endişeli', 'tedirgin', 'gergin', 'huzursuz'],
     'yorgun': ['bitkin', 'halsiz', 'tükenmiş', 'bezgin'],
     'sinirli': ['kızgın', 'öfkeli', 'rahatsız', 'darılmış'],
