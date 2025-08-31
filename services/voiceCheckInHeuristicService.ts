@@ -235,7 +235,7 @@ class VoiceCheckInHeuristicService {
       emotion: 'çok_mutlu', weight: 1.3
     },
     {
-      keywords: ['mutlu', 'neşeli', 'sevinçli', 'keyifli', 'güzel', 'süper', 'iyi hissediyorum', 'çok iyi', 'gayet iyi', 'oldukça iyi'],
+      keywords: ['mutlu', 'neşeli', 'sevinçli', 'keyifli', 'keyifliyim', 'keyfim yerinde', 'keyfim iyi', 'keyfim var', 'güzel', 'süper', 'iyi hissediyorum', 'çok iyi', 'gayet iyi', 'oldukça iyi'],
       moodImpact: +3, energyImpact: +2, anxietyImpact: -2,
       emotion: 'mutlu', weight: 1.0
     },
@@ -1003,25 +1003,42 @@ class VoiceCheckInHeuristicService {
     const outAnx = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
     const freshCoord = ctx.toCoord(outMood, outEnergy);
 
-    // 4) Tek ve kısa gate: yalnızca ZAYIF + KISA deltada; explicit gate'i kırar
+    // 4) Enhanced gate: WEAK + SHORT + FILLER detection
     const deltaWordCnt = this.tokenize(deltaRaw).length;
-    const deltaIsShort = (deltaRaw.length < Constants.MIN_CHUNK_CHARS) || (deltaWordCnt < Constants.MIN_CHUNK_WORDS);
+    const shortByLen = deltaRaw.length <= Constants.MIN_CHUNK_CHARS;
+    const shortByWord = deltaWordCnt <= Constants.MIN_CHUNK_WORDS; // ≤ for 2 words = short
+    
+    // Filler-only detection (common incomplete phrases)
+    const FILLERS = /^\s*\b(bugün|yani|şey|işte|çok|ama|ve|bir|bu|şu|o|ben|sen)\b(?:\s+\b(bugün|yani|şey|işte|çok|ama|ve|bir|bu|şu|o|ben|sen)\b)*\s*$/iu;
+    const isFillerOnly = FILLERS.test(deltaRaw.trim());
+    
+    const deltaIsShort = shortByLen || shortByWord || isFillerOnly;
 
     let gateActive = false;
     if (!explicitOverride) {
       const weak = signalStrength < Constants.WEAK_SIGNAL_THRESHOLD;
-      if (weak && deltaIsShort) {
-        if (!ctx.isGateActive()) ctx.setGate(250); // kısa nötr gate
+      const noSignal = signalStrength === 0;
+      
+      // Gate for weak/no signal + short/filler content
+      if ((weak || noSignal) && deltaIsShort) {
+        if (!ctx.isGateActive()) ctx.setGate(250); // Short gate for noise
         gateActive = ctx.isGateActive();
+        if (__DEV__ && gateActive) console.log('🚪 Gate active: weak/no signal + short/filler chunk');
       } else {
         ctx.clearGate();
       }
     } else {
-      ctx.clearGate();
+      ctx.clearGate(); // Explicit always bypasses gate
     }
 
     const coord = gateActive ? ctx.getLastCoord() : freshCoord;
     ctx.setLastCoord(coord);
+
+    // Helper to ensure numeric precision
+    const round = (n: number, p = 3) => Math.round(n * 10**p) / 10**p;
+    
+    // Effective signal strength: boost for explicit overrides
+    const effectiveSignal = explicitOverride ? Math.max(signalStrength, 0.95) : signalStrength;
 
     return {
       // Integer values (backward compatibility)
@@ -1034,15 +1051,16 @@ class VoiceCheckInHeuristicService {
       energyFloat: ctx.energy,
       anxietyFloat: ctx.anxiety,
 
-      // 🎯 Coordinates as numbers (not strings) for direct UI use
-      coordX: coord.x as number,  // Ensure number type
-      coordY: coord.y as number,  // Ensure number type
+      // 🎯 Coordinates as numbers (not strings) - guaranteed numeric with precision
+      coordX: round(Number(coord.x), 3),  // Force numeric with 3 decimal precision
+      coordY: round(Number(coord.y), 3),  // Force numeric with 3 decimal precision
 
-      // Gating/animation metadata
-      signalStrength,
+      // Gating/animation metadata - all numeric
+      signalStrength: round(effectiveSignal, 2), // Use effective signal (boosted for explicit)
       confidence: Constants.BASE_CONFIDENCE,
       gateActive,
       finalized: !!opts?.isFinal,
+      explicit: explicitOverride, // Flag for explicit declarations
     };
   }
 
@@ -1177,12 +1195,24 @@ class VoiceCheckInHeuristicService {
         transcriptionResult.text // RAW TEXT eklendi
       );
 
-      // 6. Build result
+      // 6. Build result with normalized scores
+      const finalMood = this.normalizeScore(metrics.mood); // Already 1-10, just clamp
+      const finalEnergy = this.normalizeScore(metrics.energy);
+      const finalAnxiety = this.normalizeScore(metrics.anxiety);
+      
+      // Fix dominantEmotion for neutral scores
+      let dominantEmotion = entities.dominantEmotion || 'nötr';
+      const nearNeutral = finalMood >= 4.5 && finalMood <= 5.5 && finalEnergy >= 4.5 && finalEnergy <= 5.5;
+      if (nearNeutral) {
+        dominantEmotion = 'nötr';
+        if (__DEV__) console.log('🎯 Override: dominantEmotion set to neutral for near-neutral scores');
+      }
+
       const result: MoodAnalysisResult = {
-        moodScore: this.normalizeScore(metrics.mood), // Already 1-10, just clamp
-        energyLevel: this.normalizeScore(metrics.energy),
-        anxietyLevel: this.normalizeScore(metrics.anxiety),
-        dominantEmotion: entities.dominantEmotion || 'nötr',
+        moodScore: finalMood,
+        energyLevel: finalEnergy,
+        anxietyLevel: finalAnxiety,
+        dominantEmotion,
         triggers: entities.triggers,
         activities: entities.activities,
         notes: transcriptionResult.text, // Original text
@@ -1191,7 +1221,7 @@ class VoiceCheckInHeuristicService {
           keywords: entities.foundKeywords,
           emotionSignals: entities.emotionSignals,
           intensity: this.determineIntensity(metrics.totalIntensity),
-          sentiment: this.determineSentiment(metrics.mood)
+          sentiment: this.determineSentiment(finalMood) // Use final mood for sentiment
         }
       };
 

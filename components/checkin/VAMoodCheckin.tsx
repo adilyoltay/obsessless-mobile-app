@@ -527,15 +527,17 @@ export default function VAMoodCheckin({
           chunk: newChunk.slice(0, 30)
         });
 
-        // Single gate control - trust service gating completely
-        if (gateActive) {
+        // Defensive gate control - support both gateActive and legacy gated
+        const isGated = (res.gateActive ?? (res as any).gated) === true;
+        if (isGated) {
           console.log('🎧 Service gate active - no movement');
           return;
         }
 
-        // Service coordinates as primary, fallback to service-like conversion
-        const vx = typeof coordX === 'number' ? coordX : toCoordServiceLike(res.moodScore);
-        const vy = typeof coordY === 'number' ? coordY : toCoordServiceLike(res.energyLevel);
+        // Defensive coordinate extraction with type safety
+        const toNum = (v: any) => (typeof v === 'number' ? v : Number(v));
+        const vx = Number.isFinite(toNum(res.coordX)) ? toNum(res.coordX) : toCoordServiceLike(Number(res.moodScore));
+        const vy = Number.isFinite(toNum(res.coordY)) ? toNum(res.coordY) : toCoordServiceLike(Number(res.energyLevel));
 
         // More visible animation (reduce smoothing for better responsiveness)
         x.value = withTiming(vx, { duration: 200 });
