@@ -10,6 +10,9 @@
 
 import { TranscriptionResult } from './speechToTextService';
 
+// 🔧 Lightweight logging control
+const DEBUG = __DEV__ && process.env.VOICE_CHECKIN_DEBUG === '1';
+
 // 🔧 Constants - Magic numbers replaced with named constants
 const Constants = {
   // EMA Smoothing
@@ -38,6 +41,12 @@ const Constants = {
   // Incremental analysis
   BASE_CONFIDENCE: 0.8,
   SIGNAL_DECAY_RATE: 6,
+  
+  // Gating and explicit override rules
+  EXPLICIT_GATE_BYPASS: true,     // Explicit declarations bypass neural gate
+  RECENCY_WINDOW_SIZE: 15,         // Words in recency window for explicit detection
+  MIN_CHUNK_WORDS: 2,              // Minimum words for analysis
+  MIN_CHUNK_CHARS: 8,              // Minimum characters for analysis
 } as const;
 
 // 🔧 CONFIG - All configurations grouped in-file for easy management  
@@ -798,7 +807,7 @@ class VoiceCheckInHeuristicService {
       this.cfg.synonymGroups,
       (w: string) => this.buildLemmaRegex(w)
     );
-    console.log('🔧 Compiled', this.compiled.length, 'patterns via static compiler');
+    if (DEBUG) console.log('🔧 Compiled', this.compiled.length, 'patterns via static compiler');
   }
 
   /**
@@ -976,7 +985,7 @@ class VoiceCheckInHeuristicService {
     const signalStrength = this.computeSignalStrength(matches);
 
     // Recency açık beyan set edildi mi? (gate'ten muaf)
-    const recencyWindow = this.tokenize(state.text).slice(-15).join(' ');
+    const recencyWindow = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
     const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
     const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
 
@@ -989,7 +998,9 @@ class VoiceCheckInHeuristicService {
     const GATE_MS = Constants.GATE_MS;
 
     let gateActive = false;
-    if (!explicitOverride) {
+    const shouldBypassGate = Constants.EXPLICIT_GATE_BYPASS && explicitOverride;
+    
+    if (!shouldBypassGate) {
       if (WEAK) {
         // Gate kur
         if (!ctx.isGateActive()) ctx.setGate(GATE_MS);
@@ -999,8 +1010,9 @@ class VoiceCheckInHeuristicService {
         ctx.clearGate();
       }
     } else {
-      // Açık beyan her zaman gate'i kırar
+      // Explicit declarations bypass gate (controlled by Constants)
       ctx.clearGate();
+      console.log('🎯 Explicit override bypassed gate (Constants.EXPLICIT_GATE_BYPASS)');
     }
 
     const coord = gateActive
@@ -1057,7 +1069,7 @@ class VoiceCheckInHeuristicService {
         const tri = out.slice(-3).join(' ');
         if (base.includes(tri)) {
           out.splice(out.length - 3, 3);
-          console.log('🧽 Echo dropped: 3-gram already exists');
+          if (DEBUG) console.log('🧽 Echo dropped: 3-gram already exists');
         }
       }
     }
@@ -1081,7 +1093,7 @@ class VoiceCheckInHeuristicService {
         const head = norm.slice(0, Math.min(24, norm.length));
         if (head && state.text.includes(head)) {
           delta = '';
-          console.log('🧽 Echo dropped: head already in state');
+          if (DEBUG) console.log('🧽 Echo dropped: head already in state');
         }
       }
     }
@@ -1131,7 +1143,7 @@ class VoiceCheckInHeuristicService {
   async analyzeMoodFromVoice(
     transcriptionResult: TranscriptionResult
   ): Promise<MoodAnalysisResult> {
-    console.log('🧠 Starting heuristic mood analysis...', {
+    if (DEBUG) console.log('🧠 Starting heuristic mood analysis...', {
       text: transcriptionResult.text.substring(0, 100),
       confidence: transcriptionResult.confidence
     });
@@ -1786,7 +1798,7 @@ CONFIG.synonymGroups = (tempInstance as any).synonymGroups || {};
 CONFIG.negationWords = (tempInstance as any).negationWords || [];
 CONFIG.uncertaintyWords = (tempInstance as any).uncertaintyWords || [];
 
-console.log('🔧 CONFIG populated with', CONFIG.patterns.length, 'patterns and', Object.keys(CONFIG.intensityModifiers).length, 'intensity modifiers');
+if (DEBUG) console.log('🔧 CONFIG populated with', CONFIG.patterns.length, 'patterns and', Object.keys(CONFIG.intensityModifiers).length, 'intensity modifiers');
 
 // Export singleton instance
 const voiceCheckInHeuristicService = VoiceCheckInHeuristicService.getInstance();
