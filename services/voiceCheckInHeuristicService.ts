@@ -676,7 +676,7 @@ class VoiceCheckInHeuristicService {
   ];
 
   constructor() {
-    this.compilePatterns();
+    this.initializeCompiledPatterns();
   }
 
   static getInstance(): VoiceCheckInHeuristicService {
@@ -687,18 +687,32 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 🔧 Compile patterns for performance optimization
+   * 🏭 Static pattern compiler for regex optimization
    */
-  private compilePatterns(): void {
-    const make = (w: string) => this.buildLemmaRegex(w);
-    this.compiled = this.cfg.patterns.map((p) => {
-      const rx = p.keywords.map(make);
+  private static compilePatterns(
+    patterns: KeywordPattern[], 
+    synonymGroups: { [key: string]: string[] },
+    regexBuilder: (w: string) => RegExp
+  ): CompiledPattern[] {
+    return patterns.map((p) => {
+      const rx = p.keywords.map(regexBuilder);
       const rxSyn = p.keywords
-        .map((k) => this.cfg.synonymGroups[k.split(' ').pop()!]?.map(make) ?? [])
+        .map((k) => synonymGroups[k.split(' ').pop()!]?.map(regexBuilder) ?? [])
         .flat();
       return { ...p, rx, rxSyn };
     });
-    console.log('🔧 Compiled', this.compiled.length, 'patterns for optimized matching');
+  }
+
+  /**
+   * 🔧 Initialize compiled patterns (uses static compiler)
+   */
+  private initializeCompiledPatterns(): void {
+    this.compiled = VoiceCheckInHeuristicService.compilePatterns(
+      this.cfg.patterns,
+      this.cfg.synonymGroups,
+      (w: string) => this.buildLemmaRegex(w)
+    );
+    console.log('🔧 Compiled', this.compiled.length, 'patterns via static compiler');
   }
 
   /**
