@@ -58,9 +58,9 @@ class NativeSpeechToTextService {
       Voice.onSpeechResults = this.onSpeechResults.bind(this);
       Voice.onSpeechPartialResults = this.onSpeechPartialResults.bind(this);
       
-      // 🍎 iOS Fix: DISABLE volume events to prevent bridge crashes
-      // Voice.onSpeechVolumeChanged = null; // Don't register volume handler
-      console.log('🍎 iOS: Volume events disabled to prevent bridge crashes');
+      // 🍎 iOS Fix: PROPERLY handle volume events to prevent bridge crashes
+      Voice.onSpeechVolumeChanged = this.onSpeechVolumeChanged.bind(this);
+      console.log('🍎 iOS: Volume events properly handled to prevent bridge crashes');
 
       // Check if voice recognition is available
       const isAvailable = await Voice.isAvailable();
@@ -106,8 +106,9 @@ class NativeSpeechToTextService {
       this.partialResults = [];
       this.finalResults = [];
       
-      // 🎯 ROBUST VOICE START with better error classification
+      // 🎯 ROBUST VOICE START with iOS volume monitoring disabled
       try {
+        // 🍎 iOS Fix: Simple start call (handle volume events instead of disabling)
         await Voice.start(language);
         this.isListening = true;
         this.isInitialized = true;
@@ -324,11 +325,21 @@ class NativeSpeechToTextService {
   }
 
   /**
-   * 🍎 iOS Fix: Handle volume change events to prevent crashes  
+   * 🍎 iOS Fix: Handle volume change events with proper bridge compatibility
    */
-  private onSpeechVolumeChanged(e: { value: string }) {
-    // Simply log and ignore - prevents iOS crash
-    // console.log('🔊 Volume changed:', e.value); // Commented to reduce log noise
+  private onSpeechVolumeChanged(e: any) {
+    try {
+      // Handle volume event properly to maintain bridge compatibility
+      if (e && typeof e.value !== 'undefined') {
+        // Volume level received - just log for debugging
+        if (__DEV__) {
+          console.log('🔊 Volume level:', e.value);
+        }
+      }
+    } catch (error) {
+      // Catch any bridge-related errors in volume handling
+      console.warn('⚠️ Volume event handling error:', error);
+    }
   }
 
   /**
