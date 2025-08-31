@@ -170,7 +170,7 @@ class VoiceCheckInHeuristicService {
       keywords: ['keyifsiz', 'keyifsizim', 'keyfim yok', 'keyfim hiç yok', 'hevesim yok', 
                  'canım sıkkın', 'moralsiz', 'moralim bozuk', 'ruh halim kötü', 'hiç isteksizim',
                  'motivem yok', 'zevk almıyorum', 'sıkıldım', 'bıktım'],
-      moodImpact: -5, energyImpact: -1, anxietyImpact: +1,
+      moodImpact: -5, energyImpact: 0, anxietyImpact: +1, // energyImpact: 0 - sadece valans etkisi
       emotion: 'keyifsiz', weight: 1.3
     },
     
