@@ -794,20 +794,20 @@ class VoiceCheckInHeuristicService {
 
     // RECENCY explicit override (yalnızca son pencere için realtime)
     const recencyText = newTokens.slice(-15).join(' ');
-    const explicit = this.extractExplicitDeclarations(recencyText);
+    const recentExplicit = this.extractExplicitDeclarations(recencyText);
 
     // Açık beyanlar baskın olsun (realtime'da anında etki)
-    if (explicit.energy !== undefined) {
-      next.energy = explicit.energy;
-      console.log('🎯 Recency explicit: energy override ->', explicit.energy);
+    if (recentExplicit.energy !== undefined) {
+      next.energy = recentExplicit.energy;
+      console.log('🎯 Recency explicit: energy override ->', recentExplicit.energy);
     }
-    if (explicit.mood !== undefined) {
-      next.mood = explicit.mood;
-      console.log('🎯 Recency explicit: mood override ->', explicit.mood);
+    if (recentExplicit.mood !== undefined) {
+      next.mood = recentExplicit.mood;
+      console.log('🎯 Recency explicit: mood override ->', recentExplicit.mood);
     }
-    if (explicit.anxiety !== undefined) {
-      next.anxiety = explicit.anxiety;
-      console.log('🎯 Recency explicit: anxiety override ->', explicit.anxiety);
+    if (recentExplicit.anxiety !== undefined) {
+      next.anxiety = recentExplicit.anxiety;
+      console.log('🎯 Recency explicit: anxiety override ->', recentExplicit.anxiety);
     }
 
     // EMA smoothing
@@ -825,8 +825,8 @@ class VoiceCheckInHeuristicService {
 
     // Recency açık beyan set edildi mi? (gate'ten muaf)
     const recencyWindow = this.tokenize(state.text).slice(-15).join(' ');
-    const explicit = this.extractExplicitDeclarations(recencyWindow);
-    const explicitOverride = explicit.mood !== undefined || explicit.energy !== undefined || explicit.anxiety !== undefined;
+    const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
+    const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
 
     // 🔘 Koordinata çevir (5.5 merkez ile doğru mapping)
     const freshCoord = this.toCoord(outMood, outEnergy);
