@@ -824,8 +824,8 @@ class VoiceCheckInHeuristicService {
     const signalStrength = this.computeSignalStrength(matches);
 
     // Recency açık beyan set edildi mi? (gate'ten muaf)
-    const recencyText = this.tokenize(state.text).slice(-15).join(' ');
-    const explicit = this.extractExplicitDeclarations(recencyText);
+    const recencyWindow = this.tokenize(state.text).slice(-15).join(' ');
+    const explicit = this.extractExplicitDeclarations(recencyWindow);
     const explicitOverride = explicit.mood !== undefined || explicit.energy !== undefined || explicit.anxiety !== undefined;
 
     // 🔘 Koordinata çevir (5.5 merkez ile doğru mapping)

@@ -58,8 +58,9 @@ class NativeSpeechToTextService {
       Voice.onSpeechResults = this.onSpeechResults.bind(this);
       Voice.onSpeechPartialResults = this.onSpeechPartialResults.bind(this);
       
-      // 🍎 iOS Fix: Handle volume events to prevent crashes
-      Voice.onSpeechVolumeChanged = this.onSpeechVolumeChanged.bind(this);
+      // 🍎 iOS Fix: DISABLE volume events to prevent bridge crashes
+      // Voice.onSpeechVolumeChanged = null; // Don't register volume handler
+      console.log('🍎 iOS: Volume events disabled to prevent bridge crashes');
 
       // Check if voice recognition is available
       const isAvailable = await Voice.isAvailable();
