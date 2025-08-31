@@ -697,11 +697,12 @@ class VoiceCheckInHeuristicService {
     state.tokens = newTokens;
 
     // Sadece yeni alanda compiled matcher çalıştır
-    const matches: PatternMatch[] = [];
+    const matches: (PatternMatch & { lastIdx?: number })[] = [];
     for (const p of this.compiled) {
       let found = false;
       let localIntensity = 1.0;
       let neg = false;
+      let lastIdx: number | undefined;
 
       for (const rx of [...p.rx, ...p.rxSyn]) {
         const m = rx.exec(state.text);
@@ -714,6 +715,8 @@ class VoiceCheckInHeuristicService {
         const intMod = this.windowIntensity(newTokens, idx - 5, idx - 1);
         localIntensity = Math.max(localIntensity, intMod);
         if (this.windowHasNegation(newTokens, idx - 6, idx + 6)) neg = true;
+
+        lastIdx = idx; // Match pozisyonunu kaydet
         found = true;
       }
 
@@ -723,6 +726,7 @@ class VoiceCheckInHeuristicService {
           matchedKeywords: p.keywords,
           intensity: neg ? localIntensity * 0.3 : localIntensity,
           negationDetected: neg,
+          lastIdx
         });
       }
     }
@@ -734,8 +738,8 @@ class VoiceCheckInHeuristicService {
       let s = 0;
       for (const m of matches) {
         const imp = (m as any)[field] || 0;
-        const pos = state.tokens.length;
-        s += imp * m.intensity * m.weight * recentBoost(pos);
+        const i = m.lastIdx ?? newTokens.length; // eşleşme index'i varsa onu kullan
+        s += imp * m.intensity * m.weight * recentBoost(i);
       }
       return Math.max(1, Math.min(10, Math.round(base + s)));
     };

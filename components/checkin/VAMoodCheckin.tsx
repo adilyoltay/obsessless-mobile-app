@@ -93,6 +93,14 @@ const from1_10 = (v: number) => {
   return Math.max(-1, Math.min(1, result));
 };
 
+// Enhanced coordinate mapping with gain/gamma curve for better dot movement
+const toCoord = (score: number, gain = 1.6, gamma = 0.85): number => {
+  // 5.5 → 0 merkezlenmiş normalizasyon (1..10 → [-1..1])
+  const n = Math.max(-1, Math.min(1, (score - 5.5) / 4.5));
+  const curved = Math.sign(n) * Math.pow(Math.abs(n), gamma);
+  return Math.max(-1, Math.min(1, curved * gain));
+};
+
 // Color functions
 const mixHex = (a: string, b: string, t: number) => {
   const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
@@ -257,9 +265,9 @@ export default function VAMoodCheckin({
             console.log('🎯 Detected triggers from voice:', analysis.triggers);
           }
           
-          // Convert to VA coordinates
-          const vx = from1_10(analysis.moodScore);
-          const vy = from1_10(analysis.energyLevel);
+          // Convert to VA coordinates (enhanced gain/gamma curve)
+          const vx = toCoord(analysis.moodScore);
+          const vy = toCoord(analysis.energyLevel);
           
           // Final position adjustment with spring (more pronounced than realtime)
           console.log('🎧 Final: adjusting to precise position ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
@@ -503,8 +511,10 @@ export default function VAMoodCheckin({
     const lastText = lastRealtimeTextRef.current;
     const newChunk = clean.length > lastText.length ? clean.slice(lastText.length).trim() : clean;
     
-    // 5) Skip if no new content
-    if (newChunk.length < 3) return;
+    // 5) Min-chunk gate: En az 2 kelime veya 8+ karakter
+    const words = newChunk.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 2 || newChunk.length < 8) return;
+    
     lastRealtimeTextRef.current = clean;
 
     // 6) Debounce
@@ -530,9 +540,16 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // VA koordinatlarına çevir
-        const vx = from1_10(res.moodScore);
-        const vy = from1_10(res.energyLevel);
+        // Neutral deadband: Skip if analysis returns neutral values (prevents center drift)
+        const isNeutral = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
+        if (isNeutral(res.moodScore, res.energyLevel)) {
+          console.log('🎧 Realtime: skipping neutral result to prevent center drift');
+          return;
+        }
+
+        // VA koordinatlarına çevir (enhanced gain/gamma curve)
+        const vx = toCoord(res.moodScore);
+        const vy = toCoord(res.energyLevel);
 
         console.log('🎧 Realtime v3.5: applied ->', { 
           vx, vy, 
@@ -542,8 +559,14 @@ export default function VAMoodCheckin({
           chunk: newChunk.slice(0, 30) 
         });
 
+        // Min delta gate: Skip very small movements to prevent micro-jitter
+        if (Math.abs(vx - xy.x) < 0.03 && Math.abs(vy - xy.y) < 0.03) {
+          console.log('🎧 Realtime: skipping micro-movement to prevent jitter');
+          return;
+        }
+
         // EMA blend for extra smoothness
-        const blend = (prev: number, next: number, α = 0.25) => prev + α * (next - prev);
+        const blend = (prev: number, next: number, α = 0.3) => prev + α * (next - prev);
         const bx = blend(xy.x, vx);
         const by = blend(xy.y, vy);
 
@@ -553,7 +576,7 @@ export default function VAMoodCheckin({
         setXY({ x: bx, y: by });
         
         // Subtle haptic feedback for significant position changes
-        if (Math.abs(vx - xy.x) > 0.3 || Math.abs(vy - xy.y) > 0.3) {
+        if (Math.abs(vx - xy.x) > 0.25 || Math.abs(vy - xy.y) > 0.25) {
           Haptics.selectionAsync();
         }
       } catch (e) {
