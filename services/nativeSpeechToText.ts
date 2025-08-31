@@ -57,6 +57,9 @@ class NativeSpeechToTextService {
       Voice.onSpeechError = this.onSpeechError.bind(this);
       Voice.onSpeechResults = this.onSpeechResults.bind(this);
       Voice.onSpeechPartialResults = this.onSpeechPartialResults.bind(this);
+      
+      // 🍎 iOS Fix: Handle volume events to prevent crashes
+      Voice.onSpeechVolumeChanged = this.onSpeechVolumeChanged.bind(this);
 
       // Check if voice recognition is available
       const isAvailable = await Voice.isAvailable();
@@ -275,6 +278,15 @@ class NativeSpeechToTextService {
       
       // 🧹 CRITICAL: Remove all Voice.js event listeners to prevent stale data
       try {
+        // Clear all event handlers to prevent crashes
+        Voice.onSpeechStart = null;
+        Voice.onSpeechRecognized = null;
+        Voice.onSpeechEnd = null;
+        Voice.onSpeechError = null;
+        Voice.onSpeechResults = null;
+        Voice.onSpeechPartialResults = null;
+        Voice.onSpeechVolumeChanged = null; // 🍎 iOS crash prevention
+        
         await Voice.removeAllListeners();
         console.log('🧹 All Voice.js listeners removed');
       } catch (listenerError) {
@@ -310,6 +322,14 @@ class NativeSpeechToTextService {
     if (e.value) {
       this.partialResults = e.value;
     }
+  }
+
+  /**
+   * 🍎 iOS Fix: Handle volume change events to prevent crashes  
+   */
+  private onSpeechVolumeChanged(e: { value: string }) {
+    // Simply log and ignore - prevents iOS crash
+    // console.log('🔊 Volume changed:', e.value); // Commented to reduce log noise
   }
 
   /**

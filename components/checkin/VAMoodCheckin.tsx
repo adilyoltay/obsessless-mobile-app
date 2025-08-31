@@ -33,51 +33,8 @@ import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
 
-// 🛡️ SAFER STT - Use mock fallback to prevent iOS crashes during development
-// NOTE: Native STT causes iOS crashes with Voice module, using enhanced mock for testing
-
-const speechToTextService = {
-  startRealtimeListening: async (
-    onPartialResult?: (text: string) => void,
-    language: string = 'tr-TR'
-  ): Promise<void> => {
-    console.log('🎭 Using enhanced mock STT for crash-free testing');
-    
-    // Enhanced mock with varied emotional content for dot movement testing
-    const scenarios = [
-      'Bugün kendimi...',
-      'Bugün kendimi çok mutluyum...',
-      'Bugün kendimi çok mutluyum ve enerjik...',
-      'Bugün kendimi çok mutluyum ve enerjikim ama...',
-      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım...',
-      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim...',
-      'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim ve enerjim düşük'
-    ];
-    
-    // Simulate realistic partial progression
-    for (let i = 0; i < scenarios.length; i++) {
-      setTimeout(() => {
-        if (onPartialResult) {
-          onPartialResult(scenarios[i]);
-        }
-      }, (i + 1) * 800);
-    }
-  },
-  
-  stopRealtimeListening: async () => {
-    // Simulate processing delay
-    await new Promise(r => setTimeout(r, 600));
-    return {
-      success: true,
-      text: 'Bugün kendimi çok mutluyum ve enerjikim ama bir telefon aldım çok keyifsizim ve enerjim düşük',
-      confidence: 0.92,
-      duration: 4,
-      language: 'tr-TR'
-    };
-  },
-  
-  checkAvailability: async () => false // Force mock usage for stability
-};
+// Import gerçek STT service - iOS crash sorununu çözelim
+import speechToTextService from '@/services/speechToTextService';
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
@@ -183,6 +140,7 @@ export default function VAMoodCheckin({
   const [transcript, setTranscript] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [detectedTriggers, setDetectedTriggers] = useState<string[]>([]);
+  const [isNativeSTTAvailable, setIsNativeSTTAvailable] = useState(false);
   
   // Realtime analysis state
   const realtimeStateRef = useRef<RealtimeState | null>(null);
@@ -212,6 +170,30 @@ export default function VAMoodCheckin({
 
   const color = useMemo(() => colorFromVA(xy.x, xy.y), [xy]);
 
+  // Check STT availability on component mount
+  useEffect(() => {
+    const checkSTTAvailability = async () => {
+      try {
+        console.log('🔍 Checking native STT availability...');
+        const available = await speechToTextService.checkAvailability();
+        setIsNativeSTTAvailable(available);
+        
+        if (available) {
+          console.log('✅ Native STT is available');
+        } else {
+          console.log('⚠️ Native STT not available - will throw error instead of fallback');
+        }
+      } catch (error) {
+        console.error('❌ STT availability check failed:', error);
+        setIsNativeSTTAvailable(false);
+        // Re-throw error instead of silent fallback
+        throw error;
+      }
+    };
+    
+    checkSTTAvailability();
+  }, []);
+
   // Clean up realtime analysis when modal closes
   useEffect(() => {
     if (!isVisible) {
@@ -223,6 +205,7 @@ export default function VAMoodCheckin({
       realtimeStateRef.current = null;
       isRealtimeAnalyzingRef.current = false;
       lastRealtimeTextRef.current = '';
+      lastUpdateTimeRef.current = 0;
       console.log('🎧 Realtime v3.5: cleaned up on modal close');
     }
   }, [isVisible]);
@@ -251,8 +234,10 @@ export default function VAMoodCheckin({
       isRealtimeAnalyzingRef.current = false;
       
       try {
-        // Get final transcript
+        // 🛑 Stop real STT - no fallback, surface real errors
+        console.log('🛑 Stopping native STT...');
         const result = await speechToTextService.stopRealtimeListening();
+        console.log('✅ Native STT stopped, result:', { success: result.success, textLength: result.text?.length });
         
         if (result && result.success && result.text) {
           setTranscript(result.text);
@@ -279,14 +264,19 @@ export default function VAMoodCheckin({
           
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else {
-          // If no result, show a message
-          setTranscript('Ses kaydı alınamadı, lütfen tekrar deneyin.');
+          // If no result, show detailed error
+          setTranscript('STT failed: No transcript received from native service');
           setShowTranscript(true);
         }
       } catch (error) {
-        console.error('Voice processing failed:', error);
-        setTranscript('Bir hata oluştu, lütfen tekrar deneyin.');
+        console.error('❌ Native STT processing failed:', error);
+        // 🚨 Show real error details instead of generic message
+        const errorMsg = error instanceof Error ? error.message : 'Unknown STT error';
+        setTranscript(`Native STT Error: ${errorMsg}`);
         setShowTranscript(true);
+        
+        // Re-throw to surface the problem in console
+        throw error;
       } finally {
         setIsProcessing(false);
         // Cancel animations again in case of error
@@ -296,22 +286,8 @@ export default function VAMoodCheckin({
         recordingOpacity.value = 1;
       }
     } else {
-      // Check STT availability first
-      let sttAvailable = false;
-      try {
-        if (speechToTextService.checkAvailability) {
-          sttAvailable = await speechToTextService.checkAvailability();
-        } else {
-          sttAvailable = true; // Assume available if no check method
-        }
-      } catch (error) {
-        console.log('STT availability check failed:', error);
-        sttAvailable = false;
-      }
-      
-      if (!sttAvailable) {
-        console.log('⚠️ STT not available, using mock data');
-      }
+      // 🚨 NO FALLBACK - Force real STT to surface the actual error
+      console.log('🎤 Starting REAL native STT (no fallback)...');
       
       // Start recording
       setIsRecording(true);
@@ -344,20 +320,29 @@ export default function VAMoodCheckin({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
       try {
+        // 🎤 Real STT - no fallback, let errors surface
+        console.log('🎤 Starting real-time speech recognition with native STT...');
         await speechToTextService.startRealtimeListening(
           scheduleRealtimeAnalysis,
           'tr-TR'
         );
+        console.log('✅ Native STT started successfully');
       } catch (error) {
-        console.error('Failed to start recording:', error);
+        console.error('❌ Native STT failed to start:', error);
         setIsRecording(false);
         // Cancel animations
         cancelAnimation(recordingScale);
         cancelAnimation(recordingOpacity);
         recordingScale.value = 1;
         recordingOpacity.value = 1;
-        setTranscript('Mikrofon erişimi sağlanamadı.');
+        
+        // 🚨 Show real error instead of generic message
+        const errorMsg = error instanceof Error ? error.message : 'Unknown STT error';
+        setTranscript(`STT Error: ${errorMsg}`);
         setShowTranscript(true);
+        
+        // Re-throw to surface the actual problem
+        throw error;
       }
     }
   };
