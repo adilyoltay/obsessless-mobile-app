@@ -953,22 +953,23 @@ class VoiceCheckInHeuristicService {
       anxiety: scoreAxis('anxietyImpact', Constants.ANXIETY_BASELINE),
     };
 
-    // RECENCY explicit override (yalnızca son pencere için realtime)
-    const recencyText = newTokens.slice(-15).join(' ');
-    const recentExplicit = this.extractExplicitDeclarations(recencyText);
+    // 1) Single recency/explicit calculation
+    const recencyWindow = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
+    const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
+    const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
 
-    // Açık beyanlar baskın olsun (realtime'da anında etki)
-    if (recentExplicit.energy !== undefined) {
-      next.energy = recentExplicit.energy;
-      console.log('🎯 Recency explicit: energy override ->', recentExplicit.energy);
+    // Apply explicit overrides to next scores
+    if (explicitDecl.energy !== undefined) {
+      next.energy = explicitDecl.energy;
+      console.log('🎯 Explicit override: energy ->', explicitDecl.energy);
     }
-    if (recentExplicit.mood !== undefined) {
-      next.mood = recentExplicit.mood;
-      console.log('🎯 Recency explicit: mood override ->', recentExplicit.mood);
+    if (explicitDecl.mood !== undefined) {
+      next.mood = explicitDecl.mood;
+      console.log('🎯 Explicit override: mood ->', explicitDecl.mood);
     }
-    if (recentExplicit.anxiety !== undefined) {
-      next.anxiety = recentExplicit.anxiety;
-      console.log('🎯 Recency explicit: anxiety override ->', recentExplicit.anxiety);
+    if (explicitDecl.anxiety !== undefined) {
+      next.anxiety = explicitDecl.anxiety;
+      console.log('🎯 Explicit override: anxiety ->', explicitDecl.anxiety);
     }
 
     // EMA smoothing
@@ -977,48 +978,33 @@ class VoiceCheckInHeuristicService {
     state.energy = state.energy + α * (next.energy - state.energy);
     state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
 
-    // Float döndür + enhanced gating/coordination
+    // 2) Output values and coordinate calculation
     const outMood = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.mood));
     const outEnergy = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.energy));
     const outAnx = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
     
     const signalStrength = this.computeSignalStrength(matches);
-
-    // Recency açık beyan set edildi mi? (gate'ten muaf)
-    const recencyWindow = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
-    const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
-    const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
-
-    // 🔘 Koordinata çevir (RealtimeCtx ile 5.5 merkez mapping)
     const freshCoord = ctx.toCoord(outMood, outEnergy);
 
-    // 🧰 Neutral gating (zayıf sinyallerde kısa bekleme)
+    // 3) Single gate logic
     const now = Date.now();
-    const WEAK = signalStrength < Constants.WEAK_SIGNAL_THRESHOLD;
-    const GATE_MS = Constants.GATE_MS;
+    const THRESHOLD = 0.25;
+    const GATE_MS = 250;
 
     let gateActive = false;
-    const shouldBypassGate = Constants.EXPLICIT_GATE_BYPASS && explicitOverride;
-    
-    if (!shouldBypassGate) {
-      if (WEAK) {
-        // Gate kur
+    if (!explicitOverride) {
+      const weak = signalStrength < THRESHOLD;
+      if (weak) {
         if (!ctx.isGateActive()) ctx.setGate(GATE_MS);
         gateActive = ctx.isGateActive();
       } else {
-        // Güçlü sinyalde gate'i bırak
         ctx.clearGate();
       }
     } else {
-      // Explicit declarations bypass gate (controlled by Constants)
-      ctx.clearGate();
-      console.log('🎯 Explicit override bypassed gate (Constants.EXPLICIT_GATE_BYPASS)');
+      ctx.clearGate(); // explicit beyan gate'i kırar
     }
 
-    const coord = gateActive
-      ? ctx.getLastCoord()  // bekle: hareket etme
-      : freshCoord;         // serbest: yeni koordinata geç
-
+    const coord = gateActive ? ctx.getLastCoord() : freshCoord;
     ctx.setLastCoord(coord);
 
     return {
@@ -1032,9 +1018,9 @@ class VoiceCheckInHeuristicService {
       energyFloat: ctx.energy,
       anxietyFloat: ctx.anxiety,
 
-      // 🎯 Doğrudan çizim koordinatı (RealtimeCtx ile 5.5 merkez)
-      coordX: coord.x,
-      coordY: coord.y,
+      // 🎯 Coordinates as numbers (not strings) for direct UI use
+      coordX: coord.x as number,  // Ensure number type
+      coordY: coord.y as number,  // Ensure number type
 
       // Gating/animation metadata
       signalStrength,

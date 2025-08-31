@@ -33,50 +33,8 @@ import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
 
-// 🚨 TEMPORARY: Use enhanced mock STT due to iOS Voice bridge crash  
-// TODO: Fix @react-native-voice/voice bridge issue in production
-
-const speechToTextService = {
-  startRealtimeListening: async (
-    onPartialResult?: (text: string) => void,
-    language: string = 'tr-TR'
-  ): Promise<void> => {
-    console.log('🎭 ENHANCED MOCK: Perfect test for ultimate VA Pad v3.5');
-    
-    // Ultimate test scenarios for all improvements
-    const scenarios = [
-      'Bugün kendimi...',
-      'Bugün kendimi çok mutluyum...',
-      'Bugün kendimi çok mutluyum ve enerjik hissediyorum...',
-      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi...',
-      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim...',
-      'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim ve enerjim düşük'
-    ];
-    
-    // Perfect timing for VA Pad testing
-    for (let i = 0; i < scenarios.length; i++) {
-      setTimeout(() => {
-        if (onPartialResult) {
-          onPartialResult(scenarios[i]);
-        }
-      }, (i + 1) * 900); // Slower progression for observation
-    }
-  },
-  
-  stopRealtimeListening: async () => {
-    await new Promise(r => setTimeout(r, 500));
-    return {
-      success: true,
-      text: 'Bugün kendimi çok mutluyum ve enerjik hissediyorum ama telefon geldi çok keyifsizim ve enerjim düşük',
-      confidence: 0.95,
-      duration: 5,
-      language: 'tr-TR'
-    };
-  },
-  
-  checkAvailability: async () => false,
-  getInstance: () => speechToTextService // Self-reference for compatibility
-};
+// 🎤 REAL STT - İOS crash riski var ama gerçek konuşma için aktif
+import speechToTextService from '@/services/speechToTextService';
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
@@ -93,13 +51,8 @@ const from1_10 = (v: number) => {
   return Math.max(-1, Math.min(1, result));
 };
 
-// Enhanced coordinate mapping with gain/gamma curve for better dot movement  
-const toCoord = (score: number, gain = 1.5, gamma = 0.85): number => {
-  // 5.0 → 0 merkezlenmiş normalizasyon (1..10 → [-1..1])  
-  const n = Math.max(-1, Math.min(1, (score - 5.0) / 5.0)); // CENTER=5.0 (drift fix!)
-  const curved = Math.sign(n) * Math.pow(Math.abs(n), gamma);
-  return Math.max(-1, Math.min(1, curved * gain));
-};
+// Service-compatible coordinate mapping (5.5 center like service)
+const toCoordServiceLike = (v: number) => clamp((v - 5.5) / 4.5, -1, 1);
 
 // Color functions
 const mixHex = (a: string, b: string, t: number) => {
@@ -187,6 +140,10 @@ export default function VAMoodCheckin({
   // Realtime analysis state
   const realtimeStateRef = useRef<RealtimeState | null>(null);
   
+  // Track last coordinates for smooth from→to transitions
+  const xyRef = useRef(xy);
+  useEffect(() => { xyRef.current = xy; }, [xy]);
+  
   // Recording animation
   const recordingScale = useSharedValue(1);
   const recordingOpacity = useSharedValue(1);
@@ -199,7 +156,6 @@ export default function VAMoodCheckin({
   const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRealtimeAnalyzingRef = useRef(false);
   const lastRealtimeTextRef = useRef('');
-  const lastUpdateTimeRef = useRef(0);
 
   const updateXY = useCallback((nx: number, ny: number) => {
     setXY({ x: nx, y: ny });
@@ -216,21 +172,19 @@ export default function VAMoodCheckin({
   useEffect(() => {
     const checkSTTAvailability = async () => {
       try {
-        console.log('🔍 Checking native STT availability...');
-        // Use public API or create a safe check
-        const available = speechToTextService.getInstance ? 
-          await speechToTextService.getInstance().checkAvailability() : false;
+        console.log('🔍 Checking REAL native STT availability...');
+        const available = await speechToTextService.checkAvailability();
         setIsNativeSTTAvailable(available);
         
         if (available) {
-          console.log('✅ Native STT is available');
+          console.log('✅ REAL Native STT is available and ready');
         } else {
-          console.log('⚠️ Native STT not available - will show errors');
+          console.log('⚠️ Native STT not available on this device');
         }
       } catch (error) {
-        console.error('❌ STT availability check failed:', error);
+        console.error('❌ REAL STT availability check failed:', error);
         setIsNativeSTTAvailable(false);
-        // Don't re-throw in useEffect to avoid crash
+        console.log('⚠️ Will attempt STT anyway - errors will surface if issues exist');
       }
     };
     
@@ -295,46 +249,21 @@ export default function VAMoodCheckin({
             console.log('🎯 Detected triggers from voice:', analysis.triggers);
           }
           
-          // Convert to VA coordinates (enhanced gain/gamma curve)
-          const vx = toCoord(analysis.moodScore);
-          const vy = toCoord(analysis.energyLevel);
+          // Convert to VA coordinates (service-compatible 5.5 center)
+          const vx = toCoordServiceLike(analysis.moodScore);
+          const vy = toCoordServiceLike(analysis.energyLevel);
           
-          // 🎯 Final analysis: Use incremental API with finalized flag for smooth convergence
-          if (realtimeStateRef.current) {
-            const finalRes = voiceCheckInHeuristicService.incrementalAnalyze(
-              realtimeStateRef.current,
-              result.text,
-              { isFinal: true }
-            );
-            
-            const finalVx = finalRes.coordX;
-            const finalVy = finalRes.coordY;
-            
-            console.log('🎧 Final: smooth convergence to precise position ->', { 
-              vx: finalVx, vy: finalVy, 
-              mood: finalRes.moodScore, 
-              energy: finalRes.energyLevel,
-              finalized: finalRes.finalized 
-            });
-            
-            // Enhanced lerp for final convergence (no snap)
-            const blend = (prev: number, next: number, α = 0.4) => prev + α * (next - prev);
-            const bx = blend(xy.x, finalVx, 0.4);
-            const by = blend(xy.y, finalVy, 0.4);
-            
-            x.value = withTiming(bx, { duration: 400 });
-            y.value = withTiming(by, { duration: 400 });
-            setXY({ x: bx, y: by });
-          } else {
-            // Fallback: direct coordinate conversion
-            const vx = toCoord(analysis.moodScore);
-            const vy = toCoord(analysis.energyLevel);
-            
-            console.log('🎧 Final: fallback positioning ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
-            x.value = withTiming(vx, { duration: 450 });
-            y.value = withTiming(vy, { duration: 450 });
-            setXY({ x: vx, y: vy });
-          }
+          // 🎯 Final positioning: Service-compatible coordinates, faster animation
+          console.log('🎧 Final: precise positioning ->', { 
+            vx, vy, 
+            mood: analysis.moodScore, 
+            energy: analysis.energyLevel 
+          });
+          
+          // Fast final positioning (no excessive smoothing)
+          x.value = withTiming(vx, { duration: 300 });
+          y.value = withTiming(vy, { duration: 300 });
+          setXY({ x: vx, y: vy });
           
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else {
@@ -603,12 +532,12 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // 🎯 ENHANCED: Use service-computed coordinates directly (5.5 center fix)
+        // 🎯 Use service coordinates as primary source (remove UI gate duplication)
         const { coordX, coordY, gateActive, finalized, signalStrength } = res;
 
         console.log('🎧 Realtime v3.5: service result ->', { 
-          coordX: coordX.toFixed(3), 
-          coordY: coordY.toFixed(3),
+          coordX: typeof coordX === 'number' ? coordX.toFixed(3) : 'N/A',
+          coordY: typeof coordY === 'number' ? coordY.toFixed(3) : 'N/A',
           mood: res.moodScore, 
           energy: res.energyLevel,
           signal: signalStrength.toFixed(2),
@@ -618,46 +547,30 @@ export default function VAMoodCheckin({
           chunk: newChunk.slice(0, 30)
         });
 
-        // Gate aktifken çizimde hareketsizlik (service kontrolü)
+        // Single gate control - trust service gating completely
         if (gateActive) {
-          console.log('🎧 Realtime: gate active - movement frozen');
+          console.log('🎧 Service gate active - no movement');
           return;
         }
 
-        // Update timestamp for successful movement
-        lastUpdateTimeRef.current = now;
+        // Service coordinates as primary, fallback to service-like conversion
+        const vx = typeof coordX === 'number' ? coordX : toCoordServiceLike(res.moodScore);
+        const vy = typeof coordY === 'number' ? coordY : toCoordServiceLike(res.energyLevel);
 
-        // 🎯 Direct service coordinates (5.5 center, no UI conversion)
-        const vx = coordX;
-        const vy = coordY;
-
-        // 🎬 Adaptive lerp: final'de hızlı, realtime'da smooth
-        const MIN_ALPHA = 0.18;
-        const FAST_ALPHA = 0.35;
-        const alpha = finalized ? FAST_ALPHA : MIN_ALPHA;
+        // More visible animation (reduce smoothing for better responsiveness)
+        x.value = withTiming(vx, { duration: 200 });
+        y.value = withTiming(vy, { duration: 200 });
+        setXY({ x: vx, y: vy });
         
-        // Ultra-smooth lerp (no micro-skip, sub-pixel allowed)
-        const blend = (prev: number, next: number, α: number) => prev + α * (next - prev);
-        const bx = blend(xy.x, vx, alpha);
-        const by = blend(xy.y, vy, alpha);
-
-        // Smooth coordinate update
-        const duration = finalized ? 300 : 200;
-        x.value = withTiming(bx, { duration });
-        y.value = withTiming(by, { duration });
-        setXY({ x: bx, y: by });
-        
-        // Haptic feedback for significant moves only
-        if (Math.abs(vx - xy.x) > 0.12 || Math.abs(vy - xy.y) > 0.12) {
+        // Haptic feedback for visible moves
+        if (Math.abs(vx - xyRef.current.x) > 0.1 || Math.abs(vy - xyRef.current.y) > 0.1) {
           Haptics.selectionAsync();
         }
 
-        console.log('🎧 Realtime v3.5: dot moved ->', { 
-          from: { x: xy.x.toFixed(3), y: xy.y.toFixed(3) },
-          to: { x: bx.toFixed(3), y: by.toFixed(3) },
-          lerp: alpha.toFixed(2),
-          duration,
-          final: finalized
+        console.log('🎧 Dot moved ->', { 
+          from: xyRef.current, 
+          to: { x: vx.toFixed(3), y: vy.toFixed(3) }, 
+          duration: 200 
         });
       } catch (e) {
         // Sessiz fail: realtime'da gürültü olabilir
