@@ -93,6 +93,92 @@ type CompiledPattern = KeywordPattern & {
 // 🔧 Type Safety - Impact field type for better type checking
 type ImpactField = 'moodImpact' | 'energyImpact' | 'anxietyImpact';
 
+// 🎯 RealtimeCtx - Mini class for realtime state management
+class RealtimeCtx {
+  text: string = '';
+  tokens: string[] = [];
+  mood: number = 5;
+  energy: number = 5;
+  anxiety: number = 5;
+  
+  // Private fields for echo tracking and gating
+  private _lastPartialNorm?: string;
+  private _lastCoord?: { x: number; y: number };
+  private _gateUntilMs?: number;
+
+  constructor(
+    private preprocessText: (text: string) => string,
+    private tokenize: (text: string) => string[],
+    private lcpLen: (a: string, b: string) => number,
+    private dropRepeatedNgrams: (text: string, base: string) => string
+  ) {}
+
+  /**
+   * 📊 Append new chunk with echo protection (computeIncrement logic)
+   */
+  appendChunk(rawChunk: string): string {
+    const norm = this.preprocessText(rawChunk);
+    const prev = this._lastPartialNorm ?? '';
+    let delta = norm;
+
+    if (prev) {
+      const l = this.lcpLen(prev, norm);
+      delta = norm.slice(l);
+
+      // Rewind/echo protection
+      if (l < 5) {
+        const head = norm.slice(0, Math.min(24, norm.length));
+        if (head && this.text.includes(head)) {
+          delta = '';
+        }
+      }
+    }
+    
+    delta = this.dropRepeatedNgrams(delta, this.text);
+    this._lastPartialNorm = norm;
+    
+    if (delta) {
+      this.text = [this.text, delta].filter(Boolean).join(' ').trim();
+      this.tokens = this.tokenize(this.text);
+    }
+    
+    return delta.trim();
+  }
+
+  /**
+   * 🎯 Convert mood/energy to coordinates (5.5 center)
+   */
+  toCoord(mood: number, energy: number) {
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    const x = clamp((mood - Constants.CENTER) / Constants.SPAN, -1, 1);
+    const y = clamp((energy - Constants.CENTER) / Constants.SPAN, -1, 1);
+    return { x, y };
+  }
+
+  /**
+   * 🧰 Gate management
+   */
+  setGate(durationMs: number) {
+    this._gateUntilMs = Date.now() + durationMs;
+  }
+
+  clearGate() {
+    this._gateUntilMs = undefined;
+  }
+
+  isGateActive(): boolean {
+    return !!(this._gateUntilMs && Date.now() < this._gateUntilMs);
+  }
+
+  getLastCoord() {
+    return this._lastCoord ?? { x: 0, y: 0 };
+  }
+
+  setLastCoord(coord: { x: number; y: number }) {
+    this._lastCoord = coord;
+  }
+}
+
 export type RealtimeState = {
   text: string;
   tokens: string[];
@@ -749,7 +835,15 @@ class VoiceCheckInHeuristicService {
    * 🎧 Incremental (Realtime) Analysis API
    */
   public beginRealtime(): RealtimeState {
-    return { text: '', tokens: [], mood: 5, energy: 5, anxiety: 5 };
+    // Create RealtimeCtx with bound methods for echo protection and coordinate conversion
+    const ctx = new RealtimeCtx(
+      (text: string) => this.preprocessText(text),
+      (text: string) => this.tokenize(text),
+      (a: string, b: string) => this.lcpLen(a, b),
+      (delta: string, base: string) => this.dropRepeatedNgrams({ text: base } as any, delta)
+    );
+    
+    return ctx as any; // Compatible with existing RealtimeState interface
   }
 
   public incrementalAnalyze(
@@ -757,34 +851,33 @@ class VoiceCheckInHeuristicService {
     newChunk: string,
     opts?: { isFinal?: boolean }
   ) {
-    // 🔄 ENHANCED: computeIncrement ile echo/delta filtresi
-    const delta = this.computeIncrement(state, newChunk);
+    // Cast to RealtimeCtx for enhanced methods
+    const ctx = state as any as RealtimeCtx;
+    
+    // 🔄 ENHANCED: Use RealtimeCtx appendChunk with echo protection
+    const delta = ctx.appendChunk(newChunk);
 
     // Yeni bilgi yoksa: koordinatı ve float'ları koru, sinyal 0
     if (!delta) {
-      const coord = state._lastCoord ?? { x: 0, y: 0 };
+      const coord = ctx.getLastCoord();
       return {
-        moodScore: Math.round(state.mood),
-        energyLevel: Math.round(state.energy),
-        anxietyLevel: Math.round(state.anxiety),
-        moodFloat: state.mood,
-        energyFloat: state.energy,
-        anxietyFloat: state.anxiety,
+        moodScore: Math.round(ctx.mood),
+        energyLevel: Math.round(ctx.energy),
+        anxietyLevel: Math.round(ctx.anxiety),
+        moodFloat: ctx.mood,
+        energyFloat: ctx.energy,
+        anxietyFloat: ctx.anxiety,
         coordX: coord.x,          // 👈 UI için doğrudan koordinat
         coordY: coord.y,
         signalStrength: 0,
         confidence: Constants.BASE_CONFIDENCE,
-        gateActive: !!(state._gateUntilMs && Date.now() < state._gateUntilMs),
+        gateActive: ctx.isGateActive(),
         finalized: !!opts?.isFinal,
       };
     }
 
-    // Metni büyüt (yeni delta'yı ekle)
-    state.text = [state.text, delta].filter(Boolean).join(' ').trim();
-
-    const newTokens = this.tokenize(state.text);
-    const startIdx = state.tokens.length;
-    state.tokens = newTokens;
+    const newTokens = ctx.tokens;
+    const startIdx = newTokens.length - this.tokenize(delta).length;
 
     // Sadece yeni alanda compiled matcher çalıştır
     const matches: (PatternMatch & { lastIdx?: number })[] = [];
@@ -887,8 +980,8 @@ class VoiceCheckInHeuristicService {
     const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
     const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
 
-    // 🔘 Koordinata çevir (5.5 merkez ile doğru mapping)
-    const freshCoord = this.toCoord(outMood, outEnergy);
+    // 🔘 Koordinata çevir (RealtimeCtx ile 5.5 merkez mapping)
+    const freshCoord = ctx.toCoord(outMood, outEnergy);
 
     // 🧰 Neutral gating (zayıf sinyallerde kısa bekleme)
     const now = Date.now();
@@ -899,22 +992,22 @@ class VoiceCheckInHeuristicService {
     if (!explicitOverride) {
       if (WEAK) {
         // Gate kur
-        if (!state._gateUntilMs) state._gateUntilMs = now + GATE_MS;
-        if (now < state._gateUntilMs) gateActive = true;
+        if (!ctx.isGateActive()) ctx.setGate(GATE_MS);
+        gateActive = ctx.isGateActive();
       } else {
         // Güçlü sinyalde gate'i bırak
-        state._gateUntilMs = undefined;
+        ctx.clearGate();
       }
     } else {
       // Açık beyan her zaman gate'i kırar
-      state._gateUntilMs = undefined;
+      ctx.clearGate();
     }
 
     const coord = gateActive
-      ? (state._lastCoord ?? freshCoord)  // bekle: hareket etme
-      : freshCoord;                       // serbest: yeni koordinata geç
+      ? ctx.getLastCoord()  // bekle: hareket etme
+      : freshCoord;         // serbest: yeni koordinata geç
 
-    state._lastCoord = coord;
+    ctx.setLastCoord(coord);
 
     return {
       // Integer values (backward compatibility)
@@ -923,17 +1016,17 @@ class VoiceCheckInHeuristicService {
       anxietyLevel: Number(outAnx.toFixed(1)),
 
       // Float values for smoother animation  
-      moodFloat: state.mood,
-      energyFloat: state.energy,
-      anxietyFloat: state.anxiety,
+      moodFloat: ctx.mood,
+      energyFloat: ctx.energy,
+      anxietyFloat: ctx.anxiety,
 
-      // 🎯 Doğrudan çizim koordinatı (5.5 merkez)
+      // 🎯 Doğrudan çizim koordinatı (RealtimeCtx ile 5.5 merkez)
       coordX: coord.x,
       coordY: coord.y,
 
       // Gating/animation metadata
       signalStrength,
-      confidence: 0.8,
+      confidence: Constants.BASE_CONFIDENCE,
       gateActive,
       finalized: !!opts?.isFinal,
     };
