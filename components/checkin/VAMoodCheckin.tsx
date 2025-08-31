@@ -33,50 +33,50 @@ import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
 
-// Use a safer STT approach - check if available first
-let speechToTextService: any;
+// 🛡️ SAFER STT - Use mock fallback to prevent iOS crashes during development
+// NOTE: Native STT causes iOS crashes with Voice module, using enhanced mock for testing
 
-try {
-  // Try to import the real service
-  const sttModule = require('@/services/speechToTextService');
-  speechToTextService = sttModule.default || sttModule;
-  console.log('✅ Using native STT service');
-} catch (error) {
-  console.log('⚠️ Native STT not available, using mock');
-  // Fallback to mock if native fails
-  speechToTextService = {
-    startRealtimeListening: async (
-      onPartialResult?: (text: string) => void,
-      language: string = 'tr-TR'
-    ): Promise<void> => {
-      // Simulate partial results
+const speechToTextService = {
+  startRealtimeListening: async (
+    onPartialResult?: (text: string) => void,
+    language: string = 'tr-TR'
+  ): Promise<void> => {
+    console.log('🎭 Using enhanced mock STT for crash-free testing');
+    
+    // Enhanced mock with varied emotional content for testing
+    const scenarios = [
+      'Bugün kendimi...',
+      'Bugün kendimi çok iyi...',
+      'Bugün kendimi çok iyi hissediyorum...',
+      'Bugün kendimi çok iyi hissediyorum ama...',
+      'Bugün kendimi çok iyi hissediyorum ama keyifsizim...',
+      'Bugün kendimi çok iyi hissediyorum ama keyifsizim ve enerjim düşük'
+    ];
+    
+    // Simulate realistic partial progression
+    for (let i = 0; i < scenarios.length; i++) {
       setTimeout(() => {
         if (onPartialResult) {
-          onPartialResult('Bugün kendimi...');
+          onPartialResult(scenarios[i]);
         }
-      }, 500);
-      setTimeout(() => {
-        if (onPartialResult) {
-          onPartialResult('Bugün kendimi çok iyi hissediyorum...');
-        }
-      }, 1000);
-    },
-    
-    stopRealtimeListening: async () => {
-      // Simulate processing delay
-      await new Promise(r => setTimeout(r, 800));
-      return {
-        success: true,
-        text: 'Bugün kendimi çok iyi hissediyorum, enerjim yüksek ve motiveyim.',
-        confidence: 0.92,
-        duration: 3,
-        language: 'tr-TR'
-      };
-    },
-    
-    checkAvailability: async () => false
-  };
-}
+      }, (i + 1) * 800);
+    }
+  },
+  
+  stopRealtimeListening: async () => {
+    // Simulate processing delay
+    await new Promise(r => setTimeout(r, 600));
+    return {
+      success: true,
+      text: 'Bugün kendimi çok iyi hissediyorum ama keyifsizim ve enerjim düşük',
+      confidence: 0.92,
+      duration: 4,
+      language: 'tr-TR'
+    };
+  },
+  
+  checkAvailability: async () => false // Force mock usage for stability
+};
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
@@ -198,6 +198,7 @@ export default function VAMoodCheckin({
   const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRealtimeAnalyzingRef = useRef(false);
   const lastRealtimeTextRef = useRef('');
+  const lastUpdateTimeRef = useRef(0);
 
   const updateXY = useCallback((nx: number, ny: number) => {
     setXY({ x: nx, y: ny });
@@ -366,11 +367,12 @@ export default function VAMoodCheckin({
       clearTimeout(partialTimerRef.current);
       partialTimerRef.current = null;
     }
-    realtimeStateRef.current = null;
-    isRealtimeAnalyzingRef.current = false;
-    lastRealtimeTextRef.current = '';
-    
-    console.log('🎧 Realtime v3.5: disabled for step 2');
+          realtimeStateRef.current = null;
+      isRealtimeAnalyzingRef.current = false;
+      lastRealtimeTextRef.current = '';
+      lastUpdateTimeRef.current = 0;
+      
+      console.log('🎧 Realtime v3.5: disabled for step 2');
     
     // Move to step 2 (details)
     setCurrentStep(2);
@@ -436,6 +438,7 @@ export default function VAMoodCheckin({
         realtimeStateRef.current = null;
         isRealtimeAnalyzingRef.current = false;
         lastRealtimeTextRef.current = '';
+        lastUpdateTimeRef.current = 0;
         
         x.value = 0;
         y.value = 0;
@@ -540,12 +543,14 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // Neutral deadband: Skip if analysis returns neutral values (prevents center drift)
+        // Soft neutral deadband: Skip neutral only for short duration (prevents center drift but allows genuine neutral)
+        const now = Date.now();
         const isNeutral = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
-        if (isNeutral(res.moodScore, res.energyLevel)) {
-          console.log('🎧 Realtime: skipping neutral result to prevent center drift');
+        if (isNeutral(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 800) {
+          console.log('🎧 Realtime: skipping short-term neutral to prevent center drift');
           return;
         }
+        lastUpdateTimeRef.current = now;
 
         // VA koordinatlarına çevir (enhanced gain/gamma curve)
         const vx = toCoord(res.moodScore);

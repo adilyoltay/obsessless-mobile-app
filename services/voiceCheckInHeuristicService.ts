@@ -704,20 +704,31 @@ class VoiceCheckInHeuristicService {
       let neg = false;
       let lastIdx: number | undefined;
 
-      for (const rx of [...p.rx, ...p.rxSyn]) {
-        const m = rx.exec(state.text);
-        if (!m) continue;
+      for (const rxOriginal of [...p.rx, ...p.rxSyn]) {
+        // Tüm eşleşmeler için global regex oluştur
+        const rx = new RegExp(rxOriginal.source, rxOriginal.flags.includes('g') ? rxOriginal.flags : (rxOriginal.flags + 'g'));
+        
+        // Reset regex lastIndex to ensure we scan the full text
+        rx.lastIndex = 0;
+        
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(state.text)) !== null) {
+          const before = state.text.slice(0, m.index).trim();
+          const idx = this.tokenize(before).length;
+          if (idx < startIdx) continue; // sadece yeni bölge
 
-        const before = state.text.slice(0, m.index).trim();
-        const idx = this.tokenize(before).length;
-        if (idx < startIdx) continue; // eski bölgeyi atla
+          const intMod = this.windowIntensity(newTokens, idx - 5, idx - 1);
+          localIntensity = Math.max(localIntensity, intMod);
+          if (this.windowHasNegation(newTokens, idx - 6, idx + 6)) neg = true;
 
-        const intMod = this.windowIntensity(newTokens, idx - 5, idx - 1);
-        localIntensity = Math.max(localIntensity, intMod);
-        if (this.windowHasNegation(newTokens, idx - 6, idx + 6)) neg = true;
-
-        lastIdx = idx; // Match pozisyonunu kaydet
-        found = true;
+          lastIdx = idx; // Match pozisyonunu kaydet
+          found = true;
+          
+          // Prevent infinite loop for zero-width matches
+          if (m[0].length === 0) {
+            rx.lastIndex++;
+          }
+        }
       }
 
       if (found) {
@@ -749,6 +760,24 @@ class VoiceCheckInHeuristicService {
       energy: scoreAxis('energyImpact', 5.0),
       anxiety: scoreAxis('anxietyImpact', 4.0),
     };
+
+    // RECENCY explicit override (yalnızca son pencere için realtime)
+    const recencyText = newTokens.slice(-15).join(' ');
+    const explicit = this.extractExplicitDeclarations(recencyText);
+
+    // Açık beyanlar baskın olsun (realtime'da anında etki)
+    if (explicit.energy !== undefined) {
+      next.energy = explicit.energy;
+      console.log('🎯 Recency explicit: energy override ->', explicit.energy);
+    }
+    if (explicit.mood !== undefined) {
+      next.mood = explicit.mood;
+      console.log('🎯 Recency explicit: mood override ->', explicit.mood);
+    }
+    if (explicit.anxiety !== undefined) {
+      next.anxiety = explicit.anxiety;
+      console.log('🎯 Recency explicit: anxiety override ->', explicit.anxiety);
+    }
 
     // EMA smoothing
     const α = 0.25;
