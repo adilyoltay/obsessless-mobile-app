@@ -40,6 +40,17 @@ const Constants = {
   SIGNAL_DECAY_RATE: 6,
 } as const;
 
+// 🔧 CONFIG - All configurations grouped in-file for easy management  
+const CONFIG = {
+  // Note: Will be populated after class definition to maintain existing content
+  patterns: [] as any[],
+  intensityModifiers: {} as any,
+  crisis: [] as any[],
+  synonymGroups: {} as any,
+  negationWords: [] as any[],
+  uncertaintyWords: [] as any[],
+};
+
 interface MoodAnalysisResult {
   moodScore: number;        // 1-10 arası mood skoru
   energyLevel: number;      // 1-10 arası enerji seviyesi  
@@ -95,6 +106,7 @@ export type RealtimeState = {
 class VoiceCheckInHeuristicService {
   private static instance: VoiceCheckInHeuristicService;
   private compiled!: CompiledPattern[];
+  private cfg = CONFIG; // Centralized config access
   
   // 🔧 Türkçe ek toleranslı kelime/ibare eşleme yardımcıları
   private escapeRegex(s: string): string {
@@ -676,10 +688,10 @@ class VoiceCheckInHeuristicService {
    */
   private compilePatterns(): void {
     const make = (w: string) => this.buildLemmaRegex(w);
-    this.compiled = this.moodPatterns.map((p) => {
+    this.compiled = this.cfg.patterns.map((p) => {
       const rx = p.keywords.map(make);
       const rxSyn = p.keywords
-        .map((k) => this.synonymGroups[k.split(' ').pop()!]?.map(make) ?? [])
+        .map((k) => this.cfg.synonymGroups[k.split(' ').pop()!]?.map(make) ?? [])
         .flat();
       return { ...p, rx, rxSyn };
     });
@@ -695,14 +707,14 @@ class VoiceCheckInHeuristicService {
 
   private windowHasNegation(tokens: string[], from: number, to: number): boolean {
     const w = tokens.slice(Math.max(0, from), Math.min(tokens.length, to + 1));
-    return w.some((x) => this.negationWords.includes(x));
+    return w.some((x) => this.cfg.negationWords.includes(x));
   }
 
   private windowIntensity(tokens: string[], from: number, to: number): number {
     const w = tokens.slice(Math.max(0, from), Math.min(tokens.length, to + 1));
     let m = 1.0;
     for (const tok of w) {
-      if (this.intensityModifiers[tok]) m = Math.max(m, this.intensityModifiers[tok]);
+      if (this.cfg.intensityModifiers[tok]) m = Math.max(m, this.cfg.intensityModifiers[tok]);
     }
     return m;
   }
@@ -712,7 +724,7 @@ class VoiceCheckInHeuristicService {
    */
   public detectCrisis(t: string): { flagged: boolean; hits: string[] } {
     const lower = t.toLowerCase();
-    const hits = this.crisis.filter((w) => lower.includes(w));
+    const hits = this.cfg.crisis.filter((w) => lower.includes(w));
     return { flagged: hits.length > 0, hits };
   }
 
@@ -1652,6 +1664,19 @@ class VoiceCheckInHeuristicService {
     return await this.analyzeMoodFromVoice(mockTranscription);
   }
 }
+
+// 🔧 Populate CONFIG with existing class data (STAGE 2 - Config Consolidation)
+// This allows us to centralize config while maintaining all existing values
+const tempInstance = new VoiceCheckInHeuristicService();
+
+CONFIG.patterns = (tempInstance as any).moodPatterns || [];
+CONFIG.intensityModifiers = (tempInstance as any).intensityModifiers || {};
+CONFIG.crisis = (tempInstance as any).crisis || [];
+CONFIG.synonymGroups = (tempInstance as any).synonymGroups || {};
+CONFIG.negationWords = (tempInstance as any).negationWords || [];
+CONFIG.uncertaintyWords = (tempInstance as any).uncertaintyWords || [];
+
+console.log('🔧 CONFIG populated with', CONFIG.patterns.length, 'patterns and', Object.keys(CONFIG.intensityModifiers).length, 'intensity modifiers');
 
 // Export singleton instance
 const voiceCheckInHeuristicService = VoiceCheckInHeuristicService.getInstance();
