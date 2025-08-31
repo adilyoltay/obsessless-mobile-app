@@ -93,10 +93,10 @@ const from1_10 = (v: number) => {
   return Math.max(-1, Math.min(1, result));
 };
 
-// Enhanced coordinate mapping with gain/gamma curve for better dot movement
-const toCoord = (score: number, gain = 1.6, gamma = 0.85): number => {
-  // 5.5 → 0 merkezlenmiş normalizasyon (1..10 → [-1..1])
-  const n = Math.max(-1, Math.min(1, (score - 5.5) / 4.5));
+// Enhanced coordinate mapping with gain/gamma curve for better dot movement  
+const toCoord = (score: number, gain = 1.5, gamma = 0.85): number => {
+  // 5.0 → 0 merkezlenmiş normalizasyon (1..10 → [-1..1])  
+  const n = Math.max(-1, Math.min(1, (score - 5.0) / 5.0)); // CENTER=5.0 (drift fix!)
   const curved = Math.sign(n) * Math.pow(Math.abs(n), gamma);
   return Math.max(-1, Math.min(1, curved * gain));
 };
@@ -543,14 +543,13 @@ export default function VAMoodCheckin({
           // TODO: Crisis UI handling
         }
 
-        // Soft neutral deadband: Skip neutral only for short duration (prevents center drift but allows genuine neutral)
+        // Refined neutral gating: Max 600ms freeze, then allow small corrections
         const now = Date.now();
-        const isNeutral = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
-        if (isNeutral(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 800) {
-          console.log('🎧 Realtime: skipping short-term neutral to prevent center drift');
+        const isNeutralScores = (m: number, e: number) => Math.abs(m - 5) <= 0.5 && Math.abs(e - 5) <= 0.5;
+        if (isNeutralScores(res.moodScore, res.energyLevel) && (now - lastUpdateTimeRef.current) < 600) {
+          console.log('🎧 Realtime: skipping short-term neutral (max 600ms)');
           return;
         }
-        lastUpdateTimeRef.current = now;
 
         // VA koordinatlarına çevir (enhanced gain/gamma curve)
         const vx = toCoord(res.moodScore);
@@ -564,26 +563,36 @@ export default function VAMoodCheckin({
           chunk: newChunk.slice(0, 30) 
         });
 
-        // Min delta gate: Skip very small movements to prevent micro-jitter
-        if (Math.abs(vx - xy.x) < 0.03 && Math.abs(vy - xy.y) < 0.03) {
+        // Enhanced delta gate: Skip very small movements to prevent micro-jitter  
+        const MIN_DELTA = 0.03;
+        if (Math.abs(vx - xy.x) < MIN_DELTA && Math.abs(vy - xy.y) < MIN_DELTA) {
           console.log('🎧 Realtime: skipping micro-movement to prevent jitter');
           return;
         }
 
-        // EMA blend for extra smoothness
-        const blend = (prev: number, next: number, α = 0.3) => prev + α * (next - prev);
+        // Update timestamp for successful movement
+        lastUpdateTimeRef.current = now;
+
+        // EMA blend for extra smoothness (reduced alpha for more responsive movement)
+        const blend = (prev: number, next: number, α = 0.2) => prev + α * (next - prev);
         const bx = blend(xy.x, vx);
         const by = blend(xy.y, vy);
 
-        // Smooth animasyon (retarget-friendly)
-        x.value = withTiming(bx, { duration: 300 });
-        y.value = withTiming(by, { duration: 300 });
+        // Smooth animasyon (retarget-friendly, faster for enhanced responsiveness)
+        x.value = withTiming(bx, { duration: 250 });
+        y.value = withTiming(by, { duration: 250 });
         setXY({ x: bx, y: by });
         
-        // Subtle haptic feedback for significant position changes
-        if (Math.abs(vx - xy.x) > 0.25 || Math.abs(vy - xy.y) > 0.25) {
+        // Haptic feedback for significant position changes (refined threshold)
+        if (Math.abs(vx - xy.x) > 0.2 || Math.abs(vy - xy.y) > 0.2) {
           Haptics.selectionAsync();
         }
+
+        console.log('🎧 Realtime v3.5: dot moved ->', { 
+          from: { x: xy.x.toFixed(2), y: xy.y.toFixed(2) },
+          to: { x: bx.toFixed(2), y: by.toFixed(2) },
+          delta: { dx: (vx - xy.x).toFixed(3), dy: (vy - xy.y).toFixed(3) }
+        });
       } catch (e) {
         // Sessiz fail: realtime'da gürültü olabilir
         if (__DEV__) console.warn('🎧 Realtime v3.5 analysis failed:', e);

@@ -785,10 +785,16 @@ class VoiceCheckInHeuristicService {
     state.energy = state.energy + α * (next.energy - state.energy);
     state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
 
+    // Float döndür (round'u kaldır) - daha akıcı hareket için
+    const outMood = Math.max(1, Math.min(10, state.mood));
+    const outEnergy = Math.max(1, Math.min(10, state.energy));
+    const outAnx = Math.max(1, Math.min(10, state.anxiety));
+
     return {
-      moodScore: Math.round(state.mood),
-      energyLevel: Math.round(state.energy),
-      anxietyLevel: Math.round(state.anxiety),
+      // Tek ondalık hassasiyet ile akıcı hareket
+      moodScore: Number(outMood.toFixed(1)),
+      energyLevel: Number(outEnergy.toFixed(1)),
+      anxietyLevel: Number(outAnx.toFixed(1)),
     };
   }
 
