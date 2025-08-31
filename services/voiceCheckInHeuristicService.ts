@@ -90,6 +90,9 @@ type CompiledPattern = KeywordPattern & {
   rxSyn: RegExp[];   // sinonimler için regexler
 };
 
+// 🔧 Type Safety - Impact field type for better type checking
+type ImpactField = 'moodImpact' | 'energyImpact' | 'anxietyImpact';
+
 export type RealtimeState = {
   text: string;
   tokens: string[];
@@ -818,14 +821,14 @@ class VoiceCheckInHeuristicService {
     // Recency ağırlığı (son taraf daha etkili)
     const recentBoost = (i: number) => 0.4 + 0.6 * Math.exp(-(newTokens.length - i) / Constants.RECENCY_DECAY);
 
-    const scoreAxis = (field: 'moodImpact' | 'energyImpact' | 'anxietyImpact', base: number) => {
+    const scoreAxis = (field: ImpactField, base: number) => {
       let s = 0;
       for (const m of matches) {
-        const imp = (m as any)[field] || 0;
+        const imp = m[field] || 0; // Type-safe access without 'as any'
         const i = m.lastIdx ?? newTokens.length; // eşleşme index'i varsa onu kullan
         s += imp * m.intensity * m.weight * recentBoost(i);
       }
-      return Math.max(1, Math.min(10, Math.round(base + s)));
+      return Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, Math.round(base + s)));
     };
 
     const next = {
