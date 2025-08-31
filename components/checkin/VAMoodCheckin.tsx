@@ -168,27 +168,10 @@ export default function VAMoodCheckin({
 
   const color = useMemo(() => colorFromVA(xy.x, xy.y), [xy]);
 
-  // Check STT availability on component mount
+  // STT availability handled internally by service
   useEffect(() => {
-    const checkSTTAvailability = async () => {
-      try {
-        console.log('🔍 Checking REAL native STT availability...');
-        const available = await speechToTextService.checkAvailability();
-        setIsNativeSTTAvailable(available);
-        
-        if (available) {
-          console.log('✅ REAL Native STT is available and ready');
-        } else {
-          console.log('⚠️ Native STT not available on this device');
-        }
-      } catch (error) {
-        console.error('❌ REAL STT availability check failed:', error);
-        setIsNativeSTTAvailable(false);
-        console.log('⚠️ Will attempt STT anyway - errors will surface if issues exist');
-      }
-    };
-    
-    checkSTTAvailability();
+    console.log('🔍 Real native STT - availability handled by service internally');
+    setIsNativeSTTAvailable(true); // Let service handle its own availability
   }, []);
 
   // Clean up realtime analysis when modal closes
@@ -202,7 +185,6 @@ export default function VAMoodCheckin({
       realtimeStateRef.current = null;
       isRealtimeAnalyzingRef.current = false;
       lastRealtimeTextRef.current = '';
-      lastUpdateTimeRef.current = 0;
       console.log('🎧 Realtime v3.5: cleaned up on modal close');
     }
   }, [isVisible]);
@@ -359,7 +341,6 @@ export default function VAMoodCheckin({
           realtimeStateRef.current = null;
       isRealtimeAnalyzingRef.current = false;
       lastRealtimeTextRef.current = '';
-      lastUpdateTimeRef.current = 0;
       
       console.log('🎧 Realtime v3.5: disabled for step 2');
     
@@ -427,7 +408,6 @@ export default function VAMoodCheckin({
         realtimeStateRef.current = null;
         isRealtimeAnalyzingRef.current = false;
         lastRealtimeTextRef.current = '';
-        lastUpdateTimeRef.current = 0;
         
         x.value = 0;
         y.value = 0;

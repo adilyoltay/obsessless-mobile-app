@@ -944,7 +944,7 @@ class VoiceCheckInHeuristicService {
         const i = m.lastIdx ?? newTokens.length; // eşleşme index'i varsa onu kullan
         s += imp * m.intensity * m.weight * recentBoost(i);
       }
-      return Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, Math.round(base + s)));
+      return Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, base + s)); // No rounding for micro-movements
     };
 
     const next = {
@@ -953,55 +953,71 @@ class VoiceCheckInHeuristicService {
       anxiety: scoreAxis('anxietyImpact', Constants.ANXIETY_BASELINE),
     };
 
-    // 1) Single recency/explicit calculation
-    const recencyWindow = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
-    const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
-    const explicitOverride = explicitDecl.mood !== undefined || explicitDecl.energy !== undefined || explicitDecl.anxiety !== undefined;
+    // 1) Enhanced recency/explicit with intensifier boost
+    const deltaRaw = this.preprocessText(newChunk);
+    const tail = this.tokenize(state.text).slice(-Constants.RECENCY_WINDOW_SIZE).join(' ');
+    const recencyWindow = [deltaRaw, tail].filter(Boolean).join(' ').trim();
 
-    // Apply explicit overrides to next scores
+    // Tek explicit çıkarımı
+    const explicitDecl = this.extractExplicitDeclarations(recencyWindow);
+    const explicitOverride = explicitDecl.mood !== undefined ||
+      explicitDecl.energy !== undefined ||
+      explicitDecl.anxiety !== undefined;
+
+    // Explicit yakınında güçlü intensifier var mı?
+    const hasStrongIntensifier = /\b(çok|aşırı|son derece|inanılmaz|resmen|tam anlamıyla)\b/u.test(recencyWindow);
+
+    // Explicit değerleri uygula (+boost)
     if (explicitDecl.energy !== undefined) {
-      next.energy = explicitDecl.energy;
-      console.log('🎯 Explicit override: energy ->', explicitDecl.energy);
+      let v = explicitDecl.energy;
+      if (hasStrongIntensifier) v = Math.max(v, 9); // 9+ için boost
+      next.energy = v;
+      if (__DEV__) console.log('🎯 Explicit override: energy ->', v, hasStrongIntensifier ? '(boosted)' : '');
     }
     if (explicitDecl.mood !== undefined) {
-      next.mood = explicitDecl.mood;
-      console.log('🎯 Explicit override: mood ->', explicitDecl.mood);
+      let v = explicitDecl.mood;
+      if (hasStrongIntensifier) v = Math.max(v, 9);
+      next.mood = v;
+      if (__DEV__) console.log('🎯 Explicit override: mood ->', v, hasStrongIntensifier ? '(boosted)' : '');
     }
     if (explicitDecl.anxiety !== undefined) {
-      next.anxiety = explicitDecl.anxiety;
-      console.log('🎯 Explicit override: anxiety ->', explicitDecl.anxiety);
+      next.anxiety = explicitDecl.anxiety; // anksiyeteye boost yok
+      if (__DEV__) console.log('🎯 Explicit override: anxiety ->', explicitDecl.anxiety);
     }
 
-    // EMA smoothing
-    const α = Constants.SMOOTHING_FACTOR;
-    state.mood = state.mood + α * (next.mood - state.mood);
-    state.energy = state.energy + α * (next.energy - state.energy);
-    state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
+    // 2) Smoothing'den ÖNCE sinyal gücünü hesapla ve dinamik α seç
+    const signalStrength = this.computeSignalStrength(matches);
 
-    // 2) Output values and coordinate calculation
+    // Dinamik smoothing: güçlü sinyal hızlı akar; explicit neredeyse anlık
+    const alpha = explicitOverride
+      ? 0.8 // explicit -> hızlı tepki
+      : Math.min(0.8, Constants.SMOOTHING_FACTOR + 0.55 * signalStrength); // ~0.25→0.8 arası
+
+    state.mood = state.mood + alpha * (next.mood - state.mood);
+    state.energy = state.energy + alpha * (next.energy - state.energy);
+    state.anxiety = state.anxiety + alpha * (next.anxiety - state.anxiety);
+
+    // 3) Çıkış + koordinatlar
     const outMood = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.mood));
     const outEnergy = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.energy));
     const outAnx = Math.max(Constants.MIN_SCORE, Math.min(Constants.MAX_SCORE, state.anxiety));
-    
-    const signalStrength = this.computeSignalStrength(matches);
     const freshCoord = ctx.toCoord(outMood, outEnergy);
 
-    // 3) Single gate logic
-    const now = Date.now();
-    const THRESHOLD = 0.25;
-    const GATE_MS = 250;
+    // 4) Tek ve kısa gate: yalnızca ZAYIF + KISA deltada; explicit gate'i kırar
+    const deltaWordCnt = this.tokenize(deltaRaw).length;
+    const deltaIsShort = (deltaRaw.length < Constants.MIN_CHUNK_CHARS) || (deltaWordCnt < Constants.MIN_CHUNK_WORDS);
 
     let gateActive = false;
     if (!explicitOverride) {
-      const weak = signalStrength < THRESHOLD;
-      if (weak) {
-        if (!ctx.isGateActive()) ctx.setGate(GATE_MS);
+      const weak = signalStrength < Constants.WEAK_SIGNAL_THRESHOLD;
+      if (weak && deltaIsShort) {
+        if (!ctx.isGateActive()) ctx.setGate(250); // kısa nötr gate
         gateActive = ctx.isGateActive();
       } else {
         ctx.clearGate();
       }
     } else {
-      ctx.clearGate(); // explicit beyan gate'i kırar
+      ctx.clearGate();
     }
 
     const coord = gateActive ? ctx.getLastCoord() : freshCoord;
