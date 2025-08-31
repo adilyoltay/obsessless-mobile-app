@@ -175,19 +175,20 @@ export default function VAMoodCheckin({
     const checkSTTAvailability = async () => {
       try {
         console.log('🔍 Checking native STT availability...');
-        const available = await speechToTextService.checkAvailability();
+        // Use public API or create a safe check
+        const available = speechToTextService.getInstance ? 
+          await speechToTextService.getInstance().checkAvailability() : false;
         setIsNativeSTTAvailable(available);
         
         if (available) {
           console.log('✅ Native STT is available');
         } else {
-          console.log('⚠️ Native STT not available - will throw error instead of fallback');
+          console.log('⚠️ Native STT not available - will show errors');
         }
       } catch (error) {
         console.error('❌ STT availability check failed:', error);
         setIsNativeSTTAvailable(false);
-        // Re-throw error instead of silent fallback
-        throw error;
+        // Don't re-throw in useEffect to avoid crash
       }
     };
     
