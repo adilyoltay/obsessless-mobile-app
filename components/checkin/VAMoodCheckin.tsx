@@ -28,7 +28,7 @@ import VAPad from './VAPad';
 import MoodDetailsStep from './MoodDetailsStep';
 
 // Services
-import voiceCheckInHeuristicService from '@/services/voiceCheckInHeuristicService';
+import voiceCheckInHeuristicService, { RealtimeState } from '@/services/voiceCheckInHeuristicService';
 import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
@@ -175,6 +175,9 @@ export default function VAMoodCheckin({
   const [showTranscript, setShowTranscript] = useState(false);
   const [detectedTriggers, setDetectedTriggers] = useState<string[]>([]);
   
+  // Realtime analysis state
+  const realtimeStateRef = useRef<RealtimeState | null>(null);
+  
   // Recording animation
   const recordingScale = useSharedValue(1);
   const recordingOpacity = useSharedValue(1);
@@ -207,9 +210,10 @@ export default function VAMoodCheckin({
         clearTimeout(partialTimerRef.current);
         partialTimerRef.current = null;
       }
+      realtimeStateRef.current = null;
       isRealtimeAnalyzingRef.current = false;
       lastRealtimeTextRef.current = '';
-      console.log('🎧 Realtime: cleaned up on modal close');
+      console.log('🎧 Realtime v3.5: cleaned up on modal close');
     }
   }, [isVisible]);
 
@@ -233,6 +237,7 @@ export default function VAMoodCheckin({
         clearTimeout(partialTimerRef.current);
         partialTimerRef.current = null;
       }
+      realtimeStateRef.current = null;
       isRealtimeAnalyzingRef.current = false;
       
       try {
@@ -303,6 +308,11 @@ export default function VAMoodCheckin({
       setTranscript('');
       setShowTranscript(false);
       
+      // Initialize realtime analysis state
+      realtimeStateRef.current = voiceCheckInHeuristicService.beginRealtime();
+      lastRealtimeTextRef.current = '';
+      console.log('🎧 Realtime v3.5: started with fresh state');
+      
       // Start infinite pulsing animation
       recordingScale.value = withRepeat(
         withSequence(
@@ -348,10 +358,11 @@ export default function VAMoodCheckin({
       clearTimeout(partialTimerRef.current);
       partialTimerRef.current = null;
     }
+    realtimeStateRef.current = null;
     isRealtimeAnalyzingRef.current = false;
     lastRealtimeTextRef.current = '';
     
-    console.log('🎧 Realtime: disabled for step 2');
+    console.log('🎧 Realtime v3.5: disabled for step 2');
     
     // Move to step 2 (details)
     setCurrentStep(2);
@@ -414,6 +425,7 @@ export default function VAMoodCheckin({
           clearTimeout(partialTimerRef.current);
           partialTimerRef.current = null;
         }
+        realtimeStateRef.current = null;
         isRealtimeAnalyzingRef.current = false;
         lastRealtimeTextRef.current = '';
         
@@ -471,7 +483,7 @@ export default function VAMoodCheckin({
     return tail.join(' ');
   }, []);
 
-  // Realtime analysis scheduler with debounce and recency window
+  // Enhanced realtime analysis with incremental API
   const scheduleRealtimeAnalysis = useCallback((partial: string) => {
     // 1) UI transcript'ı göster
     setTranscript(partial);
@@ -481,15 +493,21 @@ export default function VAMoodCheckin({
     const clean = partial.trim();
     if (clean.length < 8) return; // tek kelimelik parçalarda analiz yok
 
-    // 3) Recency window ile "o anki" duygu durumunu yakala
-    const windowText = getRecencyWindow(clean, 15);
-    if (windowText.length < 8) return; // window da minimum uzunluk kontrolü
+    // 3) Initialize realtime state if needed
+    if (!realtimeStateRef.current) {
+      realtimeStateRef.current = voiceCheckInHeuristicService.beginRealtime();
+      console.log('🎧 Realtime: initialized state');
+    }
 
-    // 4) Tekrarlı aynı window'u atla
-    if (lastRealtimeTextRef.current === windowText) return;
-    lastRealtimeTextRef.current = windowText;
+    // 4) Get new chunk (difference from last analysis)
+    const lastText = lastRealtimeTextRef.current;
+    const newChunk = clean.length > lastText.length ? clean.slice(lastText.length).trim() : clean;
+    
+    // 5) Skip if no new content
+    if (newChunk.length < 3) return;
+    lastRealtimeTextRef.current = clean;
 
-    // 4) Debounce
+    // 6) Debounce
     if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
     partialTimerRef.current = setTimeout(async () => {
       // Re-entrancy guard
@@ -497,42 +515,54 @@ export default function VAMoodCheckin({
       isRealtimeAnalyzingRef.current = true;
       
       try {
-        console.log('🎧 Realtime: analyzing window ->', windowText.slice(0, 80));
+        console.log('🎧 Realtime v3.5: analyzing chunk ->', newChunk.slice(0, 50));
         
-        // Heuristik analiz (recency window modu)
-        const res = await voiceCheckInHeuristicService.analyzeMoodFromVoice({
-          text: windowText,
-          confidence: 0.6,
-          duration: 0,
-          language: 'tr-TR',
-          success: true,
-        });
+        // Incremental analysis (compiled patterns + EMA smoothing)
+        const res = voiceCheckInHeuristicService.incrementalAnalyze(
+          realtimeStateRef.current!,
+          newChunk
+        );
+
+        // Crisis detection
+        const crisis = voiceCheckInHeuristicService.detectCrisis(clean);
+        if (crisis.flagged) {
+          console.log('🚨 Crisis detected:', crisis.hits);
+          // TODO: Crisis UI handling
+        }
 
         // VA koordinatlarına çevir
         const vx = from1_10(res.moodScore);
         const vy = from1_10(res.energyLevel);
 
-        console.log('🎧 Realtime: applied vx,vy ->', { vx, vy, mood: res.moodScore, energy: res.energyLevel, usedWindow: true });
+        console.log('🎧 Realtime v3.5: applied ->', { 
+          vx, vy, 
+          mood: res.moodScore, 
+          energy: res.energyLevel, 
+          crisis: crisis.flagged,
+          chunk: newChunk.slice(0, 30) 
+        });
+
+        // EMA blend for extra smoothness
+        const blend = (prev: number, next: number, α = 0.25) => prev + α * (next - prev);
+        const bx = blend(xy.x, vx);
+        const by = blend(xy.y, vy);
 
         // Smooth animasyon (retarget-friendly)
-        x.value = withTiming(vx, { duration: 350 });
-        y.value = withTiming(vy, { duration: 350 });
-
-        setXY({ x: vx, y: vy });
+        x.value = withTiming(bx, { duration: 300 });
+        y.value = withTiming(by, { duration: 300 });
+        setXY({ x: bx, y: by });
         
         // Subtle haptic feedback for significant position changes
-        const prevX = xy.x;
-        const prevY = xy.y;
-        if (Math.abs(vx - prevX) > 0.3 || Math.abs(vy - prevY) > 0.3) {
+        if (Math.abs(vx - xy.x) > 0.3 || Math.abs(vy - xy.y) > 0.3) {
           Haptics.selectionAsync();
         }
       } catch (e) {
         // Sessiz fail: realtime'da gürültü olabilir
-        if (__DEV__) console.warn('🎧 Realtime analysis failed:', e);
+        if (__DEV__) console.warn('🎧 Realtime v3.5 analysis failed:', e);
       } finally {
         isRealtimeAnalyzingRef.current = false;
       }
-    }, 400); // 400ms debounce - optimal balance
+    }, 350); // 350ms debounce - faster response
   }, [currentStep, x, y, xy]);
 
   // Slider value change handler - must be defined before render to avoid hook count mismatch

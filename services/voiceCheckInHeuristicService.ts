@@ -44,8 +44,22 @@ interface PatternMatch extends KeywordPattern {
   negationDetected: boolean;
 }
 
+type CompiledPattern = KeywordPattern & {
+  rx: RegExp[];      // keywords için ek toleranslı regexler
+  rxSyn: RegExp[];   // sinonimler için regexler
+};
+
+export type RealtimeState = {
+  text: string;
+  tokens: string[];
+  mood: number;
+  energy: number;
+  anxiety: number;
+};
+
 class VoiceCheckInHeuristicService {
   private static instance: VoiceCheckInHeuristicService;
+  private compiled!: CompiledPattern[];
   
   // 🔧 Türkçe ek toleranslı kelime/ibare eşleme yardımcıları
   private escapeRegex(s: string): string {
@@ -578,6 +592,13 @@ class VoiceCheckInHeuristicService {
     'bazen': 0.7, 'ara sıra': 0.6, 'zaman zaman': 0.6
   };
 
+  // 🚨 Crisis Detection Keywords
+  private readonly crisis = [
+    'intihar', 'kendime zarar', 'yaşamak istemiyorum', 'ölmek istiyorum', 
+    'panik atağım', 'kriz geçirdim', 'kendimi öldürmek', 'canıma kıyarım',
+    'hayatı bırakasım', 'çok kötü durumdayım'
+  ];
+
   // 🔗 Sinonim Eşleştirme Tablosu (NEW)
   private readonly synonymGroups: { [key: string]: string[] } = {
     'mutlu': ['sevinçli', 'neşeli', 'keyifli', 'memnun', 'hoşnut'],
@@ -604,11 +625,150 @@ class VoiceCheckInHeuristicService {
     'olabilir', 'muhtemelen', 'sanki', 'gibime geliyor'
   ];
 
+  constructor() {
+    this.compilePatterns();
+  }
+
   static getInstance(): VoiceCheckInHeuristicService {
     if (!VoiceCheckInHeuristicService.instance) {
       VoiceCheckInHeuristicService.instance = new VoiceCheckInHeuristicService();
     }
     return VoiceCheckInHeuristicService.instance;
+  }
+
+  /**
+   * 🔧 Compile patterns for performance optimization
+   */
+  private compilePatterns(): void {
+    const make = (w: string) => this.buildLemmaRegex(w);
+    this.compiled = this.moodPatterns.map((p) => {
+      const rx = p.keywords.map(make);
+      const rxSyn = p.keywords
+        .map((k) => this.synonymGroups[k.split(' ').pop()!]?.map(make) ?? [])
+        .flat();
+      return { ...p, rx, rxSyn };
+    });
+    console.log('🔧 Compiled', this.compiled.length, 'patterns for optimized matching');
+  }
+
+  /**
+   * 🔤 Token penceresi helper methods
+   */
+  private tokenize(t: string): string[] {
+    return t.split(/\s+/).filter(Boolean);
+  }
+
+  private windowHasNegation(tokens: string[], from: number, to: number): boolean {
+    const w = tokens.slice(Math.max(0, from), Math.min(tokens.length, to + 1));
+    return w.some((x) => this.negationWords.includes(x));
+  }
+
+  private windowIntensity(tokens: string[], from: number, to: number): number {
+    const w = tokens.slice(Math.max(0, from), Math.min(tokens.length, to + 1));
+    let m = 1.0;
+    for (const tok of w) {
+      if (this.intensityModifiers[tok]) m = Math.max(m, this.intensityModifiers[tok]);
+    }
+    return m;
+  }
+
+  /**
+   * 🚨 Crisis Detection
+   */
+  public detectCrisis(t: string): { flagged: boolean; hits: string[] } {
+    const lower = t.toLowerCase();
+    const hits = this.crisis.filter((w) => lower.includes(w));
+    return { flagged: hits.length > 0, hits };
+  }
+
+  /**
+   * 🎧 Incremental (Realtime) Analysis API
+   */
+  public beginRealtime(): RealtimeState {
+    return { text: '', tokens: [], mood: 5, energy: 5, anxiety: 5 };
+  }
+
+  public incrementalAnalyze(state: RealtimeState, newChunk: string) {
+    const delta = this.preprocessText(newChunk);
+    state.text = [state.text, delta].filter(Boolean).join(' ').trim();
+
+    const newTokens = this.tokenize(state.text);
+    const startIdx = state.tokens.length;
+    state.tokens = newTokens;
+
+    // Sadece yeni alanda compiled matcher çalıştır
+    const matches: PatternMatch[] = [];
+    for (const p of this.compiled) {
+      let found = false;
+      let localIntensity = 1.0;
+      let neg = false;
+
+      for (const rx of [...p.rx, ...p.rxSyn]) {
+        const m = rx.exec(state.text);
+        if (!m) continue;
+
+        const before = state.text.slice(0, m.index).trim();
+        const idx = this.tokenize(before).length;
+        if (idx < startIdx) continue; // eski bölgeyi atla
+
+        const intMod = this.windowIntensity(newTokens, idx - 5, idx - 1);
+        localIntensity = Math.max(localIntensity, intMod);
+        if (this.windowHasNegation(newTokens, idx - 6, idx + 6)) neg = true;
+        found = true;
+      }
+
+      if (found) {
+        matches.push({
+          ...p,
+          matchedKeywords: p.keywords,
+          intensity: neg ? localIntensity * 0.3 : localIntensity,
+          negationDetected: neg,
+        });
+      }
+    }
+
+    // Recency ağırlığı (son taraf daha etkili)
+    const recentBoost = (i: number) => 0.4 + 0.6 * Math.exp(-(newTokens.length - i) / 8);
+
+    const scoreAxis = (field: 'moodImpact' | 'energyImpact' | 'anxietyImpact', base: number) => {
+      let s = 0;
+      for (const m of matches) {
+        const imp = (m as any)[field] || 0;
+        const pos = state.tokens.length;
+        s += imp * m.intensity * m.weight * recentBoost(pos);
+      }
+      return Math.max(1, Math.min(10, Math.round(base + s)));
+    };
+
+    const next = {
+      mood: scoreAxis('moodImpact', 5.0),
+      energy: scoreAxis('energyImpact', 5.0),
+      anxiety: scoreAxis('anxietyImpact', 4.0),
+    };
+
+    // EMA smoothing
+    const α = 0.25;
+    state.mood = state.mood + α * (next.mood - state.mood);
+    state.energy = state.energy + α * (next.energy - state.energy);
+    state.anxiety = state.anxiety + α * (next.anxiety - state.anxiety);
+
+    return {
+      moodScore: Math.round(state.mood),
+      energyLevel: Math.round(state.energy),
+      anxietyLevel: Math.round(state.anxiety),
+    };
+  }
+
+  /**
+   * 🎵 Apply prosody adjustments (optional)
+   */
+  public applyProsody(
+    state: RealtimeState,
+    prosody: { rmsZ?: number; rateZ?: number; pitchZ?: number }
+  ): void {
+    const { rmsZ = 0, rateZ = 0, pitchZ = 0 } = prosody;
+    const delta = Math.max(-0.5, Math.min(0.5, 0.12 * rmsZ + 0.08 * rateZ + 0.05 * pitchZ));
+    state.energy = Math.max(1, Math.min(10, Math.round(state.energy + delta)));
   }
 
   /**
