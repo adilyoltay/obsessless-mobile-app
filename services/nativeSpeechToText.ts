@@ -97,6 +97,10 @@ class NativeSpeechToTextService {
       // Ensure clean state
       await this.forceCleanup();
       
+      // 🔧 CRITICAL: Re-initialize event handlers after cleanup
+      console.log('🔧 Re-initializing Voice event handlers after cleanup...');
+      await this.initializeVoice();
+      
       this.currentLanguage = language;
       this.partialResults = [];
       this.finalResults = [];
@@ -278,17 +282,11 @@ class NativeSpeechToTextService {
       
       // 🧹 CRITICAL: Remove all Voice.js event listeners to prevent stale data
       try {
-        // Clear all event handlers to prevent crashes
-        Voice.onSpeechStart = null;
-        Voice.onSpeechRecognized = null;
-        Voice.onSpeechEnd = null;
-        Voice.onSpeechError = null;
-        Voice.onSpeechResults = null;
-        Voice.onSpeechPartialResults = null;
-        Voice.onSpeechVolumeChanged = null; // 🍎 iOS crash prevention
-        
         await Voice.removeAllListeners();
         console.log('🧹 All Voice.js listeners removed');
+        
+        // Re-initialize after cleanup to ensure proper event handlers
+        this.isInitialized = false; // Force re-initialization
       } catch (listenerError) {
         console.warn('⚠️ Listener removal error:', listenerError);
       }
