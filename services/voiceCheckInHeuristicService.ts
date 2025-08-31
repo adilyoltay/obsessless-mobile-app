@@ -641,9 +641,9 @@ class VoiceCheckInHeuristicService {
 
       // 6. Build result
       const result: MoodAnalysisResult = {
-        moodScore: this.normalizeScore(metrics.mood, 5), // Base 5, range 1-10
-        energyLevel: this.normalizeScore(metrics.energy, 5),
-        anxietyLevel: this.normalizeScore(metrics.anxiety, 5),
+        moodScore: this.normalizeScore(metrics.mood), // Already 1-10, just clamp
+        energyLevel: this.normalizeScore(metrics.energy),
+        anxietyLevel: this.normalizeScore(metrics.anxiety),
         dominantEmotion: entities.dominantEmotion || 'nötr',
         triggers: entities.triggers,
         activities: entities.activities,
@@ -936,15 +936,18 @@ class VoiceCheckInHeuristicService {
     contradictions: any
   ): { mood: number; energy: number; anxiety: number } {
     
-    // Group patterns by their strongest impact
-    const moodPatterns = matches.filter(m => Math.abs(m.moodImpact) >= Math.abs(m.energyImpact) && Math.abs(m.moodImpact) >= Math.abs(m.anxietyImpact));
-    const energyPatterns = matches.filter(m => Math.abs(m.energyImpact) >= Math.abs(m.moodImpact) && Math.abs(m.energyImpact) >= Math.abs(m.anxietyImpact));
-    const anxietyPatterns = matches.filter(m => Math.abs(m.anxietyImpact) >= Math.abs(m.moodImpact) && Math.abs(m.anxietyImpact) >= Math.abs(m.energyImpact));
+    // 🎯 NEW: Multi-axis contribution model
+    // Each pattern contributes to ALL axes based on its impact values
+    const moodScore = this.calculateAxisScore(matches, 'moodImpact', 5.0);     // Base: neutral
+    const energyScore = this.calculateAxisScore(matches, 'energyImpact', 5.0); // Base: neutral  
+    const anxietyScore = this.calculateAxisScore(matches, 'anxietyImpact', 4.0); // Base: slightly low
     
-    // Calculate dominant signals for each metric
-    const moodScore = this.calculateDominantSignal(moodPatterns, 'moodImpact', 5.0); // Base: neutral
-    const energyScore = this.calculateDominantSignal(energyPatterns, 'energyImpact', 5.0); // Base: neutral  
-    const anxietyScore = this.calculateDominantSignal(anxietyPatterns, 'anxietyImpact', 4.0); // Base: slightly low
+    console.log('🎯 Multi-axis scores calculated:', { 
+      mood: moodScore, 
+      energy: energyScore, 
+      anxiety: anxietyScore,
+      totalPatterns: matches.length 
+    });
     
     return {
       mood: moodScore,
@@ -1168,11 +1171,28 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 🎯 Normalize score to 1-10 range
+   * 🎯 Calculate axis score with multi-axis contribution model
    */
-  private normalizeScore(value: number, baseline: number): number {
-    const adjusted = baseline + value;
-    return Math.max(1, Math.min(10, Math.round(adjusted)));
+  private calculateAxisScore(
+    patterns: PatternMatch[], 
+    field: 'moodImpact' | 'energyImpact' | 'anxietyImpact', 
+    baseline: number
+  ): number {
+    let sum = 0;
+    for (const p of patterns) {
+      const impact = (p as any)[field] || 0;
+      sum += impact * p.intensity * p.weight;
+    }
+    const raw = baseline + sum;
+    return Math.max(1, Math.min(10, Math.round(raw)));
+  }
+
+  /**
+   * 🎯 Normalize score to 1-10 range (already calculated metrics)
+   */
+  private normalizeScore(value: number): number {
+    // Metrics are already in 1-10 range, just clamp to ensure bounds
+    return Math.max(1, Math.min(10, Math.round(value)));
   }
 
   /**
@@ -1185,11 +1205,11 @@ class VoiceCheckInHeuristicService {
   }
 
   /**
-   * 😊 Determine overall sentiment
+   * 😊 Determine overall sentiment (1-10 scale)
    */
   private determineSentiment(moodScore: number): 'negative' | 'neutral' | 'positive' {
-    if (moodScore >= 1) return 'positive';
-    if (moodScore <= -1) return 'negative';
+    if (moodScore >= 7) return 'positive';
+    if (moodScore <= 4) return 'negative';
     return 'neutral';
   }
 

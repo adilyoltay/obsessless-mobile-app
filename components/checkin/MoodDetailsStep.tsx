@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 
 interface MoodDetailsStepProps {
   transcript?: string;
+  detectedTriggers?: string[];
   onBack: () => void;
   onSave: (data: {
     notes: string;
@@ -23,6 +24,7 @@ interface MoodDetailsStepProps {
 
 export default function MoodDetailsStep({
   transcript = '',
+  detectedTriggers = [],
   onBack,
   onSave,
   moodColor,
@@ -30,12 +32,53 @@ export default function MoodDetailsStep({
   const [notes, setNotes] = useState('');
   const [selectedTrigger, setSelectedTrigger] = useState('');
 
+  // Trigger mapping from heuristic to UI chips
+  const triggerMapping: { [key: string]: string } = {
+    'iş': 'İş/Okul',
+    'okul': 'İş/Okul', 
+    'çalışma': 'İş/Okul',
+    'işyeri': 'İş/Okul',
+    'eğitim': 'İş/Okul',
+    'ilişki': 'İlişkiler',
+    'aile': 'Aile',
+    'arkadaş': 'Sosyal',
+    'sosyal': 'Sosyal',
+    'sağlık': 'Sağlık',
+    'hastalık': 'Sağlık',
+    'para': 'Finansal',
+    'finansal': 'Finansal',
+    'ekonomik': 'Finansal',
+    'maaş': 'Finansal',
+    'uyku': 'Uyku',
+    'yorgun': 'Uyku',
+    'uykusuz': 'Uyku',
+    'spor': 'Egzersiz',
+    'egzersiz': 'Egzersiz',
+    'antrenman': 'Egzersiz',
+    'fiziksel': 'Egzersiz',
+  };
+
   // Pre-fill notes with transcript
   useEffect(() => {
     if (transcript) {
       setNotes(transcript);
     }
   }, [transcript]);
+
+  // Auto-select trigger based on detected triggers
+  useEffect(() => {
+    if (detectedTriggers.length > 0 && !selectedTrigger) {
+      // Find first matching trigger
+      for (const detected of detectedTriggers) {
+        const mappedTrigger = triggerMapping[detected.toLowerCase()];
+        if (mappedTrigger) {
+          setSelectedTrigger(mappedTrigger);
+          console.log('🎯 Auto-selected trigger:', mappedTrigger, 'from detected:', detected);
+          break;
+        }
+      }
+    }
+  }, [detectedTriggers]);
 
   const triggers = [
     'İş/Okul',

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -173,6 +173,7 @@ export default function VAMoodCheckin({
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
+  const [detectedTriggers, setDetectedTriggers] = useState<string[]>([]);
   
   // Recording animation
   const recordingScale = useSharedValue(1);
@@ -181,6 +182,11 @@ export default function VAMoodCheckin({
   // Slider haptic zones
   const lastZoneRef = useRef<number>(-1);
   const zoneOf = (v01: number) => (v01 < 0.2 ? 0 : v01 < 0.5 ? 1 : v01 < 0.8 ? 2 : 3);
+
+  // Realtime analysis refs and guards
+  const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRealtimeAnalyzingRef = useRef(false);
+  const lastRealtimeTextRef = useRef('');
 
   const updateXY = useCallback((nx: number, ny: number) => {
     setXY({ x: nx, y: ny });
@@ -192,6 +198,20 @@ export default function VAMoodCheckin({
   }));
 
   const color = useMemo(() => colorFromVA(xy.x, xy.y), [xy]);
+
+  // Clean up realtime analysis when modal closes
+  useEffect(() => {
+    if (!isVisible) {
+      // Modal closed - clean up realtime analysis
+      if (partialTimerRef.current) {
+        clearTimeout(partialTimerRef.current);
+        partialTimerRef.current = null;
+      }
+      isRealtimeAnalyzingRef.current = false;
+      lastRealtimeTextRef.current = '';
+      console.log('🎧 Realtime: cleaned up on modal close');
+    }
+  }, [isVisible]);
 
   // Handle voice recording
   const handleVoiceToggle = async () => {
@@ -208,8 +228,15 @@ export default function VAMoodCheckin({
       
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
+      // Clean up realtime analysis
+      if (partialTimerRef.current) {
+        clearTimeout(partialTimerRef.current);
+        partialTimerRef.current = null;
+      }
+      isRealtimeAnalyzingRef.current = false;
+      
       try {
-        // Get transcript
+        // Get final transcript
         const result = await speechToTextService.stopRealtimeListening();
         
         if (result && result.success && result.text) {
@@ -219,11 +246,18 @@ export default function VAMoodCheckin({
           // Analyze with heuristic
           const analysis = await voiceCheckInHeuristicService.analyzeMoodFromVoice(result);
           
+          // Store detected triggers for Step 2
+          if (analysis.triggers && analysis.triggers.length > 0) {
+            setDetectedTriggers(analysis.triggers);
+            console.log('🎯 Detected triggers from voice:', analysis.triggers);
+          }
+          
           // Convert to VA coordinates
           const vx = from1_10(analysis.moodScore);
           const vy = from1_10(analysis.energyLevel);
           
-          // Animate dot to new position
+          // Final position adjustment with spring (more pronounced than realtime)
+          console.log('🎧 Final: adjusting to precise position ->', { vx, vy, mood: analysis.moodScore, energy: analysis.energyLevel });
           x.value = withSpring(vx, { damping: 14, stiffness: 140 });
           y.value = withSpring(vy, { damping: 14, stiffness: 140 });
           setXY({ x: vx, y: vy });
@@ -291,9 +325,7 @@ export default function VAMoodCheckin({
       
       try {
         await speechToTextService.startRealtimeListening(
-          (partial) => {
-            setTranscript(partial);
-          },
+          scheduleRealtimeAnalysis,
           'tr-TR'
         );
       } catch (error) {
@@ -311,6 +343,16 @@ export default function VAMoodCheckin({
   };
 
   const handleNext = () => {
+    // Clean up realtime analysis before moving to step 2
+    if (partialTimerRef.current) {
+      clearTimeout(partialTimerRef.current);
+      partialTimerRef.current = null;
+    }
+    isRealtimeAnalyzingRef.current = false;
+    lastRealtimeTextRef.current = '';
+    
+    console.log('🎧 Realtime: disabled for step 2');
+    
     // Move to step 2 (details)
     setCurrentStep(2);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -365,6 +407,16 @@ export default function VAMoodCheckin({
         setCurrentStep(1);
         setTranscript('');
         setShowTranscript(false);
+        setDetectedTriggers([]);
+        
+        // Clean up realtime analysis
+        if (partialTimerRef.current) {
+          clearTimeout(partialTimerRef.current);
+          partialTimerRef.current = null;
+        }
+        isRealtimeAnalyzingRef.current = false;
+        lastRealtimeTextRef.current = '';
+        
         x.value = 0;
         y.value = 0;
         setXY({ x: 0, y: 0 });
@@ -395,6 +447,66 @@ export default function VAMoodCheckin({
   const mood01 = to01(xy.x);
   const valenceText = valenceLabel(xy.x);
   const energyText = energyLabel(xy.y);
+
+  // Realtime analysis scheduler with debounce
+  const scheduleRealtimeAnalysis = useCallback((partial: string) => {
+    // 1) UI transcript'ı göster
+    setTranscript(partial);
+
+    // 2) Sadece Step 1'de ve anlamlı uzunluktaysa çalış
+    if (currentStep !== 1) return;
+    const clean = partial.trim();
+    if (clean.length < 8) return; // tek kelimelik parçalarda analiz yok
+
+    // 3) Tekrarlı aynı input'u atla
+    if (lastRealtimeTextRef.current === clean) return;
+    lastRealtimeTextRef.current = clean;
+
+    // 4) Debounce
+    if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+    partialTimerRef.current = setTimeout(async () => {
+      // Re-entrancy guard
+      if (isRealtimeAnalyzingRef.current) return;
+      isRealtimeAnalyzingRef.current = true;
+      
+      try {
+        console.log('🎧 Realtime: analyzing partial ->', clean.substring(0, 50));
+        
+        // Heuristik analiz (realtime modu)
+        const res = await voiceCheckInHeuristicService.analyzeMoodFromVoice({
+          text: clean,
+          confidence: 0.6,
+          duration: 0,
+          language: 'tr-TR',
+          success: true,
+        });
+
+        // VA koordinatlarına çevir
+        const vx = from1_10(res.moodScore);
+        const vy = from1_10(res.energyLevel);
+
+        console.log('🎧 Realtime: applied vx,vy ->', { vx, vy, mood: res.moodScore, energy: res.energyLevel });
+
+        // Smooth animasyon (retarget-friendly)
+        x.value = withTiming(vx, { duration: 350 });
+        y.value = withTiming(vy, { duration: 350 });
+
+        setXY({ x: vx, y: vy });
+        
+        // Subtle haptic feedback for significant position changes
+        const prevX = xy.x;
+        const prevY = xy.y;
+        if (Math.abs(vx - prevX) > 0.3 || Math.abs(vy - prevY) > 0.3) {
+          Haptics.selectionAsync();
+        }
+      } catch (e) {
+        // Sessiz fail: realtime'da gürültü olabilir
+        if (__DEV__) console.warn('🎧 Realtime analysis failed:', e);
+      } finally {
+        isRealtimeAnalyzingRef.current = false;
+      }
+    }, 400); // 400ms debounce - optimal balance
+  }, [currentStep, x, y, xy]);
 
   // Slider value change handler - must be defined before render to avoid hook count mismatch
   const handleSliderChange = useCallback((v: number) => {
@@ -524,6 +636,7 @@ export default function VAMoodCheckin({
       ) : (
         <MoodDetailsStep
           transcript={transcript}
+          detectedTriggers={detectedTriggers}
           onBack={handleBack}
           onSave={handleSave}
           moodColor={color}
