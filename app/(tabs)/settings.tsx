@@ -28,6 +28,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import { NotificationScheduler } from '@/services/notificationScheduler';
 import Constants from 'expo-constants';
+import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 
 // Stores
@@ -66,6 +67,17 @@ export default function SettingsScreen() {
   const { user, signOut, profile: authProfile } = useAuth();
   const { profile: gameProfile } = useGamificationStore();
   const onboardingPayload = useMoodOnboardingStore(s => s.payload);
+  const setOnboardingReminders = useMoodOnboardingStore(s => s.setReminders);
+
+  // Reminder time modal state
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const initialTime = (() => {
+    const t = onboardingPayload?.reminders?.time;
+    if (typeof t === 'string' && /^\d{2}:\d{2}$/.test(t)) return t;
+    return '09:00';
+  })();
+  const [remHour, setRemHour] = useState<number>(parseInt(initialTime.split(':')[0] || '9', 10));
+  const [remMinute, setRemMinute] = useState<number>(parseInt(initialTime.split(':')[1] || '0', 10));
   // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
@@ -477,7 +489,7 @@ export default function SettingsScreen() {
   };
 
   // Apply notification scheduling based on toggles
-  const applyNotificationSetting = async (enabled: boolean, useSpecificTime: boolean) => {
+  const applyNotificationSetting = async (enabled: boolean, useSpecificTime: boolean, explicitTime?: string) => {
     try {
       if (!enabled) {
         // Cancel daily mood notifications only
@@ -491,7 +503,7 @@ export default function SettingsScreen() {
 
       // Determine time: onboarding time or default 09:00
       let hour = 9, minute = 0;
-      const timeStr = onboardingPayload?.reminders?.time;
+      const timeStr = explicitTime || onboardingPayload?.reminders?.time;
       if (useSpecificTime && typeof timeStr === 'string' && /^\d{2}:\d{2}$/.test(timeStr)) {
         const [h, m] = timeStr.split(':').map(Number);
         if (!isNaN(h) && !isNaN(m)) { hour = h; minute = m; }
@@ -538,6 +550,21 @@ export default function SettingsScreen() {
               settings.reminderTimes,
               (value) => updateSetting('reminderTimes', value)
             )}
+            {/* Reminder time selector */}
+            <Pressable 
+              accessibilityRole="button"
+              accessibilityLabel="Hatırlatma saatini seç"
+              onPress={() => setReminderModalVisible(true)}
+              style={styles.actionItem}
+            >
+              <View style={styles.actionLeft}>
+                <MaterialCommunityIcons name="alarm" size={24} color="#6B7280" />
+                <Text style={styles.actionTitle}>Hatırlatma Saati</Text>
+              </View>
+              <Text style={{ color: '#374151', fontWeight: '600' }}>
+                {String(remHour).padStart(2,'0')}:{String(remMinute).padStart(2,'0')}
+              </Text>
+            </Pressable>
           </View>
         </View>
 
@@ -770,6 +797,54 @@ export default function SettingsScreen() {
             </ScrollView>
             <View style={{ paddingTop: 12 }}>
               <Button title="Kapat" onPress={() => setAuditVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reminder Time Picker Modal */}
+      <Modal visible={reminderModalVisible} transparent animationType="fade" onRequestClose={() => setReminderModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Hatırlatma Saati</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#6B7280', marginBottom: 6 }}>Saat</Text>
+                <Picker selectedValue={remHour} onValueChange={(v) => setRemHour(Number(v))}>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <Picker.Item key={h} label={String(h).padStart(2,'0')} value={h} />
+                  ))}
+                </Picker>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#6B7280', marginBottom: 6 }}>Dakika</Text>
+                <Picker selectedValue={remMinute} onValueChange={(v) => setRemMinute(Number(v))}>
+                  {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
+                    <Picker.Item key={m} label={String(m).padStart(2,'0')} value={m} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <Button title="İptal" onPress={() => setReminderModalVisible(false)} />
+              <Button title="Kaydet" onPress={async () => {
+                try {
+                  const hhmm = `${String(remHour).padStart(2,'0')}:${String(remMinute).padStart(2,'0')}`;
+                  // Preserve existing reminder fields, update time
+                  const existing = onboardingPayload?.reminders || {} as any;
+                  await setOnboardingReminders({
+                    enabled: existing.enabled ?? settings.notifications,
+                    time: hhmm,
+                    days: existing.days,
+                    timezone: existing.timezone,
+                  });
+                  await applyNotificationSetting(true, true, hhmm);
+                  setReminderModalVisible(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                } catch (e) {
+                  console.warn('Failed to save reminder time:', e);
+                }
+              }} />
             </View>
           </View>
         </View>
