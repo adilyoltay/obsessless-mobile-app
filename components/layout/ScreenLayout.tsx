@@ -5,6 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import SafeModeBanner from '@/components/ui/SafeModeBanner';
+import LockOverlay from '@/components/security/LockOverlay';
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
+import useSecurityStore from '@/store/securityStore';
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -78,6 +82,20 @@ function ScreenLayout({
 
   const normalizedChildren = childArray.map((node, idx) => wrapTextNodesDeep(node, `root_${idx}`));
 
+  // Biometric lock on foreground
+  const { biometricEnabled, lock, hydrate } = useSecurityStore();
+  useEffect(() => {
+    hydrate();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active' && biometricEnabled) {
+        lock();
+      }
+    });
+    return () => {
+      try { sub.remove(); } catch {}
+    };
+  }, [biometricEnabled, lock, hydrate]);
+
   return (
     <SafeAreaView style={containerStyle} edges={edges}>
       <SafeModeBanner />
@@ -104,6 +122,8 @@ function ScreenLayout({
           {normalizedChildren}
         </View>
       )}
+      {/* Global Lock Overlay */}
+      <LockOverlay />
     </SafeAreaView>
   );
 }

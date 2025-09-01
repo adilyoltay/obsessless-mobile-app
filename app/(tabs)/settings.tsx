@@ -578,7 +578,15 @@ export default function SettingsScreen() {
               'Biyometrik Kilit',
               'fingerprint',
               settings.biometric,
-              (value) => updateSetting('biometric', value)
+              async (value) => {
+                await updateSetting('biometric', value);
+                try {
+                  const { setBiometricEnabled } = (await import('@/store/securityStore')).useSecurityStore.getState();
+                  await setBiometricEnabled(value);
+                } catch (e) {
+                  console.warn('Biometric toggle failed to apply:', e);
+                }
+              }
             )}
           </View>
         </View>
