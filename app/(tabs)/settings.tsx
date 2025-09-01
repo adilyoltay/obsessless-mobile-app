@@ -83,6 +83,8 @@ export default function SettingsScreen() {
   const displayDay = (d: string) => ({Sun:'Paz',Mon:'Pzt',Tue:'Sal',Wed:'Çar',Thu:'Per',Fri:'Cum',Sat:'Cmt'} as any)[d] || d;
   const selectedDaysInit: string[] = Array.isArray(onboardingPayload?.reminders?.days) ? onboardingPayload!.reminders!.days as any : ['Mon','Tue','Wed','Thu','Fri'];
   const [selectedDays, setSelectedDays] = useState<string[]>(selectedDaysInit);
+  // Log level & maintenance
+  const [logLevel, setLogLevel] = useState<'error'|'warn'|'info'>('info');
   // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
@@ -535,6 +537,50 @@ export default function SettingsScreen() {
     }
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const lvl = await AsyncStorage.getItem('log_level');
+        if (lvl === 'error' || lvl === 'warn' || lvl === 'info') setLogLevel(lvl);
+      } catch {}
+    })();
+  }, []);
+
+  const saveLogLevel = async (lvl: 'error'|'warn'|'info') => {
+    try {
+      setLogLevel(lvl);
+      await AsyncStorage.setItem('log_level', lvl);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
+  const clearUICaches = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const toRemove = keys.filter(k => (
+        k.startsWith('weekly_summary_') ||
+        k === 'profile_v2_payload' ||
+        k === 'profile_v2_current_step' ||
+        (user?.id ? k === `user_profile_snapshot_${user.id}` : false)
+      ));
+      if (toRemove.length) await AsyncStorage.multiRemove(toRemove);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.warn('UI cache clear failed:', e);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      await NotificationScheduler.cancelAllNotifications();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.warn('Notification clear failed:', e);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
   return (
     <ScreenLayout>
       {/* Header */}
@@ -860,6 +906,33 @@ export default function SettingsScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Hatırlatma Günleri</Text>
+            {/* Quick shortcuts */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <Pressable
+                onPress={() => setSelectedDays(['Mon','Tue','Wed','Thu','Fri'])}
+                style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD' }}
+                accessibilityRole="button"
+                accessibilityLabel="Hafta içi"
+              >
+                <Text style={{ color: '#1D4ED8', fontWeight: '600' }}>Hafta içi</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setSelectedDays(['Sat','Sun'])}
+                style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A' }}
+                accessibilityRole="button"
+                accessibilityLabel="Hafta sonu"
+              >
+                <Text style={{ color: '#92400E', fontWeight: '600' }}>Hafta sonu</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setSelectedDays(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'])}
+                style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0' }}
+                accessibilityRole="button"
+                accessibilityLabel="Tüm günler"
+              >
+                <Text style={{ color: '#065F46', fontWeight: '600' }}>Tüm günler</Text>
+              </Pressable>
+            </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               {dayNames.map(d => {
                 const active = selectedDays.includes(d);
@@ -908,6 +981,24 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Advanced options inside collapsible */}
+      {advancedOpen && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+          <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Log Seviyesi</Text>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', padding: 8 }}>
+            <Picker selectedValue={logLevel} onValueChange={(v) => saveLogLevel(v)}>
+              <Picker.Item label="Hata" value="error" />
+              <Picker.Item label="Uyarı" value="warn" />
+              <Picker.Item label="Bilgi (Varsayılan)" value="info" />
+            </Picker>
+          </View>
+          <View style={{ height: 12 }} />
+          <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Bakım</Text>
+          {renderActionItem('UI Önbelleklerini Temizle', 'broom', clearUICaches)}
+          {renderActionItem('Tüm Bildirimleri Temizle', 'bell-off', clearAllNotifications)}
+        </View>
+      )}
 
       {/* Reminder Time Picker Modal */}
       <Modal visible={reminderModalVisible} transparent animationType="fade" onRequestClose={() => setReminderModalVisible(false)}>

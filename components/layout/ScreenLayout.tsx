@@ -6,7 +6,7 @@ import { Colors } from '@/constants/Colors';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import SafeModeBanner from '@/components/ui/SafeModeBanner';
 import LockOverlay from '@/components/security/LockOverlay';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import useSecurityStore from '@/store/securityStore';
 
@@ -84,6 +84,14 @@ function ScreenLayout({
 
   // Biometric lock on foreground
   const { biometricEnabled, lock, hydrate } = useSecurityStore();
+  const timerRef = useRef<any>(null);
+  const resetInactivityTimer = useCallback(() => {
+    if (!biometricEnabled) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      lock();
+    }, 120000); // 2 minutes
+  }, [biometricEnabled, lock]);
   useEffect(() => {
     hydrate();
     const sub = AppState.addEventListener('change', (st) => {
@@ -91,13 +99,16 @@ function ScreenLayout({
         lock();
       }
     });
+    // Start inactivity timer when enabled
+    if (biometricEnabled) resetInactivityTimer();
     return () => {
       try { sub.remove(); } catch {}
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [biometricEnabled, lock, hydrate]);
+  }, [biometricEnabled, lock, hydrate, resetInactivityTimer]);
 
   return (
-    <SafeAreaView style={containerStyle} edges={edges}>
+    <SafeAreaView style={containerStyle} edges={edges} onTouchStart={resetInactivityTimer}>
       <SafeModeBanner />
       <OfflineBanner />
       {showStatusBar && (
