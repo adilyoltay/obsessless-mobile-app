@@ -27,6 +27,7 @@ export interface NativeTranscriptionResult {
 class NativeSpeechToTextService {
   private static instance: NativeSpeechToTextService;
   private isListening = false;
+  private isStarting = false;
   private partialResults: string[] = [];
   private finalResults: string[] = [];
   private currentLanguage = 'tr-TR';
@@ -90,8 +91,8 @@ class NativeSpeechToTextService {
    * 🎤 Start listening for speech (Enhanced)
    */
   async startListening(language: string = 'tr-TR'): Promise<void> {
-    if (this.isListening) {
-      console.log('Already listening...');
+    if (this.isStarting || this.isListening) {
+      console.log('Already starting/listening...');
       return;
     }
 
@@ -101,6 +102,7 @@ class NativeSpeechToTextService {
       throw new Error('Too many speech recognition errors. Please wait 30 seconds.');
     }
 
+    this.isStarting = true;
     try {
       // Ensure clean state
       await this.forceCleanup();
@@ -158,6 +160,8 @@ class NativeSpeechToTextService {
       }
       
       throw error;
+    } finally {
+      this.isStarting = false;
     }
   }
 
@@ -413,34 +417,6 @@ class NativeSpeechToTextService {
       
       if (!isAvailable) {
         return false;
-      }
-      
-      // 🍎 iOS Speech Recognition Permission Check
-      if (Platform.OS === 'ios') {
-        try {
-          // Try to start and immediately stop to trigger permission request
-          console.log('🍎 Testing iOS Speech Recognition permission...');
-          
-          await Voice.start('tr-TR');
-          await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
-          await Voice.stop();
-          
-          console.log('✅ iOS Speech Recognition permission granted');
-          return true;
-          
-        } catch (iosError: any) {
-          console.warn('⚠️ iOS Speech Recognition test failed:', iosError);
-          
-          // Check specific error codes
-          if (iosError.message?.includes('permissions') || iosError.message?.includes('authorization')) {
-            console.error('🚫 Speech Recognition permission denied');
-            return false;
-          }
-          
-          // If it's just a service error but permission might be OK, allow it
-          console.log('📝 Permission might be OK, service error detected');
-          return true; // Let the actual usage handle the error
-        }
       }
       
       return !!isAvailable;

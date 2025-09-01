@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MoodTrackingService from '@/services/moodTrackingService';
+import moodTracker from '@/services/moodTrackingService';
 import { isUUID } from '@/utils/validators';
 
 export interface InvalidEntryReport {
@@ -189,8 +189,7 @@ export async function testAutoRecovery(userId: string): Promise<void> {
   console.log('🔄 Testing auto-recovery with new validation...');
   
   try {
-    const moodService = new MoodTrackingService();
-    const result = await (moodService as any).autoRecoverUnsyncedEntries(userId);
+    const result = await (moodTracker as any).autoRecoverUnsyncedEntries(userId);
     
     console.log('📊 Auto-recovery result:', result);
     

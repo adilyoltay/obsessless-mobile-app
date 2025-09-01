@@ -232,29 +232,8 @@ class SecureDataService {
       }
     }
     
-    // Fallback: Skip crypto operations that require external dependencies
-    try {
-      // Use expo-crypto XOR fallback instead of external crypto libraries
-      console.log('🔐 Using expo-crypto XOR decryption fallback...');
-
-      // CRITICAL FIX: Skip external crypto library, use direct fallback
-      throw new Error('Skipping external crypto library - using fallback');
-      if (combined.length < 17) throw new Error('Ciphertext too short');
-      const tag = combined.slice(combined.length - 16);
-      const enc = combined.slice(0, combined.length - 16);
-
-      const decipher = createDecipheriv('aes-256-gcm', key, iv);
-      decipher.setAuthTag(tag);
-      const decrypted = Buffer.concat([decipher.update(enc), decipher.final()]);
-      const text = decrypted.toString('utf8');
-      try {
-        return JSON.parse(text);
-      } catch {
-        return text;
-      }
-    } catch (error) {
-      throw new Error('AES-GCM decryption not available in this runtime');
-    }
+    // Fallback: Use expo-crypto XOR decryption path
+    return await this.decryptExpoCrypto(payload);
   }
 
   private async decryptExpoCrypto(payload: EncryptedData): Promise<unknown> {
@@ -510,5 +489,4 @@ class SecureDataService {
 
 export const secureDataService = SecureDataService.getInstance();
 export default secureDataService;
-
 

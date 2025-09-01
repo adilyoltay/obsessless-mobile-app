@@ -78,14 +78,18 @@ class SpeechToTextService {
     console.log('🎤 Starting real-time speech recognition...');
     
     try {
-      // Check native STT availability
+      // Check native STT availability (non-intrusive)
       const isAvailable = await nativeSpeechToText.checkAvailability();
       
       if (!isAvailable) {
         throw new Error('Speech recognition not available on this device');
       }
       
-      // Set up partial results callback
+      // Start listening
+      await nativeSpeechToText.startListening(language);
+      console.log('✅ Real-time listening started');
+
+      // Set up partial results callback only after successful start
       if (onPartialResult) {
         const checkPartialResults = setInterval(() => {
           const partialText = nativeSpeechToText.getPartialResults();
@@ -93,17 +97,17 @@ class SpeechToTextService {
             onPartialResult(partialText);
           }
         }, 500);
-        
         // Store interval ID for cleanup
         (this as any).partialResultsInterval = checkPartialResults;
       }
       
-      // Start listening
-      await nativeSpeechToText.startListening(language);
-      console.log('✅ Real-time listening started');
-      
     } catch (error) {
       console.error('❌ Failed to start real-time listening:', error);
+      // Ensure no leftover polling interval
+      if ((this as any).partialResultsInterval) {
+        clearInterval((this as any).partialResultsInterval);
+        (this as any).partialResultsInterval = null;
+      }
       throw error;
     }
   }

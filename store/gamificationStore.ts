@@ -685,63 +685,15 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     }
   },
 
-  updateMissionProgress: async (missionId: string, increment: number = 1) => {
-    const { currentUserId, currentMissions } = get();
-    if (!currentUserId) {
-      console.warn('No userId to update mission progress.');
-      return false;
-    }
-
-    try {
-      const success = await unifiedGamificationService.updateUnifiedMissionProgress(
-        currentUserId,
-        missionId,
-        increment
-      );
-
-      if (success) {
-        // Update local missions state
-        const updatedMissions = currentMissions.map(mission => {
-          if (mission.id === missionId) {
-            const newProgress = mission.currentProgress + increment;
-            
-            // Check if mission is completed
-            if (newProgress >= mission.targetValue) {
-              // Mission completed - remove from current missions
-              return null;
-            } else {
-              return { ...mission, currentProgress: newProgress };
-            }
-          }
-          return mission;
-        }).filter(Boolean) as UnifiedMission[];
-
-        set({ currentMissions: updatedMissions });
-
-        // Check if mission was completed (for haptic feedback)
-        const mission = currentMissions.find(m => m.id === missionId);
-        if (mission && mission.currentProgress + increment >= mission.targetValue) {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-      }
-
-      return success;
-    } catch (error) {
-      console.error('Mission progress update failed:', error);
-      return false;
-    }
+  updateMissionProgress: async () => {
+    // Missions system disabled (AI off) — return false as stub
+    console.warn('updateMissionProgress is disabled');
+    return false;
   },
 
   getMissionsForToday: () => {
-    const { currentMissions } = get();
-    const today = new Date().toISOString().split('T')[0];
-    
-    return currentMissions.filter(mission => {
-      const missionDate = new Date(mission.metadata.generatedAt).toISOString().split('T')[0];
-      return missionDate === today && mission.expiresAt > Date.now();
-    });
+    // Missions system disabled — return empty list
+    return [] as UnifiedMission[];
   },
 
 })); 

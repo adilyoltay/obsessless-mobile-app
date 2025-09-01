@@ -9,6 +9,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Animated, { 
@@ -278,6 +279,7 @@ export default function VAMoodCheckin({
       
       // Start recording
       setIsRecording(true);
+      setIsProcessing(true);
       setTranscript('');
       setShowTranscript(false);
       
@@ -314,9 +316,11 @@ export default function VAMoodCheckin({
           'tr-TR'
         );
         console.log('✅ Native STT started successfully');
+        setIsProcessing(false);
       } catch (error) {
         console.error('❌ Native STT failed to start:', error);
         setIsRecording(false);
+        setIsProcessing(false);
         // Cancel animations
         cancelAnimation(recordingScale);
         cancelAnimation(recordingOpacity);

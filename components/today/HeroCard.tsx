@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StreakCounter } from '@/components/gamification/StreakCounter';
 
@@ -15,6 +15,14 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
   // Keep a tiny fade/scale feel without wiring external Animated state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const { width, height } = Dimensions.get('window');
+  const compact = height < 720;
+  const scale = Math.min(1, width / 393);
+  const iconSize = Math.max(36, Math.round((compact ? 42 : 48) * scale));
+  const pointsFont = Math.max(32, Math.round((compact ? 38 : 44) * scale));
+  const progressBarH = compact ? 6 : 7;
+  const progressValueSize = compact ? 11 : 12;
+  const cardPadding = compact ? 16 : 20;
 
   React.useEffect(() => {
     Animated.parallel([
@@ -26,21 +34,21 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
   const pct = Math.max(0, Math.min(100, progressToNextPct));
 
   return (
-    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], padding: cardPadding }]}>
       {/* Main Points Display */}
       <View style={styles.mainPointsContainer}>
-        <MaterialCommunityIcons name="star-outline" size={50} color="white" />
-        <Text style={styles.mainPointsValue}>{healingPointsTotal}</Text>
+        <MaterialCommunityIcons name="star-outline" size={iconSize} color="white" />
+        <Text style={[styles.mainPointsValue, { fontSize: pointsFont }]}>{healingPointsTotal}</Text>
         <Text style={styles.mainPointsLabel}>Healing Points</Text>
       </View>
 
       {/* Progress to Next Level */}
       <View style={styles.progressContainer}>
         <Text style={styles.progressLabel}>Sonraki Seviye: {nextMilestoneName}</Text>
-        <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBarContainer, { height: progressBarH }]}>
           <View style={[styles.progressBarFill, { width: `${pct}%` }]} />
         </View>
-        <Text style={styles.progressValue}>
+        <Text style={[styles.progressValue, { fontSize: progressValueSize }]}>
           {isMaxLevel ? 'Maksimum seviye' : (
             nextMilestoneTarget ? `${healingPointsTotal} / ${nextMilestoneTarget}` : String(healingPointsTotal)
           )}
@@ -61,14 +69,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     backgroundColor: '#10B981',
     borderRadius: 12,
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
   },
   mainPointsContainer: {
     alignItems: 'center',
   },
   mainPointsValue: {
-    fontSize: 50,
+    fontSize: 44,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
@@ -92,7 +100,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   progressBarContainer: {
-    height: 8,
+    height: 7,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: 4,
     overflow: 'hidden',
