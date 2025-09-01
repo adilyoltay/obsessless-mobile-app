@@ -7,8 +7,10 @@ import supabaseService from '@/services/supabase';
 import * as pipeline from '@/features/ai-fallbacks/pipeline';
 import { postLiveResult } from '@/features/dev/liveTestResults';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 export default function LiveTestRunnerScreen() {
+  const { user, signOut } = useAuth();
   const [runId] = useState(() => `run_${Date.now()}`);
   const [userId, setUserId] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
@@ -68,6 +70,93 @@ export default function LiveTestRunnerScreen() {
       await runTodayInvalidate();
     } catch (e: any) {
       append(`✖ error: ${e?.message || String(e)}`);
+    }
+  };
+
+  // =========================
+  // Onboarding Flow Helpers
+  // =========================
+  const ONB_KEYS = (uid: string) => ([
+    `ai_onboarding_completed_${uid}`,
+    'ai_onboarding_completed',
+    'ai_onboarding_completed_at',
+    `onboarding_server_confirmed_${uid}`,
+    `user_profile_snapshot_${uid}`,
+    'profile_v2_payload',
+    'profile_v2_current_step',
+  ]);
+
+  const onbShowLocal = async () => {
+    const uid = guardUser();
+    append('▶ onboarding:showLocal');
+    const keys = ONB_KEYS(uid);
+    for (const k of keys) {
+      try { append(`${k} = ${await AsyncStorage.getItem(k)}`); } catch {}
+    }
+    append('✔ onboarding:showLocal done');
+  };
+
+  const onbClearLocal = async () => {
+    const uid = guardUser();
+    append('▶ onboarding:clearLocal');
+    const keys = ONB_KEYS(uid);
+    await Promise.all(keys.map(k => AsyncStorage.removeItem(k).catch(() => {})));
+    append('✔ onboarding:clearLocal done');
+  };
+
+  const onbCheckRemote = async () => {
+    const uid = guardUser();
+    append('▶ onboarding:checkRemote');
+    try {
+      const { data, error } = await supabaseService.supabaseClient
+        .from('user_profiles')
+        .select('user_id, onboarding_completed_at')
+        .eq('user_id', uid)
+        .single();
+      if (error) {
+        append(`❗ remote error: ${error.message}`);
+      } else {
+        append(`remote: ${data?.user_id ? 'FOUND' : 'MISSING'} completed_at=${data?.onboarding_completed_at || 'null'}`);
+      }
+    } catch (e: any) {
+      append(`❗ remote exception: ${e?.message || String(e)}`);
+    }
+    append('✔ onboarding:checkRemote done');
+  };
+
+  const onbRestoreFromServer = async () => {
+    const uid = guardUser();
+    append('▶ onboarding:restoreFromServer');
+    try {
+      const { data } = await supabaseService.supabaseClient
+        .from('user_profiles')
+        .select('user_id, onboarding_completed_at')
+        .eq('user_id', uid)
+        .single();
+      if (data?.user_id) {
+        await AsyncStorage.setItem(`ai_onboarding_completed_${uid}`, 'true');
+        await AsyncStorage.setItem('ai_onboarding_completed', 'true');
+        await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
+        await AsyncStorage.setItem(`onboarding_server_confirmed_${uid}`, 'true');
+        append('✔ local flags restored');
+      } else {
+        append('ℹ️ server profile missing; nothing restored');
+      }
+    } catch (e: any) {
+      append(`❗ restore exception: ${e?.message || String(e)}`);
+    }
+    append('✔ onboarding:restoreFromServer done');
+  };
+
+  const onbHydrateStore = async () => {
+    const uid = guardUser();
+    append('▶ onboarding:hydrateStore');
+    try {
+      const { useMoodOnboardingStore } = await import('@/store/moodOnboardingStore');
+      await useMoodOnboardingStore.getState().hydrateFromStorage(uid);
+      append('✔ onboarding store hydrated');
+    } catch (e: any) {
+      append(`❗ hydrate exception: ${e?.message || String(e)}`);
     }
   };
 
@@ -232,6 +321,23 @@ export default function LiveTestRunnerScreen() {
       <View style={{ height: 8 }} />
       <Button title="Today Invalidate" onPress={runTodayInvalidate} accessibilityLabel="Run Today Invalidate" />
       <View style={{ height: 16 }} />
+      {/* Onboarding Tests */}
+      <Text accessibilityRole="header">Onboarding Tests</Text>
+      <View style={{ height: 8 }} />
+      <Button title="Onboarding: Show Local Flags" onPress={onbShowLocal} accessibilityLabel="Onboarding show local" />
+      <View style={{ height: 8 }} />
+      <Button title="Onboarding: Clear Local Flags" onPress={onbClearLocal} accessibilityLabel="Onboarding clear local" />
+      <View style={{ height: 8 }} />
+      <Button title="Onboarding: Check Remote user_profiles" onPress={onbCheckRemote} accessibilityLabel="Onboarding check remote" />
+      <View style={{ height: 8 }} />
+      <Button title="Onboarding: Restore Local From Server" onPress={onbRestoreFromServer} accessibilityLabel="Onboarding restore local from server" />
+      <View style={{ height: 8 }} />
+      <Button title="Onboarding: Hydrate Store" onPress={onbHydrateStore} accessibilityLabel="Onboarding hydrate store" />
+      <View style={{ height: 16 }} />
+      <Button title="Go Onboarding" onPress={() => router.replace('/(auth)/onboarding')} accessibilityLabel="Go onboarding" />
+      <View style={{ height: 8 }} />
+      <Button title="Sign Out" onPress={async () => { try { await signOut(); append('✔ signed out'); } catch (e: any) { append(`❗ signout: ${e?.message||e}`); } }} accessibilityLabel="Sign out" />
+      <View style={{ height: 16 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text>Gerçek veriyi DB'ye yaz (dev)</Text>
         <Button
@@ -274,5 +380,3 @@ export default function LiveTestRunnerScreen() {
     </ScrollView>
   );
 }
-
-
