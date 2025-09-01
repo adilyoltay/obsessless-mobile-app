@@ -24,6 +24,10 @@ import Button from '@/components/ui/Button';
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useGamificationStore } from '@/store/gamificationStore';
+import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
+import { NotificationScheduler } from '@/services/notificationScheduler';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 
 // Stores
@@ -59,7 +63,9 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
-  const { user, signOut, profile } = useAuth();
+  const { user, signOut, profile: authProfile } = useAuth();
+  const { profile: gameProfile } = useGamificationStore();
+  const onboardingPayload = useMoodOnboardingStore(s => s.payload);
   // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
@@ -214,6 +220,12 @@ export default function SettingsScreen() {
     try {
       await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(newSettings));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Apply side-effects for specific settings
+      if (key === 'notifications') {
+        await applyNotificationSetting(newSettings.notifications, newSettings.reminderTimes);
+      } else if (key === 'reminderTimes') {
+        await applyNotificationSetting(newSettings.notifications, newSettings.reminderTimes);
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
     }
@@ -377,17 +389,17 @@ export default function SettingsScreen() {
         <View style={styles.profileStats}>
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="fire" size={16} color="#EF4444" />
-            <Text style={styles.profileStatText}>{(profile as any)?.currentStreak || 0} gün</Text>
+            <Text style={styles.profileStatText}>{gameProfile?.streakCurrent || 0} gün</Text>
           </View>
           <View style={styles.profileStatDivider} />
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="trophy" size={16} color="#10B981" />
-            <Text style={styles.profileStatText}>{(profile as any)?.level || 1}. seviye</Text>
+            <Text style={styles.profileStatText}>{getLevelName(gameProfile?.healingPointsTotal || 0)}</Text>
           </View>
           <View style={styles.profileStatDivider} />
           <View style={styles.profileStat}>
             <MaterialCommunityIcons name="star" size={16} color="#F59E0B" />
-            <Text style={styles.profileStatText}>{(profile as any)?.healingPointsTotal || 0} puan</Text>
+            <Text style={styles.profileStatText}>{gameProfile?.healingPointsTotal || 0} puan</Text>
           </View>
         </View>
       </View>
@@ -447,6 +459,50 @@ export default function SettingsScreen() {
   );
 
   // Dil bölümü kaldırıldı
+
+  // Compute level name similar to Today milestones
+  const getLevelName = (points: number) => {
+    const milestones = [
+      { points: 100, name: 'Başlangıç' },
+      { points: 500, name: 'Öğrenci' },
+      { points: 1000, name: 'Usta' },
+      { points: 2500, name: 'Uzman' },
+      { points: 5000, name: 'Kahraman' }
+    ];
+    let current = milestones[0].name;
+    for (const m of milestones) {
+      if (points >= m.points) current = m.name;
+    }
+    return current;
+  };
+
+  // Apply notification scheduling based on toggles
+  const applyNotificationSetting = async (enabled: boolean, useSpecificTime: boolean) => {
+    try {
+      if (!enabled) {
+        // Cancel daily mood notifications only
+        const scheduled = await NotificationScheduler.getScheduledNotifications();
+        const moodIds = scheduled.filter(n => n.type === 'daily_mood').map(n => n.id);
+        for (const id of moodIds) {
+          await NotificationScheduler.cancelNotification(id);
+        }
+        return;
+      }
+
+      // Determine time: onboarding time or default 09:00
+      let hour = 9, minute = 0;
+      const timeStr = onboardingPayload?.reminders?.time;
+      if (useSpecificTime && typeof timeStr === 'string' && /^\d{2}:\d{2}$/.test(timeStr)) {
+        const [h, m] = timeStr.split(':').map(Number);
+        if (!isNaN(h) && !isNaN(m)) { hour = h; minute = m; }
+      }
+      const now = new Date();
+      const scheduleAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0);
+      await NotificationScheduler.scheduleDailyMoodReminder(scheduleAt);
+    } catch (e) {
+      console.warn('Notification scheduling failed:', e);
+    }
+  };
 
   return (
     <ScreenLayout>
@@ -687,7 +743,7 @@ export default function SettingsScreen() {
 
         {/* Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>ObsessLess v1.0.0</Text>
+          <Text style={styles.versionText}>ObsessLess v{Constants?.expoConfig?.version || '1.0.0'}</Text>
           <Text style={styles.versionSubtext}>Made with ❤️ for OCD warriors</Text>
         </View>
       </ScrollView>
