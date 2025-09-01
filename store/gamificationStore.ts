@@ -103,6 +103,41 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+1 ✨ Mood Check‑in',
     trigger: 'voice_mood_checkin'
   },
+  mood_manual_checkin: {
+    points: 1,
+    message: '+1 ✍️ Mood (manuel) kaydı',
+    trigger: 'mood_manual_checkin'
+  },
+  breathwork_completed: {
+    points: 2,
+    message: '+2 🌬️ Breathwork tamamlandı',
+    trigger: 'breathwork_completed'
+  },
+  first_activity_of_day: {
+    points: 3,
+    message: '+3 ☀️ Günün ilk aktivitesi',
+    trigger: 'first_activity_of_day'
+  },
+  streak_milestone_7: {
+    points: 10,
+    message: '+10 🔥 7 Günlük Streak!',
+    trigger: 'streak_milestone_7'
+  },
+  streak_milestone_21: {
+    points: 25,
+    message: '+25 🔥 21 Günlük Streak!',
+    trigger: 'streak_milestone_21'
+  },
+  multi_module_day_2: {
+    points: 3,
+    message: '+3 🧩 2 modülde aktif oldun',
+    trigger: 'multi_module_day_2'
+  },
+  multi_module_day_3: {
+    points: 5,
+    message: '+5 🧩 3 modülde aktif oldun',
+    trigger: 'multi_module_day_3'
+  },
 };
 
 interface GamificationState {
@@ -140,6 +175,12 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     healingPointsTotal: 0,
     streakLevel: 'seedling',
     lastActivityDate: new Date().toISOString().split('T')[0],
+    // Runtime flags default
+    lastFirstActivityAwardDate: undefined,
+    streakMilestonesAwarded: [],
+    modulesActiveDate: undefined,
+    modulesActiveToday: [],
+    multiModuleDayAwarded: 0,
   },
   achievements: ACHIEVEMENTS,
   lastMicroReward: undefined,
@@ -179,6 +220,11 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
         // Reset daily points if new day
         if (profile.lastActivityDate !== today) {
           profile.healingPointsToday = 0;
+          // Reset daily runtime flags
+          profile.modulesActiveDate = today;
+          profile.modulesActiveToday = [];
+          profile.multiModuleDayAwarded = 0;
+          profile.lastFirstActivityAwardDate = undefined;
         }
         
         set({ profile, isLoading: false, currentUserId: uid });
@@ -195,8 +241,20 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     const { profile } = get();
     const today = new Date().toISOString().split('T')[0];
     
+    // If today is already recorded but streak hasn't started yet (fresh profile), start at 1
     if (profile.lastActivityDate === today) {
-      // Already updated today
+      if (profile.streakCurrent === 0) {
+        const updatedProfile = {
+          ...profile,
+          streakCurrent: 1,
+          streakBest: Math.max(1, profile.streakBest),
+          streakLevel: 'seedling' as const,
+          lastActivityDate: today,
+        };
+        set({ profile: updatedProfile });
+        await get().saveProfile();
+      }
+      // Already processed for today
       return;
     }
     
@@ -221,7 +279,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       streakLevel = 'warrior';
     }
     
-    const updatedProfile = {
+    const updatedProfile: UserGamificationProfile = {
       ...profile,
       streakCurrent: newStreak,
       streakBest: Math.max(newStreak, profile.streakBest),
@@ -232,6 +290,18 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     
     set({ profile: updatedProfile });
     await get().saveProfile();
+
+    // 🎯 Streak milestone micro-rewards (once per milestone)
+    try {
+      const { awardMicroReward } = get();
+      if (newStreak === 7) {
+        await awardMicroReward('streak_milestone_7');
+      } else if (newStreak === 21) {
+        await awardMicroReward('streak_milestone_21');
+      }
+    } catch (e) {
+      console.warn('⚠️ Streak milestone reward failed:', e);
+    }
   },
 
   checkAchievements: async (type: 'compulsion', data?: any) => {
@@ -277,25 +347,88 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
   },
 
   awardMicroReward: async (trigger: MicroRewardTrigger) => {
-    const { profile } = get();
+    const today = new Date().toISOString().split('T')[0];
+    const state = get();
+    let { profile } = state;
+
     const reward = MICRO_REWARDS[trigger];
-    
-    // Safety check for undefined reward
     if (!reward) {
       console.warn(`⚠️ Micro reward not found for trigger: ${trigger}`);
       return;
     }
-    
-    // Weekend 2x bonus
+
+    // Reset daily module set if date changed
+    if (profile.modulesActiveDate !== today) {
+      profile = {
+        ...profile,
+        modulesActiveDate: today,
+        modulesActiveToday: [],
+        multiModuleDayAwarded: 0,
+      };
+    }
+
+    // Implicit first-activity-of-day bonus (before main reward)
+    if (trigger !== 'first_activity_of_day' && profile.lastFirstActivityAwardDate !== today) {
+      await state.awardMicroReward('first_activity_of_day');
+      profile = get().profile; // refresh local ref after mutation
+    }
+
+    // Track modules for multi-module bonuses
+    const trackModule = (mod: string) => {
+      const setMods = new Set(profile.modulesActiveToday || []);
+      setMods.add(mod);
+      profile = { ...profile, modulesActiveToday: Array.from(setMods), modulesActiveDate: today };
+      set({ profile });
+    };
+
+    if (trigger === 'voice_mood_checkin' || trigger === 'mood_manual_checkin') {
+      trackModule('mood');
+    } else if (trigger === 'breathwork_completed') {
+      trackModule('breathwork');
+    }
+
+    // Evaluate multi-module thresholds (only once per level)
+    const modsCount = profile.modulesActiveToday?.length || 0;
+    if (trigger !== 'multi_module_day_2' && trigger !== 'multi_module_day_3') {
+      if (modsCount >= 2 && (profile.multiModuleDayAwarded || 0) < 2) {
+        // award 2-modules bonus
+        await state.awardMicroReward('multi_module_day_2');
+        profile = { ...get().profile, multiModuleDayAwarded: 2 };
+        set({ profile });
+      }
+      if (modsCount >= 3 && (profile.multiModuleDayAwarded || 0) < 3) {
+        await state.awardMicroReward('multi_module_day_3');
+        profile = { ...get().profile, multiModuleDayAwarded: 3 };
+        set({ profile });
+      }
+    }
+
+    // Gating: first_activity_of_day only once per day
+    if (trigger === 'first_activity_of_day') {
+      if (profile.lastFirstActivityAwardDate === today) return; // already awarded today
+      profile = { ...profile, lastFirstActivityAwardDate: today };
+      set({ profile });
+    }
+
+    // Gating: streak milestones only once per milestone
+    if (trigger === 'streak_milestone_7' || trigger === 'streak_milestone_21') {
+      const milestone = trigger === 'streak_milestone_7' ? 7 : 21;
+      const awarded = new Set(profile.streakMilestonesAwarded || []);
+      if (awarded.has(milestone)) return; // already awarded
+      awarded.add(milestone);
+      profile = { ...profile, streakMilestonesAwarded: Array.from(awarded) };
+      set({ profile });
+    }
+
+    // Final award apply
     const isWeekend = [0, 6].includes(new Date().getDay());
     const points = isWeekend ? reward.points * 2 : reward.points;
-    
     const updatedProfile = {
       ...profile,
-      healingPointsToday: profile.healingPointsToday + points,
-      healingPointsTotal: profile.healingPointsTotal + points,
+      healingPointsToday: (profile.healingPointsToday || 0) + points,
+      healingPointsTotal: (profile.healingPointsTotal || 0) + points,
     };
-    
+
     set({ 
       profile: updatedProfile,
       lastMicroReward: {
@@ -304,10 +437,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
         message: isWeekend ? `${reward.message} x2` : reward.message,
       }
     });
-    
-    await get().saveProfile();
-    
-    // Light haptic for micro-reward
+
+    await state.saveProfile();
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   },
 

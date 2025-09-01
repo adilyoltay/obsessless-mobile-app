@@ -32,6 +32,7 @@ import voiceCheckInHeuristicService, { RealtimeState } from '@/services/voiceChe
 import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
+import { useGamificationStore } from '@/store/gamificationStore';
 
 // 🎤 REAL STT - İOS crash riski var ama gerçek konuşma için aktif
 import speechToTextService from '@/services/speechToTextService';
@@ -156,6 +157,7 @@ export default function VAMoodCheckin({
   const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRealtimeAnalyzingRef = useRef(false);
   const lastRealtimeTextRef = useRef('');
+  const crisisShownRef = useRef(false);
 
   const updateXY = useCallback((nx: number, ny: number) => {
     setXY({ x: nx, y: ny });
@@ -394,6 +396,15 @@ export default function VAMoodCheckin({
         console.log('✅ Mood entry saved successfully');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
+        // 🎮 Minimal gamification: update streak and award micro-reward
+        try {
+          const { updateStreak, awardMicroReward } = useGamificationStore.getState();
+          await updateStreak();
+          await awardMicroReward('voice_mood_checkin');
+        } catch (gamiError) {
+          console.warn('⚠️ Gamification update after check-in failed:', gamiError);
+        }
+        
         // Reset to step 1 for next use
         setCurrentStep(1);
         setTranscript('');
@@ -507,9 +518,14 @@ export default function VAMoodCheckin({
 
         // Crisis detection
         const crisis = voiceCheckInHeuristicService.detectCrisis(clean);
-        if (crisis.flagged) {
+        if (crisis.flagged && !crisisShownRef.current) {
+          crisisShownRef.current = true;
           console.log('🚨 Crisis detected:', crisis.hits);
-          // TODO: Crisis UI handling
+          Alert.alert(
+            'Destek Önerisi',
+            'Riskli ifadeler tespit edildi. Lütfen acil destek hatlarını veya güvendiğiniz bir kişiyi arayın.',
+            [{ text: 'Tamam', style: 'cancel' }]
+          );
         }
 
         // servis merkezine uyumlu fallback mapping
@@ -526,10 +542,10 @@ export default function VAMoodCheckin({
           return;
         }
 
-        // Koordinat yoksa ASLA fallback-map etme; mevcut pozisyonda kal.
+        // Koordinat yoksa servis ile tutarlı fallback mapping uygula
         const hasCoord = Number.isFinite(Number(res.coordX)) && Number.isFinite(Number(res.coordY));
-        const vx = hasCoord ? Number(res.coordX) : xyRef.current.x;
-        const vy = hasCoord ? Number(res.coordY) : xyRef.current.y;
+        const vx = hasCoord ? Number(res.coordX) : toCoordServiceLike(toNum(res.moodScore || 5));
+        const vy = hasCoord ? Number(res.coordY) : toCoordServiceLike(toNum(res.energyLevel || 5));
 
         // Aynı pozisyona animasyon yapma (boşa animasyon önleme)
         if (Math.abs(vx - xyRef.current.x) < 0.001 && Math.abs(vy - xyRef.current.y) < 0.001) {

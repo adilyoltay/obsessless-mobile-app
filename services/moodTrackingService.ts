@@ -6,6 +6,7 @@ import { secureDataService } from '@/services/encryption/secureDataService';
 import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
 import optimizedStorage from '@/services/optimizedStorage';
+import { useGamificationStore } from '@/store/gamificationStore';
 
 export interface MoodEntry {
   id: string;
@@ -367,6 +368,19 @@ class MoodTrackingService {
           }
         }).catch(() => {}); // Silent failure for background cleanup
       } catch {} // Silent failure
+    }
+    
+    // 🎮 Gamification: Award for manual mood entries (avoid double-award for voice flows)
+    try {
+      const source = (entry as any)?.source || '';
+      const isVoiceSource = typeof source === 'string' && (source.includes('voice') || source.includes('va_pad'));
+      if (!isVoiceSource) {
+        const { updateStreak, awardMicroReward } = useGamificationStore.getState();
+        await updateStreak();
+        await awardMicroReward('mood_manual_checkin' as any);
+      }
+    } catch (gamiError) {
+      console.warn('⚠️ Gamification (manual mood) award failed:', gamiError);
     }
 
     return moodEntry;
@@ -1698,6 +1712,5 @@ class MoodTrackingService {
 
 export const moodTracker = MoodTrackingService.getInstance();
 export default moodTracker;
-
 
 

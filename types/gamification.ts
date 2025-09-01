@@ -9,6 +9,12 @@ export interface UserGamificationProfile {
   healingPointsTotal: number;
   streakLevel: 'seedling' | 'warrior' | 'master'; // Fidan 🌱, Savaşçı ⚔️, Usta 🧘
   lastActivityDate: string; // ISO date string
+  // Optional gamification runtime flags (persisted offline)
+  lastFirstActivityAwardDate?: string; // YYYY-MM-DD of last first-activity bonus
+  streakMilestonesAwarded?: number[]; // e.g., [7,21]
+  modulesActiveDate?: string; // YYYY-MM-DD for modulesActiveToday
+  modulesActiveToday?: string[]; // unique modules touched today (e.g., ['mood','breathwork'])
+  multiModuleDayAwarded?: 0 | 1 | 2 | 3; // highest threshold awarded today
 }
 
 export interface AchievementDefinition {
@@ -46,7 +52,14 @@ export interface HealingPoints {
 
 // Micro-reward triggers
 export type MicroRewardTrigger =
-  | 'voice_mood_checkin';
+  | 'voice_mood_checkin'
+  | 'mood_manual_checkin'
+  | 'breathwork_completed'
+  | 'first_activity_of_day'
+  | 'streak_milestone_7'
+  | 'streak_milestone_21'
+  | 'multi_module_day_2'
+  | 'multi_module_day_3';
 
 export interface MicroReward {
   points: number;

@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys, loadUserData, saveUserData } from '@/utils/storage';
 import supabaseService, { BreathSessionDB } from '@/services/supabase';
+import { useGamificationStore } from '@/store/gamificationStore';
 
 type BreathworkProProps = {
   protocol?: 'box' | '478' | 'paced';
@@ -182,6 +183,15 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
           completed_at: session.completed_at,
         };
         await supabaseService.saveBreathSession(dbPayload);
+      }
+
+      // 🎮 Gamification: streak update + breathwork micro-reward
+      try {
+        const { updateStreak, awardMicroReward } = useGamificationStore.getState();
+        await updateStreak();
+        await awardMicroReward('breathwork_completed');
+      } catch (gamiError) {
+        console.warn('⚠️ Gamification update after breathwork failed:', gamiError);
       }
     } catch (e) {
       console.warn('breath session persist failed', e);
