@@ -25,6 +25,10 @@ import { useGamificationStore } from '@/store/gamificationStore';
 // Gamification Components (used inside extracted components)
 import MoodJourneyCard from '@/components/today/MoodJourneyCard';
 import WeeklySummaryGrid from '@/components/today/WeeklySummaryGrid';
+import PersonalSuggestionCard from '@/components/today/PersonalSuggestionCard';
+import GoalTracker from '@/components/today/GoalTracker';
+import { buildPersonalSuggestion } from '@/services/personalSuggestionService';
+import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import BottomCheckinCTA from '@/components/today/BottomCheckinCTA';
 // ✅ REMOVED: AchievementBadge - Today'den başarı listesi kaldırıldı
 import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnimation';
@@ -139,6 +143,10 @@ export default function TodayScreen() {
     weeklyEnergyAvg: number;
     weeklyAnxietyAvg: number;
   } | null>(null);
+
+  const onboardingPayload = useMoodOnboardingStore(s => s.payload);
+  const [suggestion, setSuggestion] = useState<any | null>(null);
+  const [goals, setGoals] = useState<any[] | null>(null);
 
 
   
@@ -304,6 +312,33 @@ export default function TodayScreen() {
 
       setTodayStats(data.todayStats);
       setMoodJourneyData(data.moodJourneyData);
+
+      // Build personal suggestion (deterministic, no AI)
+      try {
+        const sug = buildPersonalSuggestion(onboardingPayload as any, data.todayStats as any, profile as any);
+        setSuggestion(sug);
+      } catch (e) {
+        console.warn('Suggest build failed:', e);
+        setSuggestion(null);
+      }
+
+      // Build simple weekly goals
+      try {
+        const activeDays = profile?.activeDaysThisWeek || 0;
+        const moodCount = data.todayStats.weeklyProgress?.mood || 0;
+        const breathCount = data.todayStats.weeklyProgress?.breathwork || 0;
+        const motivations = (onboardingPayload as any)?.motivation || [];
+        const breathTarget = motivations?.some((m: string) => ['stress_reduction','anxiety_management','emotional_regulation'].includes(m)) ? 3 : 2;
+        const built = [
+          { key: 'activeDays', label: 'Aktif Gün', icon: 'calendar-check', value: activeDays, target: 5 },
+          { key: 'mood', label: 'Mood Kayıtları', icon: 'emoticon-happy-outline', value: moodCount, target: 3 },
+          { key: 'breathwork', label: 'Nefes Seansları', icon: 'weather-windy', value: breathCount, target: breathTarget },
+        ];
+        setGoals(built);
+      } catch (e) {
+        console.warn('Goals build failed:', e);
+        setGoals(null);
+      }
 
       // ✅ OPTIMIZATION: Cache module data to avoid duplicate AsyncStorage reads in loadAIInsights
       moduleDataCacheRef.current = {
@@ -584,6 +619,21 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {renderHeroSection()}
+
+        {/* 🎯 Personal Suggestion */}
+        {suggestion && (
+          <PersonalSuggestionCard
+            icon={suggestion.icon}
+            title={suggestion.title}
+            text={suggestion.text}
+            ctaText={suggestion.ctaText}
+            onPress={() => {
+              try {
+                router.push({ pathname: suggestion.route as any, params: suggestion.params });
+              } catch {}
+            }}
+          />
+        )}
         
         {/* 🚫 Adaptive Intervention - DISABLED (Sprint 2: Hard Stop AI Fallbacks) */}
         {false && (
@@ -593,6 +643,9 @@ export default function TodayScreen() {
 
         
         {renderQuickStats()}
+
+        {/* 🎯 Goal Tracker */}
+        {goals && <GoalTracker goals={goals as any} />}
         
         {/* 🎨 Mood Journey Card */}
         {moodJourneyData && <MoodJourneyCard data={moodJourneyData} />}
