@@ -14,6 +14,7 @@ export interface NotificationSchedule {
   scheduledTime: Date;
   isActive: boolean;
   frequency?: 'daily' | 'weekly' | 'custom';
+  weekday?: number; // 1-7 (Sun=1) when weekly
 }
 
 export class NotificationScheduler {
@@ -87,6 +88,76 @@ export class NotificationScheduler {
     });
 
     return identifier;
+  }
+
+  // New: Schedule daily mood reminder by hour/minute
+  static async scheduleDailyMoodReminderAt(hour: number, minute: number): Promise<string> {
+    if (isExpoGo) {
+      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
+      return 'expo-go-mock-id';
+    }
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🌤️ Günlük Mood',
+        body: 'Bugünkü ruh halini kaydetmeyi unutma.',
+        data: { type: 'daily_mood' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        hour,
+        minute,
+        repeats: true,
+      } as Notifications.CalendarTriggerInput,
+    });
+    const d = new Date(); d.setHours(hour, minute, 0, 0);
+    await this.saveNotificationSchedule({
+      id: identifier,
+      type: 'daily_mood',
+      title: '🌤️ Günlük Mood',
+      body: 'Bugünkü ruh halini kaydetmeyi unutma.',
+      scheduledTime: d,
+      isActive: true,
+      frequency: 'daily'
+    });
+    return identifier;
+  }
+
+  // New: Schedule weekly mood reminders for specific weekdays (1-7)
+  static async scheduleWeeklyMoodReminders(weekdays: number[], hour: number, minute: number): Promise<string[]> {
+    if (isExpoGo) {
+      console.log('⚠️ Push notifications are not supported in Expo Go with SDK 53+');
+      return ['expo-go-mock-id'];
+    }
+    const ids: string[] = [];
+    for (const weekday of weekdays) {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🌤️ Günlük Mood',
+          body: 'Bugünkü ruh halini kaydetmeyi unutma.',
+          data: { type: 'daily_mood' },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          weekday, // 1-7
+          hour,
+          minute,
+          repeats: true,
+        } as any,
+      });
+      const d = new Date(); d.setHours(hour, minute, 0, 0);
+      await this.saveNotificationSchedule({
+        id,
+        type: 'daily_mood',
+        title: '🌤️ Günlük Mood',
+        body: 'Bugünkü ruh halini kaydetmeyi unutma.',
+        scheduledTime: d,
+        isActive: true,
+        frequency: 'weekly',
+        weekday
+      });
+      ids.push(id);
+    }
+    return ids;
   }
 
   static async scheduleMotivationalMessage(): Promise<string> {

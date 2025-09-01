@@ -78,6 +78,11 @@ export default function SettingsScreen() {
   })();
   const [remHour, setRemHour] = useState<number>(parseInt(initialTime.split(':')[0] || '9', 10));
   const [remMinute, setRemMinute] = useState<number>(parseInt(initialTime.split(':')[1] || '0', 10));
+  const [reminderDaysModalVisible, setReminderDaysModalVisible] = useState(false);
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as const;
+  const displayDay = (d: string) => ({Sun:'Paz',Mon:'Pzt',Tue:'Sal',Wed:'Çar',Thu:'Per',Fri:'Cum',Sat:'Cmt'} as any)[d] || d;
+  const selectedDaysInit: string[] = Array.isArray(onboardingPayload?.reminders?.days) ? onboardingPayload!.reminders!.days as any : ['Mon','Tue','Wed','Thu','Fri'];
+  const [selectedDays, setSelectedDays] = useState<string[]>(selectedDaysInit);
   // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
@@ -94,6 +99,7 @@ export default function SettingsScreen() {
   // Daily metrics removed - performance summary section removed
   const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending' | 'grace_period' | 'scheduled'; requestedAt?: string; scheduledAt?: string; remainingDays?: number; canCancel?: boolean }>({ status: 'none' });
   const [consentHistory, setConsentHistory] = useState<any[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
@@ -426,7 +432,7 @@ export default function SettingsScreen() {
     value: boolean,
     onToggle: (value: boolean) => void
   ) => (
-    <View style={styles.settingItem}>
+    <View style={styles.settingItem} accessibilityRole="switch" accessibilityLabel={title}>
       <View style={styles.settingLeft}>
         <MaterialCommunityIcons name={icon as any} size={24} color="#6B7280" />
         <Text style={styles.settingTitle}>{title}</Text>
@@ -455,6 +461,8 @@ export default function SettingsScreen() {
         pressed && styles.actionItemPressed
       ]} 
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
     >
       <View style={styles.actionLeft}>
         <MaterialCommunityIcons 
@@ -489,7 +497,7 @@ export default function SettingsScreen() {
   };
 
   // Apply notification scheduling based on toggles
-  const applyNotificationSetting = async (enabled: boolean, useSpecificTime: boolean, explicitTime?: string) => {
+  const applyNotificationSetting = async (enabled: boolean, useSpecificTime: boolean, explicitTime?: string, explicitDays?: string[]) => {
     try {
       if (!enabled) {
         // Cancel daily mood notifications only
@@ -508,9 +516,20 @@ export default function SettingsScreen() {
         const [h, m] = timeStr.split(':').map(Number);
         if (!isNaN(h) && !isNaN(m)) { hour = h; minute = m; }
       }
-      const now = new Date();
-      const scheduleAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0);
-      await NotificationScheduler.scheduleDailyMoodReminder(scheduleAt);
+      const days = explicitDays ?? (onboardingPayload?.reminders?.days as any);
+      // Cancel existing mood notifications to avoid duplicates
+      const existing = await NotificationScheduler.getScheduledNotifications();
+      const existingMood = existing.filter(n => n.type === 'daily_mood');
+      for (const n of existingMood) { await NotificationScheduler.cancelNotification(n.id); }
+
+      if (Array.isArray(days) && days.length > 0) {
+        // Map day names to weekday numbers (Sun=1 .. Sat=7)
+        const map: any = {Sun:1,Mon:2,Tue:3,Wed:4,Thu:5,Fri:6,Sat:7};
+        const weekdays = days.map(d => map[d]).filter(Boolean);
+        await NotificationScheduler.scheduleWeeklyMoodReminders(weekdays, hour, minute);
+      } else {
+        await NotificationScheduler.scheduleDailyMoodReminderAt(hour, minute);
+      }
     } catch (e) {
       console.warn('Notification scheduling failed:', e);
     }
@@ -563,6 +582,20 @@ export default function SettingsScreen() {
               </View>
               <Text style={{ color: '#374151', fontWeight: '600' }}>
                 {String(remHour).padStart(2,'0')}:{String(remMinute).padStart(2,'0')}
+              </Text>
+            </Pressable>
+            <Pressable 
+              accessibilityRole="button"
+              accessibilityLabel="Hatırlatma günlerini seç"
+              onPress={() => setReminderDaysModalVisible(true)}
+              style={styles.actionItem}
+            >
+              <View style={styles.actionLeft}>
+                <MaterialCommunityIcons name="calendar" size={24} color="#6B7280" />
+                <Text style={styles.actionTitle}>Hatırlatma Günleri</Text>
+              </View>
+              <Text style={{ color: '#374151', fontWeight: '600' }}>
+                {selectedDays.map(displayDay).join(' ')}
               </Text>
             </Pressable>
           </View>
@@ -665,32 +698,44 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Onboarding Sync Status */}
-        <OnboardingSyncStatusCard />
-
-        {/* Sync Error Summary */}
-        <SyncErrorSummaryCard 
-          style={{ marginHorizontal: 16, marginBottom: 16 }}
-          onManualSync={async () => {
-            try {
-              const { offlineSyncService } = await import('@/services/offlineSync');
-              await offlineSyncService.processSyncQueue();
-            } catch (error) {
-              console.error('❌ Manual sync from settings failed:', error);
-              throw error;
-            }
-          }}
-        />
-
-        {/* Dead Letter Queue Recovery */}
+        {/* Gelişmiş - Onboarding & Senkronizasyon */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔄 Veri Kurtarma</Text>
+          <Text style={styles.sectionTitle}>Gelişmiş</Text>
           <View style={styles.sectionContent}>
-            <DeadLetterQueueRecovery 
-              onRecoveryComplete={() => {
-                console.log('✅ DLQ recovery completed from settings');
-              }}
-            />
+            <Pressable
+              onPress={() => setAdvancedOpen(!advancedOpen)}
+              accessibilityRole="button"
+              accessibilityLabel="Gelişmiş ayarları aç/kapat"
+              style={styles.actionItem}
+            >
+              <View style={styles.actionLeft}>
+                <MaterialCommunityIcons name={advancedOpen ? 'chevron-down' : 'chevron-right'} size={22} color="#6B7280" />
+                <Text style={styles.actionTitle}>Onboarding & Senkronizasyon</Text>
+              </View>
+            </Pressable>
+            {advancedOpen && (
+              <View style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
+                <OnboardingSyncStatusCard />
+                <SyncErrorSummaryCard 
+                  style={{ marginHorizontal: 16, marginBottom: 16 }}
+                  onManualSync={async () => {
+                    try {
+                      const { offlineSyncService } = await import('@/services/offlineSync');
+                      await offlineSyncService.processSyncQueue();
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch (error) {
+                      console.error('❌ Manual sync from settings failed:', error);
+                    }
+                  }}
+                />
+                <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+                  <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>🔄 Veri Kurtarma</Text>
+                  <View style={styles.sectionContent}>
+                    <DeadLetterQueueRecovery onRecoveryComplete={() => console.log('✅ DLQ recovery completed from settings')} />
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -805,6 +850,60 @@ export default function SettingsScreen() {
             </ScrollView>
             <View style={{ paddingTop: 12 }}>
               <Button title="Kapat" onPress={() => setAuditVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reminder Days Picker Modal */}
+      <Modal visible={reminderDaysModalVisible} transparent animationType="fade" onRequestClose={() => setReminderDaysModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Hatırlatma Günleri</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              {dayNames.map(d => {
+                const active = selectedDays.includes(d);
+                return (
+                  <Pressable
+                    key={d}
+                    onPress={() => {
+                      setSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
+                    }}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: active ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: active ? '#EFF6FF' : '#FFFFFF'
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Gün ${d}`}
+                  >
+                    <Text style={{ color: active ? '#1D4ED8' : '#374151', fontWeight: '600' }}>{displayDay(d)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <Button title="İptal" onPress={() => setReminderDaysModalVisible(false)} />
+              <Button title="Kaydet" onPress={async () => {
+                try {
+                  const newDays = [...selectedDays];
+                  const existing = onboardingPayload?.reminders || {} as any;
+                  await setOnboardingReminders({
+                    enabled: existing.enabled ?? settings.notifications,
+                    time: existing.time || initialTime,
+                    days: newDays,
+                    timezone: existing.timezone,
+                  });
+                  await applyNotificationSetting(true, true, existing.time || initialTime, newDays);
+                  setReminderDaysModalVisible(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                } catch (e) {
+                  console.warn('Failed to save reminder days:', e);
+                }
+              }} />
             </View>
           </View>
         </View>
