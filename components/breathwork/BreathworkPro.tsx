@@ -185,11 +185,12 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
         await supabaseService.saveBreathSession(dbPayload);
       }
 
-      // 🎮 Gamification: streak update + breathwork micro-reward
+      // 🎮 Gamification: streak update + breathwork micro-reward (with duration/difficulty context)
       try {
         const { updateStreak, awardMicroReward } = useGamificationStore.getState();
         await updateStreak();
-        await awardMicroReward('breathwork_completed');
+        const difficulty = protocol === '478' ? 'hard' : (protocol === 'paced' ? 'medium' : 'easy');
+        await awardMicroReward('breathwork_completed', { durationMs: session.duration_ms, difficulty });
       } catch (gamiError) {
         console.warn('⚠️ Gamification update after breathwork failed:', gamiError);
       }

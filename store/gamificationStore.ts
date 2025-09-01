@@ -138,6 +138,11 @@ const MICRO_REWARDS: Record<MicroRewardTrigger, MicroReward> = {
     message: '+5 🧩 3 modülde aktif oldun',
     trigger: 'multi_module_day_3'
   },
+  weekly_consistency_5: {
+    points: 7,
+    message: '+7 📆 Haftada 5 gün aktif!',
+    trigger: 'weekly_consistency_5'
+  },
 };
 
 interface GamificationState {
@@ -154,7 +159,7 @@ interface GamificationState {
   initializeGamification: (userId?: string) => Promise<void>;
   updateStreak: () => Promise<void>;
   checkAchievements: (type: 'compulsion', data?: any) => Promise<AchievementDefinition[]>;
-  awardMicroReward: (trigger: MicroRewardTrigger) => Promise<void>;
+  awardMicroReward: (trigger: MicroRewardTrigger, context?: any) => Promise<void>;
   
   // Unified Gamification
   awardUnifiedPoints: (action: string, context?: any, moduleData?: any) => Promise<UnifiedPointsCalculation>;
@@ -181,6 +186,9 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     modulesActiveDate: undefined,
     modulesActiveToday: [],
     multiModuleDayAwarded: 0,
+    weekKey: undefined,
+    activeDaysThisWeek: 0,
+    weeklyConsistencyAwarded: false,
   },
   achievements: ACHIEVEMENTS,
   lastMicroReward: undefined,
@@ -346,7 +354,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     return newlyUnlocked;
   },
 
-  awardMicroReward: async (trigger: MicroRewardTrigger) => {
+  awardMicroReward: async (trigger: MicroRewardTrigger, context?: any) => {
     const today = new Date().toISOString().split('T')[0];
     const state = get();
     let { profile } = state;
@@ -406,8 +414,39 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     // Gating: first_activity_of_day only once per day
     if (trigger === 'first_activity_of_day') {
       if (profile.lastFirstActivityAwardDate === today) return; // already awarded today
-      profile = { ...profile, lastFirstActivityAwardDate: today };
+      // Weekly consistency tracking
+      const getISOWeek = (d: Date) => {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        // Thursday in current week decides the year
+        date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+        const weekNo = Math.ceil((((date as any) - (yearStart as any)) / 86400000 + 1)/7);
+        return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+      };
+      const now = new Date();
+      const currentWeekKey = getISOWeek(now);
+      let activeDaysThisWeek = profile.activeDaysThisWeek || 0;
+      let weekKey = profile.weekKey;
+      let weeklyConsistencyAwarded = !!profile.weeklyConsistencyAwarded;
+      if (weekKey !== currentWeekKey) {
+        weekKey = currentWeekKey;
+        activeDaysThisWeek = 0;
+        weeklyConsistencyAwarded = false;
+      }
+      activeDaysThisWeek += 1;
+      profile = { 
+        ...profile, 
+        lastFirstActivityAwardDate: today,
+        weekKey,
+        activeDaysThisWeek,
+        weeklyConsistencyAwarded,
+      };
       set({ profile });
+      // Weekly consistency bonus at 5 days (once per week)
+      if (activeDaysThisWeek >= 5 && !weeklyConsistencyAwarded) {
+        await state.awardMicroReward('weekly_consistency_5');
+        set({ profile: { ...get().profile, weeklyConsistencyAwarded: true } });
+      }
     }
 
     // Gating: streak milestones only once per milestone
@@ -420,21 +459,42 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       set({ profile });
     }
 
-    // Final award apply
+    // Final award apply (with deterministic multipliers)
     const isWeekend = [0, 6].includes(new Date().getDay());
-    const points = isWeekend ? reward.points * 2 : reward.points;
+    const streakMult = 1 + Math.min(5, Math.floor((profile.streakCurrent || 0) / 7)) * 0.1; // +10% per 7 days, capped +50%
+    let difficultyMult = 1;
+    let durationBonus = 0;
+    if (trigger === 'breathwork_completed') {
+      const dur = Number(context?.durationMs || 0);
+      const minutes = Math.max(0, Math.round(dur / 60000));
+      // +1 puan her 5 dakikada bir (maks. +3)
+      durationBonus = Math.min(3, Math.floor(minutes / 5));
+      const diff = (context?.difficulty || '').toLowerCase();
+      if (diff === 'medium') difficultyMult = 1.2; else if (diff === 'hard') difficultyMult = 1.5; else difficultyMult = 1.0;
+    }
+    let computed = Math.round(reward.points * difficultyMult * streakMult) + durationBonus;
+    if (isWeekend) computed *= 2;
     const updatedProfile = {
       ...profile,
-      healingPointsToday: (profile.healingPointsToday || 0) + points,
-      healingPointsTotal: (profile.healingPointsTotal || 0) + points,
+      healingPointsToday: (profile.healingPointsToday || 0) + computed,
+      healingPointsTotal: (profile.healingPointsTotal || 0) + computed,
     };
 
     set({ 
       profile: updatedProfile,
       lastMicroReward: {
         ...reward,
-        points,
-        message: isWeekend ? `${reward.message} x2` : reward.message,
+        points: computed,
+        message: (() => {
+          const details: string[] = [];
+          if (trigger === 'breathwork_completed') {
+            if (context?.durationMs) details.push(`${Math.round(context.durationMs/60000)}dk`);
+            if (difficultyMult > 1) details.push(`zorluk x${difficultyMult}`);
+          }
+          if (streakMult > 1) details.push(`streak x${streakMult.toFixed(1)}`);
+          const baseMsg = reward.message + (details.length ? ` (${details.join(', ')})` : '');
+          return isWeekend ? `${baseMsg} x2` : baseMsg;
+        })(),
       }
     });
 

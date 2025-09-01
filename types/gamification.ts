@@ -15,6 +15,10 @@ export interface UserGamificationProfile {
   modulesActiveDate?: string; // YYYY-MM-DD for modulesActiveToday
   modulesActiveToday?: string[]; // unique modules touched today (e.g., ['mood','breathwork'])
   multiModuleDayAwarded?: 0 | 1 | 2 | 3; // highest threshold awarded today
+  // Weekly consistency tracking
+  weekKey?: string; // e.g., 2025-W35
+  activeDaysThisWeek?: number; // number of days with at least one activity
+  weeklyConsistencyAwarded?: boolean; // if weekly consistency bonus given
 }
 
 export interface AchievementDefinition {
@@ -59,7 +63,8 @@ export type MicroRewardTrigger =
   | 'streak_milestone_7'
   | 'streak_milestone_21'
   | 'multi_module_day_2'
-  | 'multi_module_day_3';
+  | 'multi_module_day_3'
+  | 'weekly_consistency_5';
 
 export interface MicroReward {
   points: number;

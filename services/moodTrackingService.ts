@@ -377,7 +377,7 @@ class MoodTrackingService {
       if (!isVoiceSource) {
         const { updateStreak, awardMicroReward } = useGamificationStore.getState();
         await updateStreak();
-        await awardMicroReward('mood_manual_checkin' as any);
+        await awardMicroReward('mood_manual_checkin', { source: 'manual' });
       }
     } catch (gamiError) {
       console.warn('⚠️ Gamification (manual mood) award failed:', gamiError);
@@ -1712,5 +1712,4 @@ class MoodTrackingService {
 
 export const moodTracker = MoodTrackingService.getInstance();
 export default moodTracker;
-
 
