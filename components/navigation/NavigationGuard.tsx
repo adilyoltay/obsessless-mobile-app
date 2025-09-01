@@ -74,21 +74,20 @@ async function checkOnboardingCompletion(userId: string, localKey: string): Prom
     // Only do remote check if local is false or we need verification
     if (!localCompleted || (!cached && Math.random() < 0.1)) { // 10% chance for periodic verification
       try {
-        // Check if user has a profile in Supabase (indicates completed onboarding)
+        // Check authoritative onboarding completion in user_profiles
         const { data: profile, error } = await supabaseService.supabaseClient
-          .from('ai_profiles')
-          .select('user_id, created_at, profile_data')
+          .from('user_profiles')
+          .select('user_id, onboarding_completed_at, onboarding_version')
           .eq('user_id', userId)
           .single();
           
         if (!error && profile) {
-          // Profile exists - onboarding was completed
+          // Profile exists - onboarding was completed (v2 writes onboarding_completed_at)
           remoteCompleted = true;
           console.log('✅ Layer 2 - Remote verification: Profile found, onboarding completed');
           
-          // Also check for onboarding metadata
-          if (profile.profile_data?.onboarding_completed) {
-            console.log('✅ Explicit onboarding completion flag found in profile');
+          if ((profile as any).onboarding_completed_at) {
+            console.log('✅ Explicit onboarding_completed_at found');
           }
         } else {
           console.log('⚠️ Layer 2 - Remote verification: No profile found');

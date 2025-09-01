@@ -298,6 +298,20 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         }
       } else {
         console.log('✅ User profile loaded:', user.email);
+        // 🔧 Drift correction: if local completion flags missing but server profile exists, set them silently
+        try {
+          const aiKey = `ai_onboarding_completed_${user.id}`;
+          const localCompleted = await AsyncStorage.getItem(aiKey);
+          if (localCompleted !== 'true') {
+            await AsyncStorage.setItem(aiKey, 'true');
+            await AsyncStorage.setItem('ai_onboarding_completed', 'true');
+            await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
+            await AsyncStorage.setItem(`onboarding_server_confirmed_${user.id}`, 'true');
+            console.log('🔧 Local onboarding flags restored from server profile');
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to set local onboarding flags from server profile:', e);
+        }
       }
       
       // Initialize gamification profile (create/update if needed)

@@ -578,6 +578,23 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
       
       // 🎉 SUCCESS: Record successful sync timestamp
       await AsyncStorage.setItem('last_profile_sync', new Date().toISOString());
+
+      // ✅ SERVER-CONFIRMED: Mark local confirmation and cache a lightweight snapshot
+      try {
+        await AsyncStorage.setItem(`onboarding_server_confirmed_${uidForKey}`, 'true');
+      } catch {}
+      try {
+        const serverProfile = await supabaseService.getUserProfile(uidForKey, { forceRefresh: true, cacheMs: 0 });
+        if (serverProfile) {
+          await AsyncStorage.setItem(
+            `user_profile_snapshot_${uidForKey}`,
+            JSON.stringify({ user_id: uidForKey, fetchedAt: new Date().toISOString(), data: serverProfile })
+          );
+          console.log('🗄️ Cached server user_profile snapshot');
+        }
+      } catch (snapErr) {
+        console.warn('⚠️ Failed to cache server profile snapshot:', snapErr);
+      }
     } catch (error) {
       const errorMsg = 'Supabase profile sync failed (queued for retry)';
       console.warn('⚠️ WARNING:', errorMsg, error);
@@ -723,6 +740,7 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
         await AsyncStorage.setItem('ai_onboarding_completed', 'true');
         await AsyncStorage.setItem('ai_onboarding_completed_at', new Date().toISOString());
         await AsyncStorage.setItem(`ai_onboarding_completed_${uidForKey}`, 'true');
+        await AsyncStorage.setItem(`onboarding_server_confirmed_${uidForKey}`, 'true');
         console.log('🎯 Completion flags set successfully - user can now access main app');
       } catch (flagError) {
         console.error('❌ Failed to set completion flags:', flagError);
@@ -1010,5 +1028,4 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
   }
 
 }));
-
 
