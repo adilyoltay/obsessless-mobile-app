@@ -22,10 +22,23 @@
       "ios": {
         "simulator": false
       }
+    },
+    "eywasoft": {
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      }
     }
   },
   "submit": {
     "production": {
+      "ios": {
+        "appleId": "adil.yoltay@gmail.com",
+        "ascAppId": "6737669883",
+        "appleTeamId": "5G7HY6GTCJ"
+      }
+    },
+    "eywasoft": {
       "ios": {
         "appleId": "adil.yoltay@gmail.com",
         "ascAppId": "6737669883",

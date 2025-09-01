@@ -239,23 +239,7 @@ export default function SettingsScreen() {
     );
   };
 
-  // Dev: Live Test Runner toggle (persisted) - Only in development
-  const [showLiveRunner, setShowLiveRunner] = useState<boolean>(false);
-  useEffect(() => {
-    if (__DEV__) {
-      (async () => {
-        const v = await AsyncStorage.getItem('dev_show_live_runner');
-        setShowLiveRunner(v === '1');
-      })();
-    }
-  }, []);
-  const toggleLiveRunner = async (value: boolean) => {
-    if (__DEV__) {
-      setShowLiveRunner(value);
-      await AsyncStorage.setItem('dev_show_live_runner', value ? '1' : '0');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
+  // Dev tools removed from Settings
 
   const handleDataExport = async () => {
     Alert.alert(
@@ -665,25 +649,7 @@ export default function SettingsScreen() {
 
 
 
-        {/* Geliştirici (Dev) Araçları - Sadece geliştirme ortamında */}
-        {__DEV__ && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Geliştirici</Text>
-            <View style={styles.sectionContent}>
-              {renderSettingItem(
-                'Live Test Runner Göster',
-                'flask-outline',
-                showLiveRunner,
-                (value) => toggleLiveRunner(value)
-              )}
-              {showLiveRunner && renderActionItem(
-                'Live Test Runnerı Aç',
-                'rocket-launch',
-                () => router.push('/live-test-runner')
-              )}
-            </View>
-          </View>
-        )}
+        {/* Geliştirici araçları kaldırıldı */}
 
         {/* Account */}
         <View style={styles.section}>
