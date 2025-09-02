@@ -38,11 +38,11 @@ export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplet
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginVertical: 20,
+    marginVertical: 16,
   },
   button: {
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -50,4 +50,3 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 });
-

@@ -12,17 +12,17 @@ export default function QuickStatsRow({ moodTodayCount, streakCurrent, healingPo
   return (
     <View style={styles.quickStatsSection}>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="calendar-today" size={24} color="#10B981" />
+        <MaterialCommunityIcons name="calendar-today" size={22} color="#10B981" />
         <Text style={styles.quickStatValue}>{moodTodayCount}</Text>
         <Text style={styles.quickStatLabel}>Mood</Text>
       </View>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="fire" size={24} color="#F59E0B" />
+        <MaterialCommunityIcons name="fire" size={22} color="#F59E0B" />
         <Text style={styles.quickStatValue}>{streakCurrent}</Text>
         <Text style={styles.quickStatLabel}>Streak</Text>
       </View>
       <View style={styles.quickStatCard}>
-        <MaterialCommunityIcons name="star-outline" size={24} color="#8B5CF6" />
+        <MaterialCommunityIcons name="star-outline" size={22} color="#8B5CF6" />
         <Text style={styles.quickStatValue}>{healingPointsToday}</Text>
         <Text style={styles.quickStatLabel}>Bugün</Text>
       </View>
@@ -35,20 +35,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginHorizontal: 16,
-    marginVertical: 16,
+    marginVertical: 12,
   },
   quickStatCard: {
     alignItems: 'center',
   },
   quickStatValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     fontFamily: 'Inter-Bold',
     marginTop: 4,
   },
   quickStatLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6B7280',
     fontFamily: 'Inter',
     marginTop: 2,

@@ -51,7 +51,7 @@ import todayService from '@/services/todayService';
 // Minimal styles actually used by this screen
 const simpleStyles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: '#F3F4F6' },
-  bottomSpacing: { height: 64 },
+  bottomSpacing: { height: 48 },
 });
 
 export default function TodayScreen() {

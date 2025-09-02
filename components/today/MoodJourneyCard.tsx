@@ -131,8 +131,8 @@ export default function MoodJourneyCard({ data }: Props) {
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
+    marginBottom: 12,
+    padding: 12,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
   },
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
     fontFamily: 'Inter-Bold',
@@ -175,15 +175,15 @@ const styles = StyleSheet.create({
   },
   barContainer: {
     alignItems: 'center',
-    width: 24,
+    width: 20,
   },
   emotionBar: {
-    width: 12,
+    width: 10,
     borderRadius: 6,
     marginBottom: 6,
   },
   dayLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#6B7280',
   },
   dayLabelToday: {

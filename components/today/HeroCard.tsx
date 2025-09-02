@@ -16,13 +16,14 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
   const { width, height } = Dimensions.get('window');
-  const compact = height < 720;
+  const compact = height < 740 || width < 360;
   const scale = Math.min(1, width / 393);
-  const iconSize = Math.max(36, Math.round((compact ? 42 : 48) * scale));
-  const pointsFont = Math.max(32, Math.round((compact ? 38 : 44) * scale));
-  const progressBarH = compact ? 6 : 7;
-  const progressValueSize = compact ? 11 : 12;
-  const cardPadding = compact ? 16 : 20;
+  // Denser sizing for smaller screens to help everything fit
+  const iconSize = Math.max(28, Math.round((compact ? 36 : 44) * scale));
+  const pointsFont = Math.max(28, Math.round((compact ? 34 : 42) * scale));
+  const progressBarH = compact ? 5 : 7;
+  const progressValueSize = compact ? 10 : 12;
+  const cardPadding = compact ? 12 : 18;
 
   React.useEffect(() => {
     Animated.parallel([
@@ -65,7 +66,7 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
 
 const styles = StyleSheet.create({
   heroSection: {
-    marginTop: 16,
+    marginTop: 12,
     marginHorizontal: 16,
     backgroundColor: '#10B981',
     borderRadius: 12,
@@ -76,31 +77,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainPointsValue: {
-    fontSize: 44,
+    fontSize: 40,
     fontWeight: '700',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 4,
   },
   mainPointsLabel: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#FFFFFF',
     fontFamily: 'Inter',
   },
   progressContainer: {
     width: '100%',
-    marginTop: 16,
+    marginTop: 12,
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#FFFFFF',
     fontFamily: 'Inter',
     marginBottom: 4,
     opacity: 0.9,
   },
   progressBarContainer: {
-    height: 7,
+    height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: 4,
     overflow: 'hidden',
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#FFFFFF',
     fontFamily: 'Inter',
     marginTop: 4,
@@ -119,7 +120,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   streakWidgetContainer: {
-    marginTop: 16,
+    marginTop: 12,
     alignItems: 'center',
   },
 });
