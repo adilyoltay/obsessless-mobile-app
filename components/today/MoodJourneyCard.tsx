@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   miniSpectrumBar: {
-    height: 10,
+    height: 8,
     borderRadius: 4,
     marginBottom: 12,
   },
