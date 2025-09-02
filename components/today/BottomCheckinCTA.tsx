@@ -20,37 +20,31 @@ type Props = {
 };
 
 export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete, accentColor }: Props) {
-  const bgAnim = React.useRef(new Animated.Value(1)).current;
+  const overlayOpacity = React.useRef(new Animated.Value(0)).current;
   const prevColorRef = React.useRef<string>(accentColor || '#10B981');
-  const [fromColor, setFromColor] = React.useState<string>(prevColorRef.current);
-  const [toColor, setToColor] = React.useState<string>(prevColorRef.current);
 
   React.useEffect(() => {
     const next = accentColor || '#10B981';
     if (next === prevColorRef.current) return;
-    // schedule after paint to avoid insertion-effect warnings in dev
-    requestAnimationFrame(() => {
-      setFromColor(prevColorRef.current);
-      setToColor(next);
-      bgAnim.setValue(0);
-      Animated.timing(bgAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start(() => {
-        prevColorRef.current = next;
-        setFromColor(next);
-        setToColor(next);
-        bgAnim.setValue(1);
-      });
+    overlayOpacity.setValue(1);
+    Animated.timing(overlayOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+      prevColorRef.current = next;
     });
   }, [accentColor]);
 
-  const animatedBg = bgAnim.interpolate({ inputRange: [0, 1], outputRange: [fromColor, toColor] });
+  const currentColor = accentColor || '#10B981';
 
   return (
     <View style={styles.container}>
+      {/* Background layers behind the button */}
+      <View style={[StyleSheet.absoluteFillObject as any, { backgroundColor: currentColor, borderRadius: 16 }]} />
+      <Animated.View style={[StyleSheet.absoluteFillObject as any, { backgroundColor: prevColorRef.current, borderRadius: 16, opacity: overlayOpacity }]} />
+
       <Button
         variant="primary"
         onPress={onOpen}
         accessibilityLabel="Mood Check‑in"
-        style={[styles.button, { backgroundColor: animatedBg }, accentColor ? { shadowColor: accentColor } : null]}
+        style={[styles.button, { backgroundColor: 'transparent' }, { shadowColor: currentColor }]}
         leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
       >
         Mood Check‑in
@@ -64,6 +58,7 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
     marginVertical: 16,
+    position: 'relative',
   },
   button: {
     borderRadius: 16,
