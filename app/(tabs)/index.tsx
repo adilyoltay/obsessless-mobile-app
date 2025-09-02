@@ -32,6 +32,7 @@ import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnima
 import { useTranslation } from '@/hooks/useTranslation';
 import ScreenLayout from '@/components/layout/ScreenLayout';
 import { StorageKeys } from '@/utils/storage';
+import { useAccentColor } from '@/contexts/AccentColorContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
@@ -65,9 +66,7 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
-  const [heroBgColor, setHeroBgColor] = useState<string>('#10B981');
-  const [heroColorScore, setHeroColorScore] = useState<number>(55);
-  const [colorMode, setColorMode] = useState<'static' | 'today' | 'weekly'>('today');
+  const { colorMode, color: accentColor, gradient, setScore } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
 
@@ -206,15 +205,24 @@ export default function TodayScreen() {
   // Refresh stats when screen is focused (after returning from other screens)
   useFocusEffect(
     React.useCallback(() => {
-      if (user?.id) {
-        if (__DEV__) console.log('🔄 Today screen focused, refreshing stats...');
-        // 🚫 AI State Logging - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-        // console.log('🔄 Current AI state on focus:', { aiInitialized, featuresCount: availableFeatures.length });
+      if (!user?.id) return;
+      if (__DEV__) console.log('🔄 Today screen focused, refreshing stats...');
+
+      // Read latest colorMode from settings before refreshing
+      (async () => {
+        try {
+          const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
+            if (mode) setColorMode(mode);
+          }
+        } catch {}
         onRefresh();
-        
-        // 🚫 Adaptive Suggestion Reset - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
-        // adaptiveRef.current = false;
-      }
+      })();
+
+      // 🚫 Adaptive Suggestion Reset - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
+      // adaptiveRef.current = false;
     }, [user?.id])
   );
 
@@ -329,8 +337,7 @@ export default function TodayScreen() {
       // 🎨 Resolve Hero color based on colorMode
       try {
         if (colorMode === 'static') {
-          setHeroBgColor('#10B981');
-          setHeroColorScore(55);
+          setScore(55);
         } else if (colorMode === 'today') {
           let colorScore = 0;
           if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
@@ -339,9 +346,7 @@ export default function TodayScreen() {
             colorScore = Math.round(data.moodEntries[0].mood_score || 0);
           }
           const score = colorScore > 0 ? colorScore : 55;
-          setHeroBgColor(getAdvancedMoodColor(score));
-          setHeroColorScore(score);
-          try { await AsyncStorage.setItem('ui_color_score', String(score)); } catch {}
+          setScore(score);
         } else {
           // weekly
           let scores: number[] = [];
@@ -355,9 +360,7 @@ export default function TodayScreen() {
           }
           const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
           const score = avg > 0 ? avg : 55;
-          setHeroBgColor(getAdvancedMoodColor(score));
-          setHeroColorScore(score);
-          try { await AsyncStorage.setItem('ui_color_score', String(score)); } catch {}
+          setScore(score);
         }
       } catch {}
 
@@ -421,7 +424,7 @@ export default function TodayScreen() {
     const denom = nextMilestone.points - base || 1;
     const progressToNext = ((profile.healingPointsTotal - base) / denom) * 100;
     const isMaxLevel = nextMilestone.points === currentMilestone.points && profile.healingPointsTotal >= nextMilestone.points;
-    const gradientColors = getMoodGradient(heroColorScore || 55);
+    const gradientColors = gradient;
     return (
       <HeroCard
         healingPointsTotal={profile.healingPointsTotal}
@@ -429,9 +432,9 @@ export default function TodayScreen() {
         progressToNextPct={Math.min(100, Math.max(0, progressToNext))}
         nextMilestoneTarget={isMaxLevel ? undefined : nextMilestone.points}
         isMaxLevel={isMaxLevel}
-        bgColor={heroBgColor}
+        bgColor={accentColor}
         gradientColors={gradientColors}
-        colorScore={heroColorScore}
+        colorScore={0}
         enableAnimatedColor
       />
     );
@@ -668,7 +671,7 @@ export default function TodayScreen() {
           onOpen={() => setCheckinSheetVisible(true)}
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
-          accentColor={heroBgColor}
+          accentColor={accentColor}
         />
         
         <View style={simpleStyles.bottomSpacing} />

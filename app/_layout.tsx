@@ -15,6 +15,7 @@ import { AuthProvider } from '@/contexts/SupabaseAuthContext';
 import { LoadingProvider } from '@/contexts/LoadingContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { AccentColorProvider } from '@/contexts/AccentColorContext';
 // 🚫 AI Context - DISABLED (Hard Stop AI Cleanup)
 // import { AIProvider } from '@/contexts/AIContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -187,6 +188,7 @@ export default function RootLayout() {
           <LoadingProvider>
             <NotificationProvider>
               <AuthProvider>
+                <AccentColorProvider>
                 {/* 🚫 AIProvider - DISABLED (Hard Stop AI Cleanup) */}
                 <NavigationGuard>
                     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -198,6 +200,7 @@ export default function RootLayout() {
                     </GestureHandlerRootView>
                 </NavigationGuard>
                 {/* 🚫 AIProvider closing tag removed */}
+                </AccentColorProvider>
               </AuthProvider>
             </NotificationProvider>
           </LoadingProvider>

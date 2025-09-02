@@ -228,6 +228,28 @@ function MoodScreen() {
     })();
   }, [user?.id]);
 
+  // Ensure color updates when returning to this tab after settings change
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!user?.id) return;
+      (async () => {
+        try {
+          const saved = await AsyncStorage.getItem('app_settings');
+          let mode: 'static' | 'today' | 'weekly' = 'today';
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            mode = (parsed?.colorMode as any) || 'today';
+          }
+          let score = 55;
+          const s = await AsyncStorage.getItem('ui_color_score');
+          if (s && !isNaN(Number(s))) score = Number(s);
+          const color = mode === 'static' ? '#10B981' : getAdvancedMoodColor(score);
+          setAccentColor(color);
+        } catch {}
+      })();
+    }, [user?.id])
+  );
+
   // AI pattern persistence removed
 
   // AI pattern analysis removed
