@@ -297,13 +297,32 @@ class SupabaseNativeService {
         if (__DEV__) console.log('🗄️ Using cached user profile for', userId);
         return cached.data;
       }
+
+      // 🌐 Network guard: avoid noisy errors when offline
+      try {
+        const NetInfo = require('@react-native-community/netinfo').default;
+        const net = await NetInfo.fetch();
+        const online = net.isConnected && net.isInternetReachable !== false;
+        if (!online) {
+          console.warn('⚠️ Offline detected - returning cached/fallback user profile');
+          if (cached) return cached.data;
+          if (__DEV__) {
+            console.log('🔧 DEV: Returning fallback profile (offline)');
+            return { id: userId, user_id: userId, created_at: new Date().toISOString() } as any;
+          }
+          return null;
+        }
+      } catch {}
+
       console.log('🔍 Fetching user profile from database...', userId);
       const data = await this.profileSvc.getUserProfile(userId);
       console.log('✅ User profile fetched from database');
       this.userProfileCache.set(userId, { data: data ?? null, fetchedAt: Date.now() });
       return data ?? null;
     } catch (error) {
-      console.error('❌ Get user profile failed:', error);
+      // In dev, this can be noisy—log as warn and continue with fallback
+      if (__DEV__) console.warn('❌ Get user profile failed (DEV fallback will be used):', error);
+      else console.error('❌ Get user profile failed:', error);
       
       // 🔧 DEV MODE: Return fallback profile to prevent app crashes
       if (__DEV__) {

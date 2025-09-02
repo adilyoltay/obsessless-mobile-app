@@ -4,6 +4,7 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import { AppState } from 'react-native';
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
@@ -47,6 +48,9 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // Suppress noisy dev-only warning from RN internals/libraries
+    try { LogBox.ignoreLogs([/useInsertionEffect must not schedule updates/i]); } catch {}
+
     if (loaded) {
       SplashScreen.hideAsync().catch(error => {
         console.warn('Splash screen hide failed:', error);
