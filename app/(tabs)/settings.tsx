@@ -45,11 +45,14 @@ import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 // Removed: advanced onboarding/sync components
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
+type ColorMode = 'static' | 'today' | 'weekly';
+
 interface SettingsData {
   notifications: boolean;
   biometric: boolean;
   reminderTimes: boolean;
   // weeklyReports removed - not implemented in UI
+  colorMode?: ColorMode;
 }
 
 
@@ -101,7 +104,8 @@ export default function SettingsScreen() {
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
     biometric: false,
-    reminderTimes: false
+    reminderTimes: false,
+    colorMode: 'today',
   });
 
   // AI Limit States - REMOVED (AI disabled)
@@ -123,7 +127,13 @@ export default function SettingsScreen() {
     try {
       const savedSettings = await AsyncStorage.getItem(StorageKeys.SETTINGS);
       if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        const parsed = JSON.parse(savedSettings);
+        setSettings({
+          notifications: parsed.notifications ?? true,
+          biometric: parsed.biometric ?? false,
+          reminderTimes: parsed.reminderTimes ?? false,
+          colorMode: (parsed.colorMode as ColorMode) ?? 'today',
+        });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -243,6 +253,17 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error('Error saving settings:', error);
+    }
+  };
+
+  const updateColorMode = async (mode: ColorMode) => {
+    const newSettings = { ...settings, colorMode: mode };
+    setSettings(newSettings);
+    try {
+      await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(newSettings));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      console.error('Error saving color mode:', error);
     }
   };
 
@@ -535,6 +556,43 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Görünüm */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Görünüm</Text>
+          <View style={[styles.sectionContent, { gap: 8 }]}>
+            <Text style={[styles.actionTitle, { marginBottom: 4 }]}>Renk Modu</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { key: 'static', label: 'Statik' },
+                { key: 'today', label: 'Bugün' },
+                { key: 'weekly', label: 'Haftalık' },
+              ] as { key: ColorMode; label: string }[]).map(opt => {
+                const active = (settings.colorMode || 'today') === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => updateColorMode(opt.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Renk modu ${opt.label}`}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? '#10B981' : '#E5E7EB',
+                      backgroundColor: active ? '#ECFDF5' : '#FFFFFF'
+                    }}
+                  >
+                    <Text style={{ color: active ? '#065F46' : '#374151', fontWeight: '700' }}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={{ color: '#6B7280', fontSize: 12 }}>
+              Statik: sabit yeşil • Bugün: bugünkü ortalama • Haftalık: son 7 gün ortalaması
+            </Text>
+          </View>
+        </View>
 
 
         {/* Security */}

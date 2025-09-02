@@ -31,6 +31,7 @@ import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnima
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
 import ScreenLayout from '@/components/layout/ScreenLayout';
+import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
@@ -64,6 +65,7 @@ export default function TodayScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [heroBgColor, setHeroBgColor] = useState<string>('#10B981');
+  const [colorMode, setColorMode] = useState<'static' | 'today' | 'weekly'>('today');
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
 
@@ -167,6 +169,20 @@ export default function TodayScreen() {
     if (user?.id) {
       onRefresh();
     }
+  }, [user?.id]);
+
+  // Load color mode from settings (global app setting)
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
+          if (mode) setColorMode(mode);
+        }
+      } catch {}
+    })();
   }, [user?.id]);
 
   // (no deep analysis timers in use; cleanup not required)
@@ -305,18 +321,31 @@ export default function TodayScreen() {
       setTodayStats(data.todayStats);
       setMoodJourneyData(data.moodJourneyData);
 
-      // 🎨 Dynamic Hero color: Prefer today's average if any, else last mood entry
+      // 🎨 Resolve Hero color based on colorMode
       try {
-        let colorScore = 0;
-        if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
-          colorScore = Math.round(data.moodJourneyData.todayAverage);
-        } else if (data.moodEntries && data.moodEntries.length > 0) {
-          colorScore = Math.round(data.moodEntries[0].mood_score || 0);
-        }
-        if (colorScore > 0) {
-          setHeroBgColor(getAdvancedMoodColor(colorScore));
-        } else {
+        if (colorMode === 'static') {
           setHeroBgColor('#10B981');
+        } else if (colorMode === 'today') {
+          let colorScore = 0;
+          if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
+            colorScore = Math.round(data.moodJourneyData.todayAverage);
+          } else if (data.moodEntries && data.moodEntries.length > 0) {
+            colorScore = Math.round(data.moodEntries[0].mood_score || 0);
+          }
+          setHeroBgColor(colorScore > 0 ? getAdvancedMoodColor(colorScore) : '#10B981');
+        } else {
+          // weekly
+          let scores: number[] = [];
+          if (data.moodJourneyData?.weeklyEntries?.length) {
+            scores = data.moodJourneyData.weeklyEntries
+              .map((e: any) => Number(e.mood_score) || 0)
+              .filter((s: number) => s > 0);
+          }
+          if (!scores.length && data.moodEntries?.length) {
+            scores = data.moodEntries.map((e: any) => Number(e.mood_score) || 0).filter((s: number) => s > 0);
+          }
+          const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+          setHeroBgColor(avg > 0 ? getAdvancedMoodColor(avg) : '#10B981');
         }
       } catch {}
 
