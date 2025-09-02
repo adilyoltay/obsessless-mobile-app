@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAdvancedMoodColor } from '@/utils/colorUtils';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -13,31 +13,29 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useAccentColor } from '@/contexts/AccentColorContext';
 
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
-  const [activeColor, setActiveColor] = useState<string>('#059669');
-  const [colorMode, setColorMode] = useState<'static' | 'today' | 'weekly'>('today');
+  const { colorMode, setColorMode, color: activeColor } = useAccentColor();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem('app_settings');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
-          if (mode) setColorMode(mode);
-        }
-        let score = 55;
-        const s = await AsyncStorage.getItem('ui_color_score');
-        if (s && !isNaN(Number(s))) score = Number(s);
-        const color = colorMode === 'static' ? '#059669' : getAdvancedMoodColor(score);
-        setActiveColor(color);
-      } catch {}
-    })();
-  }, [user?.id]);
+  // Keep colorMode in sync when coming back from Settings
+  useFocusEffect(
+    React.useCallback(() => {
+      (async () => {
+        try {
+          const saved = await AsyncStorage.getItem('app_settings');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
+            if (mode && mode !== colorMode) setColorMode(mode);
+          }
+        } catch {}
+      })();
+    }, [user?.id, colorMode, setColorMode])
+  );
 
   // AI Chat removed
 

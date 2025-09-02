@@ -872,8 +872,7 @@ function MoodScreen() {
           ) : (
             <View style={styles.recordingsContainer}>
               {filteredEntries.map((entry) => {
-                const moodColor = entry.mood_score >= 70 ? '#10B981' : 
-                                 entry.mood_score >= 40 ? '#F59E0B' : '#EF4444';
+                const moodColor = getAdvancedMoodColor(entry.mood_score || 0);
                 
                 return (
                   <View key={`${entry.id}-${entry.created_at}`} style={styles.recordingCard}>
