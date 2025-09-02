@@ -63,6 +63,7 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
+  const [heroBgColor, setHeroBgColor] = useState<string>('#10B981');
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
 
@@ -304,6 +305,21 @@ export default function TodayScreen() {
       setTodayStats(data.todayStats);
       setMoodJourneyData(data.moodJourneyData);
 
+      // 🎨 Dynamic Hero color: Prefer today's average if any, else last mood entry
+      try {
+        let colorScore = 0;
+        if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
+          colorScore = Math.round(data.moodJourneyData.todayAverage);
+        } else if (data.moodEntries && data.moodEntries.length > 0) {
+          colorScore = Math.round(data.moodEntries[0].mood_score || 0);
+        }
+        if (colorScore > 0) {
+          setHeroBgColor(getAdvancedMoodColor(colorScore));
+        } else {
+          setHeroBgColor('#10B981');
+        }
+      } catch {}
+
       // ✅ OPTIMIZATION: Cache module data to avoid duplicate AsyncStorage reads in loadAIInsights
       moduleDataCacheRef.current = {
         moodEntries: data.moodEntries,
@@ -371,6 +387,7 @@ export default function TodayScreen() {
         progressToNextPct={Math.min(100, Math.max(0, progressToNext))}
         nextMilestoneTarget={isMaxLevel ? undefined : nextMilestone.points}
         isMaxLevel={isMaxLevel}
+        bgColor={heroBgColor}
       />
     );
   };

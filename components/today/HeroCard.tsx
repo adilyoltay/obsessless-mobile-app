@@ -9,9 +9,10 @@ type HeroCardProps = {
   progressToNextPct: number; // 0-100
   nextMilestoneTarget?: number; // if provided, show current/target
   isMaxLevel?: boolean; // true when already at max tier
+  bgColor?: string; // optional dynamic background color
 };
 
-export default function HeroCard({ healingPointsTotal, nextMilestoneName, progressToNextPct, nextMilestoneTarget, isMaxLevel }: HeroCardProps) {
+export default function HeroCard({ healingPointsTotal, nextMilestoneName, progressToNextPct, nextMilestoneTarget, isMaxLevel, bgColor }: HeroCardProps) {
   // Keep a tiny fade/scale feel without wiring external Animated state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
@@ -34,8 +35,10 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
 
   const pct = Math.max(0, Math.min(100, progressToNextPct));
 
+  const backgroundColor = bgColor || '#10B981';
+
   return (
-    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], padding: cardPadding }]}>
+    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], padding: cardPadding, backgroundColor }]}>
       {/* Main Points Display */}
       <View style={styles.mainPointsContainer}>
         <MaterialCommunityIcons name="star-outline" size={iconSize} color="white" />
