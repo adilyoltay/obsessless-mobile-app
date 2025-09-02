@@ -58,13 +58,15 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
       lastScoreRef.current = curr ?? prev;
       return;
     }
-    // Crossfade overlay
-    setOverlayGradient(gradientColors);
-    overlayOpacity.setValue(0);
-    Animated.timing(overlayOpacity, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => {
-      setBaseGradient(gradientColors);
-      setOverlayGradient(null);
+    // Crossfade overlay scheduled after paint to avoid insertion-effect warnings
+    requestAnimationFrame(() => {
+      setOverlayGradient(gradientColors);
       overlayOpacity.setValue(0);
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(() => {
+        setBaseGradient(gradientColors);
+        setOverlayGradient(null);
+        overlayOpacity.setValue(0);
+      });
     });
     lastScoreRef.current = curr ?? prev;
   }, [gradientColors, colorScore, enableAnimatedColor]);

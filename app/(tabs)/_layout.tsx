@@ -7,6 +7,7 @@ import { getAdvancedMoodColor } from '@/utils/colorUtils';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabBarIcon } from '@/components/ui/TabBarIcon';
+import TabBarLabel from '@/components/ui/TabBarLabel';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -89,6 +90,7 @@ export default function TabLayout() {
             />
           ),
           tabBarActiveTintColor: activeColor,
+          tabBarLabel: ({ color }) => <TabBarLabel text="Bugün" color={color as string} />,
         }}
       />
       
@@ -104,6 +106,7 @@ export default function TabLayout() {
             />
           ),
           tabBarActiveTintColor: activeColor,
+          tabBarLabel: ({ color }) => <TabBarLabel text="Mood" color={color as string} />,
         }}
       />
       
@@ -118,6 +121,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={focused ? activeColor : color} />
           ),
+          tabBarLabel: ({ color }) => <TabBarLabel text="Nefes" color={color as string} />,
         }}
       />
       
@@ -133,6 +137,7 @@ export default function TabLayout() {
             />
           ),
           tabBarActiveTintColor: activeColor,
+          tabBarLabel: ({ color }) => <TabBarLabel text="Ayarlar" color={color as string} />,
         }}
       />
     </Tabs>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
@@ -20,13 +20,34 @@ type Props = {
 };
 
 export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete, accentColor }: Props) {
+  const bgAnim = React.useRef(new Animated.Value(1)).current;
+  const prevColorRef = React.useRef<string>(accentColor || '#10B981');
+  const [fromColor, setFromColor] = React.useState<string>(prevColorRef.current);
+  const [toColor, setToColor] = React.useState<string>(prevColorRef.current);
+
+  React.useEffect(() => {
+    const next = accentColor || '#10B981';
+    if (next === prevColorRef.current) return;
+    setFromColor(prevColorRef.current);
+    setToColor(next);
+    bgAnim.setValue(0);
+    Animated.timing(bgAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start(() => {
+      prevColorRef.current = next;
+      setFromColor(next);
+      setToColor(next);
+      bgAnim.setValue(1);
+    });
+  }, [accentColor]);
+
+  const animatedBg = bgAnim.interpolate({ inputRange: [0, 1], outputRange: [fromColor, toColor] });
+
   return (
     <View style={styles.container}>
       <Button
         variant="primary"
         onPress={onOpen}
         accessibilityLabel="Mood Check‑in"
-        style={[styles.button, accentColor ? { backgroundColor: accentColor, shadowColor: accentColor } : null]}
+        style={[styles.button, { backgroundColor: animatedBg }, accentColor ? { shadowColor: accentColor } : null]}
         leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
       >
         Mood Check‑in
