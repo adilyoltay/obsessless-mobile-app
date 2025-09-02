@@ -28,14 +28,17 @@ export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplet
   React.useEffect(() => {
     const next = accentColor || '#10B981';
     if (next === prevColorRef.current) return;
-    setFromColor(prevColorRef.current);
-    setToColor(next);
-    bgAnim.setValue(0);
-    Animated.timing(bgAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start(() => {
-      prevColorRef.current = next;
-      setFromColor(next);
+    // schedule after paint to avoid insertion-effect warnings in dev
+    requestAnimationFrame(() => {
+      setFromColor(prevColorRef.current);
       setToColor(next);
-      bgAnim.setValue(1);
+      bgAnim.setValue(0);
+      Animated.timing(bgAnim, { toValue: 1, duration: 220, useNativeDriver: false }).start(() => {
+        prevColorRef.current = next;
+        setFromColor(next);
+        setToColor(next);
+        bgAnim.setValue(1);
+      });
     });
   }, [accentColor]);
 
