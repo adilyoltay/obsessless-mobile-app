@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import moodTracker, { type MoodEntry } from '@/services/moodTrackingService';
 import { StorageKeys } from '@/utils/storage';
-import { isSameDayInUserTimezone, toUserLocalDate } from '@/utils/timezoneUtils';
+import { isSameDayInUserTimezone, toUserLocalDate, getUserDateString } from '@/utils/timezoneUtils';
 
 export type TodayStats = {
   healingPoints: number; // caller provides from store; kept for compatibility
@@ -69,10 +69,49 @@ export const todayService = {
     // 3) Mood Journey aggregates
     let moodJourneyData: MoodJourneyData | null = null;
     if (moodEntries.length > 0) {
+      // ✅ NORMALIZE TO EXACT 7 DAYS (TODAY .. TODAY-6) IN USER TIMEZONE
+      const dayKeys: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        dayKeys.push(getUserDateString(d)); // [today, yesterday, ...]
+      }
+
+      // Group entries by user day string for quick lookup
+      const grouped = new Map<string, MoodEntry[]>();
+      for (const entry of moodEntries) {
+        const key = getUserDateString(entry.timestamp);
+        const list = grouped.get(key) || [];
+        list.push(entry);
+        grouped.set(key, list);
+      }
+
+      // Build normalized 7-day array (descending: today first)
+      const normalizedDaily: MoodEntry[] = dayKeys.map((key) => {
+        const list = grouped.get(key) || [];
+        const moodAvg = list.length > 0
+          ? Math.round((list.reduce((s, e) => s + (e.mood_score || 0), 0) / list.length))
+          : 0;
+        // Synthetic entry for the day
+        return {
+          id: `day-${key}`,
+          user_id: userId,
+          mood_score: moodAvg,
+          energy_level: list.length > 0 ? Math.round(list.reduce((s, e) => s + (e.energy_level || 0), 0) / list.length) : 0,
+          anxiety_level: list.length > 0 ? Math.round(list.reduce((s, e) => s + (e.anxiety_level || 0), 0) / list.length) : 0,
+          notes: '',
+          triggers: [],
+          activities: [],
+          timestamp: new Date(`${key}T00:00:00.000Z`).toISOString(),
+          synced: true,
+        } as MoodEntry;
+      });
+
       const todayAverage = todayMood.length > 0
         ? todayMood.reduce((sum: number, entry: any) => sum + entry.mood_score, 0) / todayMood.length
         : 0;
 
+      // Keep energy/anxiety averages from actual entries (not normalized)
       const weeklyEntriesWithData = moodEntries.filter((entry: any) => entry.energy_level != null && entry.anxiety_level != null);
       const weeklyEnergyAvg = weeklyEntriesWithData.length > 0
         ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.energy_level, 0) / weeklyEntriesWithData.length
@@ -81,12 +120,14 @@ export const todayService = {
         ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.anxiety_level, 0) / weeklyEntriesWithData.length
         : 0;
 
-      const weeklyTrend: 'up' | 'down' | 'stable' = moodEntries.length >= 2
-        ? (moodEntries[0]?.mood_score > moodEntries[moodEntries.length - 1]?.mood_score ? 'up' : 'down')
+      // Trend based on first non-zero vs last non-zero in normalized range
+      const nonZero = normalizedDaily.filter(e => (e.mood_score || 0) > 0);
+      const weeklyTrend: 'up' | 'down' | 'stable' = nonZero.length >= 2
+        ? (nonZero[0].mood_score > nonZero[nonZero.length - 1].mood_score ? 'up' : 'down')
         : 'stable';
 
       moodJourneyData = {
-        weeklyEntries: moodEntries.slice(0, 7),
+        weeklyEntries: normalizedDaily, // length 7, today-first (card reverses internally)
         todayAverage,
         weeklyTrend,
         weeklyEnergyAvg,
@@ -104,4 +145,3 @@ export const todayService = {
 };
 
 export default todayService;
-
