@@ -35,6 +35,7 @@ import { StorageKeys } from '@/utils/storage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
+import { getAdvancedMoodColor, getMoodGradient } from '@/utils/colorUtils';
 
 // Stores
 
@@ -65,6 +66,7 @@ export default function TodayScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [heroBgColor, setHeroBgColor] = useState<string>('#10B981');
+  const [heroColorScore, setHeroColorScore] = useState<number>(55);
   const [colorMode, setColorMode] = useState<'static' | 'today' | 'weekly'>('today');
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
@@ -171,6 +173,20 @@ export default function TodayScreen() {
     }
   }, [user?.id]);
 
+  // Load color mode from settings when user changes
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
+          if (mode) setColorMode(mode);
+        }
+      } catch {}
+    })();
+  }, [user?.id]);
+
   // Load color mode from settings (global app setting)
   useEffect(() => {
     (async () => {
@@ -215,18 +231,7 @@ export default function TodayScreen() {
    * Mood spektrum renklerine ve emotion mapping'e dayalı fonksiyonlar
    */
   
-  // 🌈 Advanced mood color mapping (0-100 scale, Spektrum dashboard ile tamamen uyumlu)
-  const getAdvancedMoodColor = (score: number): string => {
-    if (score >= 90) return '#C2185B'; // 90-100: Heyecanlı - Soft pink (anxiety-friendly)
-    if (score >= 80) return '#7E57C2'; // 80-89: Enerjik - Soft purple  
-    if (score >= 70) return '#4CAF50'; // 70-79: Mutlu - Green
-    if (score >= 60) return '#26A69A'; // 60-69: Sakin - Teal
-    if (score >= 50) return '#66BB6A'; // 50-59: Normal - Light Green
-    if (score >= 40) return '#FFA726'; // 40-49: Endişeli - Orange
-    if (score >= 30) return '#FF7043'; // 30-39: Sinirli - Red Orange
-    if (score >= 20) return '#5C6BC0'; // 20-29: Üzgün - Indigo
-    return '#F06292'; // 0-19: Kızgın - Rose
-  };
+  // 🌈 Advanced mood color mapping moved to utils/colorUtils
 
 
 
@@ -325,6 +330,7 @@ export default function TodayScreen() {
       try {
         if (colorMode === 'static') {
           setHeroBgColor('#10B981');
+          setHeroColorScore(55);
         } else if (colorMode === 'today') {
           let colorScore = 0;
           if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
@@ -333,6 +339,7 @@ export default function TodayScreen() {
             colorScore = Math.round(data.moodEntries[0].mood_score || 0);
           }
           setHeroBgColor(colorScore > 0 ? getAdvancedMoodColor(colorScore) : '#10B981');
+          setHeroColorScore(colorScore > 0 ? colorScore : 55);
         } else {
           // weekly
           let scores: number[] = [];
@@ -346,6 +353,7 @@ export default function TodayScreen() {
           }
           const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
           setHeroBgColor(avg > 0 ? getAdvancedMoodColor(avg) : '#10B981');
+          setHeroColorScore(avg > 0 ? avg : 55);
         }
       } catch {}
 
@@ -409,6 +417,7 @@ export default function TodayScreen() {
     const denom = nextMilestone.points - base || 1;
     const progressToNext = ((profile.healingPointsTotal - base) / denom) * 100;
     const isMaxLevel = nextMilestone.points === currentMilestone.points && profile.healingPointsTotal >= nextMilestone.points;
+    const gradientColors = getMoodGradient(heroColorScore || 55);
     return (
       <HeroCard
         healingPointsTotal={profile.healingPointsTotal}
@@ -417,6 +426,9 @@ export default function TodayScreen() {
         nextMilestoneTarget={isMaxLevel ? undefined : nextMilestone.points}
         isMaxLevel={isMaxLevel}
         bgColor={heroBgColor}
+        gradientColors={gradientColors}
+        colorScore={heroColorScore}
+        enableAnimatedColor
       />
     );
   };

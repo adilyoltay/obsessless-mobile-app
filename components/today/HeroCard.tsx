@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StreakCounter } from '@/components/gamification/StreakCounter';
 
@@ -10,9 +11,12 @@ type HeroCardProps = {
   nextMilestoneTarget?: number; // if provided, show current/target
   isMaxLevel?: boolean; // true when already at max tier
   bgColor?: string; // optional dynamic background color
+  gradientColors?: [string, string];
+  colorScore?: number; // for threshold checks
+  enableAnimatedColor?: boolean;
 };
 
-export default function HeroCard({ healingPointsTotal, nextMilestoneName, progressToNextPct, nextMilestoneTarget, isMaxLevel, bgColor }: HeroCardProps) {
+export default function HeroCard({ healingPointsTotal, nextMilestoneName, progressToNextPct, nextMilestoneTarget, isMaxLevel, bgColor, gradientColors, colorScore, enableAnimatedColor }: HeroCardProps) {
   // Keep a tiny fade/scale feel without wiring external Animated state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
@@ -36,9 +40,45 @@ export default function HeroCard({ healingPointsTotal, nextMilestoneName, progre
   const pct = Math.max(0, Math.min(100, progressToNextPct));
 
   const backgroundColor = bgColor || '#10B981';
+  const [baseGradient, setBaseGradient] = React.useState<[string, string]>(gradientColors || ['#34d399', '#059669']);
+  const [overlayGradient, setOverlayGradient] = React.useState<[string, string] | null>(null);
+  const overlayOpacity = React.useRef(new Animated.Value(0)).current;
+  const lastScoreRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (!gradientColors || !enableAnimatedColor) {
+      if (gradientColors) setBaseGradient(gradientColors);
+      return;
+    }
+    const prev = lastScoreRef.current;
+    const curr = typeof colorScore === 'number' ? colorScore : null;
+    const thresholdHit = prev == null || curr == null ? true : Math.abs(curr - prev) >= 5;
+    if (!thresholdHit) {
+      setBaseGradient(gradientColors);
+      lastScoreRef.current = curr ?? prev;
+      return;
+    }
+    // Crossfade overlay
+    setOverlayGradient(gradientColors);
+    overlayOpacity.setValue(0);
+    Animated.timing(overlayOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start(() => {
+      setBaseGradient(gradientColors);
+      setOverlayGradient(null);
+      overlayOpacity.setValue(0);
+    });
+    lastScoreRef.current = curr ?? prev;
+  }, [gradientColors, colorScore, enableAnimatedColor]);
 
   return (
-    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], padding: cardPadding, backgroundColor }]}>
+    <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ scale: scaleAnim }], padding: cardPadding }]}>
+      <View style={styles.gradientContainer}>
+        <LinearGradient colors={baseGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
+        {overlayGradient && (
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: overlayOpacity }]}>
+            <LinearGradient colors={overlayGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
+          </Animated.View>
+        )}
+      </View>
       {/* Main Points Display */}
       <View style={styles.mainPointsContainer}>
         <MaterialCommunityIcons name="star-outline" size={iconSize} color="white" />
@@ -71,10 +111,15 @@ const styles = StyleSheet.create({
   heroSection: {
     marginTop: 12,
     marginHorizontal: 16,
-    backgroundColor: '#10B981',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
+  },
+  gradientContainer: {
+    ...StyleSheet.absoluteFillObject as any,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   mainPointsContainer: {
     alignItems: 'center',

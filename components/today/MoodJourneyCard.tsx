@@ -2,23 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
+import { getAdvancedMoodColor } from '@/utils/colorUtils';
 
 type Props = {
   data: MoodJourneyData;
 };
 
-// Same color mapping used in Today screen
-const getAdvancedMoodColor = (score: number): string => {
-  if (score >= 90) return '#C2185B'; // 90-100: Heyecanlı
-  if (score >= 80) return '#7E57C2'; // 80-89: Enerjik
-  if (score >= 70) return '#4CAF50'; // 70-79: Mutlu
-  if (score >= 60) return '#26A69A'; // 60-69: Sakin
-  if (score >= 50) return '#66BB6A'; // 50-59: Normal
-  if (score >= 40) return '#FFA726'; // 40-49: Endişeli
-  if (score >= 30) return '#FF7043'; // 30-39: Sinirli
-  if (score >= 20) return '#5C6BC0'; // 20-29: Üzgün
-  return '#F06292'; // 0-19: Kızgın
-};
+// Color mapping centralized in utils/colorUtils.ts
 
 export default function MoodJourneyCard({ data }: Props) {
   // Build emotion distribution (top-3)
