@@ -85,9 +85,9 @@ export default function MoodJourneyCard({ data }: Props) {
       {/* Weekly bars */}
       <View style={styles.barsRow}>
         {[...data.weeklyEntries].reverse().map((entry, index) => {
-          // mood_score in 0–100 scale → map to 6..60 px (0 treated as empty day)
+          // mood_score in 0–100 scale → map to 8..72 px (0 treated as empty day)
           const score = (entry as any).mood_score || 0;
-          const barHeight = Math.min(Math.max((score / 100) * 60, 6), 60);
+          const barHeight = Math.min(Math.max((score / 100) * 72, 8), 72);
           const isToday = index === 6;
           const dayIndex = (today - (6 - index) + 7) % 7;
           const emotionColor = score > 0 ? getAdvancedMoodColor(score) : '#E5E7EB';
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   miniSpectrumBar: {
-    height: 6,
+    height: 8,
     borderRadius: 4,
     marginBottom: 12,
   },
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: 8,
+    marginTop: 10,
   },
   barContainer: {
     alignItems: 'center',
