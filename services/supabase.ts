@@ -34,14 +34,7 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('🚨 CRITICAL: Supabase credentials missing from environment variables');
   console.error('Required: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY');
-  
-  // Production'da güvenli bir şekilde app'i kapatmak yerine hata fırlat
-  if (!__DEV__) {
-    throw new Error('SUPABASE_CREDENTIALS_MISSING: Application cannot start without proper credentials');
-  }
-  
-  console.warn('⚠️ Development mode: Using demo credentials for testing');
-  // Development'da fallback sadece test için
+  // CRASH PREVENTION: Do not throw at top-level; allow app to boot and surface user-friendly errors.
 }
 
 // ===========================

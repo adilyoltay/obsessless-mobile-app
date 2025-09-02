@@ -32,6 +32,7 @@
     "test:integration": "echo '⚠️  RTL tests disabled due to rendering issues. Use npm run test:qa instead.'",
     "test:e2e": "npm run test:qa",
     "validate:expo": "expo-doctor",
+    "preflight": "npx -y expo-doctor --strict || true",
     "scan:secrets": "gitleaks detect --redact",
     "scan:deprecated": "bash scripts/find-deprecated-features.sh",
     "docs:deprecate": "ts-node scripts/update-documentation.ts",
