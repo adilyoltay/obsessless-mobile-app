@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
-import { getAdvancedMoodColor } from '@/utils/colorUtils';
+import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
 
 type Props = {
   data: MoodJourneyData;
@@ -28,21 +28,32 @@ export default function MoodJourneyCard({ data }: Props) {
       'Kızgın':   entries.filter(e => (e as any).mood_score < 20).length,
     } as Record<string, number>;
     const total = entries.length;
+    const energyFor = (emotion: string) => (
+      emotion === 'Heyecanlı' ? 9 :
+      emotion === 'Enerjik'  ? 8 :
+      emotion === 'Mutlu'    ? 7 :
+      emotion === 'Sakin'    ? 5 :
+      emotion === 'Normal'   ? 6 :
+      emotion === 'Endişeli' ? 7 :
+      emotion === 'Sinirli'  ? 8 :
+      /* Üzgün/Kızgın */  emotion === 'Üzgün' ? 3 : 9
+    );
+    const scoreFor = (emotion: string) => (
+      emotion === 'Heyecanlı' ? 95 :
+      emotion === 'Enerjik'  ? 85 :
+      emotion === 'Mutlu'    ? 75 :
+      emotion === 'Sakin'    ? 65 :
+      emotion === 'Normal'   ? 55 :
+      emotion === 'Endişeli' ? 45 :
+      emotion === 'Sinirli'  ? 35 :
+      /* Üzgün/Kızgın */       emotion === 'Üzgün' ? 25 : 15
+    );
     return Object.entries(counts)
       .filter(([_, c]) => c > 0)
       .map(([emotion, c]) => ({
         emotion,
         percentage: Math.round((c / total) * 100),
-        color: getAdvancedMoodColor(
-          emotion === 'Heyecanlı' ? 95 :
-          emotion === 'Enerjik' ? 85 :
-          emotion === 'Mutlu' ? 75 :
-          emotion === 'Sakin' ? 65 :
-          emotion === 'Normal' ? 55 :
-          emotion === 'Endişeli' ? 45 :
-          emotion === 'Sinirli' ? 35 :
-          emotion === 'Üzgün' ? 25 : 15
-        )
+        color: getVAColorFromScores(scoreFor(emotion), energyFor(emotion))
       }))
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 3);
@@ -52,12 +63,19 @@ export default function MoodJourneyCard({ data }: Props) {
 
   const days = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
   const today = new Date().getDay();
+  
+  // Horizontal spectrum bar aligned to VA palette (constant energy)
+  const paletteColors = React.useMemo(() => {
+    const paletteEnergy = 6; // Stabil, sabit enerji
+    const stops = [15, 25, 35, 45, 55, 65, 75, 85, 95];
+    return stops.map(s => getVAColorFromScores(s, paletteEnergy));
+  }, []);
 
   return (
     <View style={styles.container}>
       {/* Spectrum bar */}
       <LinearGradient
-        colors={['#F06292', '#5C6BC0', '#FF7043', '#FFA726', '#66BB6A', '#26A69A', '#4CAF50', '#7E57C2', '#C2185B']}
+        colors={paletteColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.miniSpectrumBar}
@@ -80,7 +98,12 @@ export default function MoodJourneyCard({ data }: Props) {
           const barHeight = Math.min(Math.max((score / 100) * 90, 10), 90);
           const isToday = index === 6;
           const dayIndex = (today - (6 - index) + 7) % 7;
-          const emotionColor = score > 0 ? getAdvancedMoodColor(score) : '#E5E7EB';
+          const emotionColor = (() => {
+            if (score <= 0) return '#E5E7EB';
+            const base = getVAColorFromScores(score, (entry as any).energy_level);
+            const [start] = getGradientFromBase(base);
+            return start; // Hero gradient 'start' rengiyle hizala
+          })();
           return (
             <View key={`${entry.id || 'unknown'}_${index}`} style={styles.barContainer}>
               <View style={[

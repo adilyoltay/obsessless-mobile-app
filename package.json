@@ -41,7 +41,6 @@
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
     "@hookform/resolvers": "^3.10.0",
-    "@lottiefiles/dotlottie-react": "^0.14.4",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-native-community/netinfo": "11.4.1",
@@ -87,12 +86,10 @@
     "expo-web-browser": "~14.2.0",
     "i18n-js": "^4.5.1",
     "jwt-decode": "^4.0.0",
-    "lottie-react-native": "7.2.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-hook-form": "^7.61.1",
     "react-native": "0.79.5",
-    "react-native-chart-kit": "^6.12.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-gifted-chat": "^2.8.1",
     "react-native-modal": "^14.0.0-rc.1",
@@ -100,14 +97,15 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-svg": "^15.11.2",
+    "react-native-svg": "15.11.2",
     "react-native-toast-message": "^2.2.0",
     "react-native-typing-animation": "^0.1.7",
     "react-native-web": "^0.20.0",
     "stream-chat": "^9.14.0",
     "stream-chat-react-native": "^8.3.1",
     "zod": "^3.25.76",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "@expo/config-plugins": "~10.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

@@ -36,7 +36,7 @@ import { useAccentColor } from '@/contexts/AccentColorContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
-import { getAdvancedMoodColor, getMoodGradient } from '@/utils/colorUtils';
+import { getAdvancedMoodColor, getMoodGradient, getVAColorFromScores } from '@/utils/colorUtils';
 
 // Stores
 
@@ -66,7 +66,7 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
-  const { colorMode, color: accentColor, gradient, setScore } = useAccentColor();
+  const { colorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
 
@@ -263,21 +263,32 @@ export default function TodayScreen() {
     };
 
     const total = entries.length;
+    const energyFor = (emotion: string) => (
+      emotion === 'Heyecanlı' ? 9 :
+      emotion === 'Enerjik'  ? 8 :
+      emotion === 'Mutlu'    ? 7 :
+      emotion === 'Sakin'    ? 5 :
+      emotion === 'Normal'   ? 6 :
+      emotion === 'Endişeli' ? 7 :
+      emotion === 'Sinirli'  ? 8 :
+      /* Üzgün/Kızgın */       emotion === 'Üzgün' ? 3 : 9
+    );
+    const scoreFor = (emotion: string) => (
+      emotion === 'Heyecanlı' ? 95 :
+      emotion === 'Enerjik'  ? 85 :
+      emotion === 'Mutlu'    ? 75 :
+      emotion === 'Sakin'    ? 65 :
+      emotion === 'Normal'   ? 55 :
+      emotion === 'Endişeli' ? 45 :
+      emotion === 'Sinirli'  ? 35 :
+      /* Üzgün/Kızgın */       emotion === 'Üzgün' ? 25 : 15
+    );
     return Object.entries(emotionCounts)
       .filter(([_, count]) => count > 0)
       .map(([emotion, count]) => ({
         emotion,
         percentage: Math.round((count / total) * 100),
-        color: getAdvancedMoodColor(
-          emotion === 'Heyecanlı' ? 95 :
-          emotion === 'Enerjik' ? 85 :
-          emotion === 'Mutlu' ? 75 :
-          emotion === 'Sakin' ? 65 :
-          emotion === 'Normal' ? 55 :
-          emotion === 'Endişeli' ? 45 :
-          emotion === 'Sinirli' ? 35 :
-          emotion === 'Üzgün' ? 25 : 15
-        )
+        color: getVAColorFromScores(scoreFor(emotion), energyFor(emotion))
       }))
       .sort((a, b) => b.percentage - a.percentage); // En yüksek yüzdeden başla
   };
@@ -336,17 +347,32 @@ export default function TodayScreen() {
 
       // 🎨 Resolve Hero color based on colorMode
       try {
+        const toCoordServiceLike = (v:number) => Math.max(-1, Math.min(1, (v - 5.5) / 4.5));
         if (colorMode === 'static') {
           setScore(55);
+          setVA({ x: 0, y: 0 });
         } else if (colorMode === 'today') {
-          let colorScore = 0;
-          if (data.todayStats.moodCheckins > 0 && data.moodJourneyData?.todayAverage) {
-            colorScore = Math.round(data.moodJourneyData.todayAverage);
-          } else if (data.moodEntries && data.moodEntries.length > 0) {
-            colorScore = Math.round(data.moodEntries[0].mood_score || 0);
+          // Use normalized 'today' averages so Hero matches Mood Journey's bar color
+          const todayAvgMood = Math.round(data.moodJourneyData?.todayAverage || 0);
+          const todayEnergyAvg = typeof data.moodJourneyData?.weeklyEntries?.[0]?.energy_level === 'number'
+            ? Math.round((data.moodJourneyData!.weeklyEntries![0] as any).energy_level)
+            : NaN;
+
+          let score = todayAvgMood > 0 ? todayAvgMood : 0;
+          if (!score) {
+            if (data.moodEntries && data.moodEntries.length > 0) {
+              score = Math.round((data.moodEntries[0] as any).mood_score || 0);
+            }
           }
-          const score = colorScore > 0 ? colorScore : 55;
+          if (!score) score = 55;
           setScore(score);
+
+          const energyFallback = data.moodJourneyData?.weeklyEnergyAvg || 6;
+          const eAvg = Number.isFinite(todayEnergyAvg) && todayEnergyAvg > 0 ? todayEnergyAvg : Math.round(energyFallback);
+
+          const m10 = Math.max(1, Math.min(10, score / 10));
+          const e10 = Math.max(1, Math.min(10, eAvg));
+          setVA({ x: toCoordServiceLike(m10), y: toCoordServiceLike(e10) });
         } else {
           // weekly
           let scores: number[] = [];
@@ -361,6 +387,9 @@ export default function TodayScreen() {
           const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
           const score = avg > 0 ? avg : 55;
           setScore(score);
+          const m10 = Math.max(1, Math.min(10, score / 10));
+          const e10 = Math.max(1, Math.min(10, Math.round(data.moodJourneyData?.weeklyEnergyAvg || 6)));
+          setVA({ x: toCoordServiceLike(m10), y: toCoordServiceLike(e10) });
         }
       } catch {}
 
@@ -672,6 +701,7 @@ export default function TodayScreen() {
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
           accentColor={accentColor}
+          gradientColors={gradient}
         />
         
         <View style={simpleStyles.bottomSpacing} />

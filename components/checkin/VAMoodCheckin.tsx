@@ -37,6 +37,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 
 // 🎤 REAL STT - İOS crash riski var ama gerçek konuşma için aktif
 import speechToTextService from '@/services/speechToTextService';
+import { useAccentColor } from '@/contexts/AccentColorContext';
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
@@ -122,6 +123,7 @@ export default function VAMoodCheckin({
 }: VAMoodCheckinProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { color: accentColor, setScore, setVA } = useAccentColor();
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
@@ -169,7 +171,23 @@ export default function VAMoodCheckin({
     opacity: recordingOpacity.value,
   }));
 
+  // VA Pad's own visual color (kept independent for the interactive pad)
   const color = useMemo(() => colorFromVA(xy.x, xy.y), [xy]);
+
+  // Keep global accent palette in sync with current valence (0-100)
+  const accentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (accentDebounceRef.current) clearTimeout(accentDebounceRef.current);
+    accentDebounceRef.current = setTimeout(() => {
+      const mood01 = to01(xy.x);
+      const score = Math.round(mood01 * 100);
+      setScore(score);
+      setVA({ x: xy.x, y: xy.y });
+    }, 90); // 60–120ms hedef: 90ms
+    return () => {
+      if (accentDebounceRef.current) clearTimeout(accentDebounceRef.current);
+    };
+  }, [xy.x, xy.y, setScore, setVA]);
 
   // STT availability handled internally by service
   useEffect(() => {
@@ -476,10 +494,7 @@ export default function VAMoodCheckin({
           });
         }
         
-        // Navigate to mood page after a short delay
-        setTimeout(() => {
-          router.push('/(tabs)/mood');
-        }, 300);
+        // Stay on Today: do not navigate away after save
       }
     } catch (error) {
       // Treat idempotent duplicate as success (user already saved)
@@ -488,7 +503,7 @@ export default function VAMoodCheckin({
         console.warn('🛡️ Duplicate mood save detected – treating as success');
         try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
         onClose();
-        setTimeout(() => { router.push('/(tabs)/mood'); }, 300);
+        // Stay on Today (no navigation)
         return;
       }
       console.error('❌ Failed to save mood entry:', error);
@@ -659,7 +674,7 @@ export default function VAMoodCheckin({
             <Pressable onPress={onClose} style={styles.closeButton}>
               <MaterialCommunityIcons name="close" size={24} color="#6B7280" />
             </Pressable>
-            <Text style={styles.title}>Duygu Kontrolü</Text>
+            <Text style={[styles.title, { color: accentColor }]}>Duygu Kontrolü</Text>
             <View style={styles.placeholder} />
           </View>
 
@@ -679,7 +694,7 @@ export default function VAMoodCheckin({
 
           {/* Mood labels */}
           <View style={styles.moodDisplay}>
-            <Text style={[styles.moodLabel, { color }]}>{valenceText}</Text>
+            <Text style={[styles.moodLabel, { color: accentColor }]}>{valenceText}</Text>
             <Text style={styles.energyLabel}>{energyText}</Text>
           </View>
 
@@ -694,11 +709,11 @@ export default function VAMoodCheckin({
                 step={0.01}
                 minimumTrackTintColor="transparent"
                 maximumTrackTintColor="transparent"
-                thumbTintColor={color}
+                thumbTintColor={accentColor}
                 style={styles.slider}
               />
               <View style={styles.barBg} />
-              <View style={[styles.barFill, { width: `${mood01 * 100}%`, backgroundColor: color }]} />
+              <View style={[styles.barFill, { width: `${mood01 * 100}%`, backgroundColor: accentColor }]} />
             </View>
             
             {/* Slider labels */}
@@ -744,7 +759,7 @@ export default function VAMoodCheckin({
           {/* Action Button - Next */}
           <View style={styles.actions}>
             <Pressable
-              style={[styles.btn, styles.primary, { backgroundColor: color }]}
+              style={[styles.btn, styles.primary, { backgroundColor: accentColor }]}
               onPress={handleNext}
             >
               <Text style={styles.btnTxt}>İleri</Text>
@@ -759,7 +774,7 @@ export default function VAMoodCheckin({
           detectedTriggers={detectedTriggers}
           onBack={handleBack}
           onSave={handleSave}
-          moodColor={color}
+          moodColor={accentColor}
         />
       )}
     </Modal>

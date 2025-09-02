@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '@/components/ui/Button';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
+import { getGradientFromBase } from '@/utils/colorUtils';
 
 type RoutingResult = {
   type: 'MOOD' | 'BREATHWORK' | 'UNKNOWN';
@@ -16,29 +18,25 @@ type Props = {
   onOpen: () => void;
   onClose: () => void;
   onComplete: (routingResult?: RoutingResult) => void;
-  accentColor?: string;
+  accentColor?: string; // ignored for now (CTA fixed static green)
+  gradientColors?: [string, string]; // ignored for now
 };
 
-export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete, accentColor }: Props) {
-  const overlayOpacity = React.useRef(new Animated.Value(0)).current;
-  const prevColorRef = React.useRef<string>(accentColor || '#10B981');
-
-  React.useEffect(() => {
-    const next = accentColor || '#10B981';
-    if (next === prevColorRef.current) return;
-    overlayOpacity.setValue(1);
-    Animated.timing(overlayOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
-      prevColorRef.current = next;
-    });
-  }, [accentColor]);
-
-  const currentColor = accentColor || '#10B981';
+export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete }: Props) {
+  // Fixed static green CTA per request
+  const STATIC_GREEN = '#10B981';
+  const baseGrad: [string, string] = getGradientFromBase(STATIC_GREEN);
+  const currentColor = baseGrad[0];
 
   return (
     <View style={styles.container}>
-      {/* Background layers behind the button */}
-      <View style={[StyleSheet.absoluteFillObject as any, { backgroundColor: currentColor, borderRadius: 16 }]} />
-      <Animated.View style={[StyleSheet.absoluteFillObject as any, { backgroundColor: prevColorRef.current, borderRadius: 16, opacity: overlayOpacity }]} />
+      {/* Background layers (gradient) behind the button */}
+      <LinearGradient
+        colors={baseGrad}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject as any, { borderRadius: 12 }]}
+      />
 
       <Button
         variant="primary"
@@ -59,9 +57,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 16,
     position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   button: {
-    borderRadius: 16,
+    borderRadius: 12,
     paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

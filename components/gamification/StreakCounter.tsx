@@ -4,7 +4,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useGamificationStore } from '@/store/gamificationStore';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/Colors';
 
-export function StreakCounter() {
+type StreakCounterProps = {
+  variant?: 'default' | 'onGradient';
+};
+
+export function StreakCounter({ variant = 'default' }: StreakCounterProps) {
   const { profile, getStreakInfo } = useGamificationStore();
   const streakInfo = getStreakInfo();
   const scaleAnim = new Animated.Value(1);
@@ -34,11 +38,11 @@ export function StreakCounter() {
   const getStreakColor = () => {
     switch (streakInfo.level) {
       case 'master':
-        return Colors.status.warning; // Orange for master
+        return variant === 'onGradient' ? '#FFFFFF' : Colors.status.warning; // Orange or white on gradient
       case 'warrior':
-        return Colors.status.error; // Red for warrior
+        return variant === 'onGradient' ? '#FFFFFF' : Colors.status.error; // Red or white on gradient
       default:
-        return Colors.primary.green; // Green for seedling
+        return variant === 'onGradient' ? '#FFFFFF' : Colors.primary.green; // Green or white on gradient
     }
   };
 
@@ -54,7 +58,7 @@ export function StreakCounter() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, variant === 'onGradient' && styles.containerOnGradient]}>
       <Animated.View style={[styles.iconContainer, { transform: [{ scale: scaleAnim }] }]}>
         <MaterialCommunityIcons 
           name="fire" 
@@ -63,16 +67,16 @@ export function StreakCounter() {
         />
       </Animated.View>
       <View style={styles.textContainer}>
-        <Text style={[styles.streakNumber, { color: getStreakColor() }]}>
+        <Text style={[styles.streakNumber, variant === 'onGradient' && styles.streakNumberOnGradient, { color: getStreakColor() }]}>
           {profile.streakCurrent}
         </Text>
-        <Text style={styles.streakText}>Gün</Text>
+        <Text style={[styles.streakText, variant === 'onGradient' && styles.streakTextOnGradient]}>Gün</Text>
       </View>
-      <View style={styles.levelBadge}>
+      <View style={[styles.levelBadge, variant === 'onGradient' && styles.levelBadgeOnGradient]}>
         <MaterialCommunityIcons 
           name={getLevelIcon()} 
           size={16} 
-          color={Colors.text.secondary} 
+          color={variant === 'onGradient' ? '#FFFFFF' : Colors.text.secondary} 
         />
       </View>
     </View>
@@ -93,6 +97,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  containerOnGradient: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   iconContainer: {
     marginRight: Spacing.xs,
   },
@@ -106,13 +117,22 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.bold,
     marginRight: 4,
   },
+  streakNumberOnGradient: {
+    color: '#FFFFFF',
+  },
   streakText: {
     fontSize: Typography.fontSize.bodyS,
     color: Colors.text.secondary,
+  },
+  streakTextOnGradient: {
+    color: 'rgba(255,255,255,0.9)',
   },
   levelBadge: {
     backgroundColor: Colors.ui.background,
     padding: 4,
     borderRadius: BorderRadius.sm,
   },
-}); 
+  levelBadgeOnGradient: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+});

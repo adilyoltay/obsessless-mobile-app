@@ -107,7 +107,7 @@ export default function MoodDetailsStep({
         <Pressable onPress={onBack} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#6B7280" />
         </Pressable>
-        <Text style={styles.title}>Detaylar</Text>
+        <Text style={[styles.title, { color: moodColor }]}>Detaylar</Text>
         <View style={styles.placeholder} />
       </View>
 
