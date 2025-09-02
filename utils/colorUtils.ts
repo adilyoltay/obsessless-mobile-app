@@ -29,11 +29,12 @@ export const getAdvancedMoodColor = (score: number): string => {
 };
 
 // Generate a subtle gradient pair from base mood color
-export const getMoodGradient = (score: number): [string, string] => {
+export const getMoodGradient = (score: number, intensity: number = 0.1): [string, string] => {
   const base = getAdvancedMoodColor(score || 55);
-  // Slight lighten and darken around the base for depth
-  const start = lighten(base, 0.08);
-  const end = darken(base, 0.06);
+  // Finely tuned gradient depth: a bit more contrast for clarity
+  const lightAmt = Math.min(0.18, Math.max(0.04, intensity + 0.02)); // e.g., 0.12 when intensity=0.1
+  const darkAmt = Math.min(0.14, Math.max(0.04, intensity - 0.02));  // e.g., 0.08 when intensity=0.1
+  const start = lighten(base, lightAmt);
+  const end = darken(base, darkAmt);
   return [start, end];
 };
-
