@@ -189,8 +189,32 @@ export default function VAMoodCheckin({
       isRealtimeAnalyzingRef.current = false;
       lastRealtimeTextRef.current = '';
       console.log('🎧 Realtime v3.5: cleaned up on modal close');
+
+      // Also stop native STT if still active
+      (async () => {
+        try {
+          await speechToTextService.stopRealtimeListening();
+          console.log('🛑 Native STT force-stopped on modal close');
+        } catch (e) {
+          console.warn('⚠️ Failed stopping STT on close (non-critical):', e);
+        }
+      })();
     }
   }, [isVisible]);
+
+  // Final cleanup on unmount to ensure no background STT remains
+  useEffect(() => {
+    return () => {
+      try {
+        if (partialTimerRef.current) {
+          clearTimeout(partialTimerRef.current);
+          partialTimerRef.current = null;
+        }
+        speechToTextService.stopRealtimeListening().catch(() => {});
+        console.log('🧹 VAMoodCheckin unmounted: STT cleanup executed');
+      } catch {}
+    };
+  }, []);
 
   // Handle voice recording
   const handleVoiceToggle = async () => {
@@ -345,8 +369,11 @@ export default function VAMoodCheckin({
       partialTimerRef.current = null;
     }
           realtimeStateRef.current = null;
-      isRealtimeAnalyzingRef.current = false;
-      lastRealtimeTextRef.current = '';
+    isRealtimeAnalyzingRef.current = false;
+    lastRealtimeTextRef.current = '';
+
+    // Ensure STT is stopped if user proceeds without explicitly stopping
+    try { speechToTextService.stopRealtimeListening().catch(() => {}); } catch {}
       
       console.log('🎧 Realtime v3.5: disabled for step 2');
     
@@ -363,8 +390,17 @@ export default function VAMoodCheckin({
 
   const handleSave = async (details: { notes: string; trigger?: string }) => {
     try {
-      if (!user?.id) {
+      // Resolve user id robustly if AuthContext not yet ready
+      let uid = user?.id;
+      if (!uid) {
+        try {
+          const { getCurrentUserId } = await import('@/services/mood/userIdResolver');
+          uid = await getCurrentUserId();
+        } catch {}
+      }
+      if (!uid) {
         console.error('❌ No user ID available');
+        Alert.alert('Giriş Gerekli', 'Kaydetmek için lütfen yeniden giriş yapın.');
         return;
       }
 
@@ -381,7 +417,7 @@ export default function VAMoodCheckin({
         notes: details.notes || `Duygu: ${valenceLabel(xy.x)}, Enerji: ${energyLabel(xy.y)}`,
         triggers: details.trigger ? [details.trigger] : [],
         activities: [],
-        user_id: user.id,
+        user_id: uid,
         source: 'va_pad_voice',
         method: 'va_pad+slider+voice',
         // Store raw VA coordinates for analytics
@@ -446,6 +482,15 @@ export default function VAMoodCheckin({
         }, 300);
       }
     } catch (error) {
+      // Treat idempotent duplicate as success (user already saved)
+      const code = (error as any)?.code || (error as any)?.message;
+      if (code === 'DUPLICATE_PREVENTED' || String(code).includes('DUPLICATE_MOOD_ENTRY_PREVENTED')) {
+        console.warn('🛡️ Duplicate mood save detected – treating as success');
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+        onClose();
+        setTimeout(() => { router.push('/(tabs)/mood'); }, 300);
+        return;
+      }
       console.error('❌ Failed to save mood entry:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }

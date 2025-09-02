@@ -515,7 +515,9 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
           notes: 'İlk onboarding ruh hali kaydı - Baseline ölçüm',
           triggers: payload.first_mood.tags || [],
           activities: [],
-        });
+          // mark as onboarding to suppress micro-reward flicker
+          source: 'onboarding' as any,
+        } as any);
         console.log('✅ First mood entry saved successfully');
       } catch (error) {
         const errorMsg = 'First mood entry save failed';
@@ -1028,4 +1030,3 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
   }
 
 }));
-

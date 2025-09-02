@@ -261,11 +261,12 @@ class MoodTrackingService {
       } catch {} // Silent failure
     }
     
-    // 🎮 Gamification: Award for manual mood entries (avoid double-award for voice flows)
+    // 🎮 Gamification: Award for manual mood entries (avoid double-award for voice flows and onboarding baseline)
     try {
       const source = (entry as any)?.source || '';
       const isVoiceSource = typeof source === 'string' && (source.includes('voice') || source.includes('va_pad'));
-      if (!isVoiceSource) {
+      const isOnboardingSource = typeof source === 'string' && source.includes('onboarding');
+      if (!isVoiceSource && !isOnboardingSource) {
         const { updateStreak, awardMicroReward } = useGamificationStore.getState();
         await updateStreak();
         await awardMicroReward('mood_manual_checkin', { source: 'manual' });
