@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 // ✅ REMOVED: LinearGradient moved to dashboard
@@ -48,6 +49,7 @@ import { secureDataService } from '@/services/encryption/secureDataService';
 // import { trackAIInteraction, AIEventType } from '@/features/ai-fallbacks/telemetry';
 // import { advancedRiskAssessmentService } from '@/features/ai-fallbacks/riskAssessmentService';
 import patternPersistenceService from '@/services/patternPersistenceService';
+import { getAdvancedMoodColor } from '@/utils/colorUtils';
 import voiceCheckInHeuristicService from '@/services/voiceCheckInHeuristicService';
 import optimizedStorage from '@/services/optimizedStorage';
 
@@ -84,6 +86,7 @@ function MoodScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('week');
   const [displayLimit, setDisplayLimit] = useState(5);
+  const [accentColor, setAccentColor] = useState<string>('#10B981');
   
   // ✅ REMOVED: Pattern analysis and predictive insights state moved to dashboard
   const [moodPatterns, setMoodPatterns] = useState<any[]>([]); // Still needed for dashboard data generation
@@ -205,6 +208,25 @@ function MoodScreen() {
       loadMoodEntries();
     }
   }, [user?.id, selectedTimeRange]);
+
+  // Load UI color from settings
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('app_settings');
+        let mode: 'static' | 'today' | 'weekly' = 'today';
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          mode = (parsed?.colorMode as any) || 'today';
+        }
+        let score = 55;
+        const s = await AsyncStorage.getItem('ui_color_score');
+        if (s && !isNaN(Number(s))) score = Number(s);
+        const color = mode === 'static' ? '#10B981' : getAdvancedMoodColor(score);
+        setAccentColor(color);
+      } catch {}
+    })();
+  }, [user?.id]);
 
   // AI pattern persistence removed
 
@@ -758,10 +780,10 @@ function MoodScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Text style={[styles.tabText, selectedTimeRange === 'today' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, selectedTimeRange === 'today' && [styles.tabTextActive, { color: accentColor }]]}>
               Bugün
             </Text>
-            {selectedTimeRange === 'today' && <View style={styles.tabIndicator} />}
+            {selectedTimeRange === 'today' && <View style={[styles.tabIndicator, { backgroundColor: accentColor }]} />}
           </Pressable>
           <Pressable
             style={styles.tabButton}
@@ -770,10 +792,10 @@ function MoodScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Text style={[styles.tabText, selectedTimeRange === 'week' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, selectedTimeRange === 'week' && [styles.tabTextActive, { color: accentColor }]]}>
               Hafta
             </Text>
-            {selectedTimeRange === 'week' && <View style={styles.tabIndicator} />}
+            {selectedTimeRange === 'week' && <View style={[styles.tabIndicator, { backgroundColor: accentColor }]} />}
           </Pressable>
           <Pressable
             style={styles.tabButton}
@@ -782,10 +804,10 @@ function MoodScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Text style={[styles.tabText, selectedTimeRange === 'month' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, selectedTimeRange === 'month' && [styles.tabTextActive, { color: accentColor }]]}>
               Ay
             </Text>
-            {selectedTimeRange === 'month' && <View style={styles.tabIndicator} />}
+            {selectedTimeRange === 'month' && <View style={[styles.tabIndicator, { backgroundColor: accentColor }]} />}
           </Pressable>
         </View>
       </View>

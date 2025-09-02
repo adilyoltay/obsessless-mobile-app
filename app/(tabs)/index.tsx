@@ -338,8 +338,10 @@ export default function TodayScreen() {
           } else if (data.moodEntries && data.moodEntries.length > 0) {
             colorScore = Math.round(data.moodEntries[0].mood_score || 0);
           }
-          setHeroBgColor(colorScore > 0 ? getAdvancedMoodColor(colorScore) : '#10B981');
-          setHeroColorScore(colorScore > 0 ? colorScore : 55);
+          const score = colorScore > 0 ? colorScore : 55;
+          setHeroBgColor(getAdvancedMoodColor(score));
+          setHeroColorScore(score);
+          try { await AsyncStorage.setItem('ui_color_score', String(score)); } catch {}
         } else {
           // weekly
           let scores: number[] = [];
@@ -352,8 +354,10 @@ export default function TodayScreen() {
             scores = data.moodEntries.map((e: any) => Number(e.mood_score) || 0).filter((s: number) => s > 0);
           }
           const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-          setHeroBgColor(avg > 0 ? getAdvancedMoodColor(avg) : '#10B981');
-          setHeroColorScore(avg > 0 ? avg : 55);
+          const score = avg > 0 ? avg : 55;
+          setHeroBgColor(getAdvancedMoodColor(score));
+          setHeroColorScore(score);
+          try { await AsyncStorage.setItem('ui_color_score', String(score)); } catch {}
         }
       } catch {}
 
@@ -664,6 +668,7 @@ export default function TodayScreen() {
           onOpen={() => setCheckinSheetVisible(true)}
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
+          accentColor={heroBgColor}
         />
         
         <View style={simpleStyles.bottomSpacing} />

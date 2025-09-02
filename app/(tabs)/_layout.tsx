@@ -1,6 +1,8 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAdvancedMoodColor } from '@/utils/colorUtils';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -15,13 +17,33 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useAuth();
+  const [activeColor, setActiveColor] = useState<string>('#059669');
+  const [colorMode, setColorMode] = useState<'static' | 'today' | 'weekly'>('today');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('app_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
+          if (mode) setColorMode(mode);
+        }
+        let score = 55;
+        const s = await AsyncStorage.getItem('ui_color_score');
+        if (s && !isNaN(Number(s))) score = Number(s);
+        const color = colorMode === 'static' ? '#059669' : getAdvancedMoodColor(score);
+        setActiveColor(color);
+      } catch {}
+    })();
+  }, [user?.id]);
 
   // AI Chat removed
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#059669', // Daha koyu yeşil (kontrast artırıldı)
+        tabBarActiveTintColor: activeColor, // Dinamik aktif renk
         tabBarInactiveTintColor: '#374151', // Daha koyu gri (kontrast artırıldı)
         headerShown: false,
         tabBarButton: HapticTab, // Master Prompt: Haptic feedback enabled
@@ -63,10 +85,10 @@ export default function TabLayout() {
             <IconSymbol 
               size={28} 
               name="house.fill" 
-              color={focused ? '#10B981' : '#9CA3AF'} 
+              color={focused ? activeColor : '#9CA3AF'} 
             />
           ),
-          tabBarActiveTintColor: '#10B981', // Daha sakin yeşil
+          tabBarActiveTintColor: activeColor,
         }}
       />
       
@@ -77,11 +99,11 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               name={focused ? 'happy' : 'happy-outline'} 
-              color={focused ? '#F472B6' : '#9CA3AF'} 
+              color={focused ? activeColor : '#9CA3AF'} 
               size={26} 
             />
           ),
-          tabBarActiveTintColor: '#F472B6', // Daha sakin pembe
+          tabBarActiveTintColor: activeColor,
         }}
       />
       
@@ -94,7 +116,7 @@ export default function TabLayout() {
           href: null, // Tab'da görünmez ama route olarak erişilebilir kalır
           title: 'Nefes',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={color} />
+            <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={focused ? activeColor : color} />
           ),
         }}
       />
@@ -106,11 +128,11 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabBarIcon 
               name={focused ? 'settings' : 'settings-outline'} 
-              color={focused ? '#9CA3AF' : '#9CA3AF'} 
+              color={focused ? activeColor : '#9CA3AF'} 
               size={26} 
             />
           ),
-          tabBarActiveTintColor: '#9CA3AF', // Daha sakin gri
+          tabBarActiveTintColor: activeColor,
         }}
       />
     </Tabs>

@@ -16,19 +16,20 @@ type Props = {
   onOpen: () => void;
   onClose: () => void;
   onComplete: (routingResult?: RoutingResult) => void;
+  accentColor?: string;
 };
 
-export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete }: Props) {
+export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplete, accentColor }: Props) {
   return (
     <View style={styles.container}>
       <Button
         variant="primary"
         onPress={onOpen}
-        accessibilityLabel="Check-in başlat"
-        style={styles.button}
+        accessibilityLabel="Mood Check‑in"
+        style={[styles.button, accentColor ? { backgroundColor: accentColor, shadowColor: accentColor } : null]}
         leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
       >
-        Check-in Yap
+        Mood Check‑in
       </Button>
       <CheckinBottomSheet isVisible={isVisible} onClose={onClose} onComplete={onComplete} />
     </View>
