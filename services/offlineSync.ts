@@ -1,11 +1,10 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeStorageKey } from '@/lib/queryClient';
-import NetInfo from '@react-native-community/netinfo';
+// NetInfo handling moved behind NetworkMonitor
 import { apiService } from './api';
 import supabaseService from '@/services/supabase';
 import { unifiedConflictResolver, UnifiedDataConflict, EntityType } from './unifiedConflictResolver';
-import deadLetterQueue from '@/services/sync/deadLetterQueue';
 import { syncCircuitBreaker } from '@/utils/circuitBreaker';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { isUUID } from '@/utils/validators';
@@ -13,6 +12,9 @@ import { generateSecureId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
 import { secureDataService } from '@/services/encryption/secureDataService';
 import offlineSyncUserFeedbackService from '@/services/offlineSyncUserFeedbackService';
+import { networkMonitor } from '@/services/sync/networkMonitor';
+import { queueRepository } from '@/services/sync/queueRepository';
+import { syncMaintenance } from '@/services/sync/syncMaintenance';
 
 export interface SyncQueueItem {
   id: string;
@@ -64,71 +66,34 @@ export class OfflineSyncService {
   }
 
   private initializeNetworkListener(): void {
-    // 🧹 MEMORY LEAK FIX: Store unsubscribe function for cleanup
-    this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
-      const wasOffline = !this.isOnline;
-      this.isOnline = state.isConnected ?? false;
-
-      if (wasOffline && this.isOnline) {
-        console.log('📡 Device came back online, starting comprehensive sync...');
-        
-        // Start processing the sync queue
-        this.processSyncQueue();
-        
-        // ✅ NEW: Also trigger mood entry auto-recovery when coming back online
-        this.triggerMoodAutoRecovery().catch(error => {
-          console.warn('⚠️ Mood auto-recovery failed after coming online:', error);
-        });
-      }
-    });
+    // 🧹 MEMORY LEAK FIX: Store unsubscribe function for cleanup via NetworkMonitor
+    try {
+      networkMonitor.start();
+      this.isOnline = networkMonitor.getStatus();
+      this.netInfoUnsubscribe = networkMonitor.subscribe((online) => {
+        const wasOffline = !this.isOnline;
+        this.isOnline = online;
+        if (wasOffline && this.isOnline) {
+          console.log('📡 Device came back online, starting comprehensive sync...');
+          this.processSyncQueue();
+          this.triggerMoodAutoRecovery().catch(error => {
+            console.warn('⚠️ Mood auto-recovery failed after coming online:', error);
+          });
+        }
+      });
+    } catch {
+      // Fallback: assume online
+      this.isOnline = true;
+    }
   }
 
   // 🔐 PRIVACY-FIRST: Load encrypted sync queue
   private async loadSyncQueue(): Promise<void> {
     try {
-      let currentUserId = await AsyncStorage.getItem('currentUserId');
-      try {
-        const { default: supabase } = await import('@/services/supabase');
-        const uid = (supabase as any)?.getCurrentUserId?.() || null;
-        if (uid && typeof uid === 'string') currentUserId = uid;
-      } catch {}
-      const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
-      const encryptedQueueData = await AsyncStorage.getItem(queueKey);
-      
-      if (encryptedQueueData) {
-        try {
-          // 🔍 BACKWARD COMPATIBILITY: Check if data is encrypted or legacy format
-          const parsedData = JSON.parse(encryptedQueueData);
-          
-          // Check if it's an encrypted payload (has algorithm, ciphertext, iv)
-          if (parsedData.algorithm && parsedData.ciphertext && parsedData.iv) {
-            console.log('🔓 Detected encrypted queue data, decrypting...');
-            const decryptedData = await secureDataService.decryptData(parsedData);
-            this.syncQueue = Array.isArray(decryptedData) ? decryptedData : [];
-            console.log('✅ Encrypted sync queue loaded successfully');
-          } else if (Array.isArray(parsedData)) {
-            // Legacy unencrypted format - migrate to encrypted
-            console.log('🔄 Detected legacy unencrypted queue, migrating...');
-            this.syncQueue = parsedData;
-            
-            // Immediately save in encrypted format
-            await this.saveSyncQueue();
-            console.log('✅ Legacy queue migrated to encrypted format');
-          } else {
-            console.warn('⚠️ Unknown queue data format, starting fresh');
-            this.syncQueue = [];
-          }
-        } catch (parseError) {
-          console.warn('⚠️ Failed to parse/decrypt sync queue, starting with empty queue:', parseError);
-          
-          // Try to clear corrupted data
-          try {
-            await AsyncStorage.removeItem(queueKey);
-            console.log('🧹 Cleared corrupted queue data');
-          } catch {}
-          
-          this.syncQueue = [];
-        }
+      const loaded = await queueRepository.load<SyncQueueItem>();
+      this.syncQueue = Array.isArray(loaded) ? loaded : [];
+      if (this.syncQueue.length > 0) {
+        console.log(`🔒 Encrypted sync queue loaded: ${this.syncQueue.length} items`);
       }
     } catch (error) {
       console.error('❌ Error loading sync queue:', error);
@@ -138,57 +103,12 @@ export class OfflineSyncService {
 
   // 🔐 PRIVACY-FIRST: Save encrypted sync queue  
   private async saveSyncQueue(): Promise<void> {
-    try {
-      let currentUserId = await AsyncStorage.getItem('currentUserId');
-      try {
-        const { default: supabase } = await import('@/services/supabase');
-        const uid = (supabase as any)?.getCurrentUserId?.() || null;
-        if (uid && typeof uid === 'string') currentUserId = uid;
-      } catch {}
-      const queueKey = `syncQueue_${safeStorageKey(currentUserId as any)}`;
-      
-      // 🔒 Encrypt the queue before storing
-      const encryptedQueueData = await secureDataService.encryptData(this.syncQueue);
-      await AsyncStorage.setItem(queueKey, JSON.stringify(encryptedQueueData));
-      console.log('🔒 Sync queue encrypted and saved successfully');
-    } catch (error) {
-      console.error('❌ CRITICAL: Sync queue encryption failed - STOPPING queue operations to protect PII', error);
-      
-      // 🛡️ SECURITY: NO unencrypted fallback - halt queue operations instead
-      try {
-        // Mark queue as failed to prevent further processing
-        await AsyncStorage.setItem('sync_queue_encryption_failed', 'true');
-        
-        // Notify user about the encryption failure
-        const securityAlert = {
-          type: 'encryption_failure',
-          message: 'Güvenlik hatası nedeniyle senkronizasyon durduruldu. Uygulamayı yeniden başlatın.',
-          severity: 'critical',
-          timestamp: new Date().toISOString(),
-          requiresAppRestart: true
-        };
-        
-        await AsyncStorage.setItem('security_alert', JSON.stringify(securityAlert));
-        
-        // Track security incident
-        try {
-          const { safeTrackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
-          await safeTrackAIInteraction(AIEventType.SYSTEM_STATUS, {
-            event: 'sync_queue_encryption_failure',
-            severity: 'critical',
-            securityIncident: true,
-            queueSize: this.syncQueue.length
-          });
-        } catch {}
-        
-        console.log('🛡️ Queue operations halted for security - user notification stored');
-        
-      } catch (alertError) {
-        console.error('❌ Failed to store security alert:', alertError);
-      }
-      
-      // Reset queue to prevent unencrypted data persistence
+    const ok = await queueRepository.save<SyncQueueItem>(this.syncQueue);
+    if (!ok) {
       this.syncQueue = [];
+      console.error('❌ CRITICAL: Queue encryption failed, in-memory queue reset');
+    } else {
+      console.log('🔒 Sync queue encrypted and saved successfully');
     }
   }
 
@@ -442,98 +362,64 @@ export class OfflineSyncService {
 
       // Small concurrency limiter (2) with per-user ordering
       const concurrency = 2;
-      const inflightUsers = new Set<string>();
-      const consumed = new Set<string>();
-
       const deriveUserId = (it: SyncQueueItem): string | null => {
         try {
           return it?.data?.user_id || it?.data?.userId || null;
         } catch { return null; }
       };
-
-      const pickCandidate = (): SyncQueueItem | undefined => {
-        for (let i = 0; i < itemsToSync.length; i++) {
-          const cand = itemsToSync[i];
-          if (consumed.has(cand.id)) continue;
-          const uid = deriveUserId(cand);
-          if (uid && inflightUsers.has(uid)) continue;
-          return cand;
-        }
-        return undefined;
-      };
-
-      const runWorker = async (): Promise<void> => {
-        while (true) {
-          const current = pickCandidate();
-          if (!current) break;
-          const uid = deriveUserId(current);
-          if (uid) inflightUsers.add(uid);
-          consumed.add(current.id);
-          const startedAt = Date.now();
-          try {
-            await syncCircuitBreaker.execute(() => this.syncItem(current));
-            const latencyMs = Date.now() - startedAt;
-            successful.push(current);
-            latencies.push(latencyMs);
-            // ✅ NEW: Update performance metrics
-            this.updateMetrics(true, latencyMs);
-            // Remove from queue if successful
-            this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
-            // Telemetry (non-blocking) with feature flag check
-            try {
-              const { safeTrackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
-              await safeTrackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
-            } catch {}
-          } catch (error) {
-            // ✅ NEW: Update performance metrics for failed sync
-            this.updateMetrics(false, Date.now() - startedAt);
-            
-            // 🛡️ Mark mood entry as failed in idempotency service
-            const queueItem = this.syncQueue.find(q => q.id === current.id);
-            if (queueItem?.entity === 'mood_entry' && queueItem.data?.local_entry_id) {
+      const { offlineSyncOrchestrator } = await import('@/services/sync/offlineSyncOrchestrator');
+      await offlineSyncOrchestrator.run(
+        itemsToSync,
+        async (current) => {
+          await syncCircuitBreaker.execute(() => this.syncItem(current));
+        },
+        {
+          concurrency,
+          deriveKey: deriveUserId,
+          hooks: {
+            onSuccess: async (current, latencyMs) => {
+              successful.push(current);
+              latencies.push(latencyMs);
+              this.updateMetrics(true, latencyMs);
+              this.syncQueue = this.syncQueue.filter(q => q.id !== current.id);
               try {
-                await idempotencyService.markAsFailed(queueItem.data.local_entry_id);
-                console.log(`❌ Marked mood entry sync as failed: ${queueItem.data.local_entry_id}`);
-              } catch (idempotencyError) {
-                console.warn('⚠️ Failed to mark mood entry as failed in idempotency service:', idempotencyError);
-              }
-            }
-            
-            // Increment retry count and backoff per-item
-            if (queueItem) {
-              queueItem.retryCount = (queueItem.retryCount || 0) + 1;
-              failed.push(queueItem);
-              const attempt = queueItem.retryCount;
-              const base = 2000;
-              const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
-              await new Promise(res => setTimeout(res, delay));
-              if (attempt >= 8) {
-                this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
-                await this.handleFailedSync(queueItem, error instanceof Error ? error.message : String(error));
-              } else {
-                // 🔔 USER FEEDBACK: Record intermediate sync errors (not max retries yet)
-                try {
-                  await offlineSyncUserFeedbackService.recordSyncError(
-                    queueItem.id,
-                    queueItem.entity,
-                    queueItem.type,
-                    error instanceof Error ? error.message : String(error),
-                    queueItem.retryCount,
-                    8 // MAX_RETRY_COUNT
-                  );
-                } catch (feedbackError) {
-                  console.warn('⚠️ Failed to record intermediate sync error:', feedbackError);
+                const { safeTrackAIInteraction, AIEventType } = await import('@/services/telemetry/noopTelemetry');
+                await safeTrackAIInteraction(AIEventType.CACHE_INVALIDATION, { scope: 'sync_item_succeeded', entity: current.entity, latencyMs });
+              } catch {}
+            },
+            onError: async (current, error, latencyMs) => {
+              this.updateMetrics(false, latencyMs);
+              const queueItem = this.syncQueue.find(q => q.id === current.id);
+              // Centralized feedback via orchestrator factory
+              try {
+                const { createOfflineErrorHook } = await import('@/services/sync/offlineSyncOrchestrator');
+                const errorHook = createOfflineErrorHook({
+                  recordUserFeedback: async ({ id, entity, type, message, retryCount, maxRetries }) => {
+                    await offlineSyncUserFeedbackService.recordSyncError(id, entity as any, type as any, message, retryCount, maxRetries);
+                  },
+                  markIdempotencyFailed: async (localId: string) => {
+                    await idempotencyService.markAsFailed(localId);
+                  }
+                });
+                await errorHook(current, error, latencyMs);
+              } catch {}
+
+              if (queueItem) {
+                queueItem.retryCount = (queueItem.retryCount || 0) + 1;
+                failed.push(queueItem);
+                const attempt = queueItem.retryCount;
+                const base = 2000;
+                const delay = Math.min(base * Math.pow(2, attempt), 60000) + Math.floor(Math.random() * 500);
+                await new Promise(res => setTimeout(res, delay));
+                if (attempt >= 8) {
+                  this.syncQueue = this.syncQueue.filter(q => q.id !== queueItem.id);
+                  await this.handleFailedSync(queueItem, error instanceof Error ? error.message : String(error));
                 }
               }
             }
-          } finally {
-            if (uid) inflightUsers.delete(uid);
           }
         }
-      };
-
-      const workers = Array.from({ length: Math.min(concurrency, itemsToSync.length) }, () => runWorker());
-      await Promise.all(workers);
+      );
 
       await this.saveSyncQueue();
       batchOptimizer.record(batchSize, failed.length === 0, Date.now() - startBatchAt);
@@ -769,25 +655,17 @@ export class OfflineSyncService {
     // ✅ Mark as successfully synced in idempotency service
     if (raw.local_entry_id) {
       try {
-        // 🔒 IDEMPOTENCY FIX: Use same content hash algorithm as supabaseService
-        // Must be consistent with supabaseService.computeContentHash()
-        // 🌍 TIMEZONE FIX: Use local date instead of UTC for consistency
-        const createdDate = new Date(originalTimestamp);
-        const localDay = this.getLocalDateKey(createdDate);
-        const notes = (entry.notes || '').trim().toLowerCase();
-        const contentText = `${entry.user_id}|${Math.round(entry.mood_score)}|${Math.round(entry.energy_level)}|${Math.round(entry.anxiety_level)}|${notes}|${localDay}`;
+        const { computeMoodContentHash } = await import('@/services/idempotency/moodContentHash');
+        const contentHash = computeMoodContentHash({
+          user_id: entry.user_id,
+          mood_score: entry.mood_score,
+          energy_level: entry.energy_level,
+          anxiety_level: entry.anxiety_level,
+          notes: entry.notes,
+          timestamp: originalTimestamp,
+        }, { dayMode: 'UTC' });
         
-        console.log(`🌍 OfflineSync: Using local date for content hash: ${localDay}`);
-        
-        let hash = 0;
-        for (let i = 0; i < contentText.length; i++) {
-          const char = contentText.charCodeAt(i);
-          hash = ((hash << 5) - hash) + char;
-          hash = hash & hash;
-        }
-        const contentHash = Math.abs(hash).toString(36);
-        
-        console.log(`🔒 Content hash for idempotency: ${contentHash} (from: ${contentText})`);
+        console.log(`🔒 Content hash for idempotency (UTC): ${contentHash}`);
         await idempotencyService.markAsProcessed(raw.local_entry_id, contentHash, userId);
         console.log(`✅ Marked mood entry as synced: ${raw.local_entry_id}`);
       } catch (error) {
@@ -838,8 +716,20 @@ export class OfflineSyncService {
 
   private async handleFailedSync(item: SyncQueueItem, lastError?: string): Promise<void> {
     console.error('Failed to sync item after max retries:', item);
-    
-    // 🔔 USER FEEDBACK: Record error for user notification
+    try {
+      const { createDLQHandler } = await import('@/services/sync/offlineSyncOrchestrator');
+      const moveToDLQ = createDLQHandler();
+      await moveToDLQ(item as any, lastError || 'Max retries exceeded');
+    } catch (e) {
+      // Fallback: persist minimal info
+      const currentUserId = await AsyncStorage.getItem('currentUserId');
+      const failedKey = `failedSyncItems_${safeStorageKey(currentUserId as any)}`;
+      const failedItems = await AsyncStorage.getItem(failedKey);
+      const failed = failedItems ? JSON.parse(failedItems) : [];
+      failed.push(item);
+      await AsyncStorage.setItem(failedKey, JSON.stringify(failed));
+    }
+    // 🔔 USER FEEDBACK: Record error for user notification (non-blocking)
     try {
       await offlineSyncUserFeedbackService.recordSyncError(
         item.id,
@@ -851,24 +741,6 @@ export class OfflineSyncService {
       );
     } catch (feedbackError) {
       console.warn('⚠️ Failed to record user feedback for sync error:', feedbackError);
-    }
-    
-    try {
-      await deadLetterQueue.addToDeadLetter({
-        id: item.id,
-        type: item.type,
-        entity: item.entity,
-        data: item.data,
-        errorMessage: lastError || 'Max retries exceeded',
-      });
-    } catch (e) {
-      // Fallback: persist minimal info
-      const currentUserId = await AsyncStorage.getItem('currentUserId');
-      const failedKey = `failedSyncItems_${safeStorageKey(currentUserId as any)}`;
-      const failedItems = await AsyncStorage.getItem(failedKey);
-      const failed = failedItems ? JSON.parse(failedItems) : [];
-      failed.push(item);
-      await AsyncStorage.setItem(failedKey, JSON.stringify(failed));
     }
   }
 
@@ -892,20 +764,12 @@ export class OfflineSyncService {
    * Removes items older than specified days to prevent queue bloat
    */
   async cleanupStaleItems(maxAgeInDays: number = 7): Promise<number> {
-    const staleThreshold = Date.now() - (maxAgeInDays * 24 * 60 * 60 * 1000);
-    const initialCount = this.syncQueue.length;
-    
-    this.syncQueue = this.syncQueue.filter(item => 
-      item.timestamp > staleThreshold
-    );
-    
-    const removedCount = initialCount - this.syncQueue.length;
-    
+    const { updatedQueue, removedCount } = syncMaintenance.cleanupStaleItems(this.syncQueue, maxAgeInDays);
+    this.syncQueue = updatedQueue;
     if (removedCount > 0) {
       await this.saveSyncQueue();
       console.log(`🧹 Cleaned up ${removedCount} stale sync items older than ${maxAgeInDays} days`);
     }
-    
     return removedCount;
   }
 
@@ -919,25 +783,7 @@ export class OfflineSyncService {
     oldestItem: number | null;
     averageRetryCount: number;
   }> {
-    const now = Date.now();
-    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
-    const staleItems = this.syncQueue.filter(item => item.timestamp < sevenDaysAgo).length;
-    const retryItems = this.syncQueue.filter(item => item.retryCount > 0).length;
-    const oldestItem = this.syncQueue.length > 0 
-      ? Math.min(...this.syncQueue.map(item => item.timestamp))
-      : null;
-    
-    const totalRetries = this.syncQueue.reduce((sum, item) => sum + item.retryCount, 0);
-    const averageRetryCount = this.syncQueue.length > 0 ? totalRetries / this.syncQueue.length : 0;
-    
-    return {
-      totalItems: this.syncQueue.length,
-      staleItems,
-      retryItems,
-      oldestItem,
-      averageRetryCount: Math.round(averageRetryCount * 100) / 100
-    };
+    return syncMaintenance.getQueueHealthMetrics(this.syncQueue);
   }
 
   /**
@@ -957,6 +803,7 @@ export class OfflineSyncService {
     // 2. Trigger DLQ cleanup
     let dlqItemsProcessed = 0;
     try {
+      const { default: deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
       const dlqResult = await deadLetterQueue.performScheduledMaintenance();
       dlqItemsProcessed = dlqResult.archived + dlqResult.cleaned;
     } catch (error) {

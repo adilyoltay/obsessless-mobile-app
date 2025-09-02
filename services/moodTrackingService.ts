@@ -3,6 +3,8 @@ import supabaseService from '@/services/supabase';
 import batchOptimizer from '@/services/sync/batchOptimizer';
 import { intelligentMergeService } from '@/services/staticMoodMerge';
 import { secureDataService } from '@/services/encryption/secureDataService';
+import { getCurrentUserId as resolveCurrentUserId } from '@/services/mood/userIdResolver';
+import { moodRepository } from '@/services/mood/moodRepository';
 import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
 import optimizedStorage from '@/services/optimizedStorage';
@@ -33,35 +35,6 @@ export interface MoodEntry {
  * 🔒 ENCRYPTED STORAGE FORMAT
  * Separates non-sensitive metadata from encrypted sensitive data
  */
-interface EncryptedMoodStorage {
-  // Non-sensitive metadata (queryable, indexable)
-  metadata: {
-    id: string;
-    user_id: string;
-    mood_score: number;
-    energy_level: number;
-    anxiety_level: number;
-    timestamp: string;
-    synced: boolean;
-    sync_attempts?: number;
-    last_sync_attempt?: string;
-    // 🆔 CRITICAL FIX: ID mapping fields for deduplication
-    local_id?: string;
-    remote_id?: string;
-    content_hash?: string;
-  };
-  // 🔒 Encrypted sensitive data (AES-256-GCM)
-  encryptedData: {
-    encrypted: string;
-    iv: string;
-    algorithm: string;
-    version: number;
-    hash: string;
-    timestamp: number;
-  };
-  // Schema versioning for migration
-  storageVersion: number;
-}
 
 class MoodTrackingService {
   private static instance: MoodTrackingService;
@@ -78,34 +51,8 @@ class MoodTrackingService {
    * Get current user ID from multiple sources with fallback
    */
   private async getCurrentUserId(): Promise<string | null> {
-    try {
-      // 1. Try AsyncStorage first
-      const storedUserId = await AsyncStorage.getItem('currentUserId');
-      if (storedUserId && storedUserId !== 'null' && storedUserId !== 'undefined') {
-        console.log('✅ Found user ID in AsyncStorage:', storedUserId.slice(0, 8) + '...');
-        return storedUserId;
-      }
-      
-      // 2. Try Supabase context as fallback
-      try {
-        const { default: supabaseService } = await import('@/services/supabase');
-        const contextUserId = supabaseService.getCurrentUserId();
-        if (contextUserId && contextUserId !== 'null' && contextUserId !== 'undefined') {
-          console.log('✅ Found user ID in Supabase context:', contextUserId.slice(0, 8) + '...');
-          // Store it for future use
-          await AsyncStorage.setItem('currentUserId', contextUserId);
-          return contextUserId;
-        }
-      } catch (contextError) {
-        console.warn('⚠️ Supabase context user ID failed:', contextError);
-      }
-      
-      console.warn('⚠️ No valid user ID found in any source');
-      return null;
-    } catch (error) {
-      console.warn('⚠️ Could not get current user ID:', error);
-      return null;
-    }
+    // Delegate to centralized resolver (keeps backwards compatibility)
+    return resolveCurrentUserId();
   }
 
   /**
@@ -113,65 +60,8 @@ class MoodTrackingService {
    * Handles both v1 (plain) and v2 (encrypted) storage formats
    */
   private async decryptMoodEntry(rawEntry: any): Promise<MoodEntry | null> {
-    try {
-      // 📋 V2 FORMAT: Encrypted storage
-      if (rawEntry.storageVersion === 2 && rawEntry.encryptedData && rawEntry.metadata) {
-        console.log('🔓 Decrypting v2 encrypted mood entry...');
-        
-        const sensitiveData = await secureDataService.decryptSensitiveData(rawEntry.encryptedData);
-        
-        return {
-          ...rawEntry.metadata,
-          notes: sensitiveData.notes || '',
-          triggers: sensitiveData.triggers || [],
-          activities: sensitiveData.activities || [],
-          // 🆔 CRITICAL FIX: Restore ID mapping fields from metadata
-          local_id: rawEntry.metadata.local_id,
-          remote_id: rawEntry.metadata.remote_id,
-          content_hash: rawEntry.metadata.content_hash,
-        };
-      }
-      
-      // 📋 V1 FORMAT: Legacy plain storage (backwards compatibility)
-      else if (!rawEntry.storageVersion || rawEntry.storageVersion === 1) {
-        console.log('⚠️ Loading v1 plain mood entry (migration needed)');
-        
-        // Direct migration from old format
-        const moodEntry: MoodEntry = {
-          id: rawEntry.id,
-          user_id: rawEntry.user_id,
-          mood_score: rawEntry.mood_score,
-          energy_level: rawEntry.energy_level,
-          anxiety_level: rawEntry.anxiety_level,
-          notes: rawEntry.notes || '',
-          triggers: rawEntry.triggers || [],
-          activities: rawEntry.activities || [],
-          timestamp: rawEntry.timestamp,
-          synced: rawEntry.synced,
-          sync_attempts: rawEntry.sync_attempts,
-          last_sync_attempt: rawEntry.last_sync_attempt,
-        };
-        
-        // 🔒 AUTO-MIGRATE: Re-encrypt legacy entry for future
-        try {
-          console.log('🔄 Auto-migrating v1 entry to encrypted format...');
-          await this.migrateEntryToEncrypted(moodEntry);
-        } catch (migrationError) {
-          console.warn('⚠️ Migration failed for entry, keeping as-is:', migrationError);
-        }
-        
-        return moodEntry;
-      }
-      
-      else {
-        console.error('❌ Unknown storage format version:', rawEntry.storageVersion);
-        return null;
-      }
-      
-    } catch (error) {
-      console.error('❌ Mood entry decryption failed:', error);
-      throw error;
-    }
+    const { decryptMoodEntry } = await import('@/services/mood/moodMigration');
+    return decryptMoodEntry(rawEntry);
   }
 
   /**
@@ -181,7 +71,7 @@ class MoodTrackingService {
   private async migrateEntryToEncrypted(entry: MoodEntry): Promise<void> {
     try {
       // Re-save with encryption (will create v2 format)
-      await this.saveToLocalStorage(entry);
+      await moodRepository.save(entry);
       console.log('✅ Entry migrated to encrypted format:', entry.id);
     } catch (error) {
       console.error('❌ Failed to migrate entry to encrypted format:', error);
@@ -226,7 +116,8 @@ class MoodTrackingService {
       sync_attempts: 0,
     };
 
-    await this.saveToLocalStorage(moodEntry);
+    // Use repository to persist locally (encrypted V2)
+    await moodRepository.save(moodEntry);
 
     // Use standardized supabaseService.saveMoodEntry (writes to canonical mood_entries table)
     try {
@@ -255,7 +146,7 @@ class MoodTrackingService {
         console.log(`🔄 Complete ID mapping: Local(${moodEntry.local_id}) ↔ Remote(${remoteId}) | Hash(${contentHash})`);
         
         // Update local storage with complete mapping for deduplication
-        await this.updateInLocalStorage(moodEntry);
+        await moodRepository.update(moodEntry);
       }
       
       // ✅ Mark as successfully processed in idempotency service
@@ -265,7 +156,7 @@ class MoodTrackingService {
         moodEntry.user_id
       );
       
-      await this.markAsSynced(moodEntry.id, moodEntry.user_id);
+      await moodRepository.markSynced(moodEntry.id, moodEntry.user_id);
     } catch (e) {
       console.warn('❌ Mood entry Supabase save failed, adding to offline sync queue:', e);
       
@@ -424,7 +315,7 @@ class MoodTrackingService {
       };
 
       // 🔒 Update in local storage
-      await this.updateInLocalStorage(updatedEntry);
+      await moodRepository.update(updatedEntry);
       
       // 🌐 Update in remote (Supabase)
       try {
@@ -439,7 +330,7 @@ class MoodTrackingService {
         
         // Mark as synced
         updatedEntry.synced = true;
-        await this.updateInLocalStorage(updatedEntry);
+        await moodRepository.update(updatedEntry);
         
         console.log(`✅ Mood entry updated successfully: ${entryId}`);
       } catch (remoteError) {
@@ -456,201 +347,7 @@ class MoodTrackingService {
     }
   }
 
-  /**
-   * 🔄 Update mood entry in local storage only
-   */
-  private async updateInLocalStorage(entry: MoodEntry): Promise<void> {
-    const entryDate = new Date(entry.timestamp);
-    const localDateKey = this.getLocalDateKey(entryDate);
-    const key = `${this.STORAGE_KEY}_${entry.user_id}_${localDateKey}`;
-    
-    try {
-      const existing = await optimizedStorage.getOptimized<EncryptedMoodStorage[]>(key) || [];
-      
-      // 🆔 CRITICAL FIX: Enhanced ID matching for deduplication
-      let updated = false;
-      for (let i = 0; i < existing.length; i++) {
-        const storedEntry = existing[i];
-        const metadata = storedEntry.metadata || storedEntry;
-        
-        // Match by primary ID, local_id, or remote_id for comprehensive deduplication
-        const matches = 
-          (metadata as any).id === (entry as any).id ||
-          ((metadata as any).local_id && (metadata as any).local_id === entry.local_id) ||
-          ((metadata as any).remote_id && (metadata as any).remote_id === entry.remote_id);
-        
-        if (matches) {
-          // Update the entry
-          existing[i] = await this.encryptMoodEntry(entry);
-          updated = true;
-          console.log(`🔄 Updated entry match: ID(${entry.id}) | Local(${entry.local_id}) | Remote(${entry.remote_id})`);
-          break;
-        }
-      }
-      
-      if (!updated) {
-        console.warn(`⚠️ Entry ${entry.id} not found in local storage for update`);
-        // Add as new entry
-        existing.push(await this.encryptMoodEntry(entry));
-      }
-      
-      await optimizedStorage.setOptimized(key, existing, true);
-      console.log(`✅ Local storage updated for entry: ${entry.id}`);
-      
-    } catch (error) {
-      console.error('❌ Failed to update in local storage:', error);
-      throw error;
-    }
-  }
 
-  /**
-   * 🔒 Encrypt mood entry for storage
-   */
-  private async encryptMoodEntry(entry: MoodEntry): Promise<EncryptedMoodStorage> {
-    const sensitiveData = {
-      notes: entry.notes || '',
-      triggers: entry.triggers || [],
-      activities: entry.activities || []
-    };
-    
-    const encryptedSensitiveData = await secureDataService.encryptSensitiveData(sensitiveData);
-    
-    return {
-      metadata: {
-        id: entry.id,
-        user_id: entry.user_id,
-        mood_score: entry.mood_score,
-        energy_level: entry.energy_level,
-        anxiety_level: entry.anxiety_level,
-        timestamp: entry.timestamp,
-        synced: entry.synced,
-        sync_attempts: entry.sync_attempts,
-        last_sync_attempt: entry.last_sync_attempt,
-        // 🆔 CRITICAL FIX: Store ID mapping fields for deduplication
-        local_id: entry.local_id,
-        remote_id: entry.remote_id,
-        content_hash: entry.content_hash,
-      },
-      encryptedData: encryptedSensitiveData,
-      storageVersion: 2
-    };
-  }
-
-  private async saveToLocalStorage(entry: MoodEntry): Promise<void> {
-    // 🌍 TIMEZONE FIX: Use local date for storage key instead of UTC
-    const entryDate = new Date(entry.timestamp);
-    const localDateKey = this.getLocalDateKey(entryDate);
-    const key = `${this.STORAGE_KEY}_${entry.user_id}_${localDateKey}`;
-    
-    console.log(`🌍 Using local date key: ${localDateKey} (from timestamp: ${entry.timestamp})`);
-    
-    try {
-      // 🔒 ENCRYPT SENSITIVE DATA
-      const sensitiveData = {
-        notes: entry.notes || '',
-        triggers: entry.triggers || [],
-        activities: entry.activities || []
-      };
-      
-      const encryptedSensitiveData = await secureDataService.encryptSensitiveData(sensitiveData);
-      
-      // 📋 CREATE ENCRYPTED STORAGE ENTRY
-      const encryptedEntry: EncryptedMoodStorage = {
-        metadata: {
-          id: entry.id,
-          user_id: entry.user_id,
-          mood_score: entry.mood_score,
-          energy_level: entry.energy_level,
-          anxiety_level: entry.anxiety_level,
-          timestamp: entry.timestamp,
-          synced: entry.synced,
-          sync_attempts: entry.sync_attempts,
-          last_sync_attempt: entry.last_sync_attempt,
-        },
-        encryptedData: encryptedSensitiveData,
-        storageVersion: 2 // v2 = encrypted format
-      };
-      
-      // 📦 SAVE TO OPTIMIZED STORAGE (with batching and caching)
-      const existing = await optimizedStorage.getOptimized<EncryptedMoodStorage[]>(key) || [];
-      existing.push(encryptedEntry);
-      // Use immediate=true for critical mood data to ensure persistence
-      await optimizedStorage.setOptimized(key, existing, true);
-      
-      console.log('🔒 Mood entry saved with AES-256-GCM encryption');
-      
-    } catch (error) {
-      // 🚨 CRITICAL: Never store unencrypted if encryption fails
-      if (error && (error as any).code === 'ENCRYPTION_FAILED_DO_NOT_STORE') {
-        console.error('❌ CRITICAL: Encryption failed, mood entry NOT STORED for security');
-        throw new Error('MOOD_ENCRYPTION_FAILED');
-      } else {
-        console.error('❌ Unexpected error during encrypted mood save:', error);
-        throw error;
-      }
-    }
-  }
-
-  private async markAsSynced(id: string, userId: string): Promise<void> {
-    const dates = await this.getRecentDates(7);
-    for (const date of dates) {
-      const key = `${this.STORAGE_KEY}_${userId}_${date}`;
-      const existing = await AsyncStorage.getItem(key);
-      if (existing) {
-        try {
-          const rawEntries = JSON.parse(existing);
-          let foundAndUpdated = false;
-          
-          // 🔒 UPDATE ENCRYPTED STORAGE WITH SYNC STATUS
-          const updatedEntries = rawEntries.map((rawEntry: any) => {
-            // Handle both v1 and v2 formats for sync marking
-            const entryId = rawEntry.storageVersion === 2 ? rawEntry.metadata?.id : rawEntry.id;
-            
-            if (entryId === id) {
-              foundAndUpdated = true;
-              
-              if (rawEntry.storageVersion === 2) {
-                // V2 format: Update metadata
-                return {
-                  ...rawEntry,
-                  metadata: {
-                    ...rawEntry.metadata,
-                    synced: true,
-                    last_sync_attempt: new Date().toISOString()
-                  }
-                };
-              } else {
-                // V1 format: Update directly (backwards compatibility)
-                return {
-                  ...rawEntry,
-                  synced: true,
-                  last_sync_attempt: new Date().toISOString()
-                };
-              }
-            }
-            return rawEntry;
-          });
-          
-          if (foundAndUpdated) {
-            await AsyncStorage.setItem(key, JSON.stringify(updatedEntries));
-            console.log('✅ Mood entry marked as synced:', id);
-
-            // 🔔 USER FEEDBACK: Mark any sync errors for this entry as resolved
-            try {
-              const { default: offlineSyncUserFeedbackService } = await import('@/services/offlineSyncUserFeedbackService');
-              await offlineSyncUserFeedbackService.markErrorResolved(id);
-            } catch (feedbackError) {
-              console.warn('⚠️ Failed to mark sync error as resolved:', feedbackError);
-            }
-
-            break;
-          }
-        } catch (error) {
-          console.error('❌ Failed to mark mood entry as synced:', error);
-        }
-      }
-    }
-  }
 
   private async incrementSyncAttempt(id: string, userId: string): Promise<void> {
     const dates = await this.getRecentDates(7);
@@ -720,7 +417,7 @@ class MoodTrackingService {
       if (bulkResult.synced > 0) {
         const syncedEntries = pending.slice(0, bulkResult.synced);
         for (const entry of syncedEntries) {
-          await this.markAsSynced(entry.id, userId);
+          await moodRepository.markSynced(entry.id, userId);
           result.synced++;
         }
       }
@@ -767,7 +464,7 @@ class MoodTrackingService {
           const error = batchError;
           if (!error) {
             for (const item of batch) {
-              await this.markAsSynced(item.id, userId);
+              await moodRepository.markSynced(item.id, userId);
               result.synced++;
             }
           } else {
@@ -789,17 +486,7 @@ class MoodTrackingService {
   }
 
   private async getUnsyncedEntries(userId: string): Promise<MoodEntry[]> {
-    const unsynced: MoodEntry[] = [];
-    const dates = await this.getRecentDates(30);
-    for (const date of dates) {
-      const key = `${this.STORAGE_KEY}_${userId}_${date}`;
-      const existing = await AsyncStorage.getItem(key);
-      if (existing) {
-        const entries: MoodEntry[] = JSON.parse(existing);
-        unsynced.push(...entries.filter(e => !e.synced && (e.sync_attempts || 0) < 5));
-      }
-    }
-    return unsynced;
+    return moodRepository.getUnsyncedEntries(userId, 30);
   }
 
   // 🌍 TIMEZONE FIX: Generate local date keys instead of UTC
@@ -1712,4 +1399,3 @@ class MoodTrackingService {
 
 export const moodTracker = MoodTrackingService.getInstance();
 export default moodTracker;
-

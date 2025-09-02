@@ -11,6 +11,20 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { supabase as sharedClient } from '@/lib/supabase';
 import { sanitizePII } from '@/utils/privacy'; // ✅ F-06 FIX: Add PII sanitization
 import { generatePrefixedId } from '@/utils/idGenerator';
+// Re-export types for backward compatibility with existing imports
+export type {
+  UserProfile,
+  OCDProfile,
+  CompulsionRecord,
+  TherapySession,
+  GamificationProfile,
+  VoiceCheckinRecord,
+  ThoughtRecordItem,
+  VoiceSessionDB,
+  BreathSessionDB,
+  AuthResult,
+  SignUpResult,
+} from '@/types/supabase';
 
 // 🔐 SECURE CONFIGURATION - Environment variables are REQUIRED
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -31,125 +45,23 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 // ===========================
-// DATABASE TYPES
+// DATABASE TYPES (moved to types/supabase)
 // ===========================
+import type {
+  UserProfile,
+  OCDProfile,
+  CompulsionRecord,
+  TherapySession,
+  GamificationProfile,
+  VoiceCheckinRecord,
+  ThoughtRecordItem,
+  VoiceSessionDB,
+  BreathSessionDB,
+  AuthResult,
+  SignUpResult,
+} from '@/types/supabase';
 
-export interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  provider: 'email' | 'google';
-  created_at: string;
-  updated_at: string;
-}
-
-// OCDProfile removed; keep minimal placeholder to avoid breakage if referenced
-export interface OCDProfile {
-  id: string;
-  user_id: string;
-  ocd_symptoms: string[];
-  daily_goal: number;
-  ybocs_score: number;
-  ybocs_severity: string;
-  onboarding_completed: boolean;
-  created_at: string;
-}
-
-export interface CompulsionRecord {
-  id: string;
-  user_id: string;
-  category: string;
-  subcategory?: string;
-  resistance_level: number;
-  trigger?: string;
-  notes?: string;
-  timestamp: string;
-}
-
-
-
-export interface TherapySession {
-  id: string;
-  user_id: string;
-  exercise_id: string;
-  exercise_name: string;
-  category: string;
-  duration_seconds: number;
-  anxiety_initial: number;
-  anxiety_final: number;
-  anxiety_readings: any[];
-  completed: boolean;
-  timestamp: string;
-}
-
-export interface GamificationProfile {
-  user_id: string;
-  streak_count: number;
-  healing_points_total: number;
-  healing_points_today: number;
-  streak_last_update: string; // date (YYYY-MM-DD)
-  level: number;
-  achievements: string[];
-  micro_rewards: any[];
-  // created_at Supabase şemasında yok; updated_at trigger ile güncellenir
-  updated_at?: string;
-}
-
-export interface VoiceCheckinRecord {
-  id?: string;
-  user_id: string;
-  text: string;
-  mood: number;
-  trigger: string;
-  confidence: number;
-  lang: string;
-  created_at?: string;
-}
-
-export interface ThoughtRecordItem {
-  id?: string;
-  user_id: string;
-  automatic_thought: string;
-  evidence_for?: string;
-  evidence_against?: string;
-  distortions: string[];
-  new_view?: string;
-  lang: string;
-  created_at?: string;
-}
-
-export interface VoiceSessionDB {
-  id?: string;
-  user_id: string;
-  started_at: string;
-  ended_at?: string;
-  duration_ms?: number;
-  transcription_count?: number;
-  error_count?: number;
-  created_at?: string;
-}
-
-export type BreathSessionDB = {
-  user_id: string;
-  protocol: 'box' | '478' | 'paced';
-  duration_ms: number;
-  started_at: string;
-  completed_at?: string | null;
-};
-
-// ===========================
-// AUTH RESULT TYPES
-// ===========================
-
-export interface AuthResult {
-  user: User | null;
-  session: Session | null;
-  needsConfirmation?: boolean;
-}
-
-export interface SignUpResult extends AuthResult {
-  needsConfirmation: boolean;
-}
+// Auth types now imported above
 
 // ===========================
 // SUPABASE SERVICE CLASS
@@ -159,6 +71,15 @@ class SupabaseNativeService {
   private client: SupabaseClient;
   private currentUser: User | null = null;
   private userProfileCache: Map<string, { data: OCDProfile | null; fetchedAt: number }> = new Map();
+  // Segmented services
+  private authSvc: import('@/services/supabase/authService').AuthService;
+  private profileSvc: import('@/services/supabase/profileService').ProfileService;
+  private moodSvc: import('@/services/supabase/moodService').MoodService;
+  private voiceSvc: import('@/services/supabase/voiceService').VoiceService;
+  private thoughtSvc: import('@/services/supabase/thoughtService').ThoughtService;
+  private compulsionSvc: import('@/services/supabase/compulsionService').CompulsionService;
+  private breathSvc: import('@/services/supabase/breathService').BreathService;
+  private aiSvc: import('@/services/supabase/aiService').AIService;
 
   constructor() {
     // Tek supabase client kullanımı (lib/supabase.ts)
@@ -166,6 +87,23 @@ class SupabaseNativeService {
     // Ortam değişkenleri lib içinde doğrulanır
     this.client = sharedClient as unknown as SupabaseClient;
     console.log('✅ Supabase Native Service initialized (shared client)');
+    // Initialize segmented services
+    const { AuthService } = require('@/services/supabase/authService');
+    const { ProfileService } = require('@/services/supabase/profileService');
+    const { MoodService } = require('@/services/supabase/moodService');
+    const { VoiceService } = require('@/services/supabase/voiceService');
+    const { ThoughtService } = require('@/services/supabase/thoughtService');
+    const { CompulsionService } = require('@/services/supabase/compulsionService');
+    const { BreathService } = require('@/services/supabase/breathService');
+    const { AIService } = require('@/services/supabase/aiService');
+    this.authSvc = new AuthService(this.client, (u: User | null) => { this.currentUser = u; });
+    this.profileSvc = new ProfileService(this.client);
+    this.moodSvc = new MoodService(this.client);
+    this.voiceSvc = new VoiceService(this.client);
+    this.thoughtSvc = new ThoughtService(this.client);
+    this.compulsionSvc = new CompulsionService(this.client);
+    this.breathSvc = new BreathService(this.client);
+    this.aiSvc = new AIService(this.client);
   }
 
   // ===========================
@@ -224,126 +162,18 @@ class SupabaseNativeService {
   }
 
   async signUpWithEmail(email: string, password: string, name: string): Promise<SignUpResult> {
-    try {
-      console.log('📧 Supabase native signup:', email);
-      
-      const { data, error } = await this.client.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            full_name: name,
-            provider: 'email'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('❌ Signup error:', error);
-        throw error;
-      }
-
-      // Check if email confirmation is needed
-      if (data.user && !data.session) {
-        console.log('📧 Email confirmation required for:', email);
-        return {
-          user: data.user,
-          session: null,
-          needsConfirmation: true
-        };
-      }
-
-      // Immediate login (email confirmation disabled)
-      if (data.user && data.session) {
-        this.currentUser = data.user;
-        console.log('✅ Immediate signup success:', email);
-        return {
-          user: data.user,
-          session: data.session,
-          needsConfirmation: false
-        };
-      }
-
-      throw new Error('Unexpected signup result');
-    } catch (error) {
-      console.error('❌ Supabase signup failed:', error);
-      throw error;
-    }
+    console.log('📧 Supabase signup (delegated):', email);
+    return this.authSvc.signUpWithEmail(email, password, name);
   }
 
   async signInWithEmail(email: string, password: string): Promise<AuthResult> {
-    try {
-      console.log('🔐 Supabase native login:', email);
-      
-      const { data, error } = await this.client.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('❌ Login error:', error);
-        throw error;
-      }
-
-      if (data.user && data.session) {
-        this.currentUser = data.user;
-        console.log('✅ Login successful:', email);
-        return {
-          user: data.user,
-          session: data.session
-        };
-      }
-
-      throw new Error('Login failed: No user or session');
-    } catch (error) {
-      console.error('❌ Supabase login failed:', error);
-      throw error;
-    }
+    console.log('🔐 Supabase login (delegated):', email);
+    return this.authSvc.signInWithEmail(email, password);
   }
 
   async signInWithGoogle(): Promise<any> {
-    try {
-      console.log('🔐 Google OAuth initiation...');
-      // Use proxy redirect in Expo Go to avoid IP-based deep links and loops
-      const isExpoGo = Constants.appOwnership === 'expo';
-      const redirectUrl = isExpoGo
-        ? makeRedirectUri({ path: 'auth/callback' })
-        : Linking.createURL('auth/callback');
-      console.log('🔐 Redirect URL will be:', redirectUrl);
-      
-      const { data, error } = await this.client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          skipBrowserRedirect: true,
-        }
-      });
-
-      if (error) {
-        console.error('❌ Google OAuth error:', error);
-        throw error;
-      }
-      
-      console.log('🔐 Google OAuth data received:', JSON.stringify(data, null, 2));
-      
-      // Return the URL for in-app WebView instead of opening browser
-      if (data.url) {
-        console.log('🔐 OAuth URL ready for WebView:', data.url);
-        return data; // Return data with URL for WebView
-      } else {
-        console.error('❌ No OAuth URL received from Supabase');
-        throw new Error('No OAuth URL received');
-      }
-      
-    } catch (error) {
-      console.error('❌ Google OAuth failed:', error);
-      throw error;
-    }
+    console.log('🔐 Google OAuth (delegated)');
+    return this.authSvc.signInWithGoogle();
   }
 
   async signOut(): Promise<void> {
@@ -475,14 +305,7 @@ class SupabaseNativeService {
         return cached.data;
       }
       console.log('🔍 Fetching user profile from database...', userId);
-      
-      const { data, error } = await this.client
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
+      const data = await this.profileSvc.getUserProfile(userId);
       console.log('✅ User profile fetched from database');
       this.userProfileCache.set(userId, { data: data ?? null, fetchedAt: Date.now() });
       return data ?? null;
@@ -534,20 +357,7 @@ class SupabaseNativeService {
 
   async createUserProfile(userId: string, email: string, name: string, provider: 'email' | 'google'): Promise<UserProfile> {
     try {
-      const { data, error } = await this.client
-        .from('users')
-        .insert({
-          id: userId,
-          email,
-          name,
-          provider,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await this.profileSvc.createUserProfile(userId, email, name, provider);
       console.log('✅ User profile created:', email);
       return data;
     } catch (error) {
@@ -563,20 +373,8 @@ class SupabaseNativeService {
   async saveUserProfile(profile: Omit<OCDProfile, 'id' | 'created_at'>): Promise<OCDProfile> {
     try {
       console.log('🔄 Saving user profile to database...', profile);
-      
-      // Ensure user exists in public.users table
       await this.ensureUserProfileExists(profile.user_id);
-      
-      const { data, error } = await this.client
-        .from('user_profiles')
-        .upsert({
-          ...profile,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await this.profileSvc.saveUserProfile(profile);
       console.log('✅ User profile saved to database:', data.user_id);
       return data;
     } catch (error) {
@@ -598,22 +396,7 @@ class SupabaseNativeService {
   ): Promise<void> {
     try {
       await this.ensureUserProfileExists(userId);
-
-      const payload: any = {
-        user_id: userId,
-        profile_data: profileData,
-        onboarding_completed: onboardingCompleted,
-        updated_at: new Date().toISOString(),
-      };
-      if (onboardingCompleted) {
-        payload.completed_at = new Date().toISOString();
-      }
-
-      const { error } = await this.client
-        .from('ai_profiles')
-        .upsert(payload, { onConflict: 'user_id' });
-
-      if (error) throw error;
+      await this.aiSvc.upsertAIProfile(userId, profileData, onboardingCompleted);
       console.log('✅ AI profile upserted:', userId);
     } catch (error) {
       console.error('❌ upsertAIProfile failed:', error);
@@ -631,19 +414,7 @@ class SupabaseNativeService {
   ): Promise<void> {
     try {
       await this.ensureUserProfileExists(userId);
-
-      const payload = {
-        user_id: userId,
-        plan_data: planData,
-        status,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await this.client
-        .from('ai_treatment_plans')
-        .upsert(payload, { onConflict: 'user_id' });
-
-      if (error) throw error;
+      await this.aiSvc.upsertAITreatmentPlan(userId, planData, status);
       console.log('✅ AI treatment plan upserted:', userId);
     } catch (error) {
       console.error('❌ upsertAITreatmentPlan failed:', error);
@@ -661,68 +432,14 @@ class SupabaseNativeService {
   }
 
   // ✅ F-06 FIX: Add PII sanitization for server-bound writes
+  
   async saveCompulsion(compulsion: Omit<CompulsionRecord, 'id' | 'timestamp'>): Promise<CompulsionRecord> {
     try {
       console.log('🔄 Saving compulsion to database...', compulsion);
-      
-      // Ensure user exists in public.users table
       await this.ensureUserProfileExists(compulsion.user_id);
-      
-      // ✅ Sanitize PII fields before server write
-      const sanitizedCompulsion = {
-        ...compulsion,
-        notes: sanitizePII(compulsion.notes || ''),
-        trigger: sanitizePII(compulsion.trigger || ''),
-      };
-      
-      // Map to compulsion_records table schema
-      const { mapToDatabaseCategory } = require('@/utils/categoryMapping');
-      const compulsionType = sanitizedCompulsion.subcategory || 
-                            mapToDatabaseCategory(sanitizedCompulsion.category);
-      
-      // Combine trigger and notes into description
-      let description = sanitizedCompulsion.notes || '';
-      if (sanitizedCompulsion.trigger && sanitizedCompulsion.trigger.trim()) {
-        description = `Trigger: ${sanitizedCompulsion.trigger}\n${description}`;
-      }
-      
-      // Map resistance_level (0-10) to intensity (0-100)
-      const intensity = Math.min(100, Math.max(0, 
-        (sanitizedCompulsion.resistance_level || 5) * 10
-      ));
-      
-      const recordPayload = {
-        user_id: compulsion.user_id,
-        compulsion_type: compulsionType,
-        description: description,
-        intensity: intensity,
-        created_at: new Date().toISOString(),
-      };
-      
-      // Compute content_hash for idempotency (user_id + type + day + description normalized)
-      const baseText = `${recordPayload.user_id}|${(recordPayload.compulsion_type || '').toLowerCase()}|${(recordPayload.description || '').trim().toLowerCase()}|${new Date().toISOString().slice(0,10)}`;
-      const content_hash = this.computeContentHash(baseText);
-      
-      const { data, error } = await this.client
-        .from('compulsion_records')
-        .upsert({ ...recordPayload, content_hash }, { onConflict: 'user_id,content_hash', ignoreDuplicates: true })
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      console.log('✅ Compulsion saved to database:', data.id);
-      
-      // Map back to CompulsionRecord format
-      return {
-        id: data.id,
-        user_id: data.user_id,
-        category: sanitizedCompulsion.category,
-        subcategory: data.compulsion_type,
-        resistance_level: sanitizedCompulsion.resistance_level || 5,
-        trigger: sanitizedCompulsion.trigger || '',
-        notes: sanitizedCompulsion.notes || '',
-        timestamp: data.created_at,
-      };
+      const result = await this.compulsionSvc.saveCompulsion(compulsion);
+      console.log('✅ Compulsion saved to database:', result.id);
+      return result;
     } catch (error) {
       console.error('❌ Save compulsion failed:', error);
       throw error;
@@ -732,55 +449,16 @@ class SupabaseNativeService {
   async getCompulsions(userId: string, startDate?: string, endDate?: string): Promise<CompulsionRecord[]> {
     try {
       console.log('🔍 Fetching compulsions from database...', { userId, startDate, endDate });
-      
-      let query = this.client
-        .from('compulsion_records')
-        .select('id, user_id, compulsion_type, description, intensity, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (startDate) query = query.gte('created_at', startDate);
-      if (endDate) query = query.lte('created_at', endDate);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      console.log(`✅ Fetched ${data?.length || 0} compulsions`);
-      
-      // Map from compulsion_records to CompulsionRecord format
-      const { mapToCanonicalCategory } = require('@/utils/categoryMapping');
-      
-      return (data || []).map((record: any) => {
-        // Extract trigger from description if present
-        let trigger = '';
-        let notes = record.description || '';
-        
-        const triggerMatch = notes.match(/^Trigger: (.*)\n(.*)$/s);
-        if (triggerMatch) {
-          trigger = triggerMatch[1] || '';
-          notes = triggerMatch[2] || '';
-        }
-        
-        // Map intensity (0-100) back to resistance_level (0-10)
-        const resistance_level = Math.round((record.intensity || 50) / 10);
-        
-        return {
-          id: record.id,
-          user_id: record.user_id,
-          category: mapToCanonicalCategory(record.compulsion_type),
-          subcategory: record.compulsion_type,
-          resistance_level: resistance_level,
-          trigger: trigger,
-          notes: notes,
-          timestamp: record.created_at,
-        } as CompulsionRecord;
-      });
+      const list = await this.compulsionSvc.getCompulsions(userId, startDate, endDate);
+      console.log(`✅ Fetched ${list?.length || 0} compulsions`);
+      return list;
     } catch (error) {
       console.error('❌ Get compulsions failed:', error);
       return [];
     }
   }
+
+  
 
   async deleteCompulsion(id: string): Promise<void> {
     try {
@@ -1007,39 +685,7 @@ class SupabaseNativeService {
   async saveVoiceCheckin(record: VoiceCheckinRecord): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
-      
-      // ✅ Sanitize PII fields before server write
-      const sanitizedRecord = {
-        ...record,
-        text: sanitizePII(record.text || ''),
-        trigger: sanitizePII(record.trigger || ''),
-      };
-      
-      // Compute content hash for idempotency using sanitized text
-      const contentHash = this.computeContentHash(sanitizedRecord.text);
-      
-      const payload = {
-        user_id: sanitizedRecord.user_id,
-        text: sanitizedRecord.text,
-        mood: sanitizedRecord.mood,
-        trigger: sanitizedRecord.trigger,
-        confidence: sanitizedRecord.confidence,
-        lang: sanitizedRecord.lang,
-        content_hash: contentHash,
-        created_at: sanitizedRecord.created_at || new Date().toISOString(),
-      };
-      
-      // Use idempotent upsert with content_hash
-      const { error } = await this.client
-        .from('voice_checkins')
-        .upsert(payload, { 
-          onConflict: 'user_id,content_hash',
-          ignoreDuplicates: true 
-        });
-        
-      if (error && !error.message?.includes('duplicate')) {
-        console.warn('⚠️ saveVoiceCheckin error:', error);
-      }
+      await this.voiceSvc.saveVoiceCheckin(record);
     } catch (error) {
       console.warn('⚠️ saveVoiceCheckin skipped:', (error as any)?.message);
     }
@@ -1049,41 +695,7 @@ class SupabaseNativeService {
   async saveThoughtRecord(record: ThoughtRecordItem): Promise<void> {
     try {
       await this.ensureUserProfileExists(record.user_id);
-      
-      // ✅ Sanitize PII fields before server write
-      const sanitizedRecord = {
-        ...record,
-        automatic_thought: sanitizePII(record.automatic_thought || ''),
-        evidence_for: sanitizePII(record.evidence_for || ''),
-        evidence_against: sanitizePII(record.evidence_against || ''),
-        new_view: sanitizePII(record.new_view || ''),
-      };
-      
-      // Compute content hash from sanitized automatic thought
-      const contentHash = this.computeContentHash(sanitizedRecord.automatic_thought);
-      
-      const payload = {
-        user_id: sanitizedRecord.user_id,
-        automatic_thought: sanitizedRecord.automatic_thought,
-        evidence_for: sanitizedRecord.evidence_for,
-        evidence_against: sanitizedRecord.evidence_against,
-        distortions: sanitizedRecord.distortions,
-        new_view: sanitizedRecord.new_view,
-        lang: sanitizedRecord.lang,
-        content_hash: contentHash,
-        created_at: sanitizedRecord.created_at || new Date().toISOString(),
-      };
-      // Use idempotent upsert with content_hash
-      const { error } = await this.client
-        .from('thought_records')
-        .upsert(payload, { 
-          onConflict: 'user_id,content_hash',
-          ignoreDuplicates: true 
-        });
-        
-      if (error && !error.message?.includes('duplicate')) {
-        console.warn('⚠️ saveThoughtRecord error:', error);
-      }
+      await this.thoughtSvc.saveThoughtRecord(record);
     } catch (error) {
       console.warn('⚠️ saveThoughtRecord skipped (table may not exist):', (error as any)?.message);
     }
@@ -1163,22 +775,7 @@ class SupabaseNativeService {
 
   async getCBTRecords(userId: string, dateRange?: { start: Date; end: Date }): Promise<any[]> {
     try {
-      let query = this.client
-        .from('thought_records')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (dateRange) {
-        query = query
-          .gte('created_at', dateRange.start.toISOString())
-          .lte('created_at', dateRange.end.toISOString());
-      }
-
-      const { data, error } = await query.limit(100);
-      
-      if (error) throw error;
-      return data || [];
+      return await this.thoughtSvc.getCBTRecords(userId, dateRange);
     } catch (error) {
       console.error('❌ Failed to fetch CBT records:', error);
       return [];
@@ -1210,18 +807,7 @@ class SupabaseNativeService {
   async saveVoiceSessionSummary(session: VoiceSessionDB): Promise<void> {
     try {
       await this.ensureUserProfileExists(session.user_id);
-      const payload = {
-        user_id: session.user_id,
-        started_at: session.started_at,
-        ended_at: session.ended_at,
-        duration_ms: session.duration_ms,
-        transcription_count: session.transcription_count,
-        error_count: session.error_count,
-        created_at: session.created_at || new Date().toISOString(),
-      };
-      await this.client
-        .from('voice_sessions')
-        .upsert(payload, { onConflict: 'user_id,started_at' });
+      await this.voiceSvc.saveVoiceSessionSummary(session);
     } catch (error) {
       console.warn('⚠️ saveVoiceSessionSummary skipped (table may not exist):', (error as any)?.message);
     }
@@ -1229,10 +815,7 @@ class SupabaseNativeService {
 
   async saveBreathSession(session: BreathSessionDB): Promise<void> {
     try {
-      const { data, error } = await this.client
-        .from('breath_sessions')
-        .upsert(session, { onConflict: 'id' });
-      if (error) throw error;
+      await this.breathSvc.saveBreathSession(session);
     } catch (error) {
       console.warn('⚠️ saveBreathSession skipped (table may not exist):', (error as any)?.message);
     }
@@ -1253,175 +836,30 @@ class SupabaseNativeService {
   // ===========================
   // MOOD METHODS
   // ===========================
-  
-  // ✅ F-02 FIX: Standardize idempotency with content_hash and upsert
+
   async saveMoodEntry(entry: any): Promise<any> {
     if (!isUUID(entry.user_id)) {
       throw Object.assign(new Error('invalid user_id'), { code: 'CLIENT_INVALID_USER_ID' });
     }
     try {
       console.log('🔄 Saving mood entry...', entry);
-      
-      // Ensure user exists
       await this.ensureUserProfileExists(entry.user_id);
-      
-      // ✅ F-06 FIX: Sanitize PII fields before server write
-      const sanitizedEntry = {
-        ...entry,
-        notes: sanitizePII(entry.notes || ''),
-        trigger: sanitizePII(entry.trigger || ''),
-        // ✅ NEW: Handle triggers array properly
-        triggers: entry.triggers?.map(t => sanitizePII(t)) || (entry.trigger ? [sanitizePII(entry.trigger)] : []),
-        activities: entry.activities?.map(a => sanitizePII(a)) || [],
-      };
-      
-      // ✅ Use provided created_at/timestamp if available (offline-first correctness)
-      const createdAtIso: string = (
-        sanitizedEntry.created_at ||
-        sanitizedEntry.timestamp ||
-        new Date().toISOString()
-      );
-      
-      // ✅ VALIDATION: Ensure values are within database constraints
-      const validateRange = (value: any, min: number, max: number, defaultVal: number): number => {
-        const num = parseInt(value, 10);
-        if (isNaN(num)) return defaultVal;
-        return Math.max(min, Math.min(max, num));
-      };
-
-      // Validate values before using them
-      const validatedMood = validateRange(sanitizedEntry.mood_score, 0, 100, 50);
-      const validatedEnergy = validateRange(sanitizedEntry.energy_level, 1, 10, 5);
-      const validatedAnxiety = validateRange(sanitizedEntry.anxiety_level, 1, 10, 5);
-      
-      // Log if values were corrected
-      if (validatedAnxiety !== sanitizedEntry.anxiety_level) {
-        console.log(`⚠️ Corrected anxiety_level: ${sanitizedEntry.anxiety_level} → ${validatedAnxiety} (must be 1-10)`);
-      }
-      if (validatedEnergy !== sanitizedEntry.energy_level) {
-        console.log(`⚠️ Corrected energy_level: ${sanitizedEntry.energy_level} → ${validatedEnergy} (must be 1-10)`);
-      }
-      if (validatedMood !== sanitizedEntry.mood_score) {
-        console.log(`⚠️ Corrected mood_score: ${sanitizedEntry.mood_score} → ${validatedMood} (must be 0-100)`);
-      }
-
-      // 🌍 TIMEZONE FIX: Use UTC date for cross-device consistency with DB
-      const createdDate = new Date(createdAtIso);
-      const utcDay = this.getUtcDateKey(createdDate);
-      
-      // ✅ Generate content_hash (canonical): Use VALIDATED values, exclude triggers/activities; UTC day
-      const contentText = `${sanitizedEntry.user_id}|${Math.round(validatedMood)}|${Math.round(validatedEnergy)}|${Math.round(validatedAnxiety)}|${sanitizedEntry.notes.trim().toLowerCase()}|${utcDay}`;
-      
-      console.log(`🌍 Content hash using UTC date: ${utcDay} (from timestamp: ${createdAtIso})`);
-      const content_hash = this.computeContentHash(contentText);
-
-      const payload = {
-        user_id: sanitizedEntry.user_id,
-        mood_score: validatedMood,
-        energy_level: validatedEnergy,
-        anxiety_level: validatedAnxiety,
-        notes: sanitizedEntry.notes,
-        triggers: sanitizedEntry.triggers,
-        activities: sanitizedEntry.activities,
-        content_hash,
-        created_at: createdAtIso,
-      };
-      
-      // ✅ Use upsert with conflict resolution on (user_id, content_hash)
-      // CRITICAL FIX: Add .select() to get returned data including ID
-      const { data, error } = await this.client
-        .from('mood_entries')
-        .upsert(payload, { 
-          onConflict: 'user_id,content_hash',
-          ignoreDuplicates: true
-        })
-        .select('id, user_id, content_hash, created_at')
-        .maybeSingle();
-      
-      if (error) {
-        // ✅ Handle unique/duplicate or no-row return cases gracefully
-        if (
-          error.code === '23505' ||
-          error.message?.includes('duplicate') ||
-          error.code === 'PGRST116' ||
-          /multiple \(or no\) rows returned/i.test(error.message || '')
-        ) {
-          console.log('ℹ️ Mood entry already exists or not returned (idempotent upsert)');
-          // try { await trackAIInteraction(AIEventType.UNIFIED_PIPELINE_CACHE_HIT, { kind: 'duplicate_prevented', userId: sanitizedEntry.user_id }); } catch {}
-          return null;
-        }
-        throw error;
-      }
-      
-      // 🆔 CRITICAL FIX: If data is null (ignoreDuplicates case), fetch existing entry by content_hash
-      if (!data) {
-        console.log('ℹ️ No data returned (ignoreDuplicates), fetching existing entry by content_hash');
-        try {
-          const { data: existingData } = await this.client
-            .from('mood_entries')
-            .select('id, user_id, content_hash, created_at')
-            .eq('user_id', sanitizedEntry.user_id)
-            .eq('content_hash', content_hash)
-            .maybeSingle();
-          
-          if (existingData) {
-            console.log('✅ Found existing mood entry by content_hash:', existingData.id);
-            return existingData;
-          }
-        } catch (fetchError) {
-          console.warn('⚠️ Failed to fetch existing entry:', fetchError);
-        }
-      }
-      
-      console.log('✅ Mood entry saved:', data ? 'success' : 'duplicate_prevented');
-      return data;
+      return await this.moodSvc.saveMoodEntry(entry);
     } catch (error) {
       console.error('❌ Save mood entry failed:', error);
       throw error;
     }
   }
-  
+
   async getMoodEntries(userId: string, days: number = 7): Promise<any[]> {
     try {
-      // 🔇 THROTTLE: Only log mood fetches once per 30 seconds per user
-      const logKey = `__mood_fetch_logged_${userId}`;
-      const lastLogTime = (global as any)[logKey] || 0;
-      const now = Date.now();
-      if (now - lastLogTime > 30000) { // 30 seconds
-        console.log('🔍 Fetching mood entries...', { userId, days });
-        (global as any)[logKey] = now;
-      }
-      
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      
-      const { data, error } = await this.client
-        .from('mood_entries')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      console.log(`✅ Fetched ${data?.length || 0} mood entries`);
-      return data || [];
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const list = await this.moodSvc.getMoodEntries(userId, since.toISOString());
+      console.log(`✅ Fetched ${list?.length || 0} mood entries`);
+      return list;
     } catch (error) {
       console.error('❌ Get mood entries failed:', error);
-      
-      // Additional error context for debugging
-      if (error && typeof error === 'object') {
-        const supabaseError = error as any;
-        if (supabaseError.code) {
-          console.error('🔍 Supabase Error Details:', {
-            code: supabaseError.code,
-            message: supabaseError.message,
-            details: supabaseError.details,
-            hint: supabaseError.hint
-          });
-        }
-      }
-      
       return [];
     }
   }
@@ -1435,21 +873,7 @@ class SupabaseNativeService {
     activities: string[];
   }>): Promise<any> {
     try {
-      // Sanitize PII for text fields
-      const payload: any = { ...updates };
-      if (typeof payload.notes === 'string') payload.notes = sanitizePII(payload.notes);
-      if (Array.isArray(payload.triggers)) payload.triggers = payload.triggers.map((t: string) => sanitizePII(t));
-      if (Array.isArray(payload.activities)) payload.activities = payload.activities.map((a: string) => sanitizePII(a));
-
-      const { data, error } = await this.client
-        .from('mood_entries')
-        .update(payload)
-        .eq('id', entryId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+      return await this.moodSvc.updateMoodEntry(entryId, updates);
     } catch (error) {
       console.error('❌ Update mood entry failed:', error);
       throw error;
@@ -1488,20 +912,7 @@ class SupabaseNativeService {
   async deleteVoiceCheckin(checkinId: string): Promise<void> {
     try {
       console.log('🗑️ Attempting to delete voice checkin:', checkinId);
-      
-      // ✅ Use shared UUID validator
-      if (!isUUID(checkinId)) {
-        console.warn('⚠️ Invalid UUID format detected for voice checkin:', checkinId);
-        console.log('🔄 Skipping server delete - entry may not exist on server');
-        return;
-      }
-      
-      const { error } = await this.client
-        .from('voice_checkins')
-        .delete()
-        .eq('id', checkinId);
-
-      if (error) throw error;
+      await this.voiceSvc.deleteVoiceCheckin(checkinId);
       console.log('✅ Voice checkin deleted successfully from server:', checkinId);
     } catch (error) {
       console.error('❌ Failed to delete voice checkin:', error);
@@ -1514,20 +925,7 @@ class SupabaseNativeService {
   async deleteThoughtRecord(recordId: string): Promise<void> {
     try {
       console.log('🗑️ Attempting to delete thought record:', recordId);
-      
-      // ✅ Use shared UUID validator
-      if (!isUUID(recordId)) {
-        console.warn('⚠️ Invalid UUID format detected for thought record:', recordId);
-        console.log('🔄 Skipping server delete - entry may not exist on server');
-        return;
-      }
-      
-      const { error } = await this.client
-        .from('thought_records')
-        .delete()
-        .eq('id', recordId);
-
-      if (error) throw error;
+      await this.thoughtSvc.deleteThoughtRecord(recordId);
       console.log('✅ Thought record deleted successfully from server:', recordId);
     } catch (error) {
       console.error('❌ Failed to delete thought record:', error);

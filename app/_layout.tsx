@@ -31,7 +31,11 @@ import performanceMonitor from '@/services/performanceMonitor';
 
 // Import debug helpers in development
 if (__DEV__) {
-  require('@/utils/debugHelper');
+  try {
+    require('@/utils/debugHelper');
+  } catch (e) {
+    console.warn('Debug helper import failed:', e);
+  }
 }
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -44,7 +48,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(error => {
+        console.warn('Splash screen hide failed:', error);
+      });
     }
   }, [loaded]);
 
@@ -55,6 +61,7 @@ export default function RootLayout() {
         const FLAG = '__legacy_cleanup_v1_done__';
         const done = await AsyncStorage.getItem(FLAG);
         if (done === '1') return;
+        
         const allKeys = await AsyncStorage.getAllKeys();
         const shouldRemove = (key: string) => (
           key === 'compulsion_logs' ||
@@ -74,33 +81,50 @@ export default function RootLayout() {
         }
         await AsyncStorage.setItem(FLAG, '1');
       } catch (e) {
-        if (__DEV__) console.warn('Storage cleanup skipped:', e);
+        console.warn('Storage cleanup failed (non-critical):', e);
       }
     })();
   }, []);
 
-  // 📊 Performance monitoring initialization
+  // 📊 Performance monitoring initialization - CRASH PREVENTION
   useEffect(() => {
-    performanceMonitor.initialize().catch(error => {
-      console.warn('Performance monitor initialization failed:', error);
-    });
+    try {
+      performanceMonitor.initialize().catch(error => {
+        console.warn('Performance monitor initialization failed (non-critical):', error);
+      });
+    } catch (error) {
+      console.warn('Performance monitor import failed (non-critical):', error);
+    }
   }, []);
 
-  // Foreground DLQ scheduler: process periodically when app is active
+  // Foreground DLQ scheduler: process periodically when app is active - CRASH PREVENTION
   useEffect(() => {
     let interval: any = null;
     let appStateListener: any;
+    
     (async () => {
       try {
-        const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
-        const { offlineSyncService } = await import('@/services/offlineSync');
-        // Run once shortly after startup
-        setTimeout(() => { deadLetterQueue.processDeadLetterQueue().catch(() => {}); offlineSyncService.processSyncQueue().catch(()=>{}); }, 3000);
-        // Then run periodically
+        // 🛡️ CRASH PREVENTION: Safe dynamic imports with error handling
+        const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue').catch(() => ({ deadLetterQueue: null }));
+        const { offlineSyncService } = await import('@/services/offlineSync').catch(() => ({ offlineSyncService: null }));
+        
+        if (!deadLetterQueue || !offlineSyncService) {
+          console.warn('Sync services not available (non-critical)');
+          return;
+        }
+        
+        // Run once shortly after startup with error handling
+        setTimeout(() => { 
+          deadLetterQueue.processDeadLetterQueue().catch(() => {}); 
+          offlineSyncService.processSyncQueue().catch(()=>{}); 
+        }, 3000);
+        
+        // Then run periodically with error handling
         interval = setInterval(() => {
           deadLetterQueue.processDeadLetterQueue().catch(() => {});
           offlineSyncService.processSyncQueue().catch(()=>{});
         }, 60000);
+        
         // 🔄 App state management: sync on foreground, cleanup on background
         appStateListener = AppState.addEventListener('change', (state) => {
           if (state === 'active') {
@@ -115,17 +139,17 @@ export default function RootLayout() {
                 crossDeviceSync.cleanup();
               }).catch(() => {});
               
-              // Note: Don't cleanup offlineSyncService here as it needs to stay active 
-              // for background sync operations. It will be cleaned up on logout/unmount.
-              
               console.log('✅ Background cleanup completed');
             } catch (cleanupError) {
               console.error('⚠️ Background cleanup failed (non-critical):', cleanupError);
             }
           }
         });
-      } catch {}
+      } catch (error) {
+        console.warn('Sync service initialization failed (non-critical):', error);
+      }
     })();
+    
     return () => {
       if (interval) clearInterval(interval);
       try { appStateListener?.remove?.(); } catch {}

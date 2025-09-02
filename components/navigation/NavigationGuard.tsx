@@ -50,12 +50,16 @@ async function checkOnboardingCompletion(userId: string, localKey: string): Prom
     
     // Check generic fallback key if local is not completed
     if (!localCompleted) {
-      const generic = await AsyncStorage.getItem('ai_onboarding_completed');
-      if (generic === 'true') {
-        console.log('🔄 Generic fallback key confirms completion');
-        localCompleted = true;
-        // Update specific key for future
-        await AsyncStorage.setItem(localKey, 'true');
+      try {
+        const generic = await AsyncStorage.getItem('ai_onboarding_completed');
+        if (generic === 'true') {
+          console.log('🔄 Generic fallback key confirms completion');
+          localCompleted = true;
+          // Update specific key for future
+          await AsyncStorage.setItem(localKey, 'true');
+        }
+      } catch (error) {
+        console.warn('Generic fallback key check failed (non-critical):', error);
       }
     }
     

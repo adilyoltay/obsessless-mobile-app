@@ -80,7 +80,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setProfile: (p: UserProfile | null) => setProfile(p),
         getUserId: () => user?.id ?? null,
       });
-    } catch {}
+    } catch (error) {
+      console.warn('Auth bridge registration failed (non-critical):', error);
+    }
 
     const handleUrl = async (url: string) => {
       try {

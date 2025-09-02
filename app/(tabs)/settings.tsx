@@ -9,8 +9,6 @@ import {
   Share,
   Linking
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,9 +42,7 @@ import { StorageKeys } from '@/utils/storage';
 import { Modal } from 'react-native';
 import { unifiedComplianceService } from '@/services/unifiedComplianceService';
 
-import OnboardingSyncStatusCard from '@/components/settings/OnboardingSyncStatusCard';
-import SyncErrorSummaryCard from '@/components/ui/SyncErrorSummaryCard';
-import DeadLetterQueueRecovery from '@/components/ui/DeadLetterQueueRecovery';
+// Removed: advanced onboarding/sync components
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 interface SettingsData {
@@ -84,7 +80,7 @@ export default function SettingsScreen() {
   const selectedDaysInit: string[] = Array.isArray(onboardingPayload?.reminders?.days) ? onboardingPayload!.reminders!.days as any : ['Mon','Tue','Wed','Thu','Fri'];
   const [selectedDays, setSelectedDays] = useState<string[]>(selectedDaysInit);
   // Log level & maintenance
-  const [logLevel, setLogLevel] = useState<'error'|'warn'|'info'>('info');
+  // Log level state removed along with advanced options
   // const aiStore = useAISettingsStore(); // REMOVED (AI disabled)
 
   
@@ -95,13 +91,12 @@ export default function SettingsScreen() {
     ai_processing: true,
     marketing: false,
   });
-  const [auditVisible, setAuditVisible] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  // Audit log state removed
   const [migrationVersion, setMigrationVersion] = useState<number>(0);
   // Daily metrics removed - performance summary section removed
   const [deletionStatus, setDeletionStatus] = useState<{ status: 'none' | 'pending' | 'grace_period' | 'scheduled'; requestedAt?: string; scheduledAt?: string; remainingDays?: number; canCancel?: boolean }>({ status: 'none' });
   const [consentHistory, setConsentHistory] = useState<any[]>([]);
-  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
+  // Advanced section state removed
   
   const [settings, setSettings] = useState<SettingsData>({
     notifications: true,
@@ -273,64 +268,7 @@ export default function SettingsScreen() {
 
   // Dev tools removed from Settings
 
-  const handleDataExport = async () => {
-    Alert.alert(
-      'Verilerinizi İndirin',
-      'Tüm verileriniz güvenli bir şekilde dışa aktarılacak.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        { 
-          text: 'İndir',
-          onPress: async () => {
-            try {
-              if (!user?.id) return;
-              const json = await unifiedComplianceService.createDataExport(user.id);
-              await Share.share({
-                title: 'ObsessLess Veri İndirimi',
-                message: json,
-              });
-            } catch (e) {
-              Alert.alert('Hata', 'Veri dışa aktarma başarısız.');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleDataExportToFile = async () => {
-    Alert.alert(
-      'Verilerinizi Dosyaya Kaydedin',
-      'Tüm verileriniz JSON dosyası olarak cihazınıza kaydedilecek.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        { 
-          text: 'Kaydet', 
-          onPress: async () => {
-            try {
-              if (!user?.id) return;
-              const json = await unifiedComplianceService.createDataExport(user.id);
-              const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-              const fileName = `obsessless_export_${dateStr}.json`;
-              const fileUri = FileSystem.documentDirectory + fileName;
-              await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
-              try {
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'ObsessLess Veri Dışa Aktarım' });
-                } else {
-                  Alert.alert('Kaydedildi', `Dosya kaydedildi: ${fileUri}`);
-                }
-              } catch {
-                Alert.alert('Kaydedildi', `Dosya kaydedildi: ${fileUri}`);
-              }
-            } catch (e) {
-              Alert.alert('Hata', 'Dosyaya kaydetme başarısız.');
-            }
-          }
-        }
-      ]
-    );
-  };
+  // Removed data export handlers
 
   const toggleConsent = async (type: 'data_processing' | 'analytics' | 'ai_processing' | 'marketing', value: boolean) => {
     try {
@@ -360,17 +298,7 @@ export default function SettingsScreen() {
     );
   };
 
-  const openAuditLogs = async () => {
-    try {
-      if (!user?.id) return;
-      const logs = await unifiedComplianceService.getAuditLogs(user.id, 14);
-      setAuditLogs(logs);
-      setAuditVisible(true);
-    } catch {
-      setAuditLogs([]);
-      setAuditVisible(true);
-    }
-  };
+  // Removed audit logs handler
 
   const handleShareApp = async () => {
     try {
@@ -537,49 +465,9 @@ export default function SettingsScreen() {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const lvl = await AsyncStorage.getItem('log_level');
-        if (lvl === 'error' || lvl === 'warn' || lvl === 'info') setLogLevel(lvl);
-      } catch {}
-    })();
-  }, []);
+  // Removed log level persistence
 
-  const saveLogLevel = async (lvl: 'error'|'warn'|'info') => {
-    try {
-      setLogLevel(lvl);
-      await AsyncStorage.setItem('log_level', lvl);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
-  };
-
-  const clearUICaches = async () => {
-    try {
-      const keys = await AsyncStorage.getAllKeys();
-      const toRemove = keys.filter(k => (
-        k.startsWith('weekly_summary_') ||
-        k === 'profile_v2_payload' ||
-        k === 'profile_v2_current_step' ||
-        (user?.id ? k === `user_profile_snapshot_${user.id}` : false)
-      ));
-      if (toRemove.length) await AsyncStorage.multiRemove(toRemove);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {
-      console.warn('UI cache clear failed:', e);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
-
-  const clearAllNotifications = async () => {
-    try {
-      await NotificationScheduler.cancelAllNotifications();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {
-      console.warn('Notification clear failed:', e);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
+  // Removed maintenance helpers (UI caches / notifications)
 
   return (
     <ScreenLayout>
@@ -684,24 +572,13 @@ export default function SettingsScreen() {
               (value) => toggleConsent('data_processing', value)
             )}
             {renderSettingItem(
-              'Analitik İzni',
-              'chart-line',
-              consents.analytics,
-              (value) => toggleConsent('analytics', value)
-            )}
-            {renderSettingItem(
-              'AI İşleme İzni',
-              'robot',
-              consents.ai_processing,
-              (value) => toggleConsent('ai_processing', value)
-            )}
-            {renderSettingItem(
               'Pazarlama İzni',
               'bullhorn',
               consents.marketing,
               (value) => toggleConsent('marketing', value)
             )}
           </View>
+          {false && (
           <View style={{ marginTop: 12, gap: 8 }}>
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
@@ -717,6 +594,7 @@ export default function SettingsScreen() {
               Tüm hassas verileriniz otomatik olarak şifrelenerek güvenli bir şekilde saklanmaktadır.
             </Text>
           </View>
+          )}
         </View>
 
         {/* Dil seçimi kaldırıldı */}
@@ -724,66 +602,7 @@ export default function SettingsScreen() {
         {/* (Removed) ERP Modülü Ayarları */}
 
 
-        {/* Voice Check-in & Basic Analysis */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sesli Check-in</Text>
-          <View style={styles.sectionContent}>
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <MaterialCommunityIcons name="microphone" size={24} color="#10B981" />
-                <Text style={styles.settingTitle}>Sesli Analiz</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
-                <Text style={{ color: '#10B981', marginLeft: 4, fontWeight: '600' }}>Aktif</Text>
-              </View>
-            </View>
-            <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 8, paddingHorizontal: 16 }}>
-              Sesli check-in ile mood durum analizi ve Türkçe dil işleme özellikleri etkin.
-            </Text>
-          </View>
-        </View>
-
-        {/* Gelişmiş - Onboarding & Senkronizasyon */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gelişmiş</Text>
-          <View style={styles.sectionContent}>
-            <Pressable
-              onPress={() => setAdvancedOpen(!advancedOpen)}
-              accessibilityRole="button"
-              accessibilityLabel="Gelişmiş ayarları aç/kapat"
-              style={styles.actionItem}
-            >
-              <View style={styles.actionLeft}>
-                <MaterialCommunityIcons name={advancedOpen ? 'chevron-down' : 'chevron-right'} size={22} color="#6B7280" />
-                <Text style={styles.actionTitle}>Onboarding & Senkronizasyon</Text>
-              </View>
-            </Pressable>
-            {advancedOpen && (
-              <View style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
-                <OnboardingSyncStatusCard />
-                <SyncErrorSummaryCard 
-                  style={{ marginHorizontal: 16, marginBottom: 16 }}
-                  onManualSync={async () => {
-                    try {
-                      const { offlineSyncService } = await import('@/services/offlineSync');
-                      await offlineSyncService.processSyncQueue();
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch (error) {
-                      console.error('❌ Manual sync from settings failed:', error);
-                    }
-                  }}
-                />
-                <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
-                  <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>🔄 Veri Kurtarma</Text>
-                  <View style={styles.sectionContent}>
-                    <DeadLetterQueueRecovery onRecoveryComplete={() => console.log('✅ DLQ recovery completed from settings')} />
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
+        {/* Voice Check-in & Advanced Sync sections removed */}
 
         {/* Support */}
         <View style={styles.section}>
@@ -794,21 +613,7 @@ export default function SettingsScreen() {
               'share-variant',
               handleShareApp
             )}
-            {renderActionItem(
-              'Verilerini İndir',
-              'download',
-              handleDataExport
-            )}
-            {renderActionItem(
-              'Verilerini Dosyaya Kaydet',
-              'content-save',
-              handleDataExportToFile
-            )}
-            {renderActionItem(
-              'Audit Loglarını Görüntüle',
-              'file-search',
-              openAuditLogs
-            )}
+            {/* Removed: Verilerini İndir / Verilerini Dosyaya Kaydet / Audit Loglarını Görüntüle */}
             {renderActionItem(
               'Veri Silme Talebi',
               'trash-can-outline',
@@ -874,32 +679,7 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      {/* Audit Logs Modal */}
-      <Modal visible={auditVisible} transparent animationType="slide" onRequestClose={() => setAuditVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Audit Logları (Son 14 gün)</Text>
-            <ScrollView style={{ maxHeight: 320 }}>
-              {auditLogs.length === 0 ? (
-                <Text style={styles.modalEmpty}>Kayıt bulunamadı.</Text>
-              ) : (
-                auditLogs.slice(0, 50).map((log: any) => (
-                  <View key={log.id} style={styles.logItem}>
-                    <Text style={styles.logTitle}>{log.action} • {log.entity}</Text>
-                    <Text style={styles.logMeta}>{new Date(log.timestamp).toLocaleString('tr-TR')}</Text>
-                    {log.metadata ? (
-                      <Text style={styles.logMetaSmall}>{JSON.stringify(log.metadata)}</Text>
-                    ) : null}
-                  </View>
-                ))
-              )}
-            </ScrollView>
-            <View style={{ paddingTop: 12 }}>
-              <Button title="Kapat" onPress={() => setAuditVisible(false)} />
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Audit Logs Modal removed */}
 
       {/* Reminder Days Picker Modal */}
       <Modal visible={reminderDaysModalVisible} transparent animationType="fade" onRequestClose={() => setReminderDaysModalVisible(false)}>
@@ -982,23 +762,7 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* Advanced options inside collapsible */}
-      {advancedOpen && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
-          <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Log Seviyesi</Text>
-          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', padding: 8 }}>
-            <Picker selectedValue={logLevel} onValueChange={(v) => saveLogLevel(v)}>
-              <Picker.Item label="Hata" value="error" />
-              <Picker.Item label="Uyarı" value="warn" />
-              <Picker.Item label="Bilgi (Varsayılan)" value="info" />
-            </Picker>
-          </View>
-          <View style={{ height: 12 }} />
-          <Text style={{ fontSize: 14, color: '#374151', fontWeight: '600', marginBottom: 8 }}>Bakım</Text>
-          {renderActionItem('UI Önbelleklerini Temizle', 'broom', clearUICaches)}
-          {renderActionItem('Tüm Bildirimleri Temizle', 'bell-off', clearAllNotifications)}
-        </View>
-      )}
+      {/* Advanced options removed */}
 
       {/* Reminder Time Picker Modal */}
       <Modal visible={reminderModalVisible} transparent animationType="fade" onRequestClose={() => setReminderModalVisible(false)}>
@@ -1287,10 +1051,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  logMetaSmall: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
+  // logMetaSmall removed (audit UI removed)
   // AI Limit Styles
   aiLimitCard: {
     padding: 16,

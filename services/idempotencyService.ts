@@ -98,20 +98,15 @@ class IdempotencyService {
    * Format: ${user_id}|${mood_score}|${energy_level}|${anxiety_level}|${notes}|${UTC_day}
    */
   private generateContentHash(entry: MoodEntryInput): string {
-    const timestamp = entry.timestamp || new Date().toISOString();
-    const utcDay = timestamp.slice(0, 10);
-    const notes = (entry.notes || '').trim().toLowerCase();
-    
-    const contentText = `${entry.user_id}|${Math.round(entry.mood_score)}|${Math.round(entry.energy_level)}|${Math.round(entry.anxiety_level)}|${notes}|${utcDay}`;
-    
-    // Simple hash function for content - matches supabaseService logic
-    let hash = 0;
-    for (let i = 0; i < contentText.length; i++) {
-      const char = contentText.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
+    const { computeMoodContentHash } = require('@/services/idempotency/moodContentHash');
+    return computeMoodContentHash({
+      user_id: entry.user_id,
+      mood_score: entry.mood_score,
+      energy_level: entry.energy_level,
+      anxiety_level: entry.anxiety_level,
+      notes: entry.notes,
+      timestamp: entry.timestamp,
+    }, { dayMode: 'UTC' });
   }
 
   /**
