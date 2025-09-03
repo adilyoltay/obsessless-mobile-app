@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Easing } from 'react-native';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
@@ -28,6 +28,9 @@ export default function MoodJourneyCard({ data }: Props) {
   const [detailEntries, setDetailEntries] = React.useState<any[]>([]);
   const [chartSelection, setChartSelection] = React.useState<{ date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null>(null);
   const [clearSignal, setClearSignal] = React.useState(0);
+  const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
+  const tooltipTransY = React.useRef(new Animated.Value(-4)).current;
+  const [tooltipWidth, setTooltipWidth] = React.useState<number>(0);
 
   const openDetailForDate = React.useCallback((date: string) => {
     if (!extended) return;
@@ -45,6 +48,15 @@ export default function MoodJourneyCard({ data }: Props) {
     }
     setDetailDate(date);
   }, [extended, range]);
+
+  // Animate tooltip show/hide
+  React.useEffect(() => {
+    const toVisible = !!chartSelection;
+    Animated.parallel([
+      Animated.timing(tooltipOpacity, { toValue: toVisible ? 1 : 0, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(tooltipTransY, { toValue: toVisible ? 0 : -4, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+  }, [chartSelection, tooltipOpacity, tooltipTransY]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -159,112 +171,150 @@ export default function MoodJourneyCard({ data }: Props) {
         <AppleHealthTimeSelectorV2 selected={range} onChange={setRange} />
       </View>
 
-      {/* Tooltip slot (between selector and chart) */}
-      <View style={{ minHeight: 44, justifyContent: 'flex-start' }}>
+      {/* Chart container with header/tooltip overlay area */}
+      <View style={{ position: 'relative', paddingTop: 60 }}>
+        {/* Fixed overlay area above chart: shows summary or tooltip */}
+        {!chartSelection && extended && (
+          <View style={styles.chartTopOverlay} pointerEvents="none">
+            <View style={styles.chartHeaderRow}>
+              {/* Left: Total entries + date range */}
+              <View>
+                <Text style={styles.chartHeaderCount}>
+                  TOPLAM{'\n'}
+                  <Text style={styles.chartHeaderCountValue}>{extended?.statistics?.totalEntries || 0} <Text style={styles.chartHeaderCountUnit}>giriş</Text></Text>
+                </Text>
+                <Text style={styles.chartHeaderDateRange}>{(() => {
+                  const days = extended?.dailyAverages || [];
+                  if (!days.length) return '';
+                  const start = new Date(days[0].date);
+                  const end = new Date(days[days.length - 1].date);
+                  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+                  if (range === 'week') return `${start.getDate()} ${months[start.getMonth()]}–${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
+                  if (range === 'month') return `${months[start.getMonth()]} ${start.getFullYear()}`;
+                  if (range === '6months') return `${months[start.getMonth()]}–${months[end.getMonth()]} ${end.getFullYear()}`;
+                  return `${start.getFullYear()}`;
+                })()}</Text>
+              </View>
+              {/* Right: Dominant emotion + trend (moved back to header) */}
+              <View style={styles.chartHeaderRight}>
+                <View style={styles.chip}>
+                  <Text style={styles.chipLabel}>Baskın</Text>
+                  <Text style={styles.chipValue}>{extended.statistics?.dominantEmotions?.[0]?.emotion || '—'}</Text>
+                </View>
+                {extended.weeklyTrend && (
+                  <View>
+                    {extended.weeklyTrend === 'up' && (
+                      <Svg width={14} height={14} viewBox="0 0 14 14">
+                        <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
+                      </Svg>
+                    )}
+                    {extended.weeklyTrend === 'down' && (
+                      <Svg width={14} height={14} viewBox="0 0 14 14">
+                        <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
+                      </Svg>
+                    )}
+                    {extended.weeklyTrend === 'stable' && (
+                      <Svg width={14} height={14} viewBox="0 0 14 14">
+                        <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
+                      </Svg>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+        {/* Interactive chart - Apple Health Style V2 */}
+        {extended && (
+          <AppleHealthStyleChartV2
+            data={extended}
+            timeRange={range}
+            embedHeader={false}
+            onSelectionChange={(sel) => setChartSelection(sel)}
+            clearSelectionSignal={clearSignal}
+            onDayPress={(date) => {
+              // no-op: detail opens from tooltip tap only
+              // Sync hero VA color with the tapped bar
+              try {
+                const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
+                let mood = 0;
+                let energy = 6;
+                if (range === 'week') {
+                  const day = extended.dailyAverages.find(d => d.date === date);
+                  if (day) {
+                    mood = Math.max(0, Math.min(100, Math.round(day.averageMood || 0)));
+                    energy = Math.max(1, Math.min(10, Math.round(day.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                  }
+                } else {
+                  const agg = extended.aggregated?.data || [];
+                  let bucket = agg.find(b => b.date === date) as any;
+                  if (!bucket && range === 'year') {
+                    const monthKey = String(date).slice(0, 7);
+                    bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
+                  }
+                  if (bucket) {
+                    const useMedian = range === 'year';
+                    const center = useMedian && typeof bucket.p50 === 'number' ? bucket.p50 : (bucket.averageMood || 0);
+                    mood = Math.max(0, Math.min(100, Math.round(center)));
+                    energy = Math.max(1, Math.min(10, Math.round(bucket.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                  }
+                }
+                if (mood > 0) {
+                  const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
+                  const e10 = Math.max(1, Math.min(10, Math.round(energy)));
+                  setVA({ x: toCoord(m10), y: toCoord(e10) });
+                }
+              } catch {}
+            }}
+          />
+        )}
+
+        {/* Tooltip overlay (on top of chart) */}
         {chartSelection && (
-          <View style={{ position: 'relative' }}>
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            {/* Background touch area to close tooltip */}
+            <TouchableOpacity 
+              style={StyleSheet.absoluteFill} 
+              activeOpacity={1} 
+              onPress={() => {
+                setChartSelection(null);
+                setClearSignal(s => s + 1);
+              }}
+            />
+            
+            {/* Tooltip content */}
             {(() => {
-              const TOOLTIP_W = 180;
-              const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - TOOLTIP_W - 4, chartSelection.x - TOOLTIP_W / 2));
+              const fallbackW = 180;
+              const w = tooltipWidth > 0 ? tooltipWidth : fallbackW;
+              const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - w - 4, chartSelection.x - w / 2));
+              const innerX = (chartSelection.x - left);
+              const pointerX = Math.max(8, Math.min((w - 8 - 8), innerX - 4));
               return (
-                <View style={{ position: 'absolute', left }}>
+                <Animated.View style={{ position: 'absolute', left, top: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                   <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
-                    <View style={styles.tooltipBox}>
-                      <Text style={styles.entryCount}>
-                        TOPLAM{'\n'}
+                    <View>
+                      <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
                         <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-                      </Text>
-                      <Text style={styles.dateRange}>{chartSelection.label}</Text>
+                        <Text style={styles.dateRange}>{chartSelection.label}</Text>
+                      </View>
+                      {/* Arrow pointing down to bar */}
+                      <View style={[styles.tooltipArrow, { left: pointerX }]} />
                     </View>
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
               );
             })()}
           </View>
         )}
       </View>
 
-      {/* Interactive chart - Apple Health Style V2 */}
-      {extended && (
-        <AppleHealthStyleChartV2
-          data={extended}
-          timeRange={range}
-          onSelectionChange={(sel) => setChartSelection(sel)}
-          clearSelectionSignal={clearSignal}
-          onDayPress={(date) => {
-            // no-op: detail opens from tooltip tap only
-            // Sync hero VA color with the tapped bar
-            try {
-              const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
-              let mood = 0;
-              let energy = 6;
-              if (range === 'week') {
-                const day = extended.dailyAverages.find(d => d.date === date);
-                if (day) {
-                  mood = Math.max(0, Math.min(100, Math.round(day.averageMood || 0)));
-                  energy = Math.max(1, Math.min(10, Math.round(day.averageEnergy || extended.weeklyEnergyAvg || 6)));
-                }
-              } else {
-                const agg = extended.aggregated?.data || [];
-                let bucket = agg.find(b => b.date === date) as any;
-                if (!bucket && range === 'year') {
-                  const monthKey = String(date).slice(0, 7);
-                  bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
-                }
-                if (bucket) {
-                  const useMedian = range === 'year';
-                  const center = useMedian && typeof bucket.p50 === 'number' ? bucket.p50 : (bucket.averageMood || 0);
-                  mood = Math.max(0, Math.min(100, Math.round(center)));
-                  energy = Math.max(1, Math.min(10, Math.round(bucket.averageEnergy || extended.weeklyEnergyAvg || 6)));
-                }
-              }
-              if (mood > 0) {
-                const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
-                const e10 = Math.max(1, Math.min(10, Math.round(energy)));
-                setVA({ x: toCoord(m10), y: toCoord(e10) });
-              }
-            } catch {}
-          }}
-        />
-      )}
 
-      {/* Baskın duygu + trend (grafiğin altına taşındı) */}
-      {extended && (
-        <View style={styles.dominantRowBelow}>
-          <View style={styles.chipSmall}>
-            <Text style={styles.chipSmallLabel}>Baskın</Text>
-            <Text style={styles.chipSmallValue}>{extended.statistics?.dominantEmotions?.[0]?.emotion || '—'}</Text>
-            {extended.weeklyTrend && (
-              <View style={{ marginLeft: 6 }}>
-                {extended.weeklyTrend === 'up' && (
-                  <Svg width={14} height={14} viewBox="0 0 14 14">
-                    <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
-                  </Svg>
-                )}
-                {extended.weeklyTrend === 'down' && (
-                  <Svg width={14} height={14} viewBox="0 0 14 14">
-                    <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
-                  </Svg>
-                )}
-                {extended.weeklyTrend === 'stable' && (
-                  <Svg width={14} height={14} viewBox="0 0 14 14">
-                    <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
-                  </Svg>
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-      )}
+
+      {/* Dominant emotion moved back to header (hidden while tooltip is open) */}
 
       {/* Top-3 emotion distribution kaldırıldı */}
 
-      {/* Tap outside to clear tooltip (optional area below) */}
-      {chartSelection && (
-        <Pressable onPress={() => { setChartSelection(null); setClearSignal(s => s + 1); }}>
-          <View style={{ height: 0 }} />
-        </Pressable>
-      )}
+
 
       {/* Stats row */}
       <View style={styles.statsRow}>
@@ -365,7 +415,7 @@ const styles = StyleSheet.create({
   },
   selectorWrapper: {
     position: 'relative',
-    marginBottom: 5, // reduce spacing to bring chart header closer
+    marginBottom: 8,
   },
   selectorBadgeRow: {
     position: 'absolute',
@@ -396,16 +446,29 @@ const styles = StyleSheet.create({
   },
   tooltipBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E5EA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minWidth: 140,
+    maxWidth: 200,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+    transform: [{ rotate: '45deg' }],
+    bottom: -6,
+    borderRightWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderColor: '#D1D5DB',
   },
   title: {
     fontSize: 15,
@@ -514,6 +577,42 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
   },
+  // Header-like styles for tooltip content (mirrors chart header)
+  entryCount: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  entryCountValue: {
+    fontSize: 24,
+    color: '#111827',
+    fontWeight: '700',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  entryCountUnit: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  dateRange: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  tapHint: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
   stat: {
     fontSize: 13,
     color: '#111827',
@@ -538,5 +637,49 @@ const styles = StyleSheet.create({
   statLabelEnergy: { color: '#10B981' },
   statLabelAnxiety: { color: '#EF4444' },
   statSep: { color: '#6B7280', fontWeight: '400' },
-  statValue: { color: '#111827' },
+  // statValue duplicate removed
+  // Fixed overlay area above chart for summary text (when no tooltip)
+  chartTopOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  chartHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  chartHeaderCount: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '400',
+    letterSpacing: 0.2,
+  },
+  chartHeaderCountValue: {
+    fontSize: 24,
+    color: '#000',
+    fontWeight: '800',
+    lineHeight: 28,
+  },
+  chartHeaderCountUnit: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  chartHeaderDateRange: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  chartHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
 });

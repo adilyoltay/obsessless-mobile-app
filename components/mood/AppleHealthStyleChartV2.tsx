@@ -34,6 +34,7 @@ type Props = {
   onDayPress?: (date: string) => void;
   onSelectionChange?: (sel: { date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null) => void;
   clearSelectionSignal?: number;
+  embedHeader?: boolean; // render internal header (summary) inside card
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
@@ -104,12 +105,70 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   onDayPress,
   onSelectionChange,
   clearSelectionSignal,
+  embedHeader = true,
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   // Use the measured container width (card inner width). Fallback to screen - 40.
   const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
   const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
+  
+  // Clear selection from parent
+  React.useEffect(() => {
+    if (typeof clearSelectionSignal === 'number') {
+      setSelectedIndex(null);
+      onSelectionChange?.(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearSelectionSignal]);
+
+  const emitSelection = useCallback((index: number | null) => {
+    const items = (timeRange !== 'week') ? (data.aggregated?.data || []) : data.dailyAverages;
+    const n = items.length;
+    if (index === null || index < 0 || index > n - 1) {
+      onSelectionChange?.(null);
+      return;
+    }
+    
+    // Check if there's actual data for this day/period
+    let totalCount = 0;
+    let hasData = false;
+    
+    if (timeRange === 'week') {
+      const day = items[index] as any;
+      totalCount = Number(day.count || 0);
+      hasData = totalCount > 0;
+    } else {
+      const b = items[index] as AggregatedData;
+      totalCount = Number(b.count || 0);
+      hasData = totalCount > 0;
+    }
+    
+    // Don't show tooltip if no data
+    if (!hasData || totalCount === 0) {
+      onSelectionChange?.(null);
+      return;
+    }
+    
+    const dw = contentWidth / Math.max(1, n);
+    const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+    let labelText = '';
+    let dateSel = '';
+    
+    if (timeRange === 'week') {
+      // Weekly view: show the selected day's date
+      const day = items[index] as any;
+      const d = new Date(`${day.date}T00:00:00.000Z`);
+      labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()}`;
+      dateSel = day.date;
+    } else {
+      const b = items[index] as AggregatedData;
+      labelText = (b as any).label || '';
+      dateSel = b.date;
+    }
+    
+    onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth });
+  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange]);
   
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
@@ -281,23 +340,25 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      {/* Üst bilgi alanı */}
-      <View style={styles.header}>
-        <View style={styles.summaryInfo}>
-          {selectedIndex === null && (
-            <View>
-              <Text style={styles.entryCount}>
-                TOPLAM{'\n'}
-                <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-              </Text>
-              <Text style={styles.dateRange}>
-                {formatDateRange(data.dailyAverages, timeRange)}
-              </Text>
-            </View>
-          )}
-          {/* Baskın duygu ve trend ikonu kart altına taşındı */}
+      {/* Üst bilgi alanı (isteğe bağlı) */}
+      {embedHeader && (
+        <View style={styles.header}>
+          <View style={styles.summaryInfo}>
+            {selectedIndex === null && (
+              <View>
+                <Text style={styles.entryCount}>
+                  TOPLAM{'\n'}
+                  <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                </Text>
+                <Text style={styles.dateRange}>
+                  {formatDateRange(data.dailyAverages, timeRange)}
+                </Text>
+              </View>
+            )}
+            {/* Baskın duygu ve trend ikonu kart altına taşındı */}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
@@ -359,19 +420,18 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   />
                 );
               }
-              // Selected guide line
+              // Selected guide line - prominent and solid
               if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex <= n - 1) {
                 const xSel = AXIS_WIDTH + selectedIndex * dayWidth + dayWidth / 2;
                 lines.push(
                   <Line
                     key={`vgrid-selected`}
                     x1={xSel}
-                    y1={CHART_PADDING_TOP}
+                    y1={CHART_PADDING_TOP - 10}
                     x2={xSel}
-                    y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT}
-                    stroke={APPLE_COLORS.axisText}
-                    strokeWidth={1.2}
-                    strokeDasharray={'4,3'}
+                    y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT + 10}
+                    stroke={APPLE_COLORS.gridLineDark}
+                    strokeWidth={2}
                     strokeOpacity={0.9}
                   />
                 );
@@ -437,7 +497,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   const y2Raw = Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT, band.avgY + newHalf);
                   const y1 = Math.round(y1Raw) + 0.5;
                   const y2 = Math.round(y2Raw) + 0.5;
-                  const baseW = mapEnergyToWidth(band.energyAvg, 2, 6);
+                  // Thicker bars: widen base stroke width range
+                  const baseW = mapEnergyToWidth(band.energyAvg, 4, 10);
                   const energyNorm = clamp01(((band.energyAvg || 0) - 4) / 6);
                   const sw = baseW * (0.9 + 0.25 * energyNorm);
                   return (
@@ -714,46 +775,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     color: APPLE_COLORS.axisText,
-  // Clear selection from parent
-  React.useEffect(() => {
-    if (typeof clearSelectionSignal === 'number') {
-      setSelectedIndex(null);
-      onSelectionChange?.(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearSelectionSignal]);
-
-  const emitSelection = useCallback((index: number | null) => {
-    const items = (timeRange !== 'week') ? (data.aggregated?.data || []) : data.dailyAverages;
-    const n = items.length;
-    if (index === null || index < 0 || index > n - 1) {
-      onSelectionChange?.(null);
-      return;
-    }
-    const dw = contentWidth / Math.max(1, n);
-    const x = AXIS_WIDTH + (index * dw) + (dw / 2);
-    let totalCount = 0;
-    let labelText = '';
-    let dateSel = '';
-    if (timeRange === 'week') {
-      const day = items[index] as any;
-      const dateIso = `${day.date}T00:00:00.000Z`;
-      const ws = getWeekStart(dateIso);
-      const we = new Date(ws); we.setDate(ws.getDate() + 6);
-      totalCount = (data.dailyAverages || []).filter(d => {
-        const di = new Date(`${d.date}T00:00:00.000Z`).getTime();
-        return di >= ws.getTime() && di <= we.getTime();
-      }).reduce((s, d) => s + Number(d.count || 0), 0);
-      labelText = `${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
-      dateSel = day.date;
-    } else {
-      const b = items[index] as AggregatedData;
-      totalCount = Number(b.count || 0);
-      labelText = (b as any).label || '';
-      dateSel = b.date;
-    }
-    onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth });
-  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange]);
   },
 });
 
