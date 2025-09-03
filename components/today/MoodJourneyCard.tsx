@@ -150,20 +150,23 @@ export default function MoodJourneyCard({ data }: Props) {
                 <Stop offset="100%" stopColor="#10B981" />
               </SvgLinearGradient>
             </Defs>
-            {/* Battery body */}
-            <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke="#10B981" strokeWidth={1.4} fill="none" />
-            {/* Battery cap */}
-            <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill="#10B981" />
-            {/* Fill proportional to energy (1..10) */}
-            {
-              (() => {
-                const avg = Number(data.weeklyEnergyAvg || 0);
-                const ratio = Math.max(0, Math.min(1, avg / 10));
-                const maxW = 11 - 2; // inner padding
-                const w = Math.max(0.8, maxW * ratio);
-                return <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="url(#batteryGrad)" opacity={0.95} />;
-              })()
-            }
+            {(() => {
+              const avg = Number(data.weeklyEnergyAvg || 0);
+              const ratio = Math.max(0, Math.min(1, avg / 10));
+              const levelColor = ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+              const maxW = 11 - 2; // inner padding
+              const w = Math.max(0.8, maxW * ratio);
+              return (
+                <>
+                  {/* Battery body with dynamic stroke */}
+                  <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={levelColor} strokeWidth={1.4} fill="none" />
+                  {/* Battery cap with dynamic fill */}
+                  <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={levelColor} />
+                  {/* Fill proportional to energy (1..10) */}
+                  <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="url(#batteryGrad)" opacity={0.95} />
+                </>
+              );
+            })()}
           </Svg>
           <Text style={styles.statValue}>{data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
         </View>
@@ -171,20 +174,19 @@ export default function MoodJourneyCard({ data }: Props) {
         {/* Anxiety (wavy line) */}
         <View style={styles.statItem}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
-            {
-              (() => {
-                const avg = Number(data.weeklyAnxietyAvg || 0);
-                const ratio = Math.max(0, Math.min(1, avg / 10));
-                const base = 10;
-                const ampMin = 2;
-                const ampMax = 5.5;
-                const amp = ampMin + (ampMax - ampMin) * ratio;
-                const up = (base - amp).toFixed(2);
-                const down = (base + amp).toFixed(2);
-                const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
-                return <Path d={d} stroke="#EF4444" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
-              })()
-            }
+            {(() => {
+              const avg = Number(data.weeklyAnxietyAvg || 0);
+              const ratio = Math.max(0, Math.min(1, avg / 10));
+              const base = 10;
+              const ampMin = 2;
+              const ampMax = 5.5;
+              const amp = ampMin + (ampMax - ampMin) * ratio;
+              const up = (base - amp).toFixed(2);
+              const down = (base + amp).toFixed(2);
+              const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
+              const strokeW = 1.4 + 0.8 * ratio; // 1.4..2.2
+              return <Path d={d} stroke="#EF4444" strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+            })()}
           </Svg>
           <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
         </View>
