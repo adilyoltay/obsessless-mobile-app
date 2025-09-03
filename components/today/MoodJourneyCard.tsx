@@ -325,7 +325,7 @@ export default function MoodJourneyCard({ data }: Props) {
                 return top || '—';
               })();
               return (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68 }} pointerEvents="box-none">
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68, overflow: 'visible' }} pointerEvents="box-none">
                   <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                       <View>
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     minWidth: 140,
     maxWidth: 200,
     borderWidth: 1.5,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     height: 12,
     backgroundColor: '#FFFFFF',
     transform: [{ rotate: '45deg' }],
-    bottom: -6,
+    bottom: -4,
     borderRightWidth: 1.5,
     borderBottomWidth: 1.5,
     borderColor: '#D1D5DB',
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'left',
   },
   tapHint: {
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
   tooltipMeta: {
     fontSize: 12,
     color: '#6B7280',
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'left',
   },
   tooltipMetaValue: {
