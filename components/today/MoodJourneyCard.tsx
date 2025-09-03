@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
@@ -143,6 +143,13 @@ export default function MoodJourneyCard({ data }: Props) {
         {/* Energy (battery) */}
         <View style={styles.statItem}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
+            <Defs>
+              <SvgLinearGradient id="batteryGrad" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0%" stopColor="#EF4444" />
+                <Stop offset="50%" stopColor="#F59E0B" />
+                <Stop offset="100%" stopColor="#10B981" />
+              </SvgLinearGradient>
+            </Defs>
             {/* Battery body */}
             <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke="#10B981" strokeWidth={1.4} fill="none" />
             {/* Battery cap */}
@@ -154,7 +161,7 @@ export default function MoodJourneyCard({ data }: Props) {
                 const ratio = Math.max(0, Math.min(1, avg / 10));
                 const maxW = 11 - 2; // inner padding
                 const w = Math.max(0.8, maxW * ratio);
-                return <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="#10B981" opacity={0.9} />;
+                return <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="url(#batteryGrad)" opacity={0.95} />;
               })()
             }
           </Svg>
@@ -164,7 +171,20 @@ export default function MoodJourneyCard({ data }: Props) {
         {/* Anxiety (wavy line) */}
         <View style={styles.statItem}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
-            <Path d="M1.5 10 C3 6, 5 14, 7 10 C9 6, 11 14, 13 10" stroke="#EF4444" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            {
+              (() => {
+                const avg = Number(data.weeklyAnxietyAvg || 0);
+                const ratio = Math.max(0, Math.min(1, avg / 10));
+                const base = 10;
+                const ampMin = 2;
+                const ampMax = 5.5;
+                const amp = ampMin + (ampMax - ampMin) * ratio;
+                const up = (base - amp).toFixed(2);
+                const down = (base + amp).toFixed(2);
+                const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
+                return <Path d={d} stroke="#EF4444" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+              })()
+            }
           </Svg>
           <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
         </View>
