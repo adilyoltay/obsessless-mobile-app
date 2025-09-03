@@ -140,20 +140,31 @@ export default function MoodJourneyCard({ data }: Props) {
           <Text style={styles.statValue}>{data.todayAverage > 0 ? data.todayAverage.toFixed(1) : '—'}</Text>
         </View>
 
-        {/* Energy (bolt) */}
+        {/* Energy (battery) */}
         <View style={styles.statItem}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
-            <Path d="M9 1 L4 8.5 H8 L7 15 L12 7.5 H8 Z" fill="#10B981" />
+            {/* Battery body */}
+            <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke="#10B981" strokeWidth={1.4} fill="none" />
+            {/* Battery cap */}
+            <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill="#10B981" />
+            {/* Fill proportional to energy (1..10) */}
+            {
+              (() => {
+                const avg = Number(data.weeklyEnergyAvg || 0);
+                const ratio = Math.max(0, Math.min(1, avg / 10));
+                const maxW = 11 - 2; // inner padding
+                const w = Math.max(0.8, maxW * ratio);
+                return <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="#10B981" opacity={0.9} />;
+              })()
+            }
           </Svg>
           <Text style={styles.statValue}>{data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
         </View>
 
-        {/* Anxiety (warning) */}
+        {/* Anxiety (wavy line) */}
         <View style={styles.statItem}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
-            <Path d="M8 2 L14 13 H2 Z" fill="none" stroke="#EF4444" strokeWidth={1.6} />
-            <Rect x={7.2} y={6} width={1.6} height={4.2} rx={0.8} fill="#EF4444" />
-            <Rect x={7.2} y={11.2} width={1.6} height={1.6} rx={0.8} fill="#EF4444" />
+            <Path d="M1.5 10 C3 6, 5 14, 7 10 C9 6, 11 14, 13 10" stroke="#EF4444" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
           <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
         </View>
