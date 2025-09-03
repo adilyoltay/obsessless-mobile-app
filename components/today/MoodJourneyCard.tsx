@@ -289,12 +289,54 @@ export default function MoodJourneyCard({ data }: Props) {
               const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - w - 4, chartSelection.x - w / 2));
               const innerX = (chartSelection.x - left);
               const pointerX = Math.max(8, Math.min((w - 8 - 8), innerX - 4));
+              // Compute dominant emotion for selected day/period
+              const selectedDominant = (() => {
+                if (!extended) return '—';
+                let list: any[] = [];
+                if (range === 'week') {
+                  list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                } else {
+                  const agg = extended.aggregated?.data || [];
+                  let bucket = agg.find((b: any) => b.date === chartSelection.date) as any;
+                  if (!bucket && range === 'year') {
+                    const monthKey = String(chartSelection.date).slice(0, 7);
+                    bucket = agg.find((b: any) => (b as any).date?.startsWith(monthKey));
+                  }
+                  list = (bucket?.entries || []) as any[];
+                }
+                if (!Array.isArray(list) || list.length === 0) return '—';
+                const counts: Record<string, number> = {
+                  'Heyecanlı': 0, 'Enerjik': 0, 'Mutlu': 0, 'Sakin': 0, 'Normal': 0,
+                  'Endişeli': 0, 'Sinirli': 0, 'Üzgün': 0, 'Kızgın': 0,
+                };
+                list.forEach((e: any) => {
+                  const m = Number(e?.mood_score || 0);
+                  if (m >= 90) counts['Heyecanlı']++;
+                  else if (m >= 80) counts['Enerjik']++;
+                  else if (m >= 70) counts['Mutlu']++;
+                  else if (m >= 60) counts['Sakin']++;
+                  else if (m >= 50) counts['Normal']++;
+                  else if (m >= 40) counts['Endişeli']++;
+                  else if (m >= 30) counts['Sinirli']++;
+                  else if (m >= 20) counts['Üzgün']++;
+                  else counts['Kızgın']++;
+                });
+                const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).find(([,c]) => c>0)?.[0];
+                return top || '—';
+              })();
               return (
                 <Animated.View style={{ position: 'absolute', left, top: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                   <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                     <View>
                       <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
                         <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                        <View style={styles.tooltipMetaRow}>
+                          <Svg width={12} height={12} viewBox="0 0 12 12" style={{ marginRight: 6 }}>
+                            <Circle cx={6} cy={6} r={5.2} fill="#F3F4F6" stroke="#9CA3AF" strokeWidth={1} />
+                            <Path d="M3.3 6 L5.0 7.7 L8.7 4.4" stroke="#10B981" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          </Svg>
+                          <Text style={styles.tooltipMeta}>Baskın: <Text style={styles.tooltipMetaValue}>{selectedDominant}</Text></Text>
+                        </View>
                         <Text style={styles.dateRange}>{chartSelection.label}</Text>
                       </View>
                       {/* Arrow pointing down to bar */}
@@ -590,7 +632,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
     lineHeight: 28,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   entryCountUnit: {
     fontSize: 14,
@@ -603,7 +645,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   tapHint: {
     fontSize: 10,
@@ -681,5 +723,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  tooltipMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'left',
+  },
+  tooltipMetaValue: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  tooltipMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
 });
