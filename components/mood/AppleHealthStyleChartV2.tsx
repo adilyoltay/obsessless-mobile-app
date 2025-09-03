@@ -579,57 +579,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               });
             })()}
           </View>
-          {/* Placeholder'lar: veri olmayan gün/hafta/ay için gri nokta/çizgi */}
-          <Svg 
-            height={CHART_HEIGHT} 
-            width={chartWidth}
-            style={StyleSheet.absoluteFillObject}
-            pointerEvents="none"
-          >
-            {(() => {
-              if (!isAggregateMode) {
-                const n = data.dailyAverages.length;
-                const dw = contentWidth / Math.max(1, n);
-                return data.dailyAverages.map((day, index) => {
-                  // Placeholder only for empty days
-                  if (day.count && day.count > 0) return null;
-                  const x = AXIS_WIDTH + (index * dw) + (dw / 2);
-                  const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
-                  return (
-                    <G key={`ph-day-${index}`}>
-                      <Circle cx={x} cy={neutralY} r={2} fill={APPLE_COLORS.placeholder} opacity={0.9} />
-                    </G>
-                  );
-                });
-              }
-              // Aggregate mode
-              const buckets: AggregatedData[] = data.aggregated?.data || [];
-              const n = buckets.length;
-              const dw = contentWidth / Math.max(1, n);
-              return buckets.map((b, index) => {
-                // Placeholder only for empty buckets (week/month)
-                if ((b.count ?? 0) > 0) return null;
-                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
-                const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
-                return (
-                  <G key={`ph-bucket-${index}`}>
-                    <Line
-                      x1={x - 10}
-                      y1={neutralY}
-                      x2={x + 10}
-                      y2={neutralY}
-                      stroke={APPLE_COLORS.placeholder}
-                      strokeWidth={1}
-                      strokeDasharray="2,2"
-                      strokeLinecap="round"
-                      opacity={0.75}
-                    />
-                    <Circle cx={x} cy={neutralY} r={2} fill={APPLE_COLORS.placeholder} opacity={0.8} />
-                  </G>
-                );
-              });
-            })()}
-          </Svg>
         </View>
       </ScrollView>
       </View>
