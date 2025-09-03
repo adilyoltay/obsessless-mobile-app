@@ -113,7 +113,11 @@ export default function MoodJourneyCard({ data }: Props) {
               setDetailEntries(e);
             } else {
               const agg = extended.aggregated?.data || [];
-              const bucket = agg.find(b => b.date === date);
+              let bucket = agg.find(b => b.date === date);
+              if (!bucket && range === 'year') {
+                const monthKey = String(date).slice(0, 7); // YYYY-MM
+                bucket = agg.find(b => b.date.startsWith(monthKey));
+              }
               setDetailEntries(bucket?.entries || []);
             }
           }}

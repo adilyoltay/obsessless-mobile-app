@@ -20,7 +20,7 @@ import Svg, {
   Ellipse
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import type { MoodJourneyExtended, TimeRange, AggregatedData } from '@/types/mood';
+import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString } from '@/utils/timezoneUtils';
 import { monthsLongShort, monthsShort as monthsVeryShort, daysShort } from '@/utils/dateAggregation';
@@ -108,21 +108,27 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
   
-  // X ekseni etiketleri (Apple Health tarzı)
-  const formatXLabel = useCallback((dateStr: string) => {
-    const d = new Date(dateStr);
+  // X ekseni etiketleri (Apple Health tarzı) - item tabanlı
+  const formatXLabel = useCallback((item: DailyAverage | AggregatedData) => {
     if (timeRange === 'week') {
+      const d = new Date((item as DailyAverage).date);
       return daysShort[d.getDay()];
     }
     if (timeRange === 'month') {
-      // Haftalık aggregate: sadece Pazartesiler
+      // Haftalık aggregate: label'daki ilk günü göster ("1–7 Oca" -> "1")
+      const label = (item as AggregatedData).label || '';
+      const match = label.match(/^(\d+)/);
+      if (match) return match[1];
+      const d = new Date((item as AggregatedData).date);
       return d.getDate().toString();
     }
     if (timeRange === '6months') {
-      // Aylık aggregate: kısa ay ismi
-      return monthsLongShort[d.getMonth()].substring(0, 3);
+      // Aylık aggregate: kısa ay adı
+      const label = (item as AggregatedData).label || '';
+      return label.substring(0, 3);
     }
-    // year
+    // year: çok kısa ay
+    const d = new Date((item as AggregatedData).date);
     return monthsVeryShort[d.getMonth()];
   }, [timeRange]);
 
@@ -255,21 +261,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
   // X ekseni etiket gösterim mantığı
   const getXLabelVisibility = useCallback((index: number, total: number) => {
-    if (timeRange === 'week') return true;
-    if (timeRange === 'month') {
-      // Haftalık aggregate: her bucket için etiket gösterilebilir
-      return true;
-    }
-    if (timeRange === '6months') {
-      // Aylık aggregate: her ay başı (her bucket ay başı zaten)
-      return true;
-    }
-    if (timeRange === 'year') {
-      // Aylık aggregate: her ay
-      return true;
-    }
-    return false;
-  }, [timeRange]);
+    // Basit virtualization: etiketler arası min piksel mesafesi
+    const minLabelPx = timeRange === 'week' ? 18 : timeRange === 'month' ? 22 : 28;
+    const step = Math.max(1, Math.ceil((total * minLabelPx) / Math.max(1, contentWidth)));
+    if (index === 0 || index === total - 1) return true;
+    return index % step === 0;
+  }, [timeRange, contentWidth]);
 
   // Dominant emotion and simple trend (first vs last non-zero)
   const dominantEmotion = data.statistics?.dominantEmotions?.[0]?.emotion || '—';
@@ -458,9 +455,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const todayKeyLbl = getUserDateString(new Date());
               return items.map((it: any, index: number) => {
                 const x = AXIS_WIDTH + (index * dw) + (dw / 2);
-                const dateStr = isAggregateMode ? (it as AggregatedData).date : (it as any).date;
                 const showLabel = getXLabelVisibility(index, n);
-                const isTodayLbl = !isAggregateMode && dateStr === todayKeyLbl;
+                const isTodayLbl = !isAggregateMode && (it as any).date === todayKeyLbl;
                 if (!showLabel) return null;
                 return (
                   <SvgText
@@ -472,7 +468,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     textAnchor="middle"
                     fontWeight={isTodayLbl ? '600' : '400'}
                   >
-                    {formatXLabel(dateStr)}
+                    {formatXLabel(it)}
                   </SvgText>
                 );
               });
@@ -543,16 +539,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 return (
                   <G key={`ph-bucket-${index}`}>
                     <Line
-                      x1={x}
-                      y1={neutralY - 10}
-                      x2={x}
-                      y2={neutralY + 10}
+                      x1={x - 10}
+                      y1={neutralY}
+                      x2={x + 10}
+                      y2={neutralY}
                       stroke={APPLE_COLORS.placeholder}
-                      strokeWidth={2}
+                      strokeWidth={1}
+                      strokeDasharray="2,2"
                       strokeLinecap="round"
-                      opacity={0.6}
+                      opacity={0.75}
                     />
-                    <Circle cx={x} cy={neutralY} r={3.2} fill={APPLE_COLORS.placeholder} opacity={0.85} />
+                    <Circle cx={x} cy={neutralY} r={3} fill={APPLE_COLORS.placeholder} opacity={0.8} />
                   </G>
                 );
               });
