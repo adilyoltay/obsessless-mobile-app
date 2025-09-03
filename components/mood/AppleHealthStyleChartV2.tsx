@@ -107,6 +107,15 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
+
+  // Helpers for band sizing
+  const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  const varianceOf = (nums: number[]) => {
+    if (!nums || nums.length <= 1) return 0;
+    const mean = nums.reduce((s, n) => s + n, 0) / nums.length;
+    return nums.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / (nums.length - 1);
+  };
   
   // X ekseni etiketleri (Apple Health tarzı) - item tabanlı
   const formatXLabel = useCallback((item: DailyAverage | AggregatedData) => {
@@ -422,21 +431,34 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Dikey bantlar (birden fazla giriş için) - Apple Health tarzı */}
             {verticalBands.map((band, index) => (
               <G key={`band-${index}`}>
-                {/* Arka plan çizgisi - kısaltılmış bar */}
+                {/* Arka plan çizgisi - dinamik kısaltma + min uzunluk + piksel snap */}
                 {(() => {
-                  const shrink = isAggregateMode ? 0.8 : 0.85; // shorten bars
+                  const entryCount = Array.isArray(band.entries) ? band.entries.length : 0;
+                  const moods = (Array.isArray(band.entries) ? band.entries : []).map((e: any) => Number(e?.mood_score)).filter((n: any) => Number.isFinite(n));
+                  const variance = varianceOf(moods);
+                  const countFactor = Math.log(1 + entryCount) / Math.log(1 + 12); // 0..1
+                  const varFactor = clamp01(variance / 50); // 0..1 (~50 varyans referans)
+                  const t = clamp01((countFactor + varFactor) / 2);
+                  const range = timeRange === 'week' ? [0.70, 0.90] : timeRange === 'month' ? [0.68, 0.85] : [0.65, 0.80];
+                  const shrink = lerp(range[0], range[1], t);
+                  const minBandPx = 8;
                   const half = Math.max(0, (band.maxY - band.minY) / 2);
-                  const newHalf = half * shrink;
-                  const y1 = Math.max(CHART_PADDING_TOP, band.avgY - newHalf);
-                  const y2 = Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT, band.avgY + newHalf);
+                  const newHalf = Math.max(minBandPx / 2, half * shrink);
+                  const y1Raw = Math.max(CHART_PADDING_TOP, band.avgY - newHalf);
+                  const y2Raw = Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT, band.avgY + newHalf);
+                  const y1 = Math.round(y1Raw) + 0.5;
+                  const y2 = Math.round(y2Raw) + 0.5;
+                  const baseW = mapEnergyToWidth(band.energyAvg, 2, 6);
+                  const energyNorm = clamp01(((band.energyAvg || 0) - 4) / 6);
+                  const sw = baseW * (0.9 + 0.25 * energyNorm);
                   return (
                     <Line
-                      x1={band.x}
+                      x1={Math.round(band.x) + 0.5}
                       y1={y1}
-                      x2={band.x}
+                      x2={Math.round(band.x) + 0.5}
                       y2={y2}
                       stroke={band.color}
-                      strokeWidth={mapEnergyToWidth(band.energyAvg, 2, 6) * (isAggregateMode ? (timeRange === 'month' ? 1.05 : 1.15) : 1)}
+                      strokeWidth={sw}
                       strokeLinecap="round"
                       opacity={mapEnergyToOpacity(band.energyAvg, 0.25, 0.6)}
                     />
