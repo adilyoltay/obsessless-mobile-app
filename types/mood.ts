@@ -50,6 +50,8 @@ export interface AggregatedData {
   min: number;
   max: number;
   variance?: number;
+  p10?: number;
+  p90?: number;
   count: number; // toplam giriş sayısı
   entries: MoodEntryLite[]; // detay için ham girdiler
 }

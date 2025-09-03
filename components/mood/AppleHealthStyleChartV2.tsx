@@ -248,8 +248,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     const bw = contentWidth / Math.max(1, buckets.length);
     buckets.forEach((b, index) => {
       const x = AXIS_WIDTH + (index * bw) + (bw / 2);
-      const minVal = moodToValence(b.min || 0);
-      const maxVal = moodToValence(b.max || 0);
+      const lowMood = (typeof b.p10 === 'number' ? b.p10 : b.min) || 0;
+      const highMood = (typeof b.p90 === 'number' ? b.p90 : b.max) || 0;
+      const minVal = moodToValence(lowMood);
+      const maxVal = moodToValence(highMood);
       const avgVal = moodToValence(b.averageMood || 0);
       const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
@@ -474,6 +476,31 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 />
               </G>
             ))}
+
+            {/* Outliers (outside p10–p90) as faint dots */}
+            {isAggregateMode && (() => {
+              const buckets: AggregatedData[] = data.aggregated?.data || [];
+              const bw = contentWidth / Math.max(1, buckets.length);
+              const dots: any[] = [];
+              buckets.forEach((b, index) => {
+                const p10 = (typeof b.p10 === 'number' ? b.p10 : b.min) ?? 0;
+                const p90 = (typeof b.p90 === 'number' ? b.p90 : b.max) ?? 0;
+                const x = AXIS_WIDTH + (index * bw) + (bw / 2);
+                const entries = b.entries || [];
+                entries.forEach((e: any, i: number) => {
+                  const mood = Number(e?.mood_score || 0);
+                  if (mood < p10 || mood > p90) {
+                    const val = moodToValence(mood);
+                    const y = CHART_PADDING_TOP + (1 - ((val + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                    const color = getColorForMood(mood, Number(e?.energy_level || 6));
+                    dots.push(
+                      <Circle key={`outlier-${index}-${i}`} cx={x} cy={y} r={2.2} fill={color} opacity={0.35} />
+                    );
+                  }
+                });
+              });
+              return dots;
+            })()}
 
             {/* Veri noktaları - Apple Health tarzı */}
             {dataPoints.map((point, index) => {

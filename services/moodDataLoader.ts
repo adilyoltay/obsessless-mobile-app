@@ -3,7 +3,7 @@ import moodTracker from '@/services/moodTrackingService';
 import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
-import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
+import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average, quantile } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
 
@@ -210,6 +210,8 @@ export class OptimizedMoodDataLoader {
               averageEnergy: average(energies) || 0,
               min: moods.length ? Math.min(...moods) : 0,
               max: moods.length ? Math.max(...moods) : 0,
+              p10: moods.length ? quantile(moods, 0.10) : undefined,
+              p90: moods.length ? quantile(moods, 0.90) : undefined,
               count: entriesForWeek.length,
               entries: entriesForWeek,
             } as AggregatedData;
@@ -247,6 +249,8 @@ export class OptimizedMoodDataLoader {
               min: moods.length ? Math.min(...moods) : 0,
               max: moods.length ? Math.max(...moods) : 0,
               variance: calculateVariance(moods) || 0,
+              p10: moods.length ? quantile(moods, 0.10) : undefined,
+              p90: moods.length ? quantile(moods, 0.90) : undefined,
               count: entriesForMonth.length,
               entries: entriesForMonth,
             } as AggregatedData;
