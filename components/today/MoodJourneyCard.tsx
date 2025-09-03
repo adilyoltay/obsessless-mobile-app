@@ -172,7 +172,7 @@ export default function MoodJourneyCard({ data }: Props) {
       </View>
 
       {/* Chart container with header/tooltip overlay area */}
-      <View style={{ position: 'relative', paddingTop: 60 }}>
+      <View style={{ position: 'relative', paddingTop: 68 }}>
         {/* Fixed overlay area above chart: shows summary or tooltip */}
         {!chartSelection && extended && (
           <View style={styles.chartTopOverlay} pointerEvents="none">
@@ -325,7 +325,7 @@ export default function MoodJourneyCard({ data }: Props) {
                 return top || '—';
               })();
               return (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 60 }} pointerEvents="box-none">
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68 }} pointerEvents="box-none">
                   <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                       <View>
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 68,
     paddingHorizontal: 20,
     justifyContent: 'center',
   },
