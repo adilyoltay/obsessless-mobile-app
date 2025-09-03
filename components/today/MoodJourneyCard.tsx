@@ -3,6 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
+import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSelectorV2';
+import AppleHealthStyleChartV2 from '@/components/mood/AppleHealthStyleChartV2';
+import AppleHealthDetailSheet from '@/components/mood/AppleHealthDetailSheet';
+import { moodDataLoader } from '@/services/moodDataLoader';
+import type { TimeRange, MoodJourneyExtended } from '@/types/mood';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 type Props = {
   data: MoodJourneyData;
@@ -11,6 +17,20 @@ type Props = {
 // Color mapping centralized in utils/colorUtils.ts
 
 export default function MoodJourneyCard({ data }: Props) {
+  const { user } = useAuth();
+  const [range, setRange] = React.useState<TimeRange>('week');
+  const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
+  const [detailDate, setDetailDate] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!user?.id) return;
+      const res = await moodDataLoader.loadTimeRange(user.id, range);
+      if (mounted) setExtended(res);
+    })();
+    return () => { mounted = false; };
+  }, [user?.id, range]);
   // Build emotion distribution (top-3)
   const entries = data.weeklyEntries.filter(e => (e as any).mood_score > 0);
   const distribution = React.useMemo(() => {
@@ -60,76 +80,35 @@ export default function MoodJourneyCard({ data }: Props) {
   }, [entries]);
 
   const dominant = distribution[0]?.emotion || 'Henüz Yok';
+  const trend = extended?.weeklyTrend || null;
 
   const days = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
   const today = new Date().getDay();
   
   // Horizontal spectrum bar aligned to VA palette (constant energy)
   const paletteColors = React.useMemo(() => {
-    const paletteEnergy = 6; // Stabil, sabit enerji
+    const paletteEnergy = Math.round((data.weeklyEnergyAvg || 6)); // Kişiselleştirilmiş enerji
     const stops = [15, 25, 35, 45, 55, 65, 75, 85, 95];
     return stops.map(s => getVAColorFromScores(s, paletteEnergy));
-  }, []);
+  }, [data.weeklyEnergyAvg]);
 
   return (
     <View style={styles.container}>
-      {/* Spectrum bar */}
-      <LinearGradient
-        colors={paletteColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.miniSpectrumBar}
-      />
-
-      {/* Header with Dominant emotion */}
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Mood Yolculuğun</Text>
-        <View style={styles.dominantRow}>
-          <Text style={styles.dominantLabel}>Baskın:</Text>
-          <Text style={styles.dominantEmotion}>{dominant}</Text>
-        </View>
+      {/* Time range selector row */}
+      <View style={styles.selectorWrapper}>
+        <AppleHealthTimeSelectorV2 selected={range} onChange={setRange} />
       </View>
 
-      {/* Weekly bars */}
-      <View style={styles.barsRow}>
-        {[...data.weeklyEntries].reverse().map((entry, index) => {
-          // mood_score in 0–100 scale → map to 10..90 px (0 treated as empty day)
-          const score = (entry as any).mood_score || 0;
-          const barHeight = Math.min(Math.max((score / 100) * 90, 10), 90);
-          const isToday = index === 6;
-          const dayIndex = (today - (6 - index) + 7) % 7;
-          const emotionColor = (() => {
-            if (score <= 0) return '#E5E7EB';
-            const base = getVAColorFromScores(score, (entry as any).energy_level);
-            const [start] = getGradientFromBase(base);
-            return start; // Hero gradient 'start' rengiyle hizala
-          })();
-          return (
-            <View key={`${entry.id || 'unknown'}_${index}`} style={styles.barContainer}>
-              <View style={[
-                styles.emotionBar,
-                { 
-                  height: barHeight, 
-                  backgroundColor: emotionColor, 
-                  opacity: isToday ? 1 : (score > 0 ? 0.85 : 0.6)
-                }
-              ]} />
-              <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{days[dayIndex]}</Text>
-            </View>
-          );
-        })}
-      </View>
+      {/* Interactive chart - Apple Health Style V2 */}
+      {extended && (
+        <AppleHealthStyleChartV2
+          data={extended}
+          timeRange={range}
+          onDayPress={(date) => setDetailDate(date)}
+        />
+      )}
 
-      {/* Top-3 emotion distribution */}
-      <View style={styles.emotionDots}>
-        {distribution.map((e, i) => (
-          <View key={i} style={styles.emotionDot}>
-            <View style={[styles.dot, { backgroundColor: e.color }]} />
-            <Text style={styles.dotLabel}>{e.emotion}</Text>
-            <Text style={styles.dotPercentage}>{e.percentage}%</Text>
-          </View>
-        ))}
-      </View>
+      {/* Top-3 emotion distribution kaldırıldı */}
 
       {/* Stats row */}
       <View style={styles.statsRow}>
@@ -137,6 +116,16 @@ export default function MoodJourneyCard({ data }: Props) {
         <Text style={styles.stat}>E: {data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
         <Text style={styles.stat}>A: {data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
       </View>
+
+      {/* Detail modal - Apple Health Style */}
+      {detailDate && extended && (
+        <AppleHealthDetailSheet
+          visible={!!detailDate}
+          date={detailDate}
+          entries={extended.rawDataPoints[detailDate]?.entries || []}
+          onClose={() => setDetailDate(null)}
+        />
+      )}
     </View>
   );
 }
@@ -160,6 +149,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  selectorWrapper: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  selectorBadgeRow: {
+    position: 'absolute',
+    right: 8,
+    bottom: -2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  chipLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginRight: 4,
+    fontWeight: '600',
+  },
+  chipValue: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '700',
+  },
   title: {
     fontSize: 15,
     fontWeight: '700',
@@ -180,6 +200,14 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     fontWeight: '600',
   },
+  trend: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  trendUp: { color: '#10B981' },
+  trendDown: { color: '#EF4444' },
+  trendStable: { color: '#6B7280' },
   barsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -229,7 +257,10 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
   },
   stat: {
     fontSize: 12,

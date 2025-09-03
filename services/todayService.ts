@@ -120,11 +120,14 @@ export const todayService = {
         ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.anxiety_level, 0) / weeklyEntriesWithData.length
         : 0;
 
-      // Trend based on first non-zero vs last non-zero in normalized range
+      // Trend based on first non-zero (today-most recent) vs last non-zero (oldest) in normalized range
       const nonZero = normalizedDaily.filter(e => (e.mood_score || 0) > 0);
-      const weeklyTrend: 'up' | 'down' | 'stable' = nonZero.length >= 2
-        ? (nonZero[0].mood_score > nonZero[nonZero.length - 1].mood_score ? 'up' : 'down')
-        : 'stable';
+      let weeklyTrend: 'up' | 'down' | 'stable' = 'stable';
+      if (nonZero.length >= 2) {
+        const first = nonZero[0].mood_score || 0; // today-most recent non-zero
+        const last = nonZero[nonZero.length - 1].mood_score || 0; // oldest non-zero
+        weeklyTrend = first > last ? 'up' : first < last ? 'down' : 'stable';
+      }
 
       moodJourneyData = {
         weeklyEntries: normalizedDaily, // length 7, today-first (card reverses internally)
