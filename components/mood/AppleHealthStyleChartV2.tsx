@@ -294,7 +294,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         <View style={styles.summaryInfo}>
           <View>
             <Text style={styles.entryCount}>
-              Toplam{'\n'}
+              TOPLAM{'\n'}
               <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
             </Text>
             <Text style={styles.dateRange}>
@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
   entryCount: {
     fontSize: 13,
     color: APPLE_COLORS.axisText,
-    fontWeight: '700',
+    fontWeight: '400',
     letterSpacing: 0.2,
   },
   entryCountValue: {
