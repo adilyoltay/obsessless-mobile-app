@@ -566,12 +566,41 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             // Build text content
             let line1 = '';
             let line2 = '';
+            let emotionsLine = '';
+            let dateStrSel = '';
+            // Helper: map mood score to emotion label (same bins as card)
+            const moodToEmotion = (s: number) => (
+              s >= 90 ? 'Heyecanlı' :
+              s >= 80 ? 'Enerjik'  :
+              s >= 70 ? 'Mutlu'    :
+              s >= 60 ? 'Sakin'    :
+              s >= 50 ? 'Normal'   :
+              s >= 40 ? 'Endişeli' :
+              s >= 30 ? 'Sinirli'  :
+              s >= 20 ? 'Üzgün'    : 'Kızgın'
+            );
+            const summarizeEmotions = (entries: any[]) => {
+              const counts = new Map<string, number>();
+              (entries || []).forEach(e => {
+                const emo = moodToEmotion(Number(e?.mood_score || 0));
+                counts.set(emo, (counts.get(emo) || 0) + 1);
+              });
+              const top = Array.from(counts.entries())
+                .sort((a,b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([k]) => k);
+              return top.join(', ');
+            };
             if (!isAggregateMode) {
               const day = items[selectedIndex] as any;
               const dateIso = `${day.date}T00:00:00.000Z`;
               const dayText = formatDateInUserTimezone(dateIso, 'medium');
               const count = Number(day.count || 0);
               line1 = `Gün: ${count} giriş — ${dayText}`;
+              dateStrSel = day.date;
+              // emotions from rawDataPoints
+              const raw = data.rawDataPoints?.[day.date]?.entries || [];
+              emotionsLine = summarizeEmotions(raw);
               // week range and total
               const ws = getWeekStart(dateIso);
               const we = new Date(ws); we.setDate(ws.getDate() + 6);
@@ -583,6 +612,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             } else {
               const b = items[selectedIndex] as AggregatedData;
               const count = Number(b.count || 0);
+              dateStrSel = b.date;
+              emotionsLine = summarizeEmotions((b as any).entries || []);
               if (timeRange === 'month') {
                 line1 = `Hafta: Toplam ${count} giriş — ${(b as any).label || ''}`;
               } else {
@@ -593,12 +624,15 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x - TOOLTIP_W / 2));
             const top = Math.max(0, CHART_PADDING_TOP - 10);
             return (
-              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}> 
+              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}> 
                 <View style={{ position: 'absolute', left, top }}>
-                  <View style={styles.tooltipBox}>
-                    <Text style={styles.tooltipText}>{line1}</Text>
-                    {!!line2 && <Text style={styles.tooltipSub}>{line2}</Text>}
-                  </View>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => onDayPress?.(dateStrSel)}>
+                    <View style={styles.tooltipBox}>
+                      {!!emotionsLine && <Text style={styles.tooltipEmo}>Duygular: {emotionsLine}</Text>}
+                      <Text style={styles.tooltipText}>{line1}</Text>
+                      {!!line2 && <Text style={styles.tooltipSub}>{line2}</Text>}
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -738,6 +772,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#111827',
     fontWeight: '600',
+  },
+  tooltipEmo: {
+    fontSize: 11,
+    color: '#374151',
+    marginBottom: 2,
   },
   tooltipSub: {
     marginTop: 2,
