@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
@@ -128,21 +129,34 @@ export default function MoodJourneyCard({ data }: Props) {
 
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <Text style={styles.stat}>
-          <Text style={[styles.statLabel, styles.statLabelMood]}>● M</Text>
-          <Text style={styles.statSep}>: </Text>
+        {/* Mood (smile) */}
+        <View style={styles.statItem}>
+          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Mood">
+            <Circle cx={8} cy={8} r={6.6} stroke="#007AFF" strokeWidth={1.6} fill="none" />
+            <Circle cx={5.6} cy={6.3} r={0.9} fill="#007AFF" />
+            <Circle cx={10.4} cy={6.3} r={0.9} fill="#007AFF" />
+            <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke="#007AFF" strokeWidth={1.6} fill="none" strokeLinecap="round" />
+          </Svg>
           <Text style={styles.statValue}>{data.todayAverage > 0 ? data.todayAverage.toFixed(1) : '—'}</Text>
-        </Text>
-        <Text style={styles.stat}>
-          <Text style={[styles.statLabel, styles.statLabelEnergy]}>● E</Text>
-          <Text style={styles.statSep}>: </Text>
+        </View>
+
+        {/* Energy (bolt) */}
+        <View style={styles.statItem}>
+          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
+            <Path d="M9 1 L4 8.5 H8 L7 15 L12 7.5 H8 Z" fill="#10B981" />
+          </Svg>
           <Text style={styles.statValue}>{data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
-        </Text>
-        <Text style={styles.stat}>
-          <Text style={[styles.statLabel, styles.statLabelAnxiety]}>● A</Text>
-          <Text style={styles.statSep}>: </Text>
+        </View>
+
+        {/* Anxiety (warning) */}
+        <View style={styles.statItem}>
+          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
+            <Path d="M8 2 L14 13 H2 Z" fill="none" stroke="#EF4444" strokeWidth={1.6} />
+            <Rect x={7.2} y={6} width={1.6} height={4.2} rx={0.8} fill="#EF4444" />
+            <Rect x={7.2} y={11.2} width={1.6} height={1.6} rx={0.8} fill="#EF4444" />
+          </Svg>
           <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
-        </Text>
+        </View>
       </View>
 
       {/* Detail modal - Apple Health Style */}
@@ -294,6 +308,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#111827',
     fontWeight: '700',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
   },
   statLabel: {
     fontWeight: '800',
