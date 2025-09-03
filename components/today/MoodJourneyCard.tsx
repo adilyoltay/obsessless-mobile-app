@@ -282,7 +282,7 @@ export default function MoodJourneyCard({ data }: Props) {
               }}
             />
             
-            {/* Tooltip content */}
+            {/* Tooltip content (confined to top overlay area) */}
             {(() => {
               const fallbackW = 180;
               const w = tooltipWidth > 0 ? tooltipWidth : fallbackW;
@@ -325,25 +325,27 @@ export default function MoodJourneyCard({ data }: Props) {
                 return top || '—';
               })();
               return (
-                <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
-                  <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
-                    <View>
-                      <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
-                        <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-                        <View style={styles.tooltipMetaRow}>
-                          <Svg width={12} height={12} viewBox="0 0 12 12" style={{ marginRight: 6 }}>
-                            <Circle cx={6} cy={6} r={5.2} fill="#F3F4F6" stroke="#9CA3AF" strokeWidth={1} />
-                            <Path d="M3.3 6 L5.0 7.7 L8.7 4.4" stroke="#10B981" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                          </Svg>
-                          <Text style={styles.tooltipMeta}>Baskın: <Text style={styles.tooltipMetaValue}>{selectedDominant}</Text></Text>
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 60 }} pointerEvents="box-none">
+                  <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
+                      <View>
+                        <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
+                          <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                          <View style={styles.tooltipMetaRow}>
+                            <Svg width={12} height={12} viewBox="0 0 12 12" style={{ marginRight: 6 }}>
+                              <Circle cx={6} cy={6} r={5.2} fill="#F3F4F6" stroke="#9CA3AF" strokeWidth={1} />
+                              <Path d="M3.3 6 L5.0 7.7 L8.7 4.4" stroke="#10B981" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                            </Svg>
+                            <Text style={styles.tooltipMeta}>Baskın: <Text style={styles.tooltipMetaValue}>{selectedDominant}</Text></Text>
+                          </View>
+                          <Text style={styles.dateRange}>{chartSelection.label}</Text>
                         </View>
-                        <Text style={styles.dateRange}>{chartSelection.label}</Text>
+                        {/* Arrow pointing down to bar */}
+                        <View style={[styles.tooltipArrow, { left: pointerX }]} />
                       </View>
-                      {/* Arrow pointing down to bar */}
-                      <View style={[styles.tooltipArrow, { left: pointerX }]} />
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
+                    </TouchableOpacity>
+                  </Animated.View>
+                </View>
               );
             })()}
           </View>
