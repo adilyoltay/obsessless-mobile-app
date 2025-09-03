@@ -21,6 +21,7 @@ export default function MoodJourneyCard({ data }: Props) {
   const [range, setRange] = React.useState<TimeRange>('week');
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
   const [detailDate, setDetailDate] = React.useState<string | null>(null);
+  const [detailEntries, setDetailEntries] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -104,7 +105,18 @@ export default function MoodJourneyCard({ data }: Props) {
         <AppleHealthStyleChartV2
           data={extended}
           timeRange={range}
-          onDayPress={(date) => setDetailDate(date)}
+          onDayPress={(date) => {
+            setDetailDate(date);
+            if (!extended) return;
+            if (range === 'week') {
+              const e = extended.rawDataPoints[date]?.entries || [];
+              setDetailEntries(e);
+            } else {
+              const agg = extended.aggregated?.data || [];
+              const bucket = agg.find(b => b.date === date);
+              setDetailEntries(bucket?.entries || []);
+            }
+          }}
         />
       )}
 
@@ -118,11 +130,11 @@ export default function MoodJourneyCard({ data }: Props) {
       </View>
 
       {/* Detail modal - Apple Health Style */}
-      {detailDate && extended && (
+      {detailDate && (
         <AppleHealthDetailSheet
           visible={!!detailDate}
           date={detailDate}
-          entries={extended.rawDataPoints[detailDate]?.entries || []}
+          entries={detailEntries}
           onClose={() => setDetailDate(null)}
         />
       )}

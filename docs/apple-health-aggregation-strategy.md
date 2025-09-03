@@ -406,4 +406,30 @@ const aggregatedData = aggregateDataByTimeRange(entries, range);
 
 ---
 
+ Ana Bölümler:
+Temel Prensipler - Zaman aralığı bazlı aggregation stratejisi
+Uygulama Planı - Detaylı teknik yaklaşım
+Gerekli Değişiklikler - Kod örnekleri ve implementasyon
+Yeni Veri Yapıları - Interface'ler ve yardımcı fonksiyonlar
+Performans Avantajları - Optimizasyon faydaları
+Uygulama Adımları - Sprint planlaması
+🔧 Teknik Detaylar:
+Hafta: 7 gün → 7 veri noktası
+Ay: 30 gün → 4-5 hafta (haftalık aggregate)
+6 Ay: 180 gün → 6 ay (aylık aggregate)
+Yıl: 365 gün → 12 ay (aylık aggregate)
+📊 Kod Örnekleri:
+Aggregation fonksiyonları
+Grid çizgileri mantığı
+Etiket formatları
+Performans optimizasyonları
+
+Apple Health Uyumluluğu:
+Bar genişlikleri zaman aralığına göre ayarlanır
+Grid çizgileri sadece önemli tarihlerde gösterilir
+Etiketler okunabilir ve minimal
+Renk kodlaması korunur
+Bu doküman, mevcut çözümü hiç değiştirmeden, Apple Health'in aggregation yaklaşımını ObsessLess uygulamasına entegre etmek için gereken tüm teknik detayları içeriyor. 🚀
+
+
 *Bu doküman, ObsessLess uygulamasının Mood Journey grafiğini Apple Health standartlarına yükseltmek için hazırlanmıştır.*

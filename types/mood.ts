@@ -41,6 +41,19 @@ export interface RawDataPoint {
   source?: 'voice' | 'manual' | 'apple_health' | string;
 }
 
+// Apple Health tarzı toplulaştırılmış veri yapısı
+export interface AggregatedData {
+  date: string; // YYYY-MM-DD (hafta için Pazartesi), ay için YYYY-MM-01
+  label: string; // Görsel etiket (örn. "1-7 Oca" veya "Ocak 2025")
+  averageMood: number;
+  averageEnergy: number;
+  min: number;
+  max: number;
+  variance?: number;
+  count: number; // toplam giriş sayısı
+  entries: MoodEntryLite[]; // detay için ham girdiler
+}
+
 export interface MoodJourneyExtended {
   // Existing-like fields
   weeklyEntries: MoodEntryLite[];
@@ -77,5 +90,10 @@ export interface MoodJourneyExtended {
 
   // Daily aggregates for bar chart
   dailyAverages: DailyAverage[];
-}
 
+  // Seçili aralığa uygun aggregate veri (haftalık/aylık)
+  aggregated?: {
+    granularity: 'day' | 'week' | 'month';
+    data: AggregatedData[];
+  };
+}

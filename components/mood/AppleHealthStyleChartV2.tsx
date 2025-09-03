@@ -20,9 +20,10 @@ import Svg, {
   Ellipse
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import type { MoodJourneyExtended, TimeRange } from '@/types/mood';
+import type { MoodJourneyExtended, TimeRange, AggregatedData } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString } from '@/utils/timezoneUtils';
+import { monthsLongShort, monthsShort as monthsVeryShort, daysShort } from '@/utils/dateAggregation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const APPLE_COLORS = {
   axisText: '#6B7280',        // Biraz daha koyu gri metin (daha okunur)
   dateText: '#000000',        // Siyah tarih metni
   dotBorder: '#FFFFFF',       // Nokta kenar rengi
+  placeholder: '#D1D5DB',     // Gri placeholder
 };
 
 // Mood skorunu Apple Health valans değerine dönüştür (-1 to +1)
@@ -106,26 +108,27 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
   
-  // Tarih formatı
-  const formatDate = useCallback((date: string) => {
-    const d = new Date(date);
+  // X ekseni etiketleri (Apple Health tarzı)
+  const formatXLabel = useCallback((dateStr: string) => {
+    const d = new Date(dateStr);
     if (timeRange === 'week') {
-      const days = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
-      return days[d.getDay()];
-    } else if (timeRange === 'month') {
-      return d.getDate().toString();
-    } else if (timeRange === '6months') {
-      const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 
-                     'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-      return `${d.getDate()} ${months[d.getMonth()].substring(0, 3)}`;
-    } else {
-      const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 
-                     'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-      return months[d.getMonth()];
+      return daysShort[d.getDay()];
     }
+    if (timeRange === 'month') {
+      // Haftalık aggregate: sadece Pazartesiler
+      return d.getDate().toString();
+    }
+    if (timeRange === '6months') {
+      // Aylık aggregate: kısa ay ismi
+      return monthsLongShort[d.getMonth()].substring(0, 3);
+    }
+    // year
+    return monthsVeryShort[d.getMonth()];
   }, [timeRange]);
 
-  // Veri noktalarını hazırla
+  const isAggregateMode = timeRange !== 'week';
+
+  // Veri noktalarını hazırla (haftalık: ham girişleri; aggregate: bucket ortalaması)
   const dataPoints = useMemo(() => {
     const points: Array<{
       x: number;
@@ -138,36 +141,53 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       color: string;
     }> = [];
 
-    const dayWidth = contentWidth / Math.max(1, data.dailyAverages.length);
-    
-    data.dailyAverages.forEach((day, index) => {
-      const rawPoints = data.rawDataPoints[day.date];
-      const x = AXIS_WIDTH + (index * dayWidth) + (dayWidth / 2);
-      
-      if (rawPoints && rawPoints.entries.length > 0) {
-        // Her giriş için nokta ekle
-        rawPoints.entries.forEach(entry => {
-          const valence = moodToValence(entry.mood_score);
-          const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
-          
-          points.push({
-            x,
-            y,
-            date: day.date,
-            mood: entry.mood_score,
-            energy: entry.energy_level,
-            hasMultiple: rawPoints.entries.length > 1,
-            entries: rawPoints.entries,
-            color: getColorForMood(entry.mood_score, entry.energy_level)
+    if (!isAggregateMode) {
+      const dayWidth = contentWidth / Math.max(1, data.dailyAverages.length);
+      data.dailyAverages.forEach((day, index) => {
+        const rawPoints = data.rawDataPoints[day.date];
+        const x = AXIS_WIDTH + (index * dayWidth) + (dayWidth / 2);
+        if (rawPoints && rawPoints.entries.length > 0) {
+          rawPoints.entries.forEach(entry => {
+            const valence = moodToValence(entry.mood_score);
+            const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
+            points.push({
+              x,
+              y,
+              date: day.date,
+              mood: entry.mood_score,
+              energy: entry.energy_level,
+              hasMultiple: rawPoints.entries.length > 1,
+              entries: rawPoints.entries,
+              color: getColorForMood(entry.mood_score, entry.energy_level)
+            });
           });
-        });
-      }
+        }
+      });
+      return points;
+    }
+
+    const buckets: AggregatedData[] = data.aggregated?.data || [];
+    const bw = contentWidth / Math.max(1, buckets.length);
+    buckets.forEach((b, index) => {
+      const valence = moodToValence(b.averageMood || 0);
+      const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      const x = AXIS_WIDTH + (index * bw) + (bw / 2);
+      points.push({
+        x,
+        y,
+        date: b.date,
+        mood: b.averageMood || 0,
+        energy: b.averageEnergy || 6,
+        hasMultiple: (b.count || 0) > 1,
+        entries: b.entries || [],
+        color: getColorForMood(b.averageMood || 0, b.averageEnergy || 6)
+      });
     });
     
     return points;
-  }, [data, contentWidth]);
+  }, [data, contentWidth, isAggregateMode, timeRange]);
 
-  // Dikey bantları grupla (Apple Health tarzı)
+  // Dikey bantlar (Apple Health tarzı): haftalıkta gün içi çoklu; aggregate modda bucket min-max
   const verticalBands = useMemo(() => {
     const bands: Array<{
       x: number;
@@ -179,59 +199,77 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       color: string;
       energyAvg: number;
     }> = [];
-    
-    const grouped = new Map<string, any[]>();
-    dataPoints.forEach(point => {
-      if (!grouped.has(point.date)) {
-        grouped.set(point.date, []);
-      }
-      grouped.get(point.date)?.push(point);
+
+    if (!isAggregateMode) {
+      const grouped = new Map<string, any[]>();
+      dataPoints.forEach(point => {
+        if (!grouped.has(point.date)) grouped.set(point.date, []);
+        grouped.get(point.date)!.push(point);
+      });
+      grouped.forEach((points, date) => {
+        if (points.length > 1) {
+          const ys = points.map(p => p.y);
+          const moods = points.map(p => p.mood);
+          const avgMood = moods.reduce((a, b) => a + b, 0) / moods.length;
+          const avgEnergy = points.reduce((a, b) => a + b.energy, 0) / points.length;
+          const avgY = CHART_PADDING_TOP + (1 - ((moodToValence(avgMood) + 1) / 2)) * CHART_CONTENT_HEIGHT;
+          bands.push({
+            x: points[0].x,
+            minY: Math.min(...ys),
+            maxY: Math.max(...ys),
+            avgY,
+            date,
+            entries: points[0].entries,
+            color: getColorForMood(avgMood, avgEnergy),
+            energyAvg: avgEnergy,
+          });
+        }
+      });
+      return bands;
+    }
+
+    // Aggregate mod: derive from aggregated buckets (min/max/avg)
+    const buckets: AggregatedData[] = data.aggregated?.data || [];
+    const bw = contentWidth / Math.max(1, buckets.length);
+    buckets.forEach((b, index) => {
+      const x = AXIS_WIDTH + (index * bw) + (bw / 2);
+      const minVal = moodToValence(b.min || 0);
+      const maxVal = moodToValence(b.max || 0);
+      const avgVal = moodToValence(b.averageMood || 0);
+      const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      const avgY = CHART_PADDING_TOP + (1 - ((avgVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      bands.push({
+        x,
+        minY: Math.min(minY, maxY),
+        maxY: Math.max(minY, maxY),
+        avgY,
+        date: b.date,
+        entries: b.entries || [],
+        color: getColorForMood(b.averageMood || 0, b.averageEnergy || 6),
+        energyAvg: b.averageEnergy || 6,
+      });
     });
-    
-    grouped.forEach((points, date) => {
-      if (points.length > 1) {
-        const ys = points.map(p => p.y);
-        const moods = points.map(p => p.mood);
-        const avgMood = moods.reduce((a, b) => a + b, 0) / moods.length;
-        const avgEnergy = points.reduce((a, b) => a + b.energy, 0) / points.length;
-        const avgY = CHART_PADDING_TOP + (1 - ((moodToValence(avgMood) + 1) / 2)) * CHART_CONTENT_HEIGHT;
-        
-        bands.push({
-          x: points[0].x,
-          minY: Math.min(...ys),
-          maxY: Math.max(...ys),
-          avgY,
-          date,
-          entries: points[0].entries,
-          color: getColorForMood(avgMood, avgEnergy),
-          energyAvg: avgEnergy,
-        });
-      }
-    });
-    
     return bands;
-  }, [dataPoints]);
+  }, [dataPoints, data.aggregated, contentWidth, isAggregateMode]);
 
   // X ekseni etiket gösterim mantığı
   const getXLabelVisibility = useCallback((index: number, total: number) => {
     if (timeRange === 'week') return true;
     if (timeRange === 'month') {
-      // Her hafta başı veya ayın 1'i, 10'u, 20'si, 30'u
-      const day = new Date(data.dailyAverages[index].date);
-      return day.getDate() === 1 || day.getDate() % 7 === 1;
+      // Haftalık aggregate: her bucket için etiket gösterilebilir
+      return true;
     }
     if (timeRange === '6months') {
-      // Her ayın 1'i ve 15'i
-      const day = new Date(data.dailyAverages[index].date);
-      return day.getDate() === 1 || day.getDate() === 15;
+      // Aylık aggregate: her ay başı (her bucket ay başı zaten)
+      return true;
     }
     if (timeRange === 'year') {
-      // Her ayın 1'i
-      const day = new Date(data.dailyAverages[index].date);
-      return day.getDate() === 1;
+      // Aylık aggregate: her ay
+      return true;
     }
     return false;
-  }, [timeRange, data.dailyAverages]);
+  }, [timeRange]);
 
   // Dominant emotion and simple trend (first vs last non-zero)
   const dominantEmotion = data.statistics?.dominantEmotions?.[0]?.emotion || '—';
@@ -272,7 +310,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <ScrollView 
-        horizontal={data.dailyAverages.length > 30}
+        horizontal={(timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.hScrollContent}
@@ -304,13 +342,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               );
             })}
 
-            {/* Grid çizgileri (dikey - gün sınırları) */}
+            {/* Grid çizgileri (dikey) */}
             {(() => {
-              const n = data.dailyAverages.length;
+              const n = isAggregateMode ? (data.aggregated?.data?.length || 0) : data.dailyAverages.length;
               const dayWidth = contentWidth / Math.max(1, n);
               const todayKey = getUserDateString(new Date());
-              const todayIdx = data.dailyAverages.findIndex(d => d.date === todayKey);
-              const lines = [] as JSX.Element[];
+              const todayIdx = isAggregateMode ? -1 : data.dailyAverages.findIndex(d => d.date === todayKey);
+              const lines: any[] = [];
               for (let i = 0; i <= n; i++) {
                 const x = AXIS_WIDTH + i * dayWidth;
                 const isTodayBoundary = i === todayIdx || i === todayIdx + 1;
@@ -379,7 +417,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   x2={band.x}
                   y2={band.maxY}
                   stroke={band.color}
-                  strokeWidth={mapEnergyToWidth(band.energyAvg, 2, 6)}
+                  strokeWidth={mapEnergyToWidth(band.energyAvg, 2, 6) * (isAggregateMode ? (timeRange === 'month' ? 1.1 : 1.25) : 1)}
                   strokeLinecap="round"
                   opacity={mapEnergyToOpacity(band.energyAvg, 0.25, 0.6)}
                 />
@@ -397,7 +435,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Veri noktaları - Apple Health tarzı */}
             {dataPoints.map((point, index) => {
               const innerRBase = mapMoodToRadius(point.mood, 2.8, 4.8);
-              const innerR = Math.max(2.8, Math.min(4.8, point.hasMultiple ? innerRBase - 0.4 : innerRBase));
+              const sizeFactor = isAggregateMode ? (timeRange === 'month' ? 1.2 : 1.5) : 1;
+              const innerRBaseAdj = innerRBase * sizeFactor;
+              const innerR = Math.max(2.4, Math.min(6.5, point.hasMultiple && !isAggregateMode ? innerRBaseAdj - 0.4 : innerRBaseAdj));
               const outerR = innerR + 1.2;
               const innerOpacity = mapEnergyToOpacity(point.energy, 0.65, 1);
               return (
@@ -411,29 +451,32 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             })}
 
             {/* X ekseni etiketleri */}
-            {data.dailyAverages.map((day, index) => {
-              const dayWidth = contentWidth / Math.max(1, data.dailyAverages.length);
-              const x = AXIS_WIDTH + (index * dayWidth) + (dayWidth / 2);
-              const showLabel = getXLabelVisibility(index, data.dailyAverages.length);
+            {(() => {
+              const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
               const todayKeyLbl = getUserDateString(new Date());
-              const isTodayLbl = day.date === todayKeyLbl;
-              
-              if (!showLabel) return null;
-              
-              return (
-                <SvgText
-                  key={`x-label-${index}`}
-                  x={x}
-                  y={CHART_HEIGHT - CHART_PADDING_BOTTOM + 20}
-                  fontSize={11}
-                  fill={isTodayLbl ? '#374151' : APPLE_COLORS.axisText}
-                  textAnchor="middle"
-                  fontWeight={isTodayLbl ? '600' : '400'}
-                >
-                  {formatDate(day.date)}
-                </SvgText>
-              );
-            })}
+              return items.map((it: any, index: number) => {
+                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                const dateStr = isAggregateMode ? (it as AggregatedData).date : (it as any).date;
+                const showLabel = getXLabelVisibility(index, n);
+                const isTodayLbl = !isAggregateMode && dateStr === todayKeyLbl;
+                if (!showLabel) return null;
+                return (
+                  <SvgText
+                    key={`x-label-${index}`}
+                    x={x}
+                    y={CHART_HEIGHT - CHART_PADDING_BOTTOM + 20}
+                    fontSize={11}
+                    fill={isTodayLbl ? '#374151' : APPLE_COLORS.axisText}
+                    textAnchor="middle"
+                    fontWeight={isTodayLbl ? '600' : '400'}
+                  >
+                    {formatXLabel(dateStr)}
+                  </SvgText>
+                );
+              });
+            })()}
           </Svg>
 
           {/* Dokunmatik alanlar */}
@@ -441,27 +484,80 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             style={[StyleSheet.absoluteFill, { marginLeft: AXIS_WIDTH }]} 
             pointerEvents="box-none"
           >
-            {data.dailyAverages.map((day, index) => {
-              const dayWidth = contentWidth / Math.max(1, data.dailyAverages.length);
-              return (
-                <TouchableOpacity
-                  key={`touch-${day.date}`}
-                  style={{
-                    position: 'absolute',
-                    left: index * dayWidth,
-                    top: 0,
-                    width: dayWidth,
-                    height: CHART_HEIGHT - CHART_PADDING_BOTTOM
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onDayPress?.(day.date);
-                  }}
-                  testID={`mood-bar-${index}`}
-                />
-              );
-            })}
+            {(() => {
+              const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
+              return items.map((it: any, index: number) => {
+                const dateStr = isAggregateMode ? (it as AggregatedData).date : (it as any).date;
+                return (
+                  <TouchableOpacity
+                    key={`touch-${dateStr}-${index}`}
+                    style={{
+                      position: 'absolute',
+                      left: index * dw,
+                      top: 0,
+                      width: dw,
+                      height: CHART_HEIGHT - CHART_PADDING_BOTTOM
+                    }}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onDayPress?.(dateStr);
+                    }}
+                    testID={`mood-bar-${index}`}
+                  />
+                );
+              });
+            })()}
           </View>
+          {/* Placeholder'lar: veri olmayan gün/hafta/ay için gri nokta/çizgi */}
+          <Svg 
+            height={CHART_HEIGHT} 
+            width={chartWidth}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          >
+            {(() => {
+              if (!isAggregateMode) {
+                const n = data.dailyAverages.length;
+                const dw = contentWidth / Math.max(1, n);
+                return data.dailyAverages.map((day, index) => {
+                  if (day.count > 0) return null;
+                  const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                  const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
+                  return (
+                    <G key={`ph-day-${index}`}>
+                      <Circle cx={x} cy={neutralY} r={3} fill={APPLE_COLORS.placeholder} opacity={0.9} />
+                    </G>
+                  );
+                });
+              }
+              // Aggregate mode
+              const buckets: AggregatedData[] = data.aggregated?.data || [];
+              const n = buckets.length;
+              const dw = contentWidth / Math.max(1, n);
+              return buckets.map((b, index) => {
+                if ((b.count || 0) > 0) return null;
+                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
+                return (
+                  <G key={`ph-bucket-${index}`}>
+                    <Line
+                      x1={x}
+                      y1={neutralY - 10}
+                      x2={x}
+                      y2={neutralY + 10}
+                      stroke={APPLE_COLORS.placeholder}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      opacity={0.6}
+                    />
+                    <Circle cx={x} cy={neutralY} r={3.2} fill={APPLE_COLORS.placeholder} opacity={0.85} />
+                  </G>
+                );
+              });
+            })()}
+          </Svg>
         </View>
       </ScrollView>
       </View>

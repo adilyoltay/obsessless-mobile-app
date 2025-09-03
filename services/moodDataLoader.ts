@@ -2,7 +2,8 @@ import { InteractionManager } from 'react-native';
 import moodTracker from '@/services/moodTrackingService';
 import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
-import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint } from '@/types/mood';
+import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
+import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
 
@@ -182,6 +183,81 @@ export class OptimizedMoodDataLoader {
     const weeklyEnergyAvg = lite.length ? lite.reduce((s, e) => s + (e.energy_level || 6), 0) / lite.length : 0;
     const weeklyAnxietyAvg = lite.length ? lite.reduce((s, e) => s + (e.anxiety_level || 5), 0) / lite.length : 0;
 
+    // Build Apple Health tarzı aggregate (haftalık/aylık)
+    const aggregated = (() => {
+      if (range === 'month') {
+        // Haftalık aggregate: son 30 gün içindeki tüm haftaları (Pazartesi başlangıç) içersin
+        const weekMap = new Map<string, MoodEntryLite[]>();
+        for (const e of lite) {
+          const wk = formatWeekKey(e.timestamp);
+          if (!weekMap.has(wk)) weekMap.set(wk, []);
+          weekMap.get(wk)!.push(e);
+        }
+        const allWeekKeys: string[] = [];
+        for (const dk of dayKeys) {
+          const wk = formatWeekKey(dk);
+          if (allWeekKeys[allWeekKeys.length - 1] !== wk) allWeekKeys.push(wk);
+        }
+        const items: AggregatedData[] = allWeekKeys
+          .map((weekKey) => {
+            const entriesForWeek = weekMap.get(weekKey) || [];
+            const moods = entriesForWeek.map(i => i.mood_score);
+            const energies = entriesForWeek.map(i => i.energy_level);
+            return {
+              date: weekKey,
+              label: getWeekLabel(weekKey),
+              averageMood: average(moods) || 0,
+              averageEnergy: average(energies) || 0,
+              min: moods.length ? Math.min(...moods) : 0,
+              max: moods.length ? Math.max(...moods) : 0,
+              count: entriesForWeek.length,
+              entries: entriesForWeek,
+            } as AggregatedData;
+          })
+          .sort((a, b) => a.date.localeCompare(b.date));
+        return { granularity: 'week' as const, data: items };
+      }
+      if (range === '6months' || range === 'year') {
+        // Aylık aggregate: son 6/12 ayı eksiksiz üret
+        const monthMap = new Map<string, MoodEntryLite[]>();
+        for (const e of lite) {
+          const mk = getMonthKey(e.timestamp);
+          if (!monthMap.has(mk)) monthMap.set(mk, []);
+          monthMap.get(mk)!.push(e);
+        }
+        const monthsBack = range === '6months' ? 5 : 11;
+        const allMonthKeys: string[] = [];
+        for (let i = monthsBack; i >= 0; i--) {
+          const d = new Date(today);
+          d.setMonth(d.getMonth() - i, 1);
+          d.setHours(0, 0, 0, 0);
+          const mk = getMonthKey(d);
+          if (!allMonthKeys.includes(mk)) allMonthKeys.push(mk);
+        }
+        const items: AggregatedData[] = allMonthKeys
+          .map((monthKey) => {
+            const entriesForMonth = monthMap.get(monthKey) || [];
+            const moods = entriesForMonth.map(i => i.mood_score);
+            const energies = entriesForMonth.map(i => i.energy_level);
+            return {
+              date: `${monthKey}-01`,
+              label: getMonthLabel(monthKey),
+              averageMood: average(moods) || 0,
+              averageEnergy: average(energies) || 0,
+              min: moods.length ? Math.min(...moods) : 0,
+              max: moods.length ? Math.max(...moods) : 0,
+              variance: calculateVariance(moods) || 0,
+              count: entriesForMonth.length,
+              entries: entriesForMonth,
+            } as AggregatedData;
+          })
+          .sort((a, b) => a.date.localeCompare(b.date));
+        return { granularity: 'month' as const, data: items };
+      }
+      // week: no aggregate needed beyond daily; keep undefined
+      return undefined;
+    })();
+
     const extended: MoodJourneyExtended = {
       weeklyEntries,
       todayAverage,
@@ -201,6 +277,7 @@ export class OptimizedMoodDataLoader {
       },
       rawDataPoints,
       dailyAverages,
+      aggregated,
       // Optionally attach full arrays for larger ranges
       monthlyEntries: range === 'month' ? weeklyEntries : undefined,
       sixMonthEntries: range === '6months' ? weeklyEntries : undefined,
