@@ -358,11 +358,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const n = isAggregateMode ? (data.aggregated?.data?.length || 0) : data.dailyAverages.length;
               const dayWidth = contentWidth / Math.max(1, n);
               const todayKey = getUserDateString(new Date());
-              const todayIdx = isAggregateMode ? -1 : data.dailyAverages.findIndex(d => d.date === todayKey);
+              // Only highlight today's boundaries in weekly (daily) mode
+              const todayIdx = isAggregateMode ? Number.NaN : data.dailyAverages.findIndex(d => d.date === todayKey);
               const lines: any[] = [];
               for (let i = 0; i <= n; i++) {
                 const x = AXIS_WIDTH + i * dayWidth;
-                const isTodayBoundary = i === todayIdx || i === todayIdx + 1;
+                const isTodayBoundary = Number.isFinite(todayIdx) && (i === todayIdx || i === todayIdx + 1);
                 lines.push(
                   <Line
                     key={`vgrid-boundary-${i}`}
@@ -541,7 +542,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const n = data.dailyAverages.length;
                 const dw = contentWidth / Math.max(1, n);
                 return data.dailyAverages.map((day, index) => {
-                  if (day.count > 0) return null;
+                  // Placeholder only for empty days
+                  if (day.count && day.count > 0) return null;
                   const x = AXIS_WIDTH + (index * dw) + (dw / 2);
                   const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
                   return (
@@ -556,7 +558,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const n = buckets.length;
               const dw = contentWidth / Math.max(1, n);
               return buckets.map((b, index) => {
-                if ((b.count || 0) > 0) return null;
+                // Placeholder only for empty buckets (week/month)
+                if ((b.count ?? 0) > 0) return null;
                 const x = AXIS_WIDTH + (index * dw) + (dw / 2);
                 const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
                 return (
