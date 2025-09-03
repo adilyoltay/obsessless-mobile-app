@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
 import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSelectorV2';
+import { useAccentColor } from '@/contexts/AccentColorContext';
+import { getUserDateString } from '@/utils/timezoneUtils';
 import AppleHealthStyleChartV2 from '@/components/mood/AppleHealthStyleChartV2';
 import AppleHealthDetailSheet from '@/components/mood/AppleHealthDetailSheet';
 import { moodDataLoader } from '@/services/moodDataLoader';
@@ -19,6 +21,7 @@ type Props = {
 
 export default function MoodJourneyCard({ data }: Props) {
   const { user } = useAuth();
+  const { setVA } = useAccentColor();
   const [range, setRange] = React.useState<TimeRange>('week');
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
   const [detailDate, setDetailDate] = React.useState<string | null>(null);
@@ -33,6 +36,42 @@ export default function MoodJourneyCard({ data }: Props) {
     })();
     return () => { mounted = false; };
   }, [user?.id, range]);
+
+  // Sync hero color with current chart bar color
+  React.useEffect(() => {
+    if (!extended) return;
+    try {
+      const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
+      let mood = 0;
+      let energy = 6;
+      if (range === 'week') {
+        // Use today's daily average
+        const days = extended.dailyAverages || [];
+        if (days.length) {
+          const todayKey = getUserDateString(new Date());
+          const last = days[days.length - 1];
+          const target = days.find(d => d.date === todayKey) || last;
+          mood = Math.max(0, Math.min(100, Math.round(target.averageMood || 0)));
+          energy = Math.max(1, Math.min(10, Math.round(target.averageEnergy || extended.weeklyEnergyAvg || 6)));
+        }
+      } else {
+        // Use last aggregate bucket
+        const agg = extended.aggregated?.data || [];
+        if (agg.length) {
+          const b = agg[agg.length - 1] as any;
+          const useMedian = range === 'year';
+          const center = useMedian && typeof b.p50 === 'number' ? b.p50 : (b.averageMood || 0);
+          mood = Math.max(0, Math.min(100, Math.round(center)));
+          energy = Math.max(1, Math.min(10, Math.round(b.averageEnergy || extended.weeklyEnergyAvg || 6)));
+        }
+      }
+      if (mood > 0) {
+        const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
+        const e10 = Math.max(1, Math.min(10, Math.round(energy)));
+        setVA({ x: toCoord(m10), y: toCoord(e10) });
+      }
+    } catch {}
+  }, [extended, range, setVA]);
   // Build emotion distribution (top-3)
   const entries = data.weeklyEntries.filter(e => (e as any).mood_score > 0);
   const distribution = React.useMemo(() => {
