@@ -325,7 +325,7 @@ export default function MoodJourneyCard({ data }: Props) {
                 return top || '—';
               })();
               return (
-                <Animated.View style={{ position: 'absolute', left, top: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
+                <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                   <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                     <View>
                       <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
