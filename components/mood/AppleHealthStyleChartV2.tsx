@@ -295,9 +295,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               <Text style={styles.chipLabel}>Baskın</Text>
               <Text style={styles.chipValue}>{dominantEmotion}</Text>
               {trend && (
-                <Text style={[styles.trend, trend === 'up' ? styles.trendUp : trend === 'down' ? styles.trendDown : styles.trendStable]}>
-                  {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
-                </Text>
+                <View style={{ marginLeft: 6 }}>
+                  {trend === 'up' && (
+                    <Svg width={14} height={14} viewBox="0 0 14 14">
+                      <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
+                    </Svg>
+                  )}
+                  {trend === 'down' && (
+                    <Svg width={14} height={14} viewBox="0 0 14 14">
+                      <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
+                    </Svg>
+                  )}
+                  {trend === 'stable' && (
+                    <Svg width={14} height={14} viewBox="0 0 14 14">
+                      <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
+                    </Svg>
+                  )}
+                </View>
               )}
             </View>
           </View>
@@ -407,17 +421,26 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Dikey bantlar (birden fazla giriş için) - Apple Health tarzı */}
             {verticalBands.map((band, index) => (
               <G key={`band-${index}`}>
-                {/* Arka plan çizgisi */}
-                <Line
-                  x1={band.x}
-                  y1={band.minY}
-                  x2={band.x}
-                  y2={band.maxY}
-                  stroke={band.color}
-                  strokeWidth={mapEnergyToWidth(band.energyAvg, 2, 6) * (isAggregateMode ? (timeRange === 'month' ? 1.1 : 1.25) : 1)}
-                  strokeLinecap="round"
-                  opacity={mapEnergyToOpacity(band.energyAvg, 0.25, 0.6)}
-                />
+                {/* Arka plan çizgisi - kısaltılmış bar */}
+                {(() => {
+                  const shrink = isAggregateMode ? 0.8 : 0.85; // shorten bars
+                  const half = Math.max(0, (band.maxY - band.minY) / 2);
+                  const newHalf = half * shrink;
+                  const y1 = Math.max(CHART_PADDING_TOP, band.avgY - newHalf);
+                  const y2 = Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT, band.avgY + newHalf);
+                  return (
+                    <Line
+                      x1={band.x}
+                      y1={y1}
+                      x2={band.x}
+                      y2={y2}
+                      stroke={band.color}
+                      strokeWidth={mapEnergyToWidth(band.energyAvg, 2, 6) * (isAggregateMode ? (timeRange === 'month' ? 1.05 : 1.15) : 1)}
+                      strokeLinecap="round"
+                      opacity={mapEnergyToOpacity(band.energyAvg, 0.25, 0.6)}
+                    />
+                  );
+                })()}
                 {/* Ortalama noktası */}
                 <Circle
                   cx={band.x}

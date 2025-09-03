@@ -128,9 +128,21 @@ export default function MoodJourneyCard({ data }: Props) {
 
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <Text style={styles.stat}>M: {data.todayAverage > 0 ? data.todayAverage.toFixed(1) : '—'}</Text>
-        <Text style={styles.stat}>E: {data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
-        <Text style={styles.stat}>A: {data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
+        <Text style={styles.stat}>
+          <Text style={[styles.statLabel, styles.statLabelMood]}>● M</Text>
+          <Text style={styles.statSep}>: </Text>
+          <Text style={styles.statValue}>{data.todayAverage > 0 ? data.todayAverage.toFixed(1) : '—'}</Text>
+        </Text>
+        <Text style={styles.stat}>
+          <Text style={[styles.statLabel, styles.statLabelEnergy]}>● E</Text>
+          <Text style={styles.statSep}>: </Text>
+          <Text style={styles.statValue}>{data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
+        </Text>
+        <Text style={styles.stat}>
+          <Text style={[styles.statLabel, styles.statLabelAnxiety]}>● A</Text>
+          <Text style={styles.statSep}>: </Text>
+          <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
+        </Text>
       </View>
 
       {/* Detail modal - Apple Health Style */}
@@ -283,4 +295,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
   },
+  statLabel: {
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    marginRight: 2,
+  },
+  statLabelMood: { color: '#007AFF' },
+  statLabelEnergy: { color: '#10B981' },
+  statLabelAnxiety: { color: '#EF4444' },
+  statSep: { color: '#6B7280', fontWeight: '400' },
+  statValue: { color: '#111827' },
 });

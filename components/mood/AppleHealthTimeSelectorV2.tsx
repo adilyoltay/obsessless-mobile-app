@@ -72,7 +72,7 @@ export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange 
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12, // widen control horizontally within the card
     paddingVertical: 12,
   },
   segmentedControl: {
