@@ -148,6 +148,7 @@ export default function MoodJourneyCard({ data }: Props) {
           onDayPress={(date) => {
             setDetailDate(date);
             if (!extended) return;
+            // Update detail entries as before
             if (range === 'week') {
               const e = extended.rawDataPoints[date]?.entries || [];
               setDetailEntries(e);
@@ -160,6 +161,37 @@ export default function MoodJourneyCard({ data }: Props) {
               }
               setDetailEntries(bucket?.entries || []);
             }
+            // Sync hero VA color with the tapped bar
+            try {
+              const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
+              let mood = 0;
+              let energy = 6;
+              if (range === 'week') {
+                const day = extended.dailyAverages.find(d => d.date === date);
+                if (day) {
+                  mood = Math.max(0, Math.min(100, Math.round(day.averageMood || 0)));
+                  energy = Math.max(1, Math.min(10, Math.round(day.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                }
+              } else {
+                const agg = extended.aggregated?.data || [];
+                let bucket = agg.find(b => b.date === date) as any;
+                if (!bucket && range === 'year') {
+                  const monthKey = String(date).slice(0, 7);
+                  bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
+                }
+                if (bucket) {
+                  const useMedian = range === 'year';
+                  const center = useMedian && typeof bucket.p50 === 'number' ? bucket.p50 : (bucket.averageMood || 0);
+                  mood = Math.max(0, Math.min(100, Math.round(center)));
+                  energy = Math.max(1, Math.min(10, Math.round(bucket.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                }
+              }
+              if (mood > 0) {
+                const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
+                const e10 = Math.max(1, Math.min(10, Math.round(energy)));
+                setVA({ x: toCoord(m10), y: toCoord(e10) });
+              }
+            } catch {}
           }}
         />
       )}
