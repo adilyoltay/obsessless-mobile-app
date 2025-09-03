@@ -5,7 +5,8 @@ import {
   StyleSheet, 
   Dimensions, 
   TouchableOpacity,
-  ScrollView 
+  ScrollView,
+  Pressable,
 } from 'react-native';
 import Svg, { 
   Line, 
@@ -279,15 +280,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Üst bilgi alanı */}
       <View style={styles.header}>
         <View style={styles.summaryInfo}>
-          <View>
-            <Text style={styles.entryCount}>
-              TOPLAM{'\n'}
-              <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-            </Text>
-            <Text style={styles.dateRange}>
-              {formatDateRange(data.dailyAverages, timeRange)}
-            </Text>
-          </View>
+          {selectedIndex === null && (
+            <View>
+              <Text style={styles.entryCount}>
+                TOPLAM{'\n'}
+                <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+              </Text>
+              <Text style={styles.dateRange}>
+                {formatDateRange(data.dailyAverages, timeRange)}
+              </Text>
+            </View>
+          )}
           {/* Baskın duygu ve trend ikonu kart altına taşındı */}
         </View>
       </View>
@@ -564,44 +567,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             if (!n || selectedIndex < 0 || selectedIndex > n - 1) return null;
             const dw = contentWidth / Math.max(1, n);
             const x = AXIS_WIDTH + (selectedIndex * dw) + (dw / 2);
-            // Build text content
-            let line1 = '';
-            let line2 = '';
-            let emotionsLine = '';
+            // Build content using header's style (entryCount + dateRange)
+            let totalCount = 0;
+            let labelText = '';
             let dateStrSel = '';
-            // Helper: map mood score to emotion label (same bins as card)
-            const moodToEmotion = (s: number) => (
-              s >= 90 ? 'Heyecanlı' :
-              s >= 80 ? 'Enerjik'  :
-              s >= 70 ? 'Mutlu'    :
-              s >= 60 ? 'Sakin'    :
-              s >= 50 ? 'Normal'   :
-              s >= 40 ? 'Endişeli' :
-              s >= 30 ? 'Sinirli'  :
-              s >= 20 ? 'Üzgün'    : 'Kızgın'
-            );
-            const summarizeEmotions = (entries: any[]) => {
-              const counts = new Map<string, number>();
-              (entries || []).forEach(e => {
-                const emo = moodToEmotion(Number(e?.mood_score || 0));
-                counts.set(emo, (counts.get(emo) || 0) + 1);
-              });
-              const top = Array.from(counts.entries())
-                .sort((a,b) => b[1] - a[1])
-                .slice(0, 3)
-                .map(([k]) => k);
-              return top.join(', ');
-            };
             if (!isAggregateMode) {
               const day = items[selectedIndex] as any;
               const dateIso = `${day.date}T00:00:00.000Z`;
-              const dayText = formatDateInUserTimezone(dateIso, 'medium');
               const count = Number(day.count || 0);
-              line1 = `Gün: ${count} giriş — ${dayText}`;
+              totalCount = count;
+              labelText = formatDateInUserTimezone(dateIso, 'medium');
               dateStrSel = day.date;
-              // emotions from rawDataPoints
-              const raw = data.rawDataPoints?.[day.date]?.entries || [];
-              emotionsLine = summarizeEmotions(raw);
               // week range and total
               const ws = getWeekStart(dateIso);
               const we = new Date(ws); we.setDate(ws.getDate() + 6);
@@ -609,29 +585,31 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const di = new Date(`${d.date}T00:00:00.000Z`).getTime();
                 return di >= ws.getTime() && di <= we.getTime();
               }).reduce((s, d) => s + Number(d.count || 0), 0);
-              line2 = `Hafta: Toplam ${totalWeek} giriş — ${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
+              // For weekly view, replicate header style with week aggregate
+              totalCount = totalWeek;
+              labelText = `${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
             } else {
               const b = items[selectedIndex] as AggregatedData;
               const count = Number(b.count || 0);
               dateStrSel = b.date;
-              emotionsLine = summarizeEmotions((b as any).entries || []);
-              if (timeRange === 'month') {
-                line1 = `Hafta: Toplam ${count} giriş — ${(b as any).label || ''}`;
-              } else {
-                line1 = `Ay: Toplam ${count} giriş — ${(b as any).label || ''}`;
-              }
+              totalCount = count;
+              labelText = (b as any).label || '';
             }
             const TOOLTIP_W = 180;
             const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x - TOOLTIP_W / 2));
             const top = Math.max(0, CHART_PADDING_TOP - 10);
             return (
-              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}> 
-                <View style={{ position: 'absolute', left, top }}>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => onDayPress?.(dateStrSel)}>
+              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'auto' }]}> 
+                {/* Dismiss overlay (tap empty area) */}
+                <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedIndex(null)} />
+                <View style={{ position: 'absolute', left, top }} pointerEvents="box-none">
+                  <TouchableOpacity activeOpacity={0.85} onPress={() => onDayPress?.(dateStrSel)}>
                     <View style={styles.tooltipBox}>
-                      {!!emotionsLine && <Text style={styles.tooltipEmo}>Duygular: {emotionsLine}</Text>}
-                      <Text style={styles.tooltipText}>{line1}</Text>
-                      {!!line2 && <Text style={styles.tooltipSub}>{line2}</Text>}
+                      <Text style={styles.entryCount}>
+                        TOPLAM{'\n'}
+                        <Text style={styles.entryCountValue}>{totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                      </Text>
+                      <Text style={styles.dateRange}>{labelText}</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
