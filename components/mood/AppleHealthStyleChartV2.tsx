@@ -22,8 +22,8 @@ import Svg, {
 import * as Haptics from 'expo-haptics';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
-import { getUserDateString } from '@/utils/timezoneUtils';
-import { monthsLongShort, monthsShort as monthsVeryShort, daysShort } from '@/utils/dateAggregation';
+import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
+import { monthsLongShort, monthsShort as monthsVeryShort, daysShort, getWeekStart } from '@/utils/dateAggregation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -101,6 +101,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   onDayPress 
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   // Use the measured container width (card inner width). Fallback to screen - 40.
   const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
   const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
