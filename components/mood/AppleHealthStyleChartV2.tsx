@@ -351,6 +351,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   />
                 );
               }
+              // Selected guide line
+              if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex <= n - 1) {
+                const xSel = AXIS_WIDTH + selectedIndex * dayWidth + dayWidth / 2;
+                lines.push(
+                  <Line
+                    key={`vgrid-selected`}
+                    x1={xSel}
+                    y1={CHART_PADDING_TOP}
+                    x2={xSel}
+                    y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT}
+                    stroke={APPLE_COLORS.axisText}
+                    strokeWidth={1.2}
+                    strokeDasharray={'4,3'}
+                    strokeOpacity={0.9}
+                  />
+                );
+              }
               return lines;
             })()}
 
@@ -530,6 +547,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     }}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedIndex(prev => prev === index ? null : index);
                       onDayPress?.(dateStr);
                     }}
                     testID={`mood-bar-${index}`}
@@ -538,6 +556,53 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               });
             })()}
           </View>
+          {/* Tooltip overlay */}
+          {selectedIndex !== null && (() => {
+            const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+            const n = items.length;
+            if (!n || selectedIndex < 0 || selectedIndex > n - 1) return null;
+            const dw = contentWidth / Math.max(1, n);
+            const x = AXIS_WIDTH + (selectedIndex * dw) + (dw / 2);
+            // Build text content
+            let line1 = '';
+            let line2 = '';
+            if (!isAggregateMode) {
+              const day = items[selectedIndex] as any;
+              const dateIso = `${day.date}T00:00:00.000Z`;
+              const dayText = formatDateInUserTimezone(dateIso, 'medium');
+              const count = Number(day.count || 0);
+              line1 = `Gün: ${count} giriş — ${dayText}`;
+              // week range and total
+              const ws = getWeekStart(dateIso);
+              const we = new Date(ws); we.setDate(ws.getDate() + 6);
+              const totalWeek = (data.dailyAverages || []).filter(d => {
+                const di = new Date(`${d.date}T00:00:00.000Z`).getTime();
+                return di >= ws.getTime() && di <= we.getTime();
+              }).reduce((s, d) => s + Number(d.count || 0), 0);
+              line2 = `Hafta: Toplam ${totalWeek} giriş — ${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
+            } else {
+              const b = items[selectedIndex] as AggregatedData;
+              const count = Number(b.count || 0);
+              if (timeRange === 'month') {
+                line1 = `Hafta: Toplam ${count} giriş — ${(b as any).label || ''}`;
+              } else {
+                line1 = `Ay: Toplam ${count} giriş — ${(b as any).label || ''}`;
+              }
+            }
+            const TOOLTIP_W = 180;
+            const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x - TOOLTIP_W / 2));
+            const top = Math.max(0, CHART_PADDING_TOP - 10);
+            return (
+              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}> 
+                <View style={{ position: 'absolute', left, top }}>
+                  <View style={styles.tooltipBox}>
+                    <Text style={styles.tooltipText}>{line1}</Text>
+                    {!!line2 && <Text style={styles.tooltipSub}>{line2}</Text>}
+                  </View>
+                </View>
+              </View>
+            );
+          })()}
         </View>
       </ScrollView>
       </View>
@@ -656,6 +721,29 @@ const styles = StyleSheet.create({
   trendUp: { color: '#10B981' },
   trendDown: { color: '#EF4444' },
   trendStable: { color: '#6B7280' },
+  tooltipBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: APPLE_COLORS.gridLine,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tooltipText: {
+    fontSize: 11,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  tooltipSub: {
+    marginTop: 2,
+    fontSize: 11,
+    color: APPLE_COLORS.axisText,
+  },
 });
 
 export default AppleHealthStyleChartV2;
