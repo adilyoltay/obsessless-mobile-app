@@ -181,25 +181,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       return points;
     }
 
-    const buckets: AggregatedData[] = data.aggregated?.data || [];
-    const bw = contentWidth / Math.max(1, buckets.length);
-    buckets.forEach((b, index) => {
-      const valence = moodToValence(b.averageMood || 0);
-      const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
-      const x = AXIS_WIDTH + (index * bw) + (bw / 2);
-      points.push({
-        x,
-        y,
-        date: b.date,
-        mood: b.averageMood || 0,
-        energy: b.averageEnergy || 6,
-        hasMultiple: (b.count || 0) > 1,
-        entries: b.entries || [],
-        color: getColorForMood(b.averageMood || 0, b.averageEnergy || 6)
-      });
-    });
-    
-    return points;
+    // Aggregated modda nokta göstermiyoruz (sadece bantlar)
+    return points; // empty
   }, [data, contentWidth, isAggregateMode, timeRange]);
 
   // Dikey bantlar (Apple Health tarzı): haftalıkta gün içi çoklu; aggregate modda bucket min-max
@@ -466,44 +449,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     />
                   );
                 })()}
-                {/* Ortalama noktası */}
-                <Circle
-                  cx={band.x}
-                  cy={band.avgY}
-                  r={3}
-                  fill={band.color}
-                  opacity={mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
-                />
+                {/* Ortalama noktası: sadece weekly modda göster */}
+                {!isAggregateMode && (
+                  <Circle
+                    cx={band.x}
+                    cy={band.avgY}
+                    r={3}
+                    fill={band.color}
+                    opacity={mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
+                  />
+                )}
               </G>
             ))}
 
-            {/* Outliers (outside p10–p90) as faint dots */}
-            {isAggregateMode && (() => {
-              const buckets: AggregatedData[] = data.aggregated?.data || [];
-              const bw = contentWidth / Math.max(1, buckets.length);
-              const dots: any[] = [];
-              buckets.forEach((b, index) => {
-                const p10 = (typeof b.p10 === 'number' ? b.p10 : b.min) ?? 0;
-                const p90 = (typeof b.p90 === 'number' ? b.p90 : b.max) ?? 0;
-                const x = AXIS_WIDTH + (index * bw) + (bw / 2);
-                const entries = b.entries || [];
-                entries.forEach((e: any, i: number) => {
-                  const mood = Number(e?.mood_score || 0);
-                  if (mood < p10 || mood > p90) {
-                    const val = moodToValence(mood);
-                    const y = CHART_PADDING_TOP + (1 - ((val + 1) / 2)) * CHART_CONTENT_HEIGHT;
-                    const color = getColorForMood(mood, Number(e?.energy_level || 6));
-                    dots.push(
-                      <Circle key={`outlier-${index}-${i}`} cx={x} cy={y} r={2.2} fill={color} opacity={0.35} />
-                    );
-                  }
-                });
-              });
-              return dots;
-            })()}
+            {/* Aggregate modda outlier noktaları devre dışı */}
 
-            {/* Veri noktaları - Apple Health tarzı */}
-            {dataPoints.map((point, index) => {
+            {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
+            {!isAggregateMode && dataPoints.map((point, index) => {
               const innerRBase = mapMoodToRadius(point.mood, 2.8, 4.8);
               const sizeFactor = isAggregateMode ? (timeRange === 'month' ? 1.2 : 1.5) : 1;
               const innerRBaseAdj = innerRBase * sizeFactor;
