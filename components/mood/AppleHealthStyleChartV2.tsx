@@ -287,31 +287,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               {formatDateRange(data.dailyAverages, timeRange)}
             </Text>
           </View>
-          <View style={styles.headerRight}>
-            <View style={styles.chip}>
-              <Text style={styles.chipLabel}>Baskın</Text>
-              <Text style={styles.chipValue}>{dominantEmotion}</Text>
-              {trend && (
-                <View style={{ marginLeft: 6 }}>
-                  {trend === 'up' && (
-                    <Svg width={14} height={14} viewBox="0 0 14 14">
-                      <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
-                    </Svg>
-                  )}
-                  {trend === 'down' && (
-                    <Svg width={14} height={14} viewBox="0 0 14 14">
-                      <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
-                    </Svg>
-                  )}
-                  {trend === 'stable' && (
-                    <Svg width={14} height={14} viewBox="0 0 14 14">
-                      <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
-                    </Svg>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
+          {/* Baskın duygu ve trend ikonu kart altına taşındı */}
         </View>
       </View>
 

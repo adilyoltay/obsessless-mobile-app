@@ -196,6 +196,35 @@ export default function MoodJourneyCard({ data }: Props) {
         />
       )}
 
+      {/* Baskın duygu + trend (grafiğin altına taşındı) */}
+      {extended && (
+        <View style={styles.dominantRowBelow}>
+          <View style={styles.chipSmall}>
+            <Text style={styles.chipSmallLabel}>Baskın</Text>
+            <Text style={styles.chipSmallValue}>{extended.statistics?.dominantEmotions?.[0]?.emotion || '—'}</Text>
+            {extended.weeklyTrend && (
+              <View style={{ marginLeft: 6 }}>
+                {extended.weeklyTrend === 'up' && (
+                  <Svg width={14} height={14} viewBox="0 0 14 14">
+                    <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
+                  </Svg>
+                )}
+                {extended.weeklyTrend === 'down' && (
+                  <Svg width={14} height={14} viewBox="0 0 14 14">
+                    <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
+                  </Svg>
+                )}
+                {extended.weeklyTrend === 'stable' && (
+                  <Svg width={14} height={14} viewBox="0 0 14 14">
+                    <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
+                  </Svg>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* Top-3 emotion distribution kaldırıldı */}
 
       {/* Stats row */}
@@ -407,6 +436,31 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+  },
+  dominantRowBelow: {
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  chipSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  chipSmallLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginRight: 2,
+  },
+  chipSmallValue: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '700',
   },
   stat: {
     fontSize: 13,
