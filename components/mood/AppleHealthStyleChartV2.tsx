@@ -235,7 +235,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const highMood = (typeof b.p90 === 'number' ? b.p90 : b.max) || 0;
       const minVal = moodToValence(lowMood);
       const maxVal = moodToValence(highMood);
-      const centerMood = (typeof (b as any).p50 === 'number') ? (b as any).p50 as number : (b.averageMood || 0);
+      const centerMood = timeRange === 'year'
+        ? ((typeof (b as any).p50 === 'number') ? (b as any).p50 as number : (b.averageMood || 0))
+        : (b.averageMood || 0);
       const avgVal = moodToValence(centerMood);
       const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
@@ -450,14 +452,34 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     />
                   );
                 })()}
-                {/* Ortalama noktası: aggregate modda küçük, weekly modda normal */}
-                <Circle
-                  cx={band.x}
-                  cy={band.avgY}
-                  r={isAggregateMode ? 2.2 : 3}
-                  fill={band.color}
-                  opacity={isAggregateMode ? 0.9 : mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
-                />
+                {/* Ortalama noktası: Year'da p50, A/6A'da mean. Belirsizlik arttıkça nokta küçülür/solar. */}
+                {(() => {
+                  if (!isAggregateMode) {
+                    return (
+                      <Circle
+                        cx={band.x}
+                        cy={band.avgY}
+                        r={3}
+                        fill={band.color}
+                        opacity={mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
+                      />
+                    );
+                  }
+                  // Uncertainty ~ band length relative to chart height
+                  const spreadPx = Math.abs(band.maxY - band.minY);
+                  const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
+                  const r = 2.6 - 0.8 * s; // 1.8..2.6
+                  const op = 0.95 - 0.45 * s; // 0.5..0.95
+                  return (
+                    <Circle
+                      cx={band.x}
+                      cy={band.avgY}
+                      r={r}
+                      fill={band.color}
+                      opacity={op}
+                    />
+                  );
+                })()}
               </G>
             ))}
 
