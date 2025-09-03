@@ -26,6 +26,25 @@ export default function MoodJourneyCard({ data }: Props) {
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
   const [detailDate, setDetailDate] = React.useState<string | null>(null);
   const [detailEntries, setDetailEntries] = React.useState<any[]>([]);
+  const [chartSelection, setChartSelection] = React.useState<{ date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null>(null);
+  const [clearSignal, setClearSignal] = React.useState(0);
+
+  const openDetailForDate = React.useCallback((date: string) => {
+    if (!extended) return;
+    if (range === 'week') {
+      const e = extended.rawDataPoints[date]?.entries || [];
+      setDetailEntries(e);
+    } else {
+      const agg = extended.aggregated?.data || [];
+      let bucket = agg.find(b => b.date === date);
+      if (!bucket && range === 'year') {
+        const monthKey = String(date).slice(0, 7); // YYYY-MM
+        bucket = agg.find(b => b.date.startsWith(monthKey));
+      }
+      setDetailEntries(bucket?.entries || []);
+    }
+    setDetailDate(date);
+  }, [extended, range]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -140,27 +159,40 @@ export default function MoodJourneyCard({ data }: Props) {
         <AppleHealthTimeSelectorV2 selected={range} onChange={setRange} />
       </View>
 
+      {/* Tooltip slot (between selector and chart) */}
+      <View style={{ minHeight: 44, justifyContent: 'flex-start' }}>
+        {chartSelection && (
+          <View style={{ position: 'relative' }}>
+            {(() => {
+              const TOOLTIP_W = 180;
+              const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - TOOLTIP_W - 4, chartSelection.x - TOOLTIP_W / 2));
+              return (
+                <View style={{ position: 'absolute', left }}>
+                  <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
+                    <View style={styles.tooltipBox}>
+                      <Text style={styles.entryCount}>
+                        TOPLAM{'\n'}
+                        <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                      </Text>
+                      <Text style={styles.dateRange}>{chartSelection.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
+          </View>
+        )}
+      </View>
+
       {/* Interactive chart - Apple Health Style V2 */}
       {extended && (
         <AppleHealthStyleChartV2
           data={extended}
           timeRange={range}
+          onSelectionChange={(sel) => setChartSelection(sel)}
+          clearSelectionSignal={clearSignal}
           onDayPress={(date) => {
-            setDetailDate(date);
-            if (!extended) return;
-            // Update detail entries as before
-            if (range === 'week') {
-              const e = extended.rawDataPoints[date]?.entries || [];
-              setDetailEntries(e);
-            } else {
-              const agg = extended.aggregated?.data || [];
-              let bucket = agg.find(b => b.date === date);
-              if (!bucket && range === 'year') {
-                const monthKey = String(date).slice(0, 7); // YYYY-MM
-                bucket = agg.find(b => b.date.startsWith(monthKey));
-              }
-              setDetailEntries(bucket?.entries || []);
-            }
+            // no-op: detail opens from tooltip tap only
             // Sync hero VA color with the tapped bar
             try {
               const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
@@ -226,6 +258,13 @@ export default function MoodJourneyCard({ data }: Props) {
       )}
 
       {/* Top-3 emotion distribution kaldırıldı */}
+
+      {/* Tap outside to clear tooltip (optional area below) */}
+      {chartSelection && (
+        <Pressable onPress={() => { setChartSelection(null); setClearSignal(s => s + 1); }}>
+          <View style={{ height: 0 }} />
+        </Pressable>
+      )}
 
       {/* Stats row */}
       <View style={styles.statsRow}>
@@ -354,6 +393,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#111827',
     fontWeight: '700',
+  },
+  tooltipBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   title: {
     fontSize: 15,

@@ -32,6 +32,8 @@ type Props = {
   data: MoodJourneyExtended;
   timeRange: TimeRange;
   onDayPress?: (date: string) => void;
+  onSelectionChange?: (sel: { date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null) => void;
+  clearSelectionSignal?: number;
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
@@ -99,7 +101,9 @@ const mapEnergyToWidth = (energy?: number, min: number = 2, max: number = 6) => 
 export const AppleHealthStyleChartV2: React.FC<Props> = ({ 
   data, 
   timeRange, 
-  onDayPress 
+  onDayPress,
+  onSelectionChange,
+  clearSelectionSignal,
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -552,7 +556,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       // Only select bar; do NOT open details here
-                      setSelectedIndex(prev => prev === index ? null : index);
+                      setSelectedIndex(prev => {
+                        const next = prev === index ? null : index;
+                        emitSelection(next);
+                        return next;
+                      });
                     }}
                     testID={`mood-bar-${index}`}
                   />
@@ -560,63 +568,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               });
             })()}
           </View>
-          {/* Tooltip overlay */}
-          {selectedIndex !== null && (() => {
-            const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
-            const n = items.length;
-            if (!n || selectedIndex < 0 || selectedIndex > n - 1) return null;
-            const dw = contentWidth / Math.max(1, n);
-            const x = AXIS_WIDTH + (selectedIndex * dw) + (dw / 2);
-            // Build content using header's style (entryCount + dateRange)
-            let totalCount = 0;
-            let labelText = '';
-            let dateStrSel = '';
-            if (!isAggregateMode) {
-              const day = items[selectedIndex] as any;
-              const dateIso = `${day.date}T00:00:00.000Z`;
-              const count = Number(day.count || 0);
-              totalCount = count;
-              labelText = formatDateInUserTimezone(dateIso, 'medium');
-              dateStrSel = day.date;
-              // week range and total
-              const ws = getWeekStart(dateIso);
-              const we = new Date(ws); we.setDate(ws.getDate() + 6);
-              const totalWeek = (data.dailyAverages || []).filter(d => {
-                const di = new Date(`${d.date}T00:00:00.000Z`).getTime();
-                return di >= ws.getTime() && di <= we.getTime();
-              }).reduce((s, d) => s + Number(d.count || 0), 0);
-              // For weekly view, replicate header style with week aggregate
-              totalCount = totalWeek;
-              labelText = `${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
-            } else {
-              const b = items[selectedIndex] as AggregatedData;
-              const count = Number(b.count || 0);
-              dateStrSel = b.date;
-              totalCount = count;
-              labelText = (b as any).label || '';
-            }
-            const TOOLTIP_W = 180;
-            // Align tooltip start to the guide line tip (slightly offset to the right)
-            const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x + 6));
-            const top = Math.max(0, CHART_PADDING_TOP - 10);
-            return (
-              <View style={[StyleSheet.absoluteFill, { pointerEvents: 'auto' }]}> 
-                {/* Dismiss overlay (tap empty area) */}
-                <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedIndex(null)} />
-                <View style={{ position: 'absolute', left, top }} pointerEvents="box-none">
-                  <TouchableOpacity activeOpacity={0.85} onPress={() => onDayPress?.(dateStrSel)}>
-                    <View style={styles.tooltipBox}>
-                      <Text style={styles.entryCount}>
-                        TOPLAM{'\n'}
-                        <Text style={styles.entryCountValue}>{totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-                      </Text>
-                      <Text style={styles.dateRange}>{labelText}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })()}
+          {/* External tooltip rendered by parent */}
         </View>
       </ScrollView>
       </View>
@@ -762,6 +714,46 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 11,
     color: APPLE_COLORS.axisText,
+  // Clear selection from parent
+  React.useEffect(() => {
+    if (typeof clearSelectionSignal === 'number') {
+      setSelectedIndex(null);
+      onSelectionChange?.(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearSelectionSignal]);
+
+  const emitSelection = useCallback((index: number | null) => {
+    const items = (timeRange !== 'week') ? (data.aggregated?.data || []) : data.dailyAverages;
+    const n = items.length;
+    if (index === null || index < 0 || index > n - 1) {
+      onSelectionChange?.(null);
+      return;
+    }
+    const dw = contentWidth / Math.max(1, n);
+    const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+    let totalCount = 0;
+    let labelText = '';
+    let dateSel = '';
+    if (timeRange === 'week') {
+      const day = items[index] as any;
+      const dateIso = `${day.date}T00:00:00.000Z`;
+      const ws = getWeekStart(dateIso);
+      const we = new Date(ws); we.setDate(ws.getDate() + 6);
+      totalCount = (data.dailyAverages || []).filter(d => {
+        const di = new Date(`${d.date}T00:00:00.000Z`).getTime();
+        return di >= ws.getTime() && di <= we.getTime();
+      }).reduce((s, d) => s + Number(d.count || 0), 0);
+      labelText = `${ws.getDate()} ${monthsLongShort[ws.getMonth()]}–${we.getDate()} ${monthsLongShort[we.getMonth()]}`;
+      dateSel = day.date;
+    } else {
+      const b = items[index] as AggregatedData;
+      totalCount = Number(b.count || 0);
+      labelText = (b as any).label || '';
+      dateSel = b.date;
+    }
+    onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth });
+  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange]);
   },
 });
 
