@@ -551,8 +551,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     }}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      // Only select bar; do NOT open details here
                       setSelectedIndex(prev => prev === index ? null : index);
-                      onDayPress?.(dateStr);
                     }}
                     testID={`mood-bar-${index}`}
                   />
@@ -596,7 +596,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               labelText = (b as any).label || '';
             }
             const TOOLTIP_W = 180;
-            const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x - TOOLTIP_W / 2));
+            // Align tooltip start to the guide line tip (slightly offset to the right)
+            const left = Math.max(4, Math.min(chartWidth - TOOLTIP_W - 4, x + 6));
             const top = Math.max(0, CHART_PADDING_TOP - 10);
             return (
               <View style={[StyleSheet.absoluteFill, { pointerEvents: 'auto' }]}> 
