@@ -597,7 +597,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   const neutralY = CHART_PADDING_TOP + (1 - ((0 + 1) / 2)) * CHART_CONTENT_HEIGHT; // valence 0
                   return (
                     <G key={`ph-day-${index}`}>
-                      <Circle cx={x} cy={neutralY} r={3} fill={APPLE_COLORS.placeholder} opacity={0.9} />
+                      <Circle cx={x} cy={neutralY} r={2} fill={APPLE_COLORS.placeholder} opacity={0.9} />
                     </G>
                   );
                 });
@@ -624,7 +624,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       strokeLinecap="round"
                       opacity={0.75}
                     />
-                    <Circle cx={x} cy={neutralY} r={3} fill={APPLE_COLORS.placeholder} opacity={0.8} />
+                    <Circle cx={x} cy={neutralY} r={2} fill={APPLE_COLORS.placeholder} opacity={0.8} />
                   </G>
                 );
               });
