@@ -235,7 +235,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const highMood = (typeof b.p90 === 'number' ? b.p90 : b.max) || 0;
       const minVal = moodToValence(lowMood);
       const maxVal = moodToValence(highMood);
-      const avgVal = moodToValence(b.averageMood || 0);
+      const centerMood = (typeof (b as any).p50 === 'number') ? (b as any).p50 as number : (b.averageMood || 0);
+      const avgVal = moodToValence(centerMood);
       const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const avgY = CHART_PADDING_TOP + (1 - ((avgVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
@@ -246,7 +247,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         avgY,
         date: b.date,
         entries: b.entries || [],
-        color: getColorForMood(b.averageMood || 0, b.averageEnergy || 6),
+        color: getColorForMood(centerMood, b.averageEnergy || 6),
         energyAvg: b.averageEnergy || 6,
       });
     });
