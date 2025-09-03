@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   selectorWrapper: {
     position: 'relative',
-    marginBottom: 10,
+    marginBottom: 5, // reduce spacing to bring chart header closer
   },
   selectorBadgeRow: {
     position: 'absolute',
@@ -279,7 +279,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   stat: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#111827',
+    fontWeight: '700',
   },
 });

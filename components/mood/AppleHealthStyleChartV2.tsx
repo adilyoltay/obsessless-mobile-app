@@ -34,7 +34,7 @@ type Props = {
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
-const CHART_PADDING_TOP = 16; // reduce top whitespace ~half
+const CHART_PADDING_TOP = 10; // reduce top whitespace further
 const CHART_PADDING_BOTTOM = 28; // reduce bottom whitespace ~half
 const CHART_PADDING_H = 0; // no extra horizontal padding; fit full width
 const AXIS_WIDTH = 8; // tighter left gutter (we only need a little)
@@ -283,7 +283,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         <View style={styles.summaryInfo}>
           <View>
             <Text style={styles.entryCount}>
-              TOPLAM{'\n'}
+              Toplam{'\n'}
               <Text style={styles.entryCountValue}>{data.statistics.totalEntries} <Text style={styles.entryCountUnit}>giriş</Text></Text>
             </Text>
             <Text style={styles.dateRange}>
@@ -331,9 +331,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     x2={AXIS_WIDTH + contentWidth}
                     y2={y}
                     stroke={isZeroLine ? APPLE_COLORS.gridLineDark : APPLE_COLORS.gridLine}
-                    strokeWidth={isZeroLine ? 1 : 0.7}
-                    strokeDasharray={isZeroLine ? "0" : "2,2"}
-                    strokeOpacity={isZeroLine ? 0.9 : 0.8}
+                    strokeWidth={isZeroLine ? 1.2 : 1}
+                    strokeDasharray={isZeroLine ? "0" : "3,2"}
+                    strokeOpacity={isZeroLine ? 1 : 0.95}
                   />
                 </G>
               );
@@ -357,9 +357,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     x2={x}
                     y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT}
                     stroke={APPLE_COLORS.gridLineDark}
-                    strokeWidth={isTodayBoundary ? 1.2 : 0.9}
-                    strokeDasharray={isTodayBoundary ? '0' : '2,2'}
-                    strokeOpacity={isTodayBoundary ? 1 : 0.85}
+                    strokeWidth={isTodayBoundary ? 1.4 : 1}
+                    strokeDasharray={isTodayBoundary ? '0' : '3,2'}
+                    strokeOpacity={isTodayBoundary ? 1 : 0.95}
                   />
                 );
               }
@@ -587,7 +587,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: APPLE_COLORS.background,
     borderRadius: 16,
-    marginVertical: 8,
+    marginTop: 0,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -596,8 +597,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingTop: 6,
+    paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: APPLE_COLORS.gridLine,
   },
@@ -614,14 +615,13 @@ const styles = StyleSheet.create({
   summaryInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start', // align "Baskın" top with "Toplam"
   },
   entryCount: {
-    fontSize: 11,
+    fontSize: 13,
     color: APPLE_COLORS.axisText,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.2,
   },
   entryCountValue: {
     fontSize: 30,
@@ -667,8 +667,8 @@ const styles = StyleSheet.create({
   },
   trend: {
     marginLeft: 6,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   trendUp: { color: '#10B981' },
   trendDown: { color: '#EF4444' },
