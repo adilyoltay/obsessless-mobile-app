@@ -43,12 +43,12 @@ export const getMoodGradient = (score: number, intensity: number = 0.1): [string
 // ---- VA Pad aligned color mapping ----
 // Mirrors the VA Pad's interactive palette so the rest of the app can match it.
 
-// VA anchor colors (duplicated here for shared usage)
-const C_NEG_LOW = '#64748b';  // sad-calm
-const C_POS_LOW = '#22d3ee';  // calm-positive
-const C_NEG_HIGH = '#ef4444'; // anxiety/anger
-const C_POS_HIGH = '#22c55e'; // excited-positive
-const C_NEUTRAL = '#60a5fa';  // center
+// Apple Health uyumlu VA anchor colors
+const C_NEG_LOW = '#8E8E93';  // Apple Gray - sad-calm
+const C_POS_LOW = '#5AC8FA';  // Apple Light Blue - calm-positive
+const C_NEG_HIGH = '#FF3B30'; // Apple Red - anxiety/anger
+const C_POS_HIGH = '#34C759'; // Apple Green - excited-positive
+const C_NEUTRAL = '#007AFF';  // Apple Blue - center
 
 export type VA = { x: number; y: number };
 

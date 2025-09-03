@@ -449,16 +449,14 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     />
                   );
                 })()}
-                {/* Ortalama noktası: sadece weekly modda göster */}
-                {!isAggregateMode && (
-                  <Circle
-                    cx={band.x}
-                    cy={band.avgY}
-                    r={3}
-                    fill={band.color}
-                    opacity={mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
-                  />
-                )}
+                {/* Ortalama noktası: aggregate modda küçük, weekly modda normal */}
+                <Circle
+                  cx={band.x}
+                  cy={band.avgY}
+                  r={isAggregateMode ? 2.2 : 3}
+                  fill={band.color}
+                  opacity={isAggregateMode ? 0.9 : mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
+                />
               </G>
             ))}
 
