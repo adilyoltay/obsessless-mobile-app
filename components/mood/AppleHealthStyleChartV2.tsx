@@ -111,6 +111,16 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // Deterministic jitter helper (-1..1)
+  const jitter01 = useCallback((seed: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+    }
+    const u = (h >>> 0) / 0xffffffff; // 0..1
+    return u * 2 - 1; // -1..1
+  }, []);
   // Use the measured container width (card inner width). Fallback to screen - 40.
   const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
   const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
@@ -487,14 +497,15 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     // 3 özet nokta: p10/min, p50/avg, p90/max
                     const spreadPx = Math.abs(band.maxY - band.minY);
                     const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
-                    const rCenter = 3.2 - 0.8 * s; // 2.4..3.2
-                    const rSide = Math.max(1.8, rCenter - 0.6);
-                    const opCenter = 0.95 - 0.25 * s; // 0.7..0.95
-                    const opSide = 0.6 - 0.2 * s;     // 0.4..0.6
+                    // Daha belirgin boyut/opacity aralıkları
+                    const rCenter = 3.6 - 1.0 * s; // ~2.6..3.6
+                    const rSide = Math.max(2.0, rCenter - 0.8);
+                    const opCenter = 1.0 - 0.2 * s; // ~0.8..1.0
+                    const opSide = 0.55 - 0.25 * s; // ~0.30..0.55
                     return (
                       <>
                         <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide} />
-                        <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} />
+                        <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} stroke={APPLE_COLORS.dotBorder} strokeWidth={0.8} />
                         <Circle cx={band.x} cy={band.maxY} r={rSide} fill={band.color} opacity={opSide} />
                       </>
                     );
@@ -508,17 +519,29 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
             {!isAggregateMode && dataPoints.map((point, index) => {
               const innerRBase = mapMoodToRadius(point.mood, 2.8, 4.8);
-              const sizeFactor = isAggregateMode ? (timeRange === 'month' ? 1.2 : 1.5) : 1;
-              const innerRBaseAdj = innerRBase * sizeFactor;
-              const innerR = Math.max(2.4, Math.min(6.5, point.hasMultiple && !isAggregateMode ? innerRBaseAdj - 0.4 : innerRBaseAdj));
+              const innerR = Math.max(2.4, Math.min(6.5, point.hasMultiple ? innerRBase - 0.4 : innerRBase));
               const outerR = innerR + 1.2;
               const innerOpacity = mapEnergyToOpacity(point.energy, 0.65, 1);
+              // Jitter: Aynı gün içinde çakışmaları azaltmak için hafif X/Y sapma
+              const items = data.dailyAverages;
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
+              const dayIdx = Math.max(0, Math.min(n - 1, Math.floor((point.x - AXIS_WIDTH) / Math.max(1, dw))));
+              const leftBound = AXIS_WIDTH + dayIdx * dw + 4;
+              const rightBound = leftBound + dw - 8;
+              const ampX = Math.min(dw * 0.22, 10);
+              const ampY = 1.8;
+              const seedBase = `${point.date}-${point.mood}-${point.energy}-${index}`;
+              const jx = (point.hasMultiple ? jitter01(seedBase + '-x') : 0) * ampX;
+              const jy = (point.hasMultiple ? jitter01(seedBase + '-y') : 0) * ampY;
+              const px = Math.max(leftBound, Math.min(rightBound, point.x + jx));
+              const py = Math.max(CHART_PADDING_TOP + 2, Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT - 2, point.y + jy));
               return (
                 <G key={`point-${index}`}>
                   {/* Dış beyaz halka */}
-                  <Circle cx={point.x} cy={point.y} r={outerR} fill={APPLE_COLORS.dotBorder} opacity={1} />
+                  <Circle cx={px} cy={py} r={outerR} fill={APPLE_COLORS.dotBorder} opacity={1} />
                   {/* İç renkli nokta */}
-                  <Circle cx={point.x} cy={point.y} r={innerR} fill={point.color} opacity={innerOpacity} />
+                  <Circle cx={px} cy={py} r={innerR} fill={point.color} opacity={innerOpacity} />
                 </G>
               );
             })}
