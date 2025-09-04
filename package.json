@@ -18,6 +18,7 @@
     "lint": "eslint .",
     "test": "jest --ci",
     "test:unit": "jest --ci --passWithNoTests",
+    "test:unit:only": "jest __tests__/unit --ci --watchman=false --cacheDirectory=.jest-cache",
     "test:quality-ribbon": "node scripts/test-quality-ribbon-dev.js",
     "test:quality-ribbon:manual": "echo '🎗️ Opening Quality Ribbon Manual Test Guide...' && open docs/QUALITY_RIBBON_MANUAL_TEST_GUIDE.md",
     "test:qr:unit": "TEST_MODE=1 TEST_TTL_MS=5000 jest __tests__/unit/QualityRibbon.test.tsx --ci --json --outputFile=test-reports/jest-unit.json",

@@ -543,7 +543,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
                             return Number(b?.count || 0);
                           })();
-                          const sw = 0.5 + 2.5 * (cThis / cMax);
+                          const sw = 0.5 + 2.5 * Math.sqrt(cThis / cMax);
                           return (
                             <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} stroke={APPLE_COLORS.dotBorder} strokeWidth={sw} />
                           );
@@ -678,8 +678,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 );
               });
             })()}
-            {/* Yearly p50 trend */}
-            {timeRange === 'year' && (() => {
+            {/* Aggregate p50 trend (month / 6months / year) */}
+            {(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (() => {
               const items = (data.aggregated?.data || []) as any[];
               if (!items.length) return null;
               const n = items.length;
