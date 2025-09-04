@@ -100,6 +100,28 @@ const mapEnergyToWidth = (energy?: number, min: number = 2, max: number = 6) => 
   return min + (max - min) * ((e - 1) / 9);
 };
 
+// Nokta/Jitter ve özet nokta (aggregate) ayarları — kolayca ince ayar için
+const DOT_TUNING = {
+  jitter: {
+    xFactor: 0.28,     // gün genişliği ile çarpılan X jitter oranı (önceki ~0.22)
+    xMaxPx: 12,        // X jitter üst sınırı (px) (önceki 10)
+    yPx: 2.2,          // Y jitter (px) (önceki 1.8)
+    clampPaddingPx: 4, // gün kenarlarından içeriye güvenlik payı
+  },
+  agg: {
+    // Merkez nokta yarıçap aralığı: s=0 (belirsizlik az) → max, s=1 → min
+    rCenterMax: 4.0,
+    rCenterMin: 2.8,
+    rSideFloor: 2.2,   // yan noktaların minimum yarıçapı
+    rSideDelta: 0.9,   // yan = merkez - delta
+    // Opaklık aralıkları
+    opCenterMax: 1.0,
+    opCenterMin: 0.88,
+    opSideMax: 0.6,
+    opSideMin: 0.4,
+  },
+} as const;
+
 export const AppleHealthStyleChartV2: React.FC<Props> = ({ 
   data, 
   timeRange, 
@@ -497,11 +519,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     // 3 özet nokta: p10/min, p50/avg, p90/max
                     const spreadPx = Math.abs(band.maxY - band.minY);
                     const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
-                    // Daha belirgin boyut/opacity aralıkları
-                    const rCenter = 3.6 - 1.0 * s; // ~2.6..3.6
-                    const rSide = Math.max(2.0, rCenter - 0.8);
-                    const opCenter = 1.0 - 0.2 * s; // ~0.8..1.0
-                    const opSide = 0.55 - 0.25 * s; // ~0.30..0.55
+                    // Boyut: merkez 2.8..4.0, yan merkezden ~0.9 küçük, en az 2.2
+                    const rCenter = DOT_TUNING.agg.rCenterMax - (DOT_TUNING.agg.rCenterMax - DOT_TUNING.agg.rCenterMin) * s;
+                    const rSide = Math.max(DOT_TUNING.agg.rSideFloor, rCenter - DOT_TUNING.agg.rSideDelta);
+                    // Opaklık: merkez 0.88..1.0, yan 0.4..0.6
+                    const opCenter = DOT_TUNING.agg.opCenterMax - (DOT_TUNING.agg.opCenterMax - DOT_TUNING.agg.opCenterMin) * s;
+                    const opSide = DOT_TUNING.agg.opSideMax - (DOT_TUNING.agg.opSideMax - DOT_TUNING.agg.opSideMin) * s;
                     return (
                       <>
                         <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide} />
@@ -527,10 +550,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const n = items.length;
               const dw = contentWidth / Math.max(1, n);
               const dayIdx = Math.max(0, Math.min(n - 1, Math.floor((point.x - AXIS_WIDTH) / Math.max(1, dw))));
-              const leftBound = AXIS_WIDTH + dayIdx * dw + 4;
-              const rightBound = leftBound + dw - 8;
-              const ampX = Math.min(dw * 0.22, 10);
-              const ampY = 1.8;
+              const leftBound = AXIS_WIDTH + dayIdx * dw + DOT_TUNING.jitter.clampPaddingPx;
+              const rightBound = AXIS_WIDTH + (dayIdx + 1) * dw - DOT_TUNING.jitter.clampPaddingPx;
+              const ampX = Math.min(dw * DOT_TUNING.jitter.xFactor, DOT_TUNING.jitter.xMaxPx);
+              const ampY = DOT_TUNING.jitter.yPx;
               const seedBase = `${point.date}-${point.mood}-${point.energy}-${index}`;
               const jx = (point.hasMultiple ? jitter01(seedBase + '-x') : 0) * ampX;
               const jy = (point.hasMultiple ? jitter01(seedBase + '-y') : 0) * ampY;
