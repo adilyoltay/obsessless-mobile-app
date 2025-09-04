@@ -39,13 +39,8 @@ export default function MoodJourneyCard({ data }: Props) {
       const e = extended.rawDataPoints[date]?.entries || [];
       setDetailEntries(e);
     } else {
-      const agg = extended.aggregated?.data || [];
-      let bucket = agg.find(b => b.date === date);
-      if (!bucket && range === 'year') {
-        const monthKey = String(date).slice(0, 7); // YYYY-MM
-        bucket = agg.find(b => b.date.startsWith(monthKey));
-      }
-      setDetailEntries(bucket?.entries || []);
+      // Aggregated görünümde detay girişi göstermiyoruz (yalın özet)
+      setDetailEntries([]);
     }
     setDetailDate(date);
   }, [extended, range]);
@@ -312,6 +307,15 @@ export default function MoodJourneyCard({ data }: Props) {
               const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - w - 4, chartSelection.x - w / 2));
               const innerX = (chartSelection.x - left);
               const pointerX = Math.max(8, Math.min((w - 8 - 8), innerX - 4));
+              // Helpers
+              const nfmt = (n: number | undefined) => (Number.isFinite(n as any) ? Math.round((n as number) * 10) / 10 : '—');
+              const fmtIQR = (q: { p25?: number; p50?: number; p75?: number } | null) => {
+                if (!q) return '— (IQR —–—)';
+                const p50 = nfmt((q as any).p50);
+                const p25 = nfmt((q as any).p25);
+                const p75 = nfmt((q as any).p75);
+                return `${p50} (IQR ${p25}–${p75})`;
+              };
               // Compute dominant emotion for selected day/period
               const selectedDominant = (() => {
                 if (!extended) return '—';
@@ -319,13 +323,25 @@ export default function MoodJourneyCard({ data }: Props) {
                 if (range === 'week') {
                   list = extended.rawDataPoints[chartSelection.date]?.entries || [];
                 } else {
-                  const agg = extended.aggregated?.data || [];
+                  // Approximate from p50 mood
+                  const agg = extended.aggregated?.data || [] as any[];
                   let bucket = agg.find((b: any) => b.date === chartSelection.date) as any;
                   if (!bucket && range === 'year') {
                     const monthKey = String(chartSelection.date).slice(0, 7);
                     bucket = agg.find((b: any) => (b as any).date?.startsWith(monthKey));
                   }
-                  list = (bucket?.entries || []) as any[];
+                  const m = Number(bucket?.mood?.p50 ?? bucket?.avg ?? 0);
+                  if (!m) return '—';
+                  return (
+                    m >= 90 ? 'Heyecanlı' :
+                    m >= 80 ? 'Enerjik'  :
+                    m >= 70 ? 'Mutlu'    :
+                    m >= 60 ? 'Sakin'    :
+                    m >= 50 ? 'Normal'   :
+                    m >= 40 ? 'Endişeli' :
+                    m >= 30 ? 'Sinirli'  :
+                    m >= 20 ? 'Üzgün'    : 'Kızgın'
+                  );
                 }
                 if (!Array.isArray(list) || list.length === 0) return '—';
                 const counts: Record<string, number> = {
@@ -347,13 +363,55 @@ export default function MoodJourneyCard({ data }: Props) {
                 const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).find(([,c]) => c>0)?.[0];
                 return top || '—';
               })();
+              // Quantiles for tooltip rows
+              const qData = (() => {
+                if (!extended) return null as any;
+                if (range === 'week') {
+                  const list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                  const moods = list.map((p: any) => p.mood_score);
+                  const energies = list.map((p: any) => p.energy_level);
+                  const anx = list.map((p: any) => (typeof p.anxiety_level === 'number' ? p.anxiety_level : 0));
+                  const q = (arr: number[]) => {
+                    const a = arr.map(Number).filter(n => Number.isFinite(n)).sort((x,y)=>x-y);
+                    if (!a.length) return { p25: NaN, p50: NaN, p75: NaN };
+                    const interp = (p: number) => {
+                      const idx = (a.length - 1) * p;
+                      const lo = Math.floor(idx), hi = Math.ceil(idx);
+                      if (lo === hi) return a[lo];
+                      const t = idx - lo; return a[lo]*(1-t)+a[hi]*t;
+                    };
+                    return { p25: interp(0.25), p50: interp(0.5), p75: interp(0.75) };
+                  };
+                  return {
+                    count: list.length,
+                    mood: q(moods),
+                    energy: q(energies),
+                    anxiety: q(anx),
+                  };
+                }
+                const agg = extended.aggregated?.data || [] as any[];
+                let bucket = agg.find((b: any) => b.date === chartSelection.date) as any;
+                if (!bucket && range === 'year') {
+                  const monthKey = String(chartSelection.date).slice(0, 7);
+                  bucket = agg.find((b: any) => (b as any).date?.startsWith(monthKey));
+                }
+                return {
+                  count: bucket?.count || 0,
+                  mood: bucket?.mood || null,
+                  energy: bucket?.energy || null,
+                  anxiety: bucket?.anxiety || null,
+                };
+              })();
               return (
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68, overflow: 'visible' }} pointerEvents="box-none">
                   <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                       <View>
                         <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
-                          <Text style={styles.entryCountValue}>{chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                          <Text style={styles.entryCountValue}>{qData?.count ?? chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                          <Text style={styles.tooltipMeta}>Mood: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.mood || null)}</Text></Text>
+                          <Text style={styles.tooltipMeta}>Enerji: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.energy || null)}</Text></Text>
+                          <Text style={styles.tooltipMeta}>Anksiyete: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.anxiety || null)}</Text></Text>
                           <View style={styles.tooltipMetaRow}>
                             <Svg width={12} height={12} viewBox="0 0 12 12" style={{ marginRight: 6 }}>
                               <Circle cx={6} cy={6} r={5.2} fill="#F3F4F6" stroke="#9CA3AF" strokeWidth={1} />

@@ -21,6 +21,7 @@ import Svg, {
   Ellipse
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
@@ -36,6 +37,7 @@ type Props = {
   clearSelectionSignal?: number;
   embedHeader?: boolean; // render internal header (summary) inside card
   onRequestPage?: (direction: 'prev' | 'next') => void; // request paginate when scrubbing beyond edges
+  showAnxiety?: boolean;
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
@@ -67,19 +69,25 @@ const moodToValence = (mood: number): number => {
   return ((mood - 50) / 50); // 0-100 -> -1 to +1
 };
 
-// VA renkleri veya Apple paleti seçimi
-const USE_VA_COLORS = true; // Bizim güçlü VA renk sistemimizi koru
-
-const getColorForMood = (mood: number, energy: number) => {
-  if (USE_VA_COLORS) {
-    return getVAColorFromScores(mood, energy);
-  }
-  // Apple paleti eşiği (fallback)
-  if (mood >= 80) return APPLE_COLORS.veryPleasant;
-  if (mood >= 60) return APPLE_COLORS.pleasant;
-  if (mood >= 40) return APPLE_COLORS.neutral;
-  if (mood >= 20) return APPLE_COLORS.unpleasant;
-  return APPLE_COLORS.veryUnpleasant;
+// Görsel gramer V2: Renk=Enerji, Opaklık=Zaman, Y=Mood, Boyut=Sabit
+const DOT_RADIUS = 4;
+const recencyAlpha = (ts: number, minTs: number, maxTs: number) => {
+  if (maxTs === minTs) return 1;
+  const t = (ts - minTs) / (maxTs - minTs);
+  return 0.4 + 0.6 * Math.max(0, Math.min(1, t));
+};
+const energyToColor = (e: number, alpha: number = 1) => {
+  // energy 1..10 → 0..100
+  const clamped = Math.max(0, Math.min(100, (typeof e === 'number' ? e * 10 : 60)));
+  const hue = 200 - (180 * clamped / 100); // 200° (düşük) → 20° (yüksek)
+  return `hsla(${Math.round(hue)}, 65%, 50%, ${alpha})`;
+};
+const lcg = (seed: number) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+const jitterXY = (seedKey: string, xMaxPx = 12, yMaxPx = 2.2) => {
+  let h = 2166136261;
+  for (let i = 0; i < seedKey.length; i++) { h ^= seedKey.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rnd = lcg(h >>> 0);
+  return { jx: (rnd() - 0.5) * 2 * xMaxPx, jy: (rnd() - 0.5) * 2 * yMaxPx };
 };
 
 // Enerjiyi opaklığa yansıt (1..10 → min..max)
@@ -130,9 +138,22 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   clearSelectionSignal,
   embedHeader = true,
   onRequestPage,
+  showAnxiety = true,
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [legendSeen, setLegendSeen] = useState<boolean>(true);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const flag = await AsyncStorage.getItem('chart_v2_legend_seen');
+        if (!flag) {
+          setLegendSeen(false);
+          await AsyncStorage.setItem('chart_v2_legend_seen', '1');
+        }
+      } catch {}
+    })();
+  }, []);
   // Deterministic jitter helper (-1..1)
   const jitter01 = useCallback((seed: string) => {
     let h = 2166136261;
@@ -253,6 +274,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       hasMultiple: boolean;
       entries: any[];
       color: string;
+      ts?: number;
     }> = [];
 
     if (!isAggregateMode) {
@@ -272,7 +294,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               energy: entry.energy_level,
               hasMultiple: rawPoints.entries.length > 1,
               entries: rawPoints.entries,
-              color: getColorForMood(entry.mood_score, entry.energy_level)
+              ts: new Date(entry.timestamp).getTime(),
+              color: '#000'
             });
           });
         }
@@ -284,7 +307,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     return points; // empty
   }, [data, contentWidth, isAggregateMode, timeRange]);
 
-  // Dikey bantlar (Apple Health tarzı): haftalıkta gün içi çoklu; aggregate modda bucket min-max
+  // Dikey bantlar: aggregate modda IQR (p25/p75) + median (p50)
   const verticalBands = useMemo(() => {
     const bands: Array<{
       x: number;
@@ -317,7 +340,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             avgY,
             date,
             entries: points[0].entries,
-            color: getColorForMood(avgMood, avgEnergy),
+            color: energyToColor(avgEnergy, 1),
             energyAvg: avgEnergy,
           });
         }
@@ -325,18 +348,16 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       return bands;
     }
 
-    // Aggregate mod: derive from aggregated buckets (min/max/avg)
+    // Aggregate mod: derive from aggregated buckets (IQR)
     const buckets: AggregatedData[] = data.aggregated?.data || [];
     const bw = contentWidth / Math.max(1, buckets.length);
     buckets.forEach((b, index) => {
       const x = AXIS_WIDTH + (index * bw) + (bw / 2);
-      const lowMood = (typeof b.p10 === 'number' ? b.p10 : b.min) || 0;
-      const highMood = (typeof b.p90 === 'number' ? b.p90 : b.max) || 0;
+      const lowMood = (b.mood?.p25 ?? b.mood?.min ?? 0);
+      const highMood = (b.mood?.p75 ?? b.mood?.max ?? 0);
       const minVal = moodToValence(lowMood);
       const maxVal = moodToValence(highMood);
-      const centerMood = timeRange === 'year'
-        ? ((typeof (b as any).p50 === 'number') ? (b as any).p50 as number : (b.averageMood || 0))
-        : (b.averageMood || 0);
+      const centerMood = (b.mood?.p50 ?? b.avg ?? 0);
       const avgVal = moodToValence(centerMood);
       const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
@@ -347,9 +368,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         maxY: Math.max(minY, maxY),
         avgY,
         date: b.date,
-        entries: b.entries || [],
-        color: getColorForMood(centerMood, b.averageEnergy || 6),
-        energyAvg: b.averageEnergy || 6,
+        entries: [],
+        color: energyToColor((b.energy?.p50 ?? 6) * 10, 1),
+        energyAvg: b.energy?.p50 ?? 6,
       });
     });
     return bands;
@@ -422,7 +443,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     y2={y}
                     stroke={isZeroLine ? APPLE_COLORS.gridLineDark : APPLE_COLORS.gridLine}
                     strokeWidth={isZeroLine ? 1.2 : 1}
-                    strokeDasharray={isZeroLine ? "0" : "3,2"}
+                    strokeDasharray={isZeroLine ? "4,3" : "3,2"}
                     strokeOpacity={isZeroLine ? 1 : 0.95}
                   />
                 </G>
@@ -540,34 +561,37 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Aggregate modda outlier noktaları devre dışı */}
 
             {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
-            {!isAggregateMode && dataPoints.map((point, index) => {
-              const innerRBase = mapMoodToRadius(point.mood, 2.8, 4.8);
-              const innerR = Math.max(2.4, Math.min(6.5, point.hasMultiple ? innerRBase - 0.4 : innerRBase));
-              const outerR = innerR + 1.2;
-              const innerOpacity = mapEnergyToOpacity(point.energy, 0.65, 1);
-              // Jitter: Aynı gün içinde çakışmaları azaltmak için hafif X/Y sapma
+            {!isAggregateMode && (() => {
               const items = data.dailyAverages;
               const n = items.length;
               const dw = contentWidth / Math.max(1, n);
-              const dayIdx = Math.max(0, Math.min(n - 1, Math.floor((point.x - AXIS_WIDTH) / Math.max(1, dw))));
-              const leftBound = AXIS_WIDTH + dayIdx * dw + DOT_TUNING.jitter.clampPaddingPx;
-              const rightBound = AXIS_WIDTH + (dayIdx + 1) * dw - DOT_TUNING.jitter.clampPaddingPx;
-              const ampX = Math.min(dw * DOT_TUNING.jitter.xFactor, DOT_TUNING.jitter.xMaxPx);
-              const ampY = DOT_TUNING.jitter.yPx;
-              const seedBase = `${point.date}-${point.mood}-${point.energy}-${index}`;
-              const jx = (point.hasMultiple ? jitter01(seedBase + '-x') : 0) * ampX;
-              const jy = (point.hasMultiple ? jitter01(seedBase + '-y') : 0) * ampY;
-              const px = Math.max(leftBound, Math.min(rightBound, point.x + jx));
-              const py = Math.max(CHART_PADDING_TOP + 2, Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT - 2, point.y + jy));
-              return (
-                <G key={`point-${index}`}>
-                  {/* Dış beyaz halka */}
-                  <Circle cx={px} cy={py} r={outerR} fill={APPLE_COLORS.dotBorder} opacity={1} />
-                  {/* İç renkli nokta */}
-                  <Circle cx={px} cy={py} r={innerR} fill={point.color} opacity={innerOpacity} />
-                </G>
-              );
-            })}
+              const times = dataPoints.map(p => (p as any).ts || new Date(`${p.date}T00:00:00.000Z`).getTime());
+              const minTs = times.length ? Math.min(...times) : 0;
+              const maxTs = times.length ? Math.max(...times) : 1;
+              return dataPoints.map((point: any, index) => {
+                const r = DOT_RADIUS;
+                const outerR = r + 1.2;
+                const alpha = recencyAlpha(point.ts || new Date(`${point.date}T00:00:00.000Z`).getTime(), minTs, maxTs);
+                const fill = energyToColor(point.energy, alpha);
+                // Jitter: Aynı gün içinde çakışmaları azaltmak için hafif X/Y sapma
+                const dayIdx = Math.max(0, Math.min(n - 1, Math.floor((point.x - AXIS_WIDTH) / Math.max(1, dw))));
+                const leftBound = AXIS_WIDTH + dayIdx * dw + DOT_TUNING.jitter.clampPaddingPx;
+                const rightBound = AXIS_WIDTH + (dayIdx + 1) * dw - DOT_TUNING.jitter.clampPaddingPx;
+                const ampX = Math.min(dw * DOT_TUNING.jitter.xFactor, DOT_TUNING.jitter.xMaxPx);
+                const ampY = DOT_TUNING.jitter.yPx;
+                const { jx, jy } = point.hasMultiple ? jitterXY(`${point.date}-${point.mood}-${point.energy}-${index}`) : { jx: 0, jy: 0 } as any;
+                const px = Math.max(leftBound, Math.min(rightBound, point.x + jx * ampX));
+                const py = Math.max(CHART_PADDING_TOP + 2, Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT - 2, point.y + jy * ampY));
+                return (
+                  <G key={`point-${index}`}>
+                    {/* Dış beyaz halka */}
+                    <Circle cx={px} cy={py} r={outerR} fill={APPLE_COLORS.dotBorder} opacity={1} />
+                    {/* İç renkli nokta */}
+                    <Circle cx={px} cy={py} r={r} fill={fill} opacity={1} />
+                  </G>
+                );
+              });
+            })()}
 
             {/* X ekseni etiketleri */}
             {(() => {
@@ -596,6 +620,30 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               });
             })()}
           </Svg>
+          {/* Anxiety thin-line overlay */}
+          {showAnxiety && timeRange === 'week' && data.dailyAverages.length > 1 && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+              {(() => {
+                const items = data.dailyAverages;
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const points = items.map((d, index) => {
+                  const ax = AXIS_WIDTH + (index * dw) + (dw / 2);
+                  const a = Number(d.averageAnxiety || 0);
+                  const norm = Math.max(1, Math.min(10, a));
+                  // Map 1..10 -> chart Y (top=low anxiety for readability)
+                  const t = (norm - 1) / 9; // 0..1
+                  const ay = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  return `${ax},${ay}`;
+                });
+                return (
+                  <>
+                    <Path d={`M ${points[0]} L ${points.slice(1).join(' L ')}`} stroke="#8B5CF6" strokeWidth={1} strokeOpacity={0.5} fill="none" strokeDasharray="3,2" />
+                  </>
+                );
+              })()}
+            </Svg>
+          )}
 
           {/* Dokunmatik alanlar */}
           <View 
@@ -676,6 +724,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         </View>
       </ScrollView>
       </View>
+      {!legendSeen && (
+        <View style={{ paddingHorizontal: 12, paddingTop: 6 }}>
+          <Text style={{ fontSize: 11, color: '#6B7280' }}>Y = Mood • Renk = Enerji • Opaklık = Zaman</Text>
+        </View>
+      )}
     </View>
   );
 };

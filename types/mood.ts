@@ -42,19 +42,19 @@ export interface RawDataPoint {
 }
 
 // Apple Health tarzı toplulaştırılmış veri yapısı
+// Interquartile Range structure
+export type IQR = { p25: number; p50: number; p75: number };
+
+// Unified aggregated bucket with IQR-first design
 export interface AggregatedData {
-  date: string; // YYYY-MM-DD (hafta için Pazartesi), ay için YYYY-MM-01
-  label: string; // Görsel etiket (örn. "1-7 Oca" veya "Ocak 2025")
-  averageMood: number;
-  averageEnergy: number;
-  min: number;
-  max: number;
-  variance?: number;
-  p10?: number;
-  p50?: number;
-  p90?: number;
-  count: number; // toplam giriş sayısı
-  entries: MoodEntryLite[]; // detay için ham girdiler
+  date: string;   // bucket başlangıcı (YYYY-MM-DD; hafta için Pazartesi, ay için YYYY-MM-01)
+  label: string;  // "1–7 Oca" | "Ocak 2025"
+  count: number;  // toplam giriş
+  mood: IQR & { min?: number; max?: number };
+  energy: IQR;
+  anxiety: IQR;
+  // Geriye dönük alanlar (kademeli kaldırma için opsiyonel):
+  avg?: number; min?: number; max?: number; p10?: number; p50?: number; p90?: number; entries?: number;
 }
 
 export interface MoodJourneyExtended {

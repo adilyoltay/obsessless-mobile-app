@@ -2,7 +2,7 @@ import { InteractionManager } from 'react-native';
 import moodTracker from '@/services/moodTrackingService';
 import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
-import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
+import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData, IQR } from '@/types/mood';
 import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average, quantile } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
@@ -202,10 +202,49 @@ export class OptimizedMoodDataLoader {
     const weeklyEnergyAvg = lite.length ? lite.reduce((s, e) => s + (e.energy_level || 6), 0) / lite.length : 0;
     const weeklyAnxietyAvg = lite.length ? lite.reduce((s, e) => s + (e.anxiety_level || 5), 0) / lite.length : 0;
 
-    // Build Apple Health tarzı aggregate (haftalık/aylık)
+    // Quantiles helper (fast linear interpolation)
+    const quantiles = (arr: number[]): IQR => {
+      const vals = (arr || []).map(Number).filter(n => Number.isFinite(n));
+      if (vals.length === 0) return { p25: NaN, p50: NaN, p75: NaN };
+      const a = Float64Array.from(vals).sort();
+      const q = (p: number) => {
+        const idx = (a.length - 1) * p;
+        const lo = Math.floor(idx), hi = Math.ceil(idx);
+        if (lo === hi) return a[lo];
+        const t = idx - lo;
+        return a[lo] * (1 - t) + a[hi] * t;
+      };
+      return { p25: q(0.25), p50: q(0.5), p75: q(0.75) };
+    };
+
+    const toAggregatedBucket = (points: MoodEntryLite[], label: string, dateISO: string): AggregatedData => {
+      const moods = points.map(p => p.mood_score);
+      const energies = points.map(p => p.energy_level);
+      const anx = points.map((p: any) => (typeof p.anxiety_level === 'number' ? p.anxiety_level : 0));
+      const mq = quantiles(moods);
+      const eq = quantiles(energies);
+      const aq = quantiles(anx);
+      const min = moods.length ? Math.min(...moods) : 0;
+      const max = moods.length ? Math.max(...moods) : 0;
+      return {
+        date: dateISO,
+        label,
+        count: points.length,
+        mood: { ...mq, min, max },
+        energy: eq,
+        anxiety: aq,
+        // Back-compat fields (optional)
+        avg: moods.length ? (moods.reduce((s, v) => s + v, 0) / moods.length) : 0,
+        p50: mq.p50,
+        min,
+        max,
+      };
+    };
+
+    // Build aggregate (haftalık/aylık) IQR-first
     const aggregated = (() => {
       if (range === 'month') {
-        // Haftalık aggregate: son 30 gün içindeki tüm haftaları (Pazartesi başlangıç) içersin
+        // Haftalık aggregate: son 30 gün içindeki tüm haftaları (Pazartesi başlangıç)
         const weekMap = new Map<string, MoodEntryLite[]>();
         for (const e of lite) {
           const wk = formatWeekKey(e.timestamp);
@@ -220,21 +259,7 @@ export class OptimizedMoodDataLoader {
         const items: AggregatedData[] = allWeekKeys
           .map((weekKey) => {
             const entriesForWeek = weekMap.get(weekKey) || [];
-            const moods = entriesForWeek.map(i => i.mood_score);
-            const energies = entriesForWeek.map(i => i.energy_level);
-            return {
-              date: weekKey,
-              label: getWeekLabel(weekKey),
-              averageMood: average(moods) || 0,
-              averageEnergy: average(energies) || 0,
-              min: moods.length ? Math.min(...moods) : 0,
-              max: moods.length ? Math.max(...moods) : 0,
-              p10: moods.length ? quantile(moods, 0.10) : undefined,
-              p50: moods.length ? quantile(moods, 0.50) : undefined,
-              p90: moods.length ? quantile(moods, 0.90) : undefined,
-              count: entriesForWeek.length,
-              entries: entriesForWeek,
-            } as AggregatedData;
+            return toAggregatedBucket(entriesForWeek as any, getWeekLabel(weekKey), weekKey);
           })
           .sort((a, b) => a.date.localeCompare(b.date));
         return { granularity: 'week' as const, data: items };
@@ -259,22 +284,7 @@ export class OptimizedMoodDataLoader {
         const items: AggregatedData[] = allMonthKeys
           .map((monthKey) => {
             const entriesForMonth = monthMap.get(monthKey) || [];
-            const moods = entriesForMonth.map(i => i.mood_score);
-            const energies = entriesForMonth.map(i => i.energy_level);
-            return {
-              date: `${monthKey}-01`,
-              label: getMonthLabel(monthKey),
-              averageMood: average(moods) || 0,
-              averageEnergy: average(energies) || 0,
-              min: moods.length ? Math.min(...moods) : 0,
-              max: moods.length ? Math.max(...moods) : 0,
-              variance: calculateVariance(moods) || 0,
-              p10: moods.length ? quantile(moods, 0.10) : undefined,
-              p50: moods.length ? quantile(moods, 0.50) : undefined,
-              p90: moods.length ? quantile(moods, 0.90) : undefined,
-              count: entriesForMonth.length,
-              entries: entriesForMonth,
-            } as AggregatedData;
+            return toAggregatedBucket(entriesForMonth as any, getMonthLabel(monthKey), `${monthKey}-01`);
           })
           .sort((a, b) => a.date.localeCompare(b.date));
         return { granularity: 'month' as const, data: items };
