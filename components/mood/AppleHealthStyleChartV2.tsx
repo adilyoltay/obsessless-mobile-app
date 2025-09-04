@@ -628,6 +628,36 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 );
               });
             })()}
+            {/* Scrub overlay: press and drag horizontally to move selection */}
+            <View
+              style={[StyleSheet.absoluteFill, { marginLeft: 0 }]}
+              pointerEvents="auto"
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(e) => {
+                const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const x = e.nativeEvent.locationX; // relative to this overlay (already within content area)
+                let idx = Math.floor(x / Math.max(1, dw));
+                idx = Math.max(0, Math.min(n - 1, idx));
+                setSelectedIndex(idx);
+                emitSelection(idx);
+              }}
+              onResponderMove={(e) => {
+                const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const x = e.nativeEvent.locationX;
+                let idx = Math.floor(x / Math.max(1, dw));
+                idx = Math.max(0, Math.min(n - 1, idx));
+                if (idx !== selectedIndex) {
+                  setSelectedIndex(idx);
+                  emitSelection(idx);
+                }
+              }}
+              onResponderRelease={() => {}}
+            />
           </View>
           {/* External tooltip rendered by parent */}
         </View>
