@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { RawDataPoint } from '@/types/mood';
 import { formatDateInUserTimezone } from '@/utils/timezoneUtils';
+import { quantiles } from '@/utils/statistics';
 import * as Haptics from 'expo-haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -107,21 +108,25 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
   visible, 
   onClose 
 }) => {
-  // İstatistikler
+  // İstatistikler (MEDYAN + IQR) — UI sürücü metrik
   const stats = React.useMemo(() => {
-    if (entries.length === 0) {
-      return { avg: 0, min: 0, max: 0, energy: 0 };
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return {
+        count: 0,
+        mood: { p25: NaN, p50: NaN, p75: NaN },
+        energy: { p25: NaN, p50: NaN, p75: NaN },
+        anxiety: { p25: NaN, p50: NaN, p75: NaN },
+        avg: 0,
+      } as const;
     }
-    
-    const moods = entries.map(e => e.mood_score);
-    const energies = entries.map(e => e.energy_level);
-    
-    return {
-      avg: Math.round(moods.reduce((a, b) => a + b, 0) / moods.length),
-      min: Math.min(...moods),
-      max: Math.max(...moods),
-      energy: Math.round(energies.reduce((a, b) => a + b, 0) / energies.length)
-    };
+    const moods = entries.map(e => Number(e.mood_score)).filter(Number.isFinite) as number[];
+    const energies = entries.map(e => Number(e.energy_level)).filter(Number.isFinite) as number[];
+    const anx = entries.map(e => Number((e as any).anxiety_level ?? 0)).filter(Number.isFinite) as number[];
+    const mq = quantiles(moods);
+    const eq = quantiles(energies);
+    const aq = quantiles(anx);
+    const avg = moods.length ? Math.round((moods.reduce((a, b) => a + b, 0) / moods.length) * 10) / 10 : 0;
+    return { count: entries.length, mood: mq, energy: eq, anxiety: aq, avg } as const;
   }, [entries]);
   
   const formattedDate = formatDateInUserTimezone(
@@ -173,25 +178,27 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             showsVerticalScrollIndicator={false}
             bounces={true}
           >
-            {/* Özet Kartları */}
+            {/* Özet Kartları (MEDYAN + IQR) */}
             <View style={styles.statsContainer}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.avg}</Text>
-                <Text style={styles.statLabel}>Ortalama</Text>
+                <Text style={styles.statValue}>{Number.isFinite(stats.mood.p50) ? Math.round(stats.mood.p50) : '—'}</Text>
+                <Text style={styles.statLabel}>Mood Medyan</Text>
               </View>
               
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.min}-{stats.max}</Text>
-                <Text style={styles.statLabel}>Aralık</Text>
+                <Text style={styles.statValue}>
+                  {Number.isFinite(stats.mood.p25) ? Math.round(stats.mood.p25) : '—'}–{Number.isFinite(stats.mood.p75) ? Math.round(stats.mood.p75) : '—'}
+                </Text>
+                <Text style={styles.statLabel}>IQR (p25–p75)</Text>
               </View>
               
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.energy}</Text>
-                <Text style={styles.statLabel}>Enerji</Text>
+                <Text style={styles.statValue}>{Number.isFinite(stats.energy.p50) ? Math.round(stats.energy.p50) : '—'}</Text>
+                <Text style={styles.statLabel}>Enerji Medyan</Text>
               </View>
               
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{entries.length}</Text>
+                <Text style={styles.statValue}>{stats.count}</Text>
                 <Text style={styles.statLabel}>Giriş</Text>
               </View>
             </View>
