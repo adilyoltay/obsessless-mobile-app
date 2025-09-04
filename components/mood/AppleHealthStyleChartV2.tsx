@@ -35,6 +35,7 @@ type Props = {
   onSelectionChange?: (sel: { date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null) => void;
   clearSelectionSignal?: number;
   embedHeader?: boolean; // render internal header (summary) inside card
+  onRequestPage?: (direction: 'prev' | 'next') => void; // request paginate when scrubbing beyond edges
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
@@ -106,6 +107,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   onSelectionChange,
   clearSelectionSignal,
   embedHeader = true,
+  onRequestPage,
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -628,9 +630,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 );
               });
             })()}
-            {/* Scrub overlay: press and drag horizontally to move selection */}
+            {/* Scrub overlay: press and drag horizontally to move selection and request paging at edges */}
             <View
-              style={[StyleSheet.absoluteFill, { marginLeft: 0 }]}
+              style={[StyleSheet.absoluteFill, { marginLeft: AXIS_WIDTH }]}
               pointerEvents="auto"
               onStartShouldSetResponder={() => true}
               onMoveShouldSetResponder={() => true}
@@ -638,7 +640,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
-                const x = e.nativeEvent.locationX; // relative to this overlay (already within content area)
+                const x = e.nativeEvent.locationX; // 0..contentWidth
                 let idx = Math.floor(x / Math.max(1, dw));
                 idx = Math.max(0, Math.min(n - 1, idx));
                 setSelectedIndex(idx);
@@ -648,12 +650,21 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
-                const x = e.nativeEvent.locationX;
+                const x = e.nativeEvent.locationX; // may go slightly <0 or >contentWidth if finger outside
                 let idx = Math.floor(x / Math.max(1, dw));
                 idx = Math.max(0, Math.min(n - 1, idx));
                 if (idx !== selectedIndex) {
                   setSelectedIndex(idx);
                   emitSelection(idx);
+                }
+                // Edge pagination requests
+                const threshold = Math.max(12, 0.3 * dw);
+                if (typeof onRequestPage === 'function') {
+                  if (x < -threshold && idx === 0) {
+                    onRequestPage('prev');
+                  } else if (x > contentWidth + threshold && idx === n - 1) {
+                    onRequestPage('next');
+                  }
                 }
               }}
               onResponderRelease={() => {}}

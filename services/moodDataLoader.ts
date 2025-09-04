@@ -23,6 +23,25 @@ export class OptimizedMoodDataLoader {
     return data;
   }
 
+  /**
+   * Load a specific page anchored to a custom end date (inclusive), instead of "today".
+   * Useful for pagination when scrubbing beyond the visible window.
+   */
+  async loadTimeRangeAt(userId: string, range: TimeRange, endDate: Date): Promise<MoodJourneyExtended> {
+    // Normalize endDate to user local date at 00:00
+    const end = toUserLocalDate(endDate);
+    end.setHours(0, 0, 0, 0);
+    const endKey = formatDateYMD(end);
+    const cacheKey = `${userId}-${range}-${endKey}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
+      return cached.data;
+    }
+    const data = await this.loadFullRange(userId, range, end);
+    this.cache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+  }
+
   private async loadProgressively(userId: string, range: TimeRange): Promise<MoodJourneyExtended> {
     const quickData = await this.loadWeek(userId);
     InteractionManager.runAfterInteractions(async () => {
@@ -49,7 +68,7 @@ export class OptimizedMoodDataLoader {
     }
   }
 
-  private async loadFullRange(userId: string, range: TimeRange): Promise<MoodJourneyExtended> {
+  private async loadFullRange(userId: string, range: TimeRange, endDateOverride?: Date): Promise<MoodJourneyExtended> {
     const days = this.daysForRange(range);
     const entries = await moodTracker.getMoodEntries(userId, days);
 
@@ -74,7 +93,7 @@ export class OptimizedMoodDataLoader {
     }
 
     // Daily averages - NORMALIZE to include all days in selected range
-    const today = toUserLocalDate(new Date());
+    const today = endDateOverride ? toUserLocalDate(endDateOverride) : toUserLocalDate(new Date());
     const start = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
     const dayKeys: string[] = [];
     for (let i = 0; i < days; i++) {

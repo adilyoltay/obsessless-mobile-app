@@ -23,6 +23,7 @@ export default function MoodJourneyCard({ data }: Props) {
   const { user } = useAuth();
   const { setVA } = useAccentColor();
   const [range, setRange] = React.useState<TimeRange>('week');
+  const [page, setPage] = React.useState<number>(0); // 0 = current window (ends today); >0 = older pages
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
   const [detailDate, setDetailDate] = React.useState<string | null>(null);
   const [detailEntries, setDetailEntries] = React.useState<any[]>([]);
@@ -62,11 +63,27 @@ export default function MoodJourneyCard({ data }: Props) {
     let mounted = true;
     (async () => {
       if (!user?.id) return;
-      const res = await moodDataLoader.loadTimeRange(user.id, range);
+      // Compute end date for this page
+      const daysForRange = (r: TimeRange) => (r === 'week' ? 7 : r === 'month' ? 30 : r === '6months' ? 183 : 365);
+      const end = new Date();
+      end.setDate(end.getDate() - page * daysForRange(range));
+      end.setHours(0, 0, 0, 0);
+      const res = await moodDataLoader.loadTimeRangeAt(user.id, range, end);
       if (mounted) setExtended(res);
+      // Prefetch neighbors (older and newer if exists)
+      try {
+        const older = new Date(end);
+        older.setDate(older.getDate() - daysForRange(range));
+        void moodDataLoader.loadTimeRangeAt(user.id, range, older);
+        if (page > 0) {
+          const newer = new Date(end);
+          newer.setDate(newer.getDate() + daysForRange(range));
+          void moodDataLoader.loadTimeRangeAt(user.id, range, newer);
+        }
+      } catch {}
     })();
     return () => { mounted = false; };
-  }, [user?.id, range]);
+  }, [user?.id, range, page]);
 
   // Sync hero color with current chart bar color
   React.useEffect(() => {
@@ -168,7 +185,7 @@ export default function MoodJourneyCard({ data }: Props) {
     <View style={styles.container}>
       {/* Time range selector row */}
       <View style={styles.selectorWrapper}>
-        <AppleHealthTimeSelectorV2 selected={range} onChange={setRange} />
+        <AppleHealthTimeSelectorV2 selected={range} onChange={(r) => { setRange(r); setPage(0); }} />
       </View>
 
       {/* Chart container with header/tooltip overlay area */}
@@ -232,6 +249,12 @@ export default function MoodJourneyCard({ data }: Props) {
             embedHeader={false}
             onSelectionChange={(sel) => setChartSelection(sel)}
             clearSelectionSignal={clearSignal}
+            onRequestPage={(dir) => {
+              // dir: 'prev' (older) => page+1, 'next' (newer) => page-1 but not < 0
+              setChartSelection(null);
+              setClearSignal(s => s + 1);
+              setPage((p) => dir === 'prev' ? p + 1 : Math.max(0, p - 1));
+            }}
             onDayPress={(date) => {
               // no-op: detail opens from tooltip tap only
               // Sync hero VA color with the tapped bar
