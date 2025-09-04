@@ -74,6 +74,25 @@ const moodToValence = (mood: number): number => {
 
 // Görsel gramer V2: Renk=Enerji, Opaklık=Zaman, Y=Mood, Boyut=Sabit
 const DOT_RADIUS = 4;
+// Color utilities for trend line fine-tuning
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const hexToRgb = (hex: string) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return null;
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+};
+const rgbToHex = (r: number, g: number, b: number) =>
+  `#${clamp(Math.round(r),0,255).toString(16).padStart(2,'0')}${clamp(Math.round(g),0,255).toString(16).padStart(2,'0')}${clamp(Math.round(b),0,255).toString(16).padStart(2,'0')}`;
+const mixHex = (base: string, mix: string, weight: number) => {
+  const a = hexToRgb(base);
+  const b = hexToRgb(mix);
+  if (!a || !b) return base;
+  const w = clamp(weight, 0, 1);
+  const r = a.r * (1 - w) + b.r * w;
+  const g = a.g * (1 - w) + b.g * w;
+  const bl = a.b * (1 - w) + b.b * w;
+  return rgbToHex(r, g, bl);
+};
 
 // Enerjiyi opaklığa yansıt (1..10 → min..max)
 const mapEnergyToOpacity = (energy?: number, min: number = 0.55, max: number = 1) => {
@@ -701,9 +720,36 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     const x = AXIS_WIDTH + idx * dw + dw / 2;
                     return `${x},${y}`;
                   });
-                  const dash = timeRange === 'year' ? '0' : '4,3';
+                  // Dash pattern and width adapt to density for better legibility
+                  const dashLen = timeRange === 'year' ? 0 : Math.max(3, Math.round(dw * 0.35));
+                  const gapLen = timeRange === 'year' ? 0 : Math.max(2, Math.round(dashLen * 0.6));
+                  const dash = timeRange === 'year' ? '0' : `${dashLen},${gapLen}`;
+                  // Slightly slimmer range
+                  const width = clamp(timeRange === 'year' ? (dw / 18) + 0.7 : (dw / 22) + 0.5, 0.9, 1.8);
+                  // Accent-aware color: lighten in dark theme, darken in light theme
+                  const trendColor = accentColor.startsWith('#')
+                    ? (isDark ? mixHex(accentColor, '#FFFFFF', 0.15) : mixHex(accentColor, '#000000', 0.12))
+                    : accentColor;
                   return (
-                    <Path d={`M ${path[0]} L ${path.slice(1).join(' L ')}`} stroke={accentColor} strokeWidth={1} strokeOpacity={0.9} fill="none" strokeDasharray={dash} />
+                    <>
+                      <Defs>
+                        <LinearGradient id="trendGrad" x1="0" y1="0" x2="1" y2="0">
+                          <Stop offset="0%" stopColor={trendColor} stopOpacity={0.5} />
+                          <Stop offset="15%" stopColor={trendColor} stopOpacity={0.9} />
+                          <Stop offset="85%" stopColor={trendColor} stopOpacity={0.9} />
+                          <Stop offset="100%" stopColor={trendColor} stopOpacity={0.5} />
+                        </LinearGradient>
+                      </Defs>
+                      <Path
+                        d={`M ${path[0]} L ${path.slice(1).join(' L ')}`}
+                        stroke="url(#trendGrad)"
+                        strokeWidth={width}
+                        fill="none"
+                        strokeDasharray={dash}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </>
                   );
                 })()}
               </Svg>

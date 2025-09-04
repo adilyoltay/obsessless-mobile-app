@@ -108,6 +108,7 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
   visible, 
   onClose 
 }) => {
+  const [expanded, setExpanded] = React.useState(false);
   // İstatistikler (MEDYAN + IQR) — UI sürücü metrik
   const stats = React.useMemo(() => {
     if (!Array.isArray(entries) || entries.length === 0) {
@@ -221,17 +222,29 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Gün İçi Dağılım</Text>
               <View style={styles.timeline}>
-                {entries.length > 0 ? (
-                  entries
-                    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                    .map((entry, index) => (
-                      <TimelineItem 
-                        key={entry.id} 
-                        entry={entry} 
-                        isLast={index === entries.length - 1}
-                      />
-                    ))
-                ) : (
+                {entries.length > 0 ? (() => {
+                  const sorted = [...entries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                  const maxItems = 50;
+                  const shown = expanded ? sorted : sorted.slice(0, maxItems);
+                  return (
+                    <>
+                      {shown.map((entry, index) => (
+                        <TimelineItem
+                          key={entry.id}
+                          entry={entry}
+                          isLast={index === shown.length - 1}
+                        />
+                      ))}
+                      {sorted.length > maxItems && (
+                        <TouchableOpacity onPress={() => setExpanded(e => !e)} style={{ paddingVertical: 8, alignItems: 'center' }}>
+                          <Text style={{ color: COLORS.primary, fontWeight: '600' }}>
+                            {expanded ? 'Daha az göster' : `Daha fazla göster (${sorted.length - maxItems})`}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  );
+                })() : (
                   <Text style={styles.emptyText}>Bu gün için kayıt bulunmuyor</Text>
                 )}
               </View>
