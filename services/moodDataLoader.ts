@@ -221,6 +221,7 @@ export class OptimizedMoodDataLoader {
         mood: { ...mq, min, max },
         energy: eq,
         anxiety: aq,
+        entries: points,
         // Back-compat fields (optional)
         avg: moods.length ? (moods.reduce((s, v) => s + v, 0) / moods.length) : 0,
         p50: mq.p50,

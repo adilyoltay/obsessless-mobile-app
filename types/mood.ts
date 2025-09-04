@@ -54,7 +54,7 @@ export interface AggregatedData {
   energy: IQR;
   anxiety: IQR;
   // Geriye dönük alanlar (kademeli kaldırma için opsiyonel):
-  avg?: number; min?: number; max?: number; p10?: number; p50?: number; p90?: number; entries?: number;
+  avg?: number; min?: number; max?: number; p10?: number; p50?: number; p90?: number; entries?: MoodEntryLite[];
 }
 
 export interface MoodJourneyExtended {

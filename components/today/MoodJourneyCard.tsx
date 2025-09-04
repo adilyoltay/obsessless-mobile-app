@@ -40,8 +40,14 @@ export default function MoodJourneyCard({ data }: Props) {
       const e = extended.rawDataPoints[date]?.entries || [];
       setDetailEntries(e);
     } else {
-      // Aggregated görünümde detay girişi göstermiyoruz (yalın özet)
-      setDetailEntries([]);
+      const agg = extended.aggregated?.data || [];
+      let bucket = agg.find(b => b.date === date) as any;
+      if (!bucket && range === 'year') {
+        const monthKey = String(date).slice(0, 7); // YYYY-MM
+        bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
+      }
+      const e = (bucket?.entries || []) as any[];
+      setDetailEntries(e);
     }
     setDetailDate(date);
   }, [extended, range]);
