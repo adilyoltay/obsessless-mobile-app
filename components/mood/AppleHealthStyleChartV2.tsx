@@ -22,6 +22,8 @@ import Svg, {
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme } from 'react-native';
+import { recencyAlpha, jitterXY, energyToColor } from '@/utils/statistics';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
@@ -71,24 +73,6 @@ const moodToValence = (mood: number): number => {
 
 // Görsel gramer V2: Renk=Enerji, Opaklık=Zaman, Y=Mood, Boyut=Sabit
 const DOT_RADIUS = 4;
-const recencyAlpha = (ts: number, minTs: number, maxTs: number) => {
-  if (maxTs === minTs) return 1;
-  const t = (ts - minTs) / (maxTs - minTs);
-  return 0.4 + 0.6 * Math.max(0, Math.min(1, t));
-};
-const energyToColor = (e: number, alpha: number = 1) => {
-  // energy 1..10 → 0..100
-  const clamped = Math.max(0, Math.min(100, (typeof e === 'number' ? e * 10 : 60)));
-  const hue = 200 - (180 * clamped / 100); // 200° (düşük) → 20° (yüksek)
-  return `hsla(${Math.round(hue)}, 65%, 50%, ${alpha})`;
-};
-const lcg = (seed: number) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-const jitterXY = (seedKey: string, xMaxPx = 12, yMaxPx = 2.2) => {
-  let h = 2166136261;
-  for (let i = 0; i < seedKey.length; i++) { h ^= seedKey.charCodeAt(i); h = Math.imul(h, 16777619); }
-  const rnd = lcg(h >>> 0);
-  return { jx: (rnd() - 0.5) * 2 * xMaxPx, jy: (rnd() - 0.5) * 2 * yMaxPx };
-};
 
 // Enerjiyi opaklığa yansıt (1..10 → min..max)
 const mapEnergyToOpacity = (energy?: number, min: number = 0.55, max: number = 1) => {
@@ -142,6 +126,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 }) => {
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
   React.useEffect(() => {
     (async () => {
@@ -340,7 +326,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             avgY,
             date,
             entries: points[0].entries,
-            color: energyToColor(avgEnergy, 1),
+            color: energyToColor(avgEnergy, 1, isDark),
             energyAvg: avgEnergy,
           });
         }
@@ -369,7 +355,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         avgY,
         date: b.date,
         entries: [],
-        color: energyToColor((b.energy?.p50 ?? 6) * 10, 1),
+        color: energyToColor((b.energy?.p50 ?? 6), 1, isDark),
         energyAvg: b.energy?.p50 ?? 6,
       });
     });
@@ -549,7 +535,18 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     return (
                       <>
                         <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide} />
-                        <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} stroke={APPLE_COLORS.dotBorder} strokeWidth={0.8} />
+                        {(() => {
+                          const counts = (data.aggregated?.data || []).map((bb: any) => Number(bb?.count || 0));
+                          const cMax = Math.max(1, ...counts);
+                          const cThis = (() => {
+                            const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
+                            return Number(b?.count || 0);
+                          })();
+                          const sw = 0.5 + 2.5 * (cThis / cMax);
+                          return (
+                            <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} stroke={APPLE_COLORS.dotBorder} strokeWidth={sw} />
+                          );
+                        })()}
                         <Circle cx={band.x} cy={band.maxY} r={rSide} fill={band.color} opacity={opSide} />
                       </>
                     );
@@ -572,7 +569,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const r = DOT_RADIUS;
                 const outerR = r + 1.2;
                 const alpha = recencyAlpha(point.ts || new Date(`${point.date}T00:00:00.000Z`).getTime(), minTs, maxTs);
-                const fill = energyToColor(point.energy, alpha);
+                const fill = energyToColor(point.energy, alpha, isDark);
                 // Jitter: Aynı gün içinde çakışmaları azaltmak için hafif X/Y sapma
                 const dayIdx = Math.max(0, Math.min(n - 1, Math.floor((point.x - AXIS_WIDTH) / Math.max(1, dw))));
                 const leftBound = AXIS_WIDTH + dayIdx * dw + DOT_TUNING.jitter.clampPaddingPx;
@@ -679,6 +676,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   />
                 );
               });
+            })()}
+            {/* Yearly p50 trend */}
+            {timeRange === 'year' && (() => {
+              const items = (data.aggregated?.data || []) as any[];
+              if (!items.length) return null;
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
+              const path = items.map((b, idx) => {
+                const m = Number(b?.mood?.p50 ?? b?.avg ?? 0);
+                const v = moodToValence(m);
+                const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                const x = AXIS_WIDTH + idx * dw + dw / 2;
+                return `${x},${y}`;
+              });
+              return (
+                <Path d={`M ${path[0]} L ${path.slice(1).join(' L ')}`} stroke="#374151" strokeWidth={1} strokeOpacity={0.8} fill="none" />
+              );
             })()}
             {/* Scrub overlay: press and drag horizontally to move selection and request paging at edges */}
             <View

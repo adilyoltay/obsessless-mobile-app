@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Easing } from 'react-native';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { formatIQRText } from '@/utils/format';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
 import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSelectorV2';
@@ -309,13 +310,7 @@ export default function MoodJourneyCard({ data }: Props) {
               const pointerX = Math.max(8, Math.min((w - 8 - 8), innerX - 4));
               // Helpers
               const nfmt = (n: number | undefined) => (Number.isFinite(n as any) ? Math.round((n as number) * 10) / 10 : '—');
-              const fmtIQR = (q: { p25?: number; p50?: number; p75?: number } | null) => {
-                if (!q) return '— (IQR —–—)';
-                const p50 = nfmt((q as any).p50);
-                const p25 = nfmt((q as any).p25);
-                const p75 = nfmt((q as any).p75);
-                return `${p50} (IQR ${p25}–${p75})`;
-              };
+              const fmtIQR = formatIQRText;
               // Compute dominant emotion for selected day/period
               const selectedDominant = (() => {
                 if (!extended) return '—';

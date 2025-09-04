@@ -2,7 +2,8 @@ import { InteractionManager } from 'react-native';
 import moodTracker from '@/services/moodTrackingService';
 import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
-import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData, IQR } from '@/types/mood';
+import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
+import { quantiles } from '@/utils/statistics';
 import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average, quantile } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
@@ -202,20 +203,7 @@ export class OptimizedMoodDataLoader {
     const weeklyEnergyAvg = lite.length ? lite.reduce((s, e) => s + (e.energy_level || 6), 0) / lite.length : 0;
     const weeklyAnxietyAvg = lite.length ? lite.reduce((s, e) => s + (e.anxiety_level || 5), 0) / lite.length : 0;
 
-    // Quantiles helper (fast linear interpolation)
-    const quantiles = (arr: number[]): IQR => {
-      const vals = (arr || []).map(Number).filter(n => Number.isFinite(n));
-      if (vals.length === 0) return { p25: NaN, p50: NaN, p75: NaN };
-      const a = Float64Array.from(vals).sort();
-      const q = (p: number) => {
-        const idx = (a.length - 1) * p;
-        const lo = Math.floor(idx), hi = Math.ceil(idx);
-        if (lo === hi) return a[lo];
-        const t = idx - lo;
-        return a[lo] * (1 - t) + a[hi] * t;
-      };
-      return { p25: q(0.25), p50: q(0.5), p75: q(0.75) };
-    };
+    // Quantiles imported from utils/statistics
 
     const toAggregatedBucket = (points: MoodEntryLite[], label: string, dateISO: string): AggregatedData => {
       const moods = points.map(p => p.mood_score);
