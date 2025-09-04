@@ -202,6 +202,20 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
                 <Text style={styles.statLabel}>Giriş</Text>
               </View>
             </View>
+
+            {/* Anksiyete kartları */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{Number.isFinite(stats.anxiety.p50) ? Math.round(stats.anxiety.p50) : '—'}</Text>
+                <Text style={styles.statLabel}>Anksiyete Medyan</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>
+                  {Number.isFinite(stats.anxiety.p25) ? Math.round(stats.anxiety.p25) : '—'}–{Number.isFinite(stats.anxiety.p75) ? Math.round(stats.anxiety.p75) : '—'}
+                </Text>
+                <Text style={styles.statLabel}>Anksiyete IQR</Text>
+              </View>
+            </View>
             
             {/* Zaman Çizelgesi */}
             <View style={styles.section}>

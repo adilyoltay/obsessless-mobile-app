@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 import { recencyAlpha, jitterXY, energyToColor } from '@/utils/statistics';
+import { useAccentColor } from '@/contexts/AccentColorContext';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
@@ -128,6 +129,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { color: accentColor } = useAccentColor();
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
   React.useEffect(() => {
     (async () => {
@@ -339,12 +341,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     const bw = contentWidth / Math.max(1, buckets.length);
     buckets.forEach((b, index) => {
       const x = AXIS_WIDTH + (index * bw) + (bw / 2);
-      const lowMood = (b.mood?.p25 ?? b.mood?.min ?? 0);
-      const highMood = (b.mood?.p75 ?? b.mood?.max ?? 0);
+      // Guard against NaN values in IQR (treat as missing)
+      const lowMood = Number.isFinite((b as any)?.mood?.p25)
+        ? Number((b as any).mood.p25)
+        : (Number.isFinite((b as any)?.mood?.min) ? Number((b as any).mood.min) : 0);
+      const highMood = Number.isFinite((b as any)?.mood?.p75)
+        ? Number((b as any).mood.p75)
+        : (Number.isFinite((b as any)?.mood?.max) ? Number((b as any).mood.max) : 0);
       const minVal = moodToValence(lowMood);
       const maxVal = moodToValence(highMood);
-      const rawCenter = (b.mood?.p50 ?? b.avg ?? 0);
-      const centerMood = Number.isFinite(rawCenter as any) ? (rawCenter as number) : 0;
+      const rawCenter = (b as any)?.mood?.p50 ?? (b as any)?.avg ?? 0;
+      const centerMood = Number.isFinite(rawCenter as any) ? Number(rawCenter) : 0;
       const avgVal = moodToValence(centerMood);
       const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
       const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
@@ -356,8 +363,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         avgY,
         date: b.date,
         entries: [],
-        color: energyToColor((Number.isFinite((b.energy as any)?.p50) ? (b.energy as any).p50 : 6), 1, isDark),
-        energyAvg: Number.isFinite((b.energy as any)?.p50) ? (b.energy as any).p50 : 6,
+        color: energyToColor((Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6), 1, isDark),
+        energyAvg: Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6,
       });
     });
     return bands;
@@ -543,7 +550,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
                             return Number(b?.count || 0);
                           })();
-                          const sw = 0.5 + 2.5 * Math.sqrt(cThis / cMax);
+                          const sw = 0.75 + 1.75 * Math.sqrt(cThis / cMax);
                           return (
                             <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} stroke={APPLE_COLORS.dotBorder} strokeWidth={sw} />
                           );
@@ -679,22 +686,28 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               });
             })()}
             {/* Aggregate p50 trend (month / 6months / year) */}
-            {(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (() => {
-              const items = (data.aggregated?.data || []) as any[];
-              if (!items.length) return null;
-              const n = items.length;
-              const dw = contentWidth / Math.max(1, n);
-              const path = items.map((b, idx) => {
-                const m = Number(b?.mood?.p50 ?? b?.avg ?? 0);
-                const v = moodToValence(m);
-                const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
-                const x = AXIS_WIDTH + idx * dw + dw / 2;
-                return `${x},${y}`;
-              });
-              return (
-                <Path d={`M ${path[0]} L ${path.slice(1).join(' L ')}`} stroke="#374151" strokeWidth={1} strokeOpacity={0.8} fill="none" />
-              );
-            })()}
+            {(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (
+              <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                {(() => {
+                  const items = (data.aggregated?.data || []) as any[];
+                  if (!items.length) return null;
+                  const n = items.length;
+                  const dw = contentWidth / Math.max(1, n);
+                  const path = items.map((b, idx) => {
+                    const raw = (b as any)?.mood?.p50 ?? (b as any)?.avg ?? 0;
+                    const m = Number.isFinite(raw as any) ? Number(raw) : 0;
+                    const v = moodToValence(m);
+                    const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                    const x = AXIS_WIDTH + idx * dw + dw / 2;
+                    return `${x},${y}`;
+                  });
+                  const dash = timeRange === 'year' ? '0' : '4,3';
+                  return (
+                    <Path d={`M ${path[0]} L ${path.slice(1).join(' L ')}`} stroke={accentColor} strokeWidth={1} strokeOpacity={0.9} fill="none" strokeDasharray={dash} />
+                  );
+                })()}
+              </Svg>
+            )}
             {/* Scrub overlay: press and drag horizontally to move selection and request paging at edges */}
             <View
               style={[StyleSheet.absoluteFill, { marginLeft: AXIS_WIDTH }]}
