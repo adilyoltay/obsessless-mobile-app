@@ -66,7 +66,7 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
-  const { colorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
+  const { colorMode, setColorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
 
