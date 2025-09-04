@@ -479,71 +479,27 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               ));
             })()}
 
-            {/* Dikey bantlar (birden fazla giriş için) - Apple Health tarzı */}
+            {/* Nokta-temelli görünüm: bar/bant çizgileri olmadan */}
             {verticalBands.map((band, index) => (
               <G key={`band-${index}`}>
-                {/* Arka plan çizgisi - dinamik kısaltma + min uzunluk + piksel snap */}
-                {(() => {
-                  const entryCount = Array.isArray(band.entries) ? band.entries.length : 0;
-                  const moods = (Array.isArray(band.entries) ? band.entries : []).map((e: any) => Number(e?.mood_score)).filter((n: any) => Number.isFinite(n));
-                  const variance = varianceOf(moods);
-                  const countFactor = Math.log(1 + entryCount) / Math.log(1 + 12); // 0..1
-                  const varFactor = clamp01(variance / 50); // 0..1 (~50 varyans referans)
-                  const t = clamp01((countFactor + varFactor) / 2);
-                  const range = timeRange === 'week' ? [0.70, 0.90] : timeRange === 'month' ? [0.68, 0.85] : [0.65, 0.80];
-                  const shrink = lerp(range[0], range[1], t);
-                  const minBandPx = 8;
-                  const half = Math.max(0, (band.maxY - band.minY) / 2);
-                  const newHalf = Math.max(minBandPx / 2, half * shrink);
-                  const y1Raw = Math.max(CHART_PADDING_TOP, band.avgY - newHalf);
-                  const y2Raw = Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT, band.avgY + newHalf);
-                  const y1 = Math.round(y1Raw) + 0.5;
-                  const y2 = Math.round(y2Raw) + 0.5;
-                  // Thicker bars: widen base stroke width range
-                  const baseW = mapEnergyToWidth(band.energyAvg, 4, 10);
-                  const energyNorm = clamp01(((band.energyAvg || 0) - 4) / 6);
-                  const sw = baseW * (0.9 + 0.25 * energyNorm);
-                  return (
-                    <Line
-                      x1={Math.round(band.x) + 0.5}
-                      y1={y1}
-                      x2={Math.round(band.x) + 0.5}
-                      y2={y2}
-                      stroke={band.color}
-                      strokeWidth={sw}
-                      strokeLinecap="round"
-                      opacity={mapEnergyToOpacity(band.energyAvg, 0.25, 0.6)}
-                    />
-                  );
-                })()}
-                {/* Ortalama noktası: Year'da p50, A/6A'da mean. Belirsizlik arttıkça nokta küçülür/solar. */}
-                {(() => {
-                  if (!isAggregateMode) {
+                {isAggregateMode ? (
+                  (() => {
+                    // 3 özet nokta: p10/min, p50/avg, p90/max
+                    const spreadPx = Math.abs(band.maxY - band.minY);
+                    const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
+                    const rCenter = 3.2 - 0.8 * s; // 2.4..3.2
+                    const rSide = Math.max(1.8, rCenter - 0.6);
+                    const opCenter = 0.95 - 0.25 * s; // 0.7..0.95
+                    const opSide = 0.6 - 0.2 * s;     // 0.4..0.6
                     return (
-                      <Circle
-                        cx={band.x}
-                        cy={band.avgY}
-                        r={3}
-                        fill={band.color}
-                        opacity={mapEnergyToOpacity(band.energyAvg, 0.75, 1)}
-                      />
+                      <>
+                        <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide} />
+                        <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter} />
+                        <Circle cx={band.x} cy={band.maxY} r={rSide} fill={band.color} opacity={opSide} />
+                      </>
                     );
-                  }
-                  // Uncertainty ~ band length relative to chart height
-                  const spreadPx = Math.abs(band.maxY - band.minY);
-                  const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
-                  const r = 2.6 - 0.8 * s; // 1.8..2.6
-                  const op = 0.95 - 0.45 * s; // 0.5..0.95
-                  return (
-                    <Circle
-                      cx={band.x}
-                      cy={band.avgY}
-                      r={r}
-                      fill={band.color}
-                      opacity={op}
-                    />
-                  );
-                })()}
+                  })()
+                ) : null}
               </G>
             ))}
 
