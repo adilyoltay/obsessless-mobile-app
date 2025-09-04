@@ -35,10 +35,11 @@ export const jitterXY = (seedKey: string, xMaxPx = 12, yMaxPx = 2.2) => {
 
 export const energyToColor = (e: number, alpha: number = 1, isDark: boolean = false) => {
   // e raw: often 1..10; normalize to 0..100
-  const val = typeof e === 'number' && e <= 10 ? e * 10 : e;
+  const raw = typeof e === 'number' && e <= 10 ? e * 10 : e;
+  const val = Number.isFinite(raw) ? (raw as number) : 60; // fallback mid
   const clamped = Math.max(0, Math.min(100, val));
   const hue = 200 - (180 * clamped) / 100; // 200° (low) → 20° (high)
   const lightness = isDark ? 58 : 46; // a11y contrast tuning
-  return `hsla(${Math.round(hue)}, 65%, ${lightness}%, ${alpha})`;
+  const h = Number.isFinite(hue) ? Math.round(hue) : 200;
+  return `hsla(${h}, 65%, ${lightness}%, ${alpha})`;
 };
-
