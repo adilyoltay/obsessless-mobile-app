@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeTrackAIInteraction, AIEventType } from '@/services/telemetry/noopTelemetry';
 
@@ -23,6 +24,7 @@ interface SyncNotification {
 export function SyncStatusNotification() {
   const [notifications, setNotifications] = useState<SyncNotification[]>([]);
   const [isVisible, setIsVisible] = useState(false);
+  const theme = useThemeColors();
 
   useEffect(() => {
     checkForNotifications();
@@ -203,6 +205,7 @@ export function SyncStatusNotification() {
           key={index} 
           style={[
             styles.notification,
+            { backgroundColor: theme.card },
             { borderLeftColor: getSeverityColor(notification.severity) }
           ]}
         >

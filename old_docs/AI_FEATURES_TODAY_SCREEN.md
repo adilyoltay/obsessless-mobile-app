@@ -512,7 +512,7 @@ Today Screen'de kullanıcı deneyimini iyileştirmek için eklenen yeni UI bile�
     count={weeklyProgress.mood.thisWeek}
     change={weeklyProgress.mood.change}
     subtext={weeklyProgress.mood.thisWeek > 0 ? 'Check-in yapıldı' : 'Bugün henüz yok'}
-    onPress={() => router.push('/(tabs)/mood')}
+    onPress={() => router.push({ pathname: '/(tabs)/index', params: { focus: 'mood' } })}
   />
   
   <ModuleCard
@@ -575,7 +575,8 @@ Voice analysis sonrası kullanıcıyı en doğru tedavi sayfasına yönlendirir 
 ```typescript
 const routeMapping = {
   MOOD: {
-    path: '/(tabs)/mood',
+    path: '/(tabs)/index',
+    params: { focus: 'mood' },
     prefill: {
       moodLevel: analyzedMoodScore,
       trigger: extractedTrigger,

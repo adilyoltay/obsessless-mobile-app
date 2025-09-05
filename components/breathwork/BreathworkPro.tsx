@@ -8,6 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import BreathingWave from '@/components/breathing/BreathingWave';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { StorageKeys, loadUserData, saveUserData } from '@/utils/storage';
 import supabaseService, { BreathSessionDB } from '@/services/supabase';
@@ -213,7 +214,7 @@ export default function BreathworkPro({ protocol = 'box', totalDurationMs = 60_0
   const progress = Math.max(0, Math.min(100, Math.round((Math.max(0, Math.min(elapsedMs, TOTAL_MS)) / TOTAL_MS) * 100)));
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       <View style={[styles.topContent, { maxWidth: maxContentWidth, alignSelf: 'center', height: availableForTop }]}> 
@@ -273,3 +274,4 @@ const styles = StyleSheet.create({
   progressTrack: { height: 10, borderRadius: 10, backgroundColor: '#E5E7EB', overflow: 'hidden' },
   progressFill: { height: 10, backgroundColor: '#10B981' },
 });
+  const theme = useThemeColors();

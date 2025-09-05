@@ -8,7 +8,7 @@
 ## Changes
 - Tabs: removed `cbt` and `tracking` entries in `app/(tabs)/_layout.tsx`.
 - Today: removed CBT/OCD summary cards and push navigation; remapped adaptive CTA.
-- Routing: `features/ai/services/smartRoutingService.ts` screen configs remapped (`cbt`→`/(tabs)/mood`, `tracking`→`/(tabs)/breathwork`).
+- Routing: `features/ai/services/smartRoutingService.ts` screen configs remapped (`cbt`→`/(tabs)/index?focus=mood`, `tracking`→`/(tabs)/breathwork`).
 - Adaptive: `useAdaptiveSuggestion` remapped any CBT/Tracking CTA to Mood/Breathwork.
 - Quick actions: `VoiceCheckinModern` removed CBT/Tracking quick buttons.
 - Deleted UI files: CBT forms/dashboards, Compulsion components, YBOCS assessment.
@@ -18,7 +18,7 @@
 - Docs: updated `FEATURE_STATUS_MATRIX.md`, CBT/OCD docs marked as removed.
 
 ## Remap Policy
-- CBT analysis → navigate to Mood (`/(tabs)/mood`).
+- CBT analysis → navigate to Mood Journey on Today (`/(tabs)/index?focus=mood`).
 - OCD analysis → navigate to Breathwork (`/(tabs)/breathwork`).
 - Fallbacks preserved; telemetry continues to fire.
 

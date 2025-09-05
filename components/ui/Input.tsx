@@ -9,6 +9,7 @@ import {
   TextInputProps,
   ViewStyle,
 } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -34,6 +35,7 @@ export function Input({
   secureTextEntry,
   ...props
 }: InputProps) {
+  const theme = useThemeColors();
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<RNTextInput>(null);
@@ -67,6 +69,7 @@ export function Input({
           styles[variant],
           isFocused && styles.focused,
           error && styles.error,
+          { backgroundColor: variant === 'outlined' ? theme.card : undefined },
         ]}
       >
         {leftIcon && (
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   outlined: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#D1D5DB',
   },

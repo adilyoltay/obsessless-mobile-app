@@ -5,9 +5,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatIQRText } from '@/utils/format';
 import type { MoodJourneyData } from '@/services/todayService';
 import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import { Colors } from '@/constants/Colors';
 import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSelectorV2';
 import { useAccentColor } from '@/contexts/AccentColorContext';
-import { getUserDateString } from '@/utils/timezoneUtils';
+import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
+import { useTranslation } from '@/contexts/LanguageContext';
+import { quantiles } from '@/utils/statistics';
 import AppleHealthStyleChartV2 from '@/components/mood/AppleHealthStyleChartV2';
 import AppleHealthDetailSheet from '@/components/mood/AppleHealthDetailSheet';
 import { moodDataLoader } from '@/services/moodDataLoader';
@@ -16,11 +20,15 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 type Props = {
   data: MoodJourneyData;
+  initialOpenDate?: string;
+  initialRange?: TimeRange;
 };
 
 // Color mapping centralized in utils/colorUtils.ts
 
-export default function MoodJourneyCard({ data }: Props) {
+export default function MoodJourneyCard({ data, initialOpenDate, initialRange }: Props) {
+  const { language } = useTranslation();
+  const theme = useThemeColors();
   const { user } = useAuth();
   const { setVA } = useAccentColor();
   const [range, setRange] = React.useState<TimeRange>('week');
@@ -33,6 +41,58 @@ export default function MoodJourneyCard({ data }: Props) {
   const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
   const tooltipTransY = React.useRef(new Animated.Value(-4)).current;
   const [tooltipWidth, setTooltipWidth] = React.useState<number>(0);
+  // Toggles for weekly overlays
+  const [showMoodLine, setShowMoodLine] = React.useState(true);
+  const [showEnergyLine, setShowEnergyLine] = React.useState(true);
+  const [showAnxietyLine, setShowAnxietyLine] = React.useState(true);
+
+  // Range-level stats (p50 across selected time range)
+  const rangeStats = React.useMemo(() => {
+    if (!extended) return { moodP50: NaN, moodAvg: 0, energyP50: NaN, energyAvg: 0, anxietyP50: NaN, anxietyAvg: 0 };
+    const avg = (arr: number[]) => arr.length ? (arr.reduce((s,n)=>s+n,0)/arr.length) : 0;
+    if (range === 'week') {
+      const days = extended.dailyAverages || [];
+      const moodVals: number[] = [];
+      const energyVals: number[] = [];
+      days.forEach(d => {
+        const rp = extended.rawDataPoints[d.date]?.entries || [];
+        rp.forEach((e: any) => {
+          if (Number.isFinite(e.mood_score)) moodVals.push(Number(e.mood_score));
+          if (Number.isFinite(e.energy_level)) energyVals.push(Number(e.energy_level));
+        });
+      });
+      const anxDaily = days.map(d => Number(d.averageAnxiety || 0)).filter(Number.isFinite);
+      const mq = quantiles(moodVals);
+      const eq = quantiles(energyVals);
+      const aq = quantiles(anxDaily);
+      return {
+        moodP50: mq.p50, moodAvg: avg(moodVals),
+        energyP50: eq.p50, energyAvg: avg(energyVals),
+        anxietyP50: aq.p50, anxietyAvg: avg(anxDaily)
+      };
+    }
+    // Aggregate modes: combine bucket entries
+    const buckets = extended.aggregated?.data || [] as any[];
+    const moodVals: number[] = [];
+    const energyVals: number[] = [];
+    const anxVals: number[] = [];
+    buckets.forEach(b => {
+      const arr = (b.entries || []) as any[];
+      arr.forEach(e => {
+        if (Number.isFinite(e.mood_score)) moodVals.push(Number(e.mood_score));
+        if (Number.isFinite(e.energy_level)) energyVals.push(Number(e.energy_level));
+        if (Number.isFinite(e.anxiety_level)) anxVals.push(Number(e.anxiety_level));
+      });
+    });
+    const mq = quantiles(moodVals);
+    const eq = quantiles(energyVals);
+    const aq = quantiles(anxVals);
+    return {
+      moodP50: mq.p50, moodAvg: avg(moodVals),
+      energyP50: eq.p50, energyAvg: avg(energyVals),
+      anxietyP50: aq.p50, anxietyAvg: avg(anxVals)
+    };
+  }, [extended, range]);
 
   const openDetailForDate = React.useCallback((date: string) => {
     if (!extended) return;
@@ -61,10 +121,27 @@ export default function MoodJourneyCard({ data }: Props) {
     ]).start();
   }, [chartSelection, tooltipOpacity, tooltipTransY]);
 
+  // Helper: refresh current extended dataset for active range/page
+  const refreshExtended = React.useCallback(async () => {
+    if (!user?.id) return;
+    const daysForRange = (r: TimeRange) => (r === 'week' ? 7 : r === 'month' ? 30 : r === '6months' ? 183 : 365);
+    const end = new Date();
+    end.setDate(end.getDate() - page * daysForRange(range));
+    end.setHours(0, 0, 0, 0);
+    const res = await moodDataLoader.loadTimeRangeAt(user.id, range, end);
+    setExtended(res);
+  }, [user?.id, range, page]);
+
   React.useEffect(() => {
     let mounted = true;
+    if (!user?.id) return () => { mounted = false; };
+    // If initialRange is provided and differs, set it and skip this fetch cycle to prevent double-fetch
+    if (initialRange && initialRange !== range) {
+      setRange(initialRange);
+      setPage(0);
+      return () => { mounted = false; };
+    }
     (async () => {
-      if (!user?.id) return;
       // Compute end date for this page
       const daysForRange = (r: TimeRange) => (r === 'week' ? 7 : r === 'month' ? 30 : r === '6months' ? 183 : 365);
       const end = new Date();
@@ -85,7 +162,22 @@ export default function MoodJourneyCard({ data }: Props) {
       } catch {}
     })();
     return () => { mounted = false; };
-  }, [user?.id, range, page]);
+  }, [user?.id, range, page, data, initialRange]);
+
+  // Auto open detail for an initial date (only once)
+  const appliedInitialRef = React.useRef(false);
+  React.useEffect(() => {
+    if (appliedInitialRef.current) return;
+    if (!extended) return;
+    if (!initialOpenDate) return;
+    // Try to open detail for the provided date
+    const list = extended.rawDataPoints[initialOpenDate]?.entries || [];
+    if (list.length > 0) {
+      setDetailEntries(list as any[]);
+      setDetailDate(initialOpenDate);
+      appliedInitialRef.current = true;
+    }
+  }, [extended, initialOpenDate]);
 
   // Sync hero color with current chart bar color
   React.useEffect(() => {
@@ -249,6 +341,9 @@ export default function MoodJourneyCard({ data }: Props) {
             data={extended}
             timeRange={range}
             embedHeader={false}
+            showMoodTrend={showMoodLine}
+            showEnergy={showEnergyLine}
+            showAnxiety={showAnxietyLine}
             onSelectionChange={(sel) => setChartSelection(sel)}
             clearSelectionSignal={clearSignal}
             onRequestPage={(dir) => {
@@ -296,10 +391,10 @@ export default function MoodJourneyCard({ data }: Props) {
 
         {/* Tooltip overlay (on top of chart) */}
         {chartSelection && (
-          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
-            {/* Background touch area to close tooltip */}
+          <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents="box-none">
+            {/* Close area limited to the top tooltip strip (allow chart taps to pass through) */}
             <TouchableOpacity 
-              style={StyleSheet.absoluteFill} 
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68 }} 
               activeOpacity={1} 
               onPress={() => {
                 setChartSelection(null);
@@ -408,22 +503,123 @@ export default function MoodJourneyCard({ data }: Props) {
                   <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                       <View>
-                        <View style={[styles.tooltipBox, { maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
-                          <Text style={styles.entryCountValue}>{qData?.count ?? chartSelection.totalCount} <Text style={styles.entryCountUnit}>giriş</Text></Text>
-                          <Text style={styles.tooltipMeta}>Mood: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.mood || null)}</Text></Text>
-                          <Text style={styles.tooltipMeta}>Enerji: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.energy || null)}</Text></Text>
-                          <Text style={styles.tooltipMeta}>Anksiyete: <Text style={styles.tooltipMetaValue}>{fmtIQR(qData?.anxiety || null)}</Text></Text>
-                          <View style={styles.tooltipMetaRow}>
-                            <Svg width={12} height={12} viewBox="0 0 12 12" style={{ marginRight: 6 }}>
-                              <Circle cx={6} cy={6} r={5.2} fill="#F3F4F6" stroke="#9CA3AF" strokeWidth={1} />
-                              <Path d="M3.3 6 L5.0 7.7 L8.7 4.4" stroke="#10B981" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                            </Svg>
-                            <Text style={styles.tooltipMeta}>Baskın: <Text style={styles.tooltipMetaValue}>{selectedDominant}</Text></Text>
-                          </View>
-                          <Text style={styles.dateRange}>{chartSelection.label}</Text>
+                        <View style={[styles.tooltipBox, { backgroundColor: theme.card, maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
+                          {/* Title: Date (Dominant) */}
+                          {(() => {
+                            const d = toUserLocalDate(`${chartSelection.date}T00:00:00.000Z`);
+                            const locale = language === 'tr' ? 'tr-TR' : 'en-US';
+                            const day = d.getDate();
+                            const mon = new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
+                            const year = d.getFullYear();
+                            const dow = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d);
+                            const dateStr = `${day} ${mon} ${year}, ${dow}`;
+                            // SVG yüz ifadesi (renk: baskın duyguya göre)
+                            const emo = selectedDominant || '';
+                            const scoreFor = (emotion: string) => (
+                              emotion === 'Heyecanlı' ? 95 :
+                              emotion === 'Enerjik'  ? 85 :
+                              emotion === 'Mutlu'    ? 75 :
+                              emotion === 'Sakin'    ? 65 :
+                              emotion === 'Normal'   ? 55 :
+                              emotion === 'Endişeli' ? 45 :
+                              emotion === 'Sinirli'  ? 35 :
+                              emotion === 'Üzgün'    ? 25 : 55
+                            );
+                            const energyFor = (emotion: string) => (
+                              emotion === 'Heyecanlı' ? 9 :
+                              emotion === 'Enerjik'  ? 8 :
+                              emotion === 'Mutlu'    ? 7 :
+                              emotion === 'Sakin'    ? 5 :
+                              emotion === 'Normal'   ? 6 :
+                              emotion === 'Endişeli' ? 7 :
+                              emotion === 'Sinirli'  ? 8 :
+                              /* Üzgün/Kızgın */  emotion === 'Üzgün' ? 3 : 9
+                            );
+                            const faceColor = getVAColorFromScores(scoreFor(emo), energyFor(emo));
+                            return (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={styles.tooltipTitle}>{dateStr}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Text style={styles.tooltipTitleParen}>(</Text>
+                                  <Svg width={14} height={14} viewBox="0 0 16 16" style={{ marginHorizontal: 2 }}>
+                                    <Circle cx={8} cy={8} r={6.4} stroke={faceColor} strokeWidth={1.4} fill="none" />
+                                    <Circle cx={5.6} cy={6.3} r={0.8} fill={faceColor} />
+                                    <Circle cx={10.4} cy={6.3} r={0.8} fill={faceColor} />
+                                    <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={faceColor} strokeWidth={1.4} fill="none" strokeLinecap="round" />
+                                  </Svg>
+                                  <Text style={styles.tooltipTitleParen}>{selectedDominant || '—'}</Text>
+                                  <Text style={styles.tooltipTitleParen}>)</Text>
+                                </View>
+                              </View>
+                            );
+                          })()}
+                          {/* Mini stats row with icons + values only */}
+                          {(() => {
+                            const mv = Number(((qData as any)?.mood?.p50 ?? NaN) as number);
+                            const ev = Number(((qData as any)?.energy?.p50 ?? NaN) as number);
+                            const av = Number(((qData as any)?.anxiety?.p50 ?? NaN) as number);
+                            const fmt1 = (v: number) => (Number.isFinite(v) && v > 0 ? v.toFixed(1) : '—');
+                            const moodColor = '#007AFF';
+                            return (
+                              <View style={styles.tooltipStatsRow}>
+                                {/* Mood */}
+                                <View style={styles.tooltipStatItem}>
+                                  <Svg width={14} height={14} viewBox="0 0 16 16">
+                                    <Circle cx={8} cy={8} r={6.6} stroke={moodColor} strokeWidth={1.4} fill="none" />
+                                    <Circle cx={5.6} cy={6.3} r={0.8} fill={moodColor} />
+                                    <Circle cx={10.4} cy={6.3} r={0.8} fill={moodColor} />
+                                    <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={moodColor} strokeWidth={1.4} fill="none" strokeLinecap="round" />
+                                  </Svg>
+                                  <Text style={styles.tooltipStatValue}>{fmt1(mv)}</Text>
+                                </View>
+                                {/* Energy */}
+                                <View style={styles.tooltipStatItem}>
+                                  <Svg width={14} height={14} viewBox="0 0 16 16">
+                                    <Defs>
+                                      <SvgLinearGradient id="batteryGradTip" x1="0" y1="0" x2="1" y2="0">
+                                        <Stop offset="0%" stopColor="#EF4444" />
+                                        <Stop offset="50%" stopColor="#F59E0B" />
+                                        <Stop offset="100%" stopColor="#10B981" />
+                                      </SvgLinearGradient>
+                                    </Defs>
+                                    {(() => {
+                                      const ratio = Number.isFinite(ev) ? Math.max(0, Math.min(1, ev / 10)) : 0;
+                                      const levelColor = ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+                                      const maxW = 11 - 2; // inner padding eşleşmesi
+                                      const w = Math.max(0.8, maxW * ratio);
+                                      return (
+                                        <>
+                                          <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={levelColor} strokeWidth={1.4} fill="none" />
+                                          <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={levelColor} />
+                                          <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill={'url(#batteryGradTip)'} opacity={0.95} />
+                                        </>
+                                      );
+                                    })()}
+                                  </Svg>
+                                  <Text style={styles.tooltipStatValue}>{fmt1(ev)}</Text>
+                                </View>
+                                {/* Anxiety */}
+                                <View style={styles.tooltipStatItem}>
+                                  <Svg width={14} height={14} viewBox="0 0 16 16">
+                                    {(() => {
+                                      const ratio = Number.isFinite(av) ? Math.max(0, Math.min(1, av / 10)) : 0;
+                                      const base = 10;
+                                      const amp = 2 + (5.5 - 2) * ratio;
+                                      const up = (base - amp).toFixed(2);
+                                      const down = (base + amp).toFixed(2);
+                                      const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
+                                      const strokeW = 1.2 + 0.6 * ratio;
+                                      return <Path d={d} stroke="#EF4444" strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+                                    })()}
+                                  </Svg>
+                                  <Text style={styles.tooltipStatValue}>{fmt1(av)}</Text>
+                                </View>
+                              </View>
+                            );
+                          })()}
                         </View>
                         {/* Arrow pointing down to bar */}
-                        <View style={[styles.tooltipArrow, { left: pointerX }]} />
+                        <View style={[styles.tooltipArrow, { backgroundColor: theme.card, left: pointerX }]} />
                       </View>
                     </TouchableOpacity>
                   </Animated.View>
@@ -445,18 +641,25 @@ export default function MoodJourneyCard({ data }: Props) {
       {/* Stats row */}
       <View style={styles.statsRow}>
         {/* Mood (smile) */}
-        <View style={styles.statItem}>
-          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Mood">
-            <Circle cx={8} cy={8} r={6.6} stroke="#007AFF" strokeWidth={1.6} fill="none" />
-            <Circle cx={5.6} cy={6.3} r={0.9} fill="#007AFF" />
-            <Circle cx={10.4} cy={6.3} r={0.9} fill="#007AFF" />
-            <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke="#007AFF" strokeWidth={1.6} fill="none" strokeLinecap="round" />
-          </Svg>
-          <Text style={styles.statValue}>{data.todayAverage > 0 ? data.todayAverage.toFixed(1) : '—'}</Text>
-        </View>
+        <TouchableOpacity style={styles.statItem} onPress={() => setShowMoodLine(v => !v)}>
+          {(() => {
+            const c = showMoodLine ? '#007AFF' : '#9CA3AF';
+            return (
+              <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Mood">
+                <Circle cx={8} cy={8} r={6.6} stroke={c} strokeWidth={1.6} fill="none" />
+                <Circle cx={5.6} cy={6.3} r={0.9} fill={c} />
+                <Circle cx={10.4} cy={6.3} r={0.9} fill={c} />
+                <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={c} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+              </Svg>
+            );
+          })()}
+          <Text style={[styles.statValue, !showMoodLine && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.moodP50 as any) && (rangeStats.moodP50 as number) > 0 ? (rangeStats.moodP50 as number).toFixed(1) : '—'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Energy (battery) */}
-        <View style={styles.statItem}>
+        <TouchableOpacity style={styles.statItem} onPress={() => setShowEnergyLine(v => !v)}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
             <Defs>
               <SvgLinearGradient id="batteryGrad" x1="0" y1="0" x2="1" y2="0">
@@ -471,23 +674,28 @@ export default function MoodJourneyCard({ data }: Props) {
               const levelColor = ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
               const maxW = 11 - 2; // inner padding
               const w = Math.max(0.8, maxW * ratio);
+              const off = !showEnergyLine;
+              const strokeC = off ? '#9CA3AF' : levelColor;
+              const capC = off ? '#9CA3AF' : levelColor;
               return (
                 <>
                   {/* Battery body with dynamic stroke */}
-                  <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={levelColor} strokeWidth={1.4} fill="none" />
+                  <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={strokeC} strokeWidth={1.4} fill="none" />
                   {/* Battery cap with dynamic fill */}
-                  <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={levelColor} />
+                  <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={capC} />
                   {/* Fill proportional to energy (1..10) */}
-                  <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill="url(#batteryGrad)" opacity={0.95} />
+                  <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill={off ? '#9CA3AF' : 'url(#batteryGrad)'} opacity={off ? 0.35 : 0.95} />
                 </>
               );
             })()}
           </Svg>
-          <Text style={styles.statValue}>{data.weeklyEnergyAvg > 0 ? data.weeklyEnergyAvg.toFixed(1) : '—'}</Text>
-        </View>
+          <Text style={[styles.statValue, !showEnergyLine && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.energyP50 as any) && (rangeStats.energyP50 as number) > 0 ? (rangeStats.energyP50 as number).toFixed(1) : '—'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Anxiety (wavy line) */}
-        <View style={styles.statItem}>
+        <TouchableOpacity style={styles.statItem} onPress={() => setShowAnxietyLine(v => !v)}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
             {(() => {
               const avg = Number(data.weeklyAnxietyAvg || 0);
@@ -500,11 +708,13 @@ export default function MoodJourneyCard({ data }: Props) {
               const down = (base + amp).toFixed(2);
               const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
               const strokeW = 1.4 + 0.8 * ratio; // 1.4..2.2
-              return <Path d={d} stroke="#EF4444" strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+              return <Path d={d} stroke={showAnxietyLine ? '#EF4444' : '#9CA3AF'} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
             })()}
           </Svg>
-          <Text style={styles.statValue}>{data.weeklyAnxietyAvg > 0 ? data.weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
-        </View>
+          <Text style={[styles.statValue, !showAnxietyLine && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.anxietyP50 as any) && (rangeStats.anxietyP50 as number) > 0 ? (rangeStats.anxietyP50 as number).toFixed(1) : '—'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Detail modal - Apple Health Style */}
@@ -514,6 +724,12 @@ export default function MoodJourneyCard({ data }: Props) {
           date={detailDate}
           entries={detailEntries}
           onClose={() => setDetailDate(null)}
+          onDeleted={(entryId) => {
+            // Remove from local sheet state immediately
+            setDetailEntries(prev => prev.filter(e => e.id !== entryId));
+            // Refresh extended dataset so chart reflects deletion
+            refreshExtended();
+          }}
         />
       )}
     </View>
@@ -526,7 +742,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
   },
   miniSpectrumBar: {
     height: 6,
@@ -571,7 +787,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tooltipBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -585,16 +801,43 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  tooltipStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  tooltipStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tooltipStatValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
   tooltipArrow: {
     position: 'absolute',
     width: 12,
     height: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
     transform: [{ rotate: '45deg' }],
     bottom: -4,
     borderRightWidth: 1.5,
     borderBottomWidth: 1.5,
     borderColor: '#D1D5DB',
+  },
+  tooltipTitle: {
+    fontSize: 12,
+    color: '#111827',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  tooltipTitleParen: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
   },
   title: {
     fontSize: 15,

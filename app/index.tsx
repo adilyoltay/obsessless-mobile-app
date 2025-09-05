@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
+import { Colors } from '@/constants/Colors';
 
 export default function Index() {
   // 🚀 SIMPLIFIED: This is ONLY a loading screen
@@ -9,7 +10,7 @@ export default function Index() {
   console.log('🏠 Index: Rendering loading screen (NavigationGuard will handle routing)');
   
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.ui.background }}>
       <ActivityIndicator size="large" color="#10B981" />
       <Text style={{ marginTop: 16, fontSize: 14, color: '#6B7280' }}>Yükleniyor...</Text>
     </View>

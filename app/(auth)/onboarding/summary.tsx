@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -7,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProgressDots from '@/components/onboarding/ProgressDots';
 
 export default function Summary() {
+  const theme = useThemeColors();
   const router = useRouter();
   const { step, totalSteps, setStep, payload, complete } = useMoodOnboardingStore();
   const { user } = useAuth();
@@ -80,7 +82,7 @@ export default function Summary() {
   const enabled = Object.keys(flags).filter((k) => (flags as any)[k]);
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.background }}>
       <ProgressDots current={step} total={totalSteps} />
       <Text accessibilityRole="header" style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginTop: 16 }}>
         Senin için açılanlar
@@ -122,5 +124,4 @@ export default function Summary() {
     </View>
   );
 }
-
 

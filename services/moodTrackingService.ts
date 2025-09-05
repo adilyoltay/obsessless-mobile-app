@@ -9,6 +9,7 @@ import { generatePrefixedId } from '@/utils/idGenerator';
 import { idempotencyService } from '@/services/idempotencyService';
 import optimizedStorage from '@/services/optimizedStorage';
 import { useGamificationStore } from '@/store/gamificationStore';
+import { moodDataLoader } from '@/services/moodDataLoader';
 
 export interface MoodEntry {
   id: string;
@@ -45,6 +46,31 @@ class MoodTrackingService {
       MoodTrackingService.instance = new MoodTrackingService();
     }
     return MoodTrackingService.instance;
+  }
+
+  /**
+   * Resolve remote_id for a given entry id (which may be local_id or remote_id).
+   * Returns remote_id if known, otherwise null.
+   */
+  async resolveRemoteIdFor(entryId: string): Promise<string | null> {
+    try {
+      // Fast path: if the provided id already looks like a UUID, use it as remote id
+      const uuidRe = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+      if (uuidRe.test(entryId)) return entryId;
+
+      const userId = await this.getCurrentUserId();
+      if (!userId) return null;
+      // Extend resolution window to 90 days for better cross-device mapping
+      const recent = await this.getMoodEntries(userId, 90);
+      const found = recent.find(e => e.id === entryId || e.local_id === entryId || e.remote_id === entryId);
+      if (!found) return null;
+      // If entry already has a remote_id recorded, prefer it; otherwise if its own id looks like a UUID, use it
+      if (found.remote_id && uuidRe.test(found.remote_id)) return found.remote_id;
+      if (uuidRe.test(found.id)) return found.id;
+      return null;
+    } catch {
+      return null;
+    }
   }
   
   /**
@@ -334,6 +360,8 @@ class MoodTrackingService {
         await moodRepository.update(updatedEntry);
         
         console.log(`✅ Mood entry updated successfully: ${entryId}`);
+        // Invalidate chart caches so updates reflect immediately
+        try { if (userId) moodDataLoader.invalidate(userId); } catch {}
       } catch (remoteError) {
         console.warn('⚠️ Remote update failed, will sync later:', remoteError);
         
@@ -903,6 +931,8 @@ class MoodTrackingService {
       
       if (deletionSuccess) {
         console.log('✅ FORCE DELETION completed successfully');
+        // Invalidate chart caches for current user
+        try { if (userId) moodDataLoader.invalidate(userId); } catch {}
       } else {
         console.warn('⚠️ FORCE DELETION: Entry not found in any storage key');
       }
@@ -1054,6 +1084,8 @@ class MoodTrackingService {
             }
             
             console.log('✅ Entry successfully deleted via consistent storage method');
+            // Invalidate chart caches before returning
+            try { if (userId) moodDataLoader.invalidate(userId); } catch {}
             return; // Early return on success
           }
         }
@@ -1191,6 +1223,8 @@ class MoodTrackingService {
       } else {
         console.warn(`⚠️ Entry ${entryId} not found in local storage - might have been already deleted or ID mismatch`);
       }
+      // Regardless of path, invalidate chart caches for this user so any potential change reflects
+      try { if (userId) moodDataLoader.invalidate(userId); } catch {}
       
     } catch (error) {
       console.error('❌ Failed to delete mood entry from local storage:', error);

@@ -70,7 +70,7 @@ interface MoodDataFlowReport {
 ```
 
 #### 2. Development Debug UI
-**File:** `app/(tabs)/mood.tsx` (+150 lines debug code)
+**Note:** Mood tab (`app/(tabs)/mood.tsx`) has been removed in favor of Today → Mood Journey. Debug UI references are historical.
 
 **Features:**
 - Development-only debug button (🐛 icon) in mood screen header

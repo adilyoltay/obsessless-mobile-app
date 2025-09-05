@@ -261,7 +261,7 @@ export default function SyncHealthDebugCard({ visible = false }: SyncHealthDebug
 const styles = StyleSheet.create({
   card: {
     margin: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

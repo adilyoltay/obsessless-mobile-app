@@ -14,6 +14,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { FEATURE_FLAGS } from '@/constants/featureFlags';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useAccentColor } from '@/contexts/AccentColorContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 
 export default function TabLayout() {
@@ -40,73 +41,47 @@ export default function TabLayout() {
   // AI Chat removed
 
   return (
+    <ThemeProvider>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: activeColor, // Dinamik aktif renk
-        tabBarInactiveTintColor: '#374151', // Daha koyu gri (kontrast artırıldı)
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: '#6B7280',
         headerShown: false,
-        tabBarButton: HapticTab, // Master Prompt: Haptic feedback enabled
-        tabBarBackground: TabBarBackground,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+        tabBarButton: HapticTab as any,
+        tabBarBackground: TabBarBackground as any,
+        tabBarStyle: {
+          height: 64,
+          paddingBottom: 10,
+          paddingTop: 6,
+          borderTopWidth: 0,
         },
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-            backgroundColor: '#FFFFFF',
-            borderTopWidth: 1.5,
-            borderTopColor: '#D1D5DB',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 4,
-          },
-          android: {
-            elevation: 10,
-            backgroundColor: '#FFFFFF',
-            borderTopWidth: 1.5,
-            borderTopColor: '#D1D5DB',
-          },
-          web: {
-            boxShadow: '0px -2px 10px rgba(0, 0, 0, 0.12)',
-            borderTopWidth: 1.5,
-            borderTopColor: '#D1D5DB',
-            backgroundColor: '#FFFFFF',
-          },
-        }),
+        tabBarItemStyle: {
+          paddingTop: 2,
+          paddingBottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '700' },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Bugün',
-          tabBarIcon: ({ focused }) => (
-            <IconSymbol 
-              size={28} 
-              name="house.fill" 
-              color={focused ? activeColor : '#9CA3AF'} 
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'home' : 'home-outline'}
+              color={color as any}
+              size={28}
+              style={{ marginBottom: 0, marginTop: 0 }}
             />
           ),
-          tabBarActiveTintColor: activeColor,
-          tabBarLabel: ({ color }) => <TabBarLabel text="Bugün" color={color as string} />,
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel text="Bugün" color={color as any} style={{ marginTop: 1, letterSpacing: 0.1 }} />
+          ),
         }}
       />
       
-      <Tabs.Screen
-        name="mood"
-        options={{
-          title: 'Mood',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon 
-              name={focused ? 'happy' : 'happy-outline'} 
-              color={focused ? activeColor : '#9CA3AF'} 
-              size={26} 
-            />
-          ),
-          tabBarActiveTintColor: activeColor,
-          tabBarLabel: ({ color }) => <TabBarLabel text="Mood" color={color as string} />,
-        }}
-      />
+      {/* Mood tab removed: Mood journey now lives in Today screen */}
       
       
 
@@ -114,12 +89,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="breathwork"
         options={{
-          href: null, // Tab'da görünmez ama route olarak erişilebilir kalır
+          href: null, // Hidden; route accessible programmatically
           title: 'Nefes',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'leaf' : 'leaf-outline'} color={focused ? activeColor : color} />
-          ),
-          tabBarLabel: ({ color }) => <TabBarLabel text="Nefes" color={color as string} />,
         }}
       />
       
@@ -127,17 +98,20 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Ayarlar',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon 
-              name={focused ? 'settings' : 'settings-outline'} 
-              color={focused ? activeColor : '#9CA3AF'} 
-              size={26} 
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'settings' : 'settings-outline'}
+              color={color as any}
+              size={28}
+              style={{ marginBottom: 0, marginTop: 0 }}
             />
           ),
-          tabBarActiveTintColor: activeColor,
-          tabBarLabel: ({ color }) => <TabBarLabel text="Ayarlar" color={color as string} />,
+          tabBarLabel: ({ color }) => (
+            <TabBarLabel text="Ayarlar" color={color as any} style={{ marginTop: 1, letterSpacing: 0.1 }} />
+          ),
         }}
       />
     </Tabs>
+    </ThemeProvider>
   );
 }

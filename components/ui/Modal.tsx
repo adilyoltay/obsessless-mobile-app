@@ -1,14 +1,7 @@
 
 import React from 'react';
-import {
-  Modal as RNModal,
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-  Dimensions,
-  ViewStyle,
-} from 'react-native';
+import { Modal as RNModal, View, TouchableOpacity, StyleSheet, Platform, Dimensions, ViewStyle } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +28,7 @@ export function Modal({
   closeOnOverlayPress = true,
 }: ModalProps) {
   const insets = useSafeAreaInsets();
+  const theme = useThemeColors();
 
   const handleOverlayPress = () => {
     if (closeOnOverlayPress) {
@@ -66,7 +60,7 @@ export function Modal({
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={[styles.modalContent, containerStyle]}
+            style={[styles.modalContent, { backgroundColor: theme.card }, containerStyle]}
           >
             {children}
           </TouchableOpacity>

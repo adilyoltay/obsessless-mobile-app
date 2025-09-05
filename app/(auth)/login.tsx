@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -64,7 +56,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           {/* Email Input */}
-          <Animated.View entering={FadeInDown.delay(200)} style={styles.inputContainer}>
+          <Animated.View entering={FadeInDown.delay(200)} style={[styles.inputContainer, { backgroundColor: theme.card }]}>
             <MaterialCommunityIcons name="email-outline" size={20} color="#6B7280" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
@@ -79,7 +71,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           {/* Password Input */}
-          <Animated.View entering={FadeInDown.delay(300)} style={styles.inputContainer}>
+          <Animated.View entering={FadeInDown.delay(300)} style={[styles.inputContainer, { backgroundColor: theme.card }]}>
             <MaterialCommunityIcons name="lock-outline" size={20} color="#6B7280" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
@@ -302,3 +294,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
   },
 });
+  const theme = useThemeColors();

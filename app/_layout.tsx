@@ -27,6 +27,7 @@ import Toast from 'react-native-toast-message';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ConflictNotificationBanner from '@/components/ui/ConflictNotificationBanner';
 import { SyncStatusNotification } from '@/components/ui/SyncStatusNotification';
+import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 
 // Performance monitoring
 import performanceMonitor from '@/services/performanceMonitor';
@@ -189,6 +190,7 @@ export default function RootLayout() {
             <NotificationProvider>
               <AuthProvider>
                 <AccentColorProvider>
+                <AppThemeProvider>
                 {/* 🚫 AIProvider - DISABLED (Hard Stop AI Cleanup) */}
                 <NavigationGuard>
                     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -200,6 +202,7 @@ export default function RootLayout() {
                     </GestureHandlerRootView>
                 </NavigationGuard>
                 {/* 🚫 AIProvider closing tag removed */}
+                </AppThemeProvider>
                 </AccentColorProvider>
               </AuthProvider>
             </NotificationProvider>

@@ -55,7 +55,7 @@ export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplet
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 16,
-    marginVertical: 16,
+    marginVertical: 8,
     position: 'relative',
     borderRadius: 12,
     overflow: 'hidden',

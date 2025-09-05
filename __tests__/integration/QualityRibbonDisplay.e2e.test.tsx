@@ -154,7 +154,7 @@ const MoodScreen: React.FC = () => {
     content: 'Based on your mood patterns',
     category: 'mood',
     confidence: 0.65,
-    cta: { screen: '/(tabs)/mood', params: {} }
+    cta: { screen: '/(tabs)/index', params: { focus: 'mood' } }
   };
 
   return (

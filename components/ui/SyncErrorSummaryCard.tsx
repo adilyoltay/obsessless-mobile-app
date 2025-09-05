@@ -265,7 +265,7 @@ export default function SyncErrorSummaryCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 16,
     elevation: 2,

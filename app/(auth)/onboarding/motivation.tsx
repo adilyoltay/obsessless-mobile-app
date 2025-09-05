@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import ProgressDots from '@/components/onboarding/ProgressDots';
@@ -17,11 +18,12 @@ export default function Motivation() {
   const router = useRouter();
   const { step, totalSteps, next, prev, setStep, setMotivation, payload } = useMoodOnboardingStore();
   const [selected, setSelected] = useState<string[]>(payload.motivation || []);
+  const theme = useThemeColors();
 
   useEffect(() => { setStep(1); }, [setStep]);
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.background }}>
       <ProgressDots current={step} total={totalSteps} />
       <Text accessibilityRole="header" style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginTop: 16 }}>
         Neden buradasın?
@@ -53,5 +55,4 @@ export default function Motivation() {
     </View>
   );
 }
-
 

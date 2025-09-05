@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Text, 
   View, 
@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Custom UI Components
 import { Switch } from '@/components/ui/Switch';
 import ScreenLayout from '@/components/layout/ScreenLayout';
+import { Colors } from '@/constants/Colors';
 
 import Button from '@/components/ui/Button';
 
@@ -28,6 +29,7 @@ import { NotificationScheduler } from '@/services/notificationScheduler';
 import Constants from 'expo-constants';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
+import { PanResponder, PanResponderGestureState, GestureResponderEvent } from 'react-native';
 
 // Stores
 
@@ -41,6 +43,7 @@ import { StorageKeys } from '@/utils/storage';
 
 import { Modal } from 'react-native';
 import { unifiedComplianceService } from '@/services/unifiedComplianceService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Removed: advanced onboarding/sync components
 // performanceMetricsService import removed - performance summary section removed
@@ -62,6 +65,7 @@ interface SettingsData {
 export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile: authProfile } = useAuth();
   const { profile: gameProfile } = useGamificationStore();
@@ -107,6 +111,22 @@ export default function SettingsScreen() {
     reminderTimes: false,
     colorMode: 'today',
   });
+
+  // Swipe right to navigate back to Today
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        const dx = Math.abs(gesture.dx);
+        const dy = Math.abs(gesture.dy);
+        return dx > 20 && dx > dy; // horizontal dominant
+      },
+      onPanResponderRelease: (_evt, gesture) => {
+        if (gesture.dx > 60 && Math.abs(gesture.vx) > 0.2) {
+          router.push('/(tabs)/index' as any);
+        }
+      },
+    })
+  ).current;
 
   // AI Limit States - REMOVED (AI disabled)
   // const [aiLimitInfo, setAiLimitInfo] = useState<AILimitInfo | null>(null);
@@ -491,7 +511,8 @@ export default function SettingsScreen() {
   // Removed maintenance helpers (UI caches / notifications)
 
   return (
-    <ScreenLayout>
+    <ScreenLayout edges={['top','left','right']}>
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       {/* Header */}
       <View style={styles.headerContainer}>
         <View style={styles.headerContent}>
@@ -616,8 +637,43 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* AI Limits - HIDDEN (AI disabled) */}
-        {false && renderAILimitsSection()}
+        {/* Theme Mode */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tema</Text>
+          <View style={[styles.sectionContent, { padding: 12 }]}> 
+            <Text style={[styles.actionTitle, { marginBottom: 8 }]}>Tema Modu</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { key: 'system', label: 'Sistem' },
+                { key: 'light', label: 'Açık' },
+                { key: 'dark', label: 'Koyu' },
+              ] as { key: 'system' | 'light' | 'dark'; label: string }[]).map(opt => {
+                const active = themeMode === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => setThemeMode(opt.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Tema modu ${opt.label}`}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? '#10B981' : '#E5E7EB',
+                      backgroundColor: active ? '#ECFDF5' : '#FFFFFF'
+                    }}
+                  >
+                    <Text style={{ color: active ? '#065F46' : '#374151', fontWeight: '700' }}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 6 }}>
+              Sistem: Telefon ayarlarına uyar • Açık: Her zaman açık tema • Koyu: Her zaman koyu tema
+            </Text>
+          </View>
+        </View>
 
         {/* Gizlilik ve İzinler */}
         <View style={styles.section}>
@@ -736,6 +792,7 @@ export default function SettingsScreen() {
           <Text style={styles.versionSubtext}>Made with ❤️ for OCD warriors</Text>
         </View>
       </ScrollView>
+      </View>
 
       {/* Audit Logs Modal removed */}
 
@@ -908,7 +965,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   profileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -984,7 +1041,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
     borderRadius: 12,
     overflow: 'hidden',
   },

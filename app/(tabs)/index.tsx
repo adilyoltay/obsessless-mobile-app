@@ -8,7 +8,7 @@ import {
   Dimensions
 } from 'react-native';
 // import { MaterialCommunityIcons } from '@expo/vector-icons'; // Icons now used inside extracted components
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -36,7 +36,9 @@ import { useAccentColor } from '@/contexts/AccentColorContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
+import { moodDataLoader } from '@/services/moodDataLoader';
 import { getAdvancedMoodColor, getMoodGradient, getVAColorFromScores } from '@/utils/colorUtils';
+import { PanResponder, PanResponderGestureState, GestureResponderEvent } from 'react-native';
 
 // Stores
 
@@ -54,15 +56,32 @@ import { getAdvancedMoodColor, getMoodGradient, getVAColorFromScores } from '@/u
 // Minimal styles actually used by this screen
 const simpleStyles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: '#F3F4F6' },
-  bottomSpacing: { height: 48 },
 });
 
 export default function TodayScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams() || {};
   const { user } = useAuth();
   const { t } = useTranslation();
 
   const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [moodSectionY, setMoodSectionY] = useState(0);
+  // Swipe left to Settings
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        const dx = Math.abs(gesture.dx);
+        const dy = Math.abs(gesture.dy);
+        return dx > 20 && dx > dy; // horizontal dominant
+      },
+      onPanResponderRelease: (_evt, gesture) => {
+        if (gesture.dx < -60 && Math.abs(gesture.vx) > 0.2) {
+          router.push('/(tabs)/settings' as any);
+        }
+      },
+    })
+  ).current;
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
@@ -171,6 +190,19 @@ export default function TodayScreen() {
       onRefresh();
     }
   }, [user?.id]);
+
+  // Deep-link focus: scroll to Mood Journey section (optional openDate handled by card)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!user?.id) return;
+      const focus = Array.isArray(params.focus) ? params.focus[0] : (params.focus as string | undefined);
+      if (focus === 'mood') {
+        setTimeout(() => {
+          try { scrollRef.current?.scrollTo({ y: Math.max(0, moodSectionY - 12), animated: true }); } catch {}
+        }, 300);
+      }
+    }, [user?.id, params.focus, moodSectionY])
+  );
 
   // Load color mode from settings when user changes
   useEffect(() => {
@@ -333,6 +365,8 @@ export default function TodayScreen() {
         setRefreshing(false);
         return;
       }
+      // Ensure chart caches are cleared so new entries reflect immediately
+      try { moodDataLoader.invalidate(user.id); } catch {}
       // 🚫 AI Cache Invalidation - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
       // pipeline.triggerInvalidation('manual_refresh', user.id);
 
@@ -521,10 +555,11 @@ export default function TodayScreen() {
           break;
           
         case '/(tabs)/cbt':
-          // Remap CBT CTA to Mood
+          // Remap CBT CTA to Mood section on Today
           router.push({
-            pathname: '/(tabs)/mood' as any,
+            pathname: '/(tabs)/index' as any,
             params: {
+              focus: 'mood',
               source: 'adaptive_suggestion',
               ...(suggestion.cta.params || {})
             }
@@ -533,8 +568,9 @@ export default function TodayScreen() {
           
         case '/(tabs)/mood':
           router.push({
-            pathname: '/(tabs)/mood' as any,
+            pathname: '/(tabs)/index' as any,
             params: {
+              focus: 'mood',
               source: 'adaptive_suggestion',
               ...(suggestion.cta.params || {})
             }
@@ -662,10 +698,10 @@ export default function TodayScreen() {
   // MicroReward/Toast sistemi unlock anında çalışmaya devam ediyor
 
   return (
-    <ScreenLayout>
-
-
+    <ScreenLayout edges={['top','left','right']}>
+      <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <ScrollView
+        ref={scrollRef}
         style={simpleStyles.scrollView}
         refreshControl={
           <RefreshControl
@@ -688,7 +724,21 @@ export default function TodayScreen() {
         {renderQuickStats()}
         
         {/* 🎨 Mood Journey Card */}
-        {moodJourneyData && <MoodJourneyCard data={moodJourneyData} />}
+        {moodJourneyData && (
+          <View onLayout={(e) => setMoodSectionY(e.nativeEvent.layout.y)}>
+            <MoodJourneyCard
+              data={moodJourneyData}
+              initialOpenDate={(() => {
+                const v = Array.isArray(params.openDate) ? params.openDate[0] : (params.openDate as string | undefined);
+                return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+              })()}
+              initialRange={(() => {
+                const r = Array.isArray(params.openRange) ? params.openRange[0] : (params.openRange as string | undefined);
+                return r === 'week' || r === 'month' || r === '6months' || r === 'year' ? (r as any) : undefined;
+              })()}
+            />
+          </View>
+        )}
         {/* Risk section removed */}
         {renderArtTherapyWidget()}
         {/* ✅ REMOVED: Başarılarım bölümü - yinelenen bilgi, kalabalık yaratıyor */}
@@ -703,9 +753,9 @@ export default function TodayScreen() {
           accentColor={accentColor}
           gradientColors={gradient}
         />
-        
-        <View style={simpleStyles.bottomSpacing} />
+        {/* Spacer removed to avoid visual gap above bottom tab */}
       </ScrollView>
+      </View>
 
       {/* Toast Notification */}
       <Toast

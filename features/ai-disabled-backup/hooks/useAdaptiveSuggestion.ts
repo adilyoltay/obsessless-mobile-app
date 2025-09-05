@@ -412,7 +412,7 @@ export function useAdaptiveSuggestion() {
           timing: 'optimal',
           cta: {
             label: 'Teste Devam Et',
-            screen: '/(tabs)/mood',
+            screen: '/(tabs)/index',
             params: {}
           }
         };
@@ -501,7 +501,7 @@ export function useAdaptiveSuggestion() {
         content: "Bugün nasıl hissettiğinizi kaydetmek ister misiniz?",
         category: 'mood',
         cta: {
-          screen: '/(tabs)/mood'
+          screen: '/(tabs)/index'
         }
       };
     }
@@ -514,7 +514,7 @@ export function useAdaptiveSuggestion() {
         content: "Son günlerde biraz zorlanıyor gibisiniz. Kısa bir mood kaydı iyi gelebilir.",
         category: 'mood',
         cta: {
-          screen: '/(tabs)/mood'
+          screen: '/(tabs)/index'
         }
       };
     }
@@ -841,7 +841,7 @@ export function useAdaptiveSuggestion() {
         title: "Güzel İvme!",
         content: "Mood'un bu hafta iyileşmiş. Devam etmek için kısa bir mood kaydı ekleyebilirsin.",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 
@@ -863,7 +863,7 @@ export function useAdaptiveSuggestion() {
         title: "Nasıl Hissediyorsun?",
         content: "Son günlerde mood kaydı yok. Şimdi bir kayıt eklemek ister misin?",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 
@@ -881,7 +881,7 @@ export function useAdaptiveSuggestion() {
         title: "İlerleme Kaydı",
         content: "CBT kayıtların çok tutarlı! Mood tracking ile desteklemeye ne dersin?",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 
@@ -903,7 +903,7 @@ export function useAdaptiveSuggestion() {
         title: "Kısa Bir Check-in",
         content: "Kendini nasıl hissettiğini kaydetmek iyi gelebilir.",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 
@@ -932,7 +932,7 @@ export function useAdaptiveSuggestion() {
         title: "Başarını Kaydet",
         content: "Direnç oranın harika! Bunu kısa bir mood kaydı ile işaretlemek ister misin?",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 
@@ -943,7 +943,7 @@ export function useAdaptiveSuggestion() {
         title: "Mood Korelasyonu",
         content: "Takip kayıtların çok düzenli! Mood ile korelasyonunu görmek ister misin?",
         category: 'mood',
-        cta: { screen: '/(tabs)/mood' }
+        cta: { screen: '/(tabs)/index' }
       };
     }
 

@@ -7,12 +7,18 @@ import {
   ScrollView, 
   TouchableOpacity,
   SafeAreaView,
-  Dimensions
+  Dimensions,
+  Alert,
 } from 'react-native';
 import type { RawDataPoint } from '@/types/mood';
 import { formatDateInUserTimezone } from '@/utils/timezoneUtils';
 import { quantiles } from '@/utils/statistics';
 import * as Haptics from 'expo-haptics';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import supabaseService from '@/services/supabase';
+import moodTracker from '@/services/moodTrackingService';
+import { offlineSyncService } from '@/services/offlineSync';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,6 +27,7 @@ type Props = {
   entries: RawDataPoint[];
   visible: boolean;
   onClose: () => void;
+  onDeleted?: (entryId: string) => void;
 };
 
 // Apple Health renk paleti
@@ -53,8 +60,9 @@ const getMoodColor = (score: number): string => {
 
 const TimelineItem: React.FC<{ 
   entry: RawDataPoint; 
-  isLast: boolean 
-}> = ({ entry, isLast }) => {
+  isLast: boolean;
+  onDelete?: (entry: RawDataPoint) => void;
+}> = ({ entry, isLast, onDelete }) => {
   const time = new Date(entry.timestamp).toLocaleTimeString('tr-TR', { 
     hour: '2-digit', 
     minute: '2-digit' 
@@ -77,9 +85,21 @@ const TimelineItem: React.FC<{
             <Text style={[styles.moodLabel, { color: moodColor }]}>
               {moodLabel}
             </Text>
-            <View style={styles.moodScores}>
-              <Text style={styles.scoreLabel}>Mood: {entry.mood_score}</Text>
-              <Text style={styles.scoreLabel}>Enerji: {entry.energy_level}</Text>
+            <View style={styles.headerRightRow}>
+              <View style={styles.moodScores}>
+                <Text style={styles.scoreLabel}>Mood: {entry.mood_score}</Text>
+                <Text style={styles.scoreLabel}>Enerji: {entry.energy_level}</Text>
+              </View>
+              {onDelete && (
+                <TouchableOpacity
+                  onPress={() => onDelete(entry)}
+                  accessibilityLabel="Kaydı sil"
+                  style={styles.deleteBtn}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           
@@ -106,8 +126,60 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
   date, 
   entries, 
   visible, 
-  onClose 
+  onClose,
+  onDeleted,
 }) => {
+  const { user } = useAuth();
+  const [localEntries, setLocalEntries] = React.useState<RawDataPoint[]>(entries);
+
+  React.useEffect(() => {
+    // Sync internal list when prop changes or modal opens
+    setLocalEntries(entries);
+  }, [entries, visible]);
+
+  const handleDeleteEntry = React.useCallback((entry: RawDataPoint) => {
+    Alert.alert(
+      'Kaydı Sil',
+      'Bu mood kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Resolve possible remote_id and perform remote-first deletion
+              let remoteId: string | null = null;
+              try { remoteId = await (moodTracker as any).resolveRemoteIdFor(entry.id); } catch {}
+              try {
+                await supabaseService.deleteMoodEntry(remoteId || entry.id);
+              } catch (remoteErr) {
+                // Queue for later if user exists
+                try {
+                  if (user?.id) {
+                    await offlineSyncService.addToSyncQueue({
+                      type: 'DELETE',
+                      entity: 'mood_entry',
+                      data: { id: entry.id, remote_id: remoteId || undefined, user_id: user.id, priority: 'high', deleteReason: 'user_initiated' },
+                    } as any);
+                  }
+                } catch {}
+              }
+              // Local deletion (handles cache invalidation internally)
+              await moodTracker.deleteMoodEntry(entry.id);
+              // Update UI
+              setLocalEntries(prev => prev.filter(e => e.id !== entry.id));
+              onDeleted?.(entry.id);
+              try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+            } catch (e) {
+              console.error('❌ Delete failed:', e);
+              try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch {}
+            }
+          }
+        }
+      ]
+    );
+  }, [onDeleted, user?.id]);
   const [expanded, setExpanded] = React.useState(false);
   // İstatistikler (MEDYAN + IQR) — UI sürücü metrik
   const stats = React.useMemo(() => {
@@ -222,8 +294,8 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Gün İçi Dağılım</Text>
               <View style={styles.timeline}>
-                {entries.length > 0 ? (() => {
-                  const sorted = [...entries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                {localEntries.length > 0 ? (() => {
+                  const sorted = [...localEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                   const maxItems = 50;
                   const shown = expanded ? sorted : sorted.slice(0, maxItems);
                   return (
@@ -233,6 +305,7 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
                           key={entry.id}
                           entry={entry}
                           isLast={index === shown.length - 1}
+                          onDelete={handleDeleteEntry}
                         />
                       ))}
                       {sorted.length > maxItems && (
@@ -413,9 +486,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   scoreLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  deleteBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
   },
   notes: {
     fontSize: 13,

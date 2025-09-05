@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import ProgressDots from '@/components/onboarding/ProgressDots';
@@ -23,8 +24,9 @@ export default function Lifestyle() {
     router.push('/(auth)/onboarding/notifications');
   };
 
+  const theme = useThemeColors();
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.background }}>
       <ProgressDots current={step} total={totalSteps} />
       <Text accessibilityRole="header" style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginTop: 16 }}>
         Yaşam tarzın (opsiyonel)
@@ -72,5 +74,4 @@ export default function Lifestyle() {
     </View>
   );
 }
-
 

@@ -865,6 +865,14 @@ class SupabaseNativeService {
 
   async getMoodEntries(userId: string, days: number = 7): Promise<any[]> {
     try {
+      // Quick offline guard to avoid noisy network errors in RN when disconnected
+      try {
+        const state = await NetInfo.fetch();
+        if (!state.isConnected || state.isInternetReachable === false) {
+          console.warn('⚠️ Offline: skipping remote mood fetch');
+          return [];
+        }
+      } catch {}
       const since = new Date();
       since.setDate(since.getDate() - days);
       const list = await this.moodSvc.getMoodEntries(userId, since.toISOString());

@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  Pressable, 
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -110,7 +102,7 @@ export default function SignupScreen() {
             style={styles.form}
           >
             {/* Name Input */}
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.card }]}>
               <MaterialCommunityIcons name="account" size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
@@ -124,7 +116,7 @@ export default function SignupScreen() {
             </View>
 
             {/* Email Input */}
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.card }]}>
               <MaterialCommunityIcons name="email" size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
@@ -139,7 +131,7 @@ export default function SignupScreen() {
             </View>
 
             {/* Password Input */}
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.card }]}>
               <MaterialCommunityIcons name="lock" size={20} color="#6B7280" />
               <TextInput
                 style={styles.input}
@@ -321,3 +313,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
   },
 });
+  const theme = useThemeColors();

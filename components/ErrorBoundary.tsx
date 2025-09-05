@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { ThemeContext } from '@/contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,7 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  static contextType = ThemeContext;
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -136,8 +138,9 @@ Teşekkürler
         return this.props.fallback;
       }
 
+      const theme = (this.context && (this.context as any).colors) || { background: '#F3F4F6', card: '#FFFFFF', text: '#111827' };
       return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
           <View style={styles.content}>
             {/* Master Prompt: Sakinleştirici ve empatik tasarım */}
             <View style={styles.iconContainer}>
@@ -170,7 +173,7 @@ Teşekkürler
               </Pressable>
               
               <Pressable 
-                style={styles.secondaryButton} 
+                style={[styles.secondaryButton, { backgroundColor: theme.card }]} 
                 onPress={this.handleReportIssue}
               >
                 <MaterialCommunityIcons name="bug" size={20} color="#6B7280" />

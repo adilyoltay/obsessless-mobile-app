@@ -13,14 +13,8 @@
  */
 
 import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ViewStyle,
-  TextStyle
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { AdaptiveSuggestion } from '@/features/ai-fallbacks/hooks';
@@ -84,7 +78,7 @@ export function AdaptiveSuggestionCard({
   style,
   meta
 }: AdaptiveSuggestionCardProps) {
-  
+  const theme = useThemeColors();
   // 🔍 DEBUG: Monitor meta prop changes
   useEffect(() => {
     console.log('🎯 AdaptiveSuggestionCard meta check:', { 
@@ -115,7 +109,7 @@ export function AdaptiveSuggestionCard({
   };
 
   return (
-    <View style={[styles.card, { borderLeftColor: accentColor }, style]}>
+    <View style={[styles.card, { backgroundColor: theme.card, borderLeftColor: accentColor }, style]}>
       {/* Header with icon and category */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -207,7 +201,7 @@ export function AdaptiveSuggestionCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,

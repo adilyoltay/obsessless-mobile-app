@@ -1,11 +1,6 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -26,6 +21,7 @@ export const Stepper: React.FC<StepperProps> = ({
   style,
   testID = 'stepper',
 }) => {
+  const theme = useThemeColors();
   const currentIndex = options.indexOf(value);
   const canDecrease = currentIndex > 0;
   const canIncrease = currentIndex < options.length - 1;
@@ -57,9 +53,9 @@ export const Stepper: React.FC<StepperProps> = ({
   return (
     <View style={[styles.container, style]} testID={testID}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.stepperContainer}>
+      <View style={[styles.stepperContainer, { backgroundColor: theme.card }]}>
         <TouchableOpacity
-          style={[styles.button, !canDecrease && styles.disabledButton]}
+          style={[styles.button, { backgroundColor: theme.card }, !canDecrease && styles.disabledButton]}
           onPress={handleDecrease}
           disabled={!canDecrease}
           testID={`${testID}-decrease`}
@@ -78,7 +74,7 @@ export const Stepper: React.FC<StepperProps> = ({
         </View>
 
         <TouchableOpacity
-          style={[styles.button, !canIncrease && styles.disabledButton]}
+          style={[styles.button, { backgroundColor: theme.card }, !canIncrease && styles.disabledButton]}
           onPress={handleIncrease}
           disabled={!canIncrease}
           testID={`${testID}-increase`}

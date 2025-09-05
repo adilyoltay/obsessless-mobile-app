@@ -34,6 +34,7 @@ import moodTracker from '@/services/moodTrackingService';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useRouter } from 'expo-router';
 import { useGamificationStore } from '@/store/gamificationStore';
+import { moodDataLoader } from '@/services/moodDataLoader';
 
 // 🎤 REAL STT - İOS crash riski var ama gerçek konuşma için aktif
 import speechToTextService from '@/services/speechToTextService';
@@ -452,6 +453,12 @@ export default function VAMoodCheckin({
       
       if (savedEntry) {
         console.log('✅ Mood entry saved successfully');
+        try {
+          // Invalidate cached chart datasets so new entry reflects immediately
+          if (uid) moodDataLoader.invalidate(uid);
+        } catch (e) {
+          console.warn('⚠️ Failed to invalidate moodDataLoader cache:', e);
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
         // 🎮 Minimal gamification: update streak and award micro-reward

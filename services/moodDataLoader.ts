@@ -11,6 +11,25 @@ type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
 export class OptimizedMoodDataLoader {
   private cache = new Map<string, CacheEntry>();
 
+  /**
+   * Invalidate cached datasets.
+   * - If no args are provided, clears the entire cache.
+   * - If `userId` is provided, clears all keys for that user.
+   * - If `range` is also provided, clears only that user's keys for the range (including paged variants).
+   */
+  invalidate(userId?: string, range?: TimeRange): void {
+    if (!userId) {
+      this.cache.clear();
+      return;
+    }
+    const prefix = range ? `${userId}-${range}` : `${userId}-`;
+    for (const key of Array.from(this.cache.keys())) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
   async loadTimeRange(userId: string, range: TimeRange): Promise<MoodJourneyExtended> {
     const cacheKey = `${userId}-${range}`;
     const cached = this.cache.get(cacheKey);
@@ -71,8 +90,21 @@ export class OptimizedMoodDataLoader {
 
   private async loadFullRange(userId: string, range: TimeRange, endDateOverride?: Date): Promise<MoodJourneyExtended> {
     const days = this.daysForRange(range);
-    const entries = await moodTracker.getMoodEntries(userId, days);
+    // Anchor the window to the provided end date (or today) in user's local timezone
+    const today = endDateOverride ? toUserLocalDate(endDateOverride) : toUserLocalDate(new Date());
+    today.setHours(0, 0, 0, 0);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const startWindow = new Date(today.getTime() - (days - 1) * dayMs);
 
+    // Ensure we fetch enough history to cover older pages (when endDateOverride < now)
+    const nowLocal = toUserLocalDate(new Date());
+    const lagDays = Math.max(0, Math.ceil((nowLocal.getTime() - today.getTime()) / dayMs));
+    const fetchDays = days + lagDays;
+
+    // Fetch combined (local+remote) entries for a sufficiently large window
+    const entries = await moodTracker.getMoodEntries(userId, fetchDays);
+
+    // Map to lite and filter strictly to the requested window [startWindow, today]
     const lite: MoodEntryLite[] = (entries || []).map((e) => ({
       id: e.id,
       user_id: e.user_id,
@@ -82,7 +114,10 @@ export class OptimizedMoodDataLoader {
       notes: e.notes || '',
       triggers: e.triggers || [],
       timestamp: e.timestamp,
-    }));
+    })).filter((e) => {
+      const t = new Date(e.timestamp).getTime();
+      return t >= startWindow.getTime() && t < (today.getTime() + dayMs);
+    });
 
     // Group by date (user timezone)
     const byDate = new Map<string, RawDataPoint[]>();
@@ -94,8 +129,7 @@ export class OptimizedMoodDataLoader {
     }
 
     // Daily averages - NORMALIZE to include all days in selected range
-    const today = endDateOverride ? toUserLocalDate(endDateOverride) : toUserLocalDate(new Date());
-    const start = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+    const start = startWindow;
     const dayKeys: string[] = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
@@ -170,7 +204,7 @@ export class OptimizedMoodDataLoader {
     // Weekly aggregates for compatibility
     const weekKeys: string[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      const d = new Date(today.getTime() - i * dayMs);
       weekKeys.push(formatDateYMD(d));
     }
     const weeklyEntries: MoodEntryLite[] = weekKeys.map((k) => {

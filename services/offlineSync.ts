@@ -589,14 +589,15 @@ export class OfflineSyncService {
 
     // Handle DELETE operations
     if (item.type === 'DELETE') {
-      if (raw.id) {
+      if (raw.id || raw.remote_id) {
         try {
           const priority = raw.priority || 'normal';
           const deleteReason = raw.deleteReason || 'unknown';
           
           console.log(`🗑️ Processing ${priority} priority deletion: ${raw.id} (${deleteReason})`);
           
-          await (svc as any).deleteMoodEntry(raw.id);
+          const targetId = raw.remote_id || raw.id;
+          await (svc as any).deleteMoodEntry(targetId);
           console.log(`✅ ${priority.toUpperCase()} priority mood entry deleted successfully:`, raw.id);
           
           try {

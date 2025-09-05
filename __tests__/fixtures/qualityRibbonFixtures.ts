@@ -154,8 +154,8 @@ export const mockAdaptiveSuggestions = {
     category: "mood", 
     confidence: 0.45,
     cta: {
-      screen: "/(tabs)/mood",
-      params: {}
+      screen: "/(tabs)/index",
+      params: { focus: 'mood' }
     },
     source: "heuristic"
   } as AdaptiveSuggestion

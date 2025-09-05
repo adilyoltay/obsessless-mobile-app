@@ -20,8 +20,8 @@ export const multiIntentVoiceAnalysis = async (transcript: string, userId: strin
     classification: 'mood', // Default to mood category
     confidence: 0.5,
     routing: {
-      targetScreen: '/(tabs)/mood',
-      params: {}
+      targetScreen: '/(tabs)/index',
+      params: { focus: 'mood' }
     },
     metadata: {
       source: 'disabled',

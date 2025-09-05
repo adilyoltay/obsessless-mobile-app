@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import ProgressDots from '@/components/onboarding/ProgressDots';
@@ -7,11 +8,12 @@ import ProgressDots from '@/components/onboarding/ProgressDots';
 export default function Welcome() {
   const router = useRouter();
   const { step, totalSteps, next, setStep } = useMoodOnboardingStore();
+  const theme = useThemeColors();
 
   useEffect(() => { setStep(0); }, [setStep]);
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF', justifyContent: 'center' }}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.background, justifyContent: 'center' }}>
       <Text accessibilityRole="header" style={{ fontSize: 28, fontWeight: '700', color: '#111827', textAlign: 'center' }}>
         ObsessLess'e Hoş Geldin
       </Text>
@@ -35,5 +37,4 @@ export default function Welcome() {
     </View>
   );
 }
-
 

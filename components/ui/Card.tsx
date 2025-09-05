@@ -1,10 +1,6 @@
 import React from 'react';
-import {
-  View,
-  ViewStyle,
-  Platform,
-  StyleSheet,
-} from 'react-native';
+import { View, ViewStyle, Platform, StyleSheet } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface CardProps {
@@ -24,12 +20,14 @@ export function Card({
   padding = 16,
   borderRadius = 12,
 }: CardProps) {
+  const theme = useThemeColors();
   const cardStyle = [
     styles.card,
     styles[variant],
     {
       padding,
       borderRadius,
+      backgroundColor: theme.card,
     },
     style,
   ];
@@ -52,7 +50,7 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 16,
     margin: 8,
@@ -73,10 +71,10 @@ const styles = StyleSheet.create({
     }),
   },
   default: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   elevated: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -93,7 +91,7 @@ const styles = StyleSheet.create({
     }),
   },
   outlined: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },

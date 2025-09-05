@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { MoodJourneyData } from '@/services/todayService';
@@ -10,12 +11,13 @@ type Props = {
 
 export default function WeeklySummaryGrid({ data }: Props) {
   const router = useRouter();
+  const theme = useThemeColors();
 
   const moodTodayAvg = data?.todayAverage ?? 0;
   const weeklyEnergyAvg = data?.weeklyEnergyAvg ?? 0;
   const weeklyAnxietyAvg = data?.weeklyAnxietyAvg ?? 0;
 
-  const goMood = () => router.push('/(tabs)/mood' as any);
+  const goMood = () => router.push({ pathname: '/(tabs)/index' as any, params: { focus: 'mood' } });
 
   return (
     <View style={styles.section}>
@@ -24,7 +26,7 @@ export default function WeeklySummaryGrid({ data }: Props) {
         <Text style={styles.sectionTitle}>Haftalık Özet</Text>
       </View>
       <View style={styles.grid}>
-        <Pressable style={styles.card} onPress={goMood}>
+        <Pressable style={[styles.card, { backgroundColor: theme.card }]} onPress={goMood}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="emoticon-happy" size={18} color="#F59E0B" />
             <Text style={styles.cardTitle}>Mood</Text>
@@ -34,7 +36,7 @@ export default function WeeklySummaryGrid({ data }: Props) {
           <View style={styles.cardFooter}><Text style={styles.cardAction}>Görüntüle →</Text></View>
         </Pressable>
 
-        <Pressable style={styles.card} onPress={goMood}>
+        <Pressable style={[styles.card, { backgroundColor: theme.card }]} onPress={goMood}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="lightning-bolt" size={18} color="#10B981" />
             <Text style={styles.cardTitle}>Enerji</Text>
@@ -44,7 +46,7 @@ export default function WeeklySummaryGrid({ data }: Props) {
           <View style={styles.cardFooter}><Text style={styles.cardAction}>Görüntüle →</Text></View>
         </Pressable>
 
-        <Pressable style={styles.card} onPress={goMood}>
+        <Pressable style={[styles.card, { backgroundColor: theme.card }]} onPress={goMood}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="heart-pulse" size={18} color="#EF4444" />
             <Text style={styles.cardTitle}>Anksiyete</Text>
@@ -116,4 +118,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

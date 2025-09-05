@@ -19,6 +19,7 @@ import Svg, {
   Path
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import type { MoodJourneyExtended, TimeRange } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 
@@ -85,6 +86,7 @@ export const AppleHealthStyleChart: React.FC<Props> = ({
   timeRange, 
   onDayPress 
 }) => {
+  const theme = useThemeColors();
   const chartWidth = SCREEN_WIDTH - CHART_PADDING_H * 2;
   const contentWidth = chartWidth - AXIS_WIDTH;
   
@@ -244,7 +246,7 @@ export const AppleHealthStyleChart: React.FC<Props> = ({
   }, [dataPoints]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.card }]}>
       <ScrollView 
         horizontal={data.dailyAverages.length > 30}
         showsHorizontalScrollIndicator={false}
@@ -453,7 +455,7 @@ export const AppleHealthStyleChart: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 12,
     padding: 12,
     marginVertical: 8,

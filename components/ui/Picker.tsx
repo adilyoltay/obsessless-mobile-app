@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { Colors } from '@/constants/Colors';
 import { Picker as RNPicker } from '@react-native-picker/picker';
 
 interface PickerProps {
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D1D5DB',
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.ui.card,
   },
   picker: {
     height: 50,

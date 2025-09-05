@@ -71,7 +71,7 @@ export interface PrefillData {
 
 const SCREEN_CONFIGS = {
   'mood': {
-    path: '/(tabs)/mood',
+    path: '/(tabs)/index',
     supportedParams: ['prefill', 'mood', 'text', 'trigger', 'timestamp', 'context'],
     requiredForPrefill: ['mood'],
     validation: {
@@ -82,7 +82,7 @@ const SCREEN_CONFIGS = {
   },
   // No-op adapter: legacy 'cbt' routes now map to Mood screen
   'cbt': {
-    path: '/(tabs)/mood',
+    path: '/(tabs)/index',
     supportedParams: ['prefill', 'mood', 'text', 'trigger', 'timestamp', 'context'],
     requiredForPrefill: ['mood'],
     validation: {

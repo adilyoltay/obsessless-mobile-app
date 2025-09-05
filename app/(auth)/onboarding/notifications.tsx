@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Switch } from 'react-native';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import ProgressDots from '@/components/onboarding/ProgressDots';
@@ -29,8 +30,9 @@ export default function NotificationsStep() {
     router.push('/(auth)/onboarding/summary');
   };
 
+  const theme = useThemeColors();
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, padding: 20, backgroundColor: theme.background }}>
       <ProgressDots current={step} total={totalSteps} />
       <Text accessibilityRole="header" style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginTop: 16 }}>
         Günlük hatırlatma (opsiyonel)
@@ -56,5 +58,4 @@ export default function NotificationsStep() {
     </View>
   );
 }
-
 

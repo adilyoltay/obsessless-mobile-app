@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, Platform, Text, useColorScheme } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/Colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import OfflineBanner from '@/components/ui/OfflineBanner';
 import SafeModeBanner from '@/components/ui/SafeModeBanner';
 import LockOverlay from '@/components/security/LockOverlay';
@@ -24,12 +25,14 @@ function ScreenLayout({
   scrollable = true, 
   showStatusBar = true,
   statusBarStyle = 'dark',
-  backgroundColor = '#F9FAFB',
+  backgroundColor,
   edges = ['top', 'bottom', 'left', 'right']
 }: ScreenLayoutProps) {
+  const theme = useThemeColors();
+  const bg = backgroundColor || theme.background;
   const containerStyle = [
     styles.container,
-    { backgroundColor }
+    { backgroundColor: bg }
   ];
 
   // RN kuralı: Düz string/number children bir <Text> içinde olmalı.
@@ -114,7 +117,7 @@ function ScreenLayout({
       {showStatusBar && (
         <StatusBar 
           style={statusBarStyle} 
-          backgroundColor={backgroundColor}
+          backgroundColor={bg}
           translucent={false}
         />
       )}
