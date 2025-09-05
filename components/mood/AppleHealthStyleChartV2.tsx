@@ -156,6 +156,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const locale = language === 'tr' ? 'tr-TR' : 'en-US';
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // Day view: sliding hourly window (±4 hours around now)
+  const DAY_WINDOW_SIZE = 8;
+  const [dayWindowStart, setDayWindowStart] = useState<number>(0);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { color: accentColor } = useAccentColor();
@@ -182,19 +185,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     return u * 2 - 1; // -1..1
   }, []);
   // Use the measured container width (card inner width). Fallback to screen - 40.
-  const measuredChartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
-  // Pre-calc bucket count for adaptive scroll in day mode
-  const bucketCount = (timeRange === 'week')
-    ? data.dailyAverages.length
-    : (timeRange === 'day'
-      ? ((data.hourlyAverages?.length || 24))
-      : (data.aggregated?.data?.length || 0));
-  const contentWidthBase = Math.max(0, measuredChartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
-  const MIN_BUCKET_PX_DAY = 14;
-  const dayNeedsScroll = timeRange === 'day' && bucketCount > 0 && (contentWidthBase / bucketCount) < MIN_BUCKET_PX_DAY;
-  // Effective plotting widths (extend chart width in day mode if needed)
-  const contentWidth = dayNeedsScroll ? (bucketCount * MIN_BUCKET_PX_DAY) : contentWidthBase;
-  const chartWidth = dayNeedsScroll ? (AXIS_WIDTH + RIGHT_LABEL_PAD + contentWidth) : measuredChartWidth;
+  const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
+  const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
   
   // Clear selection from parent
   React.useEffect(() => {
@@ -205,11 +197,26 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearSelectionSignal]);
 
+  // Initialize/realign day window when switching to 'day'
+  React.useEffect(() => {
+    if (timeRange !== 'day') return;
+    try {
+      const hour = new Date().getHours();
+      const start = Math.max(0, Math.min(24 - DAY_WINDOW_SIZE, hour - Math.floor(DAY_WINDOW_SIZE / 2)));
+      setDayWindowStart(start);
+      setSelectedIndex(null);
+      onSelectionChange?.(null);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange]);
+
   const emitSelection = useCallback((index: number | null) => {
     const items = (timeRange === 'week')
       ? data.dailyAverages
       : (timeRange === 'day'
-        ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+        ? (((data.hourlyAverages || [])
+            .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+            .map((h: any) => ({ date: h.dateKey })) ) as any[])
         : (data.aggregated?.data || []));
     const n = items.length;
     if (index === null || index < 0 || index > n - 1) {
@@ -276,7 +283,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     }
     
     onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth });
-  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange]);
+  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange, dayWindowStart]);
   
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
@@ -531,7 +538,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <ScrollView 
-        horizontal={dayNeedsScroll || ((timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30)}
+        horizontal={(timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.hScrollContent}
@@ -565,11 +572,19 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
             {/* Grid çizgileri (dikey) */}
             {(() => {
-              const n = isAggregateMode ? (data.aggregated?.data?.length || 0) : data.dailyAverages.length;
+              const n = isAggregateMode
+                ? (data.aggregated?.data?.length || 0)
+                : (timeRange === 'day'
+                    ? Math.min(DAY_WINDOW_SIZE, (data.hourlyAverages || []).length)
+                    : data.dailyAverages.length);
               const dayWidth = contentWidth / Math.max(1, n);
               const todayKey = getUserDateString(new Date());
               // Only highlight today's boundaries in weekly (daily) mode
-              const todayIdx = isAggregateMode ? Number.NaN : data.dailyAverages.findIndex(d => d.date === todayKey);
+              const todayIdx = isAggregateMode
+                ? Number.NaN
+                : (timeRange === 'day'
+                    ? Number.NaN
+                    : data.dailyAverages.findIndex(d => d.date === todayKey));
               const lines: any[] = [];
               for (let i = 0; i <= n; i++) {
                 const x = AXIS_WIDTH + i * dayWidth;
@@ -594,6 +609,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (isAggregateMode) {
                     const b: any = (data.aggregated?.data || [])[selectedIndex];
                     return Number(b?.count || 0) > 0;
+                  } else if (timeRange === 'day') {
+                    const win = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE);
+                    const it: any = { date: win[selectedIndex]?.dateKey };
+                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+                    return rp.length > 0;
                   } else {
                     const d: any = data.dailyAverages[selectedIndex];
                     const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
@@ -758,7 +778,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
             {/* X ekseni etiketleri */}
             {(() => {
-              const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+              const items = isAggregateMode
+                ? (data.aggregated?.data || [])
+                : (timeRange === 'day'
+                    ? (((data.hourlyAverages || [])
+                        .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+                        .map((h: any) => ({ date: h.dateKey })) ) as any[])
+                    : data.dailyAverages);
               const n = items.length;
               const dw = contentWidth / Math.max(1, n);
               const todayKeyLbl = getUserDateString(new Date());
@@ -952,7 +978,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const items = isAggregateMode
                 ? (data.aggregated?.data || [])
                 : (timeRange === 'day'
-                    ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+                    ? (((data.hourlyAverages || [])
+                        .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+                        .map((h: any) => ({ date: h.dateKey })) ) as any[])
                     : data.dailyAverages);
               const n = items.length;
               const dw = contentWidth / Math.max(1, n);
@@ -1223,12 +1251,16 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 }
                 // Edge pagination requests
                 const threshold = Math.max(12, 0.3 * dw);
-                if (typeof onRequestPage === 'function') {
+                if (timeRange === 'day') {
+                  const shift = 2; // hours per edge shift
                   if (x < -threshold && idx === 0) {
-                    onRequestPage('prev');
+                    setDayWindowStart(prev => Math.max(0, prev - shift));
                   } else if (x > contentWidth + threshold && idx === n - 1) {
-                    onRequestPage('next');
+                    setDayWindowStart(prev => Math.min(24 - DAY_WINDOW_SIZE, prev + shift));
                   }
+                } else if (typeof onRequestPage === 'function') {
+                  if (x < -threshold && idx === 0) onRequestPage('prev');
+                  else if (x > contentWidth + threshold && idx === n - 1) onRequestPage('next');
                 }
               }}
               onResponderRelease={() => {}}
