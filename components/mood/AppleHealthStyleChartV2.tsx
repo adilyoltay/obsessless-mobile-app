@@ -182,8 +182,19 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     return u * 2 - 1; // -1..1
   }, []);
   // Use the measured container width (card inner width). Fallback to screen - 40.
-  const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
-  const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
+  const measuredChartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
+  // Pre-calc bucket count for adaptive scroll in day mode
+  const bucketCount = (timeRange === 'week')
+    ? data.dailyAverages.length
+    : (timeRange === 'day'
+      ? ((data.hourlyAverages?.length || 24))
+      : (data.aggregated?.data?.length || 0));
+  const contentWidthBase = Math.max(0, measuredChartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
+  const MIN_BUCKET_PX_DAY = 14;
+  const dayNeedsScroll = timeRange === 'day' && bucketCount > 0 && (contentWidthBase / bucketCount) < MIN_BUCKET_PX_DAY;
+  // Effective plotting widths (extend chart width in day mode if needed)
+  const contentWidth = dayNeedsScroll ? (bucketCount * MIN_BUCKET_PX_DAY) : contentWidthBase;
+  const chartWidth = dayNeedsScroll ? (AXIS_WIDTH + RIGHT_LABEL_PAD + contentWidth) : measuredChartWidth;
   
   // Clear selection from parent
   React.useEffect(() => {
@@ -346,7 +357,20 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
           : data.rawDataPoints[day.date];
         const x = AXIS_WIDTH + (index * dayWidth) + (dayWidth / 2);
         if (rawPoints && rawPoints.entries.length > 0) {
-          rawPoints.entries.forEach(entry => {
+          // Thinning for day: cap dots per hour for readability
+          const entriesArr = (() => {
+            if (timeRange !== 'day') return rawPoints.entries as any[];
+            const MAX_PER_HOUR = 6; // adjustable cap
+            const arr = rawPoints.entries as any[];
+            if (arr.length <= MAX_PER_HOUR) return arr;
+            const step = arr.length / MAX_PER_HOUR;
+            const picked: any[] = [];
+            for (let i = 0; i < MAX_PER_HOUR; i++) {
+              picked.push(arr[Math.floor(i * step)]);
+            }
+            return picked;
+          })();
+          entriesArr.forEach(entry => {
             const valence = moodToValence(entry.mood_score);
             const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
             points.push({
@@ -507,7 +531,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <ScrollView 
-        horizontal={(timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30}
+        horizontal={dayNeedsScroll || ((timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30)}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.hScrollContent}
