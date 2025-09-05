@@ -250,7 +250,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const mon = new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
       const day = d.getDate();
       const year = d.getFullYear();
-      labelText = `${day} ${mon} ${year} • ${String(h).padStart(2,'0')}:00`;
+      if (language === 'tr') {
+        labelText = `${day} ${mon} ${year} • ${String(h).padStart(2, '0')}:00`;
+      } else {
+        const h12 = (h % 12) === 0 ? 12 : (h % 12);
+        const suffix = h < 12 ? 'AM' : 'PM';
+        labelText = `${day} ${mon} ${year} • ${String(h12)} ${suffix}`;
+      }
       dateSel = it.date;
     } else {
       const b = items[index] as AggregatedData;
@@ -278,7 +284,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     if (timeRange === 'day') {
       const key = ((item as any).date || '') as string; // YYYY-MM-DD#HH
       const hh = key.includes('#') ? key.split('#')[1] : '00';
-      return String(parseInt(hh, 10));
+      const h = parseInt(hh, 10) || 0;
+      if (language === 'tr') {
+        // 24h axis for Turkish
+        return String(h).padStart(2, '0');
+      } else {
+        // 12h axis for English (compact AM/PM)
+        const h12 = (h % 12) === 0 ? 12 : (h % 12);
+        const suffix = h < 12 ? 'AM' : 'PM';
+        const pad = h12 < 10 ? '\u2007' : '';
+        return `${pad}${h12}${suffix}`;
+      }
     }
     if (timeRange === 'week') {
       // Parse YYYY-MM-DD explicitly as local midnight to avoid engine-specific UTC parsing
@@ -294,14 +310,14 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       return d.getDate().toString();
     }
     if (timeRange === '6months') {
-      // Aylık aggregate: i18n kısa ay adı
+      // Kısa ay adı (locale)
       const d = new Date((item as AggregatedData).date);
       return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
     }
-    // year: çok kısa ay
+    // year: kısa ay adı (locale)
     const d = new Date((item as AggregatedData).date);
     return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
-  }, [timeRange, locale]);
+  }, [timeRange, locale, language]);
 
   const isAggregateMode = timeRange !== 'week' && timeRange !== 'day';
 
@@ -732,10 +748,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     key={`x-label-${index}`}
                     x={x}
                     y={CHART_HEIGHT - CHART_PADDING_BOTTOM + 20}
-                    fontSize={11}
+                    fontSize={timeRange === 'day' ? 10 : 11}
                     fill={isTodayLbl ? '#374151' : APPLE_COLORS.axisText}
                     textAnchor="middle"
                     fontWeight={isTodayLbl ? '600' : '400'}
+                    letterSpacing={timeRange === 'day' ? -0.2 : undefined}
                   >
                     {formatXLabel(it)}
                   </SvgText>
