@@ -1,4 +1,4 @@
-export type TimeRange = 'week' | 'month' | '6months' | 'year';
+export type TimeRange = 'day' | 'week' | 'month' | '6months' | 'year';
 
 export interface EmotionDistribution {
   emotion: string;
@@ -23,6 +23,15 @@ export interface MoodEntryLite {
 
 export interface DailyAverage {
   date: string; // YYYY-MM-DD
+  averageMood: number; // 0..100
+  averageEnergy: number; // 1..10
+  averageAnxiety: number; // 1..10
+  count: number;
+}
+
+export interface HourlyAverage {
+  hour: number; // 0..23
+  dateKey: string; // YYYY-MM-DD#HH
   averageMood: number; // 0..100
   averageEnergy: number; // 1..10
   averageAnxiety: number; // 1..10
@@ -90,9 +99,18 @@ export interface MoodJourneyExtended {
     max: number;
     variance: number;
   }>;
+  // Hourly points for 'day' range (key: YYYY-MM-DD#HH)
+  rawHourlyDataPoints?: Record<string, {
+    entries: RawDataPoint[];
+    min: number;
+    max: number;
+    variance: number;
+  }>;
 
   // Daily aggregates for bar chart
   dailyAverages: DailyAverage[];
+  // Hourly averages for 'day'
+  hourlyAverages?: HourlyAverage[];
 
   // Seçili aralığa uygun aggregate veri (haftalık/aylık)
   aggregated?: {

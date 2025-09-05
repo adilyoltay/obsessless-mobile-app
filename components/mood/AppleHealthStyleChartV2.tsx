@@ -192,7 +192,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   }, [clearSelectionSignal]);
 
   const emitSelection = useCallback((index: number | null) => {
-    const items = (timeRange !== 'week') ? (data.aggregated?.data || []) : data.dailyAverages;
+    const items = (timeRange === 'week')
+      ? data.dailyAverages
+      : (timeRange === 'day'
+        ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+        : (data.aggregated?.data || []));
     const n = items.length;
     if (index === null || index < 0 || index > n - 1) {
       onSelectionChange?.(null);
@@ -206,6 +210,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     if (timeRange === 'week') {
       const day = items[index] as any;
       totalCount = Number(day.count || 0);
+      hasData = totalCount > 0;
+    } else if (timeRange === 'day') {
+      const hourItem = items[index] as any; // { date: YYYY-MM-DD#HH }
+      const rp = (data as any).rawHourlyDataPoints?.[hourItem.date]?.entries || [];
+      totalCount = rp.length;
       hasData = totalCount > 0;
     } else {
       const b = items[index] as AggregatedData;
@@ -230,6 +239,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const d = new Date(`${day.date}T00:00:00.000Z`);
       labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()}`;
       dateSel = day.date;
+    } else if (timeRange === 'day') {
+      const it = items[index] as any; // { date: YYYY-MM-DD#HH }
+      const [dstr, hh] = String(it.date).split('#');
+      const d = new Date(`${dstr}T00:00:00.000Z`);
+      const h = parseInt(hh || '0', 10);
+      labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()} • ${String(h).padStart(2,'0')}:00`;
+      dateSel = it.date;
     } else {
       const b = items[index] as AggregatedData;
       labelText = (b as any).label || '';
@@ -253,6 +269,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   
   // X ekseni etiketleri (Apple Health tarzı) - item tabanlı
   const formatXLabel = useCallback((item: DailyAverage | AggregatedData) => {
+    if (timeRange === 'day') {
+      const key = ((item as any).date || '') as string; // YYYY-MM-DD#HH
+      const hh = key.includes('#') ? key.split('#')[1] : '00';
+      return String(parseInt(hh, 10));
+    }
     if (timeRange === 'week') {
       // Parse YYYY-MM-DD explicitly as local midnight to avoid engine-specific UTC parsing
       const d = new Date(`${(item as DailyAverage).date}T00:00:00`);
@@ -276,7 +297,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     return monthsVeryShort[d.getMonth()];
   }, [timeRange]);
 
-  const isAggregateMode = timeRange !== 'week';
+  const isAggregateMode = timeRange !== 'week' && timeRange !== 'day';
 
   // Veri noktalarını hazırla (haftalık: ham girişleri; aggregate: bucket ortalaması)
   const dataPoints = useMemo(() => {
@@ -293,9 +314,14 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     }> = [];
 
     if (!isAggregateMode) {
-      const dayWidth = contentWidth / Math.max(1, data.dailyAverages.length);
-      data.dailyAverages.forEach((day, index) => {
-        const rawPoints = data.rawDataPoints[day.date];
+      const baseItems: any[] = timeRange === 'day'
+        ? (data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey }))
+        : (data.dailyAverages as any[]);
+      const dayWidth = contentWidth / Math.max(1, baseItems.length);
+      baseItems.forEach((day: any, index: number) => {
+        const rawPoints = timeRange === 'day'
+          ? (data as any).rawHourlyDataPoints?.[day.date]
+          : data.rawDataPoints[day.date];
         const x = AXIS_WIDTH + (index * dayWidth) + (dayWidth / 2);
         if (rawPoints && rawPoints.entries.length > 0) {
           rawPoints.entries.forEach(entry => {
@@ -864,7 +890,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             pointerEvents="box-none"
           >
             {(() => {
-              const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+              const items = isAggregateMode
+                ? (data.aggregated?.data || [])
+                : (timeRange === 'day'
+                    ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+                    : data.dailyAverages);
               const n = items.length;
               const dw = contentWidth / Math.max(1, n);
               const hasDataAt = (idx: number) => {
@@ -872,6 +902,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 if (isAggregateMode) {
                   const b: any = items[idx];
                   return Number(b?.count || 0) > 0;
+                } else if (timeRange === 'day') {
+                  const it: any = items[idx];
+                  const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+                  return rp.length > 0;
                 } else {
                   const d: any = items[idx];
                   const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
@@ -1060,7 +1094,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               onStartShouldSetResponder={() => true}
               onMoveShouldSetResponder={() => true}
               onResponderGrant={(e) => {
-                const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+                const items = isAggregateMode
+                  ? (data.aggregated?.data || [])
+                  : (timeRange === 'day'
+                      ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+                      : data.dailyAverages);
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
                 const x = e.nativeEvent.locationX; // 0..contentWidth
@@ -1070,6 +1108,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (isAggregateMode) {
                     const b: any = items[idx];
                     return Number(b?.count || 0) > 0;
+                  } else if (timeRange === 'day') {
+                    const it: any = items[idx];
+                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+                    return rp.length > 0;
                   } else {
                     const d: any = items[idx];
                     const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
@@ -1085,7 +1127,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 }
               }}
               onResponderMove={(e) => {
-                const items = isAggregateMode ? (data.aggregated?.data || []) : data.dailyAverages;
+                const items = isAggregateMode
+                  ? (data.aggregated?.data || [])
+                  : (timeRange === 'day'
+                      ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+                      : data.dailyAverages);
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
                 const x = e.nativeEvent.locationX; // may go slightly <0 or >contentWidth if finger outside
@@ -1095,6 +1141,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (isAggregateMode) {
                     const b: any = items[idx];
                     return Number(b?.count || 0) > 0;
+                  } else if (timeRange === 'day') {
+                    const it: any = items[idx];
+                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+                    return rp.length > 0;
                   } else {
                     const d: any = items[idx];
                     const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];

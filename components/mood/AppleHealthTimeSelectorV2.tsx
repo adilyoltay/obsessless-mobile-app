@@ -14,6 +14,7 @@ type Props = {
  */
 export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange }) => {
   const ranges: { id: TimeRange; label: string; fullLabel: string }[] = [
+    { id: 'day', label: 'G', fullLabel: 'Gün' },
     { id: 'week', label: 'H', fullLabel: 'Hafta' },
     { id: 'month', label: 'A', fullLabel: 'Ay' },
     { id: '6months', label: '6A', fullLabel: '6 Ay' },

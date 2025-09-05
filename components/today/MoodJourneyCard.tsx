@@ -70,6 +70,27 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
         energyP50: eq.p50, energyAvg: avg(energyVals),
         anxietyP50: aq.p50, anxietyAvg: avg(anxDaily)
       };
+    } else if (range === 'day') {
+      const hours = (extended.hourlyAverages || []) as any[];
+      const moodVals: number[] = [];
+      const energyVals: number[] = [];
+      const anxVals: number[] = [];
+      hours.forEach(h => {
+        const list = (extended.rawHourlyDataPoints as any)?.[h.dateKey]?.entries || [];
+        list.forEach((e: any) => {
+          if (Number.isFinite(e.mood_score)) moodVals.push(Number(e.mood_score));
+          if (Number.isFinite(e.energy_level)) energyVals.push(Number(e.energy_level));
+          if (Number.isFinite(e.anxiety_level)) anxVals.push(Number(e.anxiety_level));
+        });
+      });
+      const mq = quantiles(moodVals);
+      const eq = quantiles(energyVals);
+      const aq = quantiles(anxVals);
+      return {
+        moodP50: mq.p50, moodAvg: avg(moodVals),
+        energyP50: eq.p50, energyAvg: avg(energyVals),
+        anxietyP50: aq.p50, anxietyAvg: avg(anxVals)
+      };
     }
     // Aggregate modes: combine bucket entries
     const buckets = extended.aggregated?.data || [] as any[];
@@ -464,6 +485,28 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                 if (!extended) return null as any;
                 if (range === 'week') {
                   const list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                  const moods = list.map((p: any) => p.mood_score);
+                  const energies = list.map((p: any) => p.energy_level);
+                  const anx = list.map((p: any) => (typeof p.anxiety_level === 'number' ? p.anxiety_level : 0));
+                  const q = (arr: number[]) => {
+                    const a = arr.map(Number).filter(n => Number.isFinite(n)).sort((x,y)=>x-y);
+                    if (!a.length) return { p25: NaN, p50: NaN, p75: NaN };
+                    const interp = (p: number) => {
+                      const idx = (a.length - 1) * p;
+                      const lo = Math.floor(idx), hi = Math.ceil(idx);
+                      if (lo === hi) return a[lo];
+                      const t = idx - lo; return a[lo]*(1-t)+a[hi]*t;
+                    };
+                    return { p25: interp(0.25), p50: interp(0.5), p75: interp(0.75) };
+                  };
+                  return {
+                    count: list.length,
+                    mood: q(moods),
+                    energy: q(energies),
+                    anxiety: q(anx),
+                  };
+                } else if (range === 'day') {
+                  const list = (extended.rawHourlyDataPoints as any)?.[chartSelection.date]?.entries || [];
                   const moods = list.map((p: any) => p.mood_score);
                   const energies = list.map((p: any) => p.energy_level);
                   const anx = list.map((p: any) => (typeof p.anxiety_level === 'number' ? p.anxiety_level : 0));

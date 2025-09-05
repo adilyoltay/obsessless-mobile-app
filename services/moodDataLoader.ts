@@ -80,6 +80,7 @@ export class OptimizedMoodDataLoader {
 
   private daysForRange(range: TimeRange): number {
     switch (range) {
+      case 'day': return 1;
       case 'week': return 7;
       case 'month': return 30;
       case '6months': return 183;
@@ -135,13 +136,53 @@ export class OptimizedMoodDataLoader {
       const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
       dayKeys.push(formatDateYMD(d));
     }
-    const dailyAverages: DailyAverage[] = dayKeys.map((d) => {
+    let dailyAverages: DailyAverage[] = dayKeys.map((d) => {
       const list = byDate.get(d) || [];
       const avgMood = list.length ? Math.round(list.reduce((s, p) => s + p.mood_score, 0) / list.length) : 0;
       const avgEnergy = list.length ? Math.round(list.reduce((s, p) => s + (p.energy_level || 0), 0) / list.length) : 0;
       const avgAnx = list.length ? Math.round(list.reduce((s, p) => s + (typeof (p as any).anxiety_level === 'number' ? (p as any).anxiety_level : 5), 0) / list.length) : 0;
       return { date: d, averageMood: avgMood, averageEnergy: avgEnergy, averageAnxiety: avgAnx, count: list.length };
     });
+
+    // Hourly breakdown for 'day' range
+    let hourlyAverages: any[] | undefined;
+    let rawHourlyDataPoints: any | undefined;
+    if (range === 'day') {
+      const dayKey = formatDateYMD(today);
+      const entriesToday = lite.filter(e => formatDateYMD(new Date(e.timestamp)) === dayKey);
+      const groupByHour = new Map<number, MoodEntryLite[]>();
+      for (let h = 0; h < 24; h++) groupByHour.set(h, []);
+      for (const e of entriesToday) {
+        const h = new Date(e.timestamp).getHours();
+        const arr = groupByHour.get(h)!;
+        arr.push(e);
+      }
+      hourlyAverages = [];
+      rawHourlyDataPoints = {};
+      for (let h = 0; h < 24; h++) {
+        const list = groupByHour.get(h)!;
+        const count = list.length;
+        const avgMood = count ? Math.round(list.reduce((s, p) => s + p.mood_score, 0) / count) : 0;
+        const avgEnergy = count ? Math.round(list.reduce((s, p) => s + (p.energy_level || 0), 0) / count) : 0;
+        const avgAnx = count ? Math.round(list.reduce((s, p) => s + (typeof (p as any).anxiety_level === 'number' ? (p as any).anxiety_level : 5), 0) / count) : 0;
+        const dateKey = `${dayKey}#${String(h).padStart(2,'0')}`;
+        hourlyAverages.push({ hour: h, dateKey, averageMood: avgMood, averageEnergy: avgEnergy, averageAnxiety: avgAnx, count });
+        const ms = list.map(p => p.mood_score);
+        const min = count ? Math.min(...ms) : 0;
+        const max = count ? Math.max(...ms) : 0;
+        const mean = count ? ms.reduce((s, n) => s + n, 0) / count : 0;
+        const variance = count > 1 ? ms.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / (count - 1) : 0;
+        rawHourlyDataPoints[dateKey] = { entries: list, min, max, variance };
+      }
+      // For charting convenience, use hourly as the working 'dailyAverages' list in day mode
+      dailyAverages = hourlyAverages.map((h) => ({
+        date: h.dateKey,
+        averageMood: h.averageMood,
+        averageEnergy: h.averageEnergy,
+        averageAnxiety: h.averageAnxiety,
+        count: h.count,
+      }));
+    }
 
     // Compute stats
     const totalEntries = lite.length;
@@ -334,7 +375,9 @@ export class OptimizedMoodDataLoader {
         triggers,
       },
       rawDataPoints,
+      rawHourlyDataPoints,
       dailyAverages,
+      hourlyAverages: hourlyAverages,
       aggregated,
       // Optionally attach full arrays for larger ranges
       monthlyEntries: range === 'month' ? weeklyEntries : undefined,
