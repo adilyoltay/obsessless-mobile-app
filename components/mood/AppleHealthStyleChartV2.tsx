@@ -164,8 +164,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const [dayWindowStart, setDayWindowStart] = useState<number>(0);
   const pinchInitDistRef = React.useRef<number | null>(null);
   const pinchAppliedRef = React.useRef<boolean>(false);
-  const pinchInitDistRef = React.useRef<number | null>(null);
-  const pinchAppliedRef = React.useRef<boolean>(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { color: accentColor } = useAccentColor();
@@ -822,7 +820,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 ? (data.aggregated?.data || [])
                 : (timeRange === 'day'
                     ? (((data.hourlyAverages || [])
-                        .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+                        .slice(dayWindowStart, dayWindowStart + dayWindowSize)
                         .map((h: any) => ({ date: h.dateKey })) ) as any[])
                     : data.dailyAverages);
               const n = items.length;
