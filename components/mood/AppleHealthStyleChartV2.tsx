@@ -45,6 +45,7 @@ type Props = {
   showAnxiety?: boolean;
   showMoodTrend?: boolean; // weekly p50 mood line
   showEnergy?: boolean;    // weekly energy line
+  onVisibleRangeChange?: (stats: { date: string; startHour: number; endHour: number; count: number; moodP50: number; energyP50: number; anxietyP50: number; dominant?: string }) => void;
 };
 
 const CHART_HEIGHT = 280; // taller plotting area
@@ -156,9 +157,15 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const locale = language === 'tr' ? 'tr-TR' : 'en-US';
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  // Day view: sliding hourly window (±4 hours around now)
-  const DAY_WINDOW_SIZE = 8;
+  // Day view: sliding hourly window (±4 hours around now) with pinch-zoom
+  const DAY_WINDOW_MIN = 4;
+  const DAY_WINDOW_MAX = 24;
+  const [dayWindowSize, setDayWindowSize] = useState<number>(8);
   const [dayWindowStart, setDayWindowStart] = useState<number>(0);
+  const pinchInitDistRef = React.useRef<number | null>(null);
+  const pinchAppliedRef = React.useRef<boolean>(false);
+  const pinchInitDistRef = React.useRef<number | null>(null);
+  const pinchAppliedRef = React.useRef<boolean>(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { color: accentColor } = useAccentColor();
@@ -202,20 +209,60 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     if (timeRange !== 'day') return;
     try {
       const hour = new Date().getHours();
-      const start = Math.max(0, Math.min(24 - DAY_WINDOW_SIZE, hour - Math.floor(DAY_WINDOW_SIZE / 2)));
+      const start = Math.max(0, Math.min(24 - dayWindowSize, hour - Math.floor(dayWindowSize / 2)));
       setDayWindowStart(start);
       setSelectedIndex(null);
       onSelectionChange?.(null);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange]);
+  }, [timeRange, dayWindowSize]);
+
+  // Emit visible window stats to parent on change
+  React.useEffect(() => {
+    if (timeRange !== 'day' || typeof onVisibleRangeChange !== 'function') return;
+    try {
+      const hours = (data.hourlyAverages || []) as any[];
+      const slice = hours.slice(dayWindowStart, dayWindowStart + dayWindowSize);
+      const dateKey = (slice[0]?.dateKey || '').split('#')[0] || getUserDateString(new Date());
+      const entries: any[] = [];
+      slice.forEach((h: any) => {
+        const list = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+        entries.push(...list);
+      });
+      const moodVals = entries.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+      const energyVals = entries.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+      const anxVals = entries.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+      const mq = quantiles(moodVals);
+      const eq = quantiles(energyVals);
+      const aq = quantiles(anxVals);
+      const counts: Record<string, number> = { Heyecanlı:0, Enerjik:0, Mutlu:0, Sakin:0, Normal:0, Endişeli:0, Sinirli:0, Üzgün:0, Kızgın:0 };
+      moodVals.forEach((m) => {
+        if (m >= 90) counts.Heyecanlı++; else if (m >= 80) counts.Enerjik++; else if (m >= 70) counts.Mutlu++;
+        else if (m >= 60) counts.Sakin++; else if (m >= 50) counts.Normal++; else if (m >= 40) counts.Endişeli++;
+        else if (m >= 30) counts.Sinirli++; else if (m >= 20) counts.Üzgün++; else counts.Kızgın++;
+      });
+      const dominant = Object.entries(counts).sort((a,b)=>b[1]-a[1]).find(([,c])=>c>0)?.[0];
+      onVisibleRangeChange({
+        date: dateKey,
+        startHour: dayWindowStart,
+        endHour: Math.min(23, dayWindowStart + dayWindowSize - 1),
+        count: entries.length,
+        moodP50: mq.p50,
+        energyP50: eq.p50,
+        anxietyP50: aq.p50,
+        dominant,
+      });
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, dayWindowStart, dayWindowSize, data]);
+
 
   const emitSelection = useCallback((index: number | null) => {
     const items = (timeRange === 'week')
       ? data.dailyAverages
       : (timeRange === 'day'
         ? (((data.hourlyAverages || [])
-            .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+            .slice(dayWindowStart, dayWindowStart + dayWindowSize)
             .map((h: any) => ({ date: h.dateKey })) ) as any[])
         : (data.aggregated?.data || []));
     const n = items.length;
@@ -268,13 +315,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const mon = new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
       const day = d.getDate();
       const year = d.getFullYear();
-      if (language === 'tr') {
-        labelText = `${day} ${mon} ${year} • ${String(h).padStart(2, '0')}:00`;
-      } else {
-        const h12 = (h % 12) === 0 ? 12 : (h % 12);
-        const suffix = h < 12 ? 'AM' : 'PM';
-        labelText = `${day} ${mon} ${year} • ${String(h12)} ${suffix}`;
-      }
+      labelText = `${day} ${mon} ${year} • ${String(h).padStart(2, '0')}:00`;
       dateSel = it.date;
     } else {
       const b = items[index] as AggregatedData;
@@ -303,16 +344,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const key = ((item as any).date || '') as string; // YYYY-MM-DD#HH
       const hh = key.includes('#') ? key.split('#')[1] : '00';
       const h = parseInt(hh, 10) || 0;
-      if (language === 'tr') {
-        // 24h axis for Turkish
-        return String(h).padStart(2, '0');
-      } else {
-        // 12h axis for English (compact AM/PM)
-        const h12 = (h % 12) === 0 ? 12 : (h % 12);
-        const suffix = h < 12 ? 'AM' : 'PM';
-        const pad = h12 < 10 ? '\u2007' : '';
-        return `${pad}${h12}${suffix}`;
-      }
+      // Always 24h display for clarity (e.g., 00, 03, 16)
+      return String(h).padStart(2, '0');
     }
     if (timeRange === 'week') {
       // Parse YYYY-MM-DD explicitly as local midnight to avoid engine-specific UTC parsing
@@ -335,7 +368,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     // year: kısa ay adı (locale)
     const d = new Date((item as AggregatedData).date);
     return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
-  }, [timeRange, locale, language]);
+  }, [timeRange, locale]);
 
   const isAggregateMode = timeRange !== 'week' && timeRange !== 'day';
 
@@ -355,7 +388,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
     if (!isAggregateMode) {
       const baseItems: any[] = timeRange === 'day'
-        ? (data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey }))
+        ? ((data.hourlyAverages || [])
+            .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+            .map((h: any) => ({ date: h.dateKey })))
         : (data.dailyAverages as any[]);
       const dayWidth = contentWidth / Math.max(1, baseItems.length);
       baseItems.forEach((day: any, index: number) => {
@@ -399,7 +434,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
     // Aggregated modda nokta göstermiyoruz (sadece bantlar)
     return points; // empty
-  }, [data, contentWidth, isAggregateMode, timeRange]);
+  }, [data, contentWidth, isAggregateMode, timeRange, dayWindowStart, dayWindowSize]);
 
   // Dikey bantlar: aggregate modda IQR (p25/p75) + median (p50)
   const verticalBands = useMemo(() => {
@@ -575,7 +610,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const n = isAggregateMode
                 ? (data.aggregated?.data?.length || 0)
                 : (timeRange === 'day'
-                    ? Math.min(DAY_WINDOW_SIZE, (data.hourlyAverages || []).length)
+                    ? Math.min(dayWindowSize, (data.hourlyAverages || []).length)
                     : data.dailyAverages.length);
               const dayWidth = contentWidth / Math.max(1, n);
               const todayKey = getUserDateString(new Date());
@@ -586,7 +621,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     ? Number.NaN
                     : data.dailyAverages.findIndex(d => d.date === todayKey));
               const lines: any[] = [];
+              const dayStep = (timeRange === 'day') ? ( (Math.min(dayWindowSize, 24) <= 8) ? 2 : 4 ) : 1;
               for (let i = 0; i <= n; i++) {
+                if (timeRange === 'day') {
+                  const absHour = dayWindowStart + i;
+                  if (absHour % dayStep !== 0 && i !== 0 && i !== n) continue;
+                }
                 const x = AXIS_WIDTH + i * dayWidth;
                 const isTodayBoundary = Number.isFinite(todayIdx) && (i === todayIdx || i === todayIdx + 1);
                 lines.push(
@@ -610,7 +650,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     const b: any = (data.aggregated?.data || [])[selectedIndex];
                     return Number(b?.count || 0) > 0;
                   } else if (timeRange === 'day') {
-                    const win = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE);
+                    const win = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
                     const it: any = { date: win[selectedIndex]?.dateKey };
                     const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
                     return rp.length > 0;
@@ -1217,10 +1257,35 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const items = isAggregateMode
                   ? (data.aggregated?.data || [])
                   : (timeRange === 'day'
-                      ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
+                      ? (((data.hourlyAverages || [])
+                          .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+                          .map((h: any) => ({ date: h.dateKey })) ) as any[])
                       : data.dailyAverages);
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
+                const touches: any[] = (e.nativeEvent as any).touches || [];
+                if (timeRange === 'day' && touches.length >= 2) {
+                  // Simple pinch detection
+                  const dxy = (t1: any, t2: any) => {
+                    const dx = (t1.pageX - t2.pageX); const dy = (t1.pageY - t2.pageY); return Math.hypot(dx, dy);
+                  };
+                  const dist = dxy(touches[0], touches[1]);
+                  if (pinchInitDistRef.current == null) pinchInitDistRef.current = dist;
+                  const scale = dist / (pinchInitDistRef.current || dist);
+                  if (!pinchAppliedRef.current && (scale > 1.08 || scale < 0.92)) {
+                    const zoomOut = scale > 1.08;
+                    const center = dayWindowStart + dayWindowSize / 2;
+                    const step = 2;
+                    const nextSize = Math.max(DAY_WINDOW_MIN, Math.min(DAY_WINDOW_MAX, dayWindowSize + (zoomOut ? step : -step)));
+                    const nextStart = Math.max(0, Math.min(24 - nextSize, Math.round(center - nextSize / 2)));
+                    setDayWindowSize(nextSize);
+                    setDayWindowStart(nextStart);
+                    setSelectedIndex(null);
+                    emitSelection(null);
+                    pinchAppliedRef.current = true;
+                  }
+                  return; // don't scrub while pinching
+                }
                 const x = e.nativeEvent.locationX; // may go slightly <0 or >contentWidth if finger outside
                 let idx = Math.floor(x / Math.max(1, dw));
                 idx = Math.max(0, Math.min(n - 1, idx));
@@ -1263,7 +1328,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   else if (x > contentWidth + threshold && idx === n - 1) onRequestPage('next');
                 }
               }}
-              onResponderRelease={() => {}}
+              onResponderRelease={() => { pinchInitDistRef.current = null; pinchAppliedRef.current = false; }}
             />
           </View>
           {/* External tooltip rendered by parent */}
