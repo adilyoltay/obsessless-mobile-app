@@ -28,6 +28,7 @@ import { useAccentColor } from '@/contexts/AccentColorContext';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores } from '@/utils/colorUtils';
 import { useThemeColors } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
 import { monthsLongShort, monthsShort as monthsVeryShort, daysShort, getWeekStart } from '@/utils/dateAggregation';
 
@@ -151,6 +152,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   showEnergy = true,
 }) => {
   const theme = useThemeColors();
+  const { language } = useTranslation();
+  const locale = language === 'tr' ? 'tr-TR' : 'en-US';
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const colorScheme = useColorScheme();
@@ -244,7 +247,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       const [dstr, hh] = String(it.date).split('#');
       const d = new Date(`${dstr}T00:00:00.000Z`);
       const h = parseInt(hh || '0', 10);
-      labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()} • ${String(h).padStart(2,'0')}:00`;
+      const mon = new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
+      const day = d.getDate();
+      const year = d.getFullYear();
+      labelText = `${day} ${mon} ${year} • ${String(h).padStart(2,'0')}:00`;
       dateSel = it.date;
     } else {
       const b = items[index] as AggregatedData;
@@ -288,14 +294,14 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       return d.getDate().toString();
     }
     if (timeRange === '6months') {
-      // Aylık aggregate: kısa ay adı
-      const label = (item as AggregatedData).label || '';
-      return label.substring(0, 3);
+      // Aylık aggregate: i18n kısa ay adı
+      const d = new Date((item as AggregatedData).date);
+      return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
     }
     // year: çok kısa ay
     const d = new Date((item as AggregatedData).date);
-    return monthsVeryShort[d.getMonth()];
-  }, [timeRange]);
+    return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
+  }, [timeRange, locale]);
 
   const isAggregateMode = timeRange !== 'week' && timeRange !== 'day';
 
@@ -436,6 +442,15 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
   // X ekseni etiket gösterim mantığı
   const getXLabelVisibility = useCallback((index: number, total: number) => {
+    if (timeRange === 'day') {
+      const dw = contentWidth / Math.max(1, total);
+      let step = 1;
+      if (dw < 12) step = 4; // 0,4,8,12,16,20
+      else if (dw < 18) step = 3; // 0,3,6,9,12,15,18,21
+      else if (dw < 28) step = 2; // 0,2,4...
+      else step = 1; // her saat
+      return index % step === 0;
+    }
     // Basit virtualization: etiketler arası min piksel mesafesi
     const minLabelPx = timeRange === 'week' ? 18 : timeRange === 'month' ? 22 : 28;
     const step = Math.max(1, Math.ceil((total * minLabelPx) / Math.max(1, contentWidth)));
@@ -662,8 +677,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const times = dataPoints.map(p => (p as any).ts || new Date(`${p.date}T00:00:00.000Z`).getTime());
               const minTs = times.length ? Math.min(...times) : 0;
               const maxTs = times.length ? Math.max(...times) : 1;
+              const singleBucketDay = (timeRange === 'day')
+                ? ((data.hourlyAverages || []).filter((h: any) => Number(h?.count || 0) > 0).length === 1)
+                : false;
               return dataPoints.map((point: any, index) => {
-                const r = DOT_RADIUS;
+                const r = DOT_RADIUS + (singleBucketDay ? 1 : 0);
                 const outerR = r + 1.3; // keep ring proportional with smaller dots
                 const alphaRaw = recencyAlpha(point.ts || new Date(`${point.date}T00:00:00.000Z`).getTime(), minTs, maxTs);
                 const alpha = Math.max(0.8, alphaRaw); // boost minimum opacity for visibility
