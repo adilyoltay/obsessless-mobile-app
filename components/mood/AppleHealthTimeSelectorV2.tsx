@@ -40,14 +40,19 @@ export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange 
                 { zIndex: isSelected ? 10 : 1 }
               ]}
               onPress={() => {
+                console.log(`TimeSelectorV2: Tapped ${range.id}, selected: ${selected}`);
                 if (selected !== range.id) {
+                  console.log(`TimeSelectorV2: Calling onChange with ${range.id}`);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onChange(range.id);
+                } else {
+                  console.log(`TimeSelectorV2: Same range selected, ignoring`);
                 }
               }}
               accessibilityLabel={`${range.fullLabel} görünümü`}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               {isSelected && (
                 <View style={[
@@ -81,7 +86,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7', // iOS System Gray 6
     borderRadius: 8,
     padding: 2,
-    height: 28,
+    height: 32,
   },
   segment: {
     flex: 1,

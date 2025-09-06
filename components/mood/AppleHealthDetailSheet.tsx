@@ -87,8 +87,8 @@ const TimelineItem: React.FC<{
             </Text>
             <View style={styles.headerRightRow}>
               <View style={styles.moodScores}>
-                <Text style={styles.scoreLabel}>Mood: {entry.mood_score}</Text>
-                <Text style={styles.scoreLabel}>Enerji: {entry.energy_level}</Text>
+                <Text style={styles.scoreLabel}>Mood: {entry.mood_score}/100</Text>
+                <Text style={styles.scoreLabel}>Enerji: {entry.energy_level}/10</Text>
               </View>
               {onDelete && (
                 <TouchableOpacity
@@ -194,7 +194,28 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
     }
     const moods = entries.map(e => Number(e.mood_score)).filter(Number.isFinite) as number[];
     const energies = entries.map(e => Number(e.energy_level)).filter(Number.isFinite) as number[];
-    const anx = entries.map(e => Number((e as any).anxiety_level ?? 0)).filter(Number.isFinite) as number[];
+    
+    // IMPROVED: Smart anxiety handling for detail sheet
+    const anx: number[] = [];
+    entries.forEach(e => {
+      const anxVal = Number((e as any).anxiety_level ?? 5);
+      if (anxVal === 5) {
+        // Derive from this entry's mood/energy if fallback
+        const m10 = Math.max(1, Math.min(10, Math.round(Number(e.mood_score || 50) / 10)));
+        const e10 = Math.max(1, Math.min(10, Number(e.energy_level || 6)));
+        
+        let derivedA = 5;
+        if (m10 <= 3) derivedA = 7;
+        else if (m10 >= 8 && e10 <= 4) derivedA = 6;
+        else if (m10 <= 5 && e10 >= 7) derivedA = 8;
+        else if (m10 >= 7 && e10 >= 7) derivedA = 4;
+        else derivedA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+        
+        anx.push(derivedA);
+      } else if (Number.isFinite(anxVal)) {
+        anx.push(anxVal);
+      }
+    });
     const mq = quantiles(moods);
     const eq = quantiles(energies);
     const aq = quantiles(anx);
@@ -254,19 +275,23 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             {/* Özet Kartları (MEDYAN + IQR) */}
             <View style={styles.statsContainer}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Number.isFinite(stats.mood.p50) ? Math.round(stats.mood.p50) : '—'}</Text>
+                <Text style={styles.statValue}>
+                  {Number.isFinite(stats.mood.p50) ? `${Math.round(stats.mood.p50)}/100` : '—'}
+                </Text>
                 <Text style={styles.statLabel}>Mood Medyan</Text>
               </View>
               
               <View style={styles.statCard}>
                 <Text style={styles.statValue}>
-                  {Number.isFinite(stats.mood.p25) ? Math.round(stats.mood.p25) : '—'}–{Number.isFinite(stats.mood.p75) ? Math.round(stats.mood.p75) : '—'}
+                  {Number.isFinite(stats.mood.p25) ? Math.round(stats.mood.p25) : '—'}–{Number.isFinite(stats.mood.p75) ? Math.round(stats.mood.p75) : '—'}/100
                 </Text>
-                <Text style={styles.statLabel}>IQR (p25–p75)</Text>
+                <Text style={styles.statLabel}>Mood IQR (p25–p75)</Text>
               </View>
               
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Number.isFinite(stats.energy.p50) ? Math.round(stats.energy.p50) : '—'}</Text>
+                <Text style={styles.statValue}>
+                  {Number.isFinite(stats.energy.p50) ? `${Math.round(stats.energy.p50)}/10` : '—'}
+                </Text>
                 <Text style={styles.statLabel}>Enerji Medyan</Text>
               </View>
               
@@ -279,12 +304,14 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             {/* Anksiyete kartları */}
             <View style={styles.statsContainer}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Number.isFinite(stats.anxiety.p50) ? Math.round(stats.anxiety.p50) : '—'}</Text>
+                <Text style={styles.statValue}>
+                  {Number.isFinite(stats.anxiety.p50) ? `${Math.round(stats.anxiety.p50)}/10` : '—'}
+                </Text>
                 <Text style={styles.statLabel}>Anksiyete Medyan</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statValue}>
-                  {Number.isFinite(stats.anxiety.p25) ? Math.round(stats.anxiety.p25) : '—'}–{Number.isFinite(stats.anxiety.p75) ? Math.round(stats.anxiety.p75) : '—'}
+                  {Number.isFinite(stats.anxiety.p25) ? Math.round(stats.anxiety.p25) : '—'}–{Number.isFinite(stats.anxiety.p75) ? Math.round(stats.anxiety.p75) : '—'}/10
                 </Text>
                 <Text style={styles.statLabel}>Anksiyete IQR</Text>
               </View>

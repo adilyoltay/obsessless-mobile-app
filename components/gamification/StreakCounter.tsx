@@ -31,11 +31,15 @@ export function StreakCounter({ variant = 'default' }: StreakCounterProps) {
     ).start();
   }, []);
 
-  if (profile.streakCurrent === 0) {
-    return null; // Don't show if no streak
-  }
+  // ✅ Always show streak card, even if 0 (motivation for starting streak)
+  const streakCount = profile.streakCurrent || 0;
 
   const getStreakColor = () => {
+    // Special handling for 0 streak - use encouraging color
+    if (streakCount === 0) {
+      return variant === 'onGradient' ? '#FFFFFF' : '#F59E0B'; // Orange for motivation
+    }
+    
     switch (streakInfo.level) {
       case 'master':
         return variant === 'onGradient' ? '#FFFFFF' : Colors.status.warning; // Orange or white on gradient
@@ -61,16 +65,18 @@ export function StreakCounter({ variant = 'default' }: StreakCounterProps) {
     <View style={[styles.container, variant === 'onGradient' && styles.containerOnGradient]}>
       <Animated.View style={[styles.iconContainer, { transform: [{ scale: scaleAnim }] }]}>
         <MaterialCommunityIcons 
-          name="fire" 
+          name={streakCount === 0 ? "fire-off" : "fire"}
           size={24} 
           color={getStreakColor()} 
         />
       </Animated.View>
       <View style={styles.textContainer}>
         <Text style={[styles.streakNumber, variant === 'onGradient' && styles.streakNumberOnGradient, { color: getStreakColor() }]}>
-          {profile.streakCurrent}
+          {streakCount}
         </Text>
-        <Text style={[styles.streakText, variant === 'onGradient' && styles.streakTextOnGradient]}>Gün</Text>
+        <Text style={[styles.streakText, variant === 'onGradient' && styles.streakTextOnGradient]}>
+          {streakCount === 0 ? 'Başla!' : 'Gün'}
+        </Text>
       </View>
       <View style={[styles.levelBadge, variant === 'onGradient' && styles.levelBadgeOnGradient]}>
         <MaterialCommunityIcons 

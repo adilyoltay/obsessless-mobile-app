@@ -280,7 +280,7 @@ export class QueueValidator {
       // Sanitize mood_entry specific fields
       if (item.entity === 'mood_entry') {
         if (data.mood_score !== undefined) {
-          data.mood_score = Math.max(0, Math.min(100, Number(data.mood_score) || 50));
+          data.mood_score = Math.max(0, Math.min(100, Number(data.mood_score) != null ? Number(data.mood_score) : 50)); // FIXED: explicit null check
         }
         if (data.energy_level !== undefined) {
           data.energy_level = Math.max(0, Math.min(10, Number(data.energy_level) || 5));

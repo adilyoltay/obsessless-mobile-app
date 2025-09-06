@@ -27,10 +27,36 @@ type Props = {
 // Color mapping centralized in utils/colorUtils.ts
 
 export default function MoodJourneyCard({ data, initialOpenDate, initialRange }: Props) {
-  const { language } = useTranslation();
-  const theme = useThemeColors();
-  const { user } = useAuth();
-  const { setVA } = useAccentColor();
+  // CRITICAL: Wrap all date operations in try-catch to prevent crashes
+  try {
+    const { language } = useTranslation();
+    const theme = useThemeColors();
+    const { user } = useAuth();
+    const { setVA } = useAccentColor();
+    
+    // Early safety check for props
+    if (!data) {
+      console.warn('MoodJourneyCard: No data provided');
+      return (
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', minHeight: 200 }]}>
+          <Text style={{ color: theme.text, textAlign: 'center' }}>
+            Veri yükleniyor...
+          </Text>
+        </View>
+      );
+    }
+    
+    // Validate initialOpenDate if provided
+    if (initialOpenDate) {
+      try {
+        const testDate = new Date(initialOpenDate);
+        if (!isFinite(testDate.getTime())) {
+          console.warn('MoodJourneyCard: Invalid initialOpenDate, ignoring:', initialOpenDate);
+        }
+      } catch (dateError) {
+        console.warn('MoodJourneyCard: Error parsing initialOpenDate:', dateError);
+      }
+    }
   const [range, setRange] = React.useState<TimeRange>('week');
   const [page, setPage] = React.useState<number>(0); // 0 = current window (ends today); >0 = older pages
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
@@ -39,12 +65,16 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   const [chartSelection, setChartSelection] = React.useState<{ date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null>(null);
   const [clearSignal, setClearSignal] = React.useState(0);
   const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
+  const headerOpacity = React.useRef(new Animated.Value(1)).current;
   const tooltipTransY = React.useRef(new Animated.Value(-4)).current;
   const [tooltipWidth, setTooltipWidth] = React.useState<number>(0);
   // Toggles for weekly overlays
   const [showMoodLine, setShowMoodLine] = React.useState(true);
   const [showEnergyLine, setShowEnergyLine] = React.useState(true);
   const [showAnxietyLine, setShowAnxietyLine] = React.useState(true);
+  
+  // Track if initialRange has been applied to prevent infinite loops
+  const initialRangeApplied = React.useRef(false);
 
   // Range-level stats (p50 across selected time range)
   const rangeStats = React.useMemo(() => {
@@ -61,7 +91,8 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
           if (Number.isFinite(e.energy_level)) energyVals.push(Number(e.energy_level));
         });
       });
-      const anxDaily = days.map(d => Number(d.averageAnxiety || 0)).filter(Number.isFinite);
+      // Do not coerce missing anxiety to 0; keep only real numeric values
+      const anxDaily = days.map(d => Number(d.averageAnxiety)).filter(Number.isFinite);
       const mq = quantiles(moodVals);
       const eq = quantiles(energyVals);
       const aq = quantiles(anxDaily);
@@ -156,31 +187,82 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   React.useEffect(() => {
     let mounted = true;
     if (!user?.id) return () => { mounted = false; };
-    // If initialRange is provided and differs, set it and skip this fetch cycle to prevent double-fetch
-    if (initialRange && initialRange !== range) {
+    
+    // Handle initialRange only once at mount
+    if (initialRange && initialRange !== range && !initialRangeApplied.current) {
+      // Apply initialRange only once
       setRange(initialRange);
       setPage(0);
+      initialRangeApplied.current = true;
       return () => { mounted = false; };
     }
     (async () => {
-      // Compute end date for this page
-      const daysForRange = (r: TimeRange) => (r === 'week' ? 7 : r === 'month' ? 30 : r === '6months' ? 183 : 365);
-      const end = new Date();
-      end.setDate(end.getDate() - page * daysForRange(range));
-      end.setHours(0, 0, 0, 0);
-      const res = await moodDataLoader.loadTimeRangeAt(user.id, range, end);
-      if (mounted) setExtended(res);
-      // Prefetch neighbors (older and newer if exists)
       try {
-        const older = new Date(end);
-        older.setDate(older.getDate() - daysForRange(range));
-        void moodDataLoader.loadTimeRangeAt(user.id, range, older);
-        if (page > 0) {
-          const newer = new Date(end);
-          newer.setDate(newer.getDate() + daysForRange(range));
-          void moodDataLoader.loadTimeRangeAt(user.id, range, newer);
+        // Compute end date for this page with safety checks
+        const daysForRange = (r: TimeRange) => {
+          switch (r) {
+            case 'week': return 7;
+            case 'month': return 30;
+            case '6months': return 183;
+            case 'year': return 365;
+            default: return 7; // Fallback to week
+          }
+        };
+        
+        // Safe page calculation - prevent negative dates
+        const safePage = Math.max(0, Math.min(page || 0, 100)); // Max 100 pages back
+        const daysBack = safePage * daysForRange(range);
+        
+        // Create end date safely using getTime() instead of setDate()
+        const now = new Date();
+        const endTime = now.getTime() - (daysBack * 24 * 60 * 60 * 1000);
+        const end = new Date(endTime);
+        
+        // Validate end date
+        if (!isFinite(end.getTime())) {
+          console.warn('Invalid end date calculated, using today');
+          end.setTime(Date.now());
         }
-      } catch {}
+        
+        end.setHours(0, 0, 0, 0);
+        const res = await moodDataLoader.loadTimeRangeAt(user.id, range, end);
+        if (mounted) setExtended(res);
+        
+        // Prefetch neighbors (older and newer if exists) with safety
+        try {
+          // Older date - go back one more range period
+          const olderTime = end.getTime() - (daysForRange(range) * 24 * 60 * 60 * 1000);
+          const older = new Date(olderTime);
+          if (isFinite(older.getTime())) {
+            void moodDataLoader.loadTimeRangeAt(user.id, range, older);
+          }
+          
+          // Newer date - only if we're not on the current page
+          if (safePage > 0) {
+            const newerTime = end.getTime() + (daysForRange(range) * 24 * 60 * 60 * 1000);
+            const newer = new Date(newerTime);
+            if (isFinite(newer.getTime()) && newer.getTime() <= Date.now()) {
+              void moodDataLoader.loadTimeRangeAt(user.id, range, newer);
+            }
+          }
+        } catch (prefetchError) {
+          console.warn('Prefetch error:', prefetchError);
+        }
+      } catch (mainError) {
+        console.error('MoodJourneyCard date calculation error:', mainError);
+        // Fallback: use today's date
+        if (mounted) {
+          const fallbackEnd = new Date();
+          fallbackEnd.setHours(0, 0, 0, 0);
+          try {
+            const res = await moodDataLoader.loadTimeRangeAt(user.id, range, fallbackEnd);
+            setExtended(res);
+          } catch (fallbackError) {
+            console.error('Fallback load also failed:', fallbackError);
+            setExtended(null);
+          }
+        }
+      }
     })();
     return () => { mounted = false; };
   }, [user?.id, range, page, data, initialRange]);
@@ -191,12 +273,26 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
     if (appliedInitialRef.current) return;
     if (!extended) return;
     if (!initialOpenDate) return;
-    // Try to open detail for the provided date
-    const list = extended.rawDataPoints[initialOpenDate]?.entries || [];
-    if (list.length > 0) {
-      setDetailEntries(list as any[]);
-      setDetailDate(initialOpenDate);
-      appliedInitialRef.current = true;
+    
+    try {
+      // Validate initialOpenDate is a valid date string
+      const testDate = new Date(initialOpenDate);
+      if (!isFinite(testDate.getTime())) {
+        console.warn('Invalid initialOpenDate:', initialOpenDate);
+        return;
+      }
+      
+      // Try to open detail for the provided date
+      const rawDataPoints = extended.rawDataPoints || {};
+      const list = rawDataPoints[initialOpenDate]?.entries || [];
+      if (list.length > 0) {
+        setDetailEntries(list as any[]);
+        setDetailDate(initialOpenDate);
+        appliedInitialRef.current = true;
+      }
+    } catch (dateError) {
+      console.error('Error processing initialOpenDate:', dateError);
+      // Don't crash, just skip the auto-open
     }
   }, [extended, initialOpenDate]);
 
@@ -300,14 +396,28 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
     <View style={styles.container}>
       {/* Time range selector row */}
       <View style={styles.selectorWrapper}>
-        <AppleHealthTimeSelectorV2 selected={range} onChange={(r) => { setRange(r); setPage(0); }} />
+        <AppleHealthTimeSelectorV2 
+          selected={range} 
+          onChange={(r) => { 
+            console.log(`MoodJourneyCard: Range changing from ${range} to ${r}`);
+            setRange(r); 
+            setPage(0); 
+          }} 
+        />
       </View>
 
       {/* Chart container with header/tooltip overlay area */}
       <View style={{ position: 'relative', paddingTop: 68 }}>
         {/* Fixed overlay area above chart: shows summary or tooltip */}
         {!chartSelection && extended && (
-          <View style={styles.chartTopOverlay} pointerEvents="none">
+          <Animated.View style={[styles.chartTopOverlay, { opacity: headerOpacity }]} pointerEvents="none" onLayout={() => {
+            try {
+              Animated.sequence([
+                Animated.timing(headerOpacity, { toValue: 0.92, duration: 80, useNativeDriver: true }),
+                Animated.timing(headerOpacity, { toValue: 1, duration: 140, useNativeDriver: true })
+              ]).start();
+            } catch {}
+          }}>
             <View style={styles.chartHeaderRow}>
               {/* Left: Total entries + date range */}
               <View>
@@ -354,7 +464,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                 )}
               </View>
             </View>
-          </View>
+          </Animated.View>
         )}
         {/* Interactive chart - Apple Health Style V2 */}
         {extended && (
@@ -741,7 +851,9 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
         <TouchableOpacity style={styles.statItem} onPress={() => setShowAnxietyLine(v => !v)}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
             {(() => {
-              const avg = Number(data.weeklyAnxietyAvg || 0);
+              const raw = data.weeklyAnxietyAvg as any;
+              const avg = (typeof raw === 'number' && raw > 0) ? Number(raw) : null;
+              if (avg === null) return null; // veri yoksa ikon çizme
               const ratio = Math.max(0, Math.min(1, avg / 10));
               const base = 10;
               const ampMin = 2;
@@ -777,6 +889,20 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
       )}
     </View>
   );
+  } catch (error) {
+    console.error('MoodJourneyCard: Critical error caught:', error);
+    // Return safe fallback UI instead of crashing
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', minHeight: 200 }]}>
+        <Text style={{ color: '#EF4444', textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
+          Grafik yüklenirken hata
+        </Text>
+        <Text style={{ color: '#6B7280', textAlign: 'center', fontSize: 12, marginTop: 4 }}>
+          Lütfen sayfayı yenileyin
+        </Text>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({

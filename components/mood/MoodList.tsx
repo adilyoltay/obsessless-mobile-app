@@ -86,7 +86,7 @@ export function MoodList({ entries, onEdit, onDelete }: MoodListProps) {
         </View>
         <View style={styles.entryRight}>
           <Text style={[styles.moodScore, { color: getMoodColor(item.mood_score) }]}>
-            {Math.round(item.mood_score)}
+            {Math.round(item.mood_score)}/100
           </Text>
         </View>
       </View>
@@ -99,7 +99,26 @@ export function MoodList({ entries, onEdit, onDelete }: MoodListProps) {
         </View>
         <View style={styles.metric}>
           <MaterialCommunityIcons name="heart-pulse" size={16} color="#EF4444" />
-          <Text style={styles.metricValue}>{item.anxiety_level}/10</Text>
+          <Text style={styles.metricValue}>
+            {(() => {
+              const anxVal = item.anxiety_level;
+              // IMPROVED: Show derived anxiety if fallback 5
+              if (anxVal === 5) {
+                const m10 = Math.max(1, Math.min(10, Math.round(item.mood_score / 10)));
+                const e10 = Math.max(1, Math.min(10, item.energy_level));
+                
+                let derivedA = 5;
+                if (m10 <= 3) derivedA = 7;
+                else if (m10 >= 8 && e10 <= 4) derivedA = 6;
+                else if (m10 <= 5 && e10 >= 7) derivedA = 8;
+                else if (m10 >= 7 && e10 >= 7) derivedA = 4;
+                else derivedA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+                
+                return `${derivedA}*/10`; // * indicates derived
+              }
+              return `${anxVal}/10`;
+            })()}
+          </Text>
           <Text style={styles.metricLabel}>Anksiyete</Text>
         </View>
       </View>

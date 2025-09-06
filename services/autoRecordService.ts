@@ -227,7 +227,7 @@ export async function saveAutoRecord(
         const { sanitizePII } = await import('@/utils/privacy');
         mapped = {
           user_id: data.userId,
-          mood_score: data.mood || 50,
+          mood_score: data.mood != null ? data.mood : 50, // FIXED: explicit null check
           energy_level: data.energy || 5,
           anxiety_level: data.anxiety || 5,
           notes: sanitizePII(data.notes || ''),

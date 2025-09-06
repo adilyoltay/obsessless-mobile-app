@@ -31,10 +31,25 @@ export class OptimizedMoodDataLoader {
   }
 
   async loadTimeRange(userId: string, range: TimeRange): Promise<MoodJourneyExtended> {
+    // NUCLEAR OPTION: Clear all cache for 6months/year to prevent granularity mixing
+    if (range === '6months' || range === 'year') {
+      this.cache.clear();
+    }
+    
     const cacheKey = `${userId}-${range}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
-      return cached.data;
+    
+    // CRITICAL FIX: Shorter cache TTL for aggregate views to prevent granularity conflicts  
+    const cacheTTL = (range === 'month' || range === '6months' || range === 'year') ? 1 * 60 * 1000 : 5 * 60 * 1000;
+    if (cached && Date.now() - cached.timestamp < cacheTTL) {
+      // Extra granularity validation for aggregate modes
+      if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else if ((range === '6months' || range === 'year') && cached.data.aggregated?.granularity !== 'month') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else {
+        return cached.data;
+      }
     }
 
     // Filters should reflect selected range immediately; load full range now
@@ -48,15 +63,31 @@ export class OptimizedMoodDataLoader {
    * Useful for pagination when scrubbing beyond the visible window.
    */
   async loadTimeRangeAt(userId: string, range: TimeRange, endDate: Date): Promise<MoodJourneyExtended> {
+    // NUCLEAR OPTION: Clear all cache for 6months/year to prevent granularity mixing
+    if (range === '6months' || range === 'year') {
+      this.cache.clear();
+    }
+    
     // Normalize endDate to user local date at 00:00
     const end = toUserLocalDate(endDate);
     end.setHours(0, 0, 0, 0);
     const endKey = formatDateYMD(end);
     const cacheKey = `${userId}-${range}-${endKey}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
-      return cached.data;
+    
+    // CRITICAL FIX: Shorter cache TTL for aggregate views to prevent granularity conflicts
+    const cacheTTL = (range === 'month' || range === '6months' || range === 'year') ? 1 * 60 * 1000 : 5 * 60 * 1000;
+    if (cached && Date.now() - cached.timestamp < cacheTTL) {
+      // Extra granularity validation for aggregate modes
+      if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else if ((range === '6months' || range === 'year') && cached.data.aggregated?.granularity !== 'month') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else {
+        return cached.data;
+      }
     }
+    
     const data = await this.loadFullRange(userId, range, end);
     this.cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
@@ -90,12 +121,38 @@ export class OptimizedMoodDataLoader {
   }
 
   private async loadFullRange(userId: string, range: TimeRange, endDateOverride?: Date): Promise<MoodJourneyExtended> {
-    const days = this.daysForRange(range);
-    // Anchor the window to the provided end date (or today) in user's local timezone
-    const today = endDateOverride ? toUserLocalDate(endDateOverride) : toUserLocalDate(new Date());
-    today.setHours(0, 0, 0, 0);
-    const dayMs = 24 * 60 * 60 * 1000;
-    const startWindow = new Date(today.getTime() - (days - 1) * dayMs);
+    try {
+      const days = this.daysForRange(range);
+      // Anchor the window to the provided end date (or today) in user's local timezone
+      let today: Date;
+      try {
+        today = endDateOverride ? toUserLocalDate(endDateOverride) : toUserLocalDate(new Date());
+        if (!isFinite(today.getTime())) {
+          console.warn('MoodDataLoader: Invalid date from toUserLocalDate, using fallback');
+          today = new Date();
+        }
+      } catch (dateError) {
+        console.warn('MoodDataLoader: Error in toUserLocalDate, using fallback:', dateError);
+        today = new Date();
+      }
+      
+      today.setHours(0, 0, 0, 0);
+      
+      // Validate today again after setHours
+      if (!isFinite(today.getTime())) {
+        console.error('MoodDataLoader: Invalid date after setHours, using current time');
+        today = new Date();
+        today.setHours(0, 0, 0, 0);
+      }
+      
+      const dayMs = 24 * 60 * 60 * 1000;
+      const startWindow = new Date(today.getTime() - (days - 1) * dayMs);
+      
+      // Validate startWindow
+      if (!isFinite(startWindow.getTime())) {
+        console.error('MoodDataLoader: Invalid startWindow calculated');
+        throw new Error('Invalid date calculation in loadFullRange');
+      }
 
     // Ensure we fetch enough history to cover older pages (when endDateOverride < now)
     const nowLocal = toUserLocalDate(new Date());
@@ -109,9 +166,9 @@ export class OptimizedMoodDataLoader {
     const lite: MoodEntryLite[] = (entries || []).map((e) => ({
       id: e.id,
       user_id: e.user_id,
-      mood_score: e.mood_score || 0,
+      mood_score: e.mood_score != null ? e.mood_score : 50, // FIXED: 50 center instead of 0
       energy_level: e.energy_level || 6,
-      anxiety_level: e.anxiety_level || 5,
+      anxiety_level: e.anxiety_level != null ? e.anxiety_level : 5,
       notes: e.notes || '',
       triggers: e.triggers || [],
       timestamp: e.timestamp,
@@ -125,7 +182,8 @@ export class OptimizedMoodDataLoader {
     for (const e of lite) {
       const d = getUserDateString(e.timestamp);
       const arr = byDate.get(d) || [];
-      arr.push({ id: e.id, timestamp: e.timestamp, mood_score: e.mood_score, energy_level: e.energy_level });
+      // Preserve anxiety_level so weekly overlays and averages reflect real values
+      arr.push({ id: e.id, timestamp: e.timestamp, mood_score: e.mood_score, energy_level: e.energy_level, anxiety_level: (e as any).anxiety_level });
       byDate.set(d, arr);
     }
 
@@ -138,9 +196,47 @@ export class OptimizedMoodDataLoader {
     }
     let dailyAverages: DailyAverage[] = dayKeys.map((d) => {
       const list = byDate.get(d) || [];
-      const avgMood = list.length ? Math.round(list.reduce((s, p) => s + p.mood_score, 0) / list.length) : 0;
-      const avgEnergy = list.length ? Math.round(list.reduce((s, p) => s + (p.energy_level || 0), 0) / list.length) : 0;
-      const avgAnx = list.length ? Math.round(list.reduce((s, p) => s + (typeof (p as any).anxiety_level === 'number' ? (p as any).anxiety_level : 5), 0) / list.length) : 0;
+      if (list.length === 0) {
+        // Eksik günleri null taşı: sayısal alanları null, count=0
+        return { date: d, averageMood: null as any, averageEnergy: null as any, averageAnxiety: null as any, count: 0 } as unknown as DailyAverage;
+      }
+      // CRITICAL FIX: Only use non-neutral values for daily averages
+      const realMoods = list.filter(p => p.mood_score > 0 && p.mood_score !== 50);
+      const realEnergies = list.filter(p => p.energy_level > 0 && p.energy_level !== 6);
+      
+      const avgMood = realMoods.length > 0 
+        ? Math.round(realMoods.reduce((s, p) => s + p.mood_score, 0) / realMoods.length) // Only real mood data
+        : null; // No real mood data for this day
+        
+      const avgEnergy = realEnergies.length > 0
+        ? Math.round(realEnergies.reduce((s, p) => s + p.energy_level, 0) / realEnergies.length) // Only real energy data
+        : null; // No real energy data for this day
+      
+      // IMPROVED: Smart daily anxiety calculation
+      const dailyAnxValues = list.map(p => (p as any).anxiety_level).filter(v => v != null);
+      const avgAnx = (() => {
+        if (dailyAnxValues.length === 0) return null;
+        
+        // Check if all values are default 5s
+        if (dailyAnxValues.every(v => v === 5)) {
+          // Only derive if we have meaningful (non-neutral) mood/energy data
+          if (avgMood != null && avgEnergy != null) {
+            // Derive from this day's mood/energy
+            const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
+            const e10 = Math.max(1, Math.min(10, avgEnergy));
+            
+            if (m10 <= 3) return 7;
+            else if (m10 >= 8 && e10 <= 4) return 6;
+            else if (m10 <= 5 && e10 >= 7) return 8;
+            else if (m10 >= 7 && e10 >= 7) return 4;
+            else return Math.max(2, Math.min(8, 6 - (m10 - 5)));
+          }
+          return null; // No meaningful data for derivation
+        }
+        
+        // Use real anxiety values
+        return Math.round(dailyAnxValues.reduce((s, v) => s + v, 0) / dailyAnxValues.length);
+      })();
       return { date: d, averageMood: avgMood, averageEnergy: avgEnergy, averageAnxiety: avgAnx, count: list.length };
     });
 
@@ -162,9 +258,44 @@ export class OptimizedMoodDataLoader {
       for (let h = 0; h < 24; h++) {
         const list = groupByHour.get(h)!;
         const count = list.length;
-        const avgMood = count ? Math.round(list.reduce((s, p) => s + p.mood_score, 0) / count) : 0;
-        const avgEnergy = count ? Math.round(list.reduce((s, p) => s + (p.energy_level || 0), 0) / count) : 0;
-        const avgAnx = count ? Math.round(list.reduce((s, p) => s + (typeof (p as any).anxiety_level === 'number' ? (p as any).anxiety_level : 5), 0) / count) : 0;
+        
+        // CRITICAL FIX: Only use non-neutral values for hourly averages
+        const realMoodsHour = list.filter(p => p.mood_score > 0 && p.mood_score !== 50);
+        const realEnergiesHour = list.filter(p => p.energy_level > 0 && p.energy_level !== 6);
+        
+        const avgMood = realMoodsHour.length > 0 
+          ? Math.round(realMoodsHour.reduce((s, p) => s + p.mood_score, 0) / realMoodsHour.length)
+          : null; // No real mood data for this hour
+          
+        const avgEnergy = realEnergiesHour.length > 0
+          ? Math.round(realEnergiesHour.reduce((s, p) => s + p.energy_level, 0) / realEnergiesHour.length)
+          : null; // No real energy data for this hour
+        
+        // IMPROVED: Smart hourly anxiety calculation
+        const avgAnx = count ? (() => {
+          const hourAnxValues = list.map(p => (p as any).anxiety_level).filter(v => v != null);
+          if (hourAnxValues.length === 0) return null;
+          
+          // Check if all hourly values are default 5s
+          if (hourAnxValues.every(v => v === 5)) {
+            // Only derive if we have meaningful hourly mood/energy data
+            if (avgMood != null && avgEnergy != null) {
+              // Derive from this hour's mood/energy
+              const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
+              const e10 = Math.max(1, Math.min(10, avgEnergy));
+              
+              if (m10 <= 3) return 7;
+              else if (m10 >= 8 && e10 <= 4) return 6;
+              else if (m10 <= 5 && e10 >= 7) return 8;
+              else if (m10 >= 7 && e10 >= 7) return 4;
+              else return Math.max(2, Math.min(8, 6 - (m10 - 5)));
+            }
+            return null; // No meaningful data for derivation
+          }
+          
+          // Use real anxiety values
+          return Math.round(hourAnxValues.reduce((s, v) => s + v, 0) / hourAnxValues.length);
+        })() : null; // FIXED: null instead of 0 when no data
         const dateKey = `${dayKey}#${String(h).padStart(2,'0')}`;
         hourlyAverages.push({ hour: h, dateKey, averageMood: avgMood, averageEnergy: avgEnergy, averageAnxiety: avgAnx, count });
         const ms = list.map(p => p.mood_score);
@@ -186,30 +317,62 @@ export class OptimizedMoodDataLoader {
 
     // Compute stats
     const totalEntries = lite.length;
-    const averageMood = Math.round((lite.reduce((s, e) => s + e.mood_score, 0) / (lite.length || 1)) * 10) / 10;
-    const averageEnergy = Math.round((lite.reduce((s, e) => s + e.energy_level, 0) / (lite.length || 1)) * 10) / 10;
-    const averageAnxiety = Math.round((lite.reduce((s, e) => s + e.anxiety_level, 0) / (lite.length || 1)) * 10) / 10;
+    // IMPROVED: Proper mood average calculation (0-100 scale)
+    // CRITICAL FIX: Exclude neutral/fallback values from calculations
+    const validMoods = lite.filter(e => e.mood_score > 0 && e.mood_score !== 50).map(e => e.mood_score); // Exclude neutral center
+    const averageMood = validMoods.length > 0 
+      ? Math.round((validMoods.reduce((s, v) => s + v, 0) / validMoods.length) * 10) / 10
+      : null; // No fallback for averages - use null when no real data
+    // CRITICAL FIX: Exclude neutral/fallback values from calculations  
+    const validEnergies = lite.filter(e => e.energy_level > 0 && e.energy_level !== 6).map(e => e.energy_level); // Exclude neutral center
+    const averageEnergy = validEnergies.length > 0 
+      ? Math.round((validEnergies.reduce((s, v) => s + v, 0) / validEnergies.length) * 10) / 10
+      : null; // No fallback for averages - use null when no real data
+    // CRITICAL FIX: Calculate improved anxiety average first (moved up from below)
+    const anxietyValues = lite.map(e => e.anxiety_level).filter(v => v != null);
+    const averageAnxiety = (() => {
+      if (anxietyValues.length === 0) return null; // No data
+      
+      // Check if majority are default 5s (likely fallback values)
+      const fivesCount = anxietyValues.filter(v => v === 5).length;
+      const nonFivesCount = anxietyValues.length - fivesCount;
+      
+      if (fivesCount > 0 && nonFivesCount === 0) {
+        // All are 5s - try to derive from mood/energy pattern, but don't include in averages
+        return null; // No real anxiety data available
+      } else if (nonFivesCount >= fivesCount * 2) {
+        // More real values than fallbacks - use only non-5s
+        const realValues = anxietyValues.filter(v => v !== 5);
+        return realValues.reduce((s, v) => s + v, 0) / realValues.length;
+      } else {
+        // Mixed data - use all values
+        return anxietyValues.reduce((s, v) => s + v, 0) / anxietyValues.length;
+      }
+    })();
 
+    // IMPROVED: Mood variance with valid moods only
     const moodVariance = (() => {
-      if (lite.length <= 1) return 0;
-      const mean = lite.reduce((s, e) => s + e.mood_score, 0) / lite.length;
-      const variance = lite.reduce((s, e) => s + Math.pow(e.mood_score - mean, 2), 0) / (lite.length - 1);
+      if (validMoods.length <= 1) return 0;
+      const mean = validMoods.reduce((s, v) => s + v, 0) / validMoods.length;
+      const variance = validMoods.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / (validMoods.length - 1);
       return Math.round(variance * 100) / 100;
     })();
 
     const dominantEmotions: EmotionDistribution[] = (() => {
+      // CRITICAL FIX: Use only valid (non-neutral) moods for emotion distribution
+      const realMoodEntries = lite.filter(e => e.mood_score > 0 && e.mood_score !== 50);
       const buckets = {
-        'Heyecanlı': lite.filter(e => e.mood_score >= 90).length,
-        'Enerjik': lite.filter(e => e.mood_score >= 80 && e.mood_score < 90).length,
-        'Mutlu': lite.filter(e => e.mood_score >= 70 && e.mood_score < 80).length,
-        'Sakin': lite.filter(e => e.mood_score >= 60 && e.mood_score < 70).length,
-        'Normal': lite.filter(e => e.mood_score >= 50 && e.mood_score < 60).length,
-        'Endişeli': lite.filter(e => e.mood_score >= 40 && e.mood_score < 50).length,
-        'Sinirli': lite.filter(e => e.mood_score >= 30 && e.mood_score < 40).length,
-        'Üzgün': lite.filter(e => e.mood_score >= 20 && e.mood_score < 30).length,
-        'Kızgın': lite.filter(e => e.mood_score < 20).length,
+        'Heyecanlı': realMoodEntries.filter(e => e.mood_score >= 90).length,
+        'Enerjik': realMoodEntries.filter(e => e.mood_score >= 80 && e.mood_score < 90).length,
+        'Mutlu': realMoodEntries.filter(e => e.mood_score >= 70 && e.mood_score < 80).length,
+        'Sakin': realMoodEntries.filter(e => e.mood_score >= 60 && e.mood_score < 70).length,
+        'Normal': realMoodEntries.filter(e => e.mood_score >= 50 && e.mood_score < 60).length,
+        'Endişeli': realMoodEntries.filter(e => e.mood_score >= 40 && e.mood_score < 50).length,
+        'Sinirli': realMoodEntries.filter(e => e.mood_score >= 30 && e.mood_score < 40).length,
+        'Üzgün': realMoodEntries.filter(e => e.mood_score >= 20 && e.mood_score < 30).length,
+        'Kızgın': realMoodEntries.filter(e => e.mood_score < 20).length,
       } as Record<string, number>;
-      const total = lite.length || 1;
+      const total = realMoodEntries.length || 1;
       return Object.entries(buckets)
         .filter(([_, c]) => c > 0)
         .map(([emotion, c]) => ({ emotion, percentage: Math.round((c / total) * 100) }))
@@ -251,7 +414,9 @@ export class OptimizedMoodDataLoader {
     const weeklyEntries: MoodEntryLite[] = weekKeys.map((k) => {
       const list = byDate.get(k) || [];
       const avg = list.length ? Math.round(list.reduce((s, p) => s + p.mood_score, 0) / list.length) : 0;
-      const energy = list.length ? Math.round(list.reduce((s, p) => s + (p.energy_level || 6), 0) / list.length) : 0;
+      // Exclude neutral energy=6 values from weekly average
+      const realEnergyValues = list.filter(p => p.energy_level > 0 && p.energy_level !== 6);
+      const energy = realEnergyValues.length ? Math.round(realEnergyValues.reduce((s, p) => s + (p.energy_level as number), 0) / realEnergyValues.length) : 0;
       const anxiety = list.length ? 5 : 0; // Not tracked per point in this layer
       return {
         id: `day-${k}`,
@@ -266,29 +431,62 @@ export class OptimizedMoodDataLoader {
     });
 
     const todayList = byDate.get(formatDateYMD(today)) || [];
-    const todayAverage = todayList.length ? todayList.reduce((s, p) => s + p.mood_score, 0) / todayList.length : 0;
-    const nonZero = weeklyEntries.filter(e => (e.mood_score || 0) > 0);
+    const todayAverage = todayList.length ? todayList.reduce((s, p) => s + p.mood_score, 0) / todayList.length : 50; // FIXED: 50 center instead of 0
+    // IMPROVED: Weekly trend analysis with valid moods
+    const nonZero = weeklyEntries.filter(e => (e.mood_score || 50) > 0 && e.mood_score !== 50); // Exclude center/neutral values
     let weeklyTrend: 'up' | 'down' | 'stable' = 'stable';
     if (nonZero.length >= 2) {
-      const first = nonZero[0].mood_score || 0;
-      const last = nonZero[nonZero.length - 1].mood_score || 0;
-      weeklyTrend = first > last ? 'up' : first < last ? 'down' : 'stable';
+      const first = nonZero[0].mood_score || 50; // FIXED: 50 center instead of 0
+      const last = nonZero[nonZero.length - 1].mood_score || 50; // FIXED: 50 center instead of 0
+      // Only show trend if meaningful difference (>10 points in 0-100 scale)
+      const diff = Math.abs(first - last);
+      if (diff >= 10) {
+        weeklyTrend = first > last ? 'up' : 'down';
+      }
     }
 
-    const weeklyEnergyAvg = lite.length ? lite.reduce((s, e) => s + (e.energy_level || 6), 0) / lite.length : 0;
-    const weeklyAnxietyAvg = lite.length ? lite.reduce((s, e) => s + (e.anxiety_level || 5), 0) / lite.length : 0;
+    const weeklyEnergyAvg = averageEnergy; // Use the same logic as averageEnergy  
+    const weeklyAnxietyAvg = averageAnxiety; // Use the same logic as averageAnxiety
 
     // Quantiles imported from utils/statistics
 
     const toAggregatedBucket = (points: MoodEntryLite[], label: string, dateISO: string): AggregatedData => {
-      const moods = points.map(p => p.mood_score);
-      const energies = points.map(p => p.energy_level);
-      const anx = points.map((p: any) => (typeof p.anxiety_level === 'number' ? p.anxiety_level : 0));
-      const mq = quantiles(moods);
-      const eq = quantiles(energies);
+      // CRITICAL FIX: Only use non-neutral values for aggregation statistics
+      const moods = points.filter(p => p.mood_score > 0 && p.mood_score !== 50).map(p => p.mood_score);
+      const energies = points.filter(p => p.energy_level > 0 && p.energy_level !== 6).map(p => p.energy_level);
+      
+      // IMPROVED: Smart anxiety handling for aggregated buckets
+      const rawAnx = points.map((p: any) => p.anxiety_level).filter(v => v != null);
+      const anx = (() => {
+        if (rawAnx.length === 0) return [5]; // fallback
+        
+        // Check if all are default 5s (fallback values)
+        if (rawAnx.every(v => v === 5) && moods.length > 0 && energies.length > 0) {
+          // Derive anxiety from mood/energy patterns for this bucket
+          const avgMood = moods.reduce((s, v) => s + v, 0) / moods.length;
+          const avgEnergy = energies.reduce((s, v) => s + v, 0) / energies.length;
+          const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
+          const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
+          
+          let derivedAnx = 5;
+          if (m10 <= 3) derivedAnx = 7;
+          else if (m10 >= 8 && e10 <= 4) derivedAnx = 6;
+          else if (m10 <= 5 && e10 >= 7) derivedAnx = 8;
+          else if (m10 >= 7 && e10 >= 7) derivedAnx = 4;
+          else derivedAnx = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+          
+          return points.map(() => derivedAnx); // Apply derived value to all points in bucket
+        }
+        
+        return rawAnx; // Use real anxiety values
+      })();
+      
+      const mq = quantiles(moods); // Will return NaN if no real mood data
+      const eq = quantiles(energies); // Will return NaN if no real energy data
       const aq = quantiles(anx);
-      const min = moods.length ? Math.min(...moods) : 0;
-      const max = moods.length ? Math.max(...moods) : 0;
+      // IMPROVED: Only calculate min/max when real data exists
+      const min = moods.length ? Math.min(...moods) : NaN;
+      const max = moods.length ? Math.max(...moods) : NaN;
       return {
         date: dateISO,
         label,
@@ -297,8 +495,8 @@ export class OptimizedMoodDataLoader {
         energy: eq,
         anxiety: aq,
         entries: points,
-        // Back-compat fields (optional)
-        avg: moods.length ? (moods.reduce((s, v) => s + v, 0) / moods.length) : 0,
+        // Back-compat fields (optional) - use all original points for count, but real data for averages
+        avg: moods.length ? (moods.reduce((s, v) => s + v, 0) / moods.length) : NaN,
         p50: mq.p50,
         min,
         max,
@@ -315,11 +513,35 @@ export class OptimizedMoodDataLoader {
           if (!weekMap.has(wk)) weekMap.set(wk, []);
           weekMap.get(wk)!.push(e);
         }
+        // Month view için minimum 4 haftalık bucket garantisi
         const allWeekKeys: string[] = [];
+        
+        // İlk önce dayKeys'ten haftaları topla
+        const weekSet = new Set<string>();
         for (const dk of dayKeys) {
           const wk = formatWeekKey(dk);
-          if (allWeekKeys[allWeekKeys.length - 1] !== wk) allWeekKeys.push(wk);
+          weekSet.add(wk);
         }
+        
+        // Set'i array'e çevir ve sırala
+        const weekArray = Array.from(weekSet).sort();
+        
+        // Eğer 4 haftadan azsa, başa veya sona boş haftalar ekle
+        if (weekArray.length > 0 && weekArray.length < 4) {
+          const firstWeekDate = new Date(weekArray[0] + 'T00:00:00');
+          const firstMonday = getWeekStart(firstWeekDate);
+          
+          // Önceki haftaları ekle (4 haftaya tamamla)
+          const weeksToAdd = 4 - weekArray.length;
+          for (let w = 1; w <= weeksToAdd; w++) {
+            const prevWeek = new Date(firstMonday);
+            prevWeek.setDate(firstMonday.getDate() - (w * 7));
+            weekArray.unshift(formatDateYMD(prevWeek));
+          }
+        }
+        
+        // Final list
+        allWeekKeys.push(...weekArray.sort());
         const items: AggregatedData[] = allWeekKeys
           .map((weekKey) => {
             const entriesForWeek = weekMap.get(weekKey) || [];
@@ -328,7 +550,8 @@ export class OptimizedMoodDataLoader {
           .sort((a, b) => a.date.localeCompare(b.date));
         return { granularity: 'week' as const, data: items };
       }
-      if (range === '6months' || range === 'year') {
+      else if (range === '6months' || range === 'year') {
+        // CRITICAL FIX: Force month granularity only for 6months/year
         // Aylık aggregate: son 6/12 ayı eksiksiz üret
         const monthMap = new Map<string, MoodEntryLite[]>();
         for (const e of lite) {
@@ -351,6 +574,7 @@ export class OptimizedMoodDataLoader {
             return toAggregatedBucket(entriesForMonth as any, getMonthLabel(monthKey), `${monthKey}-01`);
           })
           .sort((a, b) => a.date.localeCompare(b.date));
+        
         return { granularity: 'month' as const, data: items };
       }
       // week: no aggregate needed beyond daily; keep undefined
@@ -386,6 +610,33 @@ export class OptimizedMoodDataLoader {
     };
 
     return extended;
+    } catch (error) {
+      console.error('MoodDataLoader: loadFullRange error:', error);
+      // Return safe fallback data instead of crashing
+      return {
+        weeklyEntries: [],
+        todayAverage: 50,
+        weeklyTrend: 'stable' as const,
+        weeklyEnergyAvg: 6,
+        weeklyAnxietyAvg: 5,
+        statistics: {
+          timeRange: range,
+          totalEntries: 0,
+          averageMood: 50,
+          averageEnergy: 6,
+          averageAnxiety: 5,
+          moodVariance: 0,
+          dominantEmotions: [],
+          peakTimes: [],
+          triggers: [],
+        },
+        rawDataPoints: {},
+        rawHourlyDataPoints: {},
+        dailyAverages: [],
+        hourlyAverages: [],
+        aggregated: { granularity: 'week', data: [] },
+      };
+    }
   }
 }
 

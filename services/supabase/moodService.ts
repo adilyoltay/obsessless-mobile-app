@@ -38,9 +38,9 @@ export class MoodService {
       return Math.max(min, Math.min(max, n));
     };
     const createdAtIso: string = sanitizedEntry.created_at || sanitizedEntry.timestamp || new Date().toISOString();
-    const validatedMood = validateRange(sanitizedEntry.mood_score, 0, 100, 50);
-    const validatedEnergy = validateRange(sanitizedEntry.energy_level, 1, 10, 5);
-    const validatedAnxiety = validateRange(sanitizedEntry.anxiety_level, 1, 10, 5);
+    const validatedMood = validateRange(sanitizedEntry.mood_score, 0, 100, 50); // ✅ Correct 0-100 scale
+    const validatedEnergy = validateRange(sanitizedEntry.energy_level, 1, 10, 6); // FIXED: 6 neutral instead of 5
+    const validatedAnxiety = validateRange(sanitizedEntry.anxiety_level, 1, 10, 5); // ✅ Correct
     const content_hash = computeMoodContentHash({
       user_id: sanitizedEntry.user_id,
       mood_score: validatedMood,

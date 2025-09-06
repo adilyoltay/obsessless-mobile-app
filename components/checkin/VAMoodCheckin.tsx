@@ -46,9 +46,15 @@ const PAD = Math.min(W - 48, 340);
 // Utility functions
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const to01 = (t: number) => (t + 1) / 2;
-const to1_10 = (t01: number) => {
-  const rounded = Math.round(1 + 9 * t01);
-  return Math.max(1, Math.min(10, rounded));
+// IMPROVED: Convert to mood score (0-100) directly, not 1-10 then *10
+const toMoodScore = (t01: number) => {
+  const score = Math.round(50 + 50 * (t01 * 2 - 1)); // -1..1 → 0-100 with 50 center
+  return Math.max(0, Math.min(100, score));
+};
+
+const toEnergyLevel = (t01: number) => {
+  const level = Math.round(1 + 9 * t01); // 0..1 → 1-10
+  return Math.max(1, Math.min(10, level));
 };
 const from1_10 = (v: number) => {
   const result = ((v - 1) / 9) * 2 - 1;
@@ -140,6 +146,7 @@ export default function VAMoodCheckin({
   const [transcript, setTranscript] = useState('');
   const [showTranscript, setShowTranscript] = useState(false);
   const [detectedTriggers, setDetectedTriggers] = useState<string[]>([]);
+  const [detectedAnxiety, setDetectedAnxiety] = useState<number | null>(null);
   const [isNativeSTTAvailable, setIsNativeSTTAvailable] = useState(false);
   
   // Realtime analysis state
@@ -292,6 +299,11 @@ export default function VAMoodCheckin({
           x.value = withTiming(vx, { duration: 300 });
           y.value = withTiming(vy, { duration: 300 });
           setXY({ x: vx, y: vy });
+          // Persist detected anxiety level for save
+          try {
+            const anx = Math.max(1, Math.min(10, Math.round(analysis.anxietyLevel)));
+            setDetectedAnxiety(Number.isFinite(anx) ? anx : 5);
+          } catch { setDetectedAnxiety(5); }
           
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } else {
@@ -425,14 +437,45 @@ export default function VAMoodCheckin({
 
       const mood01 = to01(xy.x);
       const energy01 = to01(xy.y);
-      const mood10 = to1_10(mood01);
-      const energy10 = to1_10(energy01);
+      const moodScore = toMoodScore(mood01); // Direct 0-100 conversion
+      const energyLevel = toEnergyLevel(energy01); // 1-10 conversion
       
       // Prepare mood entry data with VA coordinates and details
+      // IMPROVED: Smart anxiety calculation - derive from mood/energy if voice analysis failed
+      const finalAnx10 = (() => {
+        if (detectedAnxiety != null && detectedAnxiety !== 5) {
+          return Math.max(1, Math.min(10, detectedAnxiety)); // Use voice-detected anxiety
+        }
+        
+        // Voice analysis failed or returned default - derive from mood/energy
+        const m10 = Math.max(1, Math.min(10, Math.round(moodScore / 10))); // Convert 0-100 to 1-10
+        const e10 = Math.max(1, Math.min(10, energyLevel)); // Already 1-10
+        
+        // Smart anxiety derivation based on psychological patterns
+        let derivedAnxiety = 5; // baseline
+        
+        if (m10 <= 3) derivedAnxiety = 7; // Very low mood often correlates with anxiety
+        else if (m10 >= 8 && e10 <= 4) derivedAnxiety = 6; // High mood + low energy = underlying anxiety
+        else if (m10 <= 5 && e10 >= 7) derivedAnxiety = 8; // Low mood + high energy = agitation/anxiety
+        else if (m10 >= 7 && e10 >= 7) derivedAnxiety = 4; // High mood + high energy = low anxiety
+        else if (m10 >= 6 && e10 <= 6) derivedAnxiety = Math.max(2, 7 - m10); // Inverse mood relationship
+        else derivedAnxiety = Math.max(2, Math.min(8, 6 - (m10 - 5))); // General inverse relationship
+        
+        console.log('🧠 Derived anxiety:', {
+          mood: m10,
+          energy: e10,
+          derivedAnxiety,
+          detectedAnxiety,
+          source: detectedAnxiety != null ? 'voice' : 'derived'
+        });
+        
+        return Math.max(1, Math.min(10, Math.round(derivedAnxiety)));
+      })();
+
       const moodData = {
-        mood_score: mood10 * 10, // Convert to 0-100 scale
-        energy_level: energy10,
-        anxiety_level: 5, // Default value, can be enhanced later
+        mood_score: moodScore, // Already 0-100 scale
+        energy_level: energyLevel, // Already 1-10 scale  
+        anxiety_level: finalAnx10,
         notes: details.notes || `Duygu: ${valenceLabel(xy.x)}, Enerji: ${energyLabel(xy.y)}`,
         triggers: details.trigger ? [details.trigger] : [],
         activities: [],

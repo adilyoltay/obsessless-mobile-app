@@ -12,16 +12,41 @@ class DataStandardizationService {
   }
 
   standardizeDate(date: any): string {
-    if (!date) return new Date().toISOString();
-    if (typeof date === 'string') {
-      const parsed = parseISO(date);
-      if (isValid(parsed)) return parsed.toISOString();
-      const ts = Date.parse(date);
-      if (!Number.isNaN(ts)) return new Date(ts).toISOString();
+    try {
+      if (!date) return new Date().toISOString();
+      
+      if (typeof date === 'string') {
+        const parsed = parseISO(date);
+        if (isValid(parsed) && isFinite(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+        const ts = Date.parse(date);
+        if (!Number.isNaN(ts) && isFinite(ts)) {
+          const dateFromTS = new Date(ts);
+          if (isFinite(dateFromTS.getTime())) {
+            return dateFromTS.toISOString();
+          }
+        }
+      }
+      
+      if (typeof date === 'number' && isFinite(date)) {
+        const dateFromNum = new Date(date);
+        if (isFinite(dateFromNum.getTime())) {
+          return dateFromNum.toISOString();
+        }
+      }
+      
+      if (date instanceof Date && isFinite(date.getTime())) {
+        return date.toISOString();
+      }
+      
+      // All validations failed, use current date
+      console.warn('DataStandardization: Invalid date input, using current date:', date);
+      return new Date().toISOString();
+    } catch (error) {
+      console.error('DataStandardization: standardizeDate error:', error);
+      return new Date().toISOString();
     }
-    if (typeof date === 'number') return new Date(date).toISOString();
-    if (date instanceof Date) return date.toISOString();
-    return new Date().toISOString();
   }
 
   standardizeCategory(category: string): string {
@@ -139,7 +164,7 @@ class DataStandardizationService {
   private standardizeMoodData(data: any): any {
     const schema = z.object({
       user_id: z.string(),
-      mood_score: z.number().min(1).max(10),
+      mood_score: z.number().min(0).max(100), // FIXED: Correct scale 0-100
       energy_level: z.number().min(1).max(10),
       anxiety_level: z.number().min(1).max(10),
       notes: z.string().max(500).optional(),

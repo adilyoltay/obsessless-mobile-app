@@ -144,6 +144,14 @@ class MoodTrackingService {
 
     // Use repository to persist locally (encrypted V2)
     await moodRepository.save(moodEntry);
+    
+    // Invalidate chart caches immediately so UI can refetch fresh data
+    try {
+      const uid = moodEntry.user_id || (await this.getCurrentUserId());
+      if (uid) {
+        moodDataLoader.invalidate(uid);
+      }
+    } catch {}
 
     // Use standardized supabaseService.saveMoodEntry (writes to canonical mood_entries table)
     try {
@@ -300,6 +308,12 @@ class MoodTrackingService {
     } catch (gamiError) {
       console.warn('⚠️ Gamification (manual mood) award failed:', gamiError);
     }
+
+    // Broadcast event so listening screens/charts can update instantly
+    try {
+      const { eventBus, Events } = await import('@/services/eventBus');
+      eventBus.emit(Events.MoodEntrySaved, { userId: moodEntry.user_id, entry: moodEntry });
+    } catch {}
 
     return moodEntry;
   }

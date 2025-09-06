@@ -90,7 +90,7 @@ export const todayService = {
       const normalizedDaily: MoodEntry[] = dayKeys.map((key) => {
         const list = grouped.get(key) || [];
         const moodAvg = list.length > 0
-          ? Math.round((list.reduce((s, e) => s + (e.mood_score || 0), 0) / list.length))
+          ? Math.round((list.reduce((s, e) => s + (e.mood_score || 50), 0) / list.length)) // FIXED: 50 center instead of 0
           : 0;
         // Synthetic entry for the day
         return {
@@ -121,11 +121,11 @@ export const todayService = {
         : 0;
 
       // Trend based on first non-zero (today-most recent) vs last non-zero (oldest) in normalized range
-      const nonZero = normalizedDaily.filter(e => (e.mood_score || 0) > 0);
+      const nonZero = normalizedDaily.filter(e => (e.mood_score || 50) > 0); // FIXED: 50 fallback
       let weeklyTrend: 'up' | 'down' | 'stable' = 'stable';
       if (nonZero.length >= 2) {
-        const first = nonZero[0].mood_score || 0; // today-most recent non-zero
-        const last = nonZero[nonZero.length - 1].mood_score || 0; // oldest non-zero
+        const first = nonZero[0].mood_score || 50; // FIXED: 50 center instead of 0
+        const last = nonZero[nonZero.length - 1].mood_score || 50; // FIXED: 50 center instead of 0
         weeklyTrend = first > last ? 'up' : first < last ? 'down' : 'stable';
       }
 

@@ -15,8 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 // Custom UI Components
 import { Toast } from '@/components/ui/Toast';
-import HeroCard from '@/components/today/HeroCard';
-import QuickStatsRow from '@/components/today/QuickStatsRow';
+import MindScoreCard, { DayMetrics } from '@/components/MindScoreCard';
 // ✅ Extracted UI components handle their own visuals
 
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -37,7 +36,9 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 // import { safeStorageKey } from '@/lib/queryClient'; // unused
 import todayService from '@/services/todayService';
 import { moodDataLoader } from '@/services/moodDataLoader';
+import { eventBus, Events } from '@/services/eventBus';
 import { getAdvancedMoodColor, getMoodGradient, getVAColorFromScores } from '@/utils/colorUtils';
+import { getUserDateString } from '@/utils/timezoneUtils';
 import { PanResponder, PanResponderGestureState, GestureResponderEvent } from 'react-native';
 
 // Stores
@@ -85,6 +86,8 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
+  const [mindSparkStyle, setMindSparkStyle] = useState<'line' | 'bar'>('line');
+  const [heroStats, setHeroStats] = useState<{ moodVariance: number } | null>(null);
   const { colorMode, setColorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
@@ -134,9 +137,10 @@ export default function TodayScreen() {
   // (extracted) Animations moved into components
   
   // Gamification store
-  const { 
+  const {
     profile, 
-    lastMicroReward
+    lastMicroReward,
+    initializeGamification
     // ✅ REMOVED: achievements - Today'den başarı listesi kaldırıldı
   } = useGamificationStore();
   const { awardMicroReward } = useGamificationStore.getState();
@@ -188,7 +192,21 @@ export default function TodayScreen() {
   useEffect(() => {
     if (user?.id) {
       onRefresh();
+      // Initialize gamification for streak tracking
+      initializeGamification(user.id);
     }
+  }, [user?.id, initializeGamification]);
+
+  // Auto-refresh Today when a new mood entry is saved anywhere in the app
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = eventBus.on(Events.MoodEntrySaved, (payload) => {
+      try {
+        if (!payload || !payload.userId || payload.userId !== user.id) return;
+        onRefresh();
+      } catch {}
+    });
+    return () => { try { unsub(); } catch {} };
   }, [user?.id]);
 
   // Deep-link focus: scroll to Mood Journey section (optional openDate handled by card)
@@ -213,6 +231,8 @@ export default function TodayScreen() {
           const parsed = JSON.parse(saved);
           const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
           if (mode) setColorMode(mode);
+          const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
+          if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
         }
       } catch {}
     })();
@@ -227,6 +247,8 @@ export default function TodayScreen() {
           const parsed = JSON.parse(saved);
           const mode = parsed?.colorMode as 'static' | 'today' | 'weekly' | undefined;
           if (mode) setColorMode(mode);
+          const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
+          if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
         }
       } catch {}
     })();
@@ -370,6 +392,9 @@ export default function TodayScreen() {
       // 🚫 AI Cache Invalidation - DISABLED (Sprint 2: Hard Stop AI Fallbacks)
       // pipeline.triggerInvalidation('manual_refresh', user.id);
 
+      // Initialize gamification for streak tracking
+      initializeGamification(user.id);
+      
       const data = await todayService.getTodayData(
         user.id,
         useGamificationStore.getState().profile.healingPointsTotal,
@@ -378,6 +403,16 @@ export default function TodayScreen() {
 
       setTodayStats(data.todayStats);
       setMoodJourneyData(data.moodJourneyData);
+
+      // Extended week stats for MindScore stability from moodDataLoader
+      try {
+        const extended = await moodDataLoader.loadTimeRange(user.id, 'week');
+        const mv = Number(extended.statistics?.moodVariance || 0);
+        setHeroStats({ moodVariance: mv });
+      } catch (e) {
+        if (__DEV__) console.warn('MindScore hero stats load failed:', e);
+        setHeroStats(null);
+      }
 
       // 🎨 Resolve Hero color based on colorMode
       try {
@@ -472,34 +507,60 @@ export default function TodayScreen() {
   };
 
   const renderHeroSection = () => {
-    const milestones = [
-      { points: 100, name: 'Başlangıç' },
-      { points: 500, name: 'Öğrenci' },
-      { points: 1000, name: 'Usta' },
-      { points: 2500, name: 'Uzman' },
-      { points: 5000, name: 'Kahraman' }
-    ];
-    const currentMilestone = milestones.reduce((prev, curr) => (
-      profile.healingPointsTotal >= curr.points ? curr : prev
-    ), milestones[0]);
-    const nextMilestone = milestones.find(m => m.points > profile.healingPointsTotal) || milestones[milestones.length - 1];
-    const base = currentMilestone.points === nextMilestone.points ? 0 : currentMilestone.points;
-    const denom = nextMilestone.points - base || 1;
-    const progressToNext = ((profile.healingPointsTotal - base) / denom) * 100;
-    const isMaxLevel = nextMilestone.points === currentMilestone.points && profile.healingPointsTotal >= nextMilestone.points;
-    const gradientColors = gradient;
+    // Build 7-day metrics from normalized weeklyEntries if available
+    const week: DayMetrics[] = (() => {
+      const entries = moodJourneyData?.weeklyEntries || [];
+      if (!entries.length) return [];
+      return entries
+        .map((e: any) => ({
+          date: getUserDateString(e.timestamp),
+          mood: Number.isFinite(e.mood_score) && e.mood_score > 0 ? Number(e.mood_score) : null,
+          energy: Number.isFinite(e.energy_level) && e.energy_level > 0 ? Number(e.energy_level) : null, // 1–10 skalası korunsun - MindScoreCard'da dönüştürülecek
+          anxiety: Number.isFinite(e.anxiety_level) && e.anxiety_level > 0 ? Number(e.anxiety_level) : null, // 1–10 skalası korunsun - MindScoreCard'da dönüştürülecek
+        }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date))); // ascending
+    })();
+
+    // Tutarlılık için weighted score'lardan variance hesapla (MindScoreCard ile uyumlu)
+    const moodVariance = heroStats?.moodVariance ?? (() => {
+      // MindScoreCard ile aynı weighted score hesaplama mantığı
+      const weightedScores = week.map(d => {
+        const mood = typeof d.mood === 'number' ? d.mood : null;
+        const energy = typeof d.energy === 'number' ? d.energy : null;
+        const anxiety = typeof d.anxiety === 'number' ? d.anxiety : null;
+        
+        // Basitleştirilmiş weighted score hesaplama
+        const parts: Array<[number, number]> = [];
+        if (mood !== null) parts.push([mood, 0.5]);
+        if (energy !== null) parts.push([energy * 10, 0.3]); // 1-10 → 0-100
+        if (anxiety !== null) parts.push([100 - (anxiety * 10), 0.2]); // inverse + scale
+        
+        if (!parts.length) return null;
+        const wsum = parts.reduce((s, [, w]) => s + w, 0);
+        return parts.reduce((s, [v, w]) => s + v * w, 0) / (wsum || 1);
+      }).filter((v): v is number => typeof v === 'number');
+
+      if (weightedScores.length <= 1) return 0;
+      const mean = weightedScores.reduce((s, n) => s + n, 0) / weightedScores.length;
+      return weightedScores.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / (weightedScores.length - 1);
+    })();
+
+    // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
-      <HeroCard
-        healingPointsTotal={profile.healingPointsTotal}
-        nextMilestoneName={nextMilestone.name}
-        progressToNextPct={Math.min(100, Math.max(0, progressToNext))}
-        nextMilestoneTarget={isMaxLevel ? undefined : nextMilestone.points}
-        isMaxLevel={isMaxLevel}
-        bgColor={accentColor}
-        gradientColors={gradientColors}
-        colorScore={0}
-        enableAnimatedColor
-      />
+      <>
+        <MindScoreCard
+          week={week}
+          gradientColors={gradient}
+          loading={!moodJourneyData}
+          onQuickStart={() => setCheckinSheetVisible(true)}
+          sparkStyle={mindSparkStyle}
+          moodVariance={moodVariance}
+          variant="white"
+          streakCurrent={profile.streakCurrent}
+          streakBest={profile.streakBest}
+          streakLevel={profile.streakLevel}
+        />
+      </>
     );
   };
 
@@ -677,16 +738,7 @@ export default function TodayScreen() {
   // (extracted) BottomCheckinCTA replaces inline CTA
 
 
-
-
-
-  const renderQuickStats = () => (
-    <QuickStatsRow
-      moodTodayCount={todayStats.moodCheckins}
-      streakCurrent={profile.streakCurrent}
-      healingPointsToday={profile.healingPointsToday}
-    />
-  );
+  
 
   /**
    * 📊 Haftalık Özet Modül Kartları - Tüm modüllerden ilerleme
@@ -719,22 +771,34 @@ export default function TodayScreen() {
           <></>
         )}
         
-
-        
-        {renderQuickStats()}
-        
         {/* 🎨 Mood Journey Card */}
         {moodJourneyData && (
-          <View onLayout={(e) => setMoodSectionY(e.nativeEvent.layout.y)}>
+          <View style={{ marginTop: 8 }} onLayout={(e) => setMoodSectionY(e.nativeEvent.layout.y)}>
             <MoodJourneyCard
               data={moodJourneyData}
               initialOpenDate={(() => {
-                const v = Array.isArray(params.openDate) ? params.openDate[0] : (params.openDate as string | undefined);
-                return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+                try {
+                  const v = Array.isArray(params.openDate) ? params.openDate[0] : (params.openDate as string | undefined);
+                  if (!v || typeof v !== 'string') return undefined;
+                  // Validate date string format and actual date
+                  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return undefined;
+                  const testDate = new Date(v);
+                  if (!isFinite(testDate.getTime())) return undefined;
+                  return v;
+                } catch (error) {
+                  console.warn('Invalid initialOpenDate param:', error);
+                  return undefined;
+                }
               })()}
               initialRange={(() => {
-                const r = Array.isArray(params.openRange) ? params.openRange[0] : (params.openRange as string | undefined);
-                return r === 'week' || r === 'month' || r === '6months' || r === 'year' ? (r as any) : undefined;
+                try {
+                  const r = Array.isArray(params.openRange) ? params.openRange[0] : (params.openRange as string | undefined);
+                  const validRanges = ['week', 'month', '6months', 'year'] as const;
+                  return validRanges.includes(r as any) ? (r as any) : 'week'; // Fallback to week
+                } catch (error) {
+                  console.warn('Invalid initialRange param:', error);
+                  return 'week';
+                }
               })()}
             />
           </View>

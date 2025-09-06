@@ -30,23 +30,50 @@ export function getUserTimezone(): string {
  * This ensures mood entries are grouped by the correct day in user's timezone
  */
 export function toUserLocalDate(date: Date | string): Date {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
-  // Get user's timezone offset
-  const timezoneOffsetMinutes = getUserTimezoneOffset();
-  
-  // Create date in user's timezone (start of day)
-  const userDate = new Date(dateObj.getTime() - (timezoneOffsetMinutes * 60 * 1000));
-  
-  // Set to start of day in user's timezone
-  const userStartOfDay = new Date(
-    userDate.getFullYear(), 
-    userDate.getMonth(), 
-    userDate.getDate(),
-    0, 0, 0, 0
-  );
-  
-  return userStartOfDay;
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Validate input date
+    if (!dateObj || !isFinite(dateObj.getTime())) {
+      console.warn('toUserLocalDate: Invalid input date, using current date');
+      return new Date();
+    }
+    
+    // Get user's timezone offset
+    const timezoneOffsetMinutes = getUserTimezoneOffset();
+    
+    // Create date in user's timezone (start of day)
+    const userDate = new Date(dateObj.getTime() - (timezoneOffsetMinutes * 60 * 1000));
+    
+    // Validate intermediate calculation
+    if (!isFinite(userDate.getTime())) {
+      console.warn('toUserLocalDate: Invalid userDate calculation, using current date');
+      return new Date();
+    }
+    
+    // Set to start of day in user's timezone
+    const userStartOfDay = new Date(
+      userDate.getFullYear(), 
+      userDate.getMonth(), 
+      userDate.getDate(),
+      0, 0, 0, 0
+    );
+    
+    // Final validation
+    if (!isFinite(userStartOfDay.getTime())) {
+      console.error('toUserLocalDate: Invalid final date, using current date');
+      const fallback = new Date();
+      fallback.setHours(0, 0, 0, 0);
+      return fallback;
+    }
+    
+    return userStartOfDay;
+  } catch (error) {
+    console.error('toUserLocalDate: Exception caught, using fallback:', error);
+    const fallback = new Date();
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  }
 }
 
 /**

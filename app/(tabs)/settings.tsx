@@ -49,6 +49,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 // performanceMetricsService import removed - performance summary section removed
 // Settings data structure
 type ColorMode = 'static' | 'today' | 'weekly';
+type SparkStyle = 'line' | 'bar';
 
 interface SettingsData {
   notifications: boolean;
@@ -56,6 +57,7 @@ interface SettingsData {
   reminderTimes: boolean;
   // weeklyReports removed - not implemented in UI
   colorMode?: ColorMode;
+  mindSparkStyle?: SparkStyle;
 }
 
 
@@ -110,6 +112,7 @@ export default function SettingsScreen() {
     biometric: false,
     reminderTimes: false,
     colorMode: 'today',
+    mindSparkStyle: 'bar',
   });
 
   // Swipe right to navigate back to Today
@@ -153,6 +156,7 @@ export default function SettingsScreen() {
           biometric: parsed.biometric ?? false,
           reminderTimes: parsed.reminderTimes ?? false,
           colorMode: (parsed.colorMode as ColorMode) ?? 'today',
+          mindSparkStyle: (parsed.mindSparkStyle as SparkStyle) ?? 'bar',
         });
       }
     } catch (error) {
@@ -284,6 +288,17 @@ export default function SettingsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('Error saving color mode:', error);
+    }
+  };
+
+  const updateMindSparkStyle = async (style: SparkStyle) => {
+    const newSettings = { ...settings, mindSparkStyle: style };
+    setSettings(newSettings);
+    try {
+      await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(newSettings));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      console.error('Error saving mind spark style:', error);
     }
   };
 
@@ -611,6 +626,38 @@ export default function SettingsScreen() {
             </View>
             <Text style={{ color: '#6B7280', fontSize: 12 }}>
               Statik: sabit yeşil • Bugün: bugünkü ortalama • Haftalık: son 7 gün ortalaması
+            </Text>
+
+            <View style={{ height: 12 }} />
+            <Text style={[styles.actionTitle, { marginBottom: 4 }]}>Zihin Skoru Grafiği</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { key: 'line', label: 'Çizgi' },
+                { key: 'bar', label: 'İlerleme' },
+              ] as { key: SparkStyle; label: string }[]).map(opt => {
+                const active = (settings.mindSparkStyle || 'line') === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => updateMindSparkStyle(opt.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Zihin skoru grafiği ${opt.label}`}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? '#10B981' : '#E5E7EB',
+                      backgroundColor: active ? '#ECFDF5' : '#FFFFFF'
+                    }}
+                  >
+                    <Text style={{ color: active ? '#065F46' : '#374151', fontWeight: '700' }}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={{ color: '#6B7280', fontSize: 12 }}>
+              Çizgi (varsayılan): mini trend çizgisi • İlerleme: haftalık EWMA değerine göre bar
             </Text>
           </View>
         </View>

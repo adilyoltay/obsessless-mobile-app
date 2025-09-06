@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Pressable,
+  PixelRatio,
 } from 'react-native';
 import Svg, { 
   Line, 
@@ -20,6 +21,7 @@ import Svg, {
   Path,
   Ellipse
 } from 'react-native-svg';
+import { PanGestureHandler, PinchGestureHandler, State as GHState } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
@@ -48,13 +50,20 @@ type Props = {
   onVisibleRangeChange?: (stats: { date: string; startHour: number; endHour: number; count: number; moodP50: number; energyP50: number; anxietyP50: number; dominant?: string }) => void;
 };
 
-const CHART_HEIGHT = 280; // taller plotting area
+const CHART_HEIGHT = 252; // 10% shorter plotting area
 const CHART_PADDING_TOP = 10; // reduce top whitespace further
 const CHART_PADDING_BOTTOM = 28; // reduce bottom whitespace ~half
 const CHART_PADDING_H = 0; // no extra horizontal padding; fit full width
 const AXIS_WIDTH = 8; // tighter left gutter (we only need a little)
 const RIGHT_LABEL_PAD = 40; // right label pad per design
 const CHART_CONTENT_HEIGHT = CHART_HEIGHT - CHART_PADDING_TOP - CHART_PADDING_BOTTOM;
+const LINE_WIDTH = 2.0; // unified line width for all overlays (thinner)
+// Mini segment tuning (single-point emphasis)
+const MINI_SEGMENT_MIN_PX = 10;
+const MINI_SEGMENT_MAX_PX = 22;
+const MINI_SEGMENT_RATIO_DAY = 0.42;
+const MINI_SEGMENT_RATIO_WEEK = 0.34;
+const MINI_SEGMENT_RATIO_AGG = 0.32;
 
 // Apple Health renk paleti - tam eşleşme
 const APPLE_COLORS = {
@@ -78,7 +87,7 @@ const moodToValence = (mood: number): number => {
 };
 
 // Görsel gramer V2: Renk=Enerji, Opaklık=Zaman, Y=Mood, Boyut=Sabit
-const DOT_RADIUS = 3; // requested smaller radius for tighter visuals
+const DOT_RADIUS = 2.6; // slightly smaller dots for day/week
 // Color utilities for trend line fine-tuning
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const hexToRgb = (hex: string) => {
@@ -127,16 +136,16 @@ const DOT_TUNING = {
   },
   agg: {
     // Merkez nokta yarıçap aralığı (aggregate mod): s=0 → max, s=1 → min
-    // Küçültüldü: weekly dot boyutlarına daha yakın görsel tutarlılık
-    rCenterMax: 3.4,
-    rCenterMin: 2.4,
-    rSideFloor: 1.9,   // yan noktaların minimum yarıçapı
-    rSideDelta: 0.7,   // yan = merkez - delta
+    // Daha belirgin: aggregate görünümde noktaları büyüt
+    rCenterMax: 4.6,
+    rCenterMin: 3.2,
+    rSideFloor: 2.5,   // yan noktaların minimum yarıçapı
+    rSideDelta: 1.0,   // yan = merkez - delta
     // Opaklık aralıkları
     opCenterMax: 1.0,
-    opCenterMin: 0.88,
-    opSideMax: 0.6,
-    opSideMin: 0.4,
+    opCenterMin: 0.92,
+    opSideMax: 0.72,
+    opSideMin: 0.5,
   },
 } as const;
 
@@ -145,6 +154,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   timeRange, 
   onDayPress,
   onSelectionChange,
+  onVisibleRangeChange,
   clearSelectionSignal,
   embedHeader = true,
   onRequestPage,
@@ -168,6 +178,25 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const isDark = colorScheme === 'dark';
   const { color: accentColor } = useAccentColor();
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
+  const safePathD = React.useCallback((pts: string[]): string | null => {
+    if (!pts || pts.length < 2) return null;
+    for (const p of pts) {
+      const parts = String(p).split(',');
+      if (parts.length !== 2) return null;
+      const x = Number(parts[0]);
+      const y = Number(parts[1]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    }
+    return `M ${pts[0]} L ${pts.slice(1).join(' L ')}`;
+  }, []);
+
+  // Memoized helpers to reduce recalculation during scrubbing/zooming
+  const visibleHours = useMemo(() => {
+    return (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
+  }, [data.hourlyAverages, dayWindowStart, dayWindowSize]);
+  const nVisible = visibleHours.length;
+  const aggregatedItems = useMemo(() => (data.aggregated?.data || []) as any[], [data.aggregated]);
+  // dash removed: we render solid lines consistently using LINE_WIDTH
   React.useEffect(() => {
     (async () => {
       try {
@@ -192,6 +221,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   // Use the measured container width (card inner width). Fallback to screen - 40.
   const chartWidth = containerWidth > 0 ? containerWidth : (SCREEN_WIDTH - 40);
   const contentWidth = Math.max(0, chartWidth - AXIS_WIDTH - RIGHT_LABEL_PAD);
+  const dwVisible = useMemo(() => contentWidth / Math.max(1, nVisible), [contentWidth, nVisible]);
   
   // Clear selection from parent
   React.useEffect(() => {
@@ -229,7 +259,30 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       });
       const moodVals = entries.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
       const energyVals = entries.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
-      const anxVals = entries.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+      
+      // IMPROVED: Smart anxiety handling for day window stats
+      const anxVals: number[] = [];
+      entries.forEach((e: any) => {
+        const anxVal = Number(e.anxiety_level);
+        if (Number.isFinite(anxVal)) {
+          if (anxVal === 5) {
+            // Derive from this entry's mood/energy if fallback
+            const m10 = Math.max(1, Math.min(10, Math.round(Number(e.mood_score || 50) / 10)));
+            const e10 = Math.max(1, Math.min(10, Number(e.energy_level || 6)));
+            
+            let derivedA = 5;
+            if (m10 <= 3) derivedA = 7;
+            else if (m10 >= 8 && e10 <= 4) derivedA = 6;
+            else if (m10 <= 5 && e10 >= 7) derivedA = 8;
+            else if (m10 >= 7 && e10 >= 7) derivedA = 4;
+            else derivedA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+            
+            anxVals.push(derivedA);
+          } else {
+            anxVals.push(anxVal);
+          }
+        }
+      });
       const mq = quantiles(moodVals);
       const eq = quantiles(energyVals);
       const aq = quantiles(anxVals);
@@ -287,10 +340,33 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       totalCount = Number(b.count || 0);
       hasData = totalCount > 0;
     }
-    
+
     // Don't show tooltip if no data
     if (!hasData || totalCount === 0) {
-      onSelectionChange?.(null);
+      // UX: Select nearest neighbor with data to keep tooltip responsive
+      let j = index;
+      let found = -1;
+      for (let step = 1; step < n; step++) {
+        const left = index - step;
+        const right = index + step;
+        const check = (k: number) => {
+          if (k < 0 || k >= n) return false;
+          if (timeRange === 'week') {
+            return Number((items[k] as any).count || 0) > 0;
+          } else if (timeRange === 'day') {
+            const it: any = items[k];
+            const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+            return rp.length > 0;
+          } else {
+            return Number((items[k] as any).count || 0) > 0;
+          }
+        };
+        if (check(left)) { found = left; break; }
+        if (check(right)) { found = right; break; }
+      }
+      if (found === -1) { onSelectionChange?.(null); return; }
+      // Recurse with found index
+      emitSelection(found);
       return;
     }
     
@@ -445,6 +521,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       entries: any[];
       color: string;
       energyAvg: number;
+      isEmpty?: boolean;
     }> = [];
 
     if (!isAggregateMode) {
@@ -479,9 +556,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     const buckets: AggregatedData[] = data.aggregated?.data || [];
     const bw = contentWidth / Math.max(1, buckets.length);
     buckets.forEach((b, index) => {
-      const cnt = Number((b as any)?.count || 0);
-      if (cnt <= 0) return; // Skip non-data buckets entirely (no dots/bands)
       const x = AXIS_WIDTH + (index * bw) + (bw / 2);
+      const cnt = Number((b as any)?.count || 0);
+      if (cnt <= 0) {
+        const centerY = CHART_PADDING_TOP + CHART_CONTENT_HEIGHT / 2;
+        bands.push({
+          x,
+          minY: centerY,
+          maxY: centerY,
+          avgY: centerY,
+          date: (b as any)?.date,
+          entries: [],
+          color: '#9CA3AF',
+          energyAvg: 0,
+          isEmpty: true,
+        });
+        return;
+      }
       // Guard against NaN values in IQR (treat as missing)
       const lowMood = Number.isFinite((b as any)?.mood?.p25)
         ? Number((b as any).mood.p25)
@@ -502,7 +593,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         minY: Math.min(minY, maxY),
         maxY: Math.max(minY, maxY),
         avgY,
-        date: b.date,
+        date: (b as any)?.date,
         entries: [],
         color: energyToColor((Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6), 1, isDark),
         energyAvg: Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6,
@@ -532,7 +623,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       return index % step === 0;
     }
     // Basit virtualization: etiketler arası min piksel mesafesi
-    const minLabelPx = timeRange === 'week' ? 18 : timeRange === 'month' ? 22 : 28;
+    const minLabelPx = (timeRange === 'week')
+      ? 18
+      : (timeRange === 'month')
+        ? 22
+        : (timeRange === '6months')
+          ? 28
+          : 36; // year: daha seyrek etiket
     const step = Math.max(1, Math.ceil((total * minLabelPx) / Math.max(1, contentWidth)));
     if (index === 0 || index === total - 1) return true;
     return index % step === 0;
@@ -596,7 +693,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     y2={y}
                     stroke={isZeroLine ? APPLE_COLORS.gridLineDark : APPLE_COLORS.gridLine}
                     strokeWidth={isZeroLine ? 1.2 : 1}
-                    strokeDasharray={isZeroLine ? "4,3" : "3,2"}
                     strokeOpacity={isZeroLine ? 1 : 0.95}
                   />
                 </G>
@@ -636,7 +732,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT}
                     stroke={APPLE_COLORS.gridLineDark}
                     strokeWidth={isTodayBoundary ? 1.4 : 1}
-                    strokeDasharray={isTodayBoundary ? '0' : '3,2'}
                     strokeOpacity={isTodayBoundary ? 1 : 0.95}
                   />
                 );
@@ -719,48 +814,63 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {verticalBands.map((band, index) => (
               <G key={`band-${index}`}>
                 {isAggregateMode ? (
-                  (() => {
-                    // 3 özet nokta: p10/min, p50/avg, p90/max
-                    const spreadPx = Math.abs(band.maxY - band.minY);
-                    const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
-                    // Boyut: merkez 2.8..4.0, yan merkezden ~0.9 küçük, en az 2.2
-                    const rCenter = DOT_TUNING.agg.rCenterMax - (DOT_TUNING.agg.rCenterMax - DOT_TUNING.agg.rCenterMin) * s;
-                    const rSide = Math.max(DOT_TUNING.agg.rSideFloor, rCenter - DOT_TUNING.agg.rSideDelta);
-                    // Opaklık: merkez 0.88..1.0, yan 0.4..0.6
-                    const opCenter = DOT_TUNING.agg.opCenterMax - (DOT_TUNING.agg.opCenterMax - DOT_TUNING.agg.opCenterMin) * s;
-                    const opSide = DOT_TUNING.agg.opSideMax - (DOT_TUNING.agg.opSideMax - DOT_TUNING.agg.opSideMin) * s;
-                    const isSelectedBand = !!selectedAggDate && band.date === selectedAggDate;
-                    return (
-                      <>
-                        <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide}
-                          stroke={isDark ? '#111827' : '#9CA3AF'} strokeWidth={0.6} />
-                        {(() => {
-                          const counts = (data.aggregated?.data || []).map((bb: any) => Number(bb?.count || 0));
-                          const cMax = Math.max(1, ...counts);
-                          const cThis = (() => {
-                            const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
-                            return Number(b?.count || 0);
-                          })();
-                          const sw = 0.6 + 1.4 * Math.sqrt(cThis / cMax);
-                          return (
-                            <>
-                              {/* Halo behind median when selected */}
-                              {isSelectedBand && (
-                                <>
-                                  <Circle cx={band.x} cy={band.avgY} r={rCenter + 4} fill={band.color} opacity={0.14} />
-                                  <Circle cx={band.x} cy={band.avgY} r={rCenter + 7} fill={band.color} opacity={0.06} />
-                                </>
-                              )}
-                              <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter}
-                                stroke={isDark ? '#0E1525' : '#E5E7EB'} strokeWidth={sw} />
-                            </>
-                          );
-                        })()}
-                        <Circle cx={band.x} cy={band.maxY} r={rSide} fill={band.color} opacity={opSide}
-                          stroke={isDark ? '#111827' : '#9CA3AF'} strokeWidth={0.6} />
-                      </>
-                    );
-                  })()
+                  band.isEmpty ? (
+                    (() => {
+                      const hasSelection = selectedIndex != null;
+                      const isSelectedBand = !!selectedAggDate && band.date === selectedAggDate;
+                      const op = hasSelection ? (isSelectedBand ? 0.55 : 0.25) : 0.55;
+                      return (
+                        <Circle cx={band.x} cy={band.avgY} r={2.6} fill={'#9CA3AF'} opacity={op}
+                          stroke={isDark ? '#1F2937' : '#D1D5DB'} strokeWidth={0.6} />
+                      );
+                    })()
+                  ) : (
+                    (() => {
+                      // 3 özet nokta: p25, p50, p75
+                      const spreadPx = Math.abs(band.maxY - band.minY);
+                      const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
+                      const rCenter = DOT_TUNING.agg.rCenterMax - (DOT_TUNING.agg.rCenterMax - DOT_TUNING.agg.rCenterMin) * s;
+                      const rSide = Math.max(DOT_TUNING.agg.rSideFloor, rCenter - DOT_TUNING.agg.rSideDelta);
+                      const opCenterBase = DOT_TUNING.agg.opCenterMax - (DOT_TUNING.agg.opCenterMax - DOT_TUNING.agg.opCenterMin) * s;
+                      const opSideBase = DOT_TUNING.agg.opSideMax - (DOT_TUNING.agg.opSideMax - DOT_TUNING.agg.opSideMin) * s;
+                      const hasSelection = selectedIndex != null;
+                      const isSelectedBand = !!selectedAggDate && band.date === selectedAggDate;
+                      const opCenter = hasSelection ? (isSelectedBand ? opCenterBase : Math.max(0.2, opCenterBase * 0.45)) : opCenterBase;
+                      const opSide = hasSelection ? (isSelectedBand ? opSideBase : Math.max(0.18, opSideBase * 0.45)) : opSideBase;
+                      return (
+                        <>
+                          <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide}
+                            stroke={isDark ? '#111827' : '#9CA3AF'} strokeWidth={0.6} />
+                          {(() => {
+                            const counts = (data.aggregated?.data || []).map((bb: any) => Number(bb?.count || 0));
+                            const cMax = Math.max(1, ...counts);
+                            const cThis = (() => {
+                              const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
+                              return Number(b?.count || 0);
+                            })();
+                            const sw = 0.6 + 1.4 * Math.sqrt(cThis / cMax);
+                            return (
+                              <>
+                                {/* Hafif halo: seçiliyse daha geniş, değilse hafif */}
+                                {isSelectedBand ? (
+                                  <>
+                                    <Circle cx={band.x} cy={band.avgY} r={rCenter + 4} fill={band.color} opacity={0.14} />
+                                    <Circle cx={band.x} cy={band.avgY} r={rCenter + 7} fill={band.color} opacity={0.06} />
+                                  </>
+                                ) : (
+                                  <Circle cx={band.x} cy={band.avgY} r={rCenter + 2.5} fill={band.color} opacity={0.08} />
+                                )}
+                                <Circle cx={band.x} cy={band.avgY} r={rCenter} fill={band.color} opacity={opCenter}
+                                  stroke={isDark ? '#0B1220' : '#E5E7EB'} strokeWidth={Math.max(0.9, sw)} />
+                              </>
+                            );
+                          })()}
+                          <Circle cx={band.x} cy={band.maxY} r={rSide} fill={band.color} opacity={opSide}
+                            stroke={isDark ? '#111827' : '#9CA3AF'} strokeWidth={0.6} />
+                        </>
+                      );
+                    })()
+                  )
                 ) : null}
               </G>
             ))}
@@ -769,8 +879,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
             {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
             {!isAggregateMode && (() => {
-              const items = data.dailyAverages;
-              const n = items.length;
+              const baseItems: any[] = (timeRange === 'day'
+                ? (((data.hourlyAverages || [])
+                    .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+                    .map((h: any) => ({ date: h.dateKey })) ) as any[])
+                : data.dailyAverages);
+              const n = baseItems.length;
               const dw = contentWidth / Math.max(1, n);
               const times = dataPoints.map(p => (p as any).ts || new Date(`${p.date}T00:00:00.000Z`).getTime());
               const minTs = times.length ? Math.min(...times) : 0;
@@ -803,12 +917,26 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const { jx, jy } = point.hasMultiple ? jitterXY(`${point.date}-${point.mood}-${point.energy}-${index}`) : { jx: 0, jy: 0 } as any;
                 const px = Math.max(leftBound, Math.min(rightBound, point.x + jx * ampX));
                 const py = Math.max(CHART_PADDING_TOP + 2, Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT - 2, point.y + jy * ampY));
+                const hasSelection = selectedIndex != null;
+                const isSelectedBucket = hasSelection && (dayIdx === (selectedIndex as number));
+                const innerR = r + (isSelectedBucket ? 0.8 : 0);
+                const outerROpacity = hasSelection ? (isSelectedBucket ? 1 : 0.45) : 1;
+                const innerOpacity = hasSelection ? (isSelectedBucket ? 1 : 0.38) : 1;
+                const innerFill = hasSelection ? (isSelectedBucket ? fill : (isDark ? '#6B7280' : '#D1D5DB')) : fill;
+                const innerStroke = hasSelection ? (isSelectedBucket ? strokeColor : (isDark ? '#374151' : '#E5E7EB')) : strokeColor;
                 return (
                   <G key={`point-${index}`}>
+                    {/* Highlight halo when selected */}
+                    {hasSelection && isSelectedBucket && (
+                      <>
+                        <Circle cx={px} cy={py} r={innerR + 2.4} fill={fill} opacity={0.12} />
+                        <Circle cx={px} cy={py} r={innerR + 4.8} fill={fill} opacity={0.06} />
+                      </>
+                    )}
                     {/* Outer ring (light/dark theme aware) */}
-                    <Circle cx={px} cy={py} r={outerR} fill={ringColor} opacity={1} />
+                    <Circle cx={px} cy={py} r={outerR} fill={ringColor} opacity={outerROpacity} />
                     {/* Inner colored dot with thin stroke for crisp edge */}
-                    <Circle cx={px} cy={py} r={r} fill={fill} opacity={1} stroke={strokeColor} strokeWidth={0.7} />
+                    <Circle cx={px} cy={py} r={innerR} fill={innerFill} opacity={innerOpacity} stroke={innerStroke} strokeWidth={0.7} />
                   </G>
                 );
               });
@@ -849,163 +977,1203 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             })()}
           </Svg>
           {/* Anxiety thin-line overlay (gap-aware) - weekly p50 */}
-          {showAnxiety && timeRange === 'week' && data.dailyAverages.length > 1 && (
+          {showAnxiety && timeRange === 'week' && !isAggregateMode && data.dailyAverages.length > 0 && (
             <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
               {(() => {
                 const items = data.dailyAverages;
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
-                const segments: string[][] = [];
+                const basePts: string[] = [];
+                const realSegments: string[][] = [];
                 let seg: string[] = [];
+                let realCount = 0;
+                let singlePt: { x: number; y: number } | null = null;
                 for (let index = 0; index < n; index++) {
                   const d = items[index];
                   const has = Number(d.count || 0) > 0;
-                  const ax = AXIS_WIDTH + (index * dw) + (dw / 2);
-                  // Use per-entry p50 if available, else daily average
-                  const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                  const anxArr = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
-                  const a = anxArr.length ? quantiles(anxArr).p50 : Number(d.averageAnxiety || 0);
-                  const norm = Math.max(1, Math.min(10, Number(a || 0)));
-                  const t = (norm - 1) / 9; // 0..1 -> top low anxiety
-                  const ay = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                  let finalA = 5;
                   if (has) {
-                    seg.push(`${ax},${ay}`);
-                  } else if (seg.length) {
-                    segments.push(seg);
-                    seg = [];
+                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                    const anxRaw = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+                    if (anxRaw.length > 0) {
+                      // IMPROVED: Don't just accept all 5s as valid - derive from mood/energy if needed
+                      if (anxRaw.every(v => v === 5)) {
+                        // All entries are default 5 - derive from mood/energy pattern
+                        const moodVals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                        const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+                        if (moodVals.length > 0 && energyVals.length > 0) {
+                          const avgMood = moodVals.reduce((s, v) => s + v, 0) / moodVals.length;
+                          const avgEnergy = energyVals.reduce((s, v) => s + v, 0) / energyVals.length;
+                          // IMPROVED FORMULA: High mood + low energy might be anxious, very low mood = anxious
+                          const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10))); 
+                          const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
+                          // More nuanced anxiety estimation
+                          if (m10 <= 3) finalA = 7; // Low mood = anxious
+                          else if (m10 >= 8 && e10 <= 4) finalA = 6; // High mood but low energy = underlying anxiety
+                          else if (m10 <= 5 && e10 >= 7) finalA = 8; // Low mood + high energy = agitated/anxious
+                          else finalA = Math.max(2, Math.min(8, 6 - (m10 - 5))); // Inverse relationship to mood
+                        } else {
+                          finalA = 5; // True fallback only if no mood/energy data
+                        }
+                      } else {
+                        finalA = quantiles(anxRaw).p50;
+                      }
+                    } else {
+                      finalA = Number(d.averageAnxiety || 5);
+                    }
+                  }
+                  const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
+                  const t = (norm - 1) / 9;
+                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  if (Number.isFinite(x) && Number.isFinite(y)) {
+                    basePts.push(`${x},${y}`);
+                    if (has) {
+                      seg.push(`${x},${y}`);
+                      realCount++;
+                      singlePt = { x, y };
+                    } else if (seg.length) {
+                      realSegments.push(seg); seg = [];
+                    }
                   }
                 }
-                if (seg.length) segments.push(seg);
-                // theme-aware color and density-aware dash
-                const dashLen = clamp(Math.round(dw * 0.16), 2, 5);
-                const gapLen = clamp(Math.round(dashLen * 0.55), 1, 4);
-                const dash = `${dashLen},${gapLen}`;
+                if (seg.length) realSegments.push(seg);
                 const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
-                return segments.map((pts, i) => (
-                  pts.length > 1 ? (
-                    <Path
-                      key={`anx-${i}`}
-                      d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                      stroke={anxColor}
-                      strokeWidth={1.2}
-                      strokeOpacity={0.7}
-                      fill="none"
-                      strokeDasharray={dash}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ) : null
-                ));
+                const els: React.ReactNode[] = [];
+                const hasSelection = selectedIndex != null;
+                if (basePts.length > 1) {
+                  els.push(
+                    <Path key="week-anx-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                      stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      strokeDasharray="6,4"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+                realSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`week-anx-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
+                // Highlight selected segment around selectedIndex
+                if (hasSelection && basePts.length > 0) {
+                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                  const segPts: string[] = [];
+                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                  segPts.push(basePts[i]);
+                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                  if (segPts.length >= 2) {
+                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                    els.push(
+                      <Path key={`week-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+                if (realCount === 1 && singlePt) {
+                  const r = LINE_WIDTH + 1.5;
+                  const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                  els.push(
+                    <G key="week-anx-sp">
+                      <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
+                    </G>
+                  );
+                }
+                return els;
               })()}
             </Svg>
           )}
 
           {/* Weekly p50 mood trend (accent), gap-aware */}
-          {showMoodTrend && timeRange === 'week' && (
+          {showMoodTrend && timeRange === 'week' && !isAggregateMode && (
             <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
               {(() => {
                 const items = data.dailyAverages;
                 const n = items.length;
                 const dw = contentWidth / Math.max(1, n);
-                const segments: string[][] = [];
+                const basePts: string[] = [];
+                const realSegments: string[][] = [];
                 let seg: string[] = [];
+                let realCount = 0;
+                let singlePt: { x: number; y: number } | null = null;
                 for (let index = 0; index < n; index++) {
                   const d = items[index] as any;
                   const has = Number(d.count || 0) > 0;
-                  if (!has) {
-                    if (seg.length) { segments.push(seg); seg = []; }
-                    continue;
+                  let finalM = 50;
+                  if (has) {
+                    const raw = (data.rawDataPoints[d.date]?.entries || []).map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                    if (raw.length > 0) {
+                      const q = quantiles(raw);
+                      finalM = Number.isFinite(q.p50 as any) ? Number(q.p50) : 50;
+                    }
                   }
-                  const raw = (data.rawDataPoints[d.date]?.entries || []).map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
-                  if (!raw.length) {
-                    if (seg.length) { segments.push(seg); seg = []; }
-                    continue;
-                  }
-                  const q = quantiles(raw);
-                  const m = Number.isFinite(q.p50 as any) ? Number(q.p50) : 0;
-                  const v = moodToValence(m);
+                  const v = moodToValence(finalM);
                   const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
                   const x = AXIS_WIDTH + index * dw + dw / 2;
-                  seg.push(`${x},${y}`);
+                  if (Number.isFinite(x) && Number.isFinite(y)) {
+                    basePts.push(`${x},${y}`);
+                    if (has) {
+                      seg.push(`${x},${y}`);
+                      realCount++;
+                      singlePt = { x, y };
+                    } else if (seg.length) {
+                      realSegments.push(seg); seg = [];
+                    }
+                  }
                 }
-                if (seg.length) segments.push(seg);
-                const dashLen = clamp(Math.round(dw * 0.18), 2, 6);
-                const gapLen = clamp(Math.round(dashLen * 0.55), 1, 5);
-                const dash = `${dashLen},${gapLen}`;
-                const width = clamp((dw / 26) + 0.8, 1.0, 1.8);
-                return (
-                  <>
+                if (seg.length) realSegments.push(seg);
+                const els: React.ReactNode[] = [];
+                const hasSelection = selectedIndex != null;
+                if (basePts.length > 1) {
+                  els.push(
+                    <Path key="week-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                      stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      strokeDasharray="6,4"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+                realSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`week-mood-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
+                // Highlight
+                if (hasSelection && basePts.length > 0) {
+                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                  const segPts: string[] = [];
+                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                  segPts.push(basePts[i]);
+                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                  if (segPts.length >= 2) {
+                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                    els.push(
+                      <Path key={`week-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={accentColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+                if (realCount === 1 && singlePt) {
+                  const r = LINE_WIDTH + 1.5;
+                  const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                  els.push(
+                    <G key="week-mood-sp">
+                      <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
+                    </G>
+                  );
+                }
+                return els;
+              })()}
+            </Svg>
+          )}
+
+          {/* Weekly energy thin-line overlay (gap-aware) - weekly p50 */}
+          {showEnergy && timeRange === 'week' && !isAggregateMode && data.dailyAverages.length > 0 && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>{(() => {
+              const items = data.dailyAverages;
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
+              const basePts: string[] = [];
+              const realSegments: string[][] = [];
+              let seg: string[] = [];
+              let realCount = 0;
+              let singlePt: { x: number; y: number } | null = null;
+              for (let index = 0; index < n; index++) {
+                const d = items[index] as any;
+                const has = Number(d.count || 0) > 0;
+                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                
+                // NEW UNIFIED SYSTEM: Always include all days with neutral fallback
+                let finalE = 6; // Default neutral energy
+                if (has) {
+                  const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                  const eArr = rp.map((en: any) => Number(en.energy_level)).filter(Number.isFinite);
+                  if (eArr.length > 0) {
+                    finalE = quantiles(eArr).p50;
+                  } else {
+                    finalE = Number(d.averageEnergy || 6);
+                  }
+                }
+                
+                const norm = Math.max(1, Math.min(10, Number(finalE || 6)));
+                const t = (norm - 1) / 9;
+                const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                
+                if (Number.isFinite(x) && Number.isFinite(y)) {
+                  basePts.push(`${x},${y}`);
+                  if (has) { seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
+                  else if (seg.length) { realSegments.push(seg); seg = []; }
+                }
+              }
+              if (seg.length) realSegments.push(seg);
+              const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
+              const els: React.ReactNode[] = [];
+              const hasSelection = selectedIndex != null;
+              if (basePts.length > 1) {
+                els.push(
+                  <Path key="week-en-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                    stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                    strokeDasharray="6,4"
+                    fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                );
+              }
+              realSegments.forEach((pts, i) => {
+                if (pts.length > 1) {
+                  els.push(
+                    <Path key={`week-en-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+              });
+              if (hasSelection && basePts.length > 0) {
+                const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                const segPts: string[] = [];
+                if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                segPts.push(basePts[i]);
+                if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                if (segPts.length >= 2) {
+                  const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                  const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                  els.push(
+                      <Path key={`week-en-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+              }
+              if (realCount === 1 && singlePt) {
+                const r = LINE_WIDTH + 1.5;
+                const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                els.push(
+                  <G key="week-en-sp">
+                    <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                    <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
+                  </G>
+                );
+              }
+              return els;
+            })()}</Svg>
+          )}
+
+          {/* Day view - Mood trend line */}
+          {showMoodTrend && timeRange === 'day' && !isAggregateMode && data.hourlyAverages && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+              {(() => {
+                const items = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const basePts: string[] = [];
+                const realSegments: string[][] = [];
+                let seg: string[] = [];
+                let realCount = 0;
+                let singlePt: { x: number; y: number } | null = null;
+                
+                for (let index = 0; index < n; index++) {
+                  const h = items[index] as any;
+                  const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                  const has = rp.length > 0;
+                  
+                  // NEW UNIFIED SYSTEM: Always include all hours with neutral fallback
+                  let finalM = 50; // Default neutral mood
+                  if (has) {
+                    const moodVals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                    if (moodVals.length > 0) {
+                      const q = quantiles(moodVals);
+                      finalM = Number.isFinite(q.p50) ? Number(q.p50) : 50;
+                    }
+                  }
+                  
+                  const v = moodToValence(finalM);
+                  const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                  const x = AXIS_WIDTH + index * dw + dw / 2;
+                  
+                  if (Number.isFinite(x) && Number.isFinite(y)) {
+                    basePts.push(`${x},${y}`);
+                    if (has) {
+                      seg.push(`${x},${y}`);
+                      realCount++;
+                      singlePt = { x, y };
+                    } else if (seg.length) {
+                      realSegments.push(seg);
+                      seg = [];
+                    }
+                  }
+                }
+                
+                if (seg.length) realSegments.push(seg);
+                const els: React.ReactNode[] = [];
+                const hasSelection = selectedIndex != null;
+                // Base line (all points including neutral) - dashed
+                if (basePts.length > 1) {
+                  els.push(
+                    <Path key="day-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                      stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      strokeDasharray="6,4"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+                
+                // Real data segments - solid
+                realSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`day-mood-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
+                // Highlight selected
+                if (hasSelection && basePts.length > 0) {
+                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                  const segPts: string[] = [];
+                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                  segPts.push(basePts[i]);
+                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                  if (segPts.length >= 2) {
+                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                    els.push(
+                      <Path key={`day-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={accentColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+                
+                // Single point emphasis
+                if (realCount === 1 && singlePt) {
+                  const r = LINE_WIDTH + 1.5;
+                  const mini = clamp(dw * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                  els.push(
+                    <G key="day-mood-sp">
+                      <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
+                    </G>
+                  );
+                }
+                
+                return els;
+              })()}
+            </Svg>
+          )}
+
+          {/* Day view - Energy line */}
+          {showEnergy && timeRange === 'day' && !isAggregateMode && data.hourlyAverages && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+              {(() => {
+                const items = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const basePts: string[] = [];
+                const realSegments: string[][] = [];
+                let seg: string[] = [];
+                let realCount = 0;
+                let singlePt: { x: number; y: number } | null = null;
+                
+                for (let index = 0; index < n; index++) {
+                  const h = items[index] as any;
+                  const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                  const has = rp.length > 0;
+                  
+                  // NEW UNIFIED SYSTEM: Always include all hours with neutral fallback
+                  let finalE = 6; // Default neutral energy
+                  if (has) {
+                    const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+                    if (energyVals.length > 0) {
+                      finalE = quantiles(energyVals).p50;
+                    }
+                  }
+                  
+                  const norm = Math.max(1, Math.min(10, Number(finalE || 6)));
+                  const t = (norm - 1) / 9;
+                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  const x = AXIS_WIDTH + index * dw + dw / 2;
+                  
+                  if (Number.isFinite(x) && Number.isFinite(y)) {
+                    basePts.push(`${x},${y}`);
+                    if (has) {
+                      seg.push(`${x},${y}`);
+                      realCount++;
+                      singlePt = { x, y };
+                    } else if (seg.length) {
+                      realSegments.push(seg);
+                      seg = [];
+                    }
+                  }
+                }
+                
+                if (seg.length) realSegments.push(seg);
+                const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
+                const els: React.ReactNode[] = [];
+                const hasSelection = selectedIndex != null;
+                // Base line (all points including neutral) - dashed
+                if (basePts.length > 1) {
+                  els.push(
+                    <Path key="day-energy-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      strokeDasharray="6,4"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+                
+                // Real data segments - solid
+                realSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`day-energy-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
+                // Highlight selected
+                if (hasSelection && basePts.length > 0) {
+                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                  const segPts: string[] = [];
+                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                  segPts.push(basePts[i]);
+                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                  if (segPts.length >= 2) {
+                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                    els.push(
+                      <Path key={`day-energy-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+                
+                // Single point emphasis
+                if (realCount === 1 && singlePt) {
+                  const r = LINE_WIDTH + 1.5;
+                  const mini = clamp(dw * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                  els.push(
+                    <G key="day-energy-sp">
+                      <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
+                    </G>
+                  );
+                }
+                
+                return els;
+              })()}
+            </Svg>
+          )}
+
+          {/* Day view - Anxiety line - RESTORED: New unified system with base/real separation */}
+          {showAnxiety && timeRange === 'day' && !isAggregateMode && data.hourlyAverages && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+              {(() => {
+                const items = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
+                const n = items.length;
+                const dw = contentWidth / Math.max(1, n);
+                const basePts: string[] = [];
+                const realSegments: string[][] = [];
+                let seg: string[] = [];
+                let realCount = 0;
+                let singlePt: { x: number; y: number } | null = null;
+                
+                for (let index = 0; index < n; index++) {
+                  const h = items[index] as any;
+                  const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                  const has = rp.length > 0;
+                  
+                  // IMPROVED: Smart anxiety calculation with mood/energy derivation
+                  let finalA = 5; // Default neutral anxiety
+                  if (has) {
+                    const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+                    if (anxVals.length > 0) {
+                      // Check if all anxiety values are default 5 (fallback values)
+                      if (anxVals.every(v => v === 5)) {
+                        // Derive from mood/energy if available
+                        const moodVals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                        const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+                        if (moodVals.length > 0 && energyVals.length > 0) {
+                          const avgMood = moodVals.reduce((s, v) => s + v, 0) / moodVals.length;
+                          const avgEnergy = energyVals.reduce((s, v) => s + v, 0) / energyVals.length;
+                          const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10))); 
+                          const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
+                          // Smart anxiety derivation
+                          if (m10 <= 3) finalA = 7; // Low mood = anxious
+                          else if (m10 >= 8 && e10 <= 4) finalA = 6; // High mood + low energy = underlying anxiety
+                          else if (m10 <= 5 && e10 >= 7) finalA = 8; // Low mood + high energy = agitated
+                          else finalA = Math.max(2, Math.min(8, 6 - (m10 - 5))); // Inverse mood relationship
+                        } else {
+                          finalA = 5; // True fallback
+                        }
+                      } else {
+                        finalA = quantiles(anxVals).p50;
+                      }
+                    }
+                  }
+                  
+                  const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
+                  const t = (norm - 1) / 9; // 0..1 -> top low anxiety
+                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  const x = AXIS_WIDTH + index * dw + dw / 2;
+                  
+                  if (Number.isFinite(x) && Number.isFinite(y)) {
+                    basePts.push(`${x},${y}`);
+                    if (has) {
+                      seg.push(`${x},${y}`);
+                      realCount++;
+                      singlePt = { x, y };
+                    } else if (seg.length) {
+                      realSegments.push(seg);
+                      seg = [];
+                    }
+                  }
+                }
+                
+                if (seg.length) realSegments.push(seg);
+                const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+                const els: React.ReactNode[] = [];
+                const hasSelection = selectedIndex != null;
+                // Base line (all points including neutral) - dashed
+                if (basePts.length > 1) {
+                  els.push(
+                    <Path key="day-anxiety-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                      stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      strokeDasharray="6,4"
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+                
+                // Real data segments - solid
+                realSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`day-anxiety-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
+                // Highlight selected
+                if (hasSelection && basePts.length > 0) {
+                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                  const segPts: string[] = [];
+                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                  segPts.push(basePts[i]);
+                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                  if (segPts.length >= 2) {
+                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                    els.push(
+                      <Path key={`day-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+                
+                // Single point emphasis
+                if (realCount === 1 && singlePt) {
+                  const r = LINE_WIDTH + 1.5;
+                  const mini = clamp(dw * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                  els.push(
+                    <G key="day-anxiety-sp">
+                      <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
+                    </G>
+                  );
+                }
+                
+                return els;
+              })()}
+            </Svg>
+          )}
+
+          {/* Aggregate overlays (month, 6months, year): p50 lines across buckets */}
+          {(() => {
+            // NUCLEAR FIX: Strict granularity filtering to eliminate ALL double lines
+            const shouldRenderAggregateLines = (() => {
+              if (!isAggregateMode || !data.aggregated || (data.aggregated.data?.length || 0) === 0) return false;
+              
+              const granularity = data.aggregated.granularity;
+              
+              // STRICT: Only exact matches to prevent any cross-contamination
+              if (timeRange === 'month' && granularity === 'week') return true;
+              if (timeRange === '6months' && granularity === 'month') return true; 
+              if (timeRange === 'year' && granularity === 'month') return true;
+              
+              return false;
+            })();
+            
+            return shouldRenderAggregateLines;
+          })() && (
+            <>
+              {/* Mood (accent gradient) */}
+              {showMoodTrend && (
+                <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                  {(() => {
+                    const items = (data.aggregated?.data || []) as any[];
+                    const n = items.length;
+                    const dw = contentWidth / Math.max(1, n);
+                    const basePts: string[] = [];
+                    const realSegs: string[][] = [];
+                    let seg: string[] = [];
+                    let realCount = 0;
+                    let singlePt: { x: number; y: number } | null = null;
+                    for (let i = 0; i < n; i++) {
+                      const b: any = items[i];
+                      const has = Number(b?.count || 0) > 0;
+                      const mRaw = (b?.mood?.p50 ?? b?.avg ?? 0) as number;
+                      let finalM = Number.isFinite(mRaw) ? Number(mRaw) : 50;
+                      if (!has) finalM = 50;
+                      const v = moodToValence(finalM);
+                      const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                      const x = AXIS_WIDTH + i * dw + dw / 2;
+                      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+                      basePts.push(`${x},${y}`);
+                      if (has) { seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
+                      else if (seg.length) { realSegs.push(seg); seg = []; }
+                    }
+                    if (seg.length) realSegs.push(seg);
+                    // solid lines only; removed dash pattern and dynamic width
+                    const hasSelection = selectedIndex != null;
+                    return (
+                      <>
+                        <Defs>
+                          <LinearGradient id="aggMoodGrad" x1="0" y1="0" x2="1" y2="0">
+                            <Stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
+                            <Stop offset="15%" stopColor={accentColor} stopOpacity={0.9} />
+                            <Stop offset="85%" stopColor={accentColor} stopOpacity={0.9} />
+                            <Stop offset="100%" stopColor={accentColor} stopOpacity={0.6} />
+                          </LinearGradient>
+                        </Defs>
+                        {basePts.length > 1 && (
+                          <Path key="agg-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                            stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
+                            strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        )}
+                        {realSegs.map((pts, i) => {
+                          const dPath = safePathD(pts);
+                          return dPath ? (
+                            <Path key={`am-real-${i}`} d={dPath}
+                              stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
+                              strokeWidth={LINE_WIDTH}
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeOpacity={hasSelection ? 0.4 : 0.8} />
+                          ) : null;
+                        })}
+                        {hasSelection && basePts.length > 0 && (() => {
+                          const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                          const segPts: string[] = [];
+                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                          if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                          segPts.push(basePts[i]);
+                          if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                          if (segPts.length >= 2) {
+                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                            return (
+                              <Path key={`agg-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                                stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
+                                strokeWidth={hiW}
+                                strokeOpacity={0.9}
+                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            );
+                          }
+                          return null;
+                        })()}
+                        {realCount === 1 && singlePt && (
+                          <G key="agg-mood-sp">
+                            <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
+                              stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)}
+                              strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5}
+                              fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
+                          </G>
+                        )}
+                      </>
+                    );
+                  })()}
+                </Svg>
+              )}
+
+              {/* Energy (orange) */}
+              {showEnergy && (
+                <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                  {(() => {
+                    const items = (data.aggregated?.data || []) as any[];
+                    const n = items.length;
+                    const dw = contentWidth / Math.max(1, n);
+                    const basePts: string[] = [];
+                    const realSegs: string[][] = [];
+                    let seg: string[] = [];
+                    let realCount = 0;
+                    let singlePt: { x: number; y: number } | null = null;
+                    for (let i = 0; i < n; i++) {
+                      const b: any = items[i];
+                      const has = Number(b?.count || 0) > 0;
+                      
+                      let en = Number.isFinite(Number(b?.energy?.p50)) ? Number(b.energy.p50) : 6;
+                      if (!has) en = 6;
+                      const t = (Math.max(1, Math.min(10, en)) - 1) / 9;
+                      const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                      const x = AXIS_WIDTH + i * dw + dw / 2;
+                      if (!Number.isFinite(x) || !Number.isFinite(y)) { continue; }
+                      basePts.push(`${x},${y}`);
+                      if (has) { seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
+                      else if (seg.length) { realSegs.push(seg); seg = []; }
+                    }
+                    if (seg.length) realSegs.push(seg);
+                    const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
+                    const hasSelection = selectedIndex != null;
+                    return (
+                      <>
+                        {basePts.length > 1 && (
+                          <Path key="agg-en-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                            stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        )}
+                        {realSegs.map((pts, i) => {
+                          const dPath = safePathD(pts);
+                          return dPath ? (
+                            <Path key={`ae-real-${i}`} d={dPath} stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                              fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          ) : null;
+                        })}
+                        {hasSelection && basePts.length > 0 && (() => {
+                          const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                          const segPts: string[] = [];
+                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                          if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                          segPts.push(basePts[i]);
+                          if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                          if (segPts.length >= 2) {
+                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                            return (
+                              <Path key={`agg-en-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                                stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
+                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            );
+                          }
+                          return null;
+                        })()}
+                        {realCount === 1 && singlePt && (
+                          <G key="agg-en-sp">
+                            <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
+                              stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={energyColor} opacity={0.9} />
+                          </G>
+                        )}
+                      </>
+                    );
+                  })()}
+                </Svg>
+              )}
+
+              {/* Anxiety (purple) with fallback when flat 5 */}
+              {showAnxiety && (
+                <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                  {(() => {
+                    const items = (data.aggregated?.data || []) as any[];
+                    const n = items.length;
+                    const dw = contentWidth / Math.max(1, n);
+                    const basePts: string[] = [];
+                    const realSegs: string[][] = [];
+                    let seg: string[] = [];
+                    let realCount = 0;
+                    let singlePt: { x: number; y: number } | null = null;
+                    for (let i = 0; i < n; i++) {
+                      const b: any = items[i];
+                      const has = Number(b?.count || 0) > 0;
+                                             let a = 5; // Default neutral
+                       if (has) {
+                         if (Number.isFinite(Number(b?.anxiety?.p50))) {
+                           const anxP50 = Number(b.anxiety.p50);
+                           // Check if this is likely a fallback value (exactly 5)
+                           if (anxP50 === 5 && Number(b?.mood?.p50) !== 50) {
+                             // Derive from mood/energy buckets
+                             const moodP50 = Number(b?.mood?.p50 || 50);
+                             const energyP50 = Number(b?.energy?.p50 || 60);
+                             const m10 = Math.max(1, Math.min(10, Math.round(moodP50 / 10)));
+                             const e10 = Math.max(1, Math.min(10, Math.round(energyP50 / 10)));
+                             // Smart anxiety derivation from aggregated data
+                             if (m10 <= 3) a = 7;
+                             else if (m10 >= 8 && e10 <= 4) a = 6;
+                             else if (m10 <= 5 && e10 >= 7) a = 8;
+                             else a = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+                           } else {
+                             a = anxP50; // Use actual p50
+                           }
+                         } else {
+                           a = Number(b?.averageAnxiety || 5);
+                         }
+                       }
+                      const norm = Math.max(1, Math.min(10, Number(a || 0)));
+                      const t = (norm - 1) / 9;
+                      const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                      const x = AXIS_WIDTH + i * dw + dw / 2;
+                      if (!Number.isFinite(x) || !Number.isFinite(y)) { continue; }
+                      basePts.push(`${x},${y}`);
+                      if (has) { seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
+                      else if (seg.length) { realSegs.push(seg); seg = []; }
+                    }
+                    if (seg.length) realSegs.push(seg);
+                    const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+                    const hasSelection = selectedIndex != null;
+                    return (
+                      <>
+                        {basePts.length > 1 && (
+                          <Path key="agg-anx-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
+                            stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        )}
+                        {realSegs.map((pts, i) => {
+                          const dPath = `M ${pts[0]} L ${pts.slice(1).join(' L ')}`;
+                          return pts.length > 1 ? (
+                            <Path key={`aa-real-${i}`} d={dPath}
+                              stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                              fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          ) : null;
+                        })}
+                        {hasSelection && basePts.length > 0 && (() => {
+                          const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
+                          const segPts: string[] = [];
+                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
+                          if (i - 1 >= 0) segPts.push(basePts[i - 1]);
+                          segPts.push(basePts[i]);
+                          if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
+                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
+                          if (segPts.length >= 2) {
+                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
+                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                            return (
+                              <Path key={`agg-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
+                                stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
+                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            );
+                          }
+                          return null;
+                        })()}
+                        {realCount === 1 && singlePt && (
+                          <G key="agg-anx-sp">
+                            <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
+                              stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={anxColor} opacity={0.9} />
+                          </G>
+                        )}
+                      </>
+                    );
+                  })()}
+                </Svg>
+              )}
+            </>
+          )}
+
+          {/* Day mode overlays: p50 per visible hour across the day */}
+          {timeRange === 'day' && (() => {
+            const n = nVisible;
+            if (n <= 1) return null;
+            const dw = dwVisible;
+            const dwWindow = contentWidth / Math.max(1, dayWindowSize);
+            const allHours = (data.hourlyAverages || []) as any[];
+            // Mood p50 line (accent)
+            const moodPath = (() => {
+              const segs: string[][] = [];
+              let seg: string[] = [];
+              for (let i = 0; i < n; i++) {
+                const h = visibleHours[i] as any; // { dateKey }
+                const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                const moods = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                if (!rp.length || moods.length === 0) {
+                  if (seg.length) { segs.push(seg); seg = []; }
+                  continue;
+                }
+                const q = quantiles(moods);
+                const m = Number.isFinite(q.p50 as any) ? Number(q.p50) : 0;
+                const v = moodToValence(m);
+                const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                const x = AXIS_WIDTH + i * dw + dw / 2;
+                seg.push(`${x},${y}`);
+              }
+              if (seg.length) segs.push(seg);
+              return segs;
+            })();
+            // Energy p50 line (orange)
+            const energyPath = (() => {
+              const segs: string[][] = [];
+              let seg: string[] = [];
+              for (let i = 0; i < n; i++) {
+                const h = visibleHours[i] as any;
+                const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                const arr = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+                if (!arr.length) { if (seg.length) { segs.push(seg); seg = []; } continue; }
+                const q = quantiles(arr);
+                const val = Number.isFinite(q.p50 as any) ? Number(q.p50) : 0;
+                const norm = Math.max(1, Math.min(10, Number(val || 0)));
+                const t = (norm - 1) / 9;
+                const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                const x = AXIS_WIDTH + i * dw + dw / 2;
+                seg.push(`${x},${y}`);
+              }
+              if (seg.length) segs.push(seg);
+              return segs;
+            })();
+            // Anxiety p50 line (purple) - IMPROVED with smart derivation
+            const anxPath = (() => {
+              const segs: string[][] = [];
+              let seg: string[] = [];
+              for (let i = 0; i < n; i++) {
+                const h = visibleHours[i] as any;
+                const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                
+                // IMPROVED: Smart anxiety calculation with mood/energy derivation
+                let finalA = 5; // Default neutral
+                if (rp.length > 0) {
+                  const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+                  if (anxVals.length > 0) {
+                    if (anxVals.every(v => v === 5)) {
+                      // Derive from mood/energy
+                      const moodVals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                      const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+                      if (moodVals.length > 0 && energyVals.length > 0) {
+                        const avgMood = moodVals.reduce((s, v) => s + v, 0) / moodVals.length;
+                        const avgEnergy = energyVals.reduce((s, v) => s + v, 0) / energyVals.length;
+                        const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10))); 
+                        const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
+                        if (m10 <= 3) finalA = 7;
+                        else if (m10 >= 8 && e10 <= 4) finalA = 6;
+                        else if (m10 <= 5 && e10 >= 7) finalA = 8;
+                        else if (m10 >= 7 && e10 >= 7) finalA = 4;
+                        else finalA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+                      }
+                    } else {
+                      finalA = quantiles(anxVals).p50;
+                    }
+                  }
+                }
+                
+                const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
+                const t = (norm - 1) / 9;
+                const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                const x = AXIS_WIDTH + i * dw + dw / 2;
+                seg.push(`${x},${y}`);
+              }
+              if (seg.length) segs.push(seg);
+              return segs;
+            })();
+            // solid lines only; removed dash pattern and dynamic width
+            const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
+            const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+            // Base full-day paths (faint), map hours 0..23 relative to current window
+            const hasStrongMood = moodPath.some(seg => seg.length > 1);
+            const hasStrongEn = energyPath.some(seg => seg.length > 1);
+            const hasStrongAnx = anxPath.some(seg => seg.length > 1);
+            const buildFullDaySegs = (kind: 'mood'|'energy'|'anxiety') => {
+              const segs: string[][] = [];
+              let seg: string[] = [];
+              for (let i = 0; i < allHours.length; i++) {
+                const h: any = allHours[i];
+                const hk = String(h?.dateKey || '');
+                const hh = hk.includes('#') ? parseInt(hk.split('#')[1] || '0', 10) : i;
+                // Skip inside window only if we already have a strong line; otherwise include faint
+                const skipInside = (kind === 'mood' ? hasStrongMood : kind === 'energy' ? hasStrongEn : hasStrongAnx);
+                if (skipInside && hh >= dayWindowStart && hh < dayWindowStart + dayWindowSize) {
+                  if (seg.length) { segs.push(seg); seg = []; }
+                  continue;
+                }
+                const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+                const arr = rp.map((e: any) => {
+                  if (kind === 'mood') return Number(e.mood_score);
+                  if (kind === 'energy') return Number(e.energy_level);
+                  return Number(e.anxiety_level);
+                }).filter(Number.isFinite);
+                if (!arr.length) { if (seg.length) { segs.push(seg); seg = []; } continue; }
+                const q = quantiles(arr);
+                const val = Number.isFinite(q.p50 as any) ? Number(q.p50) : 0;
+                let y: number;
+                if (kind === 'mood') {
+                  const v = moodToValence(val);
+                  y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                } else {
+                  const norm = Math.max(1, Math.min(10, Number(val || 0)));
+                  const t = (norm - 1) / 9;
+                  y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                }
+                const x = AXIS_WIDTH + ((hh - dayWindowStart + 0.5) * dwWindow);
+                seg.push(`${x},${y}`);
+              }
+              if (seg.length) segs.push(seg);
+              return segs;
+            };
+            const baseMood = buildFullDaySegs('mood');
+            const baseEn = buildFullDaySegs('energy');
+            const baseAnx = buildFullDaySegs('anxiety');
+            return (
+              <>
+                {/* Base full-day faint lines for context */}
+                {showMoodTrend && (
+                  <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                    {baseMood.map((pts, i) => (
+                      pts.length > 1 ? (
+                        <Path key={`fdm-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                          stroke={accentColor} strokeWidth={0.8} strokeOpacity={0.14}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      ) : null
+                    ))}
+                  </Svg>
+                )}
+                <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                  {baseEn.map((pts, i) => (
+                    pts.length > 1 ? (
+                      <Path key={`fde-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={energyColor} strokeWidth={0.8} strokeOpacity={0.14}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    ) : null
+                  ))}
+                </Svg>
+                <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                  {baseAnx.map((pts, i) => (
+                    pts.length > 1 ? (
+                      <Path key={`fda-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={0.8} strokeOpacity={0.12}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    ) : null
+                  ))}
+                </Svg>
+                {/* Mood (accent) */}
+                {showMoodTrend && (
+                  <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                     <Defs>
-                      <LinearGradient id="weeklyTrendGrad" x1="0" y1="0" x2="1" y2="0">
+                      <LinearGradient id="dayTrendGrad" x1="0" y1="0" x2="1" y2="0">
                         <Stop offset="0%" stopColor={accentColor} stopOpacity={0.6} />
                         <Stop offset="15%" stopColor={accentColor} stopOpacity={0.9} />
                         <Stop offset="85%" stopColor={accentColor} stopOpacity={0.9} />
                         <Stop offset="100%" stopColor={accentColor} stopOpacity={0.6} />
                       </LinearGradient>
                     </Defs>
-                    {segments.map((pts, i) => (
-                      pts.length > 1 ? (
-                        <Path
-                          key={`wtrend-${i}`}
-                          d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                          stroke="url(#weeklyTrendGrad)"
-                          strokeWidth={width}
-                          fill="none"
-                          strokeDasharray={dash}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      ) : null
-                    ))}
-                  </>
-                );
-              })()}
-            </Svg>
-          )}
-
-          {/* Weekly energy thin-line overlay (gap-aware) - weekly p50 */}
-          {showEnergy && timeRange === 'week' && data.dailyAverages.length > 1 && (
-            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>{(() => {
-              const items = data.dailyAverages;
-              const n = items.length;
-              const dw = contentWidth / Math.max(1, n);
-              const segments: string[][] = [];
-              let seg: string[] = [];
-              for (let index = 0; index < n; index++) {
-                const d = items[index] as any;
-                const has = Number(d.count || 0) > 0;
-                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
-                // Use per-entry p50 if available, else daily average
-                const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                const eArr = rp.map((en: any) => Number(en.energy_level)).filter(Number.isFinite);
-                const e = eArr.length ? quantiles(eArr).p50 : Number(d.averageEnergy || 0);
-                const norm = Math.max(1, Math.min(10, Number(e || 0)));
-                const t = (norm - 1) / 9;
-                const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                if (has) seg.push(`${x},${y}`); else if (seg.length) { segments.push(seg); seg = []; }
-              }
-              if (seg.length) segments.push(seg);
-              const dashLen = clamp(Math.round(dw * 0.16), 2, 5);
-              const gapLen = clamp(Math.round(dashLen * 0.55), 1, 4);
-              const dash = `${dashLen},${gapLen}`;
-              const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
-              return segments.map((pts, i) => (
-                pts.length > 1 ? (
-                  <Path
-                    key={`en-${i}`}
-                    d={`M ${pts[0]} L ${pts.slice(1).join(' L ' )}`}
-                    stroke={energyColor}
-                    strokeWidth={1.2}
-                    strokeOpacity={0.8}
-                    fill="none"
-                    strokeDasharray={dash}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ) : null
-              ));
-            })()}</Svg>
-          )}
+                    {moodPath.map((pts, i) => {
+                      const dPath = safePathD(pts);
+                      return dPath ? (
+                        <Path key={`dm-${i}`} d={dPath}
+                          stroke="url(#dayTrendGrad)" strokeWidth={LINE_WIDTH} strokeOpacity={0.8} fill="none"
+                          strokeLinecap="round" strokeLinejoin="round" />
+                      ) : null;
+                    })}
+                  </Svg>
+                )}
+                {showMoodTrend && (() => {
+                  const totalPts = moodPath.reduce((s, seg) => s + seg.length, 0);
+                  if (totalPts !== 1) return null;
+                  const [only] = moodPath.find(seg => seg.length === 1) || [] as any;
+                  if (!only) return null;
+                  const [sx, sy] = String(only).split(',').map(Number);
+                  const mini = Math.max(6, dwVisible * 0.3);
+                  const r = LINE_WIDTH + 1.5;
+                  return (
+                    <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                      <Line x1={sx - clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={sy} x2={sx + clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={sy} stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      <Circle cx={sx} cy={sy} r={r} fill={accentColor} opacity={0.9} />
+                    </Svg>
+                  );
+                })()}
+                {/* Energy (orange) */}
+                {showEnergy && (
+                  <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                    {energyPath.map((pts, i) => {
+                      const dPath = safePathD(pts);
+                      return dPath ? (
+                        <Path key={`de-${i}`} d={dPath}
+                          stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      ) : null;
+                    })}
+                  </Svg>
+                )}
+                {showEnergy && (() => {
+                  const totalPts = energyPath.reduce((s, seg) => s + seg.length, 0);
+                  if (totalPts !== 1) return null;
+                  const [only] = energyPath.find(seg => seg.length === 1) || [] as any;
+                  if (!only) return null;
+                  const [sx, sy] = String(only).split(',').map(Number);
+                  const mini = Math.max(6, dwVisible * 0.3);
+                  const r = LINE_WIDTH + 1.5;
+                  return (
+                    <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                      <Line x1={sx - clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={sy} x2={sx + clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={sy} stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      <Circle cx={sx} cy={sy} r={r} fill={energyColor} opacity={0.9} />
+                    </Svg>
+                  );
+                })()}
+                {/* DISABLED: OLD Anxiety overlay - replaced by improved system above */}
+                {false && showAnxiety && (
+                  <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                    {anxPath.map((pts, i) => {
+                      const dPath = safePathD(pts);
+                      return dPath ? (
+                        <Path key={`da-${i}`} d={dPath}
+                          stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      ) : null;
+                    })}
+                  </Svg>
+                )}
+                {/* DISABLED: OLD anxiety single point - replaced by improved system above */}
+                {false && showAnxiety && (() => {
+                  const totalPts = anxPath.reduce((s, seg) => s + seg.length, 0);
+                  if (totalPts !== 1) return null;
+                  const [only] = anxPath.find(seg => seg.length === 1) || [] as any;
+                  if (!only) return null;
+                  const [sx, sy] = String(only).split(',').map(Number);
+                  const mini = Math.max(6, dwVisible * 0.3);
+                  const r = LINE_WIDTH + 1.5;
+                  return (
+                    <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
+                      <Line x1={sx - clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={sy} x2={sx + clamp(dwVisible * MINI_SEGMENT_RATIO_DAY, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={sy} stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      <Circle cx={sx} cy={sy} r={r} fill={anxColor} opacity={0.9} />
+                    </Svg>
+                  );
+                })()}
+              </>
+            );
+          })()}
 
           {/* Dokunmatik alanlar */}
           <View 
@@ -1017,7 +2185,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 ? (data.aggregated?.data || [])
                 : (timeRange === 'day'
                     ? (((data.hourlyAverages || [])
-                        .slice(dayWindowStart, dayWindowStart + DAY_WINDOW_SIZE)
+                        .slice(dayWindowStart, dayWindowStart + dayWindowSize)
                         .map((h: any) => ({ date: h.dateKey })) ) as any[])
                     : data.dailyAverages);
               const n = items.length;
@@ -1070,264 +2238,90 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 );
               });
             })()}
-            {/* Aggregate p50 trend (month / 6months / year) */}
-            {showMoodTrend && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (
-              <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
-                {(() => {
-                  const items = (data.aggregated?.data || []) as any[];
-                  if (!items.length) return null;
-                  const n = items.length;
-                  const dw = contentWidth / Math.max(1, n);
-                  // Build gap-aware segments: only connect consecutive buckets with data
-                  const segments: string[][] = [];
-                  let seg: string[] = [];
-                  for (let idx = 0; idx < n; idx++) {
-                    const b = items[idx] as any;
-                    const cnt = Number(b?.count || 0);
-                    const x = AXIS_WIDTH + idx * dw + dw / 2;
-                    if (cnt > 0) {
-                      const raw = b?.mood?.p50 ?? b?.avg ?? 0;
-                      const m = Number.isFinite(raw as any) ? Number(raw) : 0;
-                      const v = moodToValence(m);
-                      const y = CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
-                      seg.push(`${x},${y}`);
-                    } else if (seg.length) {
-                      segments.push(seg);
-                      seg = [];
-                    }
-                  }
-                  if (seg.length) segments.push(seg);
-                  // Dash pattern and width adapt to density for better legibility
-                  // Shorter dashes for Month/6Months so segments don't feel too long
-                  const dashLen = timeRange === 'year' ? 0 : clamp(Math.round(dw * 0.22), 2, 8);
-                  const gapLen = timeRange === 'year' ? 0 : clamp(Math.round(dashLen * 0.5), 1, 6);
-                  const dash = timeRange === 'year' ? undefined : `${dashLen},${gapLen}`;
-                  // Slightly slimmer range
-                  const width = clamp(timeRange === 'year' ? (dw / 18) + 0.7 : (dw / 22) + 0.5, 0.9, 1.8);
-                  // Accent-aware color: lighten in dark theme, darken in light theme
-                  const trendColor = accentColor.startsWith('#')
-                    ? (isDark ? mixHex(accentColor, '#FFFFFF', 0.15) : mixHex(accentColor, '#000000', 0.12))
-                    : accentColor;
-                  return (
-                    <>
-                      <Defs>
-                        <LinearGradient id="trendGrad" x1="0" y1="0" x2="1" y2="0">
-                          <Stop offset="0%" stopColor={trendColor} stopOpacity={0.5} />
-                          <Stop offset="15%" stopColor={trendColor} stopOpacity={0.9} />
-                          <Stop offset="85%" stopColor={trendColor} stopOpacity={0.9} />
-                          <Stop offset="100%" stopColor={trendColor} stopOpacity={0.5} />
-                        </LinearGradient>
-                      </Defs>
-                      {segments.map((pts, i) => (
-                        pts.length > 1 ? (
-                          <Path key={`moodseg-${i}`}
-                            d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                            stroke="url(#trendGrad)"
-                            strokeWidth={width}
-                            fill="none"
-                            strokeDasharray={dash as any}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        ) : null
-                      ))}
-                    </>
-                  );
-                })()}
-              </Svg>
-            )}
-            {/* Aggregate p50 trend - energy */}
-            {showEnergy && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (
-              <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
-                {(() => {
-                  const items = (data.aggregated?.data || []) as any[];
-                  if (!items.length) return null;
-                  const n = items.length;
-                  const dw = contentWidth / Math.max(1, n);
-                  const segments: string[][] = [];
-                  let seg: string[] = [];
-                  for (let idx = 0; idx < n; idx++) {
-                    const b = items[idx] as any;
-                    const cnt = Number(b?.count || 0);
-                    const x = AXIS_WIDTH + idx * dw + dw / 2;
-                    if (cnt > 0) {
-                      const rawE = b?.energy?.p50;
-                      const val = Number.isFinite(rawE as any) ? Number(rawE) : 0;
-                      const t = (Math.max(1, Math.min(10, val)) - 1) / 9;
-                      const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                      seg.push(`${x},${y}`);
-                    } else if (seg.length) {
-                      segments.push(seg);
-                      seg = [];
-                    }
-                  }
-                  if (seg.length) segments.push(seg);
-                  const dashLen = timeRange === 'year' ? 0 : clamp(Math.round(dw * 0.22), 2, 8);
-                  const gapLen = timeRange === 'year' ? 0 : clamp(Math.round(dashLen * 0.5), 1, 6);
-                  const dash = timeRange === 'year' ? undefined : `${dashLen},${gapLen}`;
-                  const width = clamp(timeRange === 'year' ? (dw / 18) + 0.7 : (dw / 22) + 0.5, 0.9, 1.8);
-                  return segments.map((pts, i) => (
-                    pts.length > 1 ? (
-                      <Path key={`energyseg-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ' )}`} stroke="#F59E0B" strokeWidth={width} strokeOpacity={0.85} fill="none" strokeDasharray={dash as any} strokeLinecap="round" strokeLinejoin="round" />
-                    ) : null
-                  ));
-                })()}
-              </Svg>
-            )}
-            {/* Aggregate p50 trend - anxiety */}
-            {showAnxiety && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year') && (
-              <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
-                {(() => {
-                  const items = (data.aggregated?.data || []) as any[];
-                  if (!items.length) return null;
-                  const n = items.length;
-                  const dw = contentWidth / Math.max(1, n);
-                  const segments: string[][] = [];
-                  let seg: string[] = [];
-                  for (let idx = 0; idx < n; idx++) {
-                    const b = items[idx] as any;
-                    const cnt = Number(b?.count || 0);
-                    const x = AXIS_WIDTH + idx * dw + dw / 2;
-                    if (cnt > 0) {
-                      const rawA = b?.anxiety?.p50;
-                      const val = Number.isFinite(rawA as any) ? Number(rawA) : 0;
-                      const t = (Math.max(1, Math.min(10, val)) - 1) / 9;
-                      const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                      seg.push(`${x},${y}`);
-                    } else if (seg.length) {
-                      segments.push(seg);
-                      seg = [];
-                    }
-                  }
-                  if (seg.length) segments.push(seg);
-                  const dashLen = timeRange === 'year' ? 0 : clamp(Math.round(dw * 0.22), 2, 8);
-                  const gapLen = timeRange === 'year' ? 0 : clamp(Math.round(dashLen * 0.5), 1, 6);
-                  const dash = timeRange === 'year' ? undefined : `${dashLen},${gapLen}`;
-                  const width = clamp(timeRange === 'year' ? (dw / 18) + 0.7 : (dw / 22) + 0.5, 0.9, 1.8);
-                  return segments.map((pts, i) => (
-                    pts.length > 1 ? (
-                      <Path key={`anxseg-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ' )}`} stroke="#7C3AED" strokeWidth={width} strokeOpacity={0.8} fill="none" strokeDasharray={dash as any} strokeLinecap="round" strokeLinejoin="round" />
-                    ) : null
-                  ));
-                })()}
-              </Svg>
-            )}
-            {/* Scrub overlay: press and drag horizontally to move selection and request paging at edges */}
-            <View
-              style={[StyleSheet.absoluteFill, { marginLeft: AXIS_WIDTH }]}
-              pointerEvents="auto"
-              onStartShouldSetResponder={() => true}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={(e) => {
-                const items = isAggregateMode
-                  ? (data.aggregated?.data || [])
-                  : (timeRange === 'day'
-                      ? ((data.hourlyAverages || []).map((h: any) => ({ date: h.dateKey })) as any[])
-                      : data.dailyAverages);
-                const n = items.length;
-                const dw = contentWidth / Math.max(1, n);
-                const x = e.nativeEvent.locationX; // 0..contentWidth
-                let idx = Math.floor(x / Math.max(1, dw));
-                idx = Math.max(0, Math.min(n - 1, idx));
-                const valid = (() => {
-                  if (isAggregateMode) {
-                    const b: any = items[idx];
-                    return Number(b?.count || 0) > 0;
-                  } else if (timeRange === 'day') {
-                    const it: any = items[idx];
-                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
-                    return rp.length > 0;
-                  } else {
-                    const d: any = items[idx];
-                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                    return rp.length > 0;
-                  }
-                })();
-                if (!valid) {
+            {/* Removed deprecated dashed aggregate trend blocks */}
+            {/* Scrub overlay (gesture-handler): pan to scrub, pinch to zoom (Day) */}
+            <PinchGestureHandler
+              onGestureEvent={(e) => {
+                if (timeRange !== 'day') return;
+                const scale = (e.nativeEvent as any).scale || 1;
+                if (!pinchAppliedRef.current && (scale > 1.08 || scale < 0.92)) {
+                  const zoomOut = scale > 1.08;
+                  const center = dayWindowStart + dayWindowSize / 2;
+                  const step = 2;
+                  const nextSize = Math.max(DAY_WINDOW_MIN, Math.min(DAY_WINDOW_MAX, dayWindowSize + (zoomOut ? step : -step)));
+                  const nextStart = Math.max(0, Math.min(24 - nextSize, Math.round(center - nextSize / 2)));
+                  setDayWindowSize(nextSize);
+                  setDayWindowStart(nextStart);
                   setSelectedIndex(null);
-                  emitSelection(null as any);
-                } else {
-                  setSelectedIndex(idx);
+                  emitSelection(null);
+                  pinchAppliedRef.current = true;
+                }
+              }}
+              onEnded={() => { pinchInitDistRef.current = null; pinchAppliedRef.current = false; }}
+            >
+              <PanGestureHandler
+                onHandlerStateChange={(e) => {
+                  const state: any = (e.nativeEvent as any).state;
+                  if (state !== 4 /* ACTIVE */ && state !== 5 /* END */) return;
+                  const x = (e.nativeEvent as any).x ?? ((e.nativeEvent as any).absoluteX ?? 0);
+                  const items = isAggregateMode
+                    ? (data.aggregated?.data || [])
+                    : (timeRange === 'day'
+                        ? (((data.hourlyAverages || [])
+                            .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+                            .map((h: any) => ({ date: h.dateKey })) ) as any[])
+                        : data.dailyAverages);
+                  const n = items.length;
+                  if (n === 0) return;
+                  const dw = contentWidth / Math.max(1, n);
+                  let idx = Math.floor(x / Math.max(1, dw));
+                  idx = Math.max(0, Math.min(n - 1, idx));
                   emitSelection(idx);
-                }
-              }}
-              onResponderMove={(e) => {
-                const items = isAggregateMode
-                  ? (data.aggregated?.data || [])
-                  : (timeRange === 'day'
-                      ? (((data.hourlyAverages || [])
-                          .slice(dayWindowStart, dayWindowStart + dayWindowSize)
-                          .map((h: any) => ({ date: h.dateKey })) ) as any[])
-                      : data.dailyAverages);
-                const n = items.length;
-                const dw = contentWidth / Math.max(1, n);
-                const touches: any[] = (e.nativeEvent as any).touches || [];
-                if (timeRange === 'day' && touches.length >= 2) {
-                  // Simple pinch detection
-                  const dxy = (t1: any, t2: any) => {
-                    const dx = (t1.pageX - t2.pageX); const dy = (t1.pageY - t2.pageY); return Math.hypot(dx, dy);
-                  };
-                  const dist = dxy(touches[0], touches[1]);
-                  if (pinchInitDistRef.current == null) pinchInitDistRef.current = dist;
-                  const scale = dist / (pinchInitDistRef.current || dist);
-                  if (!pinchAppliedRef.current && (scale > 1.08 || scale < 0.92)) {
-                    const zoomOut = scale > 1.08;
-                    const center = dayWindowStart + dayWindowSize / 2;
-                    const step = 2;
-                    const nextSize = Math.max(DAY_WINDOW_MIN, Math.min(DAY_WINDOW_MAX, dayWindowSize + (zoomOut ? step : -step)));
-                    const nextStart = Math.max(0, Math.min(24 - nextSize, Math.round(center - nextSize / 2)));
-                    setDayWindowSize(nextSize);
-                    setDayWindowStart(nextStart);
-                    setSelectedIndex(null);
-                    emitSelection(null);
-                    pinchAppliedRef.current = true;
-                  }
-                  return; // don't scrub while pinching
-                }
-                const x = e.nativeEvent.locationX; // may go slightly <0 or >contentWidth if finger outside
-                let idx = Math.floor(x / Math.max(1, dw));
-                idx = Math.max(0, Math.min(n - 1, idx));
-                const valid = (() => {
-                  if (isAggregateMode) {
-                    const b: any = items[idx];
-                    return Number(b?.count || 0) > 0;
-                  } else if (timeRange === 'day') {
-                    const it: any = items[idx];
-                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
-                    return rp.length > 0;
+                }}
+                onGestureEvent={(e) => {
+                  const items = isAggregateMode
+                    ? (data.aggregated?.data || [])
+                    : (timeRange === 'day'
+                        ? (((data.hourlyAverages || [])
+                            .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+                            .map((h: any) => ({ date: h.dateKey })) ) as any[])
+                        : data.dailyAverages);
+                  const n = items.length;
+                  const dw = contentWidth / Math.max(1, n);
+                  const x = (e.nativeEvent as any).x;
+                  let idx = Math.floor(x / Math.max(1, dw));
+                  idx = Math.max(0, Math.min(n - 1, idx));
+                  const valid = (() => {
+                    if (isAggregateMode) {
+                      const b: any = items[idx];
+                      return Number(b?.count || 0) > 0;
+                    } else if (timeRange === 'day') {
+                      const it: any = items[idx];
+                      const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
+                      return rp.length > 0;
+                    } else {
+                      const d: any = items[idx];
+                      const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                      return rp.length > 0;
+                    }
+                  })();
+                  if (valid) {
+                    if (idx !== selectedIndex) {
+                      setSelectedIndex(idx);
+                      emitSelection(idx);
+                    }
                   } else {
-                    const d: any = items[idx];
-                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                    return rp.length > 0;
+                    if (selectedIndex !== null) {
+                      setSelectedIndex(null);
+                      emitSelection(null as any);
+                    }
                   }
-                })();
-                if (valid) {
-                  if (idx !== selectedIndex) {
-                    setSelectedIndex(idx);
-                    emitSelection(idx);
-                  }
-                } else {
-                  if (selectedIndex !== null) {
-                    setSelectedIndex(null);
-                    emitSelection(null as any);
-                  }
-                }
-                // Edge pagination requests
-                const threshold = Math.max(12, 0.3 * dw);
-                if (timeRange === 'day') {
-                  const shift = 2; // hours per edge shift
-                  if (x < -threshold && idx === 0) {
-                    setDayWindowStart(prev => Math.max(0, prev - shift));
-                  } else if (x > contentWidth + threshold && idx === n - 1) {
-                    setDayWindowStart(prev => Math.min(24 - DAY_WINDOW_SIZE, prev + shift));
-                  }
-                } else if (typeof onRequestPage === 'function') {
-                  if (x < -threshold && idx === 0) onRequestPage('prev');
-                  else if (x > contentWidth + threshold && idx === n - 1) onRequestPage('next');
-                }
-              }}
-              onResponderRelease={() => { pinchInitDistRef.current = null; pinchAppliedRef.current = false; }}
-            />
+                }}
+              >
+                <View style={[StyleSheet.absoluteFill, { marginLeft: AXIS_WIDTH }]} pointerEvents="none" />
+              </PanGestureHandler>
+            </PinchGestureHandler>
+              {/* Legacy responder block removed in favor of gesture-handler */}
           </View>
           {/* External tooltip rendered by parent */}
         </View>

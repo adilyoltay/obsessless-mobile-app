@@ -13,9 +13,10 @@ export default function WeeklySummaryGrid({ data }: Props) {
   const router = useRouter();
   const theme = useThemeColors();
 
-  const moodTodayAvg = data?.todayAverage ?? 0;
-  const weeklyEnergyAvg = data?.weeklyEnergyAvg ?? 0;
-  const weeklyAnxietyAvg = data?.weeklyAnxietyAvg ?? 0;
+  // IMPROVED: Handle null averages properly (null = no real data)
+  const moodTodayAvg = data?.todayAverage ?? 50; // FIXED: 50 center instead of 0
+  const weeklyEnergyAvg = data?.weeklyEnergyAvg ?? 6; // FIXED: 6 neutral instead of 0
+  const weeklyAnxietyAvg = data?.weeklyAnxietyAvg ?? 5; // FIXED: 5 neutral instead of 0
 
   const goMood = () => router.push({ pathname: '/(tabs)/index' as any, params: { focus: 'mood' } });
 
@@ -31,7 +32,13 @@ export default function WeeklySummaryGrid({ data }: Props) {
             <MaterialCommunityIcons name="emoticon-happy" size={18} color="#F59E0B" />
             <Text style={styles.cardTitle}>Mood</Text>
           </View>
-          <Text style={styles.cardValue}>{moodTodayAvg > 0 ? moodTodayAvg.toFixed(1) : '—'}</Text>
+          <Text style={styles.cardValue}>
+            {(() => {
+              if (data?.todayAverage == null) return '—'; // No data
+              const avg = data.todayAverage;
+              return avg > 0 ? `${avg.toFixed(1)}/100` : '—';
+            })()}
+          </Text>
           <Text style={styles.cardSub}>Bugünkü ortalama</Text>
           <View style={styles.cardFooter}><Text style={styles.cardAction}>Görüntüle →</Text></View>
         </Pressable>
@@ -41,7 +48,13 @@ export default function WeeklySummaryGrid({ data }: Props) {
             <MaterialCommunityIcons name="lightning-bolt" size={18} color="#10B981" />
             <Text style={styles.cardTitle}>Enerji</Text>
           </View>
-          <Text style={styles.cardValue}>{weeklyEnergyAvg > 0 ? weeklyEnergyAvg.toFixed(1) : '—'}</Text>
+          <Text style={styles.cardValue}>
+            {(() => {
+              if (data?.weeklyEnergyAvg == null) return '—'; // No real data
+              const avg = data.weeklyEnergyAvg;
+              return avg > 0 ? `${avg.toFixed(1)}/10` : '—';
+            })()}
+          </Text>
           <Text style={styles.cardSub}>Haftalık ortalama</Text>
           <View style={styles.cardFooter}><Text style={styles.cardAction}>Görüntüle →</Text></View>
         </Pressable>
@@ -51,7 +64,13 @@ export default function WeeklySummaryGrid({ data }: Props) {
             <MaterialCommunityIcons name="heart-pulse" size={18} color="#EF4444" />
             <Text style={styles.cardTitle}>Anksiyete</Text>
           </View>
-          <Text style={styles.cardValue}>{weeklyAnxietyAvg > 0 ? weeklyAnxietyAvg.toFixed(1) : '—'}</Text>
+          <Text style={styles.cardValue}>
+            {(() => {
+              if (data?.weeklyAnxietyAvg == null) return '—'; // No real data
+              const avg = data.weeklyAnxietyAvg;
+              return avg > 0 ? `${avg.toFixed(1)}/10` : '—';
+            })()}
+          </Text>
           <Text style={styles.cardSub}>Haftalık ortalama</Text>
           <View style={styles.cardFooter}><Text style={styles.cardAction}>Görüntüle →</Text></View>
         </Pressable>

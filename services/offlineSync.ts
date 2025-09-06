@@ -1168,7 +1168,7 @@ export class OfflineSyncService {
     if (userId) {
       const idempotencyResult = await idempotencyService.checkMoodEntryIdempotency({
         user_id: userId,
-        mood_score: item.data.mood_score || 50,
+        mood_score: item.data.mood_score != null ? item.data.mood_score : 50, // FIXED: explicit null check
         energy_level: item.data.energy_level || 5,
         anxiety_level: item.data.anxiety_level || 5,
         notes: item.data.notes || '',
