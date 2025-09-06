@@ -55,8 +55,9 @@ import { PanResponder, PanResponderGestureState, GestureResponderEvent } from 'r
 // const { width } = Dimensions.get('window'); // no direct usage after style prune
 
 // Minimal styles actually used by this screen
+import { Colors } from '@/constants/Colors';
 const simpleStyles = StyleSheet.create({
-  scrollView: { flex: 1, backgroundColor: '#F3F4F6' },
+  scrollView: { flex: 1, backgroundColor: Colors.ui.background },
 });
 
 export default function TodayScreen() {

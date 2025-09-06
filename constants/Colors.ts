@@ -20,7 +20,7 @@ export const Colors = {
   // UI Colors - Updated
   ui: {
     border: '#E5E7EB',     // Çizgiler (Light Gray)
-    background: '#F3F4F6',  // Kirli beyaz (System Gray 6 benzeri)
+    background: '#F9FAFB',  // Açık gri - dokümana uyum
     backgroundSecondary: '#FFFFFF', // Legacy: white for cards
     card: '#FFFFFF',       // Card surface (easily tweakable to off-white)
   },
@@ -36,7 +36,7 @@ export const Colors = {
   // Legacy support (will be refactored)
   light: {
     text: '#374151',
-    background: '#F3F4F6',
+    background: '#F9FAFB',
     backgroundSecondary: '#FFFFFF',
     tint: '#10B981',
     icon: '#6B7280',

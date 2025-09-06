@@ -151,6 +151,14 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
     if (range === 'week') {
       const e = extended.rawDataPoints[date]?.entries || [];
       setDetailEntries(e);
+    } else if (range === 'day') {
+      // Day mode: date is an hourly key YYYY-MM-DD#HH
+      const list = (extended.rawHourlyDataPoints as any)?.[date]?.entries || [];
+      setDetailEntries(list);
+      // Pass only the YYYY-MM-DD part to detail sheet for proper date formatting
+      const dayOnly = String(date).split('#')[0];
+      setDetailDate(dayOnly);
+      return;
     } else {
       const agg = extended.aggregated?.data || [];
       let bucket = agg.find(b => b.date === date) as any;
@@ -428,9 +436,16 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                 <Text style={styles.chartHeaderDateRange}>{(() => {
                   const days = extended?.dailyAverages || [];
                   if (!days.length) return '';
+                  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+                  if (range === 'day') {
+                    const firstKey = String(days[0].date);
+                    const ymd = firstKey.split('#')[0];
+                    const d = new Date(`${ymd}T00:00:00.000Z`);
+                    if (!isFinite(d.getTime())) return '';
+                    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+                  }
                   const start = new Date(days[0].date);
                   const end = new Date(days[days.length - 1].date);
-                  const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
                   if (range === 'week') return `${start.getDate()} ${months[start.getMonth()]}–${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
                   if (range === 'month') return `${months[start.getMonth()]} ${start.getFullYear()}`;
                   if (range === '6months') return `${months[start.getMonth()]}–${months[end.getMonth()]} ${end.getFullYear()}`;
@@ -659,7 +674,9 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                         <View style={[styles.tooltipBox, { backgroundColor: theme.card, maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
                           {/* Title: Date (Dominant) */}
                           {(() => {
-                            const d = toUserLocalDate(`${chartSelection.date}T00:00:00.000Z`);
+                            const dateKey = String(chartSelection.date);
+                            const ymd = dateKey.includes('#') ? dateKey.split('#')[0] : dateKey;
+                            const d = toUserLocalDate(`${ymd}T00:00:00.000Z`);
                             const locale = language === 'tr' ? 'tr-TR' : 'en-US';
                             const day = d.getDate();
                             const mon = new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
