@@ -1383,7 +1383,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             </Svg>
           )}
 
-          {/* Day view - Energy line */}
+          {/* Day view - Energy line (solid for real data, dashed only for gaps) */}
           {showEnergy && timeRange === 'day' && !isAggregateMode && data.hourlyAverages && (
             <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
               {(() => {
@@ -1392,7 +1392,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const dw = contentWidth / Math.max(1, n);
                 const basePts: string[] = [];
                 const realSegments: string[][] = [];
+                const gapSegments: string[][] = [];
                 let seg: string[] = [];
+                let gap: string[] = [];
                 let realCount = 0;
                 let singlePt: { x: number; y: number } | null = null;
                 
@@ -1421,26 +1423,34 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       seg.push(`${x},${y}`);
                       realCount++;
                       singlePt = { x, y };
+                      if (gap.length) { gapSegments.push(gap); gap = []; }
                     } else if (seg.length) {
                       realSegments.push(seg);
                       seg = [];
+                      gap.push(`${x},${y}`);
+                    } else {
+                      // still in gap segment
+                      gap.push(`${x},${y}`);
                     }
                   }
                 }
                 
                 if (seg.length) realSegments.push(seg);
+                if (gap.length) gapSegments.push(gap);
                 const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                // Base line (all points including neutral) - dashed
-                if (basePts.length > 1) {
-                  els.push(
-                    <Path key="day-energy-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                      strokeDasharray="6,4"
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
-                }
+                // Dashed only for gap segments (no real data)
+                gapSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`day-energy-gap-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        strokeDasharray="6,4"
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
                 
                 // Real data segments - solid
                 realSegments.forEach((pts, i) => {
@@ -1490,7 +1500,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             </Svg>
           )}
 
-          {/* Day view - Anxiety line - RESTORED: New unified system with base/real separation */}
+          {/* Day view - Anxiety line (solid for real data, dashed only for gaps) */}
           {showAnxiety && timeRange === 'day' && !isAggregateMode && data.hourlyAverages && (
             <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
               {(() => {
@@ -1499,7 +1509,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const dw = contentWidth / Math.max(1, n);
                 const basePts: string[] = [];
                 const realSegments: string[][] = [];
+                const gapSegments: string[][] = [];
                 let seg: string[] = [];
+                let gap: string[] = [];
                 let realCount = 0;
                 let singlePt: { x: number; y: number } | null = null;
                 
@@ -1548,26 +1560,33 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       seg.push(`${x},${y}`);
                       realCount++;
                       singlePt = { x, y };
+                      if (gap.length) { gapSegments.push(gap); gap = []; }
                     } else if (seg.length) {
                       realSegments.push(seg);
                       seg = [];
+                      gap.push(`${x},${y}`);
+                    } else {
+                      gap.push(`${x},${y}`);
                     }
                   }
                 }
                 
                 if (seg.length) realSegments.push(seg);
+                if (gap.length) gapSegments.push(gap);
                 const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                // Base line (all points including neutral) - dashed
-                if (basePts.length > 1) {
-                  els.push(
-                    <Path key="day-anxiety-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                      stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                      strokeDasharray="6,4"
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
-                }
+                // Dashed only for gaps (no data)
+                gapSegments.forEach((pts, i) => {
+                  if (pts.length > 1) {
+                    els.push(
+                      <Path key={`day-anxiety-gap-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        strokeDasharray="6,4"
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                });
                 
                 // Real data segments - solid
                 realSegments.forEach((pts, i) => {
@@ -1963,7 +1982,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               for (let i = 0; i < n; i++) {
                 const h = visibleHours[i] as any;
                 const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
-                
                 // IMPROVED: Smart anxiety calculation with mood/energy derivation
                 let finalA = 5; // Default neutral
                 if (rp.length > 0) {
@@ -1989,7 +2007,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     }
                   }
                 }
-                
                 const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
                 const t = (norm - 1) / 9;
                 const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
