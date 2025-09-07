@@ -4,6 +4,7 @@ import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Sto
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getVAColorFromScores, getGradientFromBase, mixHex } from '@/utils/colorUtils';
+import { to0100, weightedScore } from '@/utils/mindScore';
 import { useAccentColor } from '@/contexts/AccentColorContext';
 import { BramanColors } from '@/constants/Colors';
 
@@ -38,38 +39,7 @@ type Props = {
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 const roundInt = (n: number) => Math.round(n);
 
-const to0100 = (v: number | null | undefined) => {
-  if (v == null || !Number.isFinite(v as any)) return null;
-  
-  const n = Number(v);
-  if (!Number.isFinite(n)) return null;
-  
-  // Edge case protection: Çok büyük değerler (çift skalama hatası)  
-  if (n > 1000) {
-    console.warn(`MindScoreCard: Suspect large value ${n}, possible double scaling`);
-    return null;
-  }
-  
-  // Auto-scale if looks like 1–10 scale
-  if (n > 0 && n <= 10) return clamp(n * 10, 0, 100);
-  
-  // Already 0-100 scale or needs clamping
-  return clamp(n, 0, 100);
-};
-
-const weightedScore = (mood?: number | null, energy?: number | null, anxiety?: number | null) => {
-  const parts: Array<[number, number]> = [];
-  const m = to0100(mood);
-  const e = to0100(energy);
-  const a = to0100(anxiety);
-  if (typeof m === 'number') parts.push([m, 0.5]);
-  if (typeof e === 'number') parts.push([e, 0.3]);
-  if (typeof a === 'number') parts.push([100 - a, 0.2]); // inverse of anxiety
-  if (!parts.length) return null;
-  const wsum = parts.reduce((s, [, w]) => s + w, 0);
-  const score = parts.reduce((s, [v, w]) => s + v * w, 0) / (wsum || 1);
-  return clamp(score, 0, 100);
-};
+// to0100 and weightedScore moved to utils/mindScore
 
 const stddev = (arr: number[]) => {
   if (arr.length <= 1) return 0;
@@ -187,8 +157,9 @@ const stabilityLabel = (sd: number) => {
 // Confidence chip removed for end-user simplicity
 
 const Arrow = ({ delta }: { delta: number }) => {
-  const up = delta > 0.5;
-  const down = delta < -0.5;
+  const threshold = 1.5;
+  const up = delta > threshold;
+  const down = delta < -threshold;
   const color = up ? '#10B981' : down ? '#EF4444' : '#6B7280';
   const arrow = up ? '↑' : down ? '↓' : '→';
   const abs = Math.abs(Math.round(delta));
@@ -349,7 +320,8 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
               <Text style={styles.whiteTitle} numberOfLines={1}>{title}</Text>
               <View style={styles.whiteTrendRow}>
                 {(() => {
-                  const dir = delta > 0.5 ? 'up' : delta < -0.5 ? 'down' : 'same';
+                  const threshold = 1.5;
+                  const dir = delta > threshold ? 'up' : delta < -threshold ? 'down' : 'same';
                   const color = dir === 'up' ? '#10B981' : dir === 'down' ? '#EF4444' : '#6B7280';
                   return (
                     <Svg width={18} height={18} viewBox="0 0 18 18" style={{ marginRight: 4 }}>
