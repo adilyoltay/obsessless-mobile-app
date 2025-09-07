@@ -565,22 +565,6 @@ export default function TodayScreen() {
     })();
 
     // Dynamically compute weekly gradient based on average mood/energy and stability
-    const heroGradient = (() => {
-      try {
-        const { getVAGradientFromScores } = require('@/utils/colorUtils');
-        const mVals = week.map(d => (typeof d.mood === 'number' ? d.mood : NaN)).filter((n: any) => Number.isFinite(n));
-        const eVals = week.map(d => (typeof d.energy === 'number' ? d.energy : NaN)).filter((n: any) => Number.isFinite(n));
-        const avgMood = mVals.length ? mVals.reduce((s: number, n: number) => s + n, 0) / mVals.length : 55;
-        const avgE10 = eVals.length ? eVals.reduce((s: number, n: number) => s + n, 0) / eVals.length : 6;
-        const sd = Math.sqrt(Math.max(0, moodVariance || 0));
-        // Map sd to intensity: Stabil → daha pastel; Çok dalgalı → daha belirgin
-        const intensity = sd < 6 ? 0.07 : sd < 12 ? 0.09 : 0.12;
-        return getVAGradientFromScores(avgMood, avgE10, intensity);
-      } catch {
-        return gradient; // fallback to accent gradient
-      }
-    })();
-
     // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
       <>
@@ -726,6 +710,51 @@ export default function TodayScreen() {
       console.error('❌ Failed to dismiss adaptive suggestion:', error);
     }
   };
+
+  // Weekly dynamic hero gradient computed at screen level so it can be reused by CTA
+  const heroGradient = React.useMemo(() => {
+    try {
+      const { getVAGradientFromScores } = require('@/utils/colorUtils');
+      // Build simple week array from moodJourneyData if available
+      const entries = moodJourneyData?.weeklyEntries || [];
+      if (!entries.length) return gradient; // fallback to accent gradient
+      const week = entries
+        .map((e: any) => ({
+          date: getUserDateString(e.timestamp),
+          mood: Number.isFinite(e.mood_score) && e.mood_score > 0 ? Number(e.mood_score) : null,
+          energy: Number.isFinite(e.energy_level) && e.energy_level > 0 ? Number(e.energy_level) : null,
+          anxiety: Number.isFinite(e.anxiety_level) && e.anxiety_level > 0 ? Number(e.anxiety_level) : null,
+        }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+      // Compute variance aligned with MindScore util
+      let mv = heroStats?.moodVariance as number | undefined;
+      if (typeof mv !== 'number') {
+        try {
+          const { weightedScore } = require('@/utils/mindScore');
+          const scores: number[] = week
+            .map(d => weightedScore(d.mood, d.energy, d.anxiety))
+            .filter((v: any) => typeof v === 'number');
+          if (scores.length > 1) {
+            const mean = scores.reduce((s: number, n: number) => s + n, 0) / scores.length;
+            mv = scores.reduce((s: number, n: number) => s + Math.pow(n - mean, 2), 0) / (scores.length - 1);
+          } else {
+            mv = 0;
+          }
+        } catch { mv = 0; }
+      }
+
+      const mVals = week.map(d => (typeof d.mood === 'number' ? d.mood : NaN)).filter((n: any) => Number.isFinite(n));
+      const eVals = week.map(d => (typeof d.energy === 'number' ? d.energy : NaN)).filter((n: any) => Number.isFinite(n));
+      const avgMood = mVals.length ? mVals.reduce((s: number, n: number) => s + n, 0) / mVals.length : 55;
+      const avgE10 = eVals.length ? eVals.reduce((s: number, n: number) => s + n, 0) / eVals.length : 6;
+      const sd = Math.sqrt(Math.max(0, mv || 0));
+      const intensity = sd < 6 ? 0.07 : sd < 12 ? 0.09 : 0.12;
+      return getVAGradientFromScores(avgMood, avgE10, intensity);
+    } catch {
+      return gradient;
+    }
+  }, [moodJourneyData?.weeklyEntries, heroStats?.moodVariance, gradient]);
 
   const handleCheckinComplete = (routingResult?: {
     type: 'MOOD' | 'BREATHWORK' | 'UNKNOWN';
