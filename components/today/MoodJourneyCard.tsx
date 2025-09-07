@@ -83,7 +83,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   const [moodLocked, setMoodLocked] = React.useState(false);
   const [energyLocked, setEnergyLocked] = React.useState(true);
   const [anxietyLocked, setAnxietyLocked] = React.useState(true);
-  const [visibleRanges, setVisibleRanges] = React.useState<TimeRange[]>(['day','week','month']);
+  const [visibleRanges, setVisibleRanges] = React.useState<TimeRange[]>(['week','month','6months','year']);
 
   // Load overlay visibility preferences
   React.useEffect(() => {
@@ -135,7 +135,8 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               setAnxietyLocked(parsed.showAnxietyOverlay === false);
             }
             if (Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0) {
-              setVisibleRanges(parsed.visibleTimeRanges as TimeRange[]);
+              const cleaned = (parsed.visibleTimeRanges as TimeRange[]).filter(r => r !== 'day');
+              setVisibleRanges(cleaned.length ? cleaned : ['week','month','6months','year']);
             }
           }
         } catch {}

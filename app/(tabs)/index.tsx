@@ -858,11 +858,11 @@ export default function TodayScreen() {
               initialRange={(() => {
                 try {
                   const r = Array.isArray(params.openRange) ? params.openRange[0] : (params.openRange as string | undefined);
-                  const validRanges = ['day', 'week', 'month', '6months', 'year'] as const;
-                  return validRanges.includes(r as any) ? (r as any) : 'day'; // Fallback to day
+                  const validRanges = ['week', 'month', '6months', 'year'] as const;
+                  return validRanges.includes(r as any) ? (r as any) : 'week'; // Fallback to week
                 } catch (error) {
                   console.warn('Invalid initialRange param:', error);
-                  return 'day';
+                  return 'week';
                 }
               })()}
             />
