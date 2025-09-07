@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Line } from 'react-native-svg';
+import MoodEnergyGaugeArc from '@/components/mind/MoodEnergyGaugeArc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getVAColorFromScores, getGradientFromBase, mixHex } from '@/utils/colorUtils';
@@ -525,43 +526,9 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
       <View style={styles.contentRow}>
         <View style={styles.left}>
           {(() => {
-            // Weekly Mood & Energy unified gauge (semi-circle)
-            const gaugeW = 140;
-            const gaugeH = 72;
-            const gcx = gaugeW / 2;
-            const gcy = gaugeH;
-            const gr = gaugeH - 8;
-            // Helpers
-            const polar = (cx: number, cy: number, r: number, deg: number) => {
-              const rad = (deg - 90) * (Math.PI / 180);
-              return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-            };
-            const arcPath = (cx: number, cy: number, r: number, start: number, end: number) => {
-              const s = polar(cx, cy, r, start);
-              const e = polar(cx, cy, r, end);
-              const large = end - start <= 180 ? 0 : 1;
-              return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
-            };
             const mood = typeof avgMood === 'number' ? Math.round(avgMood) : (scoreNow != null ? roundInt(scoreNow) : 55);
             const e10 = typeof avgEnergy0100 === 'number' ? Math.max(1, Math.min(10, Math.round(avgEnergy0100 / 10))) : 6;
-            const moodColor = getVAColorFromScores(mood, e10);
-            const bg = 'rgba(255,255,255,0.25)';
-            const startDeg = -90, endDeg = 90;
-            const moodDeg = startDeg + Math.max(0, Math.min(1, (mood / 100))) * (endDeg - startDeg);
-            const pointerDeg = startDeg + ((e10 - 1) / 9) * (endDeg - startDeg);
-            const p1 = polar(gcx, gcy, gr - 8, pointerDeg);
-            const p2 = polar(gcx, gcy, 10, pointerDeg);
-            return (
-              <Svg width={gaugeW} height={gaugeH}>
-                {/* background arc */}
-                <Path d={arcPath(gcx, gcy, gr, startDeg, endDeg)} stroke={bg} strokeWidth={10} fill="none" />
-                {/* mood arc */}
-                <Path d={arcPath(gcx, gcy, gr, startDeg, moodDeg)} stroke={moodColor} strokeWidth={10} fill="none" strokeLinecap="round" />
-                {/* pointer for energy */}
-                <Line x1={p2.x} y1={p2.y} x2={p1.x} y2={p1.y} stroke={moodColor} strokeWidth={3} strokeLinecap="round" />
-                <Circle cx={gcx} cy={gcy} r={6} fill={moodColor} />
-              </Svg>
-            );
+            return <MoodEnergyGaugeArc width={150} height={96} mood={mood} energy={e10} />;
           })()}
           {/* Center overlay for score text (over the gauge) */}
           <View style={[styles.centerOverlay, { top: -8 }]}>
