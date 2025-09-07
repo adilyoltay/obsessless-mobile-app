@@ -69,17 +69,4 @@ export const daysShort = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
 export const monthsShort = ['O', 'Ş', 'M', 'N', 'M', 'H', 'T', 'A', 'E', 'E', 'K', 'A'];
 export const monthsLongShort = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
-// Percentile (quantile) calculation (0..1) using linear interpolation between order statistics
-export const quantile = (numbers: number[], q: number): number => {
-  const arr = (numbers || []).map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b);
-  const n = arr.length;
-  if (n === 0) return 0;
-  if (q <= 0) return arr[0];
-  if (q >= 1) return arr[n - 1];
-  const pos = (n - 1) * q;
-  const lower = Math.floor(pos);
-  const upper = Math.ceil(pos);
-  const weight = pos - lower;
-  if (upper === lower) return arr[lower];
-  return arr[lower] + (arr[upper] - arr[lower]) * weight;
-};
+// NOTE: quantile(numbers,q) deprecated — use utils/statistics.quantiles for p25/p50/p75

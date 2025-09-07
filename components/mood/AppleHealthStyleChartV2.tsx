@@ -187,7 +187,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const { color: accentColor } = useAccentColor();
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
   // Experiment: show simple aggregated IQR bands on weekly view
-  const WEEK_AGG_EXPERIMENT = true;
+  // Removed weekly experiment flags — unified grammar replaces them
+  const WEEK_AGG_EXPERIMENT = false;
   // Global: show IQR bands on aggregate ranges (month, 6months, year) — verticalBands already renders mood IQR
   const AGG_IQR_BANDS = true;
   // Show aggregate overlay lines (p50 trend lines) for mood/energy/anxiety
@@ -1233,28 +1234,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     );
                   }
                 }
-                // IQR band (agg) per day for anxiety (experiment)
-                if (WEEK_AGG_EXPERIMENT) {
-                  for (let index = 0; index < n; index++) {
-                    const d = items[index] as any;
-                    const has = Number(d.count || 0) > 0;
-                    if (!has) continue;
-                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                    const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
-                    if (anxVals.length < 2) continue;
-                    const q = quantiles(anxVals);
-                    const xCenter = AXIS_WIDTH + index * dw + dw / 2;
-                    const tTop = (Math.max(1, Math.min(10, q.p75)) - 1) / 9;
-                    const tBot = (Math.max(1, Math.min(10, q.p25)) - 1) / 9;
-                    const yTop = CHART_PADDING_TOP + (1 - tTop) * CHART_CONTENT_HEIGHT;
-                    const yBot = CHART_PADDING_TOP + (1 - tBot) * CHART_CONTENT_HEIGHT;
-                    const y = Math.min(yTop, yBot);
-                    const h = Math.abs(yBot - yTop);
-                    els.push(
-                      <Rect key={`w-anx-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.38)} height={Math.max(1, h)} fill={anxColor} opacity={0.18} rx={2} stroke={anxColor} strokeOpacity={0.22} strokeWidth={1} />
-                    );
-                  }
-                }
+                // Weekly anxiety experiment removed — unified grammar uses vertical bands only
 
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {
@@ -1349,28 +1329,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     );
                   }
                 }
-                // IQR band (agg) per day as thin rectangles (experiment)
-                if (WEEK_AGG_EXPERIMENT) {
-                  for (let index = 0; index < n; index++) {
-                    const d = items[index] as any;
-                    const has = Number(d.count || 0) > 0;
-                    if (!has) continue;
-                    const xCenter = AXIS_WIDTH + index * dw + dw / 2;
-                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                    const vals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
-                    if (vals.length < 2) continue;
-                    const q = quantiles(vals);
-                    const vTop = moodToValence(q.p75);
-                    const vBot = moodToValence(q.p25);
-                    const yTop = CHART_PADDING_TOP + (1 - ((vTop + 1) / 2)) * CHART_CONTENT_HEIGHT;
-                    const yBot = CHART_PADDING_TOP + (1 - ((vBot + 1) / 2)) * CHART_CONTENT_HEIGHT;
-                    const y = Math.min(yTop, yBot);
-                    const h = Math.abs(yBot - yTop);
-                    els.push(
-                      <Rect key={`w-mood-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.38)} height={Math.max(1, h)} fill={accentColor} opacity={0.18} rx={2} stroke={accentColor} strokeOpacity={0.22} strokeWidth={1} />
-                    );
-                  }
-                }
+                // Weekly experiment removed — unified grammar handles IQR via vertical bands
 
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {

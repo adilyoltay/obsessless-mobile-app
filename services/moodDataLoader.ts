@@ -4,7 +4,7 @@ import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
 import { quantiles } from '@/utils/statistics';
-import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average, quantile } from '@/utils/dateAggregation';
+import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
 
