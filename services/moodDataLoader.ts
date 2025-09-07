@@ -4,6 +4,7 @@ import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
 import { quantiles, deriveAnxietySeries } from '@/utils/statistics';
+import { getTrendFromP50 } from '@/utils/trend';
 import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
@@ -436,18 +437,14 @@ export class OptimizedMoodDataLoader {
 
     const todayList = byDate.get(formatDateYMD(today)) || [];
     const todayAverage = todayList.length ? todayList.reduce((s, p) => s + p.mood_score, 0) / todayList.length : 50; // FIXED: 50 center instead of 0
-    // IMPROVED: Weekly trend analysis with valid moods
-    const nonZero = weeklyEntries.filter(e => (e.mood_score || 50) > 0 && e.mood_score !== 50); // Exclude center/neutral values
-    let weeklyTrend: 'up' | 'down' | 'stable' = 'stable';
-    if (nonZero.length >= 2) {
-      const first = nonZero[0].mood_score || 50; // FIXED: 50 center instead of 0
-      const last = nonZero[nonZero.length - 1].mood_score || 50; // FIXED: 50 center instead of 0
-      // Only show trend if meaningful difference (>10 points in 0-100 scale)
-      const diff = Math.abs(first - last);
-      if (diff >= 10) {
-        weeklyTrend = first > last ? 'up' : 'down';
-      }
-    }
+    // Unified: Weekly trend from daily p50 series
+    const p50Series: number[] = dayKeys.map((d) => {
+      const list = byDate.get(d) || [];
+      const moods = list.map((p) => p.mood_score).filter((v) => Number.isFinite(v));
+      const q = quantiles(moods as any);
+      return Number.isFinite(q.p50 as any) ? Number(q.p50) : NaN;
+    });
+    const weeklyTrend = getTrendFromP50(p50Series, 10);
 
     const weeklyEnergyAvg = averageEnergy; // Use the same logic as averageEnergy  
     const weeklyAnxietyAvg = averageAnxiety; // Use the same logic as averageAnxiety

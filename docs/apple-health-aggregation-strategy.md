@@ -241,6 +241,16 @@ const formatXLabel = (date: string, timeRange: TimeRange) => {
 ```
 
 ## 📊 Yeni Veri Yapıları
+### Count vs CountReal
+
+- `count`: Seçili dönem/bucket için toplam giriş sayısı (nötr değerler dahil).
+- `countReal`: IQR istatistiğine giren gerçek mood kayıt sayısı (nötr=50 hariç). Tooltip'te “Toplam / Gerçek” şeklinde gösterilir.
+
+### Trend Standardı (p50)
+
+- Tüm non-day aralıklarda trend, p50 (median) serisinin ilk ve son değerlerinin farkına göre hesaplanır.
+- `threshold`: En az 10 puan fark → 'up' veya 'down'; aksi halde 'stable'.
+- Yardımcı: `utils/trend.ts#getTrendFromP50()`.
 
 ### AggregatedData Interface
 
