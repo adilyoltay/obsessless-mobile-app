@@ -129,6 +129,25 @@ const mapEnergyToWidth = (energy?: number, min: number = 2, max: number = 6) => 
   return min + (max - min) * ((e - 1) / 9);
 };
 
+// --- Small selectors/helpers to clarify intent ---
+const yFromMood = (mood: number) => {
+  const v = moodToValence(mood);
+  return CHART_PADDING_TOP + (1 - ((v + 1) / 2)) * CHART_CONTENT_HEIGHT;
+};
+
+const bandYsFromQuantiles = (q: { p25: number; p50: number; p75: number }) => {
+  return {
+    minY: yFromMood(q.p25),
+    avgY: yFromMood(q.p50),
+    maxY: yFromMood(q.p75),
+  };
+};
+
+const energyColorFromP50 = (eP50: any, isDark: boolean) => {
+  const val = Number.isFinite(eP50 as any) ? Number(eP50) : 6;
+  return energyToColor(val, 1, isDark);
+};
+
 // Nokta/Jitter ve özet nokta (aggregate) ayarları — kolayca ince ayar için
 const DOT_TUNING = {
   jitter: {
@@ -662,21 +681,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         });
         return;
       }
-      // Guard against NaN values in IQR (treat as missing)
-      const lowMood = Number.isFinite((b as any)?.mood?.p25)
-        ? Number((b as any).mood.p25)
-        : (Number.isFinite((b as any)?.mood?.min) ? Number((b as any).mood.min) : 0);
-      const highMood = Number.isFinite((b as any)?.mood?.p75)
-        ? Number((b as any).mood.p75)
-        : (Number.isFinite((b as any)?.mood?.max) ? Number((b as any).mood.max) : 0);
-      const minVal = moodToValence(lowMood);
-      const maxVal = moodToValence(highMood);
-      const rawCenter = (b as any)?.mood?.p50 ?? (b as any)?.avg ?? 0;
-      const centerMood = Number.isFinite(rawCenter as any) ? Number(rawCenter) : 0;
-      const avgVal = moodToValence(centerMood);
-      const minY = CHART_PADDING_TOP + (1 - ((minVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
-      const maxY = CHART_PADDING_TOP + (1 - ((maxVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
-      const avgY = CHART_PADDING_TOP + (1 - ((avgVal + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      const q = (b as any).mood as any;
+      const { minY, avgY, maxY } = bandYsFromQuantiles({ p25: q.p25, p50: q.p50, p75: q.p75 });
       bands.push({
         x,
         minY: Math.min(minY, maxY),
@@ -684,7 +690,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         avgY,
         date: (b as any)?.date,
         entries: [],
-        color: energyToColor((Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6), 1, isDark),
+        color: energyColorFromP50((b as any)?.energy?.p50, isDark),
         energyAvg: Number.isFinite((b as any)?.energy?.p50) ? Number((b as any).energy.p50) : 6,
       });
     });
