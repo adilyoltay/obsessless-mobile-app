@@ -412,17 +412,16 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
 
     if (trigger === 'voice_mood_checkin' || trigger === 'mood_manual_checkin') {
       trackModule('mood');
-    } else if (trigger === 'breathwork_completed') {
-      trackModule('breathwork');
-    }
-
-    // Ensure streak increments for breathwork as daily mindful activity
-    if (trigger === 'breathwork_completed') {
+      // Count this as a mindful daily activity for streak continuity
       try {
         const { updateStreak } = get();
         await updateStreak();
       } catch {}
+    } else if (trigger === 'breathwork_completed') {
+      trackModule('breathwork');
     }
+
+    // Streak increment is now handled for both mood and breathwork cases above
 
     // Evaluate multi-module thresholds (only once per level)
     const modsCount = profile.modulesActiveToday?.length || 0;
