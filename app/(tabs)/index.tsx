@@ -574,8 +574,7 @@ export default function TodayScreen() {
             onQuickStart={() => setCheckinSheetVisible(true)}
             sparkStyle={mindSparkStyle}
             moodVariance={moodVariance}
-          variant="white"
-          coloredBackground={coloredMindCard}
+          // Default variant is now 'hero' (gradient + white text)
           streakCurrent={profile.streakCurrent}
           streakBest={profile.streakBest}
           streakLevel={profile.streakLevel}
