@@ -517,10 +517,11 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
     );
   }
 
-  const heroGrad = getGradientFromBase(stab.color, 0.1);
+  // Use provided gradientColors when supplied (e.g., settings off → static green)
+  const cardGrad = gradientColors || getGradientFromBase(stab.color, 0.1);
   return (
     <View style={styles.heroCard}>
-      <LinearGradient colors={heroGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientBg} />
+      <LinearGradient colors={cardGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientBg} />
       <View style={styles.contentRow}>
         <View style={styles.left}>
           <Svg width={size} height={size}>
