@@ -10,6 +10,8 @@ import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import { supabase as sharedClient } from '@/lib/supabase';
 import { sanitizePII } from '@/utils/privacy'; // ✅ F-06 FIX: Add PII sanitization
+import { mapOnboardingPayloadToUserProfileRow } from '@/utils/onboardingMapper';
+import { buildUsersUpsertRow } from '@/utils/userRowMapper';
 import { generatePrefixedId } from '@/utils/idGenerator';
 // Re-export types for backward compatibility with existing imports
 export type {
@@ -74,11 +76,11 @@ class SupabaseNativeService {
   private breathSvc: import('@/services/supabase/breathService').BreathService;
   private aiSvc: import('@/services/supabase/aiService').AIService;
 
-  constructor() {
+  constructor(client?: SupabaseClient) {
     // Tek supabase client kullanımı (lib/supabase.ts)
     // Ortak istemci, storage/refresh ayarlarını zaten içerir
     // Ortam değişkenleri lib içinde doğrulanır
-    this.client = sharedClient as unknown as SupabaseClient;
+    this.client = (client || (sharedClient as unknown as SupabaseClient));
     console.log('✅ Supabase Native Service initialized (shared client)');
     // Initialize segmented services
     const { AuthService } = require('@/services/supabase/authService');
@@ -555,14 +557,7 @@ class SupabaseNativeService {
           // Upsert user profile (avoid duplicate key with triggers)
           const { error } = await this.client
             .from('users')
-            .upsert({
-              id: userId,
-              email: authUser.user.email || '',
-              name: authUser.user.user_metadata?.name || authUser.user.email?.split('@')[0] || 'User',
-              provider: authUser.user.app_metadata?.provider || 'email',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
+            .upsert(buildUsersUpsertRow(authUser.user) as any, { onConflict: 'id' });
 
           if (error) throw error;
           console.log('✅ User profile upserted in public.users:', userId);
@@ -963,58 +958,7 @@ class SupabaseNativeService {
    * Upsert user profile with onboarding v2 payload
    */
   async upsertUserProfile(userId: string, payload: any): Promise<void> {
-    const mapEnum = (val: any, allowed: string[], normalize?: (s: string) => string): string | undefined => {
-      if (!val || typeof val !== 'string') return undefined;
-      const base = (normalize ? normalize(val) : val).trim().toLowerCase().replace(/-/g, '_');
-      return allowed.includes(base) ? base : undefined;
-    };
-
-    const genderRaw = payload?.profile?.gender;
-    const lifestyleExerciseRaw = payload?.lifestyle?.exercise;
-    const lifestyleSocialRaw = payload?.lifestyle?.social;
-
-    const gender = mapEnum(genderRaw, ['female','male','non_binary','prefer_not_to_say']);
-    const lifestyle_exercise = mapEnum(lifestyleExerciseRaw, ['none','light','moderate','intense']);
-    const lifestyle_social = mapEnum(lifestyleSocialRaw, ['low','medium','high']);
-    const motivations = Array.isArray(payload?.motivation) ? payload.motivation.filter((m: any) => typeof m === 'string') : [];
-    const firstMoodScoreRaw = payload?.first_mood?.score;
-    const first_mood_score = typeof firstMoodScoreRaw === 'number' ? Math.min(5, Math.max(1, firstMoodScoreRaw)) : (firstMoodScoreRaw != null ? Number(firstMoodScoreRaw) : null);
-    const first_mood_tags = Array.isArray(payload?.first_mood?.tags) ? payload.first_mood.tags.filter((t: any) => typeof t === 'string') : [];
-
-    // Telemetry for invalid enums (omit with warning)
-    try {
-      const invalids: Record<string, any> = {};
-      if (genderRaw && !gender) invalids.gender = genderRaw;
-      if (lifestyleExerciseRaw && !lifestyle_exercise) invalids.lifestyle_exercise = lifestyleExerciseRaw;
-      if (lifestyleSocialRaw && !lifestyle_social) invalids.lifestyle_social = lifestyleSocialRaw;
-      if (Object.keys(invalids).length > 0) {
-        // const { trackAIInteraction, AIEventType } = await import('@/features/ai-fallbacks/telemetry');
-        // await trackAIInteraction(AIEventType.SYSTEM_STATUS, { event: 'validation_warning', entity: 'user_profile', fields: invalids, userId });
-      }
-    } catch {}
-
-    const body: any = {
-      user_id: userId,
-      age: payload?.profile?.age,
-      gender,
-      locale: payload?.profile?.locale,
-      timezone: payload?.profile?.timezone || payload?.reminders?.timezone,
-      motivations,
-      first_mood_score: first_mood_score != null ? Number(first_mood_score) : null,
-      first_mood_tags,
-      lifestyle_sleep_hours: payload?.lifestyle?.sleep_hours,
-      lifestyle_exercise,
-      lifestyle_social,
-      reminder_enabled: !!payload?.reminders?.enabled,
-      reminder_time: payload?.reminders?.time || null,
-      reminder_days: payload?.reminders?.days || [],
-      feature_flags: payload?.feature_flags || {},
-      consent_accepted: !!payload?.consent?.accepted,
-      consent_at: payload?.consent?.accepted ? new Date().toISOString() : null,
-      onboarding_version: 2,
-      onboarding_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const body: any = mapOnboardingPayloadToUserProfileRow(userId, payload);
     // Remove undefined to avoid constraint issues
     Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
 
@@ -1040,3 +984,14 @@ export async function initializeSupabase(): Promise<User | null> {
 
 export const supabaseService = new SupabaseNativeService();
 export default supabaseService;
+
+// ===========================
+// TEST FACTORY (non-production use)
+// ===========================
+/**
+ * Factory to create an isolated service instance with an injected client.
+ * Intended for unit tests; not used in production code paths.
+ */
+export function createSupabaseServiceForTest(client: SupabaseClient) {
+  return new SupabaseNativeService(client);
+}

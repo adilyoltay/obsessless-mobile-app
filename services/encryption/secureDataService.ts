@@ -28,17 +28,37 @@ class SecureDataService {
   private async getOrCreateKey(): Promise<ArrayBuffer> {
     if (this.keyCache) return this.keyCache;
     let stored = await SecureStore.getItemAsync(SecureDataService.KEY_ID);
-    if (!stored) {
-      // Generate random 32 bytes key
+    const generateKey = async (): Promise<ArrayBuffer> => {
       const randomBytes = new Uint8Array(32);
       for (let i = 0; i < randomBytes.length; i++) randomBytes[i] = Math.floor(Math.random() * 256);
       const keyBytes = randomBytes.buffer as ArrayBuffer;
-      stored = this.arrayBufferToBase64(keyBytes);
-      await SecureStore.setItemAsync(SecureDataService.KEY_ID, stored);
+      const b64 = this.arrayBufferToBase64(keyBytes);
+      await SecureStore.setItemAsync(SecureDataService.KEY_ID, b64);
+      return keyBytes;
+    };
+
+    if (!stored) {
+      const keyBytes = await generateKey();
       this.keyCache = keyBytes;
       return keyBytes;
     }
-    const ab = this.base64ToArrayBuffer(stored);
+
+    // Validate stored key length (must be 32 bytes for AES-256)
+    let ab: ArrayBuffer;
+    try {
+      ab = this.base64ToArrayBuffer(stored);
+    } catch (e) {
+      console.warn('⚠️ Invalid base64 in stored master key. Regenerating...');
+      const keyBytes = await generateKey();
+      this.keyCache = keyBytes;
+      return keyBytes;
+    }
+    if ((ab.byteLength || 0) !== 32) {
+      console.warn(`⚠️ Invalid key length (${ab.byteLength}) for AES-256. Rotating master key...`);
+      const keyBytes = await generateKey();
+      this.keyCache = keyBytes;
+      return keyBytes;
+    }
     this.keyCache = ab;
     return ab;
   }
@@ -55,9 +75,7 @@ class SecureDataService {
       const keyBuffer = await this.getOrCreateKey();
       const key = new Uint8Array(keyBuffer);
       
-      if (key.length !== 32) {
-        throw new Error('Invalid key length for AES-256-GCM');
-      }
+      // Key length is validated inside getOrCreateKey; no need to hard-fail here
       
       // 📝 NOTE: expo-crypto doesn't support AES-GCM directly
       // Using AES-256-CBC with HMAC for authenticated encryption
@@ -489,4 +507,3 @@ class SecureDataService {
 
 export const secureDataService = SecureDataService.getInstance();
 export default secureDataService;
-

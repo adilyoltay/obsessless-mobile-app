@@ -39,6 +39,7 @@ import { moodDataLoader } from '@/services/moodDataLoader';
 // 🎤 REAL STT - İOS crash riski var ama gerçek konuşma için aktif
 import speechToTextService from '@/services/speechToTextService';
 import { useAccentColor } from '@/contexts/AccentColorContext';
+import { getPaletteVAColor } from '@/utils/colorUtils';
 
 const { width: W } = Dimensions.get('window');
 const PAD = Math.min(W - 48, 340);
@@ -130,7 +131,7 @@ export default function VAMoodCheckin({
 }: VAMoodCheckinProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { color: accentColor, setScore, setVA } = useAccentColor();
+  const { color: accentColor, setScore, setVA, palette } = useAccentColor();
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
@@ -179,8 +180,8 @@ export default function VAMoodCheckin({
     opacity: recordingOpacity.value,
   }));
 
-  // VA Pad's own visual color (kept independent for the interactive pad)
-  const color = useMemo(() => colorFromVA(xy.x, xy.y), [xy]);
+  // VA Pad color matches selected palette across app
+  const color = useMemo(() => getPaletteVAColor(palette as any, xy.x, xy.y), [xy, palette]);
 
   // Keep global accent palette in sync with current valence (0-100)
   const accentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

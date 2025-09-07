@@ -16,9 +16,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Custom UI Components
 import { Switch } from '@/components/ui/Switch';
 import ScreenLayout from '@/components/layout/ScreenLayout';
+import { useAccentColor } from '@/contexts/AccentColorContext';
+import VAPad from '@/components/va/VAPad';
 import { Colors } from '@/constants/Colors';
 
 import Button from '@/components/ui/Button';
+import type { TimeRange } from '@/types/mood';
 
 // Hooks & Utils
 import { useTranslation } from '@/hooks/useTranslation';
@@ -58,6 +61,13 @@ interface SettingsData {
   // weeklyReports removed - not implemented in UI
   colorMode?: ColorMode;
   mindSparkStyle?: SparkStyle;
+  // Chart overlay preferences
+  showEnergyOverlay?: boolean;
+  showAnxietyOverlay?: boolean;
+  showMoodTrendOverlay?: boolean;
+  visibleTimeRanges?: TimeRange[];
+  coloredMindScoreCard?: boolean;
+  colorPalette?: 'va' | 'braman';
 }
 
 
@@ -70,6 +80,7 @@ export default function SettingsScreen() {
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   // Dil seçimi kaldırıldı; uygulama sistem dilini otomatik kullanır
   const { user, signOut, profile: authProfile } = useAuth();
+  const { setPalette } = useAccentColor();
   const { profile: gameProfile } = useGamificationStore();
   const onboardingPayload = useMoodOnboardingStore(s => s.payload);
   const setOnboardingReminders = useMoodOnboardingStore(s => s.setReminders);
@@ -113,6 +124,12 @@ export default function SettingsScreen() {
     reminderTimes: false,
     colorMode: 'today',
     mindSparkStyle: 'bar',
+    showEnergyOverlay: false,
+    showAnxietyOverlay: false,
+    showMoodTrendOverlay: true,
+    visibleTimeRanges: ['day','week','month'],
+    coloredMindScoreCard: false,
+    colorPalette: 'va',
   });
 
   // Swipe right to navigate back to Today
@@ -157,6 +174,12 @@ export default function SettingsScreen() {
           reminderTimes: parsed.reminderTimes ?? false,
           colorMode: (parsed.colorMode as ColorMode) ?? 'today',
           mindSparkStyle: (parsed.mindSparkStyle as SparkStyle) ?? 'bar',
+          showEnergyOverlay: parsed.showEnergyOverlay ?? false,
+          showAnxietyOverlay: parsed.showAnxietyOverlay ?? false,
+          showMoodTrendOverlay: parsed.showMoodTrendOverlay ?? true,
+          visibleTimeRanges: Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0 ? (parsed.visibleTimeRanges as TimeRange[]) : (['day','week','month'] as TimeRange[]),
+          coloredMindScoreCard: parsed.coloredMindScoreCard ?? false,
+          colorPalette: (parsed.colorPalette as 'va' | 'braman') ?? 'va',
         });
       }
     } catch (error) {
@@ -299,6 +322,29 @@ export default function SettingsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('Error saving mind spark style:', error);
+    }
+  };
+
+  const updateColorPalette = async (pal: 'va' | 'braman' | 'apple') => {
+    const newSettings = { ...settings, colorPalette: pal };
+    setSettings(newSettings);
+    try {
+      await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(newSettings));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      try { setPalette(pal as any); } catch {}
+    } catch (error) {
+      console.error('Error saving color palette:', error);
+    }
+  };
+
+  const updateSettingsPartial = async (partial: Partial<SettingsData>) => {
+    const newSettings = { ...settings, ...partial };
+    setSettings(newSettings);
+    try {
+      await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(newSettings));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      console.error('Error saving settings:', error);
     }
   };
 
@@ -592,24 +638,26 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Görünüm */}
+        {/* Görünüm Tercihleri */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Görünüm</Text>
+          <Text style={styles.sectionTitle}>Görünüm Tercihleri</Text>
           <View style={[styles.sectionContent, { gap: 8 }]}>
-            <Text style={[styles.actionTitle, { marginBottom: 4 }]}>Renk Modu</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* Renk Modu bölümü kaldırıldı */}
+
+            {/* Renk Paleti */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
               {([
-                { key: 'static', label: 'Statik' },
-                { key: 'today', label: 'Bugün' },
-                { key: 'weekly', label: 'Haftalık' },
-              ] as { key: ColorMode; label: string }[]).map(opt => {
-                const active = (settings.colorMode || 'today') === opt.key;
+                { key: 'va', label: 'Klasik VA' },
+                { key: 'apple', label: 'Apple Health' },
+                { key: 'braman', label: 'Braman' },
+              ] as { key: 'va' | 'braman' | 'apple'; label: string }[]).map(opt => {
+                const active = (settings.colorPalette || 'va') === opt.key;
                 return (
                   <Pressable
                     key={opt.key}
-                    onPress={() => updateColorMode(opt.key)}
+                    onPress={() => updateColorPalette(opt.key)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Renk modu ${opt.label}`}
+                    accessibilityLabel={`Renk paleti ${opt.label}`}
                     style={{
                       paddingVertical: 8,
                       paddingHorizontal: 12,
@@ -624,16 +672,41 @@ export default function SettingsScreen() {
                 );
               })}
             </View>
-            <Text style={{ color: '#6B7280', fontSize: 12 }}>
-              Statik: sabit yeşil • Bugün: bugünkü ortalama • Haftalık: son 7 gün ortalaması
-            </Text>
 
-            <View style={{ height: 12 }} />
-            <Text style={[styles.actionTitle, { marginBottom: 4 }]}>Zihin Skoru Grafiği</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            {/* VA Pad (accent renk alanı) */}
+            <View style={{ marginTop: 8, alignItems: 'center' }}>
+              <VAPad width={Math.min(320, 0.92 * (typeof window !== 'undefined' ? window.innerWidth || 320 : 320))} height={160} />
+            </View>
+            {renderSettingItem(
+              'Zihin skoru kartını renklendir',
+              'palette',
+              settings.coloredMindScoreCard ?? false,
+              (value) => updateSetting('coloredMindScoreCard', value)
+            )}
+            {/* Bölüm 1: Grafik Çizgileri */}
+            {renderSettingItem(
+              'Mood trend çizgisini göster',
+              'emoticon-happy-outline',
+              settings.showMoodTrendOverlay ?? true,
+              (value) => updateSetting('showMoodTrendOverlay', value)
+            )}
+            {renderSettingItem(
+              'Enerji grafiğini göster',
+              'flash',
+              settings.showEnergyOverlay ?? true,
+              (value) => updateSetting('showEnergyOverlay', value)
+            )}
+            {renderSettingItem(
+              'Anksiyete grafiğini göster',
+              'heart-pulse',
+              settings.showAnxietyOverlay ?? true,
+              (value) => updateSetting('showAnxietyOverlay', value)
+            )}
+            {/* Zihin Skoru Grafiği */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
               {([
-                { key: 'line', label: 'Çizgi' },
-                { key: 'bar', label: 'İlerleme' },
+                { key: 'line', label: 'Zihin Skoru: Çizgi' },
+                { key: 'bar', label: 'Zihin Skoru: İlerleme' },
               ] as { key: SparkStyle; label: string }[]).map(opt => {
                 const active = (settings.mindSparkStyle || 'line') === opt.key;
                 return (
@@ -659,6 +732,47 @@ export default function SettingsScreen() {
             <Text style={{ color: '#6B7280', fontSize: 12 }}>
               Çizgi (varsayılan): mini trend çizgisi • İlerleme: haftalık EWMA değerine göre bar
             </Text>
+            {/* Bölüm 2: Zaman Aralıkları */}
+            <View style={{ height: 12 }} />
+            <Text style={[styles.actionTitle, { marginBottom: 8 }]}>Zaman Aralıkları</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {([
+                { key: 'day', label: 'Günlük' },
+                { key: 'week', label: 'Haftalık' },
+                { key: 'month', label: 'Aylık' },
+                { key: '6months', label: '6 Aylık' },
+                { key: 'year', label: 'Yıllık' },
+              ] as { key: TimeRange; label: string }[]).map(opt => {
+                const active = (settings.visibleTimeRanges || ['day','week']).includes(opt.key);
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => {
+                      const current = new Set(settings.visibleTimeRanges || ['day','week']);
+                      if (current.has(opt.key)) {
+                        if (current.size <= 1) return; // En az bir aralık kalsın
+                        current.delete(opt.key);
+                      } else {
+                        current.add(opt.key);
+                      }
+                      updateSettingsPartial({ visibleTimeRanges: Array.from(current) as TimeRange[] });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Zaman aralığı ${opt.label}`}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: active ? '#10B981' : '#E5E7EB',
+                      backgroundColor: active ? '#ECFDF5' : '#FFFFFF'
+                    }}
+                  >
+                    <Text style={{ color: active ? '#065F46' : '#374151', fontWeight: '700' }}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 

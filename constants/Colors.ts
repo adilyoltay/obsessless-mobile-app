@@ -71,6 +71,33 @@ export const Colors = {
   },
 };
 
+// Lindsay Braman soft pastel palette (archive/2025-01-legacy)
+export const BramanColors = {
+  // Ana renkler - Lindsay Braman soft pastel tonu
+  mutlu: '#F7C59F',      // Soft peach
+  üzgün: '#B8C5D6',      // Soft blue-gray
+  kızgın: '#F4A09C',     // Soft coral
+  korkmuş: '#C8B6DB',    // Soft lavender
+  şaşkın: '#F5D99C',     // Soft yellow
+  güvenli: '#94B49F',    // Soft sage
+
+  // Nötr renkler
+  dark: '#5A5A5A',       // Soft charcoal
+  medium: '#8E8E8E',     // Medium gray
+  light: '#D4D4D4',      // Light gray
+  paper: '#FAF8F3',      // Warm paper
+
+  // Vurgu renkleri
+  coral: '#F4A09C',      // Soft coral
+  teal: '#88B3B5',       // Muted teal
+  yellow: '#F5D99C',     // Soft yellow
+} as const;
+
+// Optional registry for alternate palettes
+export const Palettes = {
+  braman: BramanColors,
+} as const;
+
 // Spacing from Documentation
 export const Spacing = {
   xs: 4,

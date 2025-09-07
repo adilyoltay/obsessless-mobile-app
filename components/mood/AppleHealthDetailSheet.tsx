@@ -6,13 +6,14 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity,
-  SafeAreaView,
   Dimensions,
   Alert,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from 'react-native';
-import type { RawDataPoint } from '@/types/mood';
+import type { RawDataPoint, TimeRange } from '@/types/mood';
 import { formatDateInUserTimezone } from '@/utils/timezoneUtils';
-import { quantiles } from '@/utils/statistics';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import supabaseService from '@/services/supabase';
@@ -28,6 +29,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onDeleted?: (entryId: string) => void;
+  range?: TimeRange; // to adapt headings per selected time range
 };
 
 // Apple Health renk paleti
@@ -85,33 +87,27 @@ const TimelineItem: React.FC<{
             <Text style={[styles.moodLabel, { color: moodColor }]}>
               {moodLabel}
             </Text>
-            <View style={styles.headerRightRow}>
-              <View style={styles.moodScores}>
-                <Text style={styles.scoreLabel}>Mood: {entry.mood_score}/100</Text>
-                <Text style={styles.scoreLabel}>Enerji: {entry.energy_level}/10</Text>
-              </View>
-              {onDelete && (
-                <TouchableOpacity
-                  onPress={() => onDelete(entry)}
-                  accessibilityLabel="Kaydı sil"
-                  style={styles.deleteBtn}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
-                </TouchableOpacity>
-              )}
-            </View>
+            {onDelete && (
+              <TouchableOpacity
+                onPress={() => onDelete(entry)}
+                accessibilityLabel="Kaydı sil"
+                style={styles.deleteBtn}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={18} color="#EF4444" />
+              </TouchableOpacity>
+            )}
           </View>
-          
+
           {entry.notes && (
             <Text style={styles.notes}>{entry.notes}</Text>
           )}
-          
+
           {entry.triggers && entry.triggers.length > 0 && (
             <View style={styles.triggers}>
               {entry.triggers.map((trigger, idx) => (
-                <View key={idx} style={styles.triggerChip}>
-                  <Text style={styles.triggerText}>{trigger}</Text>
+                <View key={idx} style={styles.triggerChipMuted}>
+                  <Text style={styles.triggerTextMuted}>{trigger}</Text>
                 </View>
               ))}
             </View>
@@ -128,9 +124,11 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
   visible, 
   onClose,
   onDeleted,
+  range,
 }) => {
   const { user } = useAuth();
   const [localEntries, setLocalEntries] = React.useState<RawDataPoint[]>(entries);
+  const [isFull, setIsFull] = React.useState<boolean>(false);
 
   React.useEffect(() => {
     // Sync internal list when prop changes or modal opens
@@ -181,52 +179,22 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
     );
   }, [onDeleted, user?.id]);
   const [expanded, setExpanded] = React.useState(false);
-  // İstatistikler (MEDYAN + IQR) — UI sürücü metrik
-  const stats = React.useMemo(() => {
-    if (!Array.isArray(entries) || entries.length === 0) {
-      return {
-        count: 0,
-        mood: { p25: NaN, p50: NaN, p75: NaN },
-        energy: { p25: NaN, p50: NaN, p75: NaN },
-        anxiety: { p25: NaN, p50: NaN, p75: NaN },
-        avg: 0,
-      } as const;
-    }
-    const moods = entries.map(e => Number(e.mood_score)).filter(Number.isFinite) as number[];
-    const energies = entries.map(e => Number(e.energy_level)).filter(Number.isFinite) as number[];
-    
-    // IMPROVED: Smart anxiety handling for detail sheet
-    const anx: number[] = [];
-    entries.forEach(e => {
-      const anxVal = Number((e as any).anxiety_level ?? 5);
-      if (anxVal === 5) {
-        // Derive from this entry's mood/energy if fallback
-        const m10 = Math.max(1, Math.min(10, Math.round(Number(e.mood_score || 50) / 10)));
-        const e10 = Math.max(1, Math.min(10, Number(e.energy_level || 6)));
-        
-        let derivedA = 5;
-        if (m10 <= 3) derivedA = 7;
-        else if (m10 >= 8 && e10 <= 4) derivedA = 6;
-        else if (m10 <= 5 && e10 >= 7) derivedA = 8;
-        else if (m10 >= 7 && e10 >= 7) derivedA = 4;
-        else derivedA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
-        
-        anx.push(derivedA);
-      } else if (Number.isFinite(anxVal)) {
-        anx.push(anxVal);
-      }
-    });
-    const mq = quantiles(moods);
-    const eq = quantiles(energies);
-    const aq = quantiles(anx);
-    const avg = moods.length ? Math.round((moods.reduce((a, b) => a + b, 0) / moods.length) * 10) / 10 : 0;
-    return { count: entries.length, mood: mq, energy: eq, anxiety: aq, avg } as const;
-  }, [entries]);
   
   const formattedDate = formatDateInUserTimezone(
     `${date}T00:00:00.000Z`, 
     'long'
   );
+
+  const headerTitleText = React.useMemo(() => {
+    switch (range) {
+      case 'day':
+        return 'Saatlik Kayıtlar';
+      case 'week':
+        return 'Gün İçi Dağılım';
+      default:
+        return 'Kayıtlar';
+    }
+  }, [range]);
 
   return (
     <Modal 
@@ -243,16 +211,32 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
           onPress={onClose}
         />
         
-        <View style={styles.sheetContainer}>
+        <View style={[styles.sheetContainer, isFull && styles.sheetContainerFull]}>
           {/* Handle bar */}
-          <View style={styles.handleContainer}>
+          <View 
+            style={styles.handleContainer}
+            {...React.useMemo(() => {
+              const responder = PanResponder.create({
+                onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, g: PanResponderGestureState) => {
+                  const dy = Math.abs(g.dy);
+                  const dx = Math.abs(g.dx);
+                  return dy > dx && dy > 8;
+                },
+                onPanResponderRelease: (_evt: GestureResponderEvent, g: PanResponderGestureState) => {
+                  if (g.dy < -20) setIsFull(true);
+                  else if (g.dy > 20) setIsFull(false);
+                },
+              });
+              return responder.panHandlers;
+            }, [])}
+          >
             <View style={styles.handle} />
           </View>
           
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.headerTitle}>Ruh Hali Detayları</Text>
+              <Text style={styles.headerTitle}>{headerTitleText}</Text>
               <Text style={styles.headerDate}>{formattedDate}</Text>
             </View>
             <TouchableOpacity 
@@ -272,54 +256,8 @@ export const AppleHealthDetailSheet: React.FC<Props> = ({
             showsVerticalScrollIndicator={false}
             bounces={true}
           >
-            {/* Özet Kartları (MEDYAN + IQR) */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Number.isFinite(stats.mood.p50) ? `${Math.round(stats.mood.p50)}/100` : '—'}
-                </Text>
-                <Text style={styles.statLabel}>Mood Medyan</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Number.isFinite(stats.mood.p25) ? Math.round(stats.mood.p25) : '—'}–{Number.isFinite(stats.mood.p75) ? Math.round(stats.mood.p75) : '—'}/100
-                </Text>
-                <Text style={styles.statLabel}>Mood IQR (p25–p75)</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Number.isFinite(stats.energy.p50) ? `${Math.round(stats.energy.p50)}/10` : '—'}
-                </Text>
-                <Text style={styles.statLabel}>Enerji Medyan</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{stats.count}</Text>
-                <Text style={styles.statLabel}>Giriş</Text>
-              </View>
-            </View>
-
-            {/* Anksiyete kartları */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Number.isFinite(stats.anxiety.p50) ? `${Math.round(stats.anxiety.p50)}/10` : '—'}
-                </Text>
-                <Text style={styles.statLabel}>Anksiyete Medyan</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Number.isFinite(stats.anxiety.p25) ? Math.round(stats.anxiety.p25) : '—'}–{Number.isFinite(stats.anxiety.p75) ? Math.round(stats.anxiety.p75) : '—'}/10
-                </Text>
-                <Text style={styles.statLabel}>Anksiyete IQR</Text>
-              </View>
-            </View>
-            
             {/* Zaman Çizelgesi */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Gün İçi Dağılım</Text>
               <View style={styles.timeline}>
                 {localEntries.length > 0 ? (() => {
                   const sorted = [...localEntries].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -379,6 +317,10 @@ const styles = StyleSheet.create({
     maxHeight: SCREEN_HEIGHT * 0.85,
     minHeight: SCREEN_HEIGHT * 0.5,
   },
+  sheetContainerFull: {
+    maxHeight: SCREEN_HEIGHT * 0.98,
+    minHeight: SCREEN_HEIGHT * 0.98,
+  },
   handleContainer: {
     alignItems: 'center',
     paddingVertical: 8,
@@ -399,12 +341,12 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.separator,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: COLORS.text,
   },
   headerDate: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
@@ -420,56 +362,33 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-  },
+  // Stats removed per UX: keep only distribution list
   section: {
     paddingHorizontal: 16,
     marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
     marginBottom: 12,
   },
   timeline: {
     backgroundColor: COLORS.cardBackground,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
   },
   timelineItem: {
     flexDirection: 'row',
     marginBottom: 20,
   },
   timelineLeft: {
-    width: 50,
+    width: 52,
     alignItems: 'flex-end',
     marginRight: 12,
   },
   timelineTime: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
     marginBottom: 8,
   },
@@ -487,31 +406,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginTop: 2,
     marginRight: 12,
   },
   timelineCard: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#F7F7FB',
+    borderRadius: 10,
+    padding: 10,
   },
   moodHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   moodLabel: {
     fontSize: 15,
-    fontWeight: '600',
-  },
-  moodScores: {
-    flexDirection: 'row',
-    gap: 12,
+    fontWeight: '700',
   },
   headerRightRow: {
     flexDirection: 'row',
@@ -528,26 +443,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   notes: {
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.text,
-    lineHeight: 18,
-    marginTop: 8,
+    lineHeight: 20,
+    marginTop: 6,
   },
   triggers: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 8,
+    marginTop: 6,
   },
-  triggerChip: {
-    backgroundColor: COLORS.primary + '20',
+  triggerChipMuted: {
+    backgroundColor: '#E5E7EB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  triggerText: {
-    fontSize: 11,
-    color: COLORS.primary,
+  triggerTextMuted: {
+    fontSize: 12,
+    color: '#374151',
     fontWeight: '500',
   },
   emptyText: {

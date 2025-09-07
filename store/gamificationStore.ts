@@ -214,11 +214,21 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
         const profile = JSON.parse(stored);
-        
-        // Check if streak should be reset
+        // Check if streak should be reset (UTC-safe by date keys)
         const today = new Date().toISOString().split('T')[0];
-        const lastDate = new Date(profile.lastActivityDate);
-        const daysDiff = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        const lastKey = String(profile.lastActivityDate || today);
+        const daysDiff = (() => {
+          try {
+            const [y1,m1,d1] = lastKey.split('-').map((n: string) => parseInt(n, 10));
+            const now = new Date();
+            const y2 = now.getUTCFullYear();
+            const m2 = now.getUTCMonth()+1;
+            const d2 = now.getUTCDate();
+            const t1 = Date.UTC(y1, (m1-1), d1);
+            const t2 = Date.UTC(y2, (m2-1), d2);
+            return Math.floor((t2 - t1)/86400000);
+          } catch { return 0; }
+        })();
         
         if (daysDiff > 1) {
           // Streak broken
@@ -266,8 +276,19 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       return;
     }
     
-    const lastDate = new Date(profile.lastActivityDate);
-    const daysDiff = Math.floor((new Date().getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    const lastKey = String(profile.lastActivityDate || today);
+    const daysDiff = (() => {
+      try {
+        const [y1,m1,d1] = lastKey.split('-').map((n: string) => parseInt(n, 10));
+        const now = new Date();
+        const y2 = now.getUTCFullYear();
+        const m2 = now.getUTCMonth()+1;
+        const d2 = now.getUTCDate();
+        const t1 = Date.UTC(y1, (m1-1), d1);
+        const t2 = Date.UTC(y2, (m2-1), d2);
+        return Math.floor((t2 - t1)/86400000);
+      } catch { return 0; }
+    })();
     
     let newStreak = profile.streakCurrent;
     
@@ -393,6 +414,14 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       trackModule('mood');
     } else if (trigger === 'breathwork_completed') {
       trackModule('breathwork');
+    }
+
+    // Ensure streak increments for breathwork as daily mindful activity
+    if (trigger === 'breathwork_completed') {
+      try {
+        const { updateStreak } = get();
+        await updateStreak();
+      } catch {}
     }
 
     // Evaluate multi-module thresholds (only once per level)

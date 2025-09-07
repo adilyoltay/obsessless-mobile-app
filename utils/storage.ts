@@ -26,6 +26,7 @@ export const StorageKeys = {
   // Settings
   USER_SETTINGS: (userId: string) => `settings_${userId}`,
   SETTINGS: 'app_settings',
+  FIRST_LAUNCH_DONE: 'first_launch_done',
   
   // Last used items (for smart suggestions)
   // LAST_COMPULSION removed

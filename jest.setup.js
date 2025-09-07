@@ -266,7 +266,7 @@ jest.mock('@/features/ai/cache/resultCache', () => ({
     delete: jest.fn().mockResolvedValue(undefined),
     clear: jest.fn().mockResolvedValue(undefined)
   }
-}));
+}), { virtual: true });
 
 // ============================================================================
 // 🧪 QUALITY RIBBON TEST MODE INFRASTRUCTURE
@@ -320,5 +320,4 @@ beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
   jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
-
 

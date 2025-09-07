@@ -20,7 +20,7 @@ import { generatePrefixedId } from '@/utils/idGenerator';
 // =============================================================================
 
 export type ConflictType = 'CREATE_DUPLICATE' | 'UPDATE_CONFLICT' | 'DELETE_CONFLICT' | 'NONE';
-export type EntityType = 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin';
+export type EntityType = 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile';
 
 export interface UnifiedDataConflict {
   id: string;

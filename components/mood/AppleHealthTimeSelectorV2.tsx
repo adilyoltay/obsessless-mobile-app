@@ -6,28 +6,52 @@ import type { TimeRange } from '@/types/mood';
 type Props = {
   selected: TimeRange;
   onChange: (range: TimeRange) => void;
+  visible?: TimeRange[]; // optional: restrict which ranges are shown
 };
 
 /**
  * Apple Health tarzı zaman aralığı seçici - V2
  * iOS 17 Health app'e tam uyumlu segmented control
  */
-export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange }) => {
-  const ranges: { id: TimeRange; label: string; fullLabel: string }[] = [
+export const AppleHealthTimeSelectorV2: React.FC<Props> = React.memo(({ selected, onChange, visible }) => {
+  console.log(`TimeSelectorV2: Component render, selected=${selected}`);
+  
+  const ranges: { id: TimeRange; label: string; fullLabel: string }[] = React.useMemo(() => [
     { id: 'day', label: 'G', fullLabel: 'Gün' },
     { id: 'week', label: 'H', fullLabel: 'Hafta' },
     { id: 'month', label: 'A', fullLabel: 'Ay' },
     { id: '6months', label: '6A', fullLabel: '6 Ay' },
     { id: 'year', label: 'Y', fullLabel: 'Yıl' },
-  ];
+  ], []);
+  const effective = React.useMemo(() => {
+    return Array.isArray(visible) && visible.length > 0
+      ? ranges.filter(r => (visible as TimeRange[]).includes(r.id))
+      : ranges;
+  }, [ranges, visible]);
+  
+  const handlePress = React.useCallback((rangeId: TimeRange) => {
+    console.log(`TimeSelectorV2: ===== BUTTON PRESS START =====`);
+    console.log(`TimeSelectorV2: Tapped ${rangeId}, currently selected: ${selected}`);
+    console.log(`TimeSelectorV2: Equality check: ${selected} !== ${rangeId} = ${selected !== rangeId}`);
+    
+    if (selected !== rangeId) {
+      console.log(`TimeSelectorV2: WILL CALL onChange with ${rangeId}`);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onChange(rangeId);
+      console.log(`TimeSelectorV2: onChange CALLED`);
+    } else {
+      console.log(`TimeSelectorV2: IGNORING - same range selected`);
+    }
+    console.log(`TimeSelectorV2: ===== BUTTON PRESS END =====`);
+  }, [selected, onChange]);
 
   return (
     <View style={styles.container}>
       <View style={styles.segmentedControl}>
-        {ranges.map((range, index) => {
+        {effective.map((range, index) => {
           const isSelected = selected === range.id;
           const isFirst = index === 0;
-          const isLast = index === ranges.length - 1;
+          const isLast = index === effective.length - 1;
           
           return (
             <TouchableOpacity
@@ -39,16 +63,7 @@ export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange 
                 isLast && styles.segmentLast,
                 { zIndex: isSelected ? 10 : 1 }
               ]}
-              onPress={() => {
-                console.log(`TimeSelectorV2: Tapped ${range.id}, selected: ${selected}`);
-                if (selected !== range.id) {
-                  console.log(`TimeSelectorV2: Calling onChange with ${range.id}`);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onChange(range.id);
-                } else {
-                  console.log(`TimeSelectorV2: Same range selected, ignoring`);
-                }
-              }}
+              onPress={() => handlePress(range.id)}
               accessibilityLabel={`${range.fullLabel} görünümü`}
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
@@ -74,7 +89,7 @@ export const AppleHealthTimeSelectorV2: React.FC<Props> = ({ selected, onChange 
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -133,8 +148,8 @@ const styles = StyleSheet.create({
     top: 6,
     bottom: 6,
     width: 1,
-    backgroundColor: '#D1D5DB',
-    opacity: 0.8,
+    backgroundColor: '#9CA3AF',
+    opacity: 1,
   },
   segmentText: {
     fontSize: 13,

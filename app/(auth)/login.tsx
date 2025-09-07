@@ -12,8 +12,47 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
-  const { signInWithEmail, signInWithGoogle, isLoading, error } = useAuth();
+  const theme = useThemeColors();
+  const { signInWithEmail, signInWithGoogle, isLoading, error, user } = useAuth() as any;
+
+  // After successful auth, route based on onboarding completion
+  React.useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const aiKey = `ai_onboarding_completed_${user.id}`;
+        // Short window to allow auth profile loader to restore flags
+        for (let i = 0; i < 4; i++) {
+          const v = await AsyncStorage.getItem(aiKey);
+          if (cancelled) return;
+          if (v === 'true') {
+            router.replace('/(tabs)');
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        // Remote fallback: check server profile
+        try {
+          const supabaseService = (await import('@/services/supabase')).default;
+          const { data: profile, error } = await supabaseService.supabaseClient
+            .from('user_profiles')
+            .select('user_id')
+            .eq('user_id', user.id)
+            .single();
+          if (!cancelled && profile && !error) {
+            router.replace('/(tabs)');
+            return;
+          }
+        } catch {}
+        if (!cancelled) router.replace('/(auth)/onboarding');
+      } catch {
+        if (!cancelled) router.replace('/(auth)/onboarding');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -132,7 +171,7 @@ export default function LoginScreen() {
           <Animated.View entering={FadeInDown.delay(600)} style={styles.footer}>
             <Text style={styles.footerText}>
               Hesabınız yok mu?{' '}
-              <Text style={styles.signupLink} onPress={() => router.push('/signup')}>
+              <Text style={styles.signupLink} onPress={() => router.push('/(auth)/signup')}>
                 Kayıt Olun
               </Text>
             </Text>
@@ -294,4 +333,3 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
   },
 });
-  const theme = useThemeColors();

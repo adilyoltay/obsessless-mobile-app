@@ -63,6 +63,7 @@ export class OfflineSyncService {
   constructor() {
     this.initializeNetworkListener();
     this.loadSyncQueue();
+    this.attemptEncryptionRecovery();
   }
 
   private initializeNetworkListener(): void {
@@ -87,6 +88,39 @@ export class OfflineSyncService {
     }
   }
 
+  // 🩺 Attempt to recover from previous encryption failure by saving an empty queue
+  private async attemptEncryptionRecovery(): Promise<void> {
+    try {
+      const flag = await AsyncStorage.getItem('sync_queue_encryption_failed');
+      if (flag === 'true') {
+        console.warn('🩺 Attempting sync queue encryption recovery...');
+        const ok = await queueRepository.save<SyncQueueItem>([]);
+        if (ok) {
+          await AsyncStorage.removeItem('sync_queue_encryption_failed');
+          console.log('✅ Encryption recovery successful');
+        } else {
+          console.warn('⚠️ Encryption recovery failed');
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Encryption recovery attempt errored:', e);
+    }
+  }
+
+  // Public recovery API (can be wired to a settings button or debug console)
+  public async recoverEncryptionFailure(): Promise<boolean> {
+    try {
+      const ok = await queueRepository.save<SyncQueueItem>(this.syncQueue || []);
+      if (ok) {
+        await AsyncStorage.removeItem('sync_queue_encryption_failed');
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   // 🔐 PRIVACY-FIRST: Load encrypted sync queue
   private async loadSyncQueue(): Promise<void> {
     try {
@@ -107,8 +141,10 @@ export class OfflineSyncService {
     if (!ok) {
       this.syncQueue = [];
       console.error('❌ CRITICAL: Queue encryption failed, in-memory queue reset');
+      try { await AsyncStorage.setItem('sync_queue_encryption_failed', 'true'); } catch {}
     } else {
       console.log('🔒 Sync queue encrypted and saved successfully');
+      try { await AsyncStorage.removeItem('sync_queue_encryption_failed'); } catch {}
     }
   }
 
@@ -180,6 +216,13 @@ export class OfflineSyncService {
 
   public getSyncMetrics(): typeof this.syncMetrics {
     return { ...this.syncMetrics };
+  }
+
+  // 🔧 Decide optimal concurrency based on health metrics and queue size
+  private determineConcurrency(queueSize: number): number {
+    const { successRate, avgResponseTime } = this.syncMetrics;
+    const { determineConcurrency } = require('@/utils/syncHeuristics');
+    return determineConcurrency(successRate, avgResponseTime, queueSize);
   }
 
   private async resolveValidUserId(candidate?: string | null): Promise<string> {
@@ -360,8 +403,8 @@ export class OfflineSyncService {
       const failed: SyncQueueItem[] = [];
       const latencies: number[] = [];
 
-      // Small concurrency limiter (2) with per-user ordering
-      const concurrency = 2;
+      // Dynamic concurrency with per-user ordering
+      const concurrency = this.determineConcurrency(itemsToSync.length);
       const deriveUserId = (it: SyncQueueItem): string | null => {
         try {
           return it?.data?.user_id || it?.data?.userId || null;
@@ -516,7 +559,30 @@ export class OfflineSyncService {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
     const uid = await this.resolveValidUserId(d.user_id || d.userId);
-    await (svc as any).upsertAIProfile(uid, d.profile_data, !!d.onboarding_completed);
+    try {
+      await (svc as any).upsertAIProfile(uid, d.profile_data, !!d.onboarding_completed);
+    } catch (error: any) {
+      const status = error?.status || error?.code;
+      const isConflict = status === 409 || String(error?.message || '').toLowerCase().includes('conflict');
+      if (!isConflict) throw error;
+      try {
+        const { data: remote } = await (svc as any).supabaseClient
+          .from('ai_profiles')
+          .select('*')
+          .eq('user_id', uid)
+          .maybeSingle();
+        const local = { user_id: uid, profile_data: d.profile_data, onboarding_completed: !!d.onboarding_completed };
+        const { unifiedConflictResolver } = await import('@/services/unifiedConflictResolver');
+        const resolution = await unifiedConflictResolver.resolveConflict('ai_profile', local, remote || {}, uid, undefined);
+        if (resolution?.resolved && resolution.resultData) {
+          await (svc as any).upsertAIProfile(uid, resolution.resultData.profile_data || d.profile_data, !!resolution.resultData.onboarding_completed);
+        } else {
+          throw error;
+        }
+      } catch (e) {
+        throw error;
+      }
+    }
   }
 
   private async syncUserProfile(item: SyncQueueItem): Promise<void> {
@@ -530,14 +596,63 @@ export class OfflineSyncService {
       } catch {}
     }
     if (!uid) throw new Error('No user id available for user_profile sync');
-    await (svc as any).upsertUserProfile(uid, d.payload || d);
+    try {
+      await (svc as any).upsertUserProfile(uid, d.payload || d);
+    } catch (error: any) {
+      const status = error?.status || error?.code;
+      const isConflict = status === 409 || String(error?.message || '').toLowerCase().includes('conflict');
+      if (!isConflict) throw error;
+
+      try {
+        // Fetch remote profile
+        const { data: remote } = await (svc as any).supabaseClient
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', uid)
+          .maybeSingle();
+
+        const local = d.payload || d;
+        const { unifiedConflictResolver } = await import('@/services/unifiedConflictResolver');
+        const resolution = await unifiedConflictResolver.resolveConflict('user_profile' as any, local, remote || {}, uid, undefined);
+        if (resolution?.resolved && resolution.resultData) {
+          await (svc as any).upsertUserProfile(uid, resolution.resultData);
+        } else {
+          throw error;
+        }
+      } catch (e) {
+        throw error; // bubble original
+      }
+    }
   }
 
   private async syncTreatmentPlan(item: SyncQueueItem): Promise<void> {
     const { default: svc } = await import('@/services/supabase');
     const d = item.data || {};
     const uid = await this.resolveValidUserId(d.user_id || d.userId);
-    await (svc as any).upsertAITreatmentPlan(uid, d.plan_data, d.status || 'active');
+    try {
+      await (svc as any).upsertAITreatmentPlan(uid, d.plan_data, d.status || 'active');
+    } catch (error: any) {
+      const status = error?.status || error?.code;
+      const isConflict = status === 409 || String(error?.message || '').toLowerCase().includes('conflict');
+      if (!isConflict) throw error;
+      try {
+        const { data: remote } = await (svc as any).supabaseClient
+          .from('ai_treatment_plans')
+          .select('*')
+          .eq('user_id', uid)
+          .maybeSingle();
+        const local = { user_id: uid, plan_data: d.plan_data, status: d.status || 'active' };
+        const { unifiedConflictResolver } = await import('@/services/unifiedConflictResolver');
+        const resolution = await unifiedConflictResolver.resolveConflict('treatment_plan', local, remote || {}, uid, undefined);
+        if (resolution?.resolved && resolution.resultData) {
+          await (svc as any).upsertAITreatmentPlan(uid, resolution.resultData.plan_data || d.plan_data, resolution.resultData.status || (d.status || 'active'));
+        } else {
+          throw error;
+        }
+      } catch (e) {
+        throw error;
+      }
+    }
   }
 
   // user_progress kaldırıldı – progress senkronizasyonu AI profiline taşındı (gerektiğinde ayrı servis kullanılacak)
@@ -623,7 +738,11 @@ export class OfflineSyncService {
           throw error; // Let it retry via DLQ
         }
       } else {
-        console.log('⚠️ DELETE skipped: missing mood entry id');
+        // 🔒 SAFETY: Missing identifier for DELETE – move to DLQ and notify user instead of silently skipping
+        console.log('⚠️ DELETE skipped: missing mood entry id – moving to DLQ');
+        try {
+          await this.handleFailedSync(item, 'DELETE missing id for mood_entry');
+        } catch {}
       }
       return;
     }

@@ -26,12 +26,13 @@ import crashReporting from '@/services/crashReporting';
 import asyncStorageHygiene from '@/services/asyncStorageHygiene';
 import performanceMonitor from '@/services/performanceMonitor';
 import smartNotifications from '@/services/smartNotifications';
-import { offlineSyncService } from '@/services/offlineSync';
+// offlineSyncService already imported above
 
 // Components
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import SyncHealthDebugCard from '@/components/settings/SyncHealthDebugCard';
+import { offlineSyncService } from '@/services/offlineSync';
 
 export default function DebugConsole() {
   const { user } = useAuth();
@@ -116,6 +117,22 @@ export default function DebugConsole() {
     );
   };
 
+  const handleEncryptionRecovery = async () => {
+    try {
+      const ok = await offlineSyncService.recoverEncryptionFailure();
+      Alert.alert('Encryption Recovery', ok ? 'Şifreli kuyruk başarıyla kurtarıldı.' : 'Kurtarma başarısız.');
+    } catch {
+      Alert.alert('Encryption Recovery', 'Beklenmeyen bir hata oluştu.');
+    }
+  };
+
+  const handleShowSyncMetrics = async () => {
+    try {
+      const metrics = (offlineSyncService as any).getSyncMetrics?.() || {};
+      Alert.alert('Sync Metrics', `Success: ${metrics.successRate?.toFixed?.(1) || 0}%\nAvg Latency: ${Math.round(metrics.avgResponseTime || 0)}ms`);
+    } catch {}
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy': return 'check-circle';
@@ -190,6 +207,22 @@ export default function DebugConsole() {
               </View>
             </View>
           )}
+        </Card>
+
+        {/* Sync Utilities */}
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="wrench" size={20} color="#6B7280" />
+            <Text style={styles.sectionTitle}>Sync Utilities</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+            <Pressable onPress={handleEncryptionRecovery} style={[styles.actionButton, styles.primaryAction]}>
+              <Text style={styles.primaryActionText}>Encryption Recovery</Text>
+            </Pressable>
+            <Pressable onPress={handleShowSyncMetrics} style={[styles.actionButton, styles.infoAction]}>
+              <Text style={styles.infoActionText}>Show Metrics</Text>
+            </Pressable>
+          </View>
         </Card>
 
         {/* Sync Health */}

@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect, Line, Circle, Text as SvgText } from 'react-native-svg';
+import { useAccentColor } from '@/contexts/AccentColorContext';
+import { BramanColors } from '@/constants/Colors';
 import Animated, { useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -28,6 +30,7 @@ interface VAPadProps {
 }
 
 export default function VAPad({ x, y, onChangeXY, color }: VAPadProps) {
+  const { palette } = useAccentColor();
   // Dot position animation
   const dotStyle = useAnimatedStyle(() => {
     return {
@@ -85,37 +88,52 @@ export default function VAPad({ x, y, onChangeXY, color }: VAPadProps) {
         <Svg width={PAD} height={PAD}>
           <Defs>
             <RadialGradient id="vaGlow" cx="50%" cy="50%" rx="60%" ry="60%">
-              <Stop offset="0%" stopColor={withA(color, 0.95)} />
-              <Stop offset="72%" stopColor={withA(lightenColor(color, 0.1), 0.28)} />
-              <Stop offset="100%" stopColor={withA(lightenColor(color, 0.25), 0.06)} />
+              <Stop offset="0%" stopColor={withA(color, 0.9)} />
+              <Stop offset="72%" stopColor={withA(lightenColor(color, 0.1), palette === 'braman' ? 0.18 : 0.28)} />
+              <Stop offset="100%" stopColor={withA(lightenColor(color, 0.25), palette === 'braman' ? 0.0 : 0.06)} />
             </RadialGradient>
           </Defs>
           
           {/* Background */}
-          <Rect x={0} y={0} width={PAD} height={PAD} rx={20} ry={20} fill="#0f1419" />
+          <Rect x={0} y={0} width={PAD} height={PAD} rx={20} ry={20} fill={palette === 'braman' ? BramanColors.paper : '#0f1419'} />
           
           {/* Glow effect */}
           <Rect x={0} y={0} width={PAD} height={PAD} rx={20} ry={20} fill="url(#vaGlow)" />
           
           {/* Cross axes */}
-          <Line x1={HALF} y1={16} x2={HALF} y2={PAD - 16} stroke="#ffffff25" strokeWidth={1.5} />
-          <Line x1={16} y1={HALF} x2={PAD - 16} y2={HALF} stroke="#ffffff25" strokeWidth={1.5} />
+          {(() => {
+            const base = palette === 'braman' ? withA(BramanColors.light, 0.55) : (palette === 'apple' ? withA('#C7C7CC', 0.7) : '#ffffff25');
+            return (
+              <>
+                <Line x1={HALF} y1={16} x2={HALF} y2={PAD - 16} stroke={base} strokeWidth={1.5} />
+                <Line x1={16} y1={HALF} x2={PAD - 16} y2={HALF} stroke={base} strokeWidth={1.5} />
+              </>
+            );
+          })()}
           
           {/* Concentric circles */}
-          <Circle cx={HALF} cy={HALF} r={HALF * 0.35} stroke="#ffffff18" strokeWidth={1} fill="none" />
-          <Circle cx={HALF} cy={HALF} r={HALF * 0.70} stroke="#ffffff12" strokeWidth={1} fill="none" />
+          {(() => {
+            const c1 = palette === 'braman' ? withA(BramanColors.light, 0.35) : (palette === 'apple' ? withA('#C7C7CC', 0.5) : '#ffffff18');
+            const c2 = palette === 'braman' ? withA(BramanColors.light, 0.22) : (palette === 'apple' ? withA('#C7C7CC', 0.32) : '#ffffff12');
+            return (
+              <>
+                <Circle cx={HALF} cy={HALF} r={HALF * 0.35} stroke={c1} strokeWidth={1} fill="none" />
+                <Circle cx={HALF} cy={HALF} r={HALF * 0.70} stroke={c2} strokeWidth={1} fill="none" />
+              </>
+            );
+          })()}
           
           {/* Axis labels */}
-          <SvgText x={HALF} y={12} fill="#ffffff40" fontSize="10" textAnchor="middle">
+          <SvgText x={HALF} y={12} fill={palette === 'braman' ? withA(BramanColors.medium, 0.7) : (palette === 'apple' ? withA('#8E8E93', 0.9) : '#ffffff40')} fontSize="10" textAnchor="middle">
             Enerjik
           </SvgText>
-          <SvgText x={HALF} y={PAD - 6} fill="#ffffff40" fontSize="10" textAnchor="middle">
+          <SvgText x={HALF} y={PAD - 6} fill={palette === 'braman' ? withA(BramanColors.medium, 0.7) : (palette === 'apple' ? withA('#8E8E93', 0.9) : '#ffffff40')} fontSize="10" textAnchor="middle">
             Yorgun
           </SvgText>
-          <SvgText x={8} y={HALF + 4} fill="#ffffff40" fontSize="10">
+          <SvgText x={8} y={HALF + 4} fill={palette === 'braman' ? withA(BramanColors.medium, 0.7) : (palette === 'apple' ? withA('#8E8E93', 0.9) : '#ffffff40')} fontSize="10">
             Keyifsiz
           </SvgText>
-          <SvgText x={PAD - 40} y={HALF + 4} fill="#ffffff40" fontSize="10">
+          <SvgText x={PAD - 40} y={HALF + 4} fill={palette === 'braman' ? withA(BramanColors.medium, 0.7) : (palette === 'apple' ? withA('#8E8E93', 0.9) : '#ffffff40')} fontSize="10">
             Keyifli
           </SvgText>
         </Svg>

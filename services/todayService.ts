@@ -118,7 +118,7 @@ export const todayService = {
         : 0;
       const weeklyAnxietyAvg = weeklyEntriesWithData.length > 0
         ? weeklyEntriesWithData.reduce((sum: number, entry: any) => sum + entry.anxiety_level, 0) / weeklyEntriesWithData.length
-        : 0;
+        : null;
 
       // Trend based on first non-zero (today-most recent) vs last non-zero (oldest) in normalized range
       const nonZero = normalizedDaily.filter(e => (e.mood_score || 50) > 0); // FIXED: 50 fallback

@@ -40,6 +40,27 @@ export const getMoodGradient = (score: number, intensity: number = 0.1): [string
   return [start, end];
 };
 
+// Lindsay Braman pastel paleti: mood skorundan ana tona map
+import { BramanColors } from '@/constants/Colors';
+export const getBramanMoodColor = (score: number): string => {
+  const s = Number.isFinite(score as any) ? (score as number) : 55;
+  if (s >= 80) return BramanColors.mutlu;         // Soft peach
+  if (s >= 60) return BramanColors.güvenli;       // Soft sage
+  if (s >= 40) return BramanColors.üzgün;         // Soft blue-gray
+  if (s >= 20) return BramanColors.korkmuş;       // Soft lavender
+  return BramanColors.kızgın;                     // Soft coral
+};
+
+// Apple Health uyumlu mood→renk eşlemesi (basit, okunur tonlar)
+export const getAppleMoodColor = (score: number): string => {
+  const s = Number.isFinite(score as any) ? (score as number) : 55;
+  if (s >= 80) return '#34C759'; // Green - very pleasant
+  if (s >= 60) return '#5AC8FA'; // Light Blue - pleasant/calm
+  if (s >= 50) return '#007AFF'; // Blue - neutral
+  if (s >= 40) return '#FF9500'; // Orange - unpleasant
+  return '#FF3B30';              // Red - very unpleasant
+};
+
 // ---- VA Pad aligned color mapping ----
 // Mirrors the VA Pad's interactive palette so the rest of the app can match it.
 
@@ -77,6 +98,19 @@ export const getVAColorFromScores = (moodScore: number, energyLevel?: number): s
   const x = toCoordServiceLike(m10);
   const y = toCoordServiceLike(e10);
   return getVAColor(x, y);
+};
+
+// Unified color from VA coordinates based on selected palette
+export const getPaletteVAColor = (
+  palette: 'va' | 'apple' | 'braman',
+  x: number,
+  y: number
+): string => {
+  if (palette === 'va') return getVAColor(x, y);
+  // Approximate a mood score from x (-1..1) → 0..100
+  const approxScore = Math.round(((x + 1) / 2) * 100);
+  if (palette === 'apple') return getAppleMoodColor(approxScore);
+  return getBramanMoodColor(approxScore);
 };
 
 // Build a gradient from a base color (same tuning as getMoodGradient)
