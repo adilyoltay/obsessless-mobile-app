@@ -564,20 +564,37 @@ export default function TodayScreen() {
       }
     })();
 
+    // Dynamically compute weekly gradient based on average mood/energy and stability
+    const heroGradient = (() => {
+      try {
+        const { getVAGradientFromScores } = require('@/utils/colorUtils');
+        const mVals = week.map(d => (typeof d.mood === 'number' ? d.mood : NaN)).filter((n: any) => Number.isFinite(n));
+        const eVals = week.map(d => (typeof d.energy === 'number' ? d.energy : NaN)).filter((n: any) => Number.isFinite(n));
+        const avgMood = mVals.length ? mVals.reduce((s: number, n: number) => s + n, 0) / mVals.length : 55;
+        const avgE10 = eVals.length ? eVals.reduce((s: number, n: number) => s + n, 0) / eVals.length : 6;
+        const sd = Math.sqrt(Math.max(0, moodVariance || 0));
+        // Map sd to intensity: Stabil → daha pastel; Çok dalgalı → daha belirgin
+        const intensity = sd < 6 ? 0.07 : sd < 12 ? 0.09 : 0.12;
+        return getVAGradientFromScores(avgMood, avgE10, intensity);
+      } catch {
+        return gradient; // fallback to accent gradient
+      }
+    })();
+
     // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
       <>
           <MindScoreCard
             week={week}
-            gradientColors={gradient}
+            gradientColors={heroGradient}
             loading={!moodJourneyData}
             onQuickStart={() => setCheckinSheetVisible(true)}
             sparkStyle={mindSparkStyle}
             moodVariance={moodVariance}
           // Default variant is now 'hero' (gradient + white text)
-          streakCurrent={profile.streakCurrent}
-          streakBest={profile.streakBest}
-          streakLevel={profile.streakLevel}
+            streakCurrent={profile.streakCurrent}
+            streakBest={profile.streakBest}
+            streakLevel={profile.streakLevel}
         />
       </>
     );
@@ -834,7 +851,7 @@ export default function TodayScreen() {
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
           accentColor={accentColor}
-          gradientColors={gradient}
+          gradientColors={heroGradient}
         />
         {/* Spacer removed to avoid visual gap above bottom tab */}
       </ScrollView>
