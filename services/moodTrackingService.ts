@@ -302,8 +302,9 @@ class MoodTrackingService {
       const isOnboardingSource = typeof source === 'string' && source.includes('onboarding');
       if (!isVoiceSource && !isOnboardingSource) {
         const { updateStreak, awardMicroReward } = useGamificationStore.getState();
-        await updateStreak();
-        await awardMicroReward('mood_manual_checkin', { source: 'manual' });
+        const ts = (entry as any)?.timestamp || new Date().toISOString();
+        await updateStreak(ts);
+        await awardMicroReward('mood_manual_checkin', { source: 'manual', timestamp: ts });
       }
     } catch (gamiError) {
       console.warn('⚠️ Gamification (manual mood) award failed:', gamiError);

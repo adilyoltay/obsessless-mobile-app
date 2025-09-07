@@ -157,7 +157,7 @@ interface GamificationState {
   // Actions
   setUserId: (userId: string) => void;
   initializeGamification: (userId?: string) => Promise<void>;
-  updateStreak: () => Promise<void>;
+  updateStreak: (dateIso?: string) => Promise<void>;
   checkAchievements: (type: 'compulsion', data?: any) => Promise<AchievementDefinition[]>;
   awardMicroReward: (trigger: MicroRewardTrigger, context?: any) => Promise<void>;
   
@@ -255,9 +255,10 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     }
   },
 
-  updateStreak: async () => {
+  updateStreak: async (dateIso?: string) => {
     const { profile } = get();
-    const today = new Date().toISOString().split('T')[0];
+    const refDate = dateIso ? new Date(dateIso) : new Date();
+    const today = refDate.toISOString().split('T')[0]; // UTC day key
     
     // If today is already recorded but streak hasn't started yet (fresh profile), start at 1
     if (profile.lastActivityDate === today) {
@@ -280,7 +281,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     const daysDiff = (() => {
       try {
         const [y1,m1,d1] = lastKey.split('-').map((n: string) => parseInt(n, 10));
-        const now = new Date();
+        const now = refDate;
         const y2 = now.getUTCFullYear();
         const m2 = now.getUTCMonth()+1;
         const d2 = now.getUTCDate();
@@ -415,13 +416,19 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       // Count this as a mindful daily activity for streak continuity
       try {
         const { updateStreak } = get();
-        await updateStreak();
+        await updateStreak(context?.timestamp || new Date().toISOString());
       } catch {}
     } else if (trigger === 'breathwork_completed') {
       trackModule('breathwork');
     }
 
-    // Streak increment is now handled for both mood and breathwork cases above
+    // Ensure breathwork also increments streak using session timestamp when available
+    if (trigger === 'breathwork_completed') {
+      try {
+        const { updateStreak } = get();
+        await updateStreak(context?.timestamp || new Date().toISOString());
+      } catch {}
+    }
 
     // Evaluate multi-module thresholds (only once per level)
     const modsCount = profile.modulesActiveToday?.length || 0;

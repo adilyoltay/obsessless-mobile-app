@@ -509,7 +509,7 @@ export default function VAMoodCheckin({
         try {
           const { updateStreak, awardMicroReward } = useGamificationStore.getState();
           await updateStreak();
-          await awardMicroReward('voice_mood_checkin');
+          await awardMicroReward('voice_mood_checkin', { timestamp: new Date().toISOString() });
         } catch (gamiError) {
           console.warn('⚠️ Gamification update after check-in failed:', gamiError);
         }
