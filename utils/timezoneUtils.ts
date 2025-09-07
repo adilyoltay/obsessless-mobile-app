@@ -220,3 +220,39 @@ export function formatDateInUserTimezone(date: Date | string, format: 'short' | 
       return userDate.toLocaleDateString('tr-TR');
   }
 }
+
+/**
+ * 🕒 UTC-DAY-KEY: Get YYYY-MM-DD using UTC calendar day (timezone-agnostic day key)
+ * Useful for streak calculations or server-side day grouping keyed by UTC.
+ */
+export function getUtcDayKey(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * 🕘 LOCAL START-OF-DAY: Return Date at local midnight (00:00:00.000) for given date
+ * Keeps system-local timezone semantics (not forced to UTC math).
+ */
+export function toLocalStartOfDay(date: Date | string): Date {
+  const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  return out;
+}
+
+/**
+ * 📏 UTC DAY DIFF: Difference in whole days between two dates using UTC day keys.
+ * Positive if b is after a.
+ */
+export function calcDayDiffUTC(a: Date | string, b: Date | string): number {
+  const dA = typeof a === 'string' ? new Date(a) : a;
+  const dB = typeof b === 'string' ? new Date(b) : b;
+  const tA = Date.UTC(dA.getUTCFullYear(), dA.getUTCMonth(), dA.getUTCDate());
+  const tB = Date.UTC(dB.getUTCFullYear(), dB.getUTCMonth(), dB.getUTCDate());
+  const diffMs = tB - tA;
+  return Math.round(diffMs / (24 * 60 * 60 * 1000));
+}
