@@ -184,8 +184,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const { color: accentColor } = useAccentColor();
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
   // Experiment: show simple aggregated IQR bands on weekly view
-  // Removed weekly experiment flags — unified grammar replaces them
-  const WEEK_AGG_EXPERIMENT = false;
   // Global: show IQR bands on aggregate ranges (month, 6months, year) — verticalBands already renders mood IQR
   const AGG_IQR_BANDS = true;
   // Show aggregate overlay lines (p50 trend lines) for mood/energy/anxiety

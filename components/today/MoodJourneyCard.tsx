@@ -934,6 +934,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                             );
                           })()}
                           {/* Mini stats row with icons + values only */}
+                          <Text style={{ color: '#6B7280', fontSize: 11, marginTop: 6 }}>Median (p50) değerleri</Text>
                           {(() => {
                             const cr = (qData as any)?.countReal as number | undefined;
                             const c = (qData as any)?.count as number | undefined;
@@ -946,6 +947,10 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                             }
                             return null;
                           })()}
+                          {/* Count semantics note */}
+                          <Text style={{ color: '#9CA3AF', fontSize: 10, marginTop: 6 }}>
+                            Toplam: tüm girişler • Gerçek: nötr-dışı girişler
+                          </Text>
                           {(() => {
                             const mv = Number(((qData as any)?.mood?.p50 ?? NaN) as number);
                             const ev = Number(((qData as any)?.energy?.p50 ?? NaN) as number);
