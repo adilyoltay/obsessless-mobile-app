@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Easing, ActivityIndicator } from 'react-native';
+import { PanGestureHandler } from 'react-native-gesture-handler';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatIQRText } from '@/utils/format';
 import type { MoodJourneyData } from '@/services/todayService';
-import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
+import { getVAColorFromScores, getGradientFromBase, getBramanMoodColor, getAppleMoodColor } from '@/utils/colorUtils';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { Colors } from '@/constants/Colors';
 import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSelectorV2';
@@ -17,6 +18,9 @@ import AppleHealthDetailSheet from '@/components/mood/AppleHealthDetailSheet';
 import { moodDataLoader } from '@/services/moodDataLoader';
 import type { TimeRange, MoodJourneyExtended } from '@/types/mood';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StorageKeys } from '@/utils/storage';
 
 type Props = {
   data: MoodJourneyData;
@@ -32,7 +36,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
     const { language } = useTranslation();
     const theme = useThemeColors();
     const { user } = useAuth();
-    const { setVA } = useAccentColor();
+  const { setVA, palette } = useAccentColor();
     
     // Early safety check for props
     if (!data) {
@@ -60,9 +64,13 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   const [range, setRange] = React.useState<TimeRange>('week');
   const [page, setPage] = React.useState<number>(0); // 0 = current window (ends today); >0 = older pages
   const [extended, setExtended] = React.useState<MoodJourneyExtended | null>(null);
+  const [isLoadingRange, setIsLoadingRange] = React.useState(false); // Loading state for range changes
   const [detailDate, setDetailDate] = React.useState<string | null>(null);
   const [detailEntries, setDetailEntries] = React.useState<any[]>([]);
   const [chartSelection, setChartSelection] = React.useState<{ date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null>(null);
+  const [externalSelectIndex, setExternalSelectIndex] = React.useState<number | null>(null);
+  const [isDraggingTooltip, setIsDraggingTooltip] = React.useState(false);
+  const [chartRegion, setChartRegion] = React.useState<{ top: number; height: number }>({ top: 0, height: 0 });
   const [clearSignal, setClearSignal] = React.useState(0);
   const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
   const headerOpacity = React.useRef(new Animated.Value(1)).current;
@@ -70,8 +78,70 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   const [tooltipWidth, setTooltipWidth] = React.useState<number>(0);
   // Toggles for weekly overlays
   const [showMoodLine, setShowMoodLine] = React.useState(true);
-  const [showEnergyLine, setShowEnergyLine] = React.useState(true);
-  const [showAnxietyLine, setShowAnxietyLine] = React.useState(true);
+  const [showEnergyLine, setShowEnergyLine] = React.useState(false);
+  const [showAnxietyLine, setShowAnxietyLine] = React.useState(false);
+  const [moodLocked, setMoodLocked] = React.useState(false);
+  const [energyLocked, setEnergyLocked] = React.useState(true);
+  const [anxietyLocked, setAnxietyLocked] = React.useState(true);
+  const [visibleRanges, setVisibleRanges] = React.useState<TimeRange[]>(['day','week','month']);
+
+  // Load overlay visibility preferences
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.showMoodTrendOverlay === 'boolean') {
+            setShowMoodLine(parsed.showMoodTrendOverlay);
+            setMoodLocked(parsed.showMoodTrendOverlay === false);
+          }
+          if (typeof parsed.showEnergyOverlay === 'boolean') {
+            setShowEnergyLine(parsed.showEnergyOverlay);
+            setEnergyLocked(parsed.showEnergyOverlay === false);
+          }
+          if (typeof parsed.showAnxietyOverlay === 'boolean') {
+            setShowAnxietyLine(parsed.showAnxietyOverlay);
+            setAnxietyLocked(parsed.showAnxietyOverlay === false);
+          }
+          if (Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0) {
+            setVisibleRanges(parsed.visibleTimeRanges as TimeRange[]);
+          } else {
+            setVisibleRanges(['day','week','month']);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Re-apply preferences when screen regains focus (e.g., after returning from Settings)
+  useFocusEffect(
+    React.useCallback(() => {
+      (async () => {
+        try {
+          const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (typeof parsed.showMoodTrendOverlay === 'boolean') {
+              setShowMoodLine(parsed.showMoodTrendOverlay);
+              setMoodLocked(parsed.showMoodTrendOverlay === false);
+            }
+            if (typeof parsed.showEnergyOverlay === 'boolean') {
+              setShowEnergyLine(parsed.showEnergyOverlay);
+              setEnergyLocked(parsed.showEnergyOverlay === false);
+            }
+            if (typeof parsed.showAnxietyOverlay === 'boolean') {
+              setShowAnxietyLine(parsed.showAnxietyOverlay);
+              setAnxietyLocked(parsed.showAnxietyOverlay === false);
+            }
+            if (Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0) {
+              setVisibleRanges(parsed.visibleTimeRanges as TimeRange[]);
+            }
+          }
+        } catch {}
+      })();
+    }, [])
+  );
   
   // Track if initialRange has been applied to prevent infinite loops
   const initialRangeApplied = React.useRef(false);
@@ -192,18 +262,29 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
     setExtended(res);
   }, [user?.id, range, page]);
 
+  // Handle initialRange only once at mount (do not react to later range changes)
   React.useEffect(() => {
-    let mounted = true;
-    if (!user?.id) return () => { mounted = false; };
-    
-    // Handle initialRange only once at mount
-    if (initialRange && initialRange !== range && !initialRangeApplied.current) {
-      // Apply initialRange only once
+    if (!initialRange || initialRangeApplied.current) return;
+    initialRangeApplied.current = true; // mark applied before any state updates to avoid race on first toggle
+    console.log(`MoodJourneyCard: Applying initial range: ${initialRange}`);
+    if (initialRange !== range) {
       setRange(initialRange);
       setPage(0);
-      initialRangeApplied.current = true;
+    }
+  }, [initialRange]);
+
+  // Load data when range or page changes
+  React.useEffect(() => {
+    console.log(`MoodJourneyCard: ===== USEEFFECT TRIGGERED =====`);
+    console.log(`MoodJourneyCard: useEffect - range=${range}, page=${page}, user=${user?.id ? 'exists' : 'null'}`);
+    
+    let mounted = true;
+    if (!user?.id) {
+      console.log(`MoodJourneyCard: No user, returning early`);
       return () => { mounted = false; };
     }
+    
+    console.log(`MoodJourneyCard: Loading data for range=${range}, page=${page}`);
     (async () => {
       try {
         // Compute end date for this page with safety checks
@@ -233,8 +314,14 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
         }
         
         end.setHours(0, 0, 0, 0);
+        console.log(`MoodJourneyCard: Loading data for ${user.id}, ${range}, end=${end.toISOString()}`);
         const res = await moodDataLoader.loadTimeRangeAt(user.id, range, end);
-        if (mounted) setExtended(res);
+        console.log(`MoodJourneyCard: Data loaded, setting extended... mounted=${mounted}`);
+        if (mounted) {
+          setExtended(res);
+          setIsLoadingRange(false); // Clear loading state after data is set
+          console.log(`MoodJourneyCard: Extended data set successfully`);
+        }
         
         // Prefetch neighbors (older and newer if exists) with safety
         try {
@@ -264,16 +351,31 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
           fallbackEnd.setHours(0, 0, 0, 0);
           try {
             const res = await moodDataLoader.loadTimeRangeAt(user.id, range, fallbackEnd);
-            setExtended(res);
+            if (mounted) {
+              setExtended(res);
+              setIsLoadingRange(false);
+            }
           } catch (fallbackError) {
             console.error('Fallback load also failed:', fallbackError);
-            setExtended(null);
+            if (mounted) {
+              setExtended(null);
+              setIsLoadingRange(false);
+            }
           }
         }
       }
     })();
     return () => { mounted = false; };
-  }, [user?.id, range, page, data, initialRange]);
+  }, [user?.id, range, page]);
+
+  // Ensure current range remains within allowed visible ranges
+  React.useEffect(() => {
+    if (!visibleRanges.includes(range)) {
+      const fallback = (visibleRanges.includes('week') ? 'week' : visibleRanges[0]) as TimeRange;
+      setRange(fallback);
+      setPage(0);
+    }
+  }, [visibleRanges]);
 
   // Auto open detail for an initial date (only once)
   const appliedInitialRef = React.useRef(false);
@@ -395,10 +497,14 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
   
   // Horizontal spectrum bar aligned to VA palette (constant energy)
   const paletteColors = React.useMemo(() => {
-    const paletteEnergy = Math.round((data.weeklyEnergyAvg || 6)); // Kişiselleştirilmiş enerji
+    const paletteEnergy = Math.round((data.weeklyEnergyAvg || 6));
     const stops = [15, 25, 35, 45, 55, 65, 75, 85, 95];
-    return stops.map(s => getVAColorFromScores(s, paletteEnergy));
-  }, [data.weeklyEnergyAvg]);
+    return stops.map(s => {
+      if (palette === 'braman') return getBramanMoodColor(s);
+      if (palette === 'apple') return getAppleMoodColor(s);
+      return getVAColorFromScores(s, paletteEnergy);
+    });
+  }, [data.weeklyEnergyAvg, palette]);
 
   return (
     <View style={styles.container}>
@@ -406,16 +512,38 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
       <View style={styles.selectorWrapper}>
         <AppleHealthTimeSelectorV2 
           selected={range} 
-          onChange={(r) => { 
-            console.log(`MoodJourneyCard: Range changing from ${range} to ${r}`);
-            setRange(r); 
-            setPage(0); 
-          }} 
+          onChange={React.useCallback((newRange: TimeRange) => { 
+            console.log(`MoodJourneyCard: Range changing to ${newRange}`);
+            
+            // Start loading state immediately
+            setIsLoadingRange(true);
+            
+            // Force immediate state update by using callback form
+            setRange(currentRange => {
+              if (currentRange === newRange) {
+                setIsLoadingRange(false);
+                return currentRange;
+              }
+              return newRange;
+            });
+            
+            setPage(0);
+            setChartSelection(null);
+            setClearSignal(prev => prev + 1);
+          }, [])} 
+          visible={visibleRanges}
         />
+        {/* Chip row aligned to selector (right) */}
+        <View style={styles.selectorBadgeRow} pointerEvents="box-none" />
       </View>
 
       {/* Chart container with header/tooltip overlay area */}
-      <View style={{ position: 'relative', paddingTop: 68 }}>
+      <View style={{ position: 'relative', paddingTop: 68 }} onLayout={(e) => {
+        try {
+          const { y, height } = e.nativeEvent.layout;
+          setChartRegion({ top: y, height });
+        } catch {}
+      }}>
         {/* Fixed overlay area above chart: shows summary or tooltip */}
         {!chartSelection && extended && (
           <Animated.View style={[styles.chartTopOverlay, { opacity: headerOpacity }]} pointerEvents="none" onLayout={() => {
@@ -481,17 +609,23 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
             </View>
           </Animated.View>
         )}
-        {/* Interactive chart - Apple Health Style V2 */}
-        {extended && (
+        {/* Interactive chart - Apple Health Style V2 with loading state */}
+        {isLoadingRange ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#9CA3AF" />
+            <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
+          </View>
+        ) : extended ? (
           <AppleHealthStyleChartV2
             data={extended}
             timeRange={range}
             embedHeader={false}
-            showMoodTrend={showMoodLine}
+            showMoodTrend={!moodLocked && showMoodLine}
             showEnergy={showEnergyLine}
             showAnxiety={showAnxietyLine}
             onSelectionChange={(sel) => setChartSelection(sel)}
             clearSelectionSignal={clearSignal}
+            selectIndex={isDraggingTooltip ? externalSelectIndex : undefined}
             onRequestPage={(dir) => {
               // dir: 'prev' (older) => page+1, 'next' (newer) => page-1 but not < 0
               setChartSelection(null);
@@ -533,28 +667,47 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               } catch {}
             }}
           />
-        )}
+        ) : null}
 
         {/* Tooltip overlay (on top of chart) */}
         {chartSelection && (
           <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]} pointerEvents="box-none">
-            {/* Close area limited to the top tooltip strip (allow chart taps to pass through) */}
-            <TouchableOpacity 
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68 }} 
-              activeOpacity={1} 
-              onPress={() => {
-                setChartSelection(null);
-                setClearSignal(s => s + 1);
-              }}
-            />
+            {(() => {
+              // Dynamic close zones: whole card except chart region
+              const topH = Math.max(0, chartRegion.top);
+              const botTop = Math.max(0, chartRegion.top + chartRegion.height);
+              const useDynamic = chartRegion.height > 0;
+              return (
+                <>
+                  <TouchableOpacity 
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: useDynamic ? topH : 68 }} 
+                    activeOpacity={1} 
+                    onPress={() => {
+                      setChartSelection(null);
+                      setClearSignal(s => s + 1);
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', top: useDynamic ? botTop : (68 + 252), left: 0, right: 0, bottom: 0 }}
+                    activeOpacity={1}
+                    onPress={() => {
+                      setChartSelection(null);
+                      setClearSignal(s => s + 1);
+                    }}
+                  />
+                </>
+              );
+            })()}
             
             {/* Tooltip content (confined to top overlay area) */}
             {(() => {
-              const fallbackW = 180;
+              const fallbackW = 220;
               const w = tooltipWidth > 0 ? tooltipWidth : fallbackW;
               const left = Math.max(4, Math.min((chartSelection.chartWidth || 0) - w - 4, chartSelection.x - w / 2));
               const innerX = (chartSelection.x - left);
               const pointerX = Math.max(8, Math.min((w - 8 - 8), innerX - 4));
+              const AXIS_WIDTH = 8; // keep in sync with chart
+              const RIGHT_LABEL_PAD = 40; // keep in sync with chart
               // Helpers
               const nfmt = (n: number | undefined) => (Number.isFinite(n as any) ? Math.round((n as number) * 10) / 10 : '—');
               const fmtIQR = formatIQRText;
@@ -564,6 +717,8 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                 let list: any[] = [];
                 if (range === 'week') {
                   list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                } else if (range === 'day') {
+                  list = (extended.rawHourlyDataPoints as any)?.[chartSelection.date]?.entries || [];
                 } else {
                   // Approximate from p50 mood
                   const agg = extended.aggregated?.data || [] as any[];
@@ -668,11 +823,46 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               })();
               return (
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 68, overflow: 'visible' }} pointerEvents="box-none">
-                  <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
+                  <PanGestureHandler
+                    onHandlerStateChange={(e) => {
+                      const state: any = (e.nativeEvent as any).state;
+                      if (state === 4 /* ACTIVE */) {
+                        setIsDraggingTooltip(true);
+                      } else if (state === 5 /* END */ || state === 3 /* CANCELLED */) {
+                        setIsDraggingTooltip(false);
+                        setExternalSelectIndex(null);
+                      }
+                    }}
+                    onGestureEvent={(e) => {
+                      try {
+                        const bucketCount = (chartSelection as any).bucketCount || 0;
+                        if (!bucketCount) return;
+                        const chartW = chartSelection.chartWidth || 0;
+                        const contentW = Math.max(0, chartW - AXIS_WIDTH - RIGHT_LABEL_PAD);
+                        const localX = (e.nativeEvent as any).x || 0; // within tooltip box
+                        const absoluteX = left + localX; // relative to overlay/chart
+                        let xPlot = absoluteX - AXIS_WIDTH;
+                        xPlot = Math.max(0, Math.min(contentW - 1, xPlot));
+                        const dw = contentW / Math.max(1, bucketCount);
+                        let idx = Math.floor(xPlot / Math.max(1, dw));
+                        idx = Math.max(0, Math.min(bucketCount - 1, idx));
+                        setExternalSelectIndex(idx);
+                        setIsDraggingTooltip(true);
+                      } catch {}
+                    }}
+                  >
+                    <Animated.View style={{ position: 'absolute', left, bottom: 0, opacity: tooltipOpacity, transform: [{ translateY: tooltipTransY }], zIndex: 1001 }}>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => openDetailForDate(chartSelection.date)}>
                       <View>
-                        <View style={[styles.tooltipBox, { backgroundColor: theme.card, maxWidth: Math.max(160, (chartSelection.chartWidth || 0) - 16) }]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
-                          {/* Title: Date (Dominant) */}
+                        <View style={[
+                          styles.tooltipBox,
+                          { 
+                            backgroundColor: theme.card,
+                            minWidth: Math.min(280, Math.max(220, (chartSelection.chartWidth || 0) - 32)),
+                            maxWidth: Math.max(220, (chartSelection.chartWidth || 0) - 16)
+                          }
+                        ]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
+                          {/* Title: For day view show only dominant emotion centered; others show date + dominant */}
                           {(() => {
                             const dateKey = String(chartSelection.date);
                             const ymd = dateKey.includes('#') ? dateKey.split('#')[0] : dateKey;
@@ -683,7 +873,6 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                             const year = d.getFullYear();
                             const dow = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d);
                             const dateStr = `${day} ${mon} ${year}, ${dow}`;
-                            // SVG yüz ifadesi (renk: baskın duyguya göre)
                             const emo = selectedDominant || '';
                             const scoreFor = (emotion: string) => (
                               emotion === 'Heyecanlı' ? 95 :
@@ -703,9 +892,29 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                               emotion === 'Normal'   ? 6 :
                               emotion === 'Endişeli' ? 7 :
                               emotion === 'Sinirli'  ? 8 :
-                              /* Üzgün/Kızgın */  emotion === 'Üzgün' ? 3 : 9
+                              emotion === 'Üzgün' ? 3 : 9
                             );
-                            const faceColor = getVAColorFromScores(scoreFor(emo), energyFor(emo));
+                            const faceColor = (() => {
+                              const ms = scoreFor(emo);
+                              if (palette === 'braman') return getBramanMoodColor(ms);
+                              if (palette === 'apple') return getAppleMoodColor(ms);
+                              return getVAColorFromScores(ms, energyFor(emo));
+                            })();
+                            if (range === 'day' || range === 'week') {
+                              return (
+                                <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                    <Svg width={13} height={13} viewBox="0 0 16 16" style={{ marginTop: 1 }}>
+                                      <Circle cx={8} cy={8} r={6.2} stroke={faceColor} strokeWidth={1.3} fill="none" />
+                                      <Circle cx={5.6} cy={6.3} r={0.75} fill={faceColor} />
+                                      <Circle cx={10.4} cy={6.3} r={0.75} fill={faceColor} />
+                                      <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={faceColor} strokeWidth={1.3} fill="none" strokeLinecap="round" />
+                                    </Svg>
+                                    <Text style={[styles.tooltipTitleEmo]}>{selectedDominant || '—'}</Text>
+                                  </View>
+                                </View>
+                              );
+                            }
                             return (
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                 <Text style={styles.tooltipTitle}>{dateStr}</Text>
@@ -728,8 +937,13 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                             const mv = Number(((qData as any)?.mood?.p50 ?? NaN) as number);
                             const ev = Number(((qData as any)?.energy?.p50 ?? NaN) as number);
                             const av = Number(((qData as any)?.anxiety?.p50 ?? NaN) as number);
-                            const fmt1 = (v: number) => (Number.isFinite(v) && v > 0 ? v.toFixed(1) : '—');
-                            const moodColor = '#007AFF';
+                            const moodColor = (() => {
+                              const mvr = Number.isFinite(mv) ? Math.round(mv) : 55;
+                              if (palette === 'braman') return getBramanMoodColor(mvr);
+                              if (palette === 'apple') return getAppleMoodColor(mvr);
+                              const evr = Number.isFinite(ev) ? Math.round(ev) : 6;
+                              return getVAColorFromScores(mvr, evr);
+                            })();
                             return (
                               <View style={styles.tooltipStatsRow}>
                                 {/* Mood */}
@@ -740,21 +954,37 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                                     <Circle cx={10.4} cy={6.3} r={0.8} fill={moodColor} />
                                     <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={moodColor} strokeWidth={1.4} fill="none" strokeLinecap="round" />
                                   </Svg>
-                                  <Text style={styles.tooltipStatValue}>{fmt1(mv)}</Text>
+                                  <Text style={styles.tooltipStatValue}>{Number.isFinite(mv) ? `${Math.round(mv)}/100` : '—'}</Text>
                                 </View>
                                 {/* Energy */}
                                 <View style={styles.tooltipStatItem}>
                                   <Svg width={14} height={14} viewBox="0 0 16 16">
                                     <Defs>
                                       <SvgLinearGradient id="batteryGradTip" x1="0" y1="0" x2="1" y2="0">
-                                        <Stop offset="0%" stopColor="#EF4444" />
-                                        <Stop offset="50%" stopColor="#F59E0B" />
-                                        <Stop offset="100%" stopColor="#10B981" />
+                                        {(() => {
+                                          const stops = palette === 'braman'
+                                            ? [
+                                                { offset: '0%', color: '#F4A09C' },
+                                                { offset: '50%', color: '#F5D99C' },
+                                                { offset: '100%', color: '#94B49F' },
+                                              ]
+                                            : [
+                                                { offset: '0%', color: '#EF4444' },
+                                                { offset: '50%', color: '#F59E0B' },
+                                                { offset: '100%', color: '#10B981' },
+                                              ];
+                                          return stops.map((s, i) => (
+                                            <Stop key={i} offset={s.offset} stopColor={s.color} />
+                                          ));
+                                        })()}
                                       </SvgLinearGradient>
                                     </Defs>
                                     {(() => {
                                       const ratio = Number.isFinite(ev) ? Math.max(0, Math.min(1, ev / 10)) : 0;
-                                      const levelColor = ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+                                      const levelColor = (() => {
+                                        if (palette === 'braman') return ratio < 0.33 ? '#F4A09C' : ratio < 0.66 ? '#F5D99C' : '#94B49F';
+                                        return ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+                                      })();
                                       const maxW = 11 - 2; // inner padding eşleşmesi
                                       const w = Math.max(0.8, maxW * ratio);
                                       return (
@@ -766,7 +996,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                                       );
                                     })()}
                                   </Svg>
-                                  <Text style={styles.tooltipStatValue}>{fmt1(ev)}</Text>
+                                  <Text style={styles.tooltipStatValue}>{Number.isFinite(ev) ? `${Math.round(ev)}/10` : '—'}</Text>
                                 </View>
                                 {/* Anxiety */}
                                 <View style={styles.tooltipStatItem}>
@@ -779,10 +1009,11 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                                       const down = (base + amp).toFixed(2);
                                       const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
                                       const strokeW = 1.2 + 0.6 * ratio;
-                                      return <Path d={d} stroke="#EF4444" strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+                                      const anxColor = palette === 'braman' ? '#F4A09C' : '#EF4444';
+                                      return <Path d={d} stroke={anxColor} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
                                     })()}
                                   </Svg>
-                                  <Text style={styles.tooltipStatValue}>{fmt1(av)}</Text>
+                                  <Text style={styles.tooltipStatValue}>{Number.isFinite(av) ? `${Math.round(av)}/10` : '—'}</Text>
                                 </View>
                               </View>
                             );
@@ -792,7 +1023,8 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                         <View style={[styles.tooltipArrow, { backgroundColor: theme.card, left: pointerX }]} />
                       </View>
                     </TouchableOpacity>
-                  </Animated.View>
+                    </Animated.View>
+                  </PanGestureHandler>
                 </View>
               );
             })()}
@@ -808,12 +1040,23 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
 
 
 
-      {/* Stats row */}
-      <View style={styles.statsRow}>
+      {/* Stats row (tap outside chart closes tooltip) */}
+      <Pressable
+        style={styles.statsRow}
+        onPress={() => {
+          if (chartSelection) {
+            setChartSelection(null);
+            setClearSignal(s => s + 1);
+          }
+        }}
+      >
         {/* Mood (smile) */}
-        <TouchableOpacity style={styles.statItem} onPress={() => setShowMoodLine(v => !v)}>
+        <TouchableOpacity style={styles.statItem} disabled={moodLocked} onPress={() => { if (!moodLocked) setShowMoodLine(v => !v); }}>
           {(() => {
-            const c = showMoodLine ? '#007AFF' : '#9CA3AF';
+            const active = showMoodLine && !moodLocked;
+            const mv = Number.isFinite(rangeStats.moodP50 as any) ? Math.round(rangeStats.moodP50 as number) : 55;
+            const ev = Number.isFinite(rangeStats.energyP50 as any) ? Math.round(rangeStats.energyP50 as number) : 6;
+            const c = active ? (palette === 'braman' ? getBramanMoodColor(mv) : palette === 'apple' ? getAppleMoodColor(mv) : getVAColorFromScores(mv, ev)) : '#9CA3AF';
             return (
               <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Mood">
                 <Circle cx={8} cy={8} r={6.6} stroke={c} strokeWidth={1.6} fill="none" />
@@ -823,28 +1066,44 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               </Svg>
             );
           })()}
-          <Text style={[styles.statValue, !showMoodLine && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.moodP50 as any) && (rangeStats.moodP50 as number) > 0 ? (rangeStats.moodP50 as number).toFixed(1) : '—'}
+          <Text style={[styles.statValue, (!showMoodLine || moodLocked) && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.moodP50 as any) && (rangeStats.moodP50 as number) > 0 ? `${Math.round(rangeStats.moodP50 as number)}/100` : '—'}
           </Text>
         </TouchableOpacity>
 
         {/* Energy (battery) */}
-        <TouchableOpacity style={styles.statItem} onPress={() => setShowEnergyLine(v => !v)}>
+        <TouchableOpacity style={styles.statItem} disabled={energyLocked} onPress={() => { if (!energyLocked) setShowEnergyLine(v => !v); }}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
             <Defs>
               <SvgLinearGradient id="batteryGrad" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0%" stopColor="#EF4444" />
-                <Stop offset="50%" stopColor="#F59E0B" />
-                <Stop offset="100%" stopColor="#10B981" />
+                {(() => {
+                  const stops = palette === 'braman'
+                    ? [
+                        { offset: '0%', color: '#F4A09C' },
+                        { offset: '50%', color: '#F5D99C' },
+                        { offset: '100%', color: '#94B49F' },
+                      ]
+                    : [
+                        { offset: '0%', color: '#EF4444' },
+                        { offset: '50%', color: '#F59E0B' },
+                        { offset: '100%', color: '#10B981' },
+                      ];
+                  return stops.map((s, i) => (
+                    <Stop key={i} offset={s.offset} stopColor={s.color} />
+                  ));
+                })()}
               </SvgLinearGradient>
             </Defs>
             {(() => {
               const avg = Number(data.weeklyEnergyAvg || 0);
               const ratio = Math.max(0, Math.min(1, avg / 10));
-              const levelColor = ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+              const levelColor = (() => {
+                if (palette === 'braman') return ratio < 0.33 ? '#F4A09C' : ratio < 0.66 ? '#F5D99C' : '#94B49F';
+                return ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+              })();
               const maxW = 11 - 2; // inner padding
               const w = Math.max(0.8, maxW * ratio);
-              const off = !showEnergyLine;
+              const off = (!showEnergyLine || energyLocked);
               const strokeC = off ? '#9CA3AF' : levelColor;
               const capC = off ? '#9CA3AF' : levelColor;
               return (
@@ -859,13 +1118,13 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               );
             })()}
           </Svg>
-          <Text style={[styles.statValue, !showEnergyLine && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.energyP50 as any) && (rangeStats.energyP50 as number) > 0 ? (rangeStats.energyP50 as number).toFixed(1) : '—'}
+          <Text style={[styles.statValue, (!showEnergyLine || energyLocked) && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.energyP50 as any) && (rangeStats.energyP50 as number) > 0 ? `${Math.round(rangeStats.energyP50 as number)}/10` : '—'}
           </Text>
         </TouchableOpacity>
 
         {/* Anxiety (wavy line) */}
-        <TouchableOpacity style={styles.statItem} onPress={() => setShowAnxietyLine(v => !v)}>
+        <TouchableOpacity style={styles.statItem} disabled={anxietyLocked} onPress={() => { if (!anxietyLocked) setShowAnxietyLine(v => !v); }}>
           <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
             {(() => {
               const raw = data.weeklyAnxietyAvg as any;
@@ -880,14 +1139,15 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               const down = (base + amp).toFixed(2);
               const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
               const strokeW = 1.4 + 0.8 * ratio; // 1.4..2.2
-              return <Path d={d} stroke={showAnxietyLine ? '#EF4444' : '#9CA3AF'} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+              return <Path d={d} stroke={showAnxietyLine && !anxietyLocked ? '#EF4444' : '#9CA3AF'} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
             })()}
           </Svg>
-          <Text style={[styles.statValue, !showAnxietyLine && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.anxietyP50 as any) && (rangeStats.anxietyP50 as number) > 0 ? (rangeStats.anxietyP50 as number).toFixed(1) : '—'}
+          <Text style={[styles.statValue, (!showAnxietyLine || anxietyLocked) && { color: '#9CA3AF' }]}>
+            {Number.isFinite(rangeStats.anxietyP50 as any) && (rangeStats.anxietyP50 as number) > 0 ? `${Math.round(rangeStats.anxietyP50 as number)}/10` : '—'}
           </Text>
         </TouchableOpacity>
-      </View>
+        {/* Dots toggle removed: unified visualization makes it redundant */}
+      </Pressable>
 
       {/* Detail modal - Apple Health Style */}
       {detailDate && (
@@ -895,6 +1155,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
           visible={!!detailDate}
           date={detailDate}
           entries={detailEntries}
+          range={range}
           onClose={() => setDetailDate(null)}
           onDeleted={(entryId) => {
             // Remove from local sheet state immediately
@@ -928,7 +1189,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: Colors.ui.card,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   miniSpectrumBar: {
     height: 6,
@@ -972,13 +1235,26 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
   },
+  loadingContainer: {
+    height: 252, // Same height as chart
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    marginTop: 8,
+  },
   tooltipBox: {
     backgroundColor: Colors.ui.card,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 6,
-    minWidth: 140,
-    maxWidth: 200,
+    minWidth: 200,
+    maxWidth: 280,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     shadowColor: '#000000',
@@ -989,14 +1265,17 @@ const styles = StyleSheet.create({
   },
   tooltipStatsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    gap: 10,
   },
   tooltipStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    justifyContent: 'center',
   },
   tooltipStatValue: {
     fontSize: 12,
@@ -1019,6 +1298,13 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
     marginBottom: 4,
+  },
+  tooltipTitleEmo: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '800',
+    marginBottom: 2,
+    textAlign: 'center',
   },
   tooltipTitleParen: {
     fontSize: 12,

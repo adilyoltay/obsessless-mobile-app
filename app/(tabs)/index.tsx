@@ -88,6 +88,7 @@ export default function TodayScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [mindSparkStyle, setMindSparkStyle] = useState<'line' | 'bar'>('line');
+  const [coloredMindCard, setColoredMindCard] = useState<boolean>(false);
   const [heroStats, setHeroStats] = useState<{ moodVariance: number } | null>(null);
   const { colorMode, setColorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
@@ -227,6 +228,29 @@ export default function TodayScreen() {
   useEffect(() => {
     (async () => {
       try {
+        // One-time initialization for first app launch
+        const first = await AsyncStorage.getItem(StorageKeys.FIRST_LAUNCH_DONE);
+        if (!first) {
+          try {
+            const existing = await AsyncStorage.getItem(StorageKeys.SETTINGS);
+            if (!existing) {
+              const defaults = {
+                // Visual prefs
+                showMoodTrendOverlay: true,
+                showEnergyOverlay: false,
+                showAnxietyOverlay: false,
+                visibleTimeRanges: ['day','week','month'],
+                coloredMindScoreCard: false,
+                // Global colors + MindScore
+                colorMode: 'today',
+                mindSparkStyle: 'bar',
+              } as any;
+              await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(defaults));
+            }
+          } finally {
+            await AsyncStorage.setItem(StorageKeys.FIRST_LAUNCH_DONE, '1');
+          }
+        }
         const saved = await AsyncStorage.getItem(StorageKeys.SETTINGS);
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -234,6 +258,7 @@ export default function TodayScreen() {
           if (mode) setColorMode(mode);
           const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
           if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
+          if (typeof parsed?.coloredMindScoreCard === 'boolean') setColoredMindCard(!!parsed.coloredMindScoreCard);
         }
       } catch {}
     })();
@@ -250,6 +275,7 @@ export default function TodayScreen() {
           if (mode) setColorMode(mode);
           const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
           if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
+          if (typeof parsed?.coloredMindScoreCard === 'boolean') setColoredMindCard(!!parsed.coloredMindScoreCard);
         }
       } catch {}
     })();
@@ -549,14 +575,15 @@ export default function TodayScreen() {
     // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
       <>
-        <MindScoreCard
-          week={week}
-          gradientColors={gradient}
-          loading={!moodJourneyData}
-          onQuickStart={() => setCheckinSheetVisible(true)}
-          sparkStyle={mindSparkStyle}
-          moodVariance={moodVariance}
+          <MindScoreCard
+            week={week}
+            gradientColors={gradient}
+            loading={!moodJourneyData}
+            onQuickStart={() => setCheckinSheetVisible(true)}
+            sparkStyle={mindSparkStyle}
+            moodVariance={moodVariance}
           variant="white"
+          coloredBackground={coloredMindCard}
           streakCurrent={profile.streakCurrent}
           streakBest={profile.streakBest}
           streakLevel={profile.streakLevel}
@@ -794,11 +821,11 @@ export default function TodayScreen() {
               initialRange={(() => {
                 try {
                   const r = Array.isArray(params.openRange) ? params.openRange[0] : (params.openRange as string | undefined);
-                  const validRanges = ['week', 'month', '6months', 'year'] as const;
-                  return validRanges.includes(r as any) ? (r as any) : 'week'; // Fallback to week
+                  const validRanges = ['day', 'week', 'month', '6months', 'year'] as const;
+                  return validRanges.includes(r as any) ? (r as any) : 'day'; // Fallback to day
                 } catch (error) {
                   console.warn('Invalid initialRange param:', error);
-                  return 'week';
+                  return 'day';
                 }
               })()}
             />

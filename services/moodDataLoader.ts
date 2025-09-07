@@ -43,7 +43,9 @@ export class OptimizedMoodDataLoader {
     const cacheTTL = (range === 'month' || range === '6months' || range === 'year') ? 1 * 60 * 1000 : 5 * 60 * 1000;
     if (cached && Date.now() - cached.timestamp < cacheTTL) {
       // Extra granularity validation for aggregate modes
-      if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
+      if (range === 'week' && cached.data.aggregated?.granularity !== 'day') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
         this.cache.delete(cacheKey); // Invalid granularity, refetch
       } else if ((range === '6months' || range === 'year') && cached.data.aggregated?.granularity !== 'month') {
         this.cache.delete(cacheKey); // Invalid granularity, refetch
@@ -79,7 +81,9 @@ export class OptimizedMoodDataLoader {
     const cacheTTL = (range === 'month' || range === '6months' || range === 'year') ? 1 * 60 * 1000 : 5 * 60 * 1000;
     if (cached && Date.now() - cached.timestamp < cacheTTL) {
       // Extra granularity validation for aggregate modes
-      if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
+      if (range === 'week' && cached.data.aggregated?.granularity !== 'day') {
+        this.cache.delete(cacheKey); // Invalid granularity, refetch
+      } else if (range === 'month' && cached.data.aggregated?.granularity !== 'week') {
         this.cache.delete(cacheKey); // Invalid granularity, refetch
       } else if ((range === '6months' || range === 'year') && cached.data.aggregated?.granularity !== 'month') {
         this.cache.delete(cacheKey); // Invalid granularity, refetch
@@ -505,6 +509,18 @@ export class OptimizedMoodDataLoader {
 
     // Build aggregate (haftalık/aylık) IQR-first
     const aggregated = (() => {
+      if (range === 'week') {
+        // Yeni: Haftalık görünüm için gün bazında aggregate (granularity=day)
+        // dayKeys: seçilen haftadaki 7 günü içerir
+        const items: AggregatedData[] = dayKeys
+          .map((dayKey) => {
+            const entriesForDay = lite.filter((e) => getUserDateString(e.timestamp) === dayKey);
+            // Etiket olarak yalın tarih kullanıyoruz; tooltip içinde özel formatlanacak
+            return toAggregatedBucket(entriesForDay as any, dayKey, dayKey);
+          })
+          .sort((a, b) => a.date.localeCompare(b.date));
+        return { granularity: 'day' as const, data: items };
+      }
       if (range === 'month') {
         // Haftalık aggregate: son 30 gün içindeki tüm haftaları (Pazartesi başlangıç)
         const weekMap = new Map<string, MoodEntryLite[]>();

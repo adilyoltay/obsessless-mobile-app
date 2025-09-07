@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getVAColorFromScores, getGradientFromBase } from '@/utils/colorUtils';
+import { getVAColorFromScores, getGradientFromBase, mixHex } from '@/utils/colorUtils';
+import { useAccentColor } from '@/contexts/AccentColorContext';
+import { BramanColors } from '@/constants/Colors';
 
 export type DayMetrics = {
   date: string; // YYYY-MM-DD
@@ -28,6 +30,8 @@ type Props = {
   streakCurrent?: number;
   streakBest?: number;
   streakLevel?: 'seedling' | 'warrior' | 'master';
+  // UI: allow white variant to use status-colored background
+  coloredBackground?: boolean;
 };
 
 // ---- math helpers ----
@@ -74,6 +78,8 @@ const stddev = (arr: number[]) => {
   return Math.sqrt(v);
 };
 
+// ---- color helpers ---- (mixHex now imported from utils)
+
 const ewma = (series: Array<number | null | undefined>) => {
   const vals = series.map(v => (typeof v === 'number' && Number.isFinite(v) ? v : null));
   const n = vals.length;
@@ -107,6 +113,63 @@ const sparkPath = (vals: number[], w = 120, h = 36) => {
   for (let i = 1; i < vals.length; i++) d += ` L ${i * stepX} ${y(vals[i])}`;
   return d;
 };
+// Smooth sparkline using Catmull–Rom to Bezier conversion
+const sparkPathSmooth = (vals: number[], w = 120, h = 36, tension = 0.5) => {
+  if (!vals.length) return '';
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = Math.max(1, max - min);
+  const stepX = vals.length > 1 ? w / (vals.length - 1) : w;
+  const toY = (v: number) => h - ((v - min) / span) * (h - 4) - 2;
+  const pts = vals.map((v, i) => [i * stepX, toY(v)] as [number, number]);
+  if (pts.length < 3) {
+    return `M ${pts[0][0]} ${pts[0][1]} ${pts.length === 2 ? `L ${pts[1][0]} ${pts[1][1]}` : ''}`;
+  }
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || pts[i + 1];
+    const c1x = p1[0] + (p2[0] - p0[0]) * (tension / 6);
+    const c1y = p1[1] + (p2[1] - p0[1]) * (tension / 6);
+    const c2x = p2[0] - (p3[0] - p1[0]) * (tension / 6);
+    const c2y = p2[1] - (p3[1] - p1[1]) * (tension / 6);
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+};
+
+// Area under smooth sparkline path (closed to baseline)
+const sparkAreaPathSmooth = (vals: number[], w = 120, h = 36, tension = 0.5) => {
+  if (!vals.length) return '';
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = Math.max(1, max - min);
+  const stepX = vals.length > 1 ? w / (vals.length - 1) : w;
+  const toY = (v: number) => h - ((v - min) / span) * (h - 4) - 2;
+  const pts = vals.map((v, i) => [i * stepX, toY(v)] as [number, number]);
+  if (pts.length === 1) {
+    const [x0, y0] = pts[0];
+    return `M ${x0} ${y0} L ${x0} ${h} Z`;
+  }
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || pts[i + 1];
+    const c1x = p1[0] + (p2[0] - p0[0]) * (tension / 6);
+    const c1y = p1[1] + (p2[1] - p0[1]) * (tension / 6);
+    const c2x = p2[0] - (p3[0] - p1[0]) * (tension / 6);
+    const c2y = p2[1] - (p3[1] - p1[1]) * (tension / 6);
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+  }
+  // Close to baseline
+  const lastX = pts[pts.length - 1][0];
+  d += ` L ${lastX} ${h} L 0 ${h} Z`;
+  return d;
+};
 
 const energyLabel = (avg0100: number | null) => {
   if (avg0100 == null) return { label: '—', color: '#9CA3AF' };
@@ -133,19 +196,21 @@ const Arrow = ({ delta }: { delta: number }) => {
   return <Text style={{ color }}>{arrow} {signed}</Text>;
 };
 
-const Chip = ({ label, accentColor, onGradient, icon, style }: { label: string; accentColor?: string; onGradient?: boolean; icon?: React.ReactNode; style?: any }) => (
+const Chip = ({ label, accentColor, onGradient, icon, style, textStyle }: { label: string; accentColor?: string; onGradient?: boolean; icon?: React.ReactNode; style?: any; textStyle?: any }) => (
   <View style={[onGradient ? styles.chipOnGradient : styles.chip, onGradient ? styles.chipOnGradientBorder : styles.chipBorder, style]}>
     {accentColor && (
       <View style={[styles.dot, { backgroundColor: accentColor, opacity: onGradient ? 0.95 : 1 }]} />
     )}
     {icon}
-    <Text style={[onGradient ? styles.chipTextOnGradient : styles.chipText]} numberOfLines={1}>
+    <Text style={[onGradient ? styles.chipTextOnGradient : styles.chipText, textStyle]} numberOfLines={1}>
       {label}
     </Text>
   </View>
 );
 
-export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling' }: Props) {
+export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling', coloredBackground = false }: Props) {
+  const { palette } = useAccentColor();
+  console.log('🚀 MindScoreCard props:', { streakCurrent, streakBest, streakLevel, variant, coloredBackground });
   // Normalize and sort by date ascending
   const days = useMemo(() => {
     const copy = [...(week || [])];
@@ -189,15 +254,41 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
   const baseColor = useMemo(() => {
     const moodRef = (avgMood != null ? avgMood : (typeof scoreNow === 'number' ? scoreNow : 50));
     const e10 = avgEnergy0100 != null ? avgEnergy0100 / 10 : 6;
-    return getVAColorFromScores(moodRef, e10);
+    const color = getVAColorFromScores(moodRef, e10);
+    console.log('🎨 BaseColor calculation:', { moodRef, e10, resultColor: color, avgMood, avgEnergy0100, scoreNow });
+    return color;
   }, [avgMood, avgEnergy0100, scoreNow]);
 
   const spark = useMemo(() => sparkPath((dailyScores.map(v => (typeof v === 'number' ? v : null))
     .map((v, i, arr) => v == null ? (i > 0 ? (arr[i - 1] as any) : 50) : v) as number[])), [dailyScores]);
+  // Trend spark + progress colors harmonized with baseColor (even softer/pastel)
+  const sparkStroke = useMemo(() => {
+    const result = (palette === 'apple') ? '#007AFF' : mixHex(baseColor, '#FFFFFF', 0.3);
+    console.log('🎨 MindScoreCard: baseColor =', baseColor, ', palette =', palette, ', sparkStroke =', result);
+    return result;
+  }, [baseColor, palette]);
+  const areaTopColor = useMemo(() => mixHex(baseColor, '#FFFFFF', 0.35), [baseColor]);
+  const areaTopOpacity = 0.22; // slightly stronger highlight
 
   // ---- UI ----
   const isLoading = !!loading;
   const isEmpty = !isLoading && (!days.length || dailyScores.filter((v): v is number => typeof v === 'number').length === 0);
+  console.log('📊 MindScoreCard debug:', { 
+    isLoading, 
+    isEmpty, 
+    daysLength: days.length, 
+    validScores: dailyScores.filter((v): v is number => typeof v === 'number').length, 
+    variant, 
+    showSparkline,
+    scoreNow,
+    delta,
+    stabLabel: stab.label,
+    avgEnergyLabel: avgEnergyLabel.label,
+    streakCurrent,
+    coloredBackground,
+    baseColor,
+    sparkStroke
+  });
   const progress = typeof scoreNow === 'number' ? scoreNow / 100 : 0;
   const size = 64;
   const r = 28;
@@ -208,13 +299,33 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
   const [whiteFooterW, setWhiteFooterW] = React.useState(0);
 
   if (variant === 'white') {
+    // Dynamic status background derived from stability (stddev)
+    const statusBase = (() => {
+      if (palette === 'braman') {
+        return stab.label === 'Stabil' ? BramanColors.güvenli : (stab.label === 'Dalgalı' ? BramanColors.yellow : BramanColors.coral);
+      }
+      if (palette === 'apple') {
+        return stab.label === 'Stabil' ? '#34C759' : (stab.label === 'Dalgalı' ? '#FF9500' : '#FF3B30');
+      }
+      return stab.label === 'Stabil' ? '#10B981' : (stab.label === 'Dalgalı' ? '#F59E0B' : '#EF4444');
+    })();
+    const norm = (x: number, a: number, b: number) => {
+      if (b <= a) return 0; return Math.max(0, Math.min(1, (x - a) / (b - a)));
+    };
+    // Weight controls how strong the tint is against white (lower = daha pastel)
+    // Calmer palette: overall weights downscaled
+    let w = 0.12; // base tint (more pastel)
+    if (stab.label === 'Stabil') w = 0.10 + 0.05 * norm(sdCalc, 0, 6);
+    else if (stab.label === 'Dalgalı') w = 0.11 + 0.06 * norm(sdCalc, 6, 12);
+    else w = 0.12 + 0.08 * norm(sdCalc, 12, 24); // Çok Dalgalı
+    w = Math.max(0.08, Math.min(0.20, w));
+    const statusBg = mixHex('#FFFFFF', statusBase, w);
     const wSize = 80;
     const wR = 36;
     const wC = 2 * Math.PI * wR;
     const wProgress = typeof scoreNow === 'number' ? scoreNow / 100 : 0;
-    const statusBg = stab.label === 'Stabil' ? '#ECFDF5' : (stab.label === 'Dalgalı' ? '#FFF7ED' : '#FEF2F2');
     return (
-      <View style={[styles.whiteCard]}> 
+      <View style={[styles.whiteCard, coloredBackground && { backgroundColor: statusBg }]}> 
         <View style={styles.whiteRow}>
           <Svg width={wSize} height={wSize} style={{ transform: [{ rotate: '-90deg' }] }}>
             <Circle cx={wSize/2} cy={wSize/2} r={wR} stroke="#F3F4F6" strokeWidth={4} fill="none" />
@@ -234,7 +345,7 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
             <Text style={styles.whiteScoreText}>{scoreNow != null ? roundInt(scoreNow) : (isLoading ? '…' : '—')}</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 6 }}>
-              <View style={styles.whiteHeaderRow}>
+          <View style={styles.whiteHeaderRow}>
               <Text style={styles.whiteTitle} numberOfLines={1}>{title}</Text>
               <View style={styles.whiteTrendRow}>
                 {(() => {
@@ -265,48 +376,29 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                 </Text>
               </View>
             </View>
-            {/* Alt alta bilgi: Durum ve Enerji */}
+            {/* Alt alta bilgi: Sadece değerler (Durum/Enerji etiketleri olmadan) */}
             <View style={styles.chipsVertical}>
-              {/* Üst: Durum */}
+              {/* Üst: Durum (yalnızca değer) */}
               <View style={styles.chipOnWhite}>
                 {(() => {
-                  // Durum ikonları ve renkleri
                   const getStatusIcon = () => {
                     switch (stab.label) {
-                      case 'Stabil':
-                        return { name: 'check-circle', color: '#10B981' }; // Yeşil - başarı
-                      case 'Dalgalı':
-                        return { name: 'alert-triangle', color: '#F59E0B' }; // Turuncu - uyarı
-                      case 'Çok Dalgalı':
-                        return { name: 'alert-circle', color: '#EF4444' }; // Kırmızı - hata
-                      default:
-                        return { name: 'information', color: '#6B7280' }; // Gri - varsayılan
+                      case 'Stabil': return { name: 'check-circle', color: '#10B981' };
+                      case 'Dalgalı': return { name: 'alert-triangle', color: '#F59E0B' };
+                      case 'Çok Dalgalı': return { name: 'alert-circle', color: '#EF4444' };
+                      default: return { name: 'information', color: '#6B7280' };
                     }
                   };
                   const statusIcon = getStatusIcon();
                   return (
-                    <MaterialCommunityIcons 
-                      name={statusIcon.name as any} 
-                      size={18} 
-                      color={statusIcon.color} 
-                      style={{ marginRight: 10 }} 
-                    />
+                    <MaterialCommunityIcons name={statusIcon.name as any} size={18} color={statusIcon.color} style={{ marginRight: 10 }} />
                   );
                 })()}
                 <View style={styles.chipTextCol}>
-                  <Text style={styles.chipOnWhiteLabel}>Durum</Text>
-                  <Text 
-                    style={[
-                      styles.chipOnWhiteValue, 
-                      { 
-                        color: stab.label === 'Stabil' ? '#10B981' : 
-                               stab.label === 'Dalgalı' ? '#F59E0B' : 
-                               stab.label === 'Çok Dalgalı' ? '#EF4444' : '#6B7280',
-                        fontWeight: '700' 
-                      }
-                    ]} 
-                    numberOfLines={1}
-                  >
+                  <Text style={[styles.chipOnWhiteValue, { 
+                    color: stab.label === 'Stabil' ? '#10B981' : stab.label === 'Dalgalı' ? '#F59E0B' : stab.label === 'Çok Dalgalı' ? '#EF4444' : '#6B7280',
+                    fontWeight: '700' 
+                  }]} numberOfLines={1}>
                     {stab.label}
                   </Text>
                 </View>
@@ -346,7 +438,6 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                   </Svg>
                 </View>
                 <View style={styles.chipTextCol}>
-                  <Text style={styles.chipOnWhiteLabel}>Enerji</Text>
                   <Text style={[styles.chipOnWhiteValue, { color: '#111827', fontWeight: '700' }]} numberOfLines={1}>{avgEnergyLabel.label}</Text>
                 </View>
               </View>
@@ -362,8 +453,8 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                 <Path 
                   d={sparkPath((dailyScores.map(v => (typeof v === 'number' ? v : null))
                     .map((v, i, arr) => v == null ? (i > 0 ? (arr[i - 1] as any) : 50) : v) as number[]), Math.max(120, whiteFooterW || 0), 24)} 
-                  stroke="#6366F1" 
-                  strokeWidth={2.5} 
+                  stroke={sparkStroke} 
+                  strokeWidth={3.5} 
                   fill="none" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
@@ -372,7 +463,7 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
             ) : (
               // Progress bar sparkline
               <View style={styles.whiteProgressBarOuter}>
-                <View style={[styles.whiteProgressBarInner, { width: `${Math.round(progress * 100)}%`, backgroundColor: '#6366F1' }]} />
+                <View style={[styles.whiteProgressBarInner, { width: `${Math.round(progress * 100)}%`, backgroundColor: sparkStroke }]} />
               </View>
             )
           ) : (
@@ -398,34 +489,44 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
         
         {/* Streak info - integrated below sparkline */}
         {!isEmpty && (
-          <View style={styles.streakIntegrated}>
-            <View style={styles.streakIconContainer}>
-              <MaterialCommunityIcons 
-                name={streakCurrent === 0 ? "fire-off" : "fire"}
-                size={20} 
-                color={streakCurrent === 0 ? '#F59E0B' : streakCurrent >= 7 ? '#10B981' : '#6366F1'} 
-              />
-            </View>
-            <View style={styles.streakTextContainer}>
-              <Text style={styles.streakCountText}>
-                {streakCurrent}
-              </Text>
-              <Text style={styles.streakLabelText}>
-                {streakCurrent === 0 ? 'Başla!' : 'Gün Streak'}
-              </Text>
-            </View>
-            {streakLevel !== 'seedling' && (
-              <View style={styles.streakLevelBadge}>
-                <MaterialCommunityIcons 
-                  name={
-                    streakLevel === 'master' ? 'meditation' :
-                    streakLevel === 'warrior' ? 'sword-cross' : 'sprout'
-                  }
-                  size={14} 
-                  color="#6B7280"
-                />
-              </View>
-            )}
+          <View style={[styles.streakIntegrated, { borderTopColor: (() => {
+            // subtle border tint by palette/accent
+            const accent = palette === 'apple' ? '#007AFF' : baseColor;
+            return mixHex('#FFFFFF', accent, 0.90);
+          })() }]}>
+            {(() => {
+              // color harmonized with background tint
+              const statusBase = stab.label === 'Stabil' ? '#10B981' : (stab.label === 'Dalgalı' ? '#F59E0B' : '#EF4444');
+              const tone = coloredBackground ? statusBase : '#374151';
+              return (
+                <>
+                  <View style={styles.streakIconContainer}>
+                    <MaterialCommunityIcons 
+                      name={streakCurrent === 0 ? "fire-off" : "fire"}
+                      size={24} 
+                      color={palette === 'apple' ? '#007AFF' : baseColor}
+                    />
+                  </View>
+                  <View style={[styles.streakTextContainer, { marginRight: 0 }]}>
+                    <Text style={[styles.streakCountText, { color: (palette === 'apple' ? '#007AFF' : baseColor), fontSize: 20 }]}>
+                      {streakCurrent}
+                    </Text>
+                  </View>
+                  {streakLevel !== 'seedling' && (
+                    <View style={styles.streakLevelBadge}>
+                      <MaterialCommunityIcons 
+                        name={
+                          streakLevel === 'master' ? 'meditation' :
+                          streakLevel === 'warrior' ? 'sword-cross' : 'sprout'
+                        }
+                        size={14} 
+                        color="#6B7280"
+                      />
+                    </View>
+                  )}
+                </>
+              );
+            })()}
           </View>
         )}
         
@@ -474,15 +575,17 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
           <Text style={styles.titleOnGrad} numberOfLines={1}>{title}</Text>
           <Text style={styles.subtitleOnGrad} numberOfLines={1}>Son 7 gün • mikro trend <Text style={{ color: '#fff' }}><Arrow delta={delta} /></Text></Text>
 
+          {/* Inline status: sadece değerler (Durum ve Enerji) */}
           <Text style={styles.statusInlineOnGrad} numberOfLines={1}>
-            <Text style={styles.statusInlineLabelOnGrad}>Durum: </Text>
             <Text style={styles.statusInlineValueOnGrad}>{stab.label}</Text>
+            <Text style={styles.statusInlineLabelOnGrad}> • </Text>
+            <Text style={styles.statusInlineValueOnGrad}>{avgEnergyLabel.label}</Text>
           </Text>
             <View style={styles.chipsVertical}>
             <View style={{ alignSelf: 'stretch' }}>
               <Chip 
                 onGradient 
-                label={`Durum: ${stab.label}`} 
+                label={`${stab.label}`} 
                 accentColor={baseColor} 
                 icon={
                   (() => {
@@ -499,11 +602,21 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                           return 'information';
                       }
                     };
+                    const iconColor = (() => {
+                      if (palette === 'braman') {
+                        return stab.label === 'Stabil' ? BramanColors.güvenli : (stab.label === 'Dalgalı' ? BramanColors.yellow : BramanColors.coral);
+                      }
+                      if (palette === 'apple') {
+                        return stab.label === 'Stabil' ? '#34C759' : (stab.label === 'Dalgalı' ? '#FF9500' : '#FF3B30');
+                      }
+                      // classic VA: baseColor on gradient
+                      return baseColor;
+                    })();
                     return (
                       <MaterialCommunityIcons 
                         name={getStatusIconName() as any} 
                         size={16} 
-                        color="#fff" 
+                        color={iconColor} 
                         style={{ marginRight: 6 }} 
                       />
                     );
@@ -514,7 +627,7 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
             <View style={{ alignSelf: 'stretch' }}>
               <Chip 
                 onGradient 
-                label={`Enerji: ${avgEnergyLabel.label}`} 
+                label={`${avgEnergyLabel.label}`} 
                 style={{ backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.35)' }} 
                 icon={
                   <View style={{ marginRight: 6 }}>
@@ -551,16 +664,17 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
               />
             </View>
             {/* Streak chip in hero variant */}
-            <View style={{ alignSelf: 'stretch' }}>
+            <View style={{ alignSelf: 'center' }}>
               <Chip 
                 onGradient 
-                label={streakCurrent === 0 ? '0 Başla!' : `${streakCurrent} Gün Streak`}
+                label={`${streakCurrent}`}
                 style={{ backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.35)' }} 
+                textStyle={{ fontSize: 14, fontWeight: '800' }}
                 icon={
                   <MaterialCommunityIcons 
                     name={streakCurrent === 0 ? "fire-off" : "fire"}
-                    size={16} 
-                    color="#fff" 
+                    size={18} 
+                    color={palette === 'apple' ? '#007AFF' : baseColor} 
                     style={{ marginRight: 6 }} 
                   />
                 } 
@@ -572,13 +686,31 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
             sparkStyle === 'line' ? (
               <View style={styles.sparkWrapOnGrad} onLayout={(e) => setHeroSparkWidth(Math.round(e.nativeEvent.layout.width))}>
                 <Svg width="100%" height={20}>
-                  <Path d={sparkPath((dailyScores.map(v => (typeof v === 'number' ? v : null))
-                    .map((v, i, arr) => v == null ? (i > 0 ? (arr[i - 1] as any) : 50) : v) as number[]), Math.max(140, heroSparkWidth || 0), 20)} stroke={'rgba(255,255,255,0.9)'} strokeWidth={2} fill="none" />
+                  <Defs>
+                    <SvgLinearGradient id="sparkAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0%" stopColor={areaTopColor} stopOpacity={areaTopOpacity} />
+                      <Stop offset="90%" stopColor={areaTopColor} stopOpacity={0.0} />
+                    </SvgLinearGradient>
+                  </Defs>
+                  {(() => {
+                    const vals = (dailyScores.map(v => (typeof v === 'number' ? v : null))
+                      .map((v, i, arr) => v == null ? (i > 0 ? (arr[i - 1] as any) : 50) : v) as number[]);
+                    const w = Math.max(140, heroSparkWidth || 0);
+                    const h = 20;
+                    const areaD = sparkAreaPathSmooth(vals, w, h, 0.6);
+                    const lineD = sparkPathSmooth(vals, w, h, 0.6);
+                    return (
+                      <>
+                        <Path d={areaD} fill="url(#sparkAreaGrad)" />
+                        <Path d={lineD} stroke={sparkStroke} strokeWidth={1.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      </>
+                    );
+                  })()}
                 </Svg>
               </View>
             ) : (
               <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: sparkStroke }]} />
               </View>
             )
           )}
@@ -606,13 +738,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
     borderRadius: 24,
     paddingHorizontal: 14,
     paddingVertical: 16,
     minHeight: 180,
-    borderWidth: 0,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   whiteRow: {
     flexDirection: 'row',
@@ -731,7 +863,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   gradientBg: {
     ...StyleSheet.absoluteFillObject as any,
@@ -781,7 +913,7 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 10, color: 'rgba(255,255,255,0.92)', fontSize: 12 },
   progressBarContainer: {
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderRadius: 4,
     overflow: 'hidden',
     marginTop: 12,

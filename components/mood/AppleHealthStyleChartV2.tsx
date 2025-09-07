@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Pressable,
-  PixelRatio,
 } from 'react-native';
 import Svg, { 
   Line, 
@@ -17,6 +16,7 @@ import Svg, {
   Rect,
   Defs,
   LinearGradient,
+  RadialGradient,
   Stop,
   Path,
   Ellipse
@@ -28,7 +28,8 @@ import { useColorScheme } from 'react-native';
 import { recencyAlpha, jitterXY, energyToColor, quantiles } from '@/utils/statistics';
 import { useAccentColor } from '@/contexts/AccentColorContext';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
-import { getVAColorFromScores } from '@/utils/colorUtils';
+import { getVAColorFromScores, getBramanMoodColor, getAppleMoodColor } from '@/utils/colorUtils';
+import { BramanColors } from '@/constants/Colors';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
@@ -40,7 +41,7 @@ type Props = {
   data: MoodJourneyExtended;
   timeRange: TimeRange;
   onDayPress?: (date: string) => void;
-  onSelectionChange?: (sel: { date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number } | null) => void;
+  onSelectionChange?: (sel: { date: string; index: number; totalCount: number; label: string; x: number; chartWidth: number; bucketCount: number } | null) => void;
   clearSelectionSignal?: number;
   embedHeader?: boolean; // render internal header (summary) inside card
   onRequestPage?: (direction: 'prev' | 'next') => void; // request paginate when scrubbing beyond edges
@@ -48,6 +49,10 @@ type Props = {
   showMoodTrend?: boolean; // weekly p50 mood line
   showEnergy?: boolean;    // weekly energy line
   onVisibleRangeChange?: (stats: { date: string; startHour: number; endHour: number; count: number; moodP50: number; energyP50: number; anxietyP50: number; dominant?: string }) => void;
+  // New: allow parent to control selection (e.g., dragging tooltip)
+  selectIndex?: number | null;
+  // New: show/hide dots globally
+  showDots?: boolean;
 };
 
 const CHART_HEIGHT = 252; // 10% shorter plotting area
@@ -161,8 +166,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   showAnxiety = true,
   showMoodTrend = true,
   showEnergy = true,
+  selectIndex,
+  showDots = true,
 }) => {
   const theme = useThemeColors();
+  const { palette } = useAccentColor();
   const { language } = useTranslation();
   const locale = language === 'tr' ? 'tr-TR' : 'en-US';
   const [containerWidth, setContainerWidth] = useState<number>(0);
@@ -178,17 +186,61 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const isDark = colorScheme === 'dark';
   const { color: accentColor } = useAccentColor();
   const [legendSeen, setLegendSeen] = useState<boolean>(true);
-  const safePathD = React.useCallback((pts: string[]): string | null => {
+  // Experiment: show simple aggregated IQR bands on weekly view
+  const WEEK_AGG_EXPERIMENT = true;
+  // Global: show IQR bands on aggregate ranges (month, 6months, year) — verticalBands already renders mood IQR
+  const AGG_IQR_BANDS = true;
+  // Show aggregate overlay lines (p50 trend lines) for mood/energy/anxiety
+  const AGG_OVERLAY_LINES = true;
+  // Do NOT draw extra IQR bars inside overlay layers (avoid double bars)
+  const OVERLAY_IQR_BANDS = false;
+  // Smoothing helpers (EMA + Catmull–Rom → Bezier)
+  // Tüm range'lerde EMA kapalı (alpha=1) → çizgiler p50 noktalarının içinden geçer.
+  // Tension tüm range'lerde 0.45 olarak tekilleştirildi.
+  const getSmoothing = React.useCallback(() => {
+    const alpha = 1.0;
+    const tension = 0.45;
+    return { alpha, tension };
+  }, [timeRange]);
+
+  const smoothPathDFromPts = React.useCallback((pts: string[]): string | null => {
     if (!pts || pts.length < 2) return null;
-    for (const p of pts) {
-      const parts = String(p).split(',');
-      if (parts.length !== 2) return null;
-      const x = Number(parts[0]);
-      const y = Number(parts[1]);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    // Parse and validate
+    const xy = pts.map(p => {
+      const [xs, ys] = String(p).split(',');
+      const x = Number(xs), y = Number(ys);
+      return { x, y };
+    }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (xy.length < 2) return null;
+    // EMA on y
+    const { alpha, tension } = getSmoothing();
+    const ys: number[] = xy.map(p => p.y);
+    const smoothedY: number[] = [];
+    for (let i = 0; i < ys.length; i++) {
+      if (i === 0) smoothedY.push(ys[i]);
+      else smoothedY.push(alpha * ys[i] + (1 - alpha) * smoothedY[i - 1]);
     }
-    return `M ${pts[0]} L ${pts.slice(1).join(' L ')}`;
-  }, []);
+    const ptsSm = xy.map((p, i) => ({ x: p.x, y: smoothedY[i] }));
+    if (ptsSm.length === 2) {
+      return `M ${ptsSm[0].x} ${ptsSm[0].y} L ${ptsSm[1].x} ${ptsSm[1].y}`;
+    }
+    let d = `M ${ptsSm[0].x} ${ptsSm[0].y}`;
+    for (let i = 0; i < ptsSm.length - 1; i++) {
+      const p0 = ptsSm[i - 1] || ptsSm[i];
+      const p1 = ptsSm[i];
+      const p2 = ptsSm[i + 1];
+      const p3 = ptsSm[i + 2] || ptsSm[i + 1];
+      const c1x = p1.x + (p2.x - p0.x) * (tension / 6);
+      const c1y = p1.y + (p2.y - p0.y) * (tension / 6);
+      const c2x = p2.x - (p3.x - p1.x) * (tension / 6);
+      const c2y = p2.y - (p3.y - p1.y) * (tension / 6);
+      d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  }, [getSmoothing]);
+  const safePathD = React.useCallback((pts: string[]): string | null => {
+    return smoothPathDFromPts(pts);
+  }, [smoothPathDFromPts]);
 
   // Memoized helpers to reduce recalculation during scrubbing/zooming
   const visibleHours = useMemo(() => {
@@ -231,6 +283,17 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearSelectionSignal]);
+
+  // Apply external selection index from parent (e.g., tooltip drag)
+  React.useEffect(() => {
+    if (typeof selectIndex === 'number' || selectIndex === null) {
+      if (selectIndex !== selectedIndex) {
+        setSelectedIndex(selectIndex as any);
+        emitSelection(selectIndex as any);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectIndex]);
 
   // Initialize/realign day window when switching to 'day'
   React.useEffect(() => {
@@ -309,13 +372,12 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
 
   const emitSelection = useCallback((index: number | null) => {
-    const items = (timeRange === 'week')
-      ? data.dailyAverages
-      : (timeRange === 'day'
-        ? (((data.hourlyAverages || [])
-            .slice(dayWindowStart, dayWindowStart + dayWindowSize)
-            .map((h: any) => ({ date: h.dateKey })) ) as any[])
-        : (data.aggregated?.data || []));
+    // Non-day tüm modlarda aggregated kullan
+    const items = (timeRange === 'day')
+      ? (((data.hourlyAverages || [])
+          .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+          .map((h: any) => ({ date: h.dateKey })) ) as any[])
+      : (data.aggregated?.data || []);
     const n = items.length;
     if (index === null || index < 0 || index > n - 1) {
       onSelectionChange?.(null);
@@ -326,11 +388,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     let totalCount = 0;
     let hasData = false;
     
-    if (timeRange === 'week') {
-      const day = items[index] as any;
-      totalCount = Number(day.count || 0);
-      hasData = totalCount > 0;
-    } else if (timeRange === 'day') {
+    if (timeRange === 'day') {
       const hourItem = items[index] as any; // { date: YYYY-MM-DD#HH }
       const rp = (data as any).rawHourlyDataPoints?.[hourItem.date]?.entries || [];
       totalCount = rp.length;
@@ -351,9 +409,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
         const right = index + step;
         const check = (k: number) => {
           if (k < 0 || k >= n) return false;
-          if (timeRange === 'week') {
-            return Number((items[k] as any).count || 0) > 0;
-          } else if (timeRange === 'day') {
+          if (timeRange === 'day') {
             const it: any = items[k];
             const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
             return rp.length > 0;
@@ -375,13 +431,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     let labelText = '';
     let dateSel = '';
     
-    if (timeRange === 'week') {
-      // Weekly view: show the selected day's date
-      const day = items[index] as any;
-      const d = new Date(`${day.date}T00:00:00.000Z`);
-      labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()}`;
-      dateSel = day.date;
-    } else if (timeRange === 'day') {
+    if (timeRange === 'day') {
       const it = items[index] as any; // { date: YYYY-MM-DD#HH }
       const [dstr, hh] = String(it.date).split('#');
       const d = new Date(`${dstr}T00:00:00.000Z`);
@@ -393,11 +443,18 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       dateSel = it.date;
     } else {
       const b = items[index] as AggregatedData;
-      labelText = (b as any).label || '';
+      if (timeRange === 'week') {
+        // Haftalık aggregate: günün tarihi
+        const d = new Date(`${b.date}T00:00:00.000Z`);
+        labelText = `${d.getDate()} ${monthsLongShort[d.getMonth()]} ${d.getFullYear()}`;
+      } else {
+        labelText = (b as any).label || '';
+      }
       dateSel = b.date;
     }
     
-    onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth });
+    // Send bucketCount for parent-driven scrubbing math
+    onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth, bucketCount: n });
   }, [data, timeRange, contentWidth, chartWidth, onSelectionChange, dayWindowStart]);
   
   // Y ekseni değerleri - Apple Health tarzı
@@ -444,7 +501,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
   }, [timeRange, locale]);
 
-  const isAggregateMode = timeRange !== 'week' && timeRange !== 'day';
+  // Unified approach: day hariç tüm range'ler aggregate mod
+  const isAggregateMode = timeRange !== 'day';
 
   // Veri noktalarını hazırla (haftalık: ham girişleri; aggregate: bucket ortalaması)
   const dataPoints = useMemo(() => {
@@ -489,6 +547,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
           entriesArr.forEach(entry => {
             const valence = moodToValence(entry.mood_score);
             const y = CHART_PADDING_TOP + (1 - ((valence + 1) / 2)) * CHART_CONTENT_HEIGHT;
+            const baseMood = entry.mood_score;
+            const dotColor = palette === 'braman' ? getBramanMoodColor(baseMood) : palette === 'apple' ? getAppleMoodColor(baseMood) : '#000';
             points.push({
               x,
               y,
@@ -498,7 +558,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               hasMultiple: rawPoints.entries.length > 1,
               entries: rawPoints.entries,
               ts: new Date(entry.timestamp).getTime(),
-              color: '#000'
+              color: dotColor
             });
           });
         }
@@ -525,30 +585,76 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     }> = [];
 
     if (!isAggregateMode) {
-      const grouped = new Map<string, any[]>();
-      dataPoints.forEach(point => {
-        if (!grouped.has(point.date)) grouped.set(point.date, []);
-        grouped.get(point.date)!.push(point);
-      });
-      grouped.forEach((points, date) => {
-        if (points.length > 1) {
-          const ys = points.map(p => p.y);
-          const moods = points.map(p => p.mood);
-          const avgMood = moods.reduce((a, b) => a + b, 0) / moods.length;
-          const avgEnergy = points.reduce((a, b) => a + b.energy, 0) / points.length;
-          const avgY = CHART_PADDING_TOP + (1 - ((moodToValence(avgMood) + 1) / 2)) * CHART_CONTENT_HEIGHT;
+      // Day: build per-hour IQR bands (p25/p50/p75) from rawHourlyDataPoints
+      if (timeRange === 'day') {
+        const items: any[] = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
+        const n = items.length;
+        const dw = contentWidth / Math.max(1, n);
+        for (let i = 0; i < n; i++) {
+          const h = items[i] as any; // { hour, dateKey, ... }
+          const x = AXIS_WIDTH + (i * dw) + (dw / 2);
+          const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
+          const moods = rp.map((e: any) => Number(e.mood_score)).filter(v => Number.isFinite(v) && v !== 50);
+          const energies = rp.map((e: any) => Number(e.energy_level)).filter(v => Number.isFinite(v) && v !== 6);
+          const rawAnx = rp.map((e: any) => Number(e.anxiety_level)).filter(v => Number.isFinite(v));
+          // Derive anxiety if all 5s and we have meaningful mood/energy
+          const anxVals = (() => {
+            if (rawAnx.length === 0) return [5];
+            if (rawAnx.every(v => v === 5) && moods.length > 0 && energies.length > 0) {
+              const avgMood = moods.reduce((s, v) => s + v, 0) / moods.length;
+              const avgEnergy = energies.reduce((s, v) => s + v, 0) / energies.length;
+              const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
+              const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
+              let derived = 5;
+              if (m10 <= 3) derived = 7;
+              else if (m10 >= 8 && e10 <= 4) derived = 6;
+              else if (m10 <= 5 && e10 >= 7) derived = 8;
+              else derived = Math.max(2, Math.min(8, 6 - (m10 - 5)));
+              return rp.map(() => derived);
+            }
+            return rawAnx;
+          })();
+
+        const mq = quantiles(moods);
+        const eq = quantiles(energies);
+        const hasIQR = Number.isFinite(mq.p25 as any) && Number.isFinite(mq.p50 as any) && Number.isFinite(mq.p75 as any);
+        if (!rp.length || !hasIQR) {
+          const centerY = CHART_PADDING_TOP + CHART_CONTENT_HEIGHT / 2;
           bands.push({
-            x: points[0].x,
-            minY: Math.min(...ys),
-            maxY: Math.max(...ys),
-            avgY,
-            date,
-            entries: points[0].entries,
-            color: energyToColor(avgEnergy, 1, isDark),
-            energyAvg: avgEnergy,
+            x,
+            minY: centerY,
+            maxY: centerY,
+            avgY: centerY,
+            date: h.dateKey,
+            entries: [],
+            color: '#9CA3AF',
+            energyAvg: 0,
+            isEmpty: true,
           });
+          continue;
         }
-      });
+        const vMin = moodToValence(mq.p25);
+        const vMax = moodToValence(mq.p75);
+        const vAvg = moodToValence(mq.p50);
+        const minY = CHART_PADDING_TOP + (1 - ((vMin + 1) / 2)) * CHART_CONTENT_HEIGHT;
+        const maxY = CHART_PADDING_TOP + (1 - ((vMax + 1) / 2)) * CHART_CONTENT_HEIGHT;
+        const avgY = CHART_PADDING_TOP + (1 - ((vAvg + 1) / 2)) * CHART_CONTENT_HEIGHT;
+        const eP50 = Number.isFinite(eq.p50 as any) ? Number(eq.p50) : 6;
+        const color = energyToColor(eP50, 1, isDark);
+        bands.push({
+          x,
+          minY: Math.min(minY, maxY),
+          maxY: Math.max(minY, maxY),
+          avgY,
+          date: h.dateKey,
+          entries: rp,
+          color,
+          energyAvg: eP50,
+        });
+        }
+        return bands;
+      }
+      // Fallback: no bands for other non-aggregate ranges (should not happen now)
       return bands;
     }
 
@@ -558,7 +664,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     buckets.forEach((b, index) => {
       const x = AXIS_WIDTH + (index * bw) + (bw / 2);
       const cnt = Number((b as any)?.count || 0);
-      if (cnt <= 0) {
+      // Treat buckets with no real mood IQR as empty as well
+      const m = (b as any)?.mood || {};
+      const hasRealIQR = [m.p25, m.p50, m.p75, m.min, m.max].some((v: any) => Number.isFinite(v));
+      if (cnt <= 0 || !hasRealIQR) {
         const centerY = CHART_PADDING_TOP + CHART_CONTENT_HEIGHT / 2;
         bands.push({
           x,
@@ -668,7 +777,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <ScrollView 
-        horizontal={(timeRange === 'week' ? data.dailyAverages.length : (data.aggregated?.data?.length || 0)) > 30}
+        horizontal={(isAggregateMode ? ((data.aggregated?.data?.length || 0) > 30) : (timeRange === 'day' ? (((data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize)).length > 30) : (data.dailyAverages.length > 30)))}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.hScrollContent}
@@ -736,39 +845,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   />
                 );
               }
-              // Selected guide line - only if selected bucket has data
-              if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex <= n - 1) {
-                const hasData = (() => {
-                  if (isAggregateMode) {
-                    const b: any = (data.aggregated?.data || [])[selectedIndex];
-                    return Number(b?.count || 0) > 0;
-                  } else if (timeRange === 'day') {
-                    const win = (data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize);
-                    const it: any = { date: win[selectedIndex]?.dateKey };
-                    const rp = (data as any).rawHourlyDataPoints?.[it.date]?.entries || [];
-                    return rp.length > 0;
-                  } else {
-                    const d: any = data.dailyAverages[selectedIndex];
-                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
-                    return rp.length > 0;
-                  }
-                })();
-                if (hasData) {
-                  const xSel = AXIS_WIDTH + selectedIndex * dayWidth + dayWidth / 2;
-                  lines.push(
-                    <Line
-                      key={`vgrid-selected`}
-                      x1={xSel}
-                      y1={CHART_PADDING_TOP - 10}
-                      x2={xSel}
-                      y2={CHART_PADDING_TOP + CHART_CONTENT_HEIGHT + 10}
-                      stroke={APPLE_COLORS.gridLineDark}
-                      strokeWidth={2}
-                      strokeOpacity={0.9}
-                    />
-                  );
-                }
-              }
+              // Selected guide line disabled: only point selection remains
               return lines;
             })()}
 
@@ -813,11 +890,13 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Nokta-temelli görünüm: bar/bant çizgileri olmadan */}
             {verticalBands.map((band, index) => (
               <G key={`band-${index}`}>
-                {isAggregateMode ? (
+                {(isAggregateMode || timeRange === 'day') ? (
                   band.isEmpty ? (
                     (() => {
                       const hasSelection = selectedIndex != null;
-                      const isSelectedBand = !!selectedAggDate && band.date === selectedAggDate;
+                      const isSelectedBand = isAggregateMode
+                        ? (!!selectedAggDate && band.date === selectedAggDate)
+                        : (hasSelection && index === (selectedIndex as number));
                       const op = hasSelection ? (isSelectedBand ? 0.55 : 0.25) : 0.55;
                       return (
                         <Circle cx={band.x} cy={band.avgY} r={2.6} fill={'#9CA3AF'} opacity={op}
@@ -826,7 +905,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     })()
                   ) : (
                     (() => {
-                      // 3 özet nokta: p25, p50, p75
+                      // IQR bar (p25–p75) + 3 özet nokta (p25, p50, p75)
                       const spreadPx = Math.abs(band.maxY - band.minY);
                       const s = Math.max(0, Math.min(1, spreadPx / CHART_CONTENT_HEIGHT));
                       const rCenter = DOT_TUNING.agg.rCenterMax - (DOT_TUNING.agg.rCenterMax - DOT_TUNING.agg.rCenterMin) * s;
@@ -834,19 +913,47 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       const opCenterBase = DOT_TUNING.agg.opCenterMax - (DOT_TUNING.agg.opCenterMax - DOT_TUNING.agg.opCenterMin) * s;
                       const opSideBase = DOT_TUNING.agg.opSideMax - (DOT_TUNING.agg.opSideMax - DOT_TUNING.agg.opSideMin) * s;
                       const hasSelection = selectedIndex != null;
-                      const isSelectedBand = !!selectedAggDate && band.date === selectedAggDate;
+                      const isSelectedBand = isAggregateMode
+                        ? (!!selectedAggDate && band.date === selectedAggDate)
+                        : (hasSelection && index === (selectedIndex as number));
                       const opCenter = hasSelection ? (isSelectedBand ? opCenterBase : Math.max(0.2, opCenterBase * 0.45)) : opCenterBase;
                       const opSide = hasSelection ? (isSelectedBand ? opSideBase : Math.max(0.18, opSideBase * 0.45)) : opSideBase;
+                      // Bar width dynamic by bucket width
+                      const bucketCount = isAggregateMode
+                        ? ((data.aggregated?.data || []).length || 1)
+                        : ((((data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize)).length) || 1);
+                      const dw = contentWidth / Math.max(1, bucketCount);
+                      const barW = Math.max(3, Math.min(12, dw * 0.36));
+                      const barOpacity = hasSelection ? (isSelectedBand ? 0.20 : 0.10) : 0.16;
+                      const strokeOpacity = hasSelection ? (isSelectedBand ? 0.28 : 0.14) : 0.20;
                       return (
                         <>
+                          {/* IQR bar (p25–p75) */}
+                          <Rect
+                            x={band.x - barW / 2}
+                            y={Math.min(band.minY, band.maxY)}
+                            width={barW}
+                            height={Math.max(0.8, Math.abs(band.maxY - band.minY))}
+                            fill={band.color}
+                            opacity={barOpacity}
+                            rx={2}
+                            stroke={isDark ? '#0B1220' : '#E5E7EB'}
+                            strokeOpacity={strokeOpacity}
+                            strokeWidth={1}
+                          />
                           <Circle cx={band.x} cy={band.minY} r={rSide} fill={band.color} opacity={opSide}
                             stroke={isDark ? '#111827' : '#9CA3AF'} strokeWidth={0.6} />
                           {(() => {
                             const counts = (data.aggregated?.data || []).map((bb: any) => Number(bb?.count || 0));
                             const cMax = Math.max(1, ...counts);
                             const cThis = (() => {
-                              const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
-                              return Number(b?.count || 0);
+                              if (isAggregateMode) {
+                                const b = (data.aggregated?.data || []).find((bb: any) => bb.date === band.date) as any;
+                                return Number(b?.count || 0);
+                              }
+                              // Day mode: use rawHourlyDataPoints count for hour
+                              const entries = (data as any).rawHourlyDataPoints?.[band.date]?.entries || [];
+                              return entries.length || 0;
                             })();
                             const sw = 0.6 + 1.4 * Math.sqrt(cThis / cMax);
                             return (
@@ -878,7 +985,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Aggregate modda outlier noktaları devre dışı */}
 
             {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
-            {!isAggregateMode && (() => {
+            {!isAggregateMode && timeRange !== 'day' && showDots && (() => {
               const baseItems: any[] = (timeRange === 'day'
                 ? (((data.hourlyAverages || [])
                     .slice(dayWindowStart, dayWindowStart + dayWindowSize)
@@ -919,7 +1026,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const py = Math.max(CHART_PADDING_TOP + 2, Math.min(CHART_PADDING_TOP + CHART_CONTENT_HEIGHT - 2, point.y + jy * ampY));
                 const hasSelection = selectedIndex != null;
                 const isSelectedBucket = hasSelection && (dayIdx === (selectedIndex as number));
-                const innerR = r + (isSelectedBucket ? 0.8 : 0);
+                const innerR = r + (isSelectedBucket ? 0.6 : 0);
                 const outerROpacity = hasSelection ? (isSelectedBucket ? 1 : 0.45) : 1;
                 const innerOpacity = hasSelection ? (isSelectedBucket ? 1 : 0.38) : 1;
                 const innerFill = hasSelection ? (isSelectedBucket ? fill : (isDark ? '#6B7280' : '#D1D5DB')) : fill;
@@ -929,8 +1036,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     {/* Highlight halo when selected */}
                     {hasSelection && isSelectedBucket && (
                       <>
-                        <Circle cx={px} cy={py} r={innerR + 2.4} fill={fill} opacity={0.12} />
-                        <Circle cx={px} cy={py} r={innerR + 4.8} fill={fill} opacity={0.06} />
+                        <Circle cx={px} cy={py} r={innerR + 2} fill={fill} opacity={0.12} />
+                        <Circle cx={px} cy={py} r={innerR + 4} fill={fill} opacity={0.06} />
                       </>
                     )}
                     {/* Outer ring (light/dark theme aware) */}
@@ -958,6 +1065,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const x = AXIS_WIDTH + (index * dw) + (dw / 2);
                 const showLabel = getXLabelVisibility(index, n);
                 const isTodayLbl = !isAggregateMode && (it as any).date === todayKeyLbl;
+                const isActive = selectedIndex != null && index === (selectedIndex as number);
                 if (!showLabel) return null;
                 return (
                   <SvgText
@@ -965,15 +1073,86 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     x={x}
                     y={CHART_HEIGHT - CHART_PADDING_BOTTOM + 20}
                     fontSize={timeRange === 'day' ? 10 : 11}
-                    fill={isTodayLbl ? '#374151' : APPLE_COLORS.axisText}
+                    fill={isActive ? '#111827' : (isTodayLbl ? '#374151' : APPLE_COLORS.axisText)}
                     textAnchor="middle"
-                    fontWeight={isTodayLbl ? '600' : '400'}
+                    fontWeight={isActive ? '700' : (isTodayLbl ? '600' : '400')}
                     letterSpacing={timeRange === 'day' ? -0.2 : undefined}
                   >
                     {formatXLabel(it)}
                   </SvgText>
                 );
               });
+            })()}
+            {/* Selection highlight: subtle background + lighter guide lines for selected bucket */}
+            {(() => {
+              if (selectedIndex == null) return null;
+              const n = (isAggregateMode ? (data.aggregated?.data || []) : (timeRange === 'day'
+                ? (((data.hourlyAverages || [])
+                    .slice(dayWindowStart, dayWindowStart + dayWindowSize)
+                    .map((h: any) => ({ date: h.dateKey })) ) as any[])
+                : data.dailyAverages)).length;
+              if (n === 0) return null;
+              const dw = contentWidth / Math.max(1, n);
+              const xCenter = AXIS_WIDTH + (selectedIndex * dw) + (dw / 2);
+              const leftX = xCenter - dw / 2;
+              const rightX = xCenter + dw / 2;
+              const topY = CHART_PADDING_TOP;
+              const botY = CHART_PADDING_TOP + CHART_CONTENT_HEIGHT;
+              const stroke = APPLE_COLORS.gridLineDark;
+              return (
+                <>
+                  {/* Background highlight (palette-aware) */}
+                  {palette === 'braman' && (
+                    <>
+                      <Defs>
+                        <RadialGradient id={`selGrad-${selectedIndex}`} cx={xCenter} cy={(topY + botY) / 2} r={Math.max(18, (rightX - leftX) * 0.85)} gradientUnits="userSpaceOnUse">
+                          <Stop offset="0%" stopColor={BramanColors.paper} stopOpacity={0.40} />
+                          <Stop offset="100%" stopColor={BramanColors.paper} stopOpacity={0.0} />
+                        </RadialGradient>
+                      </Defs>
+                      <Rect
+                        x={leftX}
+                        y={topY}
+                        width={Math.max(0, rightX - leftX)}
+                        height={Math.max(0, botY - topY)}
+                        fill={'rgba(250,248,243,0.24)'}
+                      />
+                    </>
+                  )}
+                  {palette !== 'braman' && (
+                    <>
+                      <Defs>
+                        <RadialGradient id={`selGrad-p-${selectedIndex}`} cx={xCenter} cy={(topY + botY) / 2} r={Math.max(18, (rightX - leftX) * 0.85)} gradientUnits="userSpaceOnUse">
+                          <Stop offset="0%" stopColor={palette === 'apple' ? '#C7C7CC' : '#9CA3AF'} stopOpacity={0.36} />
+                          <Stop offset="100%" stopColor={palette === 'apple' ? '#C7C7CC' : '#9CA3AF'} stopOpacity={0.0} />
+                        </RadialGradient>
+                      </Defs>
+                      <Rect
+                        x={leftX}
+                        y={topY}
+                        width={Math.max(0, rightX - leftX)}
+                        height={Math.max(0, botY - topY)}
+                        fill={palette === 'apple' ? 'rgba(199,199,204,0.22)' : 'rgba(156,163,175,0.22)'}
+                      />
+                    </>
+                  )}
+                  {palette === 'braman' && (
+                    <Rect
+                      x={leftX}
+                      y={topY}
+                      width={Math.max(0, rightX - leftX)}
+                      height={Math.max(0, botY - topY)}
+                      fill="none"
+                      stroke={BramanColors.dark}
+                      strokeOpacity={0.35}
+                      strokeWidth={1.2}
+                    />
+                  )}
+                  {/* Guide lines (more visible edges) */}
+                  <Line x1={leftX} y1={topY} x2={leftX} y2={botY} stroke={stroke} strokeWidth={1.8} strokeOpacity={0.85} />
+                  <Line x1={rightX} y1={topY} x2={rightX} y2={botY} stroke={stroke} strokeWidth={1.8} strokeOpacity={0.85} />
+                </>
+              );
             })()}
           </Svg>
           {/* Anxiety thin-line overlay (gap-aware) - weekly p50 */}
@@ -985,6 +1164,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const dw = contentWidth / Math.max(1, n);
                 const basePts: string[] = [];
                 const realSegments: string[][] = [];
+                const centers: Array<{ x: number; y: number }> = [];
                 let seg: string[] = [];
                 let realCount = 0;
                 let singlePt: { x: number; y: number } | null = null;
@@ -1029,6 +1209,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (Number.isFinite(x) && Number.isFinite(y)) {
                     basePts.push(`${x},${y}`);
                     if (has) {
+                      centers.push({ x, y });
                       seg.push(`${x},${y}`);
                       realCount++;
                       singlePt = { x, y };
@@ -1038,45 +1219,67 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   }
                 }
                 if (seg.length) realSegments.push(seg);
-                const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+                const anxColor = isDark ? mixHex('#EF4444', '#FFFFFF', 0.10) : mixHex('#EF4444', '#000000', 0.08);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                if (basePts.length > 1) {
-                  els.push(
-                    <Path key="week-anx-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                      stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                      strokeDasharray="6,4"
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
+                const hasDrawableSeg = realSegments.some(s => s.length > 1);
+                if (false) { // base line disabled for consistency across ranges
+                  const dPath = smoothPathDFromPts(basePts);
+                  if (dPath) {
+                    els.push(
+                      <Path key="week-anx-base" d={dPath}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
                 }
+                // IQR band (agg) per day for anxiety (experiment)
+                if (WEEK_AGG_EXPERIMENT) {
+                  for (let index = 0; index < n; index++) {
+                    const d = items[index] as any;
+                    const has = Number(d.count || 0) > 0;
+                    if (!has) continue;
+                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                    const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+                    if (anxVals.length < 2) continue;
+                    const q = quantiles(anxVals);
+                    const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                    const tTop = (Math.max(1, Math.min(10, q.p75)) - 1) / 9;
+                    const tBot = (Math.max(1, Math.min(10, q.p25)) - 1) / 9;
+                    const yTop = CHART_PADDING_TOP + (1 - tTop) * CHART_CONTENT_HEIGHT;
+                    const yBot = CHART_PADDING_TOP + (1 - tBot) * CHART_CONTENT_HEIGHT;
+                    const y = Math.min(yTop, yBot);
+                    const h = Math.abs(yBot - yTop);
+                    els.push(
+                      <Rect key={`w-anx-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.38)} height={Math.max(1, h)} fill={anxColor} opacity={0.18} rx={2} stroke={anxColor} strokeOpacity={0.22} strokeWidth={1} />
+                    );
+                  }
+                }
+
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {
-                    els.push(
-                      <Path key={`week-anx-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                    const dPath = smoothPathDFromPts(pts);
+                    if (dPath) {
+                      els.push(
+                        <Path key={`week-anx-real-${i}`} d={dPath}
+                          stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      );
+                    }
                   }
                 });
-                // Highlight selected segment around selectedIndex
-                if (hasSelection && basePts.length > 0) {
-                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                  const segPts: string[] = [];
-                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                  segPts.push(basePts[i]);
-                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                  if (segPts.length >= 2) {
-                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                if (centers.length) {
+                  const ringColor = isDark ? '#0E1525' : '#E5E7EB';
+                  centers.forEach((c, i) => {
                     els.push(
-                      <Path key={`week-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      <>
+                        <Circle key={`w-anx-center-ring-${i}`} cx={c.x} cy={c.y} r={2.2 + 1.0} fill={ringColor} opacity={0.95} />
+                        <Circle key={`w-anx-center-${i}`} cx={c.x} cy={c.y} r={2.2} fill={anxColor} opacity={0.95} />
+                      </>
                     );
-                  }
+                  });
                 }
+                // Highlight disabled: only point selection remains
                 if (realCount === 1 && singlePt) {
                   const r = LINE_WIDTH + 1.5;
                   const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
@@ -1102,6 +1305,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const dw = contentWidth / Math.max(1, n);
                 const basePts: string[] = [];
                 const realSegments: string[][] = [];
+                const centers: Array<{ x: number; y: number }> = [];
                 let seg: string[] = [];
                 let realCount = 0;
                 let singlePt: { x: number; y: number } | null = null;
@@ -1122,6 +1326,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (Number.isFinite(x) && Number.isFinite(y)) {
                     basePts.push(`${x},${y}`);
                     if (has) {
+                      centers.push({ x, y });
                       seg.push(`${x},${y}`);
                       realCount++;
                       singlePt = { x, y };
@@ -1133,42 +1338,65 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 if (seg.length) realSegments.push(seg);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                if (basePts.length > 1) {
-                  els.push(
-                    <Path key="week-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                      stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                      strokeDasharray="6,4"
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
+                const hasDrawableSegM = realSegments.some(s => s.length > 1);
+                if (false) { // base line disabled for consistency across ranges
+                  const dPath = smoothPathDFromPts(basePts);
+                  if (dPath) {
+                    els.push(
+                      <Path key="week-mood-base" d={dPath}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
                 }
+                // IQR band (agg) per day as thin rectangles (experiment)
+                if (WEEK_AGG_EXPERIMENT) {
+                  for (let index = 0; index < n; index++) {
+                    const d = items[index] as any;
+                    const has = Number(d.count || 0) > 0;
+                    if (!has) continue;
+                    const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                    const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                    const vals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+                    if (vals.length < 2) continue;
+                    const q = quantiles(vals);
+                    const vTop = moodToValence(q.p75);
+                    const vBot = moodToValence(q.p25);
+                    const yTop = CHART_PADDING_TOP + (1 - ((vTop + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                    const yBot = CHART_PADDING_TOP + (1 - ((vBot + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                    const y = Math.min(yTop, yBot);
+                    const h = Math.abs(yBot - yTop);
+                    els.push(
+                      <Rect key={`w-mood-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.38)} height={Math.max(1, h)} fill={accentColor} opacity={0.18} rx={2} stroke={accentColor} strokeOpacity={0.22} strokeWidth={1} />
+                    );
+                  }
+                }
+
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {
-                    els.push(
-                      <Path key={`week-mood-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                    const dPath = smoothPathDFromPts(pts);
+                    if (dPath) {
+                      els.push(
+                        <Path key={`week-mood-real-${i}`} d={dPath}
+                          stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      );
+                    }
                   }
                 });
-                // Highlight
-                if (hasSelection && basePts.length > 0) {
-                  const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                  const segPts: string[] = [];
-                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                  segPts.push(basePts[i]);
-                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                  if (segPts.length >= 2) {
-                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
+                // Center dots for aggregate (per-day p50)
+                if (centers.length) {
+                  const ringColor = isDark ? '#0E1525' : '#E5E7EB';
+                  centers.forEach((c, i) => {
                     els.push(
-                      <Path key={`week-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={accentColor} strokeWidth={hiW} strokeOpacity={0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      <>
+                        <Circle key={`w-mood-center-ring-${i}`} cx={c.x} cy={c.y} r={2.6 + 1.1} fill={ringColor} opacity={0.95} />
+                        <Circle key={`w-mood-center-${i}`} cx={c.x} cy={c.y} r={2.6} fill={accentColor} opacity={0.95} />
+                      </>
                     );
-                  }
+                  });
                 }
+                // Highlight disabled: only point selection remains
                 if (realCount === 1 && singlePt) {
                   const r = LINE_WIDTH + 1.5;
                   const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
@@ -1194,6 +1422,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const basePts: string[] = [];
               const realSegments: string[][] = [];
               let seg: string[] = [];
+              const centers: Array<{ x: number; y: number }> = [];
               let realCount = 0;
               let singlePt: { x: number; y: number } | null = null;
               for (let index = 0; index < n; index++) {
@@ -1219,7 +1448,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 
                 if (Number.isFinite(x) && Number.isFinite(y)) {
                   basePts.push(`${x},${y}`);
-                  if (has) { seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
+                  if (has) { centers.push({ x, y }); seg.push(`${x},${y}`); realCount++; singlePt = { x, y }; }
                   else if (seg.length) { realSegments.push(seg); seg = []; }
                 }
               }
@@ -1227,50 +1456,73 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
               const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
               const els: React.ReactNode[] = [];
               const hasSelection = selectedIndex != null;
-              if (basePts.length > 1) {
-                els.push(
-                  <Path key="week-en-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                    stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                    strokeDasharray="6,4"
-                    fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                );
+                const hasDrawableSegE = realSegments.some(s => s.length > 1);
+                if (false) { // base line disabled for consistency across ranges
+                  const dPath = smoothPathDFromPts(basePts);
+                  if (dPath) {
+                    els.push(
+                      <Path key="week-en-base" d={dPath}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
+                }
+              // IQR band (agg) per day for energy (experiment)
+              if (WEEK_AGG_EXPERIMENT) {
+                for (let index = 0; index < n; index++) {
+                  const d = items[index] as any;
+                  const has = Number(d.count || 0) > 0;
+                  if (!has) continue;
+                  const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                  const rp = (data.rawDataPoints[d.date]?.entries || []) as any[];
+                  const eArr = rp.map((en: any) => Number(en.energy_level)).filter(Number.isFinite);
+                  if (eArr.length < 2) continue;
+                  const q = quantiles(eArr);
+                  const tTop = (Math.max(1, Math.min(10, q.p75)) - 1) / 9;
+                  const tBot = (Math.max(1, Math.min(10, q.p25)) - 1) / 9;
+                  const yTop = CHART_PADDING_TOP + (1 - tTop) * CHART_CONTENT_HEIGHT;
+                  const yBot = CHART_PADDING_TOP + (1 - tBot) * CHART_CONTENT_HEIGHT;
+                  const y = Math.min(yTop, yBot);
+                  const h = Math.abs(yBot - yTop);
+                  els.push(
+                    <Rect key={`w-en-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.38)} height={Math.max(1, h)} fill={energyColor} opacity={0.18} rx={2} stroke={energyColor} strokeOpacity={0.22} strokeWidth={1} />
+                  );
+                }
               }
+
               realSegments.forEach((pts, i) => {
                 if (pts.length > 1) {
-                  els.push(
-                    <Path key={`week-en-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
-                }
-              });
-              if (hasSelection && basePts.length > 0) {
-                const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                const segPts: string[] = [];
-                if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                segPts.push(basePts[i]);
-                if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                if (segPts.length >= 2) {
-                  const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                  const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                  els.push(
-                      <Path key={`week-en-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
+                  const dPath = smoothPathDFromPts(pts);
+                  if (dPath) {
+                    els.push(
+                      <Path key={`week-en-real-${i}`} d={dPath}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
                         fill="none" strokeLinecap="round" strokeLinejoin="round" />
                   );
+                  }
                 }
+              });
+              if (centers.length) {
+                const ringColor = isDark ? '#0E1525' : '#E5E7EB';
+                centers.forEach((c, i) => {
+                  els.push(
+                    <>
+                      <Circle key={`w-en-center-ring-${i}`} cx={c.x} cy={c.y} r={2.4 + 1.0} fill={ringColor} opacity={0.95} />
+                      <Circle key={`w-en-center-${i}`} cx={c.x} cy={c.y} r={2.4} fill={energyColor} opacity={0.95} />
+                    </>
+                  );
+                });
               }
+              // Highlight disabled: only point selection remains
               if (realCount === 1 && singlePt) {
                 const r = LINE_WIDTH + 1.5;
                 const mini = clamp(dw * MINI_SEGMENT_RATIO_WEEK, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
                 els.push(
-                  <G key="week-en-sp">
-                    <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
-                      stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                    <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
-                  </G>
+              <G key="week-en-sp">
+                <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
+                  stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
+              </G>
                 );
               }
               return els;
@@ -1325,24 +1577,30 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 if (seg.length) realSegments.push(seg);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                // Base line (all points including neutral) - dashed
-                if (basePts.length > 1) {
-                  els.push(
-                    <Path key="day-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                      stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                      strokeDasharray="6,4"
-                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  );
+                // Base line (all points including neutral) - solid
+                const hasDrawableSegDayMood = realSegments.some(s => s.length > 1);
+                if (false) { // base line disabled for consistency across ranges
+                  const dPath = smoothPathDFromPts(basePts);
+                  if (dPath) {
+                    els.push(
+                      <Path key="day-mood-base" d={dPath}
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    );
+                  }
                 }
                 
                 // Real data segments - solid
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {
-                    els.push(
-                      <Path key={`day-mood-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                    const dPath = smoothPathDFromPts(pts);
+                    if (dPath) {
+                      els.push(
+                        <Path key={`day-mood-real-${i}`} d={dPath}
+                          stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
+                          fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      );
+                    }
                   }
                 });
                 // Highlight selected
@@ -1355,13 +1613,11 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
                   if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
                   if (segPts.length >= 2) {
-                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                    els.push(
-                      <Path key={`day-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={accentColor} strokeWidth={hiW} strokeOpacity={0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                    const hiW = LINE_WIDTH * 1.4; // Fixed highlight width for consistency
+                    const dPathHi = smoothPathDFromPts(segPts);
+                    if (dPathHi) {
+                      // highlight disabled
+                    }
                   }
                 }
                 
@@ -1372,8 +1628,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   els.push(
                     <G key="day-mood-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
-                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
-                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
+                        stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      {showDots && (
+                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
+                      )}
                     </G>
                   );
                 }
@@ -1402,35 +1660,46 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   const h = items[index] as any;
                   const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
                   const has = rp.length > 0;
+                  const x = AXIS_WIDTH + index * dw + dw / 2;
                   
-                  // NEW UNIFIED SYSTEM: Always include all hours with neutral fallback
-                  let finalE = 6; // Default neutral energy
+                  // BASELINE SYSTEM: Always include all hours with fallback (like Week view)
+                  let baselineE = 6; // Neutral fallback for baseline
+                  let realE = null;   // Only real data for segments
+                  
                   if (has) {
                     const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
                     if (energyVals.length > 0) {
-                      finalE = quantiles(energyVals).p50;
+                      const realVals = energyVals.filter(v => v !== 6); // Exclude neutral for real segments
+                      baselineE = quantiles(energyVals).p50; // Use all for baseline
+                      if (realVals.length > 0) {
+                        realE = quantiles(realVals).p50; // Only non-neutral for real segments
+                      }
                     }
                   }
                   
-                  const norm = Math.max(1, Math.min(10, Number(finalE || 6)));
-                  const t = (norm - 1) / 9;
-                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                  const x = AXIS_WIDTH + index * dw + dw / 2;
+                  // Always add to baseline
+                  const baselineNorm = Math.max(1, Math.min(10, Number(baselineE)));
+                  const baselineT = (baselineNorm - 1) / 9;
+                  const baselineY = CHART_PADDING_TOP + (1 - baselineT) * CHART_CONTENT_HEIGHT;
                   
-                  if (Number.isFinite(x) && Number.isFinite(y)) {
-                    basePts.push(`${x},${y}`);
-                    if (has) {
-                      seg.push(`${x},${y}`);
+                  if (Number.isFinite(x) && Number.isFinite(baselineY)) {
+                    basePts.push(`${x},${baselineY}`);
+                    
+                    // Add to real segments only if we have non-neutral data
+                    if (realE != null) {
+                      const realNorm = Math.max(1, Math.min(10, Number(realE)));
+                      const realT = (realNorm - 1) / 9;
+                      const realY = CHART_PADDING_TOP + (1 - realT) * CHART_CONTENT_HEIGHT;
+                      seg.push(`${x},${realY}`);
                       realCount++;
-                      singlePt = { x, y };
+                      singlePt = { x: x, y: realY };
                       if (gap.length) { gapSegments.push(gap); gap = []; }
                     } else if (seg.length) {
                       realSegments.push(seg);
                       seg = [];
-                      gap.push(`${x},${y}`);
+                      gap.push(`${x},${baselineY}`);
                     } else {
-                      // still in gap segment
-                      gap.push(`${x},${y}`);
+                      gap.push(`${x},${baselineY}`);
                     }
                   }
                 }
@@ -1440,45 +1709,58 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                // Dashed only for gap segments (no real data)
-                gapSegments.forEach((pts, i) => {
-                  if (pts.length > 1) {
+                
+                // Base line (all hours with fallback) - faint like Week view
+                const hasDrawableSegDayEn = realSegments.some(s => s.length > 1);
+                if (false) { // base line disabled for consistency across ranges
+                  const dPath = smoothPathDFromPts(basePts);
+                  if (dPath) {
                     els.push(
-                      <Path key={`day-energy-gap-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
+                      <Path key="day-energy-base" d={dPath}
                         stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                        strokeDasharray="6,4"
                         fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     );
                   }
-                });
+                }
                 
-                // Real data segments - solid
+                // Deduplicate identical path segments within this block
+                const seen = new Set<string>();
+                const addPath = (dPath: string | null, node: React.ReactNode) => {
+                  if (!dPath) return;
+                  if (seen.has(dPath)) return;
+                  seen.add(dPath);
+                  els.push(node);
+                };
+
+                // Real data segments - prominent like Week view
                 realSegments.forEach((pts, i) => {
                   if (pts.length > 1) {
-                    els.push(
-                      <Path key={`day-energy-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
+                    const dPath = smoothPathDFromPts(pts);
+                    addPath(dPath, (
+                      <Path key={`day-energy-real-${i}`} d={dPath!}
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
                         fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                    ));
                   }
                 });
-                // Highlight selected
+                // Highlight selected using real energy segment containing xSel
                 if (hasSelection && basePts.length > 0) {
                   const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                  const segPts: string[] = [];
-                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                  segPts.push(basePts[i]);
-                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                  if (segPts.length >= 2) {
-                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                    els.push(
-                      <Path key={`day-energy-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                  const xSel = AXIS_WIDTH + i * dw + dw / 2;
+                  let target: string[] | null = null;
+                  for (const pts of realSegments) {
+                    if (pts.length < 2) continue;
+                    const x0 = Number(String(pts[0]).split(',')[0]);
+                    const x1 = Number(String(pts[pts.length - 1]).split(',')[0]);
+                    const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+                    if (xSel >= minX && xSel <= maxX) { target = pts; break; }
+                  }
+                  if (target) {
+                    const hiW = LINE_WIDTH * 1.4;
+                    const dPathHi = smoothPathDFromPts(target);
+                    if (dPathHi) {
+                      // highlight disabled
+                    }
                   }
                 }
                 
@@ -1489,8 +1771,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   els.push(
                     <G key="day-energy-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
-                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
-                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
+                        stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      {showDots && (
+                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
+                      )}
                     </G>
                   );
                 }
@@ -1519,15 +1803,19 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   const h = items[index] as any;
                   const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
                   const has = rp.length > 0;
+                  const x = AXIS_WIDTH + index * dw + dw / 2;
                   
-                  // IMPROVED: Smart anxiety calculation with mood/energy derivation
-                  let finalA = 5; // Default neutral anxiety
+                  // BASELINE SYSTEM: Always include all hours with fallback (like Week view)
+                  let baselineA = 5; // Neutral fallback for baseline
+                  let realA = null;   // Only meaningful data for segments
+                  
                   if (has) {
                     const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
                     if (anxVals.length > 0) {
                       // Check if all anxiety values are default 5 (fallback values)
                       if (anxVals.every(v => v === 5)) {
-                        // Derive from mood/energy if available
+                        // Use 5 for baseline, try to derive for real segments
+                        baselineA = 5;
                         const moodVals = rp.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
                         const energyVals = rp.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
                         if (moodVals.length > 0 && energyVals.length > 0) {
@@ -1535,86 +1823,98 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                           const avgEnergy = energyVals.reduce((s, v) => s + v, 0) / energyVals.length;
                           const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10))); 
                           const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
-                          // Smart anxiety derivation
-                          if (m10 <= 3) finalA = 7; // Low mood = anxious
-                          else if (m10 >= 8 && e10 <= 4) finalA = 6; // High mood + low energy = underlying anxiety
-                          else if (m10 <= 5 && e10 >= 7) finalA = 8; // Low mood + high energy = agitated
-                          else finalA = Math.max(2, Math.min(8, 6 - (m10 - 5))); // Inverse mood relationship
-                        } else {
-                          finalA = 5; // True fallback
+                          // Smart anxiety derivation for real segments
+                          if (m10 <= 3) realA = 7;
+                          else if (m10 >= 8 && e10 <= 4) realA = 6;
+                          else if (m10 <= 5 && e10 >= 7) realA = 8;
+                          else if (m10 >= 7 && e10 >= 7) realA = 4;
+                          else realA = Math.max(2, Math.min(8, 6 - (m10 - 5)));
                         }
                       } else {
-                        finalA = quantiles(anxVals).p50;
+                        // Real anxiety data available
+                        baselineA = quantiles(anxVals).p50;
+                        realA = quantiles(anxVals).p50;
                       }
                     }
                   }
                   
-                  const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
-                  const t = (norm - 1) / 9; // 0..1 -> top low anxiety
-                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                  const x = AXIS_WIDTH + index * dw + dw / 2;
+                  // Always add to baseline
+                  const baselineNorm = Math.max(1, Math.min(10, Number(baselineA)));
+                  const baselineT = (baselineNorm - 1) / 9;
+                  const baselineY = CHART_PADDING_TOP + (1 - baselineT) * CHART_CONTENT_HEIGHT;
                   
-                  if (Number.isFinite(x) && Number.isFinite(y)) {
-                    basePts.push(`${x},${y}`);
-                    if (has) {
-                      seg.push(`${x},${y}`);
+                  if (Number.isFinite(x) && Number.isFinite(baselineY)) {
+                    basePts.push(`${x},${baselineY}`);
+                    
+                    // Add to real segments only if we have meaningful data
+                    if (realA != null) {
+                      const realNorm = Math.max(1, Math.min(10, Number(realA)));
+                      const realT = (realNorm - 1) / 9;
+                      const realY = CHART_PADDING_TOP + (1 - realT) * CHART_CONTENT_HEIGHT;
+                      seg.push(`${x},${realY}`);
                       realCount++;
-                      singlePt = { x, y };
+                      singlePt = { x: x, y: realY };
                       if (gap.length) { gapSegments.push(gap); gap = []; }
                     } else if (seg.length) {
                       realSegments.push(seg);
                       seg = [];
-                      gap.push(`${x},${y}`);
+                      gap.push(`${x},${baselineY}`);
                     } else {
-                      gap.push(`${x},${y}`);
+                      gap.push(`${x},${baselineY}`);
                     }
                   }
                 }
                 
                 if (seg.length) realSegments.push(seg);
                 if (gap.length) gapSegments.push(gap);
-                const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+                const anxColor = isDark ? mixHex('#EF4444', '#FFFFFF', 0.10) : mixHex('#EF4444', '#000000', 0.08);
                 const els: React.ReactNode[] = [];
                 const hasSelection = selectedIndex != null;
-                // Dashed only for gaps (no data)
-                gapSegments.forEach((pts, i) => {
-                  if (pts.length > 1) {
-                    els.push(
-                      <Path key={`day-anxiety-gap-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
-                        strokeDasharray="6,4"
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
-                  }
-                });
                 
-                // Real data segments - solid
+                // Base line (all hours with fallback) - faint like Week view
+              const hasDrawableSegDayAnx = realSegments.some(s => s.length > 1);
+              if (false) { // base line disabled for consistency across ranges
+                const dPath = smoothPathDFromPts(basePts);
+                if (dPath) {
+                  els.push(
+                    <Path key="day-anxiety-base" d={dPath}
+                      stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.3}
+                      fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  );
+                }
+              }
+                
+                // Real data segments - prominent like Week view
                 realSegments.forEach((pts, i) => {
-                  if (pts.length > 1) {
+                if (pts.length > 1) {
+                  const dPath = smoothPathDFromPts(pts);
+                  if (dPath) {
                     els.push(
-                      <Path key={`day-anxiety-real-${i}`} d={`M ${pts[0]} L ${pts.slice(1).join(' L ')}`}
-                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.9}
+                      <Path key={`day-anxiety-real-${i}`} d={dPath}
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
                         fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     );
                   }
+                }
                 });
                 // Highlight selected
                 if (hasSelection && basePts.length > 0) {
                   const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                  const segPts: string[] = [];
-                  if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                  if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                  segPts.push(basePts[i]);
-                  if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                  if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                  if (segPts.length >= 2) {
-                    const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                    const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                    els.push(
-                      <Path key={`day-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                        stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
-                        fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    );
+                  const xSel = AXIS_WIDTH + i * dw + dw / 2;
+                  let target: string[] | null = null;
+                  for (const pts of realSegments) {
+                    if (pts.length < 2) continue;
+                    const x0 = Number(String(pts[0]).split(',')[0]);
+                    const x1 = Number(String(pts[pts.length - 1]).split(',')[0]);
+                    const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+                    if (xSel >= minX && xSel <= maxX) { target = pts; break; }
+                  }
+                  if (target) {
+                    const hiW = LINE_WIDTH * 1.4;
+                    const dPathHi = smoothPathDFromPts(target);
+                    if (dPathHi) {
+                      // highlight disabled
+                    }
                   }
                 }
                 
@@ -1625,8 +1925,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   els.push(
                     <G key="day-anxiety-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
-                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.9} strokeLinecap="round" />
-                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
+                        stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                      {showDots && (
+                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
+                      )}
                     </G>
                   );
                 }
@@ -1638,21 +1940,18 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
           {/* Aggregate overlays (month, 6months, year): p50 lines across buckets */}
           {(() => {
-            // NUCLEAR FIX: Strict granularity filtering to eliminate ALL double lines
+            // Granularity gating: allow reasonable matches per range
             const shouldRenderAggregateLines = (() => {
               if (!isAggregateMode || !data.aggregated || (data.aggregated.data?.length || 0) === 0) return false;
               
               const granularity = data.aggregated.granularity;
-              
-              // STRICT: Only exact matches to prevent any cross-contamination
-              if (timeRange === 'month' && granularity === 'week') return true;
-              if (timeRange === '6months' && granularity === 'month') return true; 
-              if (timeRange === 'year' && granularity === 'month') return true;
-              
-              return false;
+              if (timeRange === 'month') return ['day','week','month'].includes(granularity as any);
+              if (timeRange === '6months') return ['week','month'].includes(granularity as any);
+              if (timeRange === 'year') return ['month','quarter','week'].includes(granularity as any);
+              return true;
             })();
             
-            return shouldRenderAggregateLines;
+            return shouldRenderAggregateLines && AGG_OVERLAY_LINES;
           })() && (
             <>
               {/* Mood (accent gradient) */}
@@ -1682,6 +1981,27 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       else if (seg.length) { realSegs.push(seg); seg = []; }
                     }
                     if (seg.length) realSegs.push(seg);
+                    // IQR band for aggregate ranges (month/6months/year)
+                    const iqrBandsMood = (AGG_OVERLAY_LINES && OVERLAY_IQR_BANDS && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year'))
+                      ? items.map((b: any, index: number) => {
+                          const has = Number(b?.count || 0) > 0;
+                          if (!has) return null;
+                          const p25 = Number((b?.mood?.p25));
+                          const p75 = Number((b?.mood?.p75));
+                          if (!Number.isFinite(p25) || !Number.isFinite(p75)) return null;
+                          const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                          const vTop = moodToValence(p75);
+                          const vBot = moodToValence(p25);
+                          const yTop = CHART_PADDING_TOP + (1 - ((vTop + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                          const yBot = CHART_PADDING_TOP + (1 - ((vBot + 1) / 2)) * CHART_CONTENT_HEIGHT;
+                          const y = Math.min(yTop, yBot);
+                          const h = Math.abs(yBot - yTop);
+                          return (
+                            <Rect key={`agg-mood-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.40)} height={Math.max(1, h)} fill={accentColor} opacity={0.18} rx={2} stroke={accentColor} strokeOpacity={0.22} strokeWidth={1} />
+                          );
+                        })
+                      : null;
+
                     // solid lines only; removed dash pattern and dynamic width
                     const hasSelection = selectedIndex != null;
                     return (
@@ -1694,14 +2014,19 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <Stop offset="100%" stopColor={accentColor} stopOpacity={0.6} />
                           </LinearGradient>
                         </Defs>
-                        {basePts.length > 1 && (
-                          <Path key="agg-mood-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                            stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
-                            strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
-                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        )}
+                        {false && (() => { // base line disabled for consistency across ranges
+                          const dPath = smoothPathDFromPts(basePts);
+                          if (!dPath) return null;
+                          return (
+                            <Path key="agg-mood-base" d={dPath}
+                              stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
+                              strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                              fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          );
+                        })()}
+                        {iqrBandsMood}
                         {realSegs.map((pts, i) => {
-                          const dPath = safePathD(pts);
+                          const dPath = smoothPathDFromPts(pts);
                           return dPath ? (
                             <Path key={`am-real-${i}`} d={dPath}
                               stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
@@ -1711,6 +2036,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                               strokeLinejoin="round"
                               strokeOpacity={hasSelection ? 0.4 : 0.8} />
                           ) : null;
+                        })}
+                        {/* Single-point emphasis for sparse data */}
+                        {realSegs.map((pts, i) => {
+                          if (pts.length !== 1) return null;
+                          const [sx, sy] = String(pts[0]).split(',').map(Number);
+                          const mini = clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                          const r = LINE_WIDTH + 1.5;
+                          return (
+                            <G key={`am-sp-${i}`}>
+                              <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
+                                stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                          {showDots && (
+                            <Circle cx={sx} cy={sy} r={r}
+                              fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
+                          )}
+                            </G>
+                          );
                         })}
                         {hasSelection && basePts.length > 0 && (() => {
                           const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
@@ -1725,15 +2067,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                           if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
                           if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
                           if (segPts.length >= 2) {
-                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                            return (
-                              <Path key={`agg-mood-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                                stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : "url(#aggMoodGrad)"}
-                                strokeWidth={hiW}
-                                strokeOpacity={0.9}
-                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            );
+                            const hiW = LINE_WIDTH * 1.4; // Fixed highlight width for consistency
+                            const dPathHi = smoothPathDFromPts(segPts);
+                            return null;
                           }
                           return null;
                         })()}
@@ -1742,8 +2078,10 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)}
                               strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5}
-                              fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
+                            {showDots && (
+                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5}
+                                fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
+                            )}
                           </G>
                         )}
                       </>
@@ -1780,45 +2118,82 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     }
                     if (seg.length) realSegs.push(seg);
                     const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
+                    const iqrBandsEn = (AGG_OVERLAY_LINES && OVERLAY_IQR_BANDS && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year'))
+                      ? items.map((b: any, index: number) => {
+                          const has = Number(b?.count || 0) > 0;
+                          if (!has) return null;
+                          const p25 = Number((b?.energy?.p25));
+                          const p75 = Number((b?.energy?.p75));
+                          if (!Number.isFinite(p25) || !Number.isFinite(p75)) return null;
+                          const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                          const tTop = (Math.max(1, Math.min(10, p75)) - 1) / 9;
+                          const tBot = (Math.max(1, Math.min(10, p25)) - 1) / 9;
+                          const yTop = CHART_PADDING_TOP + (1 - tTop) * CHART_CONTENT_HEIGHT;
+                          const yBot = CHART_PADDING_TOP + (1 - tBot) * CHART_CONTENT_HEIGHT;
+                          const y = Math.min(yTop, yBot);
+                          const h = Math.abs(yBot - yTop);
+                          return (
+                            <Rect key={`agg-en-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.40)} height={Math.max(1, h)} fill={energyColor} opacity={0.18} rx={2} stroke={energyColor} strokeOpacity={0.22} strokeWidth={1} />
+                          );
+                        })
+                      : null;
                     const hasSelection = selectedIndex != null;
                     return (
                       <>
-                        {basePts.length > 1 && (
-                          <Path key="agg-en-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                            stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
-                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        )}
+                        {false && (() => { // base line disabled for consistency across ranges
+                          const dPath = smoothPathDFromPts(basePts);
+                          if (!dPath) return null;
+                          return (
+                            <Path key="agg-en-base" d={dPath}
+                              stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                              fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          );
+                        })()}
+                        {iqrBandsEn}
                         {realSegs.map((pts, i) => {
-                          const dPath = safePathD(pts);
+                          const dPath = smoothPathDFromPts(pts);
                           return dPath ? (
                             <Path key={`ae-real-${i}`} d={dPath} stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
                               fill="none" strokeLinecap="round" strokeLinejoin="round" />
                           ) : null;
                         })}
+                        {/* Single-point emphasis for sparse data */}
+                        {realSegs.map((pts, i) => {
+                          if (pts.length !== 1) return null;
+                          const [sx, sy] = String(pts[0]).split(',').map(Number);
+                          const mini = clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                          const r = LINE_WIDTH + 1.5;
+                          return (
+                            <G key={`ae-sp-${i}`}>
+                              <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
+                                stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                              {showDots && (
+                                <Circle cx={sx} cy={sy} r={r} fill={energyColor} opacity={0.9} />
+                              )}
+                            </G>
+                          );
+                        })}
                         {hasSelection && basePts.length > 0 && (() => {
                           const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                          const segPts: string[] = [];
-                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                          if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                          segPts.push(basePts[i]);
-                          if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                          if (segPts.length >= 2) {
-                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                            return (
-                              <Path key={`agg-en-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                                stroke={energyColor} strokeWidth={hiW} strokeOpacity={0.9}
-                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            );
+                          const xSel = AXIS_WIDTH + i * dw + dw / 2;
+                          let target: string[] | null = null;
+                          for (const pts of realSegs) {
+                            if (pts.length < 2) continue;
+                            const x0 = Number(String(pts[0]).split(',')[0]);
+                            const x1 = Number(String(pts[pts.length - 1]).split(',')[0]);
+                            const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+                            if (xSel >= minX && xSel <= maxX) { target = pts; break; }
                           }
+                          if (!target) return null;
                           return null;
                         })()}
                         {realCount === 1 && singlePt && (
                           <G key="agg-en-sp">
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={energyColor} opacity={0.9} />
+                            {showDots && (
+                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={energyColor} opacity={0.9} />
+                            )}
                           </G>
                         )}
                       </>
@@ -1875,47 +2250,84 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                       else if (seg.length) { realSegs.push(seg); seg = []; }
                     }
                     if (seg.length) realSegs.push(seg);
-                    const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+                    const anxColor = isDark ? mixHex('#EF4444', '#FFFFFF', 0.10) : mixHex('#EF4444', '#000000', 0.08);
+                    const iqrBandsAnx = (AGG_OVERLAY_LINES && OVERLAY_IQR_BANDS && (timeRange === 'month' || timeRange === '6months' || timeRange === 'year'))
+                      ? items.map((b: any, index: number) => {
+                          const has = Number(b?.count || 0) > 0;
+                          if (!has) return null;
+                          const p25 = Number((b?.anxiety?.p25));
+                          const p75 = Number((b?.anxiety?.p75));
+                          if (!Number.isFinite(p25) || !Number.isFinite(p75)) return null;
+                          const xCenter = AXIS_WIDTH + index * dw + dw / 2;
+                          const tTop = (Math.max(1, Math.min(10, p75)) - 1) / 9;
+                          const tBot = (Math.max(1, Math.min(10, p25)) - 1) / 9;
+                          const yTop = CHART_PADDING_TOP + (1 - tTop) * CHART_CONTENT_HEIGHT;
+                          const yBot = CHART_PADDING_TOP + (1 - tBot) * CHART_CONTENT_HEIGHT;
+                          const y = Math.min(yTop, yBot);
+                          const h = Math.abs(yBot - yTop);
+                          return (
+                            <Rect key={`agg-anx-iqr-${index}`} x={xCenter - Math.max(2, dw * 0.18)} y={y} width={Math.max(3, dw * 0.40)} height={Math.max(1, h)} fill={anxColor} opacity={0.18} rx={2} stroke={anxColor} strokeOpacity={0.22} strokeWidth={1} />
+                          );
+                        })
+                      : null;
                     const hasSelection = selectedIndex != null;
                     return (
                       <>
-                        {basePts.length > 1 && (
-                          <Path key="agg-anx-base" d={`M ${basePts[0]} L ${basePts.slice(1).join(' L ')}`}
-                            stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
-                            fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                        )}
+                        {false && (() => { // base line disabled for consistency across ranges
+                          const dPath = smoothPathDFromPts(basePts);
+                          if (!dPath) return null;
+                          return (
+                            <Path key="agg-anx-base" d={dPath}
+                              stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.4}
+                              fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          );
+                        })()}
+                        {iqrBandsAnx}
                         {realSegs.map((pts, i) => {
-                          const dPath = `M ${pts[0]} L ${pts.slice(1).join(' L ')}`;
-                          return pts.length > 1 ? (
+                          const dPath = smoothPathDFromPts(pts);
+                          return dPath ? (
                             <Path key={`aa-real-${i}`} d={dPath}
                               stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={hasSelection ? 0.4 : 0.8}
                               fill="none" strokeLinecap="round" strokeLinejoin="round" />
                           ) : null;
                         })}
+                        {/* Single-point emphasis for sparse data */}
+                        {realSegs.map((pts, i) => {
+                          if (pts.length !== 1) return null;
+                          const [sx, sy] = String(pts[0]).split(',').map(Number);
+                          const mini = clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX);
+                          const r = LINE_WIDTH + 1.5;
+                          return (
+                            <G key={`aa-sp-${i}`}>
+                              <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
+                                stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
+                              {showDots && (
+                                <Circle cx={sx} cy={sy} r={r} fill={anxColor} opacity={0.9} />
+                              )}
+                            </G>
+                          );
+                        })}
                         {hasSelection && basePts.length > 0 && (() => {
                           const i = Math.max(0, Math.min(basePts.length - 1, selectedIndex as number));
-                          const segPts: string[] = [];
-                          if (i - 2 >= 0) segPts.push(basePts[i - 2]);
-                          if (i - 1 >= 0) segPts.push(basePts[i - 1]);
-                          segPts.push(basePts[i]);
-                          if (i + 1 < basePts.length) segPts.push(basePts[i + 1]);
-                          if (i + 2 < basePts.length) segPts.push(basePts[i + 2]);
-                          if (segPts.length >= 2) {
-                            const pxR = (PixelRatio && typeof PixelRatio.get === 'function') ? PixelRatio.get() : 2;
-                            const hiW = Math.min(LINE_WIDTH * 1.6, Math.max(LINE_WIDTH * 1.1, LINE_WIDTH + (dw * 0.06) * (pxR >= 3 ? 1.05 : 1)));
-                            return (
-                              <Path key={`agg-anx-hi-${i}`} d={`M ${segPts[0]} L ${segPts.slice(1).join(' L ')}`}
-                                stroke={anxColor} strokeWidth={hiW} strokeOpacity={0.9}
-                                fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                            );
+                          const xSel = AXIS_WIDTH + i * dw + dw / 2;
+                          let target: string[] | null = null;
+                          for (const pts of realSegs) {
+                            if (pts.length < 2) continue;
+                            const x0 = Number(String(pts[0]).split(',')[0]);
+                            const x1 = Number(String(pts[pts.length - 1]).split(',')[0]);
+                            const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+                            if (xSel >= minX && xSel <= maxX) { target = pts; break; }
                           }
+                          if (!target) return null;
                           return null;
                         })()}
                         {realCount === 1 && singlePt && (
                           <G key="agg-anx-sp">
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={anxColor} opacity={0.9} />
+                            {showDots && (
+                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={anxColor} opacity={0.9} />
+                            )}
                           </G>
                         )}
                       </>
@@ -1983,7 +2395,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                 const h = visibleHours[i] as any;
                 const rp = (data as any).rawHourlyDataPoints?.[h.dateKey]?.entries || [];
                 // IMPROVED: Smart anxiety calculation with mood/energy derivation
-                let finalA = 5; // Default neutral
+                let finalA = null; // No default, only use real or derived data
                 if (rp.length > 0) {
                   const anxVals = rp.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
                   if (anxVals.length > 0) {
@@ -2007,18 +2419,24 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     }
                   }
                 }
-                const norm = Math.max(1, Math.min(10, Number(finalA || 5)));
-                const t = (norm - 1) / 9;
-                const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
-                const x = AXIS_WIDTH + i * dw + dw / 2;
-                seg.push(`${x},${y}`);
+                if (finalA != null) {
+                  const norm = Math.max(1, Math.min(10, Number(finalA)));
+                  const t = (norm - 1) / 9;
+                  const y = CHART_PADDING_TOP + (1 - t) * CHART_CONTENT_HEIGHT;
+                  const x = AXIS_WIDTH + i * dw + dw / 2;
+                  seg.push(`${x},${y}`);
+                } else {
+                  // Veri yoksa segment'i kes
+                  if (seg.length) segs.push(seg);
+                  seg = [];
+                }
               }
               if (seg.length) segs.push(seg);
               return segs;
             })();
             // solid lines only; removed dash pattern and dynamic width
             const energyColor = isDark ? mixHex('#F59E0B', '#FFFFFF', 0.10) : mixHex('#F59E0B', '#000000', 0.08);
-            const anxColor = isDark ? mixHex('#7C3AED', '#FFFFFF', 0.10) : mixHex('#7C3AED', '#000000', 0.08);
+            const anxColor = isDark ? mixHex('#EF4444', '#FFFFFF', 0.10) : mixHex('#EF4444', '#000000', 0.08);
             // Base full-day paths (faint), map hours 0..23 relative to current window
             const hasStrongMood = moodPath.some(seg => seg.length > 1);
             const hasStrongEn = energyPath.some(seg => seg.length > 1);
@@ -2066,7 +2484,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             return (
               <>
                 {/* Base full-day faint lines for context */}
-                {showMoodTrend && (
+                {false && showMoodTrend && (
                   <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                     {baseMood.map((pts, i) => (
                       pts.length > 1 ? (
@@ -2077,6 +2495,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     ))}
                   </Svg>
                 )}
+                {false && (
                 <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                   {baseEn.map((pts, i) => (
                     pts.length > 1 ? (
@@ -2086,6 +2505,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     ) : null
                   ))}
                 </Svg>
+                )}
+                {false && (
                 <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                   {baseAnx.map((pts, i) => (
                     pts.length > 1 ? (
@@ -2095,8 +2516,9 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     ) : null
                   ))}
                 </Svg>
+                )}
                 {/* Mood (accent) */}
-                {showMoodTrend && (
+                {false && showMoodTrend && (
                   <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                     <Defs>
                       <LinearGradient id="dayTrendGrad" x1="0" y1="0" x2="1" y2="0">
@@ -2116,7 +2538,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     })}
                   </Svg>
                 )}
-                {showMoodTrend && (() => {
+                {false && showMoodTrend && (() => {
                   const totalPts = moodPath.reduce((s, seg) => s + seg.length, 0);
                   if (totalPts !== 1) return null;
                   const [only] = moodPath.find(seg => seg.length === 1) || [] as any;
@@ -2132,7 +2554,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   );
                 })()}
                 {/* Energy (orange) */}
-                {showEnergy && (
+                {false && showEnergy && (
                   <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>
                     {energyPath.map((pts, i) => {
                       const dPath = safePathD(pts);
@@ -2144,7 +2566,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     })}
                   </Svg>
                 )}
-                {showEnergy && (() => {
+                {false && showEnergy && (() => {
                   const totalPts = energyPath.reduce((s, seg) => s + seg.length, 0);
                   if (totalPts !== 1) return null;
                   const [only] = energyPath.find(seg => seg.length === 1) || [] as any;
