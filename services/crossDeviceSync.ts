@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import supabaseService from '@/services/supabase';
+import { offlineSyncService } from '@/services/offlineSync';
 import { generatePrefixedId } from '@/utils/idGenerator';
 
 // Try to import expo-device, fallback if not available
@@ -145,10 +146,11 @@ class CrossDeviceSyncService {
         const localData = await AsyncStorage.getItem(localKey);
         const localItems = localData ? JSON.parse(localData) : [];
         
-        // Only attempt to upload items that are explicitly marked as unsynced
-        // and do NOT already have a remote id. Items loaded from Supabase
-        // (and cached locally) include an id and should be treated as synced.
-        const unsyncedItems = localItems.filter((item: any) => !item.synced && !item.id);
+        // Only attempt to upload items that are explicitly marked as pending
+        // or not yet marked as synced. Items that already have a remote id
+        // are treated as synced unless they explicitly opt-in with pendingSync=true.
+        const { isUnsyncedLocalItem } = require('@/utils/crossDeviceFilter');
+        const unsyncedItems = localItems.filter((item: any) => isUnsyncedLocalItem(item));
         
         for (const item of unsyncedItems) {
           try {
@@ -156,8 +158,10 @@ class CrossDeviceSyncService {
             if (!item.userId && !item.user_id) {
               item.userId = userId;
             }
-            await this.uploadItem(dataType, item, userId);
+            const uploadedId = await this.uploadItem(dataType, item, userId);
             item.synced = true;
+            if (uploadedId && !item.id) item.id = uploadedId;
+            if (item.pendingSync) delete item.pendingSync;
             item.deviceId = this.deviceId;
             result.successful++;
           } catch (error) {
@@ -176,7 +180,7 @@ class CrossDeviceSyncService {
     }
   }
 
-  private async uploadItem(dataType: string, item: any, userId: string): Promise<void> {
+  private async uploadItem(dataType: string, item: any, userId: string): Promise<string | void> {
     const { sanitizePII } = await import('@/utils/privacy');
     switch (dataType) {
       // compulsion sync removed
@@ -193,8 +197,14 @@ class CrossDeviceSyncService {
           lang: item.lang || 'tr-TR',
           created_at: item.created_at || item.timestamp || new Date().toISOString(),
         };
-        await supabaseService.saveVoiceCheckin(voiceData);
-        break;
+        // Unified path: enqueue to offline sync queue; let OfflineSync handle upload/idempotency
+        await offlineSyncService.addToSyncQueue({
+          type: 'CREATE',
+          entity: 'voice_checkin',
+          data: voiceData,
+          priority: 'normal'
+        } as any);
+        return undefined; // id comes from server; not needed here
       case 'mood_entries':
         // Map field names if needed
         const moodData = {
@@ -207,8 +217,13 @@ class CrossDeviceSyncService {
           timestamp: item.timestamp || item.created_at || new Date().toISOString(),
           created_at: item.timestamp || item.created_at || new Date().toISOString()
         };
-        await supabaseService.saveMoodEntry(moodData);
-        break;
+        await offlineSyncService.addToSyncQueue({
+          type: 'CREATE',
+          entity: 'mood_entry',
+          data: moodData,
+          priority: 'high'
+        } as any);
+        return undefined;
     }
   }
 
