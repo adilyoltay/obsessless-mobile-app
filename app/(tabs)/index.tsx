@@ -550,26 +550,18 @@ export default function TodayScreen() {
 
     // Tutarlılık için weighted score'lardan variance hesapla (MindScoreCard ile uyumlu)
     const moodVariance = heroStats?.moodVariance ?? (() => {
-      // MindScoreCard ile aynı weighted score hesaplama mantığı
-      const weightedScores = week.map(d => {
-        const mood = typeof d.mood === 'number' ? d.mood : null;
-        const energy = typeof d.energy === 'number' ? d.energy : null;
-        const anxiety = typeof d.anxiety === 'number' ? d.anxiety : null;
-        
-        // Basitleştirilmiş weighted score hesaplama
-        const parts: Array<[number, number]> = [];
-        if (mood !== null) parts.push([mood, 0.5]);
-        if (energy !== null) parts.push([energy * 10, 0.3]); // 1-10 → 0-100
-        if (anxiety !== null) parts.push([100 - (anxiety * 10), 0.2]); // inverse + scale
-        
-        if (!parts.length) return null;
-        const wsum = parts.reduce((s, [, w]) => s + w, 0);
-        return parts.reduce((s, [v, w]) => s + v * w, 0) / (wsum || 1);
-      }).filter((v): v is number => typeof v === 'number');
-
-      if (weightedScores.length <= 1) return 0;
-      const mean = weightedScores.reduce((s, n) => s + n, 0) / weightedScores.length;
-      return weightedScores.reduce((s, n) => s + Math.pow(n - mean, 2), 0) / (weightedScores.length - 1);
+      // MindScoreCard ile aynı util fonksiyonunu kullanarak hizala
+      try {
+        const { weightedScore } = require('@/utils/mindScore');
+        const scores: number[] = week
+          .map(d => weightedScore(d.mood, d.energy, d.anxiety))
+          .filter((v: any) => typeof v === 'number');
+        if (scores.length <= 1) return 0;
+        const mean = scores.reduce((s: number, n: number) => s + n, 0) / scores.length;
+        return scores.reduce((s: number, n: number) => s + Math.pow(n - mean, 2), 0) / (scores.length - 1);
+      } catch {
+        return 0;
+      }
     })();
 
     // If we have no week data yet (fresh install), keep minimal graceful fallback
