@@ -565,12 +565,16 @@ export default function TodayScreen() {
     })();
 
     // Dynamically compute weekly gradient based on average mood/energy and stability
+    // Decide final gradient based on Settings: coloredMindCard → VA weekly gradient; else static green
+    const baseGreenGradient: [string, string] = ['#34d399', '#059669'];
+    const finalGradient = coloredMindCard ? heroGradient : baseGreenGradient;
+
     // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
       <>
           <MindScoreCard
             week={week}
-            gradientColors={heroGradient}
+            gradientColors={finalGradient}
             loading={!moodJourneyData}
             onQuickStart={() => setCheckinSheetVisible(true)}
             sparkStyle={mindSparkStyle}
@@ -880,7 +884,7 @@ export default function TodayScreen() {
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
           accentColor={accentColor}
-          gradientColors={heroGradient}
+          gradientColors={coloredMindCard ? heroGradient : ['#34d399', '#059669']}
         />
         {/* Spacer removed to avoid visual gap above bottom tab */}
       </ScrollView>
