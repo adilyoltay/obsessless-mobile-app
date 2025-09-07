@@ -25,7 +25,7 @@ import { PanGestureHandler, PinchGestureHandler, State as GHState } from 'react-
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
-import { recencyAlpha, jitterXY, energyToColor, quantiles } from '@/utils/statistics';
+import { recencyAlpha, jitterXY, energyToColor, quantiles, deriveAnxietySeries } from '@/utils/statistics';
 import { useAccentColor } from '@/contexts/AccentColorContext';
 import type { MoodJourneyExtended, TimeRange, AggregatedData, DailyAverage } from '@/types/mood';
 import { getVAColorFromScores, getBramanMoodColor, getAppleMoodColor } from '@/utils/colorUtils';
@@ -51,8 +51,6 @@ type Props = {
   onVisibleRangeChange?: (stats: { date: string; startHour: number; endHour: number; count: number; moodP50: number; energyP50: number; anxietyP50: number; dominant?: string }) => void;
   // New: allow parent to control selection (e.g., dragging tooltip)
   selectIndex?: number | null;
-  // New: show/hide dots globally
-  showDots?: boolean;
 };
 
 const CHART_HEIGHT = 252; // 10% shorter plotting area
@@ -167,7 +165,6 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   showMoodTrend = true,
   showEnergy = true,
   selectIndex,
-  showDots = true,
 }) => {
   const theme = useThemeColors();
   const { palette } = useAccentColor();
@@ -598,23 +595,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
           const moods = rp.map((e: any) => Number(e.mood_score)).filter(v => Number.isFinite(v) && v !== 50);
           const energies = rp.map((e: any) => Number(e.energy_level)).filter(v => Number.isFinite(v) && v !== 6);
           const rawAnx = rp.map((e: any) => Number(e.anxiety_level)).filter(v => Number.isFinite(v));
-          // Derive anxiety if all 5s and we have meaningful mood/energy
-          const anxVals = (() => {
-            if (rawAnx.length === 0) return [5];
-            if (rawAnx.every(v => v === 5) && moods.length > 0 && energies.length > 0) {
-              const avgMood = moods.reduce((s, v) => s + v, 0) / moods.length;
-              const avgEnergy = energies.reduce((s, v) => s + v, 0) / energies.length;
-              const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
-              const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
-              let derived = 5;
-              if (m10 <= 3) derived = 7;
-              else if (m10 >= 8 && e10 <= 4) derived = 6;
-              else if (m10 <= 5 && e10 >= 7) derived = 8;
-              else derived = Math.max(2, Math.min(8, 6 - (m10 - 5)));
-              return rp.map(() => derived);
-            }
-            return rawAnx;
-          })();
+          const anxVals = deriveAnxietySeries(moods, energies, rawAnx);
 
         const mq = quantiles(moods);
         const eq = quantiles(energies);
@@ -986,7 +967,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
             {/* Aggregate modda outlier noktaları devre dışı */}
 
             {/* Veri noktaları - Apple Health tarzı (aggregate modda çizme) */}
-            {!isAggregateMode && timeRange !== 'day' && showDots && (() => {
+            {!isAggregateMode && timeRange !== 'day' && (() => {
               const baseItems: any[] = (timeRange === 'day'
                 ? (((data.hourlyAverages || [])
                     .slice(dayWindowStart, dayWindowStart + dayWindowSize)
@@ -1588,9 +1569,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     <G key="day-mood-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
                         stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                      {showDots && (
-                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
-                      )}
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={accentColor} opacity={0.9} />
                     </G>
                   );
                 }
@@ -1731,9 +1710,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     <G key="day-energy-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
                         stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                      {showDots && (
-                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
-                      )}
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={energyColor} opacity={0.9} />
                     </G>
                   );
                 }
@@ -1885,9 +1862,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                     <G key="day-anxiety-sp">
                       <Line x1={singlePt.x - mini} y1={singlePt.y} x2={singlePt.x + mini} y2={singlePt.y}
                         stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                      {showDots && (
-                        <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
-                      )}
+                      <Circle cx={singlePt.x} cy={singlePt.y} r={r} fill={anxColor} opacity={0.9} />
                     </G>
                   );
                 }
@@ -2006,10 +1981,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <G key={`am-sp-${i}`}>
                               <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
                                 stroke={accentColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                          {showDots && (
-                            <Circle cx={sx} cy={sy} r={r}
-                              fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
-                          )}
+                          <Circle cx={sx} cy={sy} r={r}
+                            fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
                             </G>
                           );
                         })}
@@ -2037,10 +2010,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)}
                               strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            {showDots && (
-                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5}
-                                fill={(timeRange === 'month' || timeRange === '6months' || timeRange === 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
-                            )}
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5}
+                              fill={(timeRange === 'month' || timeRange === '6months' || 'year') ? accentColor : mixHex(accentColor, isDark ? '#FFFFFF' : '#000000', isDark ? 0.15 : 0.12)} opacity={0.9} />
                           </G>
                         )}
                       </>
@@ -2126,9 +2097,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <G key={`ae-sp-${i}`}>
                               <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
                                 stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                              {showDots && (
-                                <Circle cx={sx} cy={sy} r={r} fill={energyColor} opacity={0.9} />
-                              )}
+                              <Circle cx={sx} cy={sy} r={r} fill={energyColor} opacity={0.9} />
                             </G>
                           );
                         })}
@@ -2150,9 +2119,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                           <G key="agg-en-sp">
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={energyColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            {showDots && (
-                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={energyColor} opacity={0.9} />
-                            )}
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={energyColor} opacity={0.9} />
                           </G>
                         )}
                       </>
@@ -2260,9 +2227,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                             <G key={`aa-sp-${i}`}>
                               <Line x1={sx - mini} y1={sy} x2={sx + mini} y2={sy}
                                 stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                              {showDots && (
-                                <Circle cx={sx} cy={sy} r={r} fill={anxColor} opacity={0.9} />
-                              )}
+                              <Circle cx={sx} cy={sy} r={r} fill={anxColor} opacity={0.9} />
                             </G>
                           );
                         })}
@@ -2284,9 +2249,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                           <G key="agg-anx-sp">
                             <Line x1={singlePt.x - clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y1={singlePt.y} x2={singlePt.x + clamp(dw * MINI_SEGMENT_RATIO_AGG, MINI_SEGMENT_MIN_PX, MINI_SEGMENT_MAX_PX)} y2={singlePt.y}
                               stroke={anxColor} strokeWidth={LINE_WIDTH} strokeOpacity={0.8} strokeLinecap="round" />
-                            {showDots && (
-                              <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={anxColor} opacity={0.9} />
-                            )}
+                            <Circle cx={singlePt.x} cy={singlePt.y} r={LINE_WIDTH + 1.5} fill={anxColor} opacity={0.9} />
                           </G>
                         )}
                       </>

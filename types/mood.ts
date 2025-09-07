@@ -59,6 +59,8 @@ export interface AggregatedData {
   date: string;   // bucket başlangıcı (YYYY-MM-DD; hafta için Pazartesi, ay için YYYY-MM-01)
   label: string;  // "1–7 Oca" | "Ocak 2025"
   count: number;  // toplam giriş
+  // Nötr dışı mood kayıt sayısı (IQR istatistiğine giren gerçek veri)
+  countReal?: number;
   mood: IQR & { min?: number; max?: number };
   energy: IQR;
   anxiety: IQR;

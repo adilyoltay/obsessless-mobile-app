@@ -816,6 +816,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                 }
                 return {
                   count: bucket?.count || 0,
+                  countReal: bucket?.countReal || undefined,
                   mood: bucket?.mood || null,
                   energy: bucket?.energy || null,
                   anxiety: bucket?.anxiety || null,
@@ -933,6 +934,18 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                             );
                           })()}
                           {/* Mini stats row with icons + values only */}
+                          {(() => {
+                            const cr = (qData as any)?.countReal as number | undefined;
+                            const c = (qData as any)?.count as number | undefined;
+                            if (typeof c === 'number') {
+                              return (
+                                <Text style={{ position: 'absolute', right: 12, top: 10, color: '#6B7280', fontSize: 11 }}>
+                                  {`Toplam: ${c}${typeof cr === 'number' ? ` (Gerçek: ${cr})` : ''}`}
+                                </Text>
+                              );
+                            }
+                            return null;
+                          })()}
                           {(() => {
                             const mv = Number(((qData as any)?.mood?.p50 ?? NaN) as number);
                             const ev = Number(((qData as any)?.energy?.p50 ?? NaN) as number);

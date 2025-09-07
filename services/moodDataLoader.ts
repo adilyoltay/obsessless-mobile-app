@@ -3,7 +3,7 @@ import moodTracker from '@/services/moodTrackingService';
 import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
-import { quantiles } from '@/utils/statistics';
+import { quantiles, deriveAnxietySeries } from '@/utils/statistics';
 import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
@@ -460,30 +460,8 @@ export class OptimizedMoodDataLoader {
       const energies = points.filter(p => p.energy_level > 0 && p.energy_level !== 6).map(p => p.energy_level);
       
       // IMPROVED: Smart anxiety handling for aggregated buckets
-      const rawAnx = points.map((p: any) => p.anxiety_level).filter(v => v != null);
-      const anx = (() => {
-        if (rawAnx.length === 0) return [5]; // fallback
-        
-        // Check if all are default 5s (fallback values)
-        if (rawAnx.every(v => v === 5) && moods.length > 0 && energies.length > 0) {
-          // Derive anxiety from mood/energy patterns for this bucket
-          const avgMood = moods.reduce((s, v) => s + v, 0) / moods.length;
-          const avgEnergy = energies.reduce((s, v) => s + v, 0) / energies.length;
-          const m10 = Math.max(1, Math.min(10, Math.round(avgMood / 10)));
-          const e10 = Math.max(1, Math.min(10, Math.round(avgEnergy)));
-          
-          let derivedAnx = 5;
-          if (m10 <= 3) derivedAnx = 7;
-          else if (m10 >= 8 && e10 <= 4) derivedAnx = 6;
-          else if (m10 <= 5 && e10 >= 7) derivedAnx = 8;
-          else if (m10 >= 7 && e10 >= 7) derivedAnx = 4;
-          else derivedAnx = Math.max(2, Math.min(8, 6 - (m10 - 5)));
-          
-          return points.map(() => derivedAnx); // Apply derived value to all points in bucket
-        }
-        
-        return rawAnx; // Use real anxiety values
-      })();
+      const rawAnx = points.map((p: any) => p.anxiety_level).filter(v => v != null) as number[];
+      const anx = deriveAnxietySeries(moods, energies, rawAnx);
       
       const mq = quantiles(moods); // Will return NaN if no real mood data
       const eq = quantiles(energies); // Will return NaN if no real energy data
@@ -495,6 +473,7 @@ export class OptimizedMoodDataLoader {
         date: dateISO,
         label,
         count: points.length,
+        countReal: moods.length,
         mood: { ...mq, min, max },
         energy: eq,
         anxiety: aq,
