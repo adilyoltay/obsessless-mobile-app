@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Easing, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1236,114 +1236,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
 
 
 
-      {/* Stats row (tap outside chart closes tooltip) */}
-      <Pressable
-        style={styles.statsRow}
-        onPress={() => {
-          if (chartSelection) {
-            setChartSelection(null);
-            setClearSignal(s => s + 1);
-          }
-        }}
-      >
-        {/* Mood (smile) */}
-        <TouchableOpacity style={styles.statItem} disabled={moodLocked} onPress={() => { if (!moodLocked) setShowMoodLine(v => !v); }}>
-          {(() => {
-            const active = showMoodLine && !moodLocked;
-            const mv = Number.isFinite(rangeStats.moodP50 as any) ? Math.round(rangeStats.moodP50 as number) : 55;
-            const ev = Number.isFinite(rangeStats.energyP50 as any) ? Math.round(rangeStats.energyP50 as number) : 6;
-            const c = active ? (palette === 'braman' ? getBramanMoodColor(mv) : palette === 'apple' ? getAppleMoodColor(mv) : getVAColorFromScores(mv, ev)) : '#9CA3AF';
-            return (
-              <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Mood">
-                <Circle cx={8} cy={8} r={6.6} stroke={c} strokeWidth={1.6} fill="none" />
-                <Circle cx={5.6} cy={6.3} r={0.9} fill={c} />
-                <Circle cx={10.4} cy={6.3} r={0.9} fill={c} />
-                <Path d="M5.2 9.2 C6.2 10.8, 9.8 10.8, 10.8 9.2" stroke={c} strokeWidth={1.6} fill="none" strokeLinecap="round" />
-              </Svg>
-            );
-          })()}
-          <Text style={[styles.statValue, (!showMoodLine || moodLocked) && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.moodP50 as any) && (rangeStats.moodP50 as number) > 0 ? `${Math.round(rangeStats.moodP50 as number)}/100` : '—'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Energy (battery) */}
-        <TouchableOpacity style={styles.statItem} disabled={energyLocked} onPress={() => { if (!energyLocked) setShowEnergyLine(v => !v); }}>
-          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Energy">
-            <Defs>
-              <SvgLinearGradient id="batteryGrad" x1="0" y1="0" x2="1" y2="0">
-                {(() => {
-                  const stops = palette === 'braman'
-                    ? [
-                        { offset: '0%', color: '#F4A09C' },
-                        { offset: '50%', color: '#F5D99C' },
-                        { offset: '100%', color: '#94B49F' },
-                      ]
-                    : [
-                        { offset: '0%', color: '#EF4444' },
-                        { offset: '50%', color: '#F59E0B' },
-                        { offset: '100%', color: '#10B981' },
-                      ];
-                  return stops.map((s, i) => (
-                    <Stop key={i} offset={s.offset} stopColor={s.color} />
-                  ));
-                })()}
-              </SvgLinearGradient>
-            </Defs>
-            {(() => {
-              const avg = Number(data.weeklyEnergyAvg || 0);
-              const ratio = Math.max(0, Math.min(1, avg / 10));
-              const levelColor = (() => {
-                if (palette === 'braman') return ratio < 0.33 ? '#F4A09C' : ratio < 0.66 ? '#F5D99C' : '#94B49F';
-                return ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
-              })();
-              const maxW = 11 - 2; // inner padding
-              const w = Math.max(0.8, maxW * ratio);
-              const off = (!showEnergyLine || energyLocked);
-              const strokeC = off ? '#9CA3AF' : levelColor;
-              const capC = off ? '#9CA3AF' : levelColor;
-              return (
-                <>
-                  {/* Battery body with dynamic stroke */}
-                  <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={strokeC} strokeWidth={1.4} fill="none" />
-                  {/* Battery cap with dynamic fill */}
-                  <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={capC} />
-                  {/* Fill proportional to energy (1..10) */}
-                  <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill={off ? '#9CA3AF' : 'url(#batteryGrad)'} opacity={off ? 0.35 : 0.95} />
-                </>
-              );
-            })()}
-          </Svg>
-          <Text style={[styles.statValue, (!showEnergyLine || energyLocked) && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.energyP50 as any) && (rangeStats.energyP50 as number) > 0 ? `${Math.round(rangeStats.energyP50 as number)}/10` : '—'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Anxiety (wavy line) */}
-        <TouchableOpacity style={styles.statItem} disabled={anxietyLocked} onPress={() => { if (!anxietyLocked) setShowAnxietyLine(v => !v); }}>
-          <Svg width={16} height={16} viewBox="0 0 16 16" accessibilityLabel="Anxiety">
-            {(() => {
-              const raw = data.weeklyAnxietyAvg as any;
-              const avg = (typeof raw === 'number' && raw > 0) ? Number(raw) : null;
-              if (avg === null) return null; // veri yoksa ikon çizme
-              const ratio = Math.max(0, Math.min(1, avg / 10));
-              const base = 10;
-              const ampMin = 2;
-              const ampMax = 5.5;
-              const amp = ampMin + (ampMax - ampMin) * ratio;
-              const up = (base - amp).toFixed(2);
-              const down = (base + amp).toFixed(2);
-              const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
-              const strokeW = 1.4 + 0.8 * ratio; // 1.4..2.2
-              return <Path d={d} stroke={showAnxietyLine && !anxietyLocked ? '#EF4444' : '#9CA3AF'} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
-            })()}
-          </Svg>
-          <Text style={[styles.statValue, (!showAnxietyLine || anxietyLocked) && { color: '#9CA3AF' }]}>
-            {Number.isFinite(rangeStats.anxietyP50 as any) && (rangeStats.anxietyP50 as number) > 0 ? `${Math.round(rangeStats.anxietyP50 as number)}/10` : '—'}
-          </Text>
-        </TouchableOpacity>
-        {/* Dots toggle removed: unified visualization makes it redundant */}
-      </Pressable>
+      {/* M/E/A stats row removed; overlay visibility controlled via Settings */}
 
       {/* Detail modal - Apple Health Style */}
       {detailDate && (
@@ -1582,12 +1475,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    // removed
   },
   dominantRowBelow: {
     marginTop: 8,
@@ -1655,25 +1543,17 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
   },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111827',
-  },
+  statItem: { },
+  statValue: { },
   statLabel: {
     fontWeight: '800',
     letterSpacing: -0.2,
     marginRight: 2,
   },
-  statLabelMood: { color: '#007AFF' },
-  statLabelEnergy: { color: '#10B981' },
-  statLabelAnxiety: { color: '#EF4444' },
-  statSep: { color: '#6B7280', fontWeight: '400' },
+  statLabelMood: { },
+  statLabelEnergy: { },
+  statLabelAnxiety: { },
+  statSep: { },
   // statValue duplicate removed
   // Fixed overlay area above chart for summary text (when no tooltip)
   chartTopOverlay: {
