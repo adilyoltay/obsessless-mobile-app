@@ -1038,6 +1038,8 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                           {
                             backgroundColor: theme.card,
                             alignSelf: 'flex-start',
+                            minWidth: 180,
+                            maxWidth: 220,
                           }
                         ]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
                           {/* Simplified tooltip content: left-aligned header-style */}
@@ -1358,12 +1360,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.3,
     textAlign: 'center',
+    lineHeight: 14,
   },
   entryCountValue: {
     fontSize: 24,
     color: '#111827',
     fontWeight: '700',
-    lineHeight: 28,
+    lineHeight: 30,
     textAlign: 'left',
   },
   entryCountUnit: {
@@ -1376,7 +1379,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 16,
     textAlign: 'left',
   },
   tapHint: {
