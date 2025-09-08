@@ -496,7 +496,8 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
         {/* Sparkline veya dekoratif dalga */}
         <View style={{ marginTop: 12 }} onLayout={(e) => setWhiteFooterW(Math.round(e.nativeEvent.layout.width))}>
           {showSparkline && !isEmpty ? (
-            sparkStyle === 'line' ? (
+            // Always render sparkline as line; progress bar removed
+            (
               // Trend çizgisi sparkline
               <Svg width="100%" height={24}>
                 <Path 
@@ -509,11 +510,6 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                   strokeLinejoin="round" 
                 />
               </Svg>
-            ) : (
-              // Progress bar sparkline
-              <View style={styles.whiteProgressBarOuter}>
-                <View style={[styles.whiteProgressBarInner, { width: `${Math.round(progress * 100)}%`, backgroundColor: sparkStroke }]} />
-              </View>
             )
           ) : (
             // Dekoratif dalga (veri yoksa)
@@ -886,18 +882,7 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
           {/* score chip moved to external meta card */}
           {/* (top badges removed; moved below progress bar) */}
           </View>
-          {/* bottom progress bar */}
-          <View style={styles.progressBarContainerThick}>
-            {!colorized && (
-              <LinearGradient
-                colors={["rgba(0,0,0,0.10)", "rgba(0,0,0,0)", "rgba(0,0,0,0.10)"]}
-                start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
-                style={styles.progressInsetShadow}
-                pointerEvents="none"
-              />
-            )}
-            <View style={[styles.progressBarFill, { width: `${Math.round((progress || 0) * 100)}%`, backgroundColor: (colorized ? '#FFFFFF' : segColor) }]} />
-          </View>
+          {/* bottom progress bar removed */}
           {/* meta row moved to external MindMetaRowCard */}
         </View>
       </View>
@@ -1037,7 +1022,7 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
           </View>
 
           {showSparkline && !isEmpty && (
-            sparkStyle === 'line' ? (
+            // Always render sparkline line; progress bar removed
               <View style={styles.sparkWrapOnGrad} onLayout={(e) => setHeroSparkWidth(Math.round(e.nativeEvent.layout.width))}>
                 <Svg width="100%" height={20}>
                   <Defs>
@@ -1062,11 +1047,6 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
                   })()}
                 </Svg>
               </View>
-            ) : (
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%`, backgroundColor: sparkStroke }]} />
-              </View>
-            )
           )}
 
           {isEmpty && (
@@ -1147,8 +1127,6 @@ const styles = StyleSheet.create({
   },
   chipOnWhiteLabel: { fontSize: 13, color: '#4B5563', fontWeight: '600', marginBottom: 2, flexShrink: 1, minWidth: 0 },
   chipOnWhiteValue: { fontSize: 15, color: '#111827', fontWeight: '700', flexShrink: 1, minWidth: 0 },
-  whiteProgressBarOuter: { height: 12, backgroundColor: '#F3F4F6', borderRadius: 8, overflow: 'hidden', marginTop: 12 },
-  whiteProgressBarInner: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 8 },
   emptyTextWhite: { color: '#374151', fontSize: 12 },
   statusInline: { marginTop: 6, fontSize: 12, color: '#374151' },
   statusInlineLabel: { fontWeight: '600', color: '#6B7280' },
@@ -1279,31 +1257,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 999, marginRight: 6 },
   sparkWrapOnGrad: { marginTop: 16, alignSelf: 'stretch' },
   emptyText: { marginTop: 10, color: 'rgba(255,255,255,0.92)', fontSize: 12 },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 12,
-  },
-  progressBarContainerThick: {
-    height: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginTop: 10,
-    alignSelf: 'stretch',
-    width: '92%',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-  },
-  progressInsetShadow: {
-    ...StyleSheet.absoluteFillObject as any,
-    borderRadius: 6,
-  },
+  // Progress bar styles removed
   quickStartBtn: {
     marginTop: 8,
     alignSelf: 'flex-start',
