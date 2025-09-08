@@ -1474,9 +1474,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  statsRow: {
-    // removed
-  },
   dominantRowBelow: {
     marginTop: 8,
     paddingHorizontal: 4,
@@ -1543,17 +1540,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: '700',
   },
-  statItem: { },
-  statValue: { },
-  statLabel: {
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    marginRight: 2,
-  },
-  statLabelMood: { },
-  statLabelEnergy: { },
-  statLabelAnxiety: { },
-  statSep: { },
+  // Removed legacy M/E/A stats styles
   // statValue duplicate removed
   // Fixed overlay area above chart for summary text (when no tooltip)
   chartTopOverlay: {
