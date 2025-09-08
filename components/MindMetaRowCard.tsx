@@ -24,7 +24,7 @@ export default function MindMetaRowCard({ score, streak, hp }: Props) {
           <MaterialCommunityIcons name="star" size={18} color="#F59E0B" style={{ marginRight: 6 }} />
           <Text style={styles.valueText}>{s != null ? s : '—'}</Text>
         </View>
-        <Text style={styles.labelText}>Score</Text>
+        <Text style={styles.labelText}>Skor</Text>
       </View>
 
       {/* Divider */}
@@ -40,7 +40,7 @@ export default function MindMetaRowCard({ score, streak, hp }: Props) {
           <MaterialCommunityIcons name={st > 0 ? 'fire' : 'fire-off'} size={18} color="#F97316" style={{ marginRight: 6 }} />
           <Text style={styles.valueText}>{st}</Text>
         </View>
-        <Text style={styles.labelText}>Streak</Text>
+        <Text style={styles.labelText}>Seri</Text>
       </View>
 
       {/* Divider */}
@@ -59,7 +59,7 @@ export default function MindMetaRowCard({ score, streak, hp }: Props) {
             <Text style={[styles.unitBadgeText, { color: '#10B981' }]}>HP</Text>
           </View>
         </View>
-        <Text style={styles.labelText}>Healing Points</Text>
+        <Text style={styles.labelText}>Şifa Puanı</Text>
       </View>
     </View>
   );
