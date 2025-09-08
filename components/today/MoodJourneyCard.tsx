@@ -1039,7 +1039,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                             backgroundColor: theme.card,
                             alignSelf: 'flex-start',
                             minWidth: 180,
-                            maxWidth: 220,
+                            maxWidth: 210,
                           }
                         ]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
                           {/* Simplified tooltip content: left-aligned header-style */}
