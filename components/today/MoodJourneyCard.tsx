@@ -1035,15 +1035,14 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                       <View>
                         <View style={[
                           styles.tooltipBox,
-                          { 
+                          {
                             backgroundColor: theme.card,
-                            minWidth: Math.min(280, Math.max(220, (chartSelection.chartWidth || 0) - 32)),
-                            maxWidth: Math.max(220, (chartSelection.chartWidth || 0) - 16)
+                            alignSelf: 'flex-start',
                           }
                         ]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
-                          {/* Simplified tooltip content: mirror chart header (top-left) */}
-                          <View>
-                            <Text style={styles.entryCount}>
+                          {/* Simplified tooltip content: left-aligned header-style */}
+                          <View style={{ alignItems: 'flex-start' }}>
+                            <Text style={[styles.entryCount, { textAlign: 'left' }]}>
                               TOPLAM{'\n'}
                               <Text style={styles.entryCountValue}>{extended?.statistics?.totalEntries || 0} <Text style={styles.entryCountUnit}>giriş</Text></Text>
                             </Text>
