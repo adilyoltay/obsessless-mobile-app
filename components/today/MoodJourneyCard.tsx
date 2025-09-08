@@ -1041,6 +1041,33 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                             maxWidth: Math.max(220, (chartSelection.chartWidth || 0) - 16)
                           }
                         ]} onLayout={(e) => setTooltipWidth(e.nativeEvent.layout.width)}>
+                          {/* Simplified tooltip content: mirror chart header (top-left) */}
+                          <View>
+                            <Text style={styles.entryCount}>
+                              TOPLAM{'\n'}
+                              <Text style={styles.entryCountValue}>{extended?.statistics?.totalEntries || 0} <Text style={styles.entryCountUnit}>giriş</Text></Text>
+                            </Text>
+                            <Text style={styles.dateRange}>{(() => {
+                              const days = extended?.dailyAverages || [];
+                              if (!days.length) return '';
+                              const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+                              if (range === 'day') {
+                                const firstKey = String(days[0].date);
+                                const ymd = firstKey.split('#')[0];
+                                const d = new Date(`${ymd}T00:00:00.000Z`);
+                                if (!isFinite(d.getTime())) return '';
+                                return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+                              }
+                              const start = new Date(days[0].date);
+                              const end = new Date(days[days.length - 1].date);
+                              if (range === 'week') return `${start.getDate()} ${months[start.getMonth()]}–${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
+                              if (range === 'month') return `${months[start.getMonth()]} ${start.getFullYear()}`;
+                              if (range === '6months') return `${months[start.getMonth()]}–${months[end.getMonth()]} ${end.getFullYear()}`;
+                              return `${start.getFullYear()}`;
+                            })()}</Text>
+                          </View>
+                          {/* Legacy tooltip content hidden */}
+                          {false && (
                           {/* Title: For day view show only dominant emotion centered; others show date + dominant */}
                           {(() => {
                             const dateKey = String(chartSelection.date);
@@ -1214,6 +1241,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                               </View>
                             );
                           })()}
+                        )}
                         </View>
                         {/* Arrow pointing down to bar */}
                         <View style={[styles.tooltipArrow, { backgroundColor: theme.card, left: pointerX }]} />
