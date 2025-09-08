@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Line } from 'react-native-svg';
+import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
+import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Line, Text as SvgText, G } from 'react-native-svg';
+import MoodFace from './mood/MoodFace';
 import MoodEnergyGaugeArc from '@/components/mind/MoodEnergyGaugeArc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,6 +35,16 @@ type Props = {
   streakLevel?: 'seedling' | 'warrior' | 'master';
   // UI: allow white variant to use status-colored background
   coloredBackground?: boolean;
+  // Whether to colorize hero background; if false uses plain white
+  colorized?: boolean;
+  // Selected-day override for active face (0-100 weighted score)
+  selectedDayScoreOverride?: number | null;
+  // Dominant emotion label from active selection/range
+  dominantLabel?: string | null;
+  // Series-based trend percentage override (e.g., from selection/range)
+  trendPctOverride?: number | null;
+  // Period label for micro trend badge (e.g., '7g', '1a', '6a', '1y')
+  periodLabelOverride?: string | null;
 };
 
 // ---- math helpers ----
@@ -157,15 +168,25 @@ const stabilityLabel = (sd: number) => {
 
 // Confidence chip removed for end-user simplicity
 
-const Arrow = ({ delta }: { delta: number }) => {
+const Arrow = ({ delta, palette, mode = 'abs', prev }: { delta: number; palette?: 'apple' | 'braman' | string; mode?: 'abs' | 'pct'; prev?: number }) => {
   const threshold = 1.5;
   const up = delta > threshold;
   const down = delta < -threshold;
-  const color = up ? '#10B981' : down ? '#EF4444' : '#6B7280';
+  const green = palette === 'apple' ? '#34C759' : (palette === 'braman' ? BramanColors.güvenli : '#10B981');
+  const red = palette === 'apple' ? '#FF3B30' : (palette === 'braman' ? BramanColors.coral : '#EF4444');
+  const neutral = palette === 'apple' ? '#AEAEB2' : (palette === 'braman' ? BramanColors.medium : '#6B7280');
+  const color = up ? green : down ? red : neutral;
   const arrow = up ? '↑' : down ? '↓' : '→';
-  const abs = Math.abs(Math.round(delta));
-  const signed = up ? `+${abs}` : down ? `-${abs}` : `${abs}`;
-  return <Text style={{ color }}>{arrow} {signed}</Text>;
+  let label = '';
+  if (mode === 'pct' && typeof prev === 'number' && isFinite(prev) && prev !== 0) {
+    const pct = Math.round((delta / Math.max(1, prev)) * 100);
+    const absPct = Math.abs(pct);
+    label = up ? `+${absPct}%` : down ? `-${absPct}%` : `${absPct}%`;
+  } else {
+    const abs = Math.abs(Math.round(delta));
+    label = up ? `+${abs}` : down ? `-${abs}` : `${abs}`;
+  }
+  return <Text style={{ color }}>{arrow} {label}</Text>;
 };
 
 const Chip = ({ label, accentColor, onGradient, icon, style, textStyle }: { label: string; accentColor?: string; onGradient?: boolean; icon?: React.ReactNode; style?: any; textStyle?: any }) => (
@@ -180,7 +201,7 @@ const Chip = ({ label, accentColor, onGradient, icon, style, textStyle }: { labe
   </View>
 );
 
-export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling', coloredBackground = false }: Props) {
+export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling', coloredBackground = false, colorized = false, selectedDayScoreOverride = null, dominantLabel = null, trendPctOverride = null, periodLabelOverride = null }: Props) {
   const { palette } = useAccentColor();
   console.log('🚀 MindScoreCard props:', { streakCurrent, streakBest, streakLevel, variant, coloredBackground });
   // Normalize and sort by date ascending
@@ -201,6 +222,10 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
   const delta = useMemo(() => {
     if (smoothed.length < 2) return 0;
     return smoothed[smoothed.length - 1] - smoothed[smoothed.length - 2];
+  }, [smoothed]);
+  const prevScore = useMemo(() => {
+    if (smoothed.length < 2) return null;
+    return clamp(smoothed[smoothed.length - 2], 0, 100);
   }, [smoothed]);
 
   const sdCalc = useMemo(() => {
@@ -269,6 +294,35 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
   const C = 2 * Math.PI * r;
   const [heroSparkWidth, setHeroSparkWidth] = React.useState(0);
   const [whiteFooterW, setWhiteFooterW] = React.useState(0);
+  const todayLabel = useMemo(() => {
+    try {
+      const d = new Date();
+      const day = String(d.getDate()).padStart(2, '0');
+      const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+      const mon = months[d.getMonth()] || '';
+      return `• ${day} ${mon}`;
+    } catch { return '•'; }
+  }, []);
+
+  // Palette-aware score chip background/border
+  const scoreChipPaletteStyle = useMemo(() => {
+    if (palette === 'apple') {
+      return {
+        backgroundColor: 'rgba(10,132,255,0.22)', // iOS system blue (lighter)
+        borderColor: 'rgba(10,132,255,0.85)',
+      } as const;
+    }
+    if (palette === 'braman') {
+      return {
+        backgroundColor: 'rgba(58,58,58,0.35)', // charcoal tint
+        borderColor: 'rgba(255,255,255,0.55)',
+      } as const;
+    }
+    return {
+      backgroundColor: 'rgba(0,0,0,0.28)',
+      borderColor: 'rgba(255,255,255,0.65)'
+    } as const;
+  }, [palette]);
 
   if (variant === 'white') {
     // Dynamic status background derived from stability (stddev)
@@ -292,12 +346,34 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
     else w = 0.12 + 0.08 * norm(sdCalc, 12, 24); // Çok Dalgalı
     w = Math.max(0.08, Math.min(0.20, w));
     const statusBg = mixHex('#FFFFFF', statusBase, w);
+    // Fade between background tints when status changes
+    const [currTint, setCurrTint] = React.useState<string>(statusBg);
+    const [prevTint, setPrevTint] = React.useState<string | null>(null);
+    const tintAV = React.useRef(new Animated.Value(1)).current;
+    React.useEffect(() => {
+      if (!coloredBackground) return;
+      if (currTint === statusBg) return;
+      setPrevTint(currTint);
+      setCurrTint(statusBg);
+      try {
+        tintAV.stopAnimation();
+        tintAV.setValue(0);
+        Animated.timing(tintAV, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+      } catch {}
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statusBg, coloredBackground]);
     const wSize = 80;
     const wR = 36;
     const wC = 2 * Math.PI * wR;
     const wProgress = typeof scoreNow === 'number' ? scoreNow / 100 : 0;
     return (
-      <View style={[styles.whiteCard, coloredBackground && { backgroundColor: statusBg }]}> 
+      <View style={[styles.whiteCard, { backgroundColor: '#FFFFFF' }]}> 
+        {coloredBackground && (
+          <>
+            <View style={[StyleSheet.absoluteFill as any, { backgroundColor: (prevTint || currTint), borderRadius: 24 }]} pointerEvents="none" />
+            <Animated.View style={[StyleSheet.absoluteFill as any, { opacity: tintAV, backgroundColor: currTint, borderRadius: 24 }]} pointerEvents="none" />
+          </>
+        )}
         <View style={styles.whiteRow}>
           <Svg width={wSize} height={wSize} style={{ transform: [{ rotate: '-90deg' }] }}>
             <Circle cx={wSize/2} cy={wSize/2} r={wR} stroke="#F3F4F6" strokeWidth={4} fill="none" />
@@ -518,11 +594,323 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
     );
   }
 
+  // Minimal Face Gauge mode for hero variant (temporary):
+  // Title, chips, extended details HIDDEN. Shows only segmented arc + pointer + ring faces + center score + bottom progress + streak + micro trend.
+  if (variant === 'hero') {
+    const [gaugeW, setGaugeW] = React.useState(0);
+    // Animate active face when override changes
+    const activeFaceScale = React.useRef(new Animated.Value(1)).current;
+    const lastActiveIdxRef = React.useRef<number | null>(null);
+    // Score used for visual pointers/faces/gradient (selected day when present)
+    const faceScore = typeof selectedDayScoreOverride === 'number' ? selectedDayScoreOverride : (typeof scoreNow === 'number' ? scoreNow : 50);
+    // Smooth pointer angle animation (degrees)
+    const initialAng = -180 + faceScore * 1.8;
+    const pointerAV = React.useRef(new Animated.Value(initialAng)).current;
+    const [pointerAngle, setPointerAngle] = React.useState<number>(initialAng);
+    React.useEffect(() => {
+      const id = pointerAV.addListener(({ value }) => setPointerAngle(value));
+      return () => { try { pointerAV.removeListener(id); } catch {} };
+    }, [pointerAV]);
+    React.useEffect(() => {
+      const target = -180 + faceScore * 1.8;
+      try {
+        Animated.spring(pointerAV, { toValue: target, friction: 7, tension: 60, useNativeDriver: false }).start();
+      } catch {
+        setPointerAngle(target);
+      }
+    }, [faceScore, pointerAV]);
+    // Palette-based ring colors
+    const ringColors = useMemo(() => {
+      if (palette === 'apple') {
+        return ['#FF3B30', '#FF9F0A', '#FFD60A', '#30D158', '#1D7F34'] as string[];
+      }
+      if (palette === 'braman') {
+        const badDeep = mixHex(BramanColors.coral, '#000000', 0.18);
+        const bad = BramanColors.coral;
+        const mid = BramanColors.yellow;
+        // Warm sage: güvenli (sage) biraz daha sıcak için sarıyla karıştır
+        const goodWarm = mixHex(BramanColors.güvenli, BramanColors.yellow, 0.22);
+        // Very good: teal'i bir miktar koyulaştır
+        const vgoodCool = mixHex(BramanColors.teal, '#000000', 0.12);
+        return [badDeep, bad, mid, goodWarm, vgoodCool] as string[];
+      }
+      // VA/classic more saturated
+      return ['#D32F2F', '#F57C00', '#FBC02D', '#009688', '#1B5E20'] as string[];
+    }, [palette]);
+    // Align background with face/ring segment color derived from current score
+    const segIdx = (() => {
+      const s = faceScore;
+      return s <= 20 ? 0 : s <= 40 ? 1 : s <= 60 ? 2 : s <= 80 ? 3 : 4;
+    })();
+    const segColor = (ringColors && ringColors[segIdx]) || (gradientColors?.[0] || '#34d399');
+    // Softer gradient; add cross-fade between gradients when score changes
+    const PASTEL_TOP = 0.40; // base pastel
+    const PASTEL_BOTTOM = 0.24;
+    const GRAD_FADE_MS = 300;
+    const makeCardGrad = React.useCallback((base: string) => {
+      let top = PASTEL_TOP;
+      let bottom = PASTEL_BOTTOM;
+      if (palette === 'apple') { top += 0.04; bottom += 0.04; }
+      else if (palette === 'braman') { top += 0.02; bottom += 0.02; }
+      return [
+        mixHex(base, '#FFFFFF', top),
+        mixHex(base, '#FFFFFF', bottom),
+      ] as [string, string];
+    }, [palette]);
+    const [currGrad, setCurrGrad] = React.useState<[string, string]>(() => makeCardGrad(segColor));
+    const [prevGrad, setPrevGrad] = React.useState<[string, string] | null>(null);
+    const gradAV = React.useRef(new Animated.Value(1)).current;
+    React.useEffect(() => {
+      const ng = makeCardGrad(segColor);
+      setPrevGrad(currGrad);
+      setCurrGrad(ng);
+      try {
+        gradAV.stopAnimation();
+        gradAV.setValue(0);
+        Animated.timing(gradAV, { toValue: 1, duration: GRAD_FADE_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+      } catch {}
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [segIdx]);
+    
+    return (
+      <View style={styles.heroCard}>
+        {/* Background coloring disabled: keep neutral white background */}
+        <View style={styles.plainBg} />
+        {/* Dominant emotion top-left (label only, no bg/border, colored as active segment) */}
+        {dominantLabel && (() => {
+          const activeColor = (ringColors && typeof segIdx === 'number' && ringColors[segIdx]) ? ringColors[segIdx] : '#111827';
+          return (
+            <View style={styles.dominantTopLeft}>
+              <Text
+                style={[
+                  styles.dominantChipValue,
+                  { 
+                    color: activeColor,
+                    textShadowColor: '#E5E7EB',
+                    textShadowOffset: { width: 0, height: 0 },
+                    textShadowRadius: 2.5,
+                  }
+                ]}
+                numberOfLines={1}
+              >
+                {dominantLabel}
+              </Text>
+            </View>
+          );
+        })()}
+        {/* Micro trend top-right (percentage + tiny period badge) */}
+        {(() => {
+          // Prefer override from parent (selection/range); else compute from smoothed
+          let pct: number | null = null;
+          if (typeof trendPctOverride === 'number' && Number.isFinite(trendPctOverride)) {
+            pct = Math.round(trendPctOverride as number);
+          } else {
+            const series = smoothed || [];
+            if (series.length >= 2) {
+              const base = series[0];
+              const curr = series[series.length - 1];
+              if (Number.isFinite(base) && base !== 0 && Number.isFinite(curr)) {
+                pct = Math.round(((curr - base) / Math.max(1, base)) * 100);
+              }
+            }
+          }
+          const color = (pct ?? 0) < 0 ? '#EF4444' : (pct ?? 0) > 0 ? '#10B981' : '#6B7280';
+          const arrow = (pct ?? 0) < 0 ? '▼' : (pct ?? 0) > 0 ? '▲' : '→';
+          const label = pct != null ? (pct > 0 ? `+${pct}%` : `${pct}%`) : '—%';
+          const current = periodLabelOverride || '7g';
+          const compare = current === '1g' ? '7g' : current === '7g' ? '1a' : current === '1a' ? '6a' : current === '6a' ? '1y' : '—';
+          return (
+            <View style={styles.trendTopRight}>
+              <Text style={[styles.microTrendText, { color }]} numberOfLines={1}>{arrow} {label}</Text>
+              <View style={styles.microTrendBadge}>
+                <Text style={styles.microTrendBadgeText}>{`${current}/${compare}`}</Text>
+              </View>
+            </View>
+          );
+        })()}
+        <View style={styles.faceGaugeWrap}>
+          <View style={styles.faceGaugeArea} onLayout={(e) => setGaugeW(Math.round(e.nativeEvent.layout.width))}>
+          <Svg width="100%" height={224} viewBox="0 0 300 224">
+            {(() => {
+              const cx = 150, cy = 184, r = 108, seg = 36; // more vertical space, slightly smaller ring
+              const colors = ringColors;
+              const arc = (a0: number, a1: number) => {
+                const to = (a: number) => {
+                  const rad = Math.PI / 180 * a;
+                  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)] as [number, number];
+                };
+                const p0 = to(a0), p1 = to(a1);
+                const large = Math.abs(a1 - a0) > 180 ? 1 : 0;
+                return `M ${p0[0]} ${p0[1]} A ${r} ${r} 0 ${large} 1 ${p1[0]} ${p1[1]}`;
+              };
+              return (
+                <>
+                  {colors.map((c, i) => {
+                    const start = -180 + i * seg;
+                    const end = start + seg;
+                    const strokeC = colorized ? c : (i === segIdx ? c : '#D1D5DB');
+                    return (
+                      <G key={`seg-wrap-${i}`}>
+                        <Path d={arc(start + 2, end - 2)} stroke={strokeC} strokeWidth={16} strokeLinecap="butt" fill="none" opacity={colorized ? (i === segIdx ? 0.95 : 0.45) : 1} />
+                        {/* Removed extra black outline on active segment per request */}
+                      </G>
+                    );
+                  })}
+                  {(() => {
+                    // Subtle outlines only at the far ends
+                    const outlines = [] as any[];
+                    const s0 = -180 + 0 * seg, e0 = s0 + seg;
+                    outlines.push(
+                      <Path key={`seg-outline-start`} d={arc(s0 + 2, e0 - 2)} stroke="#000" strokeOpacity={0.10} strokeWidth={1} strokeLinecap="butt" fill="none" />
+                    );
+                    const s4 = -180 + 4 * seg, e4 = s4 + seg;
+                    outlines.push(
+                      <Path key={`seg-outline-end`} d={arc(s4 + 2, e4 - 2)} stroke="#000" strokeOpacity={0.10} strokeWidth={1} strokeLinecap="butt" fill="none" />
+                    );
+                    // Divider lines between segments
+                    const seps = [-144, -108, -72, -36];
+                    seps.forEach((a, idx) => {
+                      const rad = Math.PI / 180 * a;
+                      const ri = r - 10; const ro = r + 10;
+                      const x1 = cx + ri * Math.cos(rad); const y1 = cy + ri * Math.sin(rad);
+                      const x2 = cx + ro * Math.cos(rad); const y2 = cy + ro * Math.sin(rad);
+                      outlines.push(
+                        <Line key={`sep-${idx}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#FFFFFF" strokeOpacity={0.45} strokeWidth={1.5} strokeLinecap="butt" />
+                      );
+                    });
+                    return outlines;
+                  })()}
+                </>
+              );
+            })()}
+            {/* subtle base arc */}
+            <Path d={`M ${42} ${184} A ${108} ${108} 0 1 1 ${258} ${184}`} stroke="rgba(255,255,255,0.28)" strokeWidth={1} fill="none" />
+            {/* pointer */}
+            {(() => {
+              const cx = 150, cy = 184, r = 108;
+              const rad = Math.PI / 180 * (pointerAngle);
+              const x2 = cx + (r - 22) * Math.cos(rad);
+              const y2 = cy + (r - 22) * Math.sin(rad);
+              return (
+                <>
+                  <Circle cx={cx} cy={cy} r={12} fill="rgba(17,24,39,0.9)" />
+                  <Line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#0F172A" strokeWidth={3.8} strokeLinecap="round" />
+                </>
+              );
+            })()}
+          </Svg>
+          {/* ring faces overlay */}
+          {(() => {
+            const faces = [10, 30, 50, 70, 90];
+            const angles = [-162, -126, -90, -54, -18];
+            const W = Math.max(1, gaugeW || 300);
+            const scale = W / 300;
+            const cx = 150 * scale, cy = 184 * scale, r = 146 * scale; // faces radius adjusted per request
+            const baseSize = 32 * scale; // make all faces a bit smaller
+            const activeIdx = (() => {
+              const s = faceScore;
+              if (s <= 20) return 0; if (s <= 40) return 1; if (s <= 60) return 2; if (s <= 80) return 3; return 4;
+            })();
+            // Kick a subtle bounce when active face changes
+            React.useEffect(() => {
+              if (lastActiveIdxRef.current === activeIdx) return;
+              lastActiveIdxRef.current = activeIdx;
+              try {
+                activeFaceScale.stopAnimation();
+                activeFaceScale.setValue(0.94);
+                Animated.sequence([
+                  Animated.timing(activeFaceScale, { toValue: 1.08, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+                  Animated.timing(activeFaceScale, { toValue: 1.0, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+                ]).start();
+              } catch {}
+            }, [activeIdx]);
+            return (
+              <View style={styles.faceRingOverlay} pointerEvents="none">
+                {faces.map((sc, i) => {
+                  const ang = angles[i] * Math.PI / 180;
+                  const size = i === activeIdx ? baseSize * 1.32 : baseSize; // enlarge active face a bit more
+                  const x = cx + r * Math.cos(ang) - size / 2;
+                  const y = cy + r * Math.sin(ang) - size / 2;
+                  // Renksiz modda: aktif yüz tek vurgu (#4B5563), diğerleri açık gri (#D1D5DB)
+                  const GREY_LIGHT: [string, string, string, string, string] = ['#D1D5DB', '#D1D5DB', '#D1D5DB', '#D1D5DB', '#D1D5DB'];
+                  const facePalette = (!colorized) ? (i === activeIdx ? (ringColors as any) : GREY_LIGHT) : (ringColors as any);
+                  const faceOpacity = colorized ? (i === activeIdx ? 1 : 0.5) : 1;
+                  return (
+                    <View key={`ringface-${i}`} style={{ position: 'absolute', left: x, top: y, alignItems: 'center', justifyContent: 'center' }}>
+                      {/* Active face halo + highlight ring (no radial gradient dependency) */}
+                      {i === activeIdx && (
+                        <>
+                          {(() => {
+                            const sVal = faceScore;
+                            const t = Math.max(0, Math.min(1, sVal / 100));
+                            // Halo boyutu: düşük skor -> büyük; yüksek skor -> küçük
+                            const haloExtra = 12 + (24 - 12) * (1 - t); // 12..24 px
+                            const offset = -haloExtra / 2;
+                            const haloW = size + haloExtra;
+                            // Palette-balanced halo opacity (black halo)
+                            const haloOpacity = colorized ? (palette === 'apple' ? 0.28 : (palette === 'braman' ? 0.22 : 0.20)) : 0.12;
+                            const haloFill = colorized ? '#000000' : '#000000';
+                            return (
+                              <Svg width={haloW} height={haloW} style={{ position: 'absolute', left: offset, top: offset }}>
+                                <Circle cx={haloW/2} cy={haloW/2} r={haloW/2} fill={haloFill} fillOpacity={haloOpacity} />
+                              </Svg>
+                            );
+                          })()}
+                          <Svg width={size + 8} height={size + 8} style={{ position: 'absolute', left: -4, top: -4 }}>
+                            {(() => {
+                              const stroke = palette === 'apple' ? 'rgba(255,255,255,0.92)'
+                                : palette === 'braman' ? 'rgba(255,255,255,0.85)'
+                                : 'rgba(255,255,255,0.90)';
+                              return (
+                                <Circle cx={(size + 8)/2} cy={(size + 8)/2} r={(size + 8)/2 - 1.5} stroke={stroke} strokeWidth={2} fill="none" />
+                              );
+                            })()}
+                          </Svg>
+                        </>
+                      )}
+                      <Animated.View style={{ opacity: faceOpacity, transform: [{ scale: i === activeIdx ? activeFaceScale : 1 }] }}>
+                        <MoodFace
+                          score={sc}
+                          size={size}
+                          colors={facePalette as any}
+                          strokeOpacity={palette === 'braman' ? 0.35 : (palette === 'apple' ? 0.4 : 0.45)}
+                          strokeColor="#4B5563"
+                        />
+                      </Animated.View>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })()}
+          {/* score chip moved to external meta card */}
+          {/* (top badges removed; moved below progress bar) */}
+          </View>
+          {/* bottom progress bar */}
+          <View style={styles.progressBarContainerThick}>
+            {!colorized && (
+              <LinearGradient
+                colors={["rgba(0,0,0,0.10)", "rgba(0,0,0,0)", "rgba(0,0,0,0.10)"]}
+                start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
+                style={styles.progressInsetShadow}
+                pointerEvents="none"
+              />
+            )}
+            <View style={[styles.progressBarFill, { width: `${Math.round((progress || 0) * 100)}%`, backgroundColor: (colorized ? '#FFFFFF' : segColor) }]} />
+          </View>
+          {/* meta row moved to external MindMetaRowCard */}
+        </View>
+      </View>
+    );
+  }
+
   // Use provided gradientColors when supplied (e.g., settings off → static green)
   const cardGrad = gradientColors || getGradientFromBase(stab.color, 0.1);
   return (
     <View style={styles.heroCard}>
       <LinearGradient colors={cardGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientBg} />
+      {/* Pastel veil to further reduce saturation and increase face contrast */}
+      <View style={styles.pastelVeil} pointerEvents="none" />
       <View style={styles.contentRow}>
         <View style={styles.left}>
           {(() => {
@@ -829,10 +1217,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 3,
   },
   gradientBg: {
     ...StyleSheet.absoluteFillObject as any,
+  },
+  pastelVeil: {
+    ...StyleSheet.absoluteFillObject as any,
+    backgroundColor: 'rgba(255,255,255,0.18)'
+  },
+  plainBg: {
+    ...StyleSheet.absoluteFillObject as any,
+    backgroundColor: '#FFFFFF',
   },
   contentRow: {
     flexDirection: 'row',
@@ -851,6 +1252,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scoreOnGrad: { fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
+  scoreCenter: { fontSize: 40, fontWeight: '800', color: '#FFFFFF', transform: [{ translateY: 10 }] },
   ofOnGrad: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2 },
   right: { flex: 1 },
   titleOnGrad: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
@@ -884,10 +1286,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 12,
   },
+  progressBarContainerThick: {
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginTop: 10,
+    alignSelf: 'stretch',
+    width: '92%',
+  },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 4,
+  },
+  progressInsetShadow: {
+    ...StyleSheet.absoluteFillObject as any,
+    borderRadius: 6,
   },
   quickStartBtn: {
     marginTop: 8,
@@ -903,4 +1318,139 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   quickStartText: { color: '#fff', fontWeight: '600', fontSize: 12 },
+  bottomMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '92%',
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)'
+  },
+  metaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  metaUnit: { color: 'rgba(255,255,255,0.95)', fontSize: 12, fontWeight: '700', marginLeft: 6 },
+  // Minimal face gauge layout
+  faceGaugeWrap: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faceGaugeArea: {
+    width: '100%',
+    height: 224,
+  },
+  faceTop: {
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  faceRingOverlay: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+  },
+  centerScoreHero: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trendTopRight: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 999,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dominantTopLeft: {
+    position: 'absolute',
+    top: 8,
+    left: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  dominantChipLabel: { color: '#6B7280', fontSize: 12, fontWeight: '700' },
+  dominantChipValue: { color: '#111827', fontSize: 17, fontWeight: '800' },
+  trendTopRightWhite: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  trendValueText: { fontSize: 16, fontWeight: '800' },
+  microTrendText: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
+  microTrendBadge: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  microTrendBadgeText: {
+    color: '#374151',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  trendRow: { flexDirection: 'row', alignItems: 'baseline' },
+  trendUnitText: { color: 'rgba(255,255,255,0.95)', fontSize: 12, fontWeight: '700', marginLeft: 6 },
+  scoreBelowWrap: { alignItems: 'center', marginTop: 8 },
+  scoreBelowText: { color: '#FFFFFF', fontSize: 36, fontWeight: '800' },
+  scoreRow: { flexDirection: 'row', alignItems: 'baseline' },
+  ofTextBelow: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginLeft: 6, fontWeight: '700' },
+  scoreChip: {
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)'
+  },
+  scoreChipRow: { flexDirection: 'row', alignItems: 'center' },
+  scoreChipText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  streakTopLeft: {
+    position: 'absolute',
+    top: 8,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  streakBadgeText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

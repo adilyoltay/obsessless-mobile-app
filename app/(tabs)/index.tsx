@@ -16,6 +16,8 @@ import { useFocusEffect } from '@react-navigation/native';
 // Custom UI Components
 import { Toast } from '@/components/ui/Toast';
 import MindScoreCard, { DayMetrics } from '@/components/MindScoreCard';
+import MindMetaRowCard from '@/components/MindMetaRowCard';
+import MindMEAStatsCard from '@/components/MindMEAStatsCard';
 // ✅ Extracted UI components handle their own visuals
 
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -88,8 +90,10 @@ export default function TodayScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
   const [mindSparkStyle, setMindSparkStyle] = useState<'line' | 'bar'>('line');
-  const [coloredMindCard, setColoredMindCard] = useState<boolean>(false);
+  // coloredMindScoreCard removed (always hero non-colorized)
   const [heroStats, setHeroStats] = useState<{ moodVariance: number } | null>(null);
+  const [selectedDayScore, setSelectedDayScore] = useState<number | null>(null);
+  const [selectedMeta, setSelectedMeta] = useState<{ score: number | null; trendPct: number | null; periodLabel: string; dominant?: string | null; moodP50?: number | null; energyP50?: number | null; anxietyP50?: number | null } | null>(null);
   const { colorMode, setColorMode, color: accentColor, gradient, setScore, setVA } = useAccentColor();
   // ✅ REMOVED: achievementsSheetVisible - Today'den başarı listesi kaldırıldı
   
@@ -240,7 +244,6 @@ export default function TodayScreen() {
                 showEnergyOverlay: false,
                 showAnxietyOverlay: false,
                 visibleTimeRanges: ['day','week','month'],
-                coloredMindScoreCard: false,
                 // Global colors + MindScore
                 colorMode: 'today',
                 mindSparkStyle: 'bar',
@@ -258,7 +261,7 @@ export default function TodayScreen() {
           if (mode) setColorMode(mode);
           const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
           if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
-          if (typeof parsed?.coloredMindScoreCard === 'boolean') setColoredMindCard(!!parsed.coloredMindScoreCard);
+          // coloredMindScoreCard removed
         }
       } catch {}
     })();
@@ -275,7 +278,7 @@ export default function TodayScreen() {
           if (mode) setColorMode(mode);
           const spark = parsed?.mindSparkStyle as 'line' | 'bar' | undefined;
           if (spark === 'line' || spark === 'bar') setMindSparkStyle(spark);
-          if (typeof parsed?.coloredMindScoreCard === 'boolean') setColoredMindCard(!!parsed.coloredMindScoreCard);
+          // coloredMindScoreCard removed
         }
       } catch {}
     })();
@@ -564,25 +567,63 @@ export default function TodayScreen() {
       }
     })();
 
-    // Dynamically compute weekly gradient based on average mood/energy and stability
-    // Decide final gradient based on Settings: coloredMindCard → VA weekly gradient; else static green
-    const baseGreenGradient: [string, string] = ['#34d399', '#059669'];
-    const finalGradient = coloredMindCard ? heroGradient : baseGreenGradient;
+    // Weekly gradient removed for MindScoreCard hero variant.
+    // Card computes its own score-aligned gradient internally.
+
+    // Compute EWMA-based score and 1g trend for external meta card
+    let scoreNow: number | null = null;
+    let trendPct: number | null = null;
+    try {
+      const { weightedScore } = require('@/utils/mindScore');
+      const series = week.map(d => weightedScore(d.mood, d.energy, d.anxiety));
+      const ewma = (arr: Array<number | null | undefined>) => {
+        const vals = arr.map(v => (typeof v === 'number' && Number.isFinite(v) ? v : null));
+        const n = vals.length; if (!n) return [] as number[];
+        const alpha = 2 / (n + 1); const out: number[] = []; let prev: number | null = null;
+        for (let i = 0; i < n; i++) {
+          const x = vals[i] != null ? (vals[i] as number) : prev;
+          if (x == null) prev = 50; else if (prev == null) prev = x; else prev = alpha * x + (1 - alpha) * prev;
+          out.push(Math.max(0, Math.min(100, Number(prev))));
+        }
+        return out;
+      };
+      const sm = ewma(series);
+      scoreNow = sm.length ? sm[sm.length - 1] : null;
+      // Weekly trend: last vs first of the 7-day EWMA window
+      const base = sm.length > 1 ? sm[0] : null;
+      if (scoreNow != null && base != null && base !== 0) {
+        trendPct = Math.round(((scoreNow - base) / Math.max(1, base)) * 100);
+      }
+    } catch {}
 
     // If we have no week data yet (fresh install), keep minimal graceful fallback
     return (
       <>
           <MindScoreCard
             week={week}
-            gradientColors={finalGradient}
             loading={!moodJourneyData}
             onQuickStart={() => setCheckinSheetVisible(true)}
             sparkStyle={mindSparkStyle}
             moodVariance={moodVariance}
-          // Default variant is now 'hero' (gradient + white text)
+          // Always use hero variant (non-colorized)
             streakCurrent={profile.streakCurrent}
             streakBest={profile.streakBest}
             streakLevel={profile.streakLevel}
+            variant={'hero'}
+            selectedDayScoreOverride={selectedDayScore}
+            dominantLabel={selectedMeta?.dominant ?? null}
+            trendPctOverride={selectedMeta?.trendPct ?? null}
+            periodLabelOverride={selectedMeta?.periodLabel ?? null}
+        />
+        <MindMEAStatsCard
+          mood={selectedMeta?.moodP50}
+          energy={selectedMeta?.energyP50}
+          anxiety={selectedMeta?.anxietyP50}
+        />
+        <MindMetaRowCard
+          score={selectedMeta?.score ?? (typeof scoreNow === 'number' ? scoreNow : null)}
+          streak={profile.streakCurrent}
+          hp={todayStats?.healingPoints ?? 0}
         />
       </>
     );
@@ -869,6 +910,8 @@ export default function TodayScreen() {
                   return 'week';
                 }
               })()}
+              onSelectedScoreChange={setSelectedDayScore}
+              onSelectedMetaChange={setSelectedMeta}
             />
           </View>
         )}
@@ -884,7 +927,7 @@ export default function TodayScreen() {
           onClose={() => setCheckinSheetVisible(false)}
           onComplete={handleCheckinComplete}
           accentColor={accentColor}
-          gradientColors={coloredMindCard ? heroGradient : ['#34d399', '#059669']}
+          gradientColors={['#34d399', '#059669']}
         />
         {/* Spacer removed to avoid visual gap above bottom tab */}
       </ScrollView>

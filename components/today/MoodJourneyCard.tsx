@@ -12,7 +12,8 @@ import { AppleHealthTimeSelectorV2 } from '@/components/mood/AppleHealthTimeSele
 import { useAccentColor } from '@/contexts/AccentColorContext';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { quantiles } from '@/utils/statistics';
+import { quantiles, deriveAnxietySeries } from '@/utils/statistics';
+import { weightedScore } from '@/utils/mindScore';
 import AppleHealthStyleChartV2 from '@/components/mood/AppleHealthStyleChartV2';
 import AppleHealthDetailSheet from '@/components/mood/AppleHealthDetailSheet';
 import { moodDataLoader } from '@/services/moodDataLoader';
@@ -26,11 +27,15 @@ type Props = {
   data: MoodJourneyData;
   initialOpenDate?: string;
   initialRange?: TimeRange;
+  // Notify parent with active MindScore override based on current selection/range
+  onSelectedScoreChange?: (score: number | null) => void;
+  // Also notify parent with meta for stats card (score, trend, label, M/E/A p50)
+  onSelectedMetaChange?: (meta: { score: number | null; trendPct: number | null; periodLabel: string; dominant?: string | null; moodP50?: number | null; energyP50?: number | null; anxietyP50?: number | null }) => void;
 };
 
 // Color mapping centralized in utils/colorUtils.ts
 
-export default function MoodJourneyCard({ data, initialOpenDate, initialRange }: Props) {
+export default function MoodJourneyCard({ data, initialOpenDate, initialRange, onSelectedScoreChange, onSelectedMetaChange }: Props) {
   // CRITICAL: Wrap all date operations in try-catch to prevent crashes
   try {
     const { language } = useTranslation();
@@ -251,6 +256,216 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
       Animated.timing(tooltipTransY, { toValue: toVisible ? 0 : -4, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
   }, [chartSelection, tooltipOpacity, tooltipTransY]);
+
+  // Helper: compute weighted score from entry list
+  const computeScoreFromEntries = React.useCallback((entries: any[]): number | null => {
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+    const moods = entries.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+    const energies = entries.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+    const rawAnx = entries.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+    if (moods.length === 0 && energies.length === 0 && rawAnx.length === 0) return null;
+    const mq = quantiles(moods);
+    const eq = quantiles(energies);
+    const anxSeries = deriveAnxietySeries(moods, energies, rawAnx);
+    const aq = quantiles(anxSeries);
+    return weightedScore(mq.p50, eq.p50, aq.p50);
+  }, []);
+
+  const computeP50sFromEntries = React.useCallback((entries: any[]): { mood: number | null; energy: number | null; anxiety: number | null } => {
+    if (!Array.isArray(entries) || entries.length === 0) return { mood: null, energy: null, anxiety: null };
+    const moods = entries.map((e: any) => Number(e.mood_score)).filter(Number.isFinite);
+    const energies = entries.map((e: any) => Number(e.energy_level)).filter(Number.isFinite);
+    const rawAnx = entries.map((e: any) => Number(e.anxiety_level)).filter(Number.isFinite);
+    const mq = quantiles(moods);
+    const eq = quantiles(energies);
+    const anxSeries = deriveAnxietySeries(moods, energies, rawAnx);
+    const aq = quantiles(anxSeries);
+    return {
+      mood: Number.isFinite(mq.p50 as any) ? Number(mq.p50) : null,
+      energy: Number.isFinite(eq.p50 as any) ? Number(eq.p50) : null,
+      anxiety: Number.isFinite(aq.p50 as any) ? Number(aq.p50) : null,
+    };
+  }, []);
+
+  // Helper: compute weighted score from aggregated bucket
+  const computeScoreFromBucket = React.useCallback((bucket: any): number | null => {
+    if (!bucket) return null;
+    const m = Number(bucket?.mood?.p50 ?? bucket?.p50 ?? bucket?.averageMood ?? NaN);
+    const e = Number(bucket?.energy?.p50 ?? bucket?.averageEnergy ?? NaN);
+    let a: number | null = null;
+    const aP50 = Number(bucket?.anxiety?.p50 ?? bucket?.averageAnxiety ?? NaN);
+    if (Number.isFinite(aP50)) {
+      a = aP50;
+      if (a === 50) {
+        // derive when fallback-neutral
+        const mUse = Number.isFinite(m) ? m : 50;
+        const eUse = Number.isFinite(e) ? (e <= 10 ? e * 10 : e) : 60;
+        const m10 = Math.max(1, Math.min(10, Math.round(mUse / 10)));
+        const e10 = Math.max(1, Math.min(10, Math.round(eUse / 10)));
+        if (m10 <= 3) a = 70; else if (m10 >= 8 && e10 <= 4) a = 60; else if (m10 <= 5 && e10 >= 7) a = 80; else a = Math.max(20, Math.min(80, 60 - (m10 - 5) * 10));
+      }
+    }
+    return weightedScore(m, e, a);
+  }, []);
+
+  // Emit active MindScore override based on current range + selection
+  React.useEffect(() => {
+    try {
+      if (typeof onSelectedScoreChange !== 'function') return;
+      if (!extended) { onSelectedScoreChange(null); return; }
+      // Weekly: follow day selection; no selection → let card use weekly score
+      if (range === 'week') {
+        if (chartSelection) {
+          const list = extended.rawDataPoints?.[chartSelection.date]?.entries || [];
+          const s = computeScoreFromEntries(list);
+          onSelectedScoreChange(typeof s === 'number' ? s : null);
+        } else {
+          // No selection: use whole-week aggregated score (all entries in 7-day window)
+          const allEntries: any[] = [];
+          (extended.dailyAverages || []).forEach((d: any) => {
+            const list = extended.rawDataPoints?.[d.date]?.entries || [];
+            if (Array.isArray(list) && list.length) allEntries.push(...list);
+          });
+          const sWeek = computeScoreFromEntries(allEntries);
+          onSelectedScoreChange(typeof sWeek === 'number' ? sWeek : null);
+        }
+        return;
+      }
+      // Aggregate ranges: selection → bucket score; no selection → whole-period score
+      if (range === 'month' || range === '6months' || range === 'year') {
+        if (chartSelection) {
+          const agg = (extended.aggregated?.data || []) as any[];
+          let bucket: any = agg.find(b => b.date === chartSelection.date);
+          if (!bucket && range === 'year') {
+            const monthKey = String(chartSelection.date).slice(0, 7);
+            bucket = agg.find(b => (b as any)?.date?.startsWith(monthKey));
+          }
+          const s = bucket?.entries && bucket.entries.length ? computeScoreFromEntries(bucket.entries) : computeScoreFromBucket(bucket);
+          onSelectedScoreChange(typeof s === 'number' ? s : null);
+          return;
+        }
+        // No selection: compute across whole period
+        const allEntries: any[] = [];
+        const agg = (extended.aggregated?.data || []) as any[];
+        agg.forEach((b: any) => { if (Array.isArray(b.entries)) allEntries.push(...b.entries); });
+        const s = computeScoreFromEntries(allEntries);
+        onSelectedScoreChange(typeof s === 'number' ? s : null);
+        return;
+      }
+      onSelectedScoreChange(null);
+    } catch {
+      try { if (typeof onSelectedScoreChange === 'function') onSelectedScoreChange(null); } catch {}
+    }
+  }, [chartSelection, range, extended, onSelectedScoreChange, computeScoreFromEntries, computeScoreFromBucket]);
+
+  // Emit meta (score + trend + label) for stats card
+  React.useEffect(() => {
+    try {
+      if (typeof onSelectedMetaChange !== 'function') return;
+      if (!extended) { onSelectedMetaChange({ score: null, trendPct: null, periodLabel: '—' }); return; }
+
+      const computeSeriesForWeek = () => {
+        const days = extended.dailyAverages || [];
+        const series: number[] = [];
+        days.forEach((d: any) => {
+          const list = extended.rawDataPoints?.[d.date]?.entries || [];
+          const s = computeScoreFromEntries(list);
+          if (typeof s === 'number') series.push(s);
+        });
+        return series;
+      };
+      const computeSeriesForAgg = () => {
+        const buckets = (extended.aggregated?.data || []) as any[];
+        const series: number[] = [];
+        buckets.forEach(b => {
+          const s = (Array.isArray(b.entries) && b.entries.length)
+            ? computeScoreFromEntries(b.entries)
+            : computeScoreFromBucket(b);
+          if (typeof s === 'number') series.push(s);
+        });
+        return series;
+      };
+      const pct = (a: number, b: number) => {
+        if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return null;
+        return Math.round(((a - b) / Math.max(1, b)) * 100);
+      };
+
+      const labelFromScore = (s: number) => (
+        s >= 90 ? 'Heyecanlı' :
+        s >= 80 ? 'Enerjik'  :
+        s >= 70 ? 'Mutlu'    :
+        s >= 60 ? 'Sakin'    :
+        s >= 50 ? 'Normal'   :
+        s >= 40 ? 'Endişeli' :
+        s >= 30 ? 'Sinirli'  :
+        s >= 20 ? 'Üzgün'    : 'Kızgın'
+      );
+
+      if (range === 'week') {
+        const series = computeSeriesForWeek();
+        const base = series.length ? series[0] : null;
+        if (chartSelection) {
+          const list = extended.rawDataPoints?.[chartSelection.date]?.entries || [];
+          const curr = computeScoreFromEntries(list);
+          const trendPct = (typeof curr === 'number' && typeof base === 'number') ? pct(curr, base) : null;
+          const p50s = computeP50sFromEntries(list);
+          onSelectedMetaChange({ score: (typeof curr === 'number' ? Math.round(curr) : null), trendPct, periodLabel: '1g', dominant: (typeof curr === 'number' ? labelFromScore(Math.round(curr)) : null), moodP50: p50s.mood, energyP50: p50s.energy, anxietyP50: p50s.anxiety });
+        } else {
+          // No selection → aggregate whole week for score/dominant; trend still vs first of series
+          const allEntries: any[] = [];
+          (extended.dailyAverages || []).forEach((d: any) => {
+            const list = extended.rawDataPoints?.[d.date]?.entries || [];
+            if (Array.isArray(list) && list.length) allEntries.push(...list);
+          });
+          const sWeek = computeScoreFromEntries(allEntries);
+          const p50s = computeP50sFromEntries(allEntries);
+          const curr = series.length ? series[series.length - 1] : null;
+          const trendPct = (typeof curr === 'number' && typeof base === 'number') ? pct(curr, base) : null;
+          onSelectedMetaChange({ score: (typeof sWeek === 'number' ? Math.round(sWeek) : null), trendPct, periodLabel: '7g', dominant: (typeof sWeek === 'number' ? labelFromScore(Math.round(sWeek)) : null), moodP50: p50s.mood, energyP50: p50s.energy, anxietyP50: p50s.anxiety });
+        }
+        return;
+      }
+
+      if (range === 'month' || range === '6months' || range === 'year') {
+        const series = computeSeriesForAgg();
+        const base = series.length ? series[0] : null;
+        if (chartSelection) {
+          const agg = (extended.aggregated?.data || []) as any[];
+          let bucket: any = agg.find(b => b.date === chartSelection.date);
+          if (!bucket && range === 'year') {
+            const monthKey = String(chartSelection.date).slice(0, 7);
+            bucket = agg.find(b => (b as any)?.date?.startsWith(monthKey));
+          }
+          const curr = (bucket?.entries && bucket.entries.length)
+            ? computeScoreFromEntries(bucket.entries)
+            : computeScoreFromBucket(bucket);
+          const trendPct = (typeof curr === 'number' && typeof base === 'number') ? pct(curr, base) : null;
+          // Period label for single bucket selection
+          const label = range === 'year' ? '1y' : (range === '6months' ? '6a' : '1a');
+          const p50sSel = (bucket?.entries && bucket.entries.length)
+            ? computeP50sFromEntries(bucket.entries)
+            : { mood: Number(bucket?.mood?.p50 ?? bucket?.p50 ?? null), energy: Number(bucket?.energy?.p50 ?? null), anxiety: Number(bucket?.anxiety?.p50 ?? null) };
+          onSelectedMetaChange({ score: (typeof curr === 'number' ? Math.round(curr) : null), trendPct, periodLabel: label, dominant: (typeof curr === 'number' ? labelFromScore(Math.round(curr)) : null), moodP50: p50sSel.mood, energyP50: p50sSel.energy, anxietyP50: p50sSel.anxiety });
+        } else {
+          // No selection → aggregate whole period for score/dominant; trend remains series-based (last vs first)
+          const agg = (extended.aggregated?.data || []) as any[];
+          const allEntries: any[] = [];
+          agg.forEach((b: any) => { if (Array.isArray(b.entries)) allEntries.push(...b.entries); });
+          const sPeriod = computeScoreFromEntries(allEntries);
+          const p50s = computeP50sFromEntries(allEntries);
+          const lastOfSeries = series.length ? series[series.length - 1] : null;
+          const trendPctV = (typeof lastOfSeries === 'number' && typeof base === 'number') ? pct(lastOfSeries, base) : null;
+          const label = range === 'year' ? '1y' : (range === '6months' ? '6a' : '1a');
+          onSelectedMetaChange({ score: (typeof sPeriod === 'number' ? Math.round(sPeriod) : null), trendPct: trendPctV, periodLabel: label, dominant: (typeof sPeriod === 'number' ? labelFromScore(Math.round(sPeriod)) : null), moodP50: p50s.mood, energyP50: p50s.energy, anxietyP50: p50s.anxiety });
+        }
+        return;
+      }
+
+      onSelectedMetaChange({ score: null, trendPct: null, periodLabel: '—', dominant: null });
+    } catch {
+      try { if (typeof onSelectedMetaChange === 'function') onSelectedMetaChange({ score: null, trendPct: null, periodLabel: '—', dominant: null }); } catch {}
+    }
+  }, [chartSelection, range, extended, onSelectedMetaChange, computeScoreFromEntries, computeScoreFromBucket]);
 
   // Helper: refresh current extended dataset for active range/page
   const refreshExtended = React.useCallback(async () => {
@@ -581,32 +796,7 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
                   return `${start.getFullYear()}`;
                 })()}</Text>
               </View>
-              {/* Right: Dominant emotion + trend (moved back to header) */}
-              <View style={styles.chartHeaderRight}>
-                <View style={styles.chip}>
-                  <Text style={styles.chipLabel}>Baskın</Text>
-                  <Text style={styles.chipValue}>{extended.statistics?.dominantEmotions?.[0]?.emotion || '—'}</Text>
-                </View>
-                {extended.weeklyTrend && (
-                  <View>
-                    {extended.weeklyTrend === 'up' && (
-                      <Svg width={14} height={14} viewBox="0 0 14 14">
-                        <Path d="M7 2 L12 10 L2 10 Z" fill="#10B981" />
-                      </Svg>
-                    )}
-                    {extended.weeklyTrend === 'down' && (
-                      <Svg width={14} height={14} viewBox="0 0 14 14">
-                        <Path d="M7 12 L12 4 L2 4 Z" fill="#EF4444" />
-                      </Svg>
-                    )}
-                    {extended.weeklyTrend === 'stable' && (
-                      <Svg width={14} height={14} viewBox="0 0 14 14">
-                        <Rect x="2" y="6" width="10" height="2" rx="1" fill="#6B7280" />
-                      </Svg>
-                    )}
-                  </View>
-                )}
-              </View>
+              {/* Right header extras removed (Baskın chip moved to MindScoreCard) */}
             </View>
           </Animated.View>
         )}
@@ -712,54 +902,41 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange }:
               // Helpers
               const nfmt = (n: number | undefined) => (Number.isFinite(n as any) ? Math.round((n as number) * 10) / 10 : '—');
               const fmtIQR = formatIQRText;
-              // Compute dominant emotion for selected day/period
+              // Compute dominant emotion based on weightedScore for selection/period
               const selectedDominant = (() => {
                 if (!extended) return '—';
-                let list: any[] = [];
+                const labelFromScore = (s: number) => (
+                  s >= 90 ? 'Heyecanlı' :
+                  s >= 80 ? 'Enerjik'  :
+                  s >= 70 ? 'Mutlu'    :
+                  s >= 60 ? 'Sakin'    :
+                  s >= 50 ? 'Normal'   :
+                  s >= 40 ? 'Endişeli' :
+                  s >= 30 ? 'Sinirli'  :
+                  s >= 20 ? 'Üzgün'    : 'Kızgın'
+                );
+                // Week/day: compute from entries
                 if (range === 'week') {
-                  list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                  const list = extended.rawDataPoints[chartSelection.date]?.entries || [];
+                  const s = computeScoreFromEntries(list);
+                  return (typeof s === 'number') ? labelFromScore(Math.round(s)) : '—';
                 } else if (range === 'day') {
-                  list = (extended.rawHourlyDataPoints as any)?.[chartSelection.date]?.entries || [];
-                } else {
-                  // Approximate from p50 mood
-                  const agg = extended.aggregated?.data || [] as any[];
-                  let bucket = agg.find((b: any) => b.date === chartSelection.date) as any;
-                  if (!bucket && range === 'year') {
-                    const monthKey = String(chartSelection.date).slice(0, 7);
-                    bucket = agg.find((b: any) => (b as any).date?.startsWith(monthKey));
-                  }
-                  const m = Number(bucket?.mood?.p50 ?? bucket?.avg ?? 0);
-                  if (!m) return '—';
-                  return (
-                    m >= 90 ? 'Heyecanlı' :
-                    m >= 80 ? 'Enerjik'  :
-                    m >= 70 ? 'Mutlu'    :
-                    m >= 60 ? 'Sakin'    :
-                    m >= 50 ? 'Normal'   :
-                    m >= 40 ? 'Endişeli' :
-                    m >= 30 ? 'Sinirli'  :
-                    m >= 20 ? 'Üzgün'    : 'Kızgın'
-                  );
+                  const list = (extended.rawHourlyDataPoints as any)?.[chartSelection.date]?.entries || [];
+                  const s = computeScoreFromEntries(list);
+                  return (typeof s === 'number') ? labelFromScore(Math.round(s)) : '—';
                 }
-                if (!Array.isArray(list) || list.length === 0) return '—';
-                const counts: Record<string, number> = {
-                  'Heyecanlı': 0, 'Enerjik': 0, 'Mutlu': 0, 'Sakin': 0, 'Normal': 0,
-                  'Endişeli': 0, 'Sinirli': 0, 'Üzgün': 0, 'Kızgın': 0,
-                };
-                list.forEach((e: any) => {
-                  const m = Number(e?.mood_score || 0);
-                  if (m >= 90) counts['Heyecanlı']++;
-                  else if (m >= 80) counts['Enerjik']++;
-                  else if (m >= 70) counts['Mutlu']++;
-                  else if (m >= 60) counts['Sakin']++;
-                  else if (m >= 50) counts['Normal']++;
-                  else if (m >= 40) counts['Endişeli']++;
-                  else if (m >= 30) counts['Sinirli']++;
-                  else if (m >= 20) counts['Üzgün']++;
-                  else counts['Kızgın']++;
-                });
-                const top = Object.entries(counts).sort((a,b) => b[1]-a[1]).find(([,c]) => c>0)?.[0];
-                return top || '—';
+                // Aggregate: from bucket (entries preferred), else aggregated p50
+                const agg = extended.aggregated?.data || [] as any[];
+                let bucket = agg.find((b: any) => b.date === chartSelection.date) as any;
+                if (!bucket && range === 'year') {
+                  const monthKey = String(chartSelection.date).slice(0, 7);
+                  bucket = agg.find((b: any) => (b as any).date?.startsWith(monthKey));
+                }
+                if (!bucket) return '—';
+                const s = (Array.isArray(bucket.entries) && bucket.entries.length)
+                  ? computeScoreFromEntries(bucket.entries)
+                  : computeScoreFromBucket(bucket);
+                return (typeof s === 'number') ? labelFromScore(Math.round(s)) : '—';
               })();
               // Quantiles for tooltip rows
               const qData = (() => {
