@@ -1066,7 +1066,6 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                               return `${start.getFullYear()}`;
                             })()}</Text>
                           {/* Legacy tooltip content removed */}
-                        )}
                         </View>
                         {/* Arrow pointing down to bar */}
                         <View style={[styles.tooltipArrow, { backgroundColor: theme.card, left: pointerX }]} />
