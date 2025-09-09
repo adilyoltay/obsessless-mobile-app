@@ -133,6 +133,67 @@ export default function DebugConsole() {
     } catch {}
   };
 
+  const handleShowDLQStats = async () => {
+    try {
+      const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+      const stats = await deadLetterQueue.getStatistics();
+      const byEntity = Object.entries(stats.byEntity)
+        .map(([k, v]) => `• ${k}: ${v}`)
+        .join('\n');
+      const byError = Object.entries(stats.byError)
+        .map(([k, v]) => `• ${k}: ${v}`)
+        .join('\n');
+      Alert.alert(
+        'DLQ Stats',
+        `Toplam: ${stats.total}\nRetryable: ${stats.retryable}\nArchived: ${stats.archived}\n\nVarlıklar:\n${byEntity || '—'}\n\nHata Kodları:\n${byError || '—'}`
+      );
+    } catch (e: any) {
+      Alert.alert('DLQ Stats', `Okuma hatası: ${e?.message || e || 'Bilinmeyen'}`);
+    }
+  };
+
+  const handleForceSyncNow = async () => {
+    try {
+      const ok = await offlineSyncService.forceSyncNow();
+      Alert.alert('Force Sync', ok ? 'Kuyruk boşaltıldı.' : 'Senkronizasyon tetiklendi. Kuyrukta öğeler olabilir.');
+    } catch (e: any) {
+      Alert.alert('Force Sync', `Hata: ${e?.message || e || 'Bilinmeyen'}`);
+    }
+  };
+
+  const handleRetryOneDLQ = async () => {
+    try {
+      const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+      const items = await deadLetterQueue.list(100);
+      const found = items.find((i: any) => i.canRetry && !i.archived);
+      if (!found) {
+        Alert.alert('DLQ Retry', 'Retryable öğe bulunamadı.');
+        return;
+      }
+      const ok = await deadLetterQueue.retryDeadLetterItem(found.id, async (payload: any) => {
+        const { offlineSyncService } = await import('@/services/offlineSync');
+        await offlineSyncService.addToSyncQueue({
+          type: found.type as any,
+          entity: found.entity as any,
+          data: payload,
+        } as any);
+      });
+      Alert.alert('DLQ Retry', ok ? `Yeniden kuyruğa alındı: ${found.entity}/${found.type}` : 'Retry başarısız');
+    } catch (e: any) {
+      Alert.alert('DLQ Retry', `Hata: ${e?.message || e || 'Bilinmeyen'}`);
+    }
+  };
+
+  const handleArchiveOldDLQ = async () => {
+    try {
+      const { deadLetterQueue } = await import('@/services/sync/deadLetterQueue');
+      const removed = await deadLetterQueue.archiveOldItems();
+      Alert.alert('DLQ Archive', `${removed} öğe arşivlendi (eski kayıtlar).`);
+    } catch (e: any) {
+      Alert.alert('DLQ Archive', `Hata: ${e?.message || e || 'Bilinmeyen'}`);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy': return 'check-circle';
@@ -222,6 +283,22 @@ export default function DebugConsole() {
             <Pressable onPress={handleShowSyncMetrics} style={[styles.actionButton, styles.infoAction]}>
               <Text style={styles.infoActionText}>Show Metrics</Text>
             </Pressable>
+            {__DEV__ && (
+              <>
+                <Pressable onPress={handleShowDLQStats} style={[styles.actionButton, styles.warningAction]}>
+                  <Text style={styles.warningActionText}>DLQ Stats</Text>
+                </Pressable>
+                <Pressable onPress={handleForceSyncNow} style={[styles.actionButton, styles.primaryAction]}>
+                  <Text style={styles.primaryActionText}>Force Sync Now</Text>
+                </Pressable>
+                <Pressable onPress={handleRetryOneDLQ} style={[styles.actionButton, styles.infoAction]}>
+                  <Text style={styles.infoActionText}>Retry One</Text>
+                </Pressable>
+                <Pressable onPress={handleArchiveOldDLQ} style={[styles.actionButton, styles.warningAction]}>
+                  <Text style={styles.warningActionText}>Archive Old</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         </Card>
 

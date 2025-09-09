@@ -5,7 +5,7 @@ import MoodFace from './mood/MoodFace';
 import MoodEnergyGaugeArc from '@/components/mind/MoodEnergyGaugeArc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getVAColorFromScores, getGradientFromBase, mixHex } from '@/utils/colorUtils';
+import { getVAColorFromScores, getGradientFromBase, mixHex, getBramanMoodColor, getAppleMoodColor } from '@/utils/colorUtils';
 import { to0100, weightedScore } from '@/utils/mindScore';
 import { useAccentColor } from '@/contexts/AccentColorContext';
 import { BramanColors } from '@/constants/Colors';
@@ -45,6 +45,12 @@ type Props = {
   trendPctOverride?: number | null;
   // Period label for micro trend badge (e.g., '7g', '1a', '6a', '1y')
   periodLabelOverride?: string | null;
+  // Inline MEA stats to render inside hero (under needle)
+  meaMood?: number | null;
+  meaEnergy?: number | null;
+  meaAnxiety?: number | null;
+  // Optional: control hero gauge height for responsive fit
+  heroGaugeHeight?: number;
 };
 
 // ---- math helpers ----
@@ -201,7 +207,7 @@ const Chip = ({ label, accentColor, onGradient, icon, style, textStyle }: { labe
   </View>
 );
 
-export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling', coloredBackground = false, colorized = false, selectedDayScoreOverride = null, dominantLabel = null, trendPctOverride = null, periodLabelOverride = null }: Props) {
+export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkline = true, gradientColors = ['#34d399', '#059669'], loading, emptyHint, onQuickStart, sparkStyle = 'line', moodVariance, variant = 'hero', streakCurrent = 0, streakBest = 0, streakLevel = 'seedling', coloredBackground = false, colorized = false, selectedDayScoreOverride = null, dominantLabel = null, trendPctOverride = null, periodLabelOverride = null, meaMood = null, meaEnergy = null, meaAnxiety = null, heroGaugeHeight }: Props) {
   const { palette } = useAccentColor();
   console.log('🚀 MindScoreCard props:', { streakCurrent, streakBest, streakLevel, variant, coloredBackground });
   // Normalize and sort by date ascending
@@ -668,6 +674,29 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [segIdx]);
     
+    // Inline MEA stats values/colors (from props), match original card visuals
+    const mvVal = Number.isFinite(meaMood as any) ? Math.round(meaMood as any) : NaN;
+    const evVal = Number.isFinite(meaEnergy as any) ? Math.round(meaEnergy as any) : NaN;
+    const avVal = Number.isFinite(meaAnxiety as any) ? Math.round(meaAnxiety as any) : NaN;
+    const moodColorInline = (() => {
+      const mvr = Number.isFinite(mvVal) ? mvVal : 55;
+      if (palette === 'braman') return getBramanMoodColor(mvr);
+      if (palette === 'apple') return getAppleMoodColor(mvr);
+      const e10 = Number.isFinite(evVal) ? evVal : 6;
+      return getVAColorFromScores(mvr, e10);
+    })();
+    const energyColorInline = (() => {
+      const ratio = Number.isFinite(evVal) ? Math.max(0, Math.min(1, (evVal as number) / 10)) : 0.6;
+      if (palette === 'braman') return ratio < 0.33 ? '#F4A09C' : ratio < 0.66 ? '#F5D99C' : '#94B49F';
+      return ratio < 0.33 ? '#EF4444' : ratio < 0.66 ? '#F59E0B' : '#10B981';
+    })();
+    const anxietyColorInline = palette === 'braman' ? '#F4A09C' : '#EF4444';
+
+    // Responsive gauge height based on prop
+    const FACE_H = (() => {
+      const h = typeof heroGaugeHeight === 'number' && isFinite(heroGaugeHeight) ? heroGaugeHeight : 224;
+      return Math.max(168, Math.min(224, Math.round(h)));
+    })();
     return (
       <View style={styles.heroCard}>
         {/* Background coloring disabled: keep neutral white background */}
@@ -724,9 +753,9 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
             </View>
           );
         })()}
-        <View style={styles.faceGaugeWrap}>
-          <View style={styles.faceGaugeArea} onLayout={(e) => setGaugeW(Math.round(e.nativeEvent.layout.width))}>
-          <Svg width="100%" height={224} viewBox="0 0 300 224">
+        <View style={[styles.faceGaugeWrap, styles.faceGaugeTight]}>
+          <View style={[styles.faceGaugeArea, { height: FACE_H }]} onLayout={(e) => setGaugeW(Math.round(e.nativeEvent.layout.width))}>
+          <Svg width="100%" height={FACE_H} viewBox="0 0 300 224">
             {(() => {
               const cx = 150, cy = 184, r = 108, seg = 36; // more vertical space, slightly smaller ring
               const colors = ringColors;
@@ -885,6 +914,78 @@ export default function MindScoreCard({ week, title = 'Zihin Skoru', showSparkli
           {/* bottom progress bar removed */}
           {/* meta row moved to external MindMetaRowCard */}
         </View>
+        {/* Inline MEA stats under needle (single card) */}
+        {(meaMood != null || meaEnergy != null || meaAnxiety != null) && (
+          <>
+          <View style={styles.meaRow}>
+            {/* Mood */}
+            <View style={styles.meaCell}>
+              <View style={styles.meaTopRow}>
+                <Svg width={16} height={16} viewBox="0 0 16 16" style={{ marginRight: 6 }}>
+                  <Circle cx={8} cy={8} r={6.6} stroke={moodColorInline} strokeWidth={1.6} fill="none" />
+                  <Circle cx={5.6} cy={6.3} r={0.9} fill={moodColorInline} />
+                  <Circle cx={10.4} cy={6.3} r={0.9} fill={moodColorInline} />
+                  <Path d="M5 9.2 C6.1 11.1, 9.9 11.1, 11 9.2" stroke={moodColorInline} strokeWidth={1.6} fill="none" strokeLinecap="round" />
+                </Svg>
+                <Text style={styles.meaValue}>{Number.isFinite(mvVal) ? `${mvVal}/100` : '—'}</Text>
+              </View>
+              <Text style={styles.meaLabel}>Mood</Text>
+            </View>
+            <View style={styles.meaDivider} />
+            {/* Energy */}
+            <View style={styles.meaCell}>
+              <View style={styles.meaTopRow}>
+                <Svg width={16} height={16} viewBox="0 0 16 16" style={{ marginRight: 6 }}>
+                  <Defs>
+                    <SvgLinearGradient id="batteryGradHeroInline" x1="0" y1="0" x2="1" y2="0">
+                      <Stop offset="0%" stopColor="#EF4444" />
+                      <Stop offset="50%" stopColor="#F59E0B" />
+                      <Stop offset="100%" stopColor="#10B981" />
+                    </SvgLinearGradient>
+                  </Defs>
+                  {(() => {
+                    const ev = Number.isFinite(evVal) ? Math.max(0, Math.min(10, Math.round(evVal as any))) : NaN;
+                    const ratio = Number.isFinite(ev) ? Math.max(0, Math.min(1, (ev as number) / 10)) : 0.6;
+                    const maxW = 11 - 2;
+                    const w = Math.max(0.8, maxW * ratio);
+                    const energyColor = energyColorInline;
+                    return (
+                      <>
+                        <Rect x={1.2} y={4} width={11} height={8} rx={2} ry={2} stroke={energyColor} strokeWidth={1.6} fill="none" />
+                        <Rect x={12.8} y={6} width={2} height={4} rx={0.8} ry={0.8} fill={energyColor} />
+                        <Rect x={2} y={5} width={w} height={6} rx={1} ry={1} fill={'url(#batteryGradHeroInline)'} opacity={0.95} />
+                      </>
+                    );
+                  })()}
+                </Svg>
+                <Text style={styles.meaValue}>{Number.isFinite(evVal) ? `${evVal}/10` : '—'}</Text>
+              </View>
+              <Text style={styles.meaLabel}>Enerji</Text>
+            </View>
+            <View style={styles.meaDivider} />
+            {/* Anxiety */}
+            <View style={styles.meaCell}>
+              <View style={styles.meaTopRow}>
+                <Svg width={16} height={16} viewBox="0 0 16 16" style={{ marginRight: 6 }}>
+                  {(() => {
+                    const av = Number.isFinite(avVal) ? Math.max(0, Math.min(10, Math.round(avVal as any))) : NaN;
+                    const ratio = Number.isFinite(av) ? Math.max(0, Math.min(1, (av as number) / 10)) : 0.5;
+                    const base = 10;
+                    const amp = 2 + (5.5 - 2) * ratio;
+                    const up = (base - amp).toFixed(2);
+                    const down = (base + amp).toFixed(2);
+                    const d = `M1.5 ${base} C3 ${up}, 5 ${down}, 7 ${base} C9 ${up}, 11 ${down}, 13 ${base}`;
+                    const strokeW = 1.2 + 0.6 * ratio;
+                    return <Path d={d} stroke={anxietyColorInline} strokeWidth={strokeW} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+                  })()}
+                </Svg>
+                <Text style={styles.meaValue}>{Number.isFinite(avVal) ? `${avVal}/10` : '—'}</Text>
+              </View>
+              <Text style={styles.meaLabel}>Anksiyete</Text>
+            </View>
+          </View>
+          </>
+        )}
       </View>
     );
   }
@@ -1297,6 +1398,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  faceGaugeTight: {
+    paddingBottom: 0,
+  },
   faceGaugeArea: {
     width: '100%',
     height: 224,
@@ -1395,6 +1499,31 @@ const styles = StyleSheet.create({
   },
   scoreChipRow: { flexDirection: 'row', alignItems: 'center' },
   scoreChipText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  // Inline MEA stats row inside hero
+  meaRow: {
+    marginTop: 0,
+    marginBottom: 6,
+    marginHorizontal: 16,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  meaSeparator: {
+    height: 1,
+    marginTop: 1,
+    marginHorizontal: 16,
+    backgroundColor: '#E5E7EB',
+    opacity: 1,
+  },
+  meaCell: { flex: 1, alignItems: 'center' },
+  meaTopRow: { flexDirection: 'row', alignItems: 'center' },
+  meaValue: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  meaLabel: { marginTop: 4, fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  meaDivider: { width: 1, height: 28, backgroundColor: '#E5E7EB' },
   streakTopLeft: {
     position: 'absolute',
     top: 8,

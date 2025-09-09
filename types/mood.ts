@@ -119,4 +119,24 @@ export interface MoodJourneyExtended {
     granularity: 'day' | 'week' | 'month';
     data: AggregatedData[];
   };
+
+  // AI tahmin overlay (manuel verileri bozmadan gösterim için)
+  aiOverlay?: {
+    daily?: Array<{
+      date: string;           // YYYY-MM-DD
+      mood?: number;          // 0..100
+      energy?: number;        // 1..10
+      anxiety?: number;       // 1..10
+      confidence?: number;    // 0..1
+    }>;
+    aggregated?: {
+      granularity: 'week' | 'month';
+      points: Array<{
+        date: string;        // weekKey (YYYY-MM-DD) | monthKey start (YYYY-MM-01)
+        mood?: number;       // 0..100 (avg of available daily overlay)
+        confidence?: number; // avg or max confidence
+        count?: number;      // contributing days
+      }>;
+    };
+  };
 }

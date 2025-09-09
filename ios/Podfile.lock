@@ -372,6 +372,8 @@ PODS:
   - hermes-engine (0.79.5):
     - hermes-engine/Pre-built (= 0.79.5)
   - hermes-engine/Pre-built (0.79.5)
+  - kingstinct-react-native-healthkit (7.3.2):
+    - React
   - libavif/core (0.11.1)
   - libavif/libdav1d (0.11.1):
     - libavif/core
@@ -2484,9 +2486,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - SDWebImage (5.21.1):
-    - SDWebImage/Core (= 5.21.1)
-  - SDWebImage/Core (5.21.1)
+  - SDWebImage (5.21.2):
+    - SDWebImage/Core (= 5.21.2)
+  - SDWebImage/Core (5.21.2)
   - SDWebImageAVIFCoder (0.11.0):
     - libavif/core (>= 0.11.0)
     - SDWebImage (~> 5.10)
@@ -2573,6 +2575,7 @@ DEPENDENCIES:
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - "kingstinct-react-native-healthkit (from `../node_modules/@kingstinct/react-native-healthkit`)"
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCT-Folly/Fabric (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -2762,6 +2765,8 @@ EXTERNAL SOURCES:
   hermes-engine:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-06-04-RNv0.79.3-7f9a871eefeb2c3852365ee80f0b6733ec12ac3b
+  kingstinct-react-native-healthkit:
+    :path: "../node_modules/@kingstinct/react-native-healthkit"
   RCT-Folly:
     :podspec: "../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -2964,6 +2969,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
+  kingstinct-react-native-healthkit: 7477bb1cff566fd70cb1967730a611a52409ee72
   libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3041,7 +3047,7 @@ SPEC CHECKSUMS:
   RNReanimated: 2313402fe27fecb7237619e9c6fcee3177f08a65
   RNScreens: 482e9707f9826230810c92e765751af53826d509
   RNSVG: 794f269526df9ddc1f79b3d1a202b619df0368e3
-  SDWebImage: f29024626962457f3470184232766516dee8dfea
+  SDWebImage: 9f177d83116802728e122410fb25ad88f5c7608a
   SDWebImageAVIFCoder: 00310d246aab3232ce77f1d8f0076f8c4b021d90
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380

@@ -27,7 +27,7 @@ export class QueueValidator {
   
   // Supported entities and operations
   private readonly SUPPORTED_ENTITIES = new Set([
-    'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'user_profile'
+    'achievement', 'mood_entry', 'ai_profile', 'treatment_plan', 'voice_checkin', 'user_profile', 'ai_mood_prediction'
   ]);
   
   private readonly SUPPORTED_OPERATIONS = new Set(['CREATE', 'UPDATE', 'DELETE']);
@@ -39,7 +39,8 @@ export class QueueValidator {
     user_profile: ['user_id'],
     ai_profile: ['user_id', 'profile_data'],
     treatment_plan: ['user_id', 'plan_data'],
-    achievement: ['user_id', 'achievement_id']
+    achievement: ['user_id', 'achievement_id'],
+    ai_mood_prediction: ['user_id', 'bucket_ymd_local', 'mood_score_pred']
   };
 
   static getInstance(): QueueValidator {
@@ -152,9 +153,32 @@ export class QueueValidator {
       case 'achievement':
         this.validateAchievement(data, errors, warnings);
         break;
+      case 'ai_mood_prediction':
+        this.validateAIMoodPrediction(data, errors, warnings);
+        break;
     }
 
     return { isValid: errors.length === 0, errors, warnings };
+  }
+
+  private validateAIMoodPrediction(data: any, errors: string[], warnings: string[]): void {
+    if (typeof data.mood_score_pred !== 'number' || data.mood_score_pred < 0 || data.mood_score_pred > 100) {
+      errors.push('mood_score_pred must be a number between 0-100');
+    }
+    if (data.energy_level_pred !== undefined && (typeof data.energy_level_pred !== 'number' || data.energy_level_pred < 1 || data.energy_level_pred > 10)) {
+      errors.push('energy_level_pred must be a number between 1-10');
+    }
+    if (data.anxiety_level_pred !== undefined && (typeof data.anxiety_level_pred !== 'number' || data.anxiety_level_pred < 1 || data.anxiety_level_pred > 10)) {
+      errors.push('anxiety_level_pred must be a number between 1-10');
+    }
+    if (!data.bucket_ymd_local || typeof data.bucket_ymd_local !== 'string') {
+      errors.push('bucket_ymd_local is required (YYYY-MM-DD)');
+    }
+    if (data.bucket_granularity && !['day','hour'].includes(String(data.bucket_granularity))) {
+      warnings.push('bucket_granularity should be day or hour');
+    }
+    if (!data.model_name) warnings.push('model_name is recommended');
+    if (!data.model_version) warnings.push('model_version is recommended');
   }
 
   private validateMoodEntry(data: any, errors: string[], warnings: string[]): void {

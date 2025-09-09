@@ -4,8 +4,12 @@ import { formatDateYMD } from '@/utils/chartUtils';
 import { getUserDateString, toUserLocalDate } from '@/utils/timezoneUtils';
 import type { MoodJourneyExtended, TimeRange, MoodEntryLite, DailyAverage, EmotionDistribution, TriggerFrequency, RawDataPoint, AggregatedData } from '@/types/mood';
 import { quantiles, deriveAnxietySeries } from '@/utils/statistics';
+import { weightedScore } from '@/utils/mindScore';
 import { getTrendFromP50 } from '@/utils/trend';
 import { getWeekStart, formatWeekKey, getWeekLabel, getMonthKey, getMonthLabel, calculateVariance, average } from '@/utils/dateAggregation';
+import supabaseService from '@/services/supabase';
+import predictionRepository from '@/services/ai/predictionRepository';
+import type { AIPrediction } from '@/types/ai';
 
 type CacheEntry = { data: MoodJourneyExtended; timestamp: number };
 
@@ -364,23 +368,31 @@ export class OptimizedMoodDataLoader {
     })();
 
     const dominantEmotions: EmotionDistribution[] = (() => {
-      // CRITICAL FIX: Use only valid (non-neutral) moods for emotion distribution
-      const realMoodEntries = lite.filter(e => e.mood_score > 0 && e.mood_score !== 50);
-      const buckets = {
-        'Heyecanlı': realMoodEntries.filter(e => e.mood_score >= 90).length,
-        'Enerjik': realMoodEntries.filter(e => e.mood_score >= 80 && e.mood_score < 90).length,
-        'Mutlu': realMoodEntries.filter(e => e.mood_score >= 70 && e.mood_score < 80).length,
-        'Sakin': realMoodEntries.filter(e => e.mood_score >= 60 && e.mood_score < 70).length,
-        'Normal': realMoodEntries.filter(e => e.mood_score >= 50 && e.mood_score < 60).length,
-        'Endişeli': realMoodEntries.filter(e => e.mood_score >= 40 && e.mood_score < 50).length,
-        'Sinirli': realMoodEntries.filter(e => e.mood_score >= 30 && e.mood_score < 40).length,
-        'Üzgün': realMoodEntries.filter(e => e.mood_score >= 20 && e.mood_score < 30).length,
-        'Kızgın': realMoodEntries.filter(e => e.mood_score < 20).length,
-      } as Record<string, number>;
-      const total = realMoodEntries.length || 1;
-      return Object.entries(buckets)
-        .filter(([_, c]) => c > 0)
-        .map(([emotion, c]) => ({ emotion, percentage: Math.round((c / total) * 100) }))
+      // Unified: derive dominant emotions from weightedScore per entry
+      const labelFromScore = (s: number) => (
+        s >= 90 ? 'Heyecanlı' :
+        s >= 80 ? 'Enerjik'  :
+        s >= 70 ? 'Mutlu'    :
+        s >= 60 ? 'Sakin'    :
+        s >= 50 ? 'Normal'   :
+        s >= 40 ? 'Endişeli' :
+        s >= 30 ? 'Sinirli'  :
+        s >= 20 ? 'Üzgün'    : 'Kızgın'
+      );
+      const counts: Record<string, number> = { Heyecanlı:0, Enerjik:0, Mutlu:0, Sakin:0, Normal:0, Endişeli:0, Sinirli:0, Üzgün:0, Kızgın:0 };
+      let total = 0;
+      for (const e of lite) {
+        const s = weightedScore(e.mood_score as any, e.energy_level as any, e.anxiety_level as any);
+        if (typeof s === 'number' && Number.isFinite(s)) {
+          const label = labelFromScore(Math.round(s));
+          counts[label] = (counts[label] || 0) + 1;
+          total++;
+        }
+      }
+      const denom = total || 1;
+      return Object.entries(counts)
+        .filter(([, c]) => c > 0)
+        .map(([emotion, c]) => ({ emotion, percentage: Math.round((c / denom) * 100) }))
         .sort((a, b) => b.percentage - a.percentage)
         .slice(0, 3);
     })();
@@ -573,6 +585,104 @@ export class OptimizedMoodDataLoader {
       return undefined;
     })();
 
+    // AI OVERLAY: Fetch daily predictions (local + remote) for overlay
+    let aiOverlayDaily: Array<{ date: string; mood?: number; energy?: number; anxiety?: number; confidence?: number }> | undefined;
+    try {
+      // 1) Local predictions per day (encrypted repo)
+      const localMap = await predictionRepository.getRange(userId, dayKeys);
+      // 2) Remote predictions since earliest day
+      let remotePreds: AIPrediction[] = [];
+      try {
+        const sinceYmd = dayKeys.length > 0 ? dayKeys[0] : formatDateYMD(startWindow);
+        remotePreds = await (supabaseService as any).getAIPredictions(userId, sinceYmd, 'day');
+      } catch (e) {
+        // Offline or not available – ignore
+      }
+
+      const pickBest = (items: AIPrediction[]): AIPrediction | undefined => {
+        if (!items || items.length === 0) return undefined;
+        const sorted = [...items].sort((a, b) => {
+          const ca = (b.confidence ?? 0) - (a.confidence ?? 0);
+          if (ca !== 0) return ca;
+          const ta = (new Date(b.created_at || b.bucket_start_ts_utc).getTime()) - (new Date(a.created_at || a.bucket_start_ts_utc).getTime());
+          return ta;
+        });
+        return sorted[0];
+      };
+
+      aiOverlayDaily = dayKeys.map((dk) => {
+        const locals = localMap[dk] || [];
+        const remotes = remotePreds.filter(p => p.bucket_ymd_local === dk);
+        const best = pickBest([...(locals as any), ...remotes]);
+        return best ? {
+          date: dk,
+          mood: best.mood_score_pred,
+          energy: best.energy_level_pred,
+          anxiety: best.anxiety_level_pred,
+          confidence: best.confidence ?? undefined,
+        } : { date: dk };
+      }).filter(x => x); // preserve ordering
+
+      // Build aggregated overlay if we have aggregated buckets
+      let aiOverlayAggregated: MoodJourneyExtended['aiOverlay']['aggregated'] | undefined;
+      const agg = aggregated;
+      if (agg && aiOverlayDaily && aiOverlayDaily.length) {
+        if (agg.granularity === 'week') {
+          const groups = new Map<string, number[]>();
+          const confs = new Map<string, number[]>();
+          for (const o of aiOverlayDaily) {
+            if (!o.mood || !Number.isFinite(o.mood)) continue;
+            const wk = formatWeekKey(o.date);
+            if (!groups.has(wk)) groups.set(wk, []);
+            groups.get(wk)!.push(o.mood);
+            if (o.confidence != null) {
+              if (!confs.has(wk)) confs.set(wk, []);
+              confs.get(wk)!.push(o.confidence);
+            }
+          }
+          const points = (agg.data || []).map((b) => {
+            const moods = groups.get(b.date) || [];
+            const conf = confs.get(b.date) || [];
+            const avgMood = moods.length ? Math.round(moods.reduce((s, v) => s + v, 0) / moods.length) : undefined as any;
+            const avgConf = conf.length ? (conf.reduce((s, v) => s + v, 0) / conf.length) : undefined;
+            return { date: b.date, mood: avgMood, confidence: avgConf, count: moods.length };
+          });
+          aiOverlayAggregated = { granularity: 'week', points };
+        } else if (agg.granularity === 'month') {
+          const groups = new Map<string, number[]>();
+          const confs = new Map<string, number[]>();
+          for (const o of aiOverlayDaily) {
+            if (!o.mood || !Number.isFinite(o.mood)) continue;
+            const mk = getMonthKey(o.date);
+            if (!groups.has(mk)) groups.set(mk, []);
+            groups.get(mk)!.push(o.mood);
+            if (o.confidence != null) {
+              if (!confs.has(mk)) confs.set(mk, []);
+              confs.get(mk)!.push(o.confidence);
+            }
+          }
+          const points = (agg.data || []).map((b) => {
+            // For month granularity, aggregated.date is like 'YYYY-MM-01'
+            const mk = getMonthKey(b.date);
+            const moods = groups.get(mk) || [];
+            const conf = confs.get(mk) || [];
+            const avgMood = moods.length ? Math.round(moods.reduce((s, v) => s + v, 0) / moods.length) : undefined as any;
+            const avgConf = conf.length ? (conf.reduce((s, v) => s + v, 0) / conf.length) : undefined;
+            return { date: b.date, mood: avgMood, confidence: avgConf, count: moods.length };
+          });
+          aiOverlayAggregated = { granularity: 'month', points };
+        }
+      }
+
+      // Attach aggregated overlay to be rendered by aggregate modes
+      if (aiOverlayAggregated) {
+        // We will add this when creating extended below via aiOverlay
+        (aiOverlayDaily as any)._aggregated = aiOverlayAggregated;
+      }
+    } catch (e) {
+      // Silent fail — overlay is optional
+    }
+
     const extended: MoodJourneyExtended = {
       weeklyEntries,
       todayAverage,
@@ -595,6 +705,10 @@ export class OptimizedMoodDataLoader {
       dailyAverages,
       hourlyAverages: hourlyAverages,
       aggregated,
+      aiOverlay: aiOverlayDaily && aiOverlayDaily.length ? { 
+        daily: aiOverlayDaily,
+        aggregated: (aiOverlayDaily as any)._aggregated
+      } : undefined,
       // Optionally attach full arrays for larger ranges
       monthlyEntries: range === 'month' ? weeklyEntries : undefined,
       sixMonthEntries: range === '6months' ? weeklyEntries : undefined,

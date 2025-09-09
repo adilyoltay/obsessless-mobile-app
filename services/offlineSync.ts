@@ -19,7 +19,7 @@ import { syncMaintenance } from '@/services/sync/syncMaintenance';
 export interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile';
+  entity: 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile' | 'ai_mood_prediction';
   data: any;
   timestamp: number;
   retryCount: number;
@@ -312,7 +312,7 @@ export class OfflineSyncService {
       // 🔐 SECURITY FIX: Replace insecure Date.now() + Math.random() with crypto-secure UUID
       id: generateSecureId(),
       type: sanitizedTempItem.type,
-      entity: sanitizedTempItem.entity as 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile',
+      entity: sanitizedTempItem.entity as 'achievement' | 'mood_entry' | 'ai_profile' | 'treatment_plan' | 'voice_checkin' | 'user_profile' | 'ai_mood_prediction',
       data: sanitizedTempItem.data,
       timestamp: Date.now(),
       retryCount: 0,
@@ -545,10 +545,41 @@ export class OfflineSyncService {
       case 'voice_checkin':
         await this.syncVoiceCheckin(item);
         break;
+      case 'ai_mood_prediction':
+        await this.syncAIMoodPrediction(item);
+        break;
       // thought_record removed
       default:
         throw new Error(`Unknown entity type: ${item.entity}`);
     }
+  }
+
+  private async syncAIMoodPrediction(item: SyncQueueItem): Promise<void> {
+    // Only CREATE/UPDATE supported; DELETE not supported for predictions (historical data)
+    if (item.type === 'DELETE') {
+      console.warn('⚠️ DELETE not supported for ai_mood_prediction, skipping');
+      return;
+    }
+    const d = item.data || {};
+    const { default: svc } = await import('@/services/supabase');
+    const uid = await this.resolveValidUserId(d.user_id || d.userId);
+    const pred = {
+      user_id: uid,
+      bucket_granularity: d.bucket_granularity || 'day',
+      bucket_start_ts_utc: d.bucket_start_ts_utc,
+      bucket_ymd_local: d.bucket_ymd_local,
+      mood_score_pred: Math.max(0, Math.min(100, Math.round(d.mood_score_pred))),
+      energy_level_pred: Math.max(1, Math.min(10, Math.round(d.energy_level_pred))),
+      anxiety_level_pred: Math.max(1, Math.min(10, Math.round(d.anxiety_level_pred))),
+      depression_risk: d.depression_risk != null ? Number(d.depression_risk) : null,
+      bipolar_risk: d.bipolar_risk != null ? Number(d.bipolar_risk) : null,
+      confidence: d.confidence != null ? Number(d.confidence) : null,
+      model_name: d.model_name || 'big-mood-detector',
+      model_version: d.model_version || 'v1',
+      features_hash: d.features_hash,
+      content_hash: d.content_hash,
+    } as any;
+    await (svc as any).upsertAIPrediction(pred);
   }
 
   // compulsion sync removed
@@ -1254,7 +1285,9 @@ export class OfflineSyncService {
           
         case 'treatment_plan':
           return await this.checkTreatmentPlanIdempotency(item, userId);
-          
+        case 'ai_mood_prediction':
+          return await this.checkAIMoodPredictionIdempotency(item, userId);
+        
         default:
           console.warn(`⚠️ No idempotency check implemented for entity: ${item.entity}`);
           return false;
@@ -1263,6 +1296,29 @@ export class OfflineSyncService {
       console.error('❌ Idempotency check failed:', error);
       return false; // Fail safe - allow item through if check fails
     }
+  }
+
+  private async checkAIMoodPredictionIdempotency(item: SyncQueueItem, userId: string): Promise<boolean> {
+    // Use composite of date + model + version for dedup within a short window
+    const ymd = item.data?.bucket_ymd_local;
+    const model = item.data?.model_name || 'big-mood-detector';
+    const ver = item.data?.model_version || 'v1';
+    if (!ymd) return false;
+    const storageKey = `idempotency_ai_pred_${userId}_${ymd}_${model}_${ver}`;
+    try {
+      const existing = await AsyncStorage.getItem(storageKey);
+      if (existing) {
+        // Prevent spamming: once per hour per bucket by default
+        const existingData = JSON.parse(existing);
+        const age = Date.now() - new Date(existingData.timestamp).getTime();
+        if (age < 60 * 60 * 1000) {
+          console.log('🛡️ Duplicate AI prediction prevented (recently queued):', { userId, ymd, model, ver });
+          return true;
+        }
+      }
+      await AsyncStorage.setItem(storageKey, JSON.stringify({ timestamp: new Date().toISOString() }));
+    } catch {}
+    return false;
   }
 
   /**

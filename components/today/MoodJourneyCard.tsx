@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, ActivityIndicator, Dimensions } from 'react-native';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -802,62 +802,75 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
         )}
         {/* Interactive chart - Apple Health Style V2 with loading state */}
         {isLoadingRange ? (
-          <View style={styles.loadingContainer}>
+          <View style={[styles.loadingContainer, (() => { const h = Dimensions.get('window').height; const HH = h < 740 ? 200 : (h < 820 ? 220 : 260); return { height: HH }; })()] }>
             <ActivityIndicator size="small" color="#9CA3AF" />
             <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
           </View>
         ) : extended ? (
-          <AppleHealthStyleChartV2
-            data={extended}
-            timeRange={range}
-            embedHeader={false}
-            showMoodTrend={!moodLocked && showMoodLine}
-            showEnergy={showEnergyLine}
-            showAnxiety={showAnxietyLine}
-            onSelectionChange={(sel) => setChartSelection(sel)}
-            clearSelectionSignal={clearSignal}
-            selectIndex={isDraggingTooltip ? externalSelectIndex : undefined}
-            onRequestPage={(dir) => {
-              // dir: 'prev' (older) => page+1, 'next' (newer) => page-1 but not < 0
-              setChartSelection(null);
-              setClearSignal(s => s + 1);
-              setPage((p) => dir === 'prev' ? p + 1 : Math.max(0, p - 1));
-            }}
-            onDayPress={(date) => {
-              // no-op: detail opens from tooltip tap only
-              // Sync hero VA color with the tapped bar
-              try {
-                const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
-                let mood = 0;
-                let energy = 6;
-                if (range === 'week') {
-                  const day = extended.dailyAverages.find(d => d.date === date);
-                  if (day) {
-                    mood = Math.max(0, Math.min(100, Math.round(day.averageMood || 0)));
-                    energy = Math.max(1, Math.min(10, Math.round(day.averageEnergy || extended.weeklyEnergyAvg || 6)));
-                  }
-                } else {
-                  const agg = extended.aggregated?.data || [];
-                  let bucket = agg.find(b => b.date === date) as any;
-                  if (!bucket && range === 'year') {
-                    const monthKey = String(date).slice(0, 7);
-                    bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
-                  }
-                  if (bucket) {
-                    const useMedian = range === 'year';
-                    const center = useMedian && typeof bucket.p50 === 'number' ? bucket.p50 : (bucket.averageMood || 0);
-                    mood = Math.max(0, Math.min(100, Math.round(center)));
-                    energy = Math.max(1, Math.min(10, Math.round(bucket.averageEnergy || extended.weeklyEnergyAvg || 6)));
-                  }
-                }
-                if (mood > 0) {
-                  const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
-                  const e10 = Math.max(1, Math.min(10, Math.round(energy)));
-                  setVA({ x: toCoord(m10), y: toCoord(e10) });
-                }
-              } catch {}
-            }}
-          />
+          (() => {
+            const h = Dimensions.get('window').height; 
+            const BASE = 252; 
+            const HH = h < 740 ? 200 : (h < 820 ? 220 : 260);
+            const scale = HH / BASE;
+            const ty = 4; // nudge chart slightly downwards
+            return (
+              <View style={{ height: HH, overflow: 'visible' }}>
+                <View style={{ transform: [{ translateY: ty }, { scaleY: scale }] }}>
+                  <AppleHealthStyleChartV2
+                    data={extended}
+                    timeRange={range}
+                    embedHeader={false}
+                    showMoodTrend={!moodLocked && showMoodLine}
+                    showEnergy={showEnergyLine}
+                    showAnxiety={showAnxietyLine}
+                    onSelectionChange={(sel) => setChartSelection(sel)}
+                    clearSelectionSignal={clearSignal}
+                    selectIndex={isDraggingTooltip ? externalSelectIndex : undefined}
+                    onRequestPage={(dir) => {
+                      // dir: 'prev' (older) => page+1, 'next' (newer) => page-1 but not < 0
+                      setChartSelection(null);
+                      setClearSignal(s => s + 1);
+                      setPage((p) => dir === 'prev' ? p + 1 : Math.max(0, p - 1));
+                    }}
+                    onDayPress={(date) => {
+                      // no-op: detail opens from tooltip tap only
+                      // Sync hero VA color with the tapped bar
+                      try {
+                        const toCoord = (v10: number) => Math.max(-1, Math.min(1, (v10 - 5.5) / 4.5));
+                        let mood = 0;
+                        let energy = 6;
+                        if (range === 'week') {
+                          const day = extended.dailyAverages.find(d => d.date === date);
+                          if (day) {
+                            mood = Math.max(0, Math.min(100, Math.round(day.averageMood || 0)));
+                            energy = Math.max(1, Math.min(10, Math.round(day.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                          }
+                        } else {
+                          const agg = extended.aggregated?.data || [];
+                          let bucket = agg.find(b => b.date === date) as any;
+                          if (!bucket && range === 'year') {
+                            const monthKey = String(date).slice(0, 7);
+                            bucket = agg.find(b => (b as any).date?.startsWith(monthKey));
+                          }
+                          if (bucket) {
+                            const useMedian = range === 'year';
+                            const center = useMedian && typeof bucket.p50 === 'number' ? bucket.p50 : (bucket.averageMood || 0);
+                            mood = Math.max(0, Math.min(100, Math.round(center)));
+                            energy = Math.max(1, Math.min(10, Math.round(bucket.averageEnergy || extended.weeklyEnergyAvg || 6)));
+                          }
+                        }
+                        if (mood > 0) {
+                          const m10 = Math.max(1, Math.min(10, Math.round(mood / 10)));
+                          const e10 = Math.max(1, Math.min(10, Math.round(energy)));
+                          setVA({ x: toCoord(m10), y: toCoord(e10) });
+                        }
+                      } catch {}
+                    }}
+                  />
+                </View>
+              </View>
+            );
+          })()
         ) : null}
 
         {/* Tooltip overlay (on top of chart) */}
@@ -1066,6 +1079,29 @@ export default function MoodJourneyCard({ data, initialOpenDate, initialRange, o
                               if (range === '6months') return `${months[start.getMonth()]}–${months[end.getMonth()]} ${end.getFullYear()}`;
                               return `${start.getFullYear()}`;
                             })()}</Text>
+                            {(() => {
+                              try {
+                                if (!extended?.aiOverlay) return null;
+                                const selDate = String(chartSelection.date);
+                                let mood: number | undefined;
+                                let conf: number | undefined;
+                                if (range === 'week') {
+                                  const found = extended.aiOverlay.daily?.find(d => d.date === selDate && typeof d.mood === 'number');
+                                  if (found) { mood = Math.round(found.mood as number); conf = found.confidence as any; }
+                                } else if (range !== 'day') {
+                                  const pts = extended.aiOverlay.aggregated?.points || [];
+                                  const found = pts.find(p => p.date === selDate && typeof p.mood === 'number');
+                                  if (found) { mood = Math.round(found.mood as number); conf = found.confidence as any; }
+                                }
+                                if (typeof mood === 'number') {
+                                  const confTxt = (typeof conf === 'number' && isFinite(conf)) ? `  •  Güven: %${Math.round(conf * 100)}` : '';
+                                  return (
+                                    <Text style={styles.tooltipSub}>AI Tahmin: {mood}{confTxt}</Text>
+                                  );
+                                }
+                                return null;
+                              } catch { return null; }
+                            })()}
                           {/* Legacy tooltip content removed */}
                         </View>
                         </View>
@@ -1132,7 +1168,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -1182,7 +1218,7 @@ const styles = StyleSheet.create({
     height: 252, // Same height as chart
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
   },
   loadingText: {

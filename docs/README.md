@@ -39,6 +39,9 @@ yarn ios
 
 # Android geliştirme
 yarn android
+
+# TFLite Model Test
+yarn test:tflite
 ```
 
 ## Önemli Notlar
@@ -72,3 +75,29 @@ yarn android
 - **Bundle Optimization**: Daha küçük component tree, faster rendering
 - **TypeScript errors**: AI core'da 0 hata
 - **Progressive enhancement**: Quick + deep AI analysis
+
+## 🤖 TFLite Model Test
+
+### Kurulum ve Test
+```bash
+# TFLite bağımlılıklarını kontrol et
+yarn test:tflite
+
+# Uygulamayı çalıştır
+yarn ios
+
+# Debug ekranını aç: app/debug-tflite-test.tsx
+```
+
+### Model Dosyası
+- **Konum**: `assets/models/big_mood_detector/big_mood_detector.tflite`
+- **Format**: TensorFlow Lite (.tflite)
+- **Model**: PAT-Conv-L v0.5929 (Depression Classification)
+- **AUC**: 0.5929 (NHANES 2013-2014 dataset)
+- **Input**: 10080 boyutunda Apple Health aktivite verisi
+- **Paket**: `react-native-fast-tflite`
+
+### Test Servisi
+- **Dosya**: `services/tfliteModelTestService.ts`
+- **Özellikler**: Model yükleme, test verisi ile çalıştırma, sonuç analizi
+- **Debug Ekranı**: `app/debug-tflite-test.tsx`

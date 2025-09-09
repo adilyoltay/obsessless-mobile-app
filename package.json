@@ -3,7 +3,7 @@
   "version": "3.0.0",
   "main": "index.js",
   "scripts": {
-    "test:mood-system": "npx ts-node scripts/test-mood-system.ts",
+    "test:tflite": "node scripts/test-tflite-setup.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -40,8 +40,10 @@
     "health:check": "node scripts/production-health-check.js"
   },
   "dependencies": {
+    "@expo/config-plugins": "~10.1.1",
     "@expo/vector-icons": "^14.0.0",
     "@hookform/resolvers": "^3.10.0",
+    "@kingstinct/react-native-healthkit": "^7.0.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-native-community/netinfo": "11.4.1",
@@ -105,8 +107,7 @@
     "stream-chat": "^9.14.0",
     "stream-chat-react-native": "^8.3.1",
     "zod": "^3.25.76",
-    "zustand": "^5.0.6",
-    "@expo/config-plugins": "~10.1.1"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

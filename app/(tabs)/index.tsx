@@ -5,7 +5,8 @@ import {
   StyleSheet, 
   ScrollView, 
   RefreshControl,
-  Dimensions
+  Dimensions,
+  TouchableOpacity
 } from 'react-native';
 // import { MaterialCommunityIcons } from '@expo/vector-icons'; // Icons now used inside extracted components
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -17,7 +18,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Toast } from '@/components/ui/Toast';
 import MindScoreCard, { DayMetrics } from '@/components/MindScoreCard';
 import MindMetaRowCard from '@/components/MindMetaRowCard';
-import MindMEAStatsCard from '@/components/MindMEAStatsCard';
 // ✅ Extracted UI components handle their own visuals
 
 import { useGamificationStore } from '@/store/gamificationStore';
@@ -41,6 +41,7 @@ import { moodDataLoader } from '@/services/moodDataLoader';
 import { eventBus, Events } from '@/services/eventBus';
 import { getAdvancedMoodColor, getMoodGradient, getVAColorFromScores } from '@/utils/colorUtils';
 import { getUserDateString } from '@/utils/timezoneUtils';
+// Removed: ETS/AI debug triggers
 import { PanResponder, PanResponderGestureState, GestureResponderEvent } from 'react-native';
 
 // Stores
@@ -283,6 +284,8 @@ export default function TodayScreen() {
       } catch {}
     })();
   }, [user?.id]);
+
+  // Removed: ETS handler and AI inference debug actions
 
   // (no deep analysis timers in use; cleanup not required)
 
@@ -614,11 +617,10 @@ export default function TodayScreen() {
             dominantLabel={selectedMeta?.dominant ?? null}
             trendPctOverride={selectedMeta?.trendPct ?? null}
             periodLabelOverride={selectedMeta?.periodLabel ?? null}
-        />
-        <MindMEAStatsCard
-          mood={selectedMeta?.moodP50}
-          energy={selectedMeta?.energyP50}
-          anxiety={selectedMeta?.anxietyP50}
+            meaMood={selectedMeta?.moodP50 ?? null}
+            meaEnergy={selectedMeta?.energyP50 ?? null}
+            meaAnxiety={selectedMeta?.anxietyP50 ?? null}
+            heroGaugeHeight={(() => { const h = Dimensions.get('window').height; return h < 740 ? 168 : (h < 820 ? 180 : 210); })()}
         />
         <MindMetaRowCard
           score={selectedMeta?.score ?? (typeof scoreNow === 'number' ? scoreNow : null)}
@@ -862,9 +864,11 @@ export default function TodayScreen() {
   return (
     <ScreenLayout edges={['top','left','right']}>
       <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+        {/* Removed: Top AI INFERENCE / ETS debug buttons */}
       <ScrollView
         ref={scrollRef}
         style={simpleStyles.scrollView}
+        scrollEnabled={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

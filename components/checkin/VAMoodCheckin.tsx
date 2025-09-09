@@ -122,12 +122,16 @@ interface VAMoodCheckinProps {
   isVisible: boolean;
   onClose: () => void;
   onComplete?: (result: any) => void;
+  disableVoice?: boolean;
+  initialMEA?: { mood: number; energy: number; anxiety: number } | null;
 }
 
 export default function VAMoodCheckin({
   isVisible,
   onClose,
   onComplete,
+  disableVoice = false,
+  initialMEA = null,
 }: VAMoodCheckinProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -148,7 +152,7 @@ export default function VAMoodCheckin({
   const [showTranscript, setShowTranscript] = useState(false);
   const [detectedTriggers, setDetectedTriggers] = useState<string[]>([]);
   const [detectedAnxiety, setDetectedAnxiety] = useState<number | null>(null);
-  const [isNativeSTTAvailable, setIsNativeSTTAvailable] = useState(false);
+  const [isNativeSTTAvailable, setIsNativeSTTAvailable] = useState(!disableVoice);
   
   // Realtime analysis state
   const realtimeStateRef = useRef<RealtimeState | null>(null);
@@ -198,11 +202,15 @@ export default function VAMoodCheckin({
     };
   }, [xy.x, xy.y, setScore, setVA]);
 
-  // STT availability handled internally by service
+  // STT availability handled internally by service (disabled when disableVoice)
   useEffect(() => {
+    if (disableVoice) {
+      setIsNativeSTTAvailable(false);
+      return;
+    }
     console.log('🔍 Real native STT - availability handled by service internally');
-    setIsNativeSTTAvailable(true); // Let service handle its own availability
-  }, []);
+    setIsNativeSTTAvailable(true);
+  }, [disableVoice]);
 
   // Clean up realtime analysis when modal closes
   useEffect(() => {
@@ -237,11 +245,23 @@ export default function VAMoodCheckin({
           clearTimeout(partialTimerRef.current);
           partialTimerRef.current = null;
         }
-        speechToTextService.stopRealtimeListening().catch(() => {});
+        if (!disableVoice) speechToTextService.stopRealtimeListening().catch(() => {});
         console.log('🧹 VAMoodCheckin unmounted: STT cleanup executed');
       } catch {}
     };
-  }, []);
+  }, [disableVoice]);
+
+  // AI prefill: map initial MEA to VA coordinates when provided
+  useEffect(() => {
+    if (!initialMEA) return;
+    try {
+      const mood01 = Math.max(0, Math.min(1, Number(initialMEA.mood) / 100));
+      const energy01 = Math.max(0, Math.min(1, (Number(initialMEA.energy) - 1) / 9));
+      const nx = Math.max(-1, Math.min(1, mood01 * 2 - 1));
+      const ny = Math.max(-1, Math.min(1, energy01 * 2 - 1));
+      x.value = nx; y.value = ny; setXY({ x: nx, y: ny });
+    } catch {}
+  }, [initialMEA]);
 
   // Handle voice recording
   const handleVoiceToggle = async () => {
@@ -775,30 +795,32 @@ export default function VAMoodCheckin({
             </View>
           </View>
 
-          {/* Voice Check-in Button */}
-          <Pressable
-            style={styles.voiceButton}
-            onPress={handleVoiceToggle}
-            disabled={isProcessing}
-            accessibilityLabel={isRecording ? "Kaydı durdur" : "Voice Check-in"}
-          >
-            <Animated.View style={[styles.voiceButtonInner, recordButtonStyle]}>
-              {isProcessing ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <>
-                  <MaterialCommunityIcons 
-                    name={isRecording ? "stop" : "microphone"} 
-                    size={20} 
-                    color="white" 
-                  />
-                  <Text style={styles.voiceButtonText}>
-                    {isRecording ? 'Kaydı Durdur' : 'Voice Check-in'}
-                  </Text>
-                </>
-              )}
-            </Animated.View>
-          </Pressable>
+          {/* Voice Check-in Button (disabled mode hides) */}
+          {!disableVoice && (
+            <Pressable
+              style={styles.voiceButton}
+              onPress={handleVoiceToggle}
+              disabled={isProcessing}
+              accessibilityLabel={isRecording ? "Kaydı durdur" : "Voice Check-in"}
+            >
+              <Animated.View style={[styles.voiceButtonInner, recordButtonStyle]}>
+                {isProcessing ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons 
+                      name={isRecording ? "stop" : "microphone"} 
+                      size={20} 
+                      color="white" 
+                    />
+                    <Text style={styles.voiceButtonText}>
+                      {isRecording ? 'Kaydı Durdur' : 'Voice Check-in'}
+                    </Text>
+                  </>
+                )}
+              </Animated.View>
+            </Pressable>
+          )}
 
           {/* Transcript display */}
           {showTranscript && transcript && (

@@ -75,6 +75,7 @@ class SupabaseNativeService {
   private compulsionSvc: import('@/services/supabase/compulsionService').CompulsionService;
   private breathSvc: import('@/services/supabase/breathService').BreathService;
   private aiSvc: import('@/services/supabase/aiService').AIService;
+  private aiPredSvc: import('@/services/supabase/aiPredictionService').AIPredictionService;
 
   constructor(client?: SupabaseClient) {
     // Tek supabase client kullanımı (lib/supabase.ts)
@@ -91,6 +92,7 @@ class SupabaseNativeService {
     const { CompulsionService } = require('@/services/supabase/compulsionService');
     const { BreathService } = require('@/services/supabase/breathService');
     const { AIService } = require('@/services/supabase/aiService');
+    const { AIPredictionService } = require('@/services/supabase/aiPredictionService');
     this.authSvc = new AuthService(this.client, (u: User | null) => { this.currentUser = u; });
     this.profileSvc = new ProfileService(this.client);
     this.moodSvc = new MoodService(this.client);
@@ -99,6 +101,7 @@ class SupabaseNativeService {
     this.compulsionSvc = new CompulsionService(this.client);
     this.breathSvc = new BreathService(this.client);
     this.aiSvc = new AIService(this.client);
+    this.aiPredSvc = new AIPredictionService(this.client);
   }
 
   // ===========================
@@ -967,6 +970,18 @@ class SupabaseNativeService {
       .upsert(body, { onConflict: 'user_id' })
       .single();
     if (error) throw error;
+  }
+
+  // ===========================
+  // AI PREDICTIONS (big-mood-detector outputs)
+  // ===========================
+
+  async upsertAIPrediction(pred: import('@/types/ai').AIPrediction): Promise<{ id?: string; created_at?: string } | null> {
+    return this.aiPredSvc.upsertPrediction(pred);
+  }
+
+  async getAIPredictions(userId: string, sinceYmdInclusive: string, granularity: import('@/types/ai').AIPredGranularity = 'day', limit: number = 400) {
+    return this.aiPredSvc.getPredictions(userId, sinceYmdInclusive, granularity, limit);
   }
 }
 

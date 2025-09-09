@@ -24,10 +24,59 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: 'com.adilyoltay.obslesstest',
     infoPlist: {
+      // Allow local dev server asset loading (HTTP) for TFLite during development
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+        NSAllowsArbitraryLoadsInWebContent: true,
+        NSAllowsLocalNetworking: true,
+        NSExceptionDomains: {
+          // Allow Metro/IP-based dev servers (adjust if your IP changes)
+          'localhost': {
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSIncludesSubdomains: true,
+          },
+          '127.0.0.1': {
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSIncludesSubdomains: true,
+          },
+          // Example LAN IP used by Expo/Metro; safe for development only
+          '10.0.0.25': {
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSIncludesSubdomains: true,
+          },
+        },
+      },
       NSMicrophoneUsageDescription:
         'Sesli check-in ve nefes egzersizleri için mikrofon erişimine ihtiyaç duyuyoruz. Erişim yalnızca sizin başlatmanızla kullanılır.',
       NSSpeechRecognitionUsageDescription:
         'Sesli check-in sırasında konuşmanızı cihaz üzerinde yazıya dönüştürmek için konuşma tanıma iznine ihtiyaç duyuyoruz. Veriler gizlilik odaklı işlenir.',
+      NSHealthShareUsageDescription:
+        'Apple Health verilerinizi (HR/HRV, adım, uyku vb.) yalnızca cihaz içinde işleyerek ruh hali ve stres tahmini yapmak için okuruz. Veriler cihaz dışına gönderilmez.',
+      NSHealthUpdateUsageDescription:
+        'Apple Health verilerini güncelleme izni, gerekli olduğu durumlarda sağlık verilerinizi senkronize etmek için istenir.',
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+        NSExceptionDomains: {
+          localhost: {
+            NSIncludesSubdomains: true,
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
+          },
+          '127.0.0.1': {
+            NSIncludesSubdomains: true,
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
+          },
+          '192.168.1.56': {
+            NSIncludesSubdomains: true,
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
+          },
+        },
+      },
+    },
+    entitlements: {
+      'com.apple.developer.healthkit': true,
     },
   },
   scheme: 'obslesstest',
@@ -41,7 +90,24 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-secure-store', 'expo-localization', 'expo-font', 'expo-router'],
+  // Ensure assets like .tflite are bundled in release builds
+  assetBundlePatterns: ['**/*'],
+  plugins: [
+    'expo-secure-store',
+    'expo-localization',
+    'expo-font',
+    'expo-router',
+    // HealthKit entitlements & ayarlar - geçici olarak devre dışı
+    // '@kingstinct/react-native-healthkit',
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          deploymentTarget: '15.1',
+        },
+      },
+    ],
+  ],
   extra: {
     eas: {
       projectId: '1e0473f8-f317-4813-9b20-4dbe892e3153',
@@ -81,9 +147,16 @@ const config: ExpoConfig = {
     EXPO_PUBLIC_GOOGLE_STT_API_KEY: process.env.EXPO_PUBLIC_GOOGLE_STT_API_KEY,
     EXPO_PUBLIC_ELEVENLABS_API_KEY: process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,
     EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+
+    // Big Mood model bridge + selection
+    BIG_MOOD_BRIDGE: process.env.BIG_MOOD_BRIDGE, // 'cloud' | 'placeholder' (legacy values map to cloud internally)
+    BIG_MOOD_MODEL: process.env.BIG_MOOD_MODEL,   // e.g., 'pat-conv-l'
+
+    // Cloud inference service
+    EXPO_PUBLIC_AI_INFERENCE_URL: process.env.EXPO_PUBLIC_AI_INFERENCE_URL || process.env.AI_INFERENCE_URL,
+    EXPO_PUBLIC_AI_INFERENCE_KEY: process.env.EXPO_PUBLIC_AI_INFERENCE_KEY || process.env.AI_INFERENCE_KEY,
+    EXPO_PUBLIC_AI_INFERENCE_TIMEOUT_MS: process.env.EXPO_PUBLIC_AI_INFERENCE_TIMEOUT_MS || process.env.AI_INFERENCE_TIMEOUT_MS || '8000',
   },
 }
 
 export default config
-
-

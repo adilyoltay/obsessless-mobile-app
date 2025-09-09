@@ -33,6 +33,7 @@ import { BramanColors } from '@/constants/Colors';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { getUserDateString, formatDateInUserTimezone } from '@/utils/timezoneUtils';
+import { emitSelectionHelper, getXLabelVisibility as getXLabelVisibilityHelper, formatXLabel as formatXLabelHelper } from '@/components/mood/helpers/chartSelection';
 import { monthsLongShort, monthsShort as monthsVeryShort, daysShort, getWeekStart } from '@/utils/dateAggregation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -55,7 +56,7 @@ type Props = {
 
 const CHART_HEIGHT = 252; // 10% shorter plotting area
 const CHART_PADDING_TOP = 10; // reduce top whitespace further
-const CHART_PADDING_BOTTOM = 28; // reduce bottom whitespace ~half
+const CHART_PADDING_BOTTOM = 36; // more bottom room for labels
 const CHART_PADDING_H = 0; // no extra horizontal padding; fit full width
 const AXIS_WIDTH = 8; // tighter left gutter (we only need a little)
 const RIGHT_LABEL_PAD = 40; // right label pad per design
@@ -209,6 +210,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   const AGG_OVERLAY_LINES = true;
   // Do NOT draw extra IQR bars inside overlay layers (avoid double bars)
   const OVERLAY_IQR_BANDS = false;
+  // Weekly energy IQR band experiment (disabled by default)
+  const WEEK_AGG_EXPERIMENT = false;
   // Smoothing helpers (EMA + Catmull–Rom → Bezier)
   // Tüm range'lerde EMA kapalı (alpha=1) → çizgiler p50 noktalarının içinden geçer.
   // Tension tüm range'lerde 0.45 olarak tekilleştirildi.
@@ -387,6 +390,23 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
 
   const emitSelection = useCallback((index: number | null) => {
+    emitSelectionHelper({
+      data,
+      timeRange,
+      contentWidth,
+      chartWidth,
+      dayWindowStart,
+      dayWindowSize,
+      index,
+      locale,
+      AXIS_WIDTH,
+      onSelectionChange,
+    });
+  }, [data, timeRange, contentWidth, chartWidth, onSelectionChange, dayWindowStart, dayWindowSize, locale]);
+
+  // Legacy body replaced by helper — keep signature the same for callers
+  /*
+  const emitSelection = useCallback((index: number | null) => {
     // Non-day tüm modlarda aggregated kullan
     const items = (timeRange === 'day')
       ? (((data.hourlyAverages || [])
@@ -471,6 +491,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
     // Send bucketCount for parent-driven scrubbing math
     onSelectionChange?.({ date: dateSel, index, totalCount, label: labelText, x, chartWidth, bucketCount: n });
   }, [data, timeRange, contentWidth, chartWidth, onSelectionChange, dayWindowStart]);
+  */
   
   // Y ekseni değerleri - Apple Health tarzı
   const yAxisValues = [1, 0.5, 0, -0.5, -1];
@@ -486,34 +507,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
   
   // X ekseni etiketleri (Apple Health tarzı) - item tabanlı
   const formatXLabel = useCallback((item: DailyAverage | AggregatedData) => {
-    if (timeRange === 'day') {
-      const key = ((item as any).date || '') as string; // YYYY-MM-DD#HH
-      const hh = key.includes('#') ? key.split('#')[1] : '00';
-      const h = parseInt(hh, 10) || 0;
-      // Always 24h display for clarity (e.g., 00, 03, 16)
-      return String(h).padStart(2, '0');
-    }
-    if (timeRange === 'week') {
-      // Parse YYYY-MM-DD explicitly as local midnight to avoid engine-specific UTC parsing
-      const d = new Date(`${(item as DailyAverage).date}T00:00:00`);
-      return daysShort[d.getDay()];
-    }
-    if (timeRange === 'month') {
-      // Haftalık aggregate: label'daki ilk günü göster ("1–7 Oca" -> "1")
-      const label = (item as AggregatedData).label || '';
-      const match = label.match(/^(\d+)/);
-      if (match) return match[1];
-      const d = new Date((item as AggregatedData).date);
-      return d.getDate().toString();
-    }
-    if (timeRange === '6months') {
-      // Kısa ay adı (locale)
-      const d = new Date((item as AggregatedData).date);
-      return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
-    }
-    // year: kısa ay adı (locale)
-    const d = new Date((item as AggregatedData).date);
-    return new Intl.DateTimeFormat(locale, { month: 'short' }).format(d);
+    return formatXLabelHelper(item, timeRange, locale);
   }, [timeRange, locale]);
 
   // Unified approach: day hariç tüm range'ler aggregate mod
@@ -708,26 +702,7 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
 
   // X ekseni etiket gösterim mantığı
   const getXLabelVisibility = useCallback((index: number, total: number) => {
-    if (timeRange === 'day') {
-      const dw = contentWidth / Math.max(1, total);
-      let step = 1;
-      if (dw < 12) step = 4; // 0,4,8,12,16,20
-      else if (dw < 18) step = 3; // 0,3,6,9,12,15,18,21
-      else if (dw < 28) step = 2; // 0,2,4...
-      else step = 1; // her saat
-      return index % step === 0;
-    }
-    // Basit virtualization: etiketler arası min piksel mesafesi
-    const minLabelPx = (timeRange === 'week')
-      ? 18
-      : (timeRange === 'month')
-        ? 22
-        : (timeRange === '6months')
-          ? 28
-          : 36; // year: daha seyrek etiket
-    const step = Math.max(1, Math.ceil((total * minLabelPx) / Math.max(1, contentWidth)));
-    if (index === 0 || index === total - 1) return true;
-    return index % step === 0;
+    return getXLabelVisibilityHelper(index, total, timeRange, contentWidth);
   }, [timeRange, contentWidth]);
 
   // Dominant emotion and simple trend (first vs last non-zero)
@@ -763,7 +738,8 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
       {/* Ölçüm sarmalayıcı: gerçek kart genişliğini al */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <ScrollView 
-        horizontal={(isAggregateMode ? ((data.aggregated?.data?.length || 0) > 30) : (timeRange === 'day' ? (((data.hourlyAverages || []).slice(dayWindowStart, dayWindowStart + dayWindowSize)).length > 30) : (data.dailyAverages.length > 30)))}
+        horizontal={false}
+        scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         contentContainerStyle={styles.hScrollContent}
@@ -1578,8 +1554,116 @@ export const AppleHealthStyleChartV2: React.FC<Props> = ({
                   );
                 }
                 
-                return els;
-              })()}
+              return els;
+            })()}
+          </Svg>
+          )}
+
+          {/* AI Prediction overlay (dashed line) — daily mood predictions */}
+          {timeRange === 'week' && !isAggregateMode && (data.aiOverlay?.daily?.length || 0) > 0 && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>{(() => {
+              const items = data.dailyAverages as any[];
+              const overlay = data.aiOverlay?.daily || [];
+              const n = items.length;
+              const dw = contentWidth / Math.max(1, n);
+              const byDate = new Map<string, { mood?: number }>();
+              for (const o of overlay) byDate.set(o.date, { mood: o.mood });
+
+              const segments: string[][] = [];
+              let seg: string[] = [];
+              for (let index = 0; index < n; index++) {
+                const d = items[index];
+                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                const o = byDate.get(d.date);
+                const m = (o && typeof o.mood === 'number' && isFinite(o.mood)) ? o.mood : null;
+                if (m != null) {
+                  const y = yFromMood(m);
+                  seg.push(`${x},${y}`);
+                } else {
+                  if (seg.length > 0) { segments.push(seg); seg = []; }
+                }
+              }
+              if (seg.length > 0) segments.push(seg);
+
+              const els: React.ReactNode[] = [];
+              segments.forEach((pts, i) => {
+                if (pts.length === 1) {
+                  const [xs, ys] = pts[0].split(',');
+                  const cx = Number(xs), cy = Number(ys);
+                  els.push(
+                    <Circle key={`ai-dot-${i}`} cx={cx} cy={cy} r={2.6} stroke={'#007AFF'} strokeOpacity={0.75} fill={'transparent'} />
+                  );
+                } else if (pts.length > 1) {
+                  const dPath = `M ${pts[0]} ` + pts.slice(1).map(p => `L ${p}`).join(' ');
+                  els.push(
+                    <Path
+                      key={`ai-line-${i}`}
+                      d={dPath}
+                      stroke={'#007AFF'}
+                      strokeOpacity={0.75}
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      fill="none"
+                    />
+                  );
+                }
+              });
+              return els;
+            })()}
+            </Svg>
+          )}
+
+          {/* AI Prediction overlay for aggregate ranges (month/6months/year) */}
+          {isAggregateMode && (data.aggregated?.data?.length || 0) > 0 && (data.aiOverlay?.aggregated?.points?.length || 0) > 0 && (
+            <Svg height={CHART_HEIGHT} width={chartWidth} style={{ position: 'absolute', left: 0, top: 0 }}>{(() => {
+              const buckets = (data.aggregated?.data || []) as any[];
+              const n = buckets.length;
+              const dw = contentWidth / Math.max(1, n);
+              const overlay = data.aiOverlay?.aggregated?.points || [];
+              const byDate = new Map<string, { mood?: number }>();
+              overlay.forEach(p => byDate.set(p.date, { mood: p.mood }));
+
+              const segments: string[][] = [];
+              let seg: string[] = [];
+              for (let index = 0; index < n; index++) {
+                const b = buckets[index];
+                const x = AXIS_WIDTH + (index * dw) + (dw / 2);
+                const o = byDate.get(b.date);
+                const m = (o && typeof o.mood === 'number' && isFinite(o.mood)) ? o.mood : null;
+                if (m != null) {
+                  const y = yFromMood(m);
+                  seg.push(`${x},${y}`);
+                } else {
+                  if (seg.length > 0) { segments.push(seg); seg = []; }
+                }
+              }
+              if (seg.length > 0) segments.push(seg);
+
+              const els: React.ReactNode[] = [];
+              segments.forEach((pts, i) => {
+                if (pts.length === 1) {
+                  const [xs, ys] = pts[0].split(',');
+                  const cx = Number(xs), cy = Number(ys);
+                  els.push(
+                    <Circle key={`ai-agg-dot-${i}`} cx={cx} cy={cy} r={2.6} stroke={'#007AFF'} strokeOpacity={0.75} fill={'transparent'} />
+                  );
+                } else if (pts.length > 1) {
+                  const dPath = `M ${pts[0]} ` + pts.slice(1).map(p => `L ${p}`).join(' ');
+                  els.push(
+                    <Path
+                      key={`ai-agg-line-${i}`}
+                      d={dPath}
+                      stroke={'#007AFF'}
+                      strokeOpacity={0.75}
+                      strokeWidth={2}
+                      strokeDasharray="4 3"
+                      fill="none"
+                    />
+                  );
+                }
+              });
+              return els;
+            })()}
             </Svg>
           )}
 
@@ -2728,11 +2812,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginTop: 0,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    // Remove drop shadow when embedded inside white card
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   header: {
     paddingHorizontal: 20,

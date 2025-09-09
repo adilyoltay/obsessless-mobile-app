@@ -47,27 +47,49 @@
     <key>NSAppTransportSecurity</key>
     <dict>
       <key>NSAllowsArbitraryLoads</key>
-      <false/>
+      <true/>
+      <key>NSAllowsArbitraryLoadsInWebContent</key>
+      <true/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>localhost</key>
+        <dict>
+          <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+        <key>127.0.0.1</key>
+        <dict>
+          <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+        <key>10.0.0.25</key>
+        <dict>
+          <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
-    <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSFaceIDUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to use Face ID</string>
+    <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Apple Health verilerinizi (HR/HRV, adım, uyku vb.) yalnızca cihaz içinde işleyerek ruh hali ve stres tahmini yapmak için okuruz. Veriler cihaz dışına gönderilmez.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Apple Health verilerini güncelleme izni, gerekli olduğu durumlarda sağlık verilerinizi senkronize etmek için istenir.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Sesli check-in ve nefes egzersizleri için mikrofon erişimine ihtiyaç duyuyoruz. Erişim yalnızca sizin başlatmanızla kullanılır.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Sesli check-in sırasında konuşmanızı cihaz üzerinde yazıya dönüştürmek için konuşma tanıma iznine ihtiyaç duyuyoruz. Veriler gizlilik odaklı işlenir.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
-    </array>
-    <key>UIBackgroundModes</key>
-    <array>
-      <string>fetch</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>

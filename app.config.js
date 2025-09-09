@@ -16,6 +16,7 @@ module.exports = {
       resizeMode: "contain",
       backgroundColor: "#F9FAFB"
     },
+    assets: ["./assets/models"],
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.adilyoltay.obslesstest",

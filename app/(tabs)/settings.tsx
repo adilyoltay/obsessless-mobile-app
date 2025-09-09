@@ -66,8 +66,7 @@ interface SettingsData {
   showAnxietyOverlay?: boolean;
   showMoodTrendOverlay?: boolean;
   visibleTimeRanges?: TimeRange[];
-  coloredMindScoreCard?: boolean;
-  colorPalette?: 'va' | 'braman';
+  colorPalette?: 'va' | 'braman' | 'apple';
 }
 
 
@@ -127,8 +126,7 @@ export default function SettingsScreen() {
     showEnergyOverlay: false,
     showAnxietyOverlay: false,
     showMoodTrendOverlay: true,
-    visibleTimeRanges: ['day','week','month'],
-    coloredMindScoreCard: false,
+    visibleTimeRanges: ['week','month','6months','year'],
     colorPalette: 'va',
   });
 
@@ -173,13 +171,14 @@ export default function SettingsScreen() {
           biometric: parsed.biometric ?? false,
           reminderTimes: parsed.reminderTimes ?? false,
           colorMode: (parsed.colorMode as ColorMode) ?? 'today',
-          mindSparkStyle: (parsed.mindSparkStyle as SparkStyle) ?? 'bar',
+          mindSparkStyle: 'bar',
           showEnergyOverlay: parsed.showEnergyOverlay ?? false,
           showAnxietyOverlay: parsed.showAnxietyOverlay ?? false,
           showMoodTrendOverlay: parsed.showMoodTrendOverlay ?? true,
-          visibleTimeRanges: Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0 ? (parsed.visibleTimeRanges as TimeRange[]) : (['day','week','month'] as TimeRange[]),
-          coloredMindScoreCard: parsed.coloredMindScoreCard ?? false,
-          colorPalette: (parsed.colorPalette as 'va' | 'braman') ?? 'va',
+          visibleTimeRanges: Array.isArray(parsed.visibleTimeRanges) && parsed.visibleTimeRanges.length > 0
+            ? (parsed.visibleTimeRanges as TimeRange[]).filter((r: TimeRange) => r !== 'day')
+            : (['week','month','6months','year'] as TimeRange[]),
+          colorPalette: (parsed.colorPalette as 'va' | 'braman' | 'apple') ?? 'va',
         });
       }
     } catch (error) {
@@ -677,12 +676,7 @@ export default function SettingsScreen() {
             <View style={{ marginTop: 8, alignItems: 'center' }}>
               <VAPad width={Math.min(320, 0.92 * (typeof window !== 'undefined' ? window.innerWidth || 320 : 320))} height={160} />
             </View>
-            {renderSettingItem(
-              'Zihin skoru kartını renklendir',
-              'palette',
-              settings.coloredMindScoreCard ?? false,
-              (value) => updateSetting('coloredMindScoreCard', value)
-            )}
+            {/* MindScoreCard renklendirme kaldırıldı */}
             {/* Bölüm 1: Grafik Çizgileri */}
             {renderSettingItem(
               'Mood trend çizgisini göster',
@@ -702,53 +696,23 @@ export default function SettingsScreen() {
               settings.showAnxietyOverlay ?? true,
               (value) => updateSetting('showAnxietyOverlay', value)
             )}
-            {/* Zihin Skoru Grafiği */}
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              {([
-                { key: 'line', label: 'Zihin Skoru: Çizgi' },
-                { key: 'bar', label: 'Zihin Skoru: İlerleme' },
-              ] as { key: SparkStyle; label: string }[]).map(opt => {
-                const active = (settings.mindSparkStyle || 'line') === opt.key;
-                return (
-                  <Pressable
-                    key={opt.key}
-                    onPress={() => updateMindSparkStyle(opt.key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Zihin skoru grafiği ${opt.label}`}
-                    style={{
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: active ? '#10B981' : '#E5E7EB',
-                      backgroundColor: active ? '#ECFDF5' : '#FFFFFF'
-                    }}
-                  >
-                    <Text style={{ color: active ? '#065F46' : '#374151', fontWeight: '700' }}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={{ color: '#6B7280', fontSize: 12 }}>
-              Çizgi (varsayılan): mini trend çizgisi • İlerleme: haftalık EWMA değerine göre bar
-            </Text>
+            {/* Zihin Skoru Grafiği: Tek seçenek (İlerleme). Toggle kaldırıldı. */}
             {/* Bölüm 2: Zaman Aralıkları */}
             <View style={{ height: 12 }} />
             <Text style={[styles.actionTitle, { marginBottom: 8 }]}>Zaman Aralıkları</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {([
-                { key: 'day', label: 'Günlük' },
                 { key: 'week', label: 'Haftalık' },
                 { key: 'month', label: 'Aylık' },
                 { key: '6months', label: '6 Aylık' },
                 { key: 'year', label: 'Yıllık' },
               ] as { key: TimeRange; label: string }[]).map(opt => {
-                const active = (settings.visibleTimeRanges || ['day','week']).includes(opt.key);
+                const active = (settings.visibleTimeRanges || ['week']).includes(opt.key);
                 return (
                   <Pressable
                     key={opt.key}
                     onPress={() => {
-                      const current = new Set(settings.visibleTimeRanges || ['day','week']);
+                      const current = new Set(settings.visibleTimeRanges || ['week']);
                       if (current.has(opt.key)) {
                         if (current.size <= 1) return; // En az bir aralık kalsın
                         current.delete(opt.key);
