@@ -27,6 +27,7 @@ export interface OnboardingPayload {
     time?: string; // HH:mm
     days?: string[]; // ['Mon','Tue',...]
     timezone?: string;
+    permissionStatus?: 'granted' | 'denied' | 'undetermined';
   };
   feature_flags?: {
     daily_prompt?: boolean;
@@ -39,5 +40,4 @@ export interface OnboardingPayload {
   };
   meta: { version: 1; created_at: string };
 }
-
 

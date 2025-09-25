@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,14 +8,30 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignInButton } from '@/components/ui/GoogleSignInButton';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { isValidEmail } from '@/utils/validators';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const theme = useThemeColors();
   const { signUpWithEmail, signInWithGoogle, isLoading, error, clearError, user } = useAuth() as any;
+
+  const combinedError = formError || error;
+
+  const makeFieldChangeHandler = useCallback(
+    (setter: (value: string) => void) =>
+      (value: string) => {
+        if (formError) {
+          setFormError(null);
+        }
+        clearError();
+        setter(value);
+      },
+    [formError, clearError]
+  );
 
   // After auth (immediate signup or Google), route based on onboarding completion
   React.useEffect(() => {
@@ -68,8 +84,21 @@ export default function SignupScreen() {
 
     try {
       clearError();
+      setFormError(null);
+
+      const normalizedEmail = email.trim();
+      if (!isValidEmail(normalizedEmail)) {
+        setFormError('Lütfen geçerli bir email adresi girin.');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
+      if (normalizedEmail !== email) {
+        setEmail(normalizedEmail);
+      }
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signUpWithEmail(email, password, name);
+      const result = await signUpWithEmail(normalizedEmail, password, name);
       
       if (result.needsConfirmation) {
         Alert.alert(
@@ -147,7 +176,7 @@ export default function SignupScreen() {
                 placeholder="Adınız Soyadınız"
                 placeholderTextColor="#9CA3AF"
                 value={name}
-                onChangeText={setName}
+                onChangeText={makeFieldChangeHandler(setName)}
                 autoCapitalize="words"
                 autoComplete="name"
               />
@@ -161,7 +190,7 @@ export default function SignupScreen() {
                 placeholder="Email adresiniz"
                 placeholderTextColor="#9CA3AF"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={makeFieldChangeHandler(setEmail)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -176,7 +205,7 @@ export default function SignupScreen() {
                 placeholder="Şifreniz (en az 6 karakter)"
                 placeholderTextColor="#9CA3AF"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={makeFieldChangeHandler(setPassword)}
                 secureTextEntry={!showPassword}
                 autoComplete="password-new"
               />
@@ -193,13 +222,13 @@ export default function SignupScreen() {
             </View>
 
             {/* Error Message */}
-            {error && (
+            {combinedError && (
               <Animated.View 
                 entering={FadeInDown.duration(300)}
                 style={styles.errorContainer}
               >
                 <MaterialCommunityIcons name="alert-circle" size={16} color="#EF4444" />
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{combinedError}</Text>
               </Animated.View>
             )}
 

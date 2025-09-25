@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 
 // Components
 import VAMoodCheckin from './VAMoodCheckin';
-import healthSignals from '@/services/ai/healthSignals';
-import modelRunner from '@/services/ai/modelRunner';
-import { getUserDateString } from '@/utils/timezoneUtils';
+import healthSignals from '@/services/heartpy/healthSignals';
+import { runOnRecentSignal } from '@/services/heartpy';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import calibrationService from '@/services/heartpy/calibration';
+import { getLastInferenceMeta } from '@/services/heartpy/inferenceMetaStore';
 
 interface CheckinBottomSheetProps {
   isVisible: boolean;
@@ -29,8 +31,10 @@ export default function CheckinBottomSheet({
   onClose,
   onComplete,
 }: CheckinBottomSheetProps) {
+  const { user } = useAuth();
   const [prefillMEA, setPrefillMEA] = useState<{ mood: number; energy: number; anxiety: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [serviceMeta, setServiceMeta] = useState<any | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -39,18 +43,23 @@ export default function CheckinBottomSheet({
       try {
         setLoading(true);
         await healthSignals.ensurePermissions().catch(() => {});
-        const ymd = getUserDateString(new Date());
-        const feats = await healthSignals.getDailyFeatures(ymd);
-        const out = await modelRunner.runBigMoodDetector(feats as any);
+        const out = await runOnRecentSignal(120);
         if (!mounted) return;
-        setPrefillMEA({
-          mood: Number(out.mood_score_pred ?? 50),
-          energy: Number(out.energy_level_pred ?? 6),
-          anxiety: Number(out.anxiety_level_pred ?? 5),
-        });
+        const mea = out ? {
+          mood: Number(out.mood ?? 50),
+          energy: Number(out.energy ?? 6),
+          anxiety: Number(out.anxiety ?? 5),
+        } : null;
+        // Apply personal bias if available
+        const adj = mea && user?.id ? await calibrationService.applyBias(user.id, mea, 1.0) : mea || undefined as any;
+        if (adj) setPrefillMEA(adj);
+        // Attach meta for panel
+        const meta = getLastInferenceMeta();
+        setServiceMeta(out ? { ...meta, confidence: out.confidence ?? null, prefillMEA: adj } : null);
       } catch {
         if (!mounted) return;
         setPrefillMEA(null);
+        setServiceMeta(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -63,9 +72,26 @@ export default function CheckinBottomSheet({
     <VAMoodCheckin
       isVisible={isVisible}
       onClose={onClose}
-      onComplete={onComplete}
+      onComplete={(result?: any) => {
+        try {
+          if (onComplete) onComplete(result);
+          // Update personal bias from user's calibration delta
+          if (user?.id && prefillMEA && result?.data) {
+            const finalMood = Number(result.data.mood_score);
+            const finalEnergy = Number(result.data.energy_level);
+            const finalAnxiety = Number(result.data.anxiety_level);
+            const delta = {
+              mood: (isFinite(finalMood) ? finalMood : 0) - prefillMEA.mood,
+              energy: (isFinite(finalEnergy) ? finalEnergy : 0) - prefillMEA.energy,
+              anxiety: (isFinite(finalAnxiety) ? finalAnxiety : 0) - prefillMEA.anxiety,
+            };
+            calibrationService.updateBias(user.id, delta).catch(()=>{});
+          }
+        } catch {}
+      }}
       disableVoice={true}
       initialMEA={prefillMEA}
+      serviceMeta={serviceMeta}
     />
   );
 }

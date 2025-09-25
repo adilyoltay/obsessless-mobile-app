@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useMoodOnboardingStore } from '@/store/moodOnboardingStore';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProgressDots from '@/components/onboarding/ProgressDots';
+import { ObsessLessColors, Spacing } from '@/constants/DesignSystem';
 
 export default function Summary() {
   const theme = useThemeColors();
@@ -79,6 +80,8 @@ export default function Summary() {
   };
 
   const flags = payload.feature_flags || {};
+  const reminders = payload.reminders;
+  const reminderWarning = reminders?.permissionStatus === 'denied';
   const enabled = Object.keys(flags).filter((k) => (flags as any)[k]);
 
   return (
@@ -90,6 +93,15 @@ export default function Summary() {
       <Text style={{ color: '#374151', marginTop: 8 }}>
         {enabled.length > 0 ? enabled.join(', ') : 'Varsayılan akış'}
       </Text>
+
+      {reminderWarning && (
+        <View style={styles.reminderWarning}>
+          <Text style={styles.reminderWarningTitle}>Bildirim izni kapalı</Text>
+          <Text style={styles.reminderWarningText}>
+            Hatırlatmalar için bildirim izni verilmedi. Ayarlar’dan izin verdiğinizde günlük hatırlatmalar aktif olur.
+          </Text>
+        </View>
+      )}
 
       <View style={{ flex: 1 }} />
       
@@ -125,3 +137,24 @@ export default function Summary() {
   );
 }
 
+const styles = StyleSheet.create({
+  reminderWarning: {
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: ObsessLessColors.warning,
+  },
+  reminderWarningTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: ObsessLessColors.warning,
+    marginBottom: Spacing.xs,
+  },
+  reminderWarningText: {
+    fontSize: 13,
+    color: ObsessLessColors.primaryText,
+    lineHeight: 18,
+  },
+});

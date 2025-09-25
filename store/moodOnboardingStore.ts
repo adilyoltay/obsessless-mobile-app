@@ -50,7 +50,31 @@ interface MoodOnboardingState {
 const STORAGE_KEY_PAYLOAD = 'profile_v2_payload';
 const STORAGE_KEY_STEP = 'profile_v2_current_step';
 
-export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => ({
+export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => {
+  let stepPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clampStepValue = (value: number, total: number): number => {
+    const numericValue = Number.isFinite(value) ? Math.floor(value) : 0;
+    const safeTotal = Number.isFinite(total) && total > 0 ? Math.floor(total) : 1;
+    const maxStep = Math.max(0, safeTotal - 1);
+    return Math.min(Math.max(numericValue, 0), maxStep);
+  };
+
+  const scheduleStepPersist = () => {
+    if (stepPersistTimer) {
+      clearTimeout(stepPersistTimer);
+    }
+    stepPersistTimer = setTimeout(() => {
+      stepPersistTimer = null;
+      try {
+        void get().persistToStorage();
+      } catch (error) {
+        console.warn('⚠️ Failed to persist onboarding step:', error);
+      }
+    }, 120);
+  };
+
+  return ({
   step: 0,
   totalSteps: 6,
   payload: {
@@ -61,9 +85,27 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
   isHydrated: false,
   isLoading: false,
 
-  setStep: (s) => set({ step: s }),
-  next: () => set((st) => ({ step: Math.min(st.step + 1, st.totalSteps - 1) })),
-  prev: () => set((st) => ({ step: Math.max(st.step - 1, 0) })),
+  setStep: (s) => {
+    const { step, totalSteps } = get();
+    const nextStep = clampStepValue(s, totalSteps);
+    if (nextStep === step) return;
+    set({ step: nextStep });
+    scheduleStepPersist();
+  },
+  next: () => {
+    const { step, totalSteps } = get();
+    const nextStep = clampStepValue(step + 1, totalSteps);
+    if (nextStep === step) return;
+    set({ step: nextStep });
+    scheduleStepPersist();
+  },
+  prev: () => {
+    const { step, totalSteps } = get();
+    const prevStep = clampStepValue(step - 1, totalSteps);
+    if (prevStep === step) return;
+    set({ step: prevStep });
+    scheduleStepPersist();
+  },
 
   setMotivation: (m) => {
     set((st) => ({ payload: { ...st.payload, motivation: m } }));
@@ -94,7 +136,36 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
   },
   
   setReminders: (data) => {
-    set((st) => ({ payload: { ...st.payload, reminders: { enabled: !!data?.enabled, time: data?.time, days: data?.days, timezone: data?.timezone } } }));
+    if (!data) return;
+    const normalizedEnabled = !!data.enabled;
+    set((st) => {
+      const prev = st.payload.reminders || {};
+      const nextReminders: NonNullable<typeof st.payload.reminders> = {
+        ...prev,
+        enabled: normalizedEnabled,
+      };
+
+      if (typeof data.time !== 'undefined') nextReminders.time = data.time;
+      if (typeof data.days !== 'undefined') nextReminders.days = data.days;
+      if (typeof data.timezone !== 'undefined') nextReminders.timezone = data.timezone;
+
+      if (typeof data.permissionStatus !== 'undefined') {
+        nextReminders.permissionStatus = data.permissionStatus;
+      } else if (prev.permissionStatus && typeof nextReminders.permissionStatus === 'undefined') {
+        nextReminders.permissionStatus = prev.permissionStatus;
+      }
+
+      if (nextReminders.permissionStatus === 'denied') {
+        nextReminders.enabled = false;
+      }
+
+      return {
+        payload: {
+          ...st.payload,
+          reminders: nextReminders,
+        },
+      };
+    });
     // Auto-persist on change
     setTimeout(() => get().persistToStorage(), 100);
   },
@@ -1029,4 +1100,5 @@ export const useMoodOnboardingStore = create<MoodOnboardingState>((set, get) => 
     };
   }
 
-}));
+  });
+});

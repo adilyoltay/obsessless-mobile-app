@@ -26,6 +26,7 @@ import { useGamificationStore } from '@/store/gamificationStore';
 // Gamification Components (used inside extracted components)
 import MoodJourneyCard from '@/components/today/MoodJourneyCard';
 import BottomCheckinCTA from '@/components/today/BottomCheckinCTA';
+import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
 // ✅ REMOVED: AchievementBadge - Today'den başarı listesi kaldırıldı
 import { MicroRewardAnimation } from '@/components/gamification/MicroRewardAnimation';
 
@@ -90,6 +91,18 @@ export default function TodayScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [checkinSheetVisible, setCheckinSheetVisible] = useState(false);
+  // Open Check-in on param (after HRV measure completes)
+  useEffect(() => {
+    const v = Array.isArray(params.openCheckin) ? params.openCheckin[0] : (params.openCheckin as string | undefined);
+    if (v !== '1') return;
+    const timeoutId = setTimeout(() => {
+      setCheckinSheetVisible(true);
+      try {
+        router.setParams({ openCheckin: undefined });
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [params.openCheckin, router]);
   const [mindSparkStyle, setMindSparkStyle] = useState<'line' | 'bar'>('line');
   // coloredMindScoreCard removed (always hero non-colorized)
   const [heroStats, setHeroStats] = useState<{ moodVariance: number } | null>(null);
@@ -933,6 +946,12 @@ export default function TodayScreen() {
           accentColor={accentColor}
           gradientColors={['#34d399', '#059669']}
         />
+        {/* Render Check-in sheet at screen level so it can be opened via param */}
+        <CheckinBottomSheet
+          isVisible={checkinSheetVisible}
+          onClose={() => setCheckinSheetVisible(false)}
+          onComplete={handleCheckinComplete}
+        />
         {/* Spacer removed to avoid visual gap above bottom tab */}
       </ScrollView>
       </View>
@@ -955,7 +974,6 @@ export default function TodayScreen() {
           onComplete={() => {}}
         />
       )}
-
       {/* Debug AI Pipeline Overlay - Development Only - REMOVED: Kullanıcı için çok teknik detay */}
       {/* {__DEV__ && FEATURE_FLAGS.isEnabled('DEBUG_MODE') && <DebugAIPipelineOverlay />} */}
 

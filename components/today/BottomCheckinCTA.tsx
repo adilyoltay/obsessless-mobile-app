@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Button } from '@/components/ui/Button';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import CheckinBottomSheet from '@/components/checkin/CheckinBottomSheet';
+import { useRouter } from 'expo-router';
 import { getGradientFromBase } from '@/utils/colorUtils';
 
 type RoutingResult = {
@@ -27,6 +27,7 @@ export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplet
   const STATIC_GREEN = '#10B981';
   const baseGrad: [string, string] = getGradientFromBase(STATIC_GREEN);
   const currentColor = baseGrad[0];
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
@@ -40,14 +41,17 @@ export default function BottomCheckinCTA({ isVisible, onOpen, onClose, onComplet
 
       <Button
         variant="primary"
-        onPress={onOpen}
+        onPress={() => {
+          try { onOpen?.(); } catch {}
+          try { router.push('/measure-hrv' as any); } catch {}
+        }}
         accessibilityLabel="Mood Check‑in"
         style={[styles.button, { backgroundColor: 'transparent' }, { shadowColor: currentColor }]}
         leftIcon={<MaterialCommunityIcons name="microphone-outline" size={20} color="#FFFFFF" />}
       >
         Mood Check‑in
       </Button>
-      <CheckinBottomSheet isVisible={isVisible} onClose={onClose} onComplete={onComplete} />
+      {/* Legacy bottom sheet removed: direct to measurement screen */}
     </View>
   );
 }

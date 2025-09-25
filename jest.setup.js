@@ -98,6 +98,34 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
+// Mock NetInfo (provide stable defaults for sync services)
+jest.mock('@react-native-community/netinfo', () => {
+  const listeners = new Set();
+  const addEventListener = jest.fn((handler) => {
+    listeners.add(handler);
+    return () => listeners.delete(handler);
+  });
+
+  const fetch = jest.fn(async () => ({
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+    details: null,
+  }));
+
+  return {
+    __esModule: true,
+    default: {
+      addEventListener,
+      fetch,
+      configure: jest.fn(),
+    },
+    addEventListener,
+    fetch,
+    configure: jest.fn(),
+  };
+});
+
 // Mock @react-navigation/native to fix ES module transform issues
 jest.mock('@react-navigation/native', () => ({
   __esModule: true,
@@ -292,32 +320,34 @@ try {
 }
 
 // Import and expose test utilities globally
-const { 
-  waitForElement, 
-  seedTestData, 
-  clearAllTestData, 
-  mockUnifiedPipelineProcess,
-  seedTrackingCompulsions,
-  seedCBTRecords,
-  seedOCDScenario,
-  cleanupSeeds,
-  TEST_ENV 
-} = require('./__tests__/fixtures/seedData');
+try {
+  const {
+    waitForElement,
+    seedTestData,
+    clearAllTestData,
+    mockUnifiedPipelineProcess,
+    seedTrackingCompulsions,
+    seedCBTRecords,
+    seedOCDScenario,
+    cleanupSeeds,
+    TEST_ENV,
+  } = require('./__tests__/fixtures/seedData');
 
-// Make test helpers available globally
-global.waitForElement = waitForElement;
-global.seedTestData = seedTestData;
-global.clearAllTestData = clearAllTestData;
-global.mockUnifiedPipelineProcess = mockUnifiedPipelineProcess;
-global.seedTrackingCompulsions = seedTrackingCompulsions;
-global.seedCBTRecords = seedCBTRecords;
-global.seedOCDScenario = seedOCDScenario;
-global.cleanupSeeds = cleanupSeeds;
-global.TEST_ENV = TEST_ENV;
+  global.waitForElement = waitForElement;
+  global.seedTestData = seedTestData;
+  global.clearAllTestData = clearAllTestData;
+  global.mockUnifiedPipelineProcess = mockUnifiedPipelineProcess;
+  global.seedTrackingCompulsions = seedTrackingCompulsions;
+  global.seedCBTRecords = seedCBTRecords;
+  global.seedOCDScenario = seedOCDScenario;
+  global.cleanupSeeds = cleanupSeeds;
+  global.TEST_ENV = TEST_ENV;
+} catch (error) {
+  // Optional fixtures not present in lean test environments.
+}
 
 // Silence noisy React warnings in test output (ErrorBoundary scenarios etc.)
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
   jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
-

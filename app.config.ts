@@ -9,7 +9,7 @@ try {
 const config: ExpoConfig = {
   name: 'obslessless-clean',
   slug: 'obslessless-clean',
-  version: '3.0.0',
+  version: '3.0.1',
   sdkVersion: '53.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -54,26 +54,6 @@ const config: ExpoConfig = {
         'Apple Health verilerinizi (HR/HRV, adım, uyku vb.) yalnızca cihaz içinde işleyerek ruh hali ve stres tahmini yapmak için okuruz. Veriler cihaz dışına gönderilmez.',
       NSHealthUpdateUsageDescription:
         'Apple Health verilerini güncelleme izni, gerekli olduğu durumlarda sağlık verilerinizi senkronize etmek için istenir.',
-      NSAppTransportSecurity: {
-        NSAllowsArbitraryLoads: true,
-        NSExceptionDomains: {
-          localhost: {
-            NSIncludesSubdomains: true,
-            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
-            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
-          },
-          '127.0.0.1': {
-            NSIncludesSubdomains: true,
-            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
-            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
-          },
-          '192.168.1.56': {
-            NSIncludesSubdomains: true,
-            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
-            NSTemporaryExceptionMinimumTLSVersion: 'TLSv1.0',
-          },
-        },
-      },
     },
     entitlements: {
       'com.apple.developer.healthkit': true,
@@ -148,14 +128,7 @@ const config: ExpoConfig = {
     EXPO_PUBLIC_ELEVENLABS_API_KEY: process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY,
     EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
 
-    // Big Mood model bridge + selection
-    BIG_MOOD_BRIDGE: process.env.BIG_MOOD_BRIDGE, // 'cloud' | 'placeholder' (legacy values map to cloud internally)
-    BIG_MOOD_MODEL: process.env.BIG_MOOD_MODEL,   // e.g., 'pat-conv-l'
-
-    // Cloud inference service
-    EXPO_PUBLIC_AI_INFERENCE_URL: process.env.EXPO_PUBLIC_AI_INFERENCE_URL || process.env.AI_INFERENCE_URL,
-    EXPO_PUBLIC_AI_INFERENCE_KEY: process.env.EXPO_PUBLIC_AI_INFERENCE_KEY || process.env.AI_INFERENCE_KEY,
-    EXPO_PUBLIC_AI_INFERENCE_TIMEOUT_MS: process.env.EXPO_PUBLIC_AI_INFERENCE_TIMEOUT_MS || process.env.AI_INFERENCE_TIMEOUT_MS || '8000',
+    // Device-only HeartPy: no cloud big mood bridge
   },
 }
 

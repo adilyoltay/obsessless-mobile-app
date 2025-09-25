@@ -124,6 +124,7 @@ interface VAMoodCheckinProps {
   onComplete?: (result: any) => void;
   disableVoice?: boolean;
   initialMEA?: { mood: number; energy: number; anxiety: number } | null;
+  serviceMeta?: any | null;
 }
 
 export default function VAMoodCheckin({
@@ -132,6 +133,7 @@ export default function VAMoodCheckin({
   onComplete,
   disableVoice = false,
   initialMEA = null,
+  serviceMeta = null,
 }: VAMoodCheckinProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -186,6 +188,13 @@ export default function VAMoodCheckin({
 
   // VA Pad color matches selected palette across app
   const color = useMemo(() => getPaletteVAColor(palette as any, xy.x, xy.y), [xy, palette]);
+
+  const fmt = (v: any) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    const r = Math.round(n * 10) / 10;
+    return String(r);
+  };
 
   // Keep global accent palette in sync with current valence (0-100)
   const accentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -768,6 +777,21 @@ export default function VAMoodCheckin({
             <Text style={[styles.moodLabel, { color: accentColor }]}>{valenceText}</Text>
             <Text style={styles.energyLabel}>{energyText}</Text>
           </View>
+          {/* Inference Meta Panel */}
+          {serviceMeta && (
+            <View style={styles.metaCard}>
+              <Text style={styles.metaTitle}>AI Tahmin</Text>
+              <Text style={styles.metaText}>Kaynak: {serviceMeta.source || '—'}  •  Model: {serviceMeta.model || '—'}</Text>
+              <Text style={styles.metaText}>MEA: mood={serviceMeta.prefillMEA?.mood ?? '—'}, energy={serviceMeta.prefillMEA?.energy ?? '—'}, anxiety={serviceMeta.prefillMEA?.anxiety ?? '—'}{serviceMeta.confidence != null ? `  •  conf=${Math.round((serviceMeta.confidence || 0)*100)}%` : ''}</Text>
+              {serviceMeta.request_id ? (<Text style={styles.metaText}>Req: {String(serviceMeta.request_id).slice(0,8)}  •  {serviceMeta.elapsed_ms ? `${serviceMeta.elapsed_ms}ms` : ''}</Text>) : null}
+              {serviceMeta.input_quality?.flags ? (
+                <Text style={styles.metaText}>Flags: {Object.keys(serviceMeta.input_quality.flags).filter((k:any) => serviceMeta.input_quality.flags[k]).join('|') || '—'}</Text>
+              ) : null}
+              {serviceMeta.metrics ? (
+                <Text style={styles.metaText}>HRV: bpm={fmt(serviceMeta.metrics.bpm)} rmssd={fmt(serviceMeta.metrics.rmssd)} sdnn={fmt(serviceMeta.metrics.sdnn)} pNN50={fmt(serviceMeta.metrics.pnn50)}</Text>
+              ) : null}
+            </View>
+          )}
 
           {/* Valence Slider */}
           <View style={styles.sliderSection}>
@@ -902,6 +926,25 @@ const styles = StyleSheet.create({
   energyLabel: {
     fontSize: 16,
     color: '#93a6b7',
+  },
+  metaCard: {
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  metaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#374151',
+    marginBottom: 2,
   },
   sliderSection: {
     width: PAD,

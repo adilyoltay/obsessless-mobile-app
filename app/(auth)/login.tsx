@@ -13,7 +13,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const theme = useThemeColors();
-  const { signInWithEmail, signInWithGoogle, isLoading, error, user } = useAuth() as any;
+  const { signInWithEmail, signInWithGoogle, isLoading, error, clearError, user } = useAuth() as any;
 
   // After successful auth, route based on onboarding completion
   React.useEffect(() => {
@@ -61,6 +61,7 @@ export default function LoginScreen() {
     }
 
     try {
+      clearError();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await signInWithEmail(email, password);
     } catch (error) {
@@ -101,7 +102,10 @@ export default function LoginScreen() {
               style={styles.input}
               placeholder="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => {
+                clearError();
+                setEmail(value);
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -116,7 +120,10 @@ export default function LoginScreen() {
               style={styles.input}
               placeholder="Şifre"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => {
+                clearError();
+                setPassword(value);
+              }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoComplete="password"

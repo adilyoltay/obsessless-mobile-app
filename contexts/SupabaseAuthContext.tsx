@@ -13,6 +13,7 @@ import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
+import { isValidEmail } from '@/utils/validators';
 
 // Ensure pending auth sessions are completed (iOS 13+)
 WebBrowser.maybeCompleteAuthSession();
@@ -343,9 +344,14 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       setLoading(true);
       setError(null);
+      const normalizedEmail = email.trim();
+      if (!isValidEmail(normalizedEmail)) {
+        setError('Lütfen geçerli bir email adresi girin.');
+        throw Object.assign(new Error('INVALID_EMAIL_FORMAT'), { code: 'invalid_email_format' });
+      }
       
       console.log('📧 Starting email signup...');
-      const result = await supabaseService.signUpWithEmail(email, password, name);
+      const result = await supabaseService.signUpWithEmail(normalizedEmail, password, name);
       
       if (result.needsConfirmation) {
         setError('Kayıt başarılı! Email adresinizi kontrol edin ve doğrulama linkine tıklayın.');
@@ -369,7 +375,44 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       return result;
     } catch (error: any) {
       console.error('❌ Email signup failed:', error);
-      setError(error.message || 'Kayıt başarısız');
+      const code = error?.code ?? error?.status ?? null;
+      const message = String(error?.message || '').toLowerCase();
+      let friendlyMessage = 'Kayıt başarısız';
+
+      switch (code) {
+        case 'invalid_email_format':
+        case 'invalid_email':
+          friendlyMessage = 'Lütfen geçerli bir email adresi girin.';
+          break;
+        case 'user_already_exists':
+        case 'email_exists':
+          friendlyMessage = 'Bu e-posta zaten kayıtlı.';
+          break;
+        case 'weak_password':
+          friendlyMessage = 'Şifreniz çok zayıf. Daha güçlü bir şifre belirleyin.';
+          break;
+        case 400:
+          if (message.includes('already') || message.includes('kayıtlı')) {
+            friendlyMessage = 'Bu e-posta zaten kayıtlı.';
+            break;
+          }
+          if (message.includes('password')) {
+            friendlyMessage = 'Şifreniz güvenlik kriterlerini karşılamıyor.';
+            break;
+          }
+          friendlyMessage = 'Kayıt bilgilerini kontrol edip tekrar deneyin.';
+          break;
+        default:
+          if (message.includes('already registered') || message.includes('duplicate')) {
+            friendlyMessage = 'Bu e-posta zaten kayıtlı.';
+          } else if (message.includes('weak password') || message.includes('password is too weak')) {
+            friendlyMessage = 'Şifreniz çok zayıf. Daha güçlü bir şifre belirleyin.';
+          } else if (message.includes('rate limit') || message.includes('too many requests')) {
+            friendlyMessage = 'Çok fazla deneme yaptınız. Bir süre sonra tekrar deneyin.';
+          }
+      }
+
+      setError(friendlyMessage);
       throw error;
     } finally {
       setLoading(false);
@@ -382,13 +425,12 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setError(null);
       
       console.log('🔐 Starting email login...');
-      // RFC5322-ish basic validation to avoid network call on invalid input
-      const emailRegex = /^(?:[a-zA-Z0-9_'^&+%`{}~!-]+(?:\.[a-zA-Z0-9_'^&+%`{}~!-]+)*)@(?:(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})$/;
-      if (!emailRegex.test(email)) {
+      const normalizedEmail = email.trim();
+      if (!isValidEmail(normalizedEmail)) {
         setError('Lütfen geçerli bir email adresi girin.');
         throw new Error('INVALID_EMAIL_FORMAT');
       }
-      await supabaseService.signInWithEmail(email, password);
+      await supabaseService.signInWithEmail(normalizedEmail, password);
       
       // Auth state change will handle the rest
       console.log('✅ Email login initiated, waiting for auth state');
